@@ -1289,6 +1289,7 @@ TT.e6 = function(f, surface, tick, et)
     unlock(f, f.tech)
     log(string.format("[FO-TEAM] %s : recherche niveau %d payee en packs a %.1f min", f.key, f.tech, (tick - State.war().started) / 3600))
   end
+  Build.Hygiene.reveil(f, stock, tick) -- lot SCAN-EVENEMENTS (DC 9/11) : réveil du scan sur palier de stock, coupure d'énergie, rupture de ressource (script/team/scan_reveil.lua)
   Ia3.measure(f, tick, plan) -- lot IA3-c : paliers de recherche et projets, mesurés avec les deux cerveaux
   Team.effectif_journal(f, view, tick) -- lot IA3-d : ligne minute « [FO-EFFECTIF] »
   Team.plafond_journal(f, view, stock, tick) -- lot JOURNAUX-DC : plafond d'ouvriers atteint avec du fer inemployé

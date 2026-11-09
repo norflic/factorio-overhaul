@@ -64,7 +64,8 @@ end
 section("§1 fenêtres : désynchronisation, durée, contiguïté, périodicité")
 ---------------------------------------------------------------------------------------------------
 local cfg = St.CFG
-check(cfg.period == 18000 and cfg.slices == 20 and cfg.gap == 40, "réglage par défaut 18 000 / 20 / 40")
+check(cfg.period == 10800 and cfg.slices == 20 and cfg.gap == 40, "réglage par défaut 10 800 (3 min, DC 9/11) / 20 / 40")
+check(cfg.period % (cfg.slices + cfg.gap) == 0, "la période est un nombre entier de créneaux (voies de réveil alignées)")
 local res = scan_windows(St.window, cfg, 4)
 check(res.double == 0, "jamais deux équipes actives au même tick (" .. res.double .. ")")
 for r = 0, 3 do
@@ -186,8 +187,8 @@ check(scan_windows(window_norank, cfg, 3).double > 0, "mutant « rang ignoré »
 section("§5 moteur script/team/hygiene.lua sur un moteur minimal")
 ---------------------------------------------------------------------------------------------------
 -- Doublures des modules du dépôt (chargées AVANT le moteur ; aucune n'est le vrai module)
-local tick_fn
-package.loaded["script.core.events"] = { on = function(_, fn) tick_fn = fn end }
+local tick_fn, research_fn
+package.loaded["script.core.events"] = { on = function(id, fn) if id == 1 then tick_fn = fn elseif id == 2 then research_fn = fn end end }
 package.loaded["script.core.profiler"] = { start = function() end, stop = function() end, fstart = function() end, fstop = function() end }
 package.loaded["script.team.boite_chunks"] = { get = function() return { x0 = -2, y0 = -2, x1 = 3, y1 = 3 } end }
 local jeton = { refuse = 0, takes = 0, drops = 0, costs = {} }
@@ -210,12 +211,14 @@ package.loaded["script.faction.state"] = {
   end,
   faction = function(id) return factions[id] end,
 }
-defines = { events = { on_tick = 1 } } -- luacheck: ignore
+defines = { events = { on_tick = 1, on_research_finished = 2 } } -- luacheck: ignore
 local logs = {}
 function log(text) logs[#logs + 1] = text end -- luacheck: ignore
 
 local Hy = require("script.team.hygiene")
+local Sr = require("script.team.scan_reveil")
 check(type(tick_fn) == "function", "le moteur s'abonne à on_tick au chargement")
+check(type(research_fn) == "function", "les réveils s'abonnent à on_research_finished au chargement (statique)")
 
 -- Moteur minimal : entités { type, force, unit_number, position, bounding_box, prototype, electric_network_id, neighbours }
 local ents = {}
@@ -341,10 +344,11 @@ local fa, fb, fp = team(2, "f1"), team(5, "f3"), team("player", "player")
 factions[5], factions[2], factions.player = fb, fa, fp
 logs = {}
 local when = {}
-for tick = 18000 * 7, 18000 * 8 - 1 do
+local P = cfg.period
+for tick = P * 7, P * 8 - 1 do
   local before = #logs
   tick_fn({ tick = tick })
-  if #logs > before then when[#when + 1] = { tick - 18000 * 7, logs[#logs]:match("^%[FO%-HYGIENE%] (%S+) :") } end
+  if #logs > before then when[#when + 1] = { tick - P * 7, logs[#logs]:match("^%[FO%-HYGIENE%] (%S+) :") } end
 end
 check(#logs == 3, "trois équipes, trois lignes par période (" .. #logs .. ")")
 check(when[1] and when[1][1] == 19 and when[1][2] == "2", "rang 0 = faction 2 (id le plus petit), journal au tick T + 19")
@@ -353,7 +357,7 @@ check(when[3] and when[3][1] == 139 and when[3][2] == "player", "rang 2 = votre 
 -- un QG détruit : son équipe ne travaille pas, les autres gardent leur rang
 fa.hq.valid = false
 logs = {}
-for tick = 18000 * 8, 18000 * 9 - 1 do tick_fn({ tick = tick }) end
+for tick = P * 8, P * 9 - 1 do tick_fn({ tick = tick }) end
 check(#logs == 2 and logs[1]:match("^%[FO%-HYGIENE%] 5 :") and logs[2]:match("^%[FO%-HYGIENE%] player :"), "QG de la faction 2 perdu : 2 lignes, rangs gardés")
 -- l'état gardé ne contient que des nombres, booléens, chaînes et tables
 local function pure(t)
@@ -366,6 +370,203 @@ local function pure(t)
   return true
 end
 check(pure(fb.team.hygiene) and pure(f1.team.hygiene), "état f.team.hygiene en données pures")
+
+---------------------------------------------------------------------------------------------------
+section("§6 réveils (lot SCAN-EVENEMENTS) : St.due / St.ack / St.wake, voies, prochain créneau, mutants")
+---------------------------------------------------------------------------------------------------
+local stride = St.stride(cfg)
+local T = cfg.period * 10
+-- période échue : le début de la fenêtre périodique du rang, et lui seul
+local st = {}
+local d, why = St.due(st, T, cfg, 0)
+check(d and why == "periode", "rang 0 : passe due à T (periode)")
+d, why = St.due(st, T + stride, cfg, 1)
+check(d and why == "periode", "rang 1 : passe due à T + stride (periode)")
+d, why = St.due(st, T + stride, cfg, 0)
+check(not d and why == "rien", "rang 0 : rien de dû à T + stride sans réveil")
+check(not St.due(st, T + 5, cfg, 0), "rien de dû hors d'un début de fenêtre")
+-- réveil posé puis servi ; un second réveil avant service est compté, pas doublé
+check(St.wake(st, T + 100, "stock") == true and st.wake.why == "stock" and st.wake.n == 1, "réveil « stock » posé")
+check(St.wake(st, T + 110, "recherche") == false and st.wake.why == "stock" and st.wake.n == 2, "second réveil : compté, le premier gardé")
+d, why = St.due(st, T + 120, cfg, 0)
+check(d and why == "stock", "réveil posé : passe due au prochain créneau, cause « stock »")
+St.ack(st, T + 120, why)
+check(st.wake == nil and st.served == T + 120 and st.why == "stock", "ack : réveil consommé, départ et cause gardés")
+d, why = St.due(st, T + 130, cfg, 0)
+check(not d and why == "fenetre en cours", "pendant la fenêtre servie : rien de dû")
+check(not St.due(st, T + 180, cfg, 0), "après la fenêtre, sans réveil : rien de dû")
+-- réveil PENDANT la fenêtre en cours : il attend la fin de la fenêtre, puis UNE passe
+St.wake(st, T + 125, "energie")
+check(not St.due(st, T + 139, cfg, 0), "réveil pendant la fenêtre : rien avant sa fin")
+d, why = St.due(st, T + 140, cfg, 0)
+check(d and why == "energie", "réveil pendant la fenêtre : dû au premier créneau après la fenêtre")
+St.ack(st, T + 140, why)
+check(st.wake == nil, "servi une fois")
+-- réveil posé juste au départ de la fenêtre périodique : servi par elle (cause « periode »)
+St.wake(st, T + cfg.period, "ressource")
+d, why = St.due(st, T + cfg.period, cfg, 0)
+check(d and why == "periode", "réveil au départ de la fenêtre périodique : c'est la passe périodique qui le sert")
+St.ack(st, T + cfg.period, why)
+check(st.wake == nil, "le réveil est consommé par la passe périodique")
+-- déterminisme : mêmes entrées, mêmes réponses
+local s1, s2 = { wake = { tick = 5, why = "stock", n = 1 } }, { wake = { tick = 5, why = "stock", n = 1 } }
+local a1, b1 = St.due(s1, T + 60, cfg, 0)
+local a2, b2 = St.due(s2, T + 60, cfg, 0)
+check(a1 == a2 and b1 == b2 and a1 == true, "due : même réponse pour le même état")
+
+-- voies : pour n équipes, jamais deux rangs sur le même créneau ; la fenêtre périodique est dans la voie de son rang
+local lanes_ok, lane_has_window = true, true
+for _, n in ipairs({ 1, 2, 3, 4, 7 }) do
+  local function lane(tick, rank, c) return St.lane(tick, rank, n, c) end
+  local rl = scan_windows(lane, cfg, n)
+  if rl.double > 0 then lanes_ok = false end
+  for r = 0, n - 1 do
+    if rl.actifs[r] ~= (cfg.period / stride / n) * cfg.slices and n ~= 7 then lanes_ok = false end
+  end
+  for tick = 0, n * stride * 2 do
+    for r = 0, n - 1 do
+      local on = St.window(tick, r, cfg)
+      local ln = St.lane(tick, r, n, cfg)
+      if on and not ln then lane_has_window = false end
+    end
+  end
+end
+check(lanes_ok, "voies : jamais deux rangs actifs au même tick (n = 1, 2, 3, 4, 7) ; parts égales des créneaux")
+check(lane_has_window, "la fenêtre périodique d'un rang est dans sa voie")
+-- prochain créneau de réveil : ≥ tick, dans la voie, tranche 0, aucun créneau de la voie sauté, à moins de n × stride
+local ws_ok, ws_bound = true, true
+for _, n in ipairs({ 1, 2, 3, 4, 7 }) do
+  for r = 0, n - 1 do
+    for tick = T - 3, T + 3 * n * stride, 7 do
+      local t = St.wake_start(tick, r, n, cfg)
+      local on, s = St.lane(t, r, n, cfg)
+      if not (t >= tick and on and s == 0) then ws_ok = false end
+      if t - tick >= n * stride then ws_bound = false end
+      for t2 = tick, t - 1 do
+        if t2 % stride == 0 and St.lane(t2, r, n, cfg) then ws_ok = false end
+      end
+    end
+  end
+end
+check(ws_ok, "wake_start : premier créneau de la voie à partir du tick, tranche 0")
+check(ws_bound, "wake_start : à moins de n × stride ticks (4 équipes : 240 ticks)")
+check(St.wake_start(T + 200, 1, 3, cfg) == T + 240 and St.wake_start(T + 245, 1, 3, cfg) == T + 420, "exemples : rang 1 sur 3 : 200 → 240 (k = 4), 245 → 420 (k = 7)")
+
+-- mutants (mêmes détecteurs)
+--- Détecteur : une passe est comptée à chaque début de créneau de la voie où due dit oui ; un seul réveil posé → une seule passe attendue.
+local function passes_for_one_wake(due_fn, ack_fn)
+  local s = {}
+  St.wake(s, T + 100, "stock")
+  local n = 0
+  for tick = T + 60, T + 60 + 10 * stride, stride do -- créneaux hors de la fenêtre périodique du rang 0
+    local ok, w = due_fn(s, tick, cfg, 0)
+    if ok then n = n + 1 ack_fn(s, tick, w) end
+  end
+  return n
+end
+check(passes_for_one_wake(St.due, St.ack) == 1, "un réveil : une passe")
+local function ack_never_clears(s, tick, w) s.served, s.why = tick, w end -- mutant : le réveil n'est jamais consommé
+check(passes_for_one_wake(St.due, ack_never_clears) > 1, "mutant « réveil jamais servi » refusé (passes répétées)")
+--- Détecteur : départs de passe pendant une fenêtre en cours (un appelant qui interroge due à chaque tick).
+local function double_passes(due_fn)
+  local s, n = {}, 0
+  St.wake(s, T + 100, "stock")
+  for tick = T + 100, T + 100 + 2 * stride do
+    local ok, w = due_fn(s, tick, cfg, 0)
+    if ok then
+      if s.served and tick < s.served + cfg.slices then n = n + 1 end
+      St.ack(s, tick, w)
+      St.wake(s, tick + 1, "energie") -- un réveil tombe aussitôt après chaque départ
+    end
+  end
+  return n
+end
+check(double_passes(St.due) == 0, "jamais de départ pendant une fenêtre en cours")
+local function due_noguard(s, t0, c, rank)
+  if (t0 - rank * St.stride(c)) % c.period == 0 then return true, "periode" end
+  if s.wake then return true, s.wake.why end
+  return false, "rien"
+end
+check(double_passes(due_noguard) > 0, "mutant « sans garde de fenêtre en cours » refusé (double passe)")
+local function lane_free_for_all(tick, rank, c) -- mutant : tout créneau libre appartient à toutes les équipes
+  local k, s = St.rank_at(tick, c)
+  if k == nil then return false, nil end
+  if k < 3 then return k == rank, s end
+  return true, s
+end
+check(scan_windows(lane_free_for_all, cfg, 3).double > 0, "mutant « créneau libre pour toutes » refusé (doubles)")
+local function wake_start_next_aligned(tick) return tick + (stride - tick % stride) % stride end -- mutant : sans la voie
+local bad = 0
+for tick = T, T + 6 * stride do
+  local t = wake_start_next_aligned(tick)
+  if not St.lane(t, 1, 3, cfg) then bad = bad + 1 end
+end
+check(bad > 0, "mutant « prochain créneau sans la voie » refusé (créneau d'une autre équipe)")
+
+---------------------------------------------------------------------------------------------------
+section("§7 moteur : réveils servis par on_tick (voies), journal [FO-SCAN], jamais deux équipes au même tick")
+---------------------------------------------------------------------------------------------------
+factions = {}
+fa, fb, fp = team(2, "f1"), team(5, "f3"), team("player", "player")
+factions[5], factions[2], factions.player = fb, fa, fp
+local active = {} -- [tick] = { clé } des équipes qui ont joué une tranche
+local real_step = Hy.step
+Hy.step = function(f, s, tick, slice)
+  active[tick] = active[tick] or {}
+  active[tick][#active[tick] + 1] = tostring(f.key)
+  return real_step(f, s, tick, slice)
+end
+local function starts_of(key, from, to)
+  local out = {}
+  for tick = from, to do
+    local a = active[tick]
+    if a and a[1] == key and not (active[tick - 1] and active[tick - 1][1] == key) then out[#out + 1] = tick - from end
+  end
+  return out
+end
+logs = {}
+local events = {} -- [tick] = fonction jouée AVANT on_tick de ce tick
+events[T + 200] = function() research_fn({ research = { force = { valid = true, name = "f3" } }, tick = T + 200 }) end
+events[T + 245] = function() Sr.wake(fb, T + 245, "energie") end                       -- pendant la fenêtre de réveil [240, 260)
+events[T + 1000] = function() Sr.wake(fb, T + 1000, "stock") end
+events[T + 1010] = function() Sr.wake(fb, T + 1010, "ressource") end                    -- double réveil
+events[T + 2000] = function() Sr.wake(fa, T + 2000, "recherche"); Sr.wake(fp, T + 2000, "stock") end -- deux équipes en même temps
+for tick = T, T + cfg.period - 1 do
+  if events[tick] then events[tick]() end
+  tick_fn({ tick = tick })
+end
+local fb_starts = starts_of("5", T, T + cfg.period - 1)
+check(#fb_starts == 4 and fb_starts[1] == 60 and fb_starts[2] == 240 and fb_starts[3] == 420 and fb_starts[4] == 1140,
+  "équipe 5 : passes à T + 60 (periode), 240 (recherche, k = 4), 420 (energie, posée pendant la fenêtre : après elle, k = 7), 1140 (double réveil : une passe, k = 19) : "
+  .. table.concat(fb_starts, ","))
+local fa_starts, fp_starts = starts_of("2", T, T + cfg.period - 1), starts_of("player", T, T + cfg.period - 1)
+check(#fa_starts == 2 and fa_starts[2] == 2160 and #fp_starts == 2 and fp_starts[2] == 2100,
+  "deux réveils au même tick : votre équipe à T + 2100 (k = 35 ≡ 2), équipe 2 à T + 2160 (k = 36 ≡ 0) : " .. table.concat(fa_starts, ",") .. " / " .. table.concat(fp_starts, ","))
+local twice = 0
+for tick = T, T + cfg.period - 1 do if active[tick] and #active[tick] > 1 then twice = twice + 1 end end
+check(twice == 0, "jamais deux équipes au même tick, réveils compris")
+local scan_lines = {}
+for _, l in ipairs(logs) do if l:find("^%[FO%-SCAN%]") then scan_lines[#scan_lines + 1] = l end end
+check(#scan_lines == 5 and scan_lines[1] == string.format("[FO-SCAN] 5 : reveil (recherche) a %.1f min", (T + 240) / 3600),
+  "5 lignes [FO-SCAN] ; la première : " .. tostring(scan_lines[1]))
+check(scan_lines[2] and scan_lines[2]:find("reveil (energie)", 1, true) and scan_lines[3]:find("reveil (stock)", 1, true)
+  and scan_lines[4]:find("^%[FO%-SCAN%] player : reveil %(stock%)") and scan_lines[5]:find("^%[FO%-SCAN%] 2 : reveil %(recherche%)"), "causes et équipes dans l'ordre des créneaux")
+local hy_reveil = 0
+for _, l in ipairs(logs) do if l:find("^%[FO%-HYGIENE%]") and l:find("reveil (", 1, true) then hy_reveil = hy_reveil + 1 end end
+check(hy_reveil == 5, "la ligne [FO-HYGIENE] d'une passe de réveil redit sa cause (" .. hy_reveil .. ")")
+check(fb.team.scan.wake == nil and fb.team.scan.reveils == 3 and fb.team.scan.served == T + 1140, "état f.team.scan de l'équipe 5 : rien en attente, 3 réveils, dernier départ T + 1140")
+-- QG perdu : le réveil attend ; QG revenu : servi au premier créneau de la voie
+fa.hq.valid = false
+Sr.wake(fa, T + cfg.period + 5, "recherche")
+for tick = T + cfg.period, T + cfg.period + 600 do tick_fn({ tick = tick }) end
+check(fa.team.scan.wake ~= nil, "QG perdu : le réveil reste posé")
+fa.hq.valid = true
+active = {}
+for tick = T + cfg.period + 601, T + cfg.period + 900 do tick_fn({ tick = tick }) end
+local back = starts_of("2", T + cfg.period + 601, T + cfg.period + 900)
+check(fa.team.scan.wake == nil and back[1] == 720 - 601 and #back == 1, "QG revenu : servi au créneau T + 720 (k = 12 ≡ 0 ; k = 11 est la voie du rang 2) : " .. tostring(back[1]))
+check(pure(fa.team.scan) and pure(fb.team.scan), "état f.team.scan en données pures")
+Hy.step = real_step
 
 print(string.format("scan_tranches_test : %d OK, %d ECHEC", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
