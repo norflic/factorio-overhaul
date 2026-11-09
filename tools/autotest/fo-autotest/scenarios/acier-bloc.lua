@@ -43,6 +43,11 @@ local function furnaces(ctx, box)
   return n, done, steel, plates
 end
 
+local function stname(v)
+  for k, n in pairs(defines.entity_status) do if n == v then return k end end
+  return tostring(v)
+end
+
 local function steel_mod(ctx, key)
   local a = ctx.remote("fo-ia3e", "status", key)
   for _, m in ipairs(a and a.mods or {}) do
@@ -129,6 +134,21 @@ return {
       local s = ctx.remote("fo-acier", "status", st.key) or {}
       local m = steel_mod(ctx, st.key)
       st.n, st.done, st.steel = n, done, steel
+      -- diagnostic (hors bilan) : quais lus au moteur, etat des fours, bras et tapis de l'emprise, courant
+      local sx = ctx.remote("fo-ia1d", "status", st.key, st.mod) or {}
+      local qs = {}
+      for _, q in ipairs(sx.quais or {}) do qs[#qs + 1] = string.format("%s@%d,%d=%s", tostring(q.item), q.x, q.y, tostring(q.count)) end
+      local fs, ins, belts, items = {}, {}, 0, 0
+      for _, e in ipairs(ctx.surface().find_entities_filtered({ area = area(st.box) })) do
+        if e.type == "furnace" then fs[#fs + 1] = e.name .. ":" .. stname(e.status)
+        elseif e.type == "inserter" then ins[#ins + 1] = stname(e.status)
+        elseif e.type == "transport-belt" then
+          belts = belts + 1
+          for i = 1, 2 do items = items + e.get_transport_line(i).get_item_count() end
+        end
+      end
+      ctx.log(string.format("tick %d : DIAG quais [%s] ; fours %s ; bras %d (%s) ; tapis %d portant %d objet(s) ; unbuilt=%s", t, table.concat(qs, " "),
+        table.concat(fs, ","), #ins, table.concat(ins, ","), belts, items, tostring(sx.unbuilt and #sx.unbuilt)))
       ctx.log(string.format("tick %d : %d four(s), %d acier fondu, %d dans les sorties, %d plaque(s) portee(s), debit mesure %s/min, coupe=%s",
         t, n, done, steel, plates, tostring(m and m.rate_meas), tostring(s.cut)))
     end
