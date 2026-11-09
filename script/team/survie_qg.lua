@@ -113,7 +113,19 @@ function SurvieQg.garde(f, oid, tick, base)
   local st = f.prevision
   if not (st and st.pc and Prev.enabled()) then return base, 0, "base" end
   local s = st.pc.sites and st.pc.sites["ap" .. tostring(oid)]
-  return Ga.want({ base = base, w5 = s and s.w5, w15 = s and s.w15, mem = SurvieQg.hit(f, oid, tick), tv = st.turret_value })
+  local mem = SurvieQg.hit(f, oid, tick)
+  local n, w, why = Ga.want({ base = base, w5 = s and s.w5, w15 = s and s.w15, mem = mem, tv = st.turret_value })
+  -- Journal [FO-GARDE-AP] : une ligne quand la garde voulue de l'avant-poste CHANGE (nombres seulement dans f.team.s1.gwant ; aucune décision n'en dépend).
+  local g = state(f)
+  g.gwant = g.gwant or {}
+  local key = tostring(oid)
+  if (g.gwant[key] or base) ~= n then
+    log(string.format("[FO-GARDE-AP] %s a %.1f min : avant-poste %s garde voulue %d -> %d (regle d'avant %d), vague retenue %d PV (prevue 5 min %d, 15 min %d, recue %d ; tourelle %d PV), raison %s",
+      tostring(f.key or "?"), tick / 3600, key, g.gwant[key] or base, n, base, math.floor(w), math.floor((s and s.w5) or 0), math.floor((s and s.w15) or 0),
+      math.floor(mem), math.floor(st.turret_value or 0), why))
+  end
+  g.gwant[key] = n
+  return n, w, why
 end
 
 --- Comme SurvieQg.protect, et note le résultat dans f.team.s1.prot (tick du dernier constat, nombres seulement) : la reconstruction le lit sans
