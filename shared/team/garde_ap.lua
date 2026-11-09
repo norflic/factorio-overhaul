@@ -73,4 +73,26 @@ function Ga.hq_want(a)
   return want, why
 end
 
+--- Lot DEFENSE-AP, FONDS DE DÉFENSE. Mesure (fo-logs/2026-11-09_DEFENSE-AP/long-1618, graine 1618033988, 120 min) : l'avant-poste de FER est à
+--- 0 tourelle sur 3 voulues de 40 à 75 min ([FO-DEFENSE] « 1 0/3 manque iron-plate 80 à 256 »), les 28 PNJ libres n'agrandissent rien
+--- ([FO-ZERO-IDLE] « iron=non_defendu »), le fer du coffre reste à 0-23 : 60 à 90 plaques arrivent par minute et partent en chargeurs de
+--- réserve (24 à 84 par minute, le coffre en tenait déjà 81 à 130), en modules et en science, par petites sommes, avant que la tourelle (40
+--- plaques + plancher de 150) soit payable : une grosse dépense ne s'accumule jamais face à un flot de petites. Règle : tant que la plaque
+--- clé a un avant-poste SANS AUCUNE tourelle (pas de « production d'abord »), (a) le plancher de fer et de cuivre de ce poste descend aux
+--- planchers du péril, (b) le fer de la tourelle manquante (au plus `cost`) est MIS DE CÔTÉ : les projets du cerveau ne le voient pas
+--- (shared/ai3/cerveau.lua, C.consumed). Rien n'est retiré à la défense : la retenue ne vise que ce que les autres dépenses prendraient.
+Ga.FUND_ON = true
+
+--- Un poste est CRITIQUE s'il garde la plaque clé (`iron`) et n'a aucune tourelle alors qu'il en veut.
+function Ga.critical(iron, have, want)
+  return Ga.FUND_ON and iron == true and num(have) <= 0 and num(want) > 0
+end
+
+--- Fer mis de côté : min(fer libre, coût en fer de ce qui manque) pour un poste critique hors « production d'abord », sinon 0.
+function Ga.fund(a)
+  a = a or {}
+  if not a.critical or a.production_first then return 0 end
+  return math.floor(math.min(num(a.avail), num(a.cost)))
+end
+
 return Ga
