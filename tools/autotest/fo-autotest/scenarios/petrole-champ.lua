@@ -101,6 +101,7 @@ return {
       end
       for _, w in ipairs(wells) do s.create_entity({ name = "crude-oil", position = w, amount = 300000 }) end
       st.wells = #wells
+      st.wells_list = wells
       -- un etang de 6 x 6 sur le puits n° 9 : puits impossible
       local drown = wells[9]
       local water = {}
@@ -179,6 +180,17 @@ return {
     local drown = st.drown
     local bad = drown and s.find_entities_filtered({ name = "pumpjack", position = drown, radius = 1.5 })[1] or nil
     ctx.check(bad == nil, "le puits noye n'a pas de chevalet", bad and "equipe" or "ok")
+    -- diagnostic : ce qui occupe l'emprise de chaque puits SANS chevalet a la fin (cause d'un ecart du plan)
+    for _, w in ipairs(st.wells_list or {}) do
+      if not s.find_entities_filtered({ name = "pumpjack", position = w, radius = 1.5 })[1] then
+        local names = {}
+        for _, en in ipairs(s.find_entities_filtered({ area = { { w.x - 2.5, w.y - 2.5 }, { w.x + 2.5, w.y + 2.5 } } })) do
+          if en.name ~= "crude-oil" then names[#names + 1] = en.name .. (en.name == "entity-ghost" and ("/" .. en.ghost_name) or "") end
+        end
+        local tile = s.get_tile(math.floor(w.x), math.floor(w.y))
+        ctx.log(string.format("[FO-PETROLE-CHAMP] puits SANS chevalet (%.1f, %.1f) : tuile %s, entites autour [%s]", w.x, w.y, tile.valid and tile.name or "?", table.concat(names, ",")))
+      end
+    end
     -- les tuyaux neufs ne touchent que le reseau de brut : un seul fluide dans tout le champ
     local fl = {}
     for _, p in ipairs(s.find_entities_filtered({ name = "pipe", force = st.force or "player" })) do
