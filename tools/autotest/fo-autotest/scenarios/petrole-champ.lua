@@ -1,11 +1,11 @@
 --[[
   Lot PETROLE-RANGEE : micro-banc EN MOTEUR RÉEL de l'extension d'un site de pétrole (script/ai3/petrole.lua : extend_site, freeze_ext,
-  step_ext ; shared/ai3/fluides.lua : Fl.ext_step ; shared/ai3/collecteur.lua). Un champ de 12 puits (les 2 premiers déjà équipés par un
+  step_ext ; shared/ai3/fluides.lua : Fl.ext_step ; shared/ai3/collecteur.lua). Un champ de 30 puits (les 2 premiers déjà équipés par un
   site FICTIF « fini » adopté par remote fo-petrole.ext_bench, un puits noyé sous un étang) est posé près du QG d'une faction ; la
   faction reçoit les technologies et le kit (chevalets, tuyaux, poteaux) comme petrole-site. Chaîne observée : Pet.think -> extend_site
   (demande) -> plan en tranches (collecteur droit, embranchements, ligne principale) -> réserve -> fantômes -> ravivage par les PNJ ->
   chevalets posés, raccordés (fluidbox) et alimentés (réseau électrique). Journal : [FO-PETROLE-CHAMP] (relevés) et les lignes
-  [FO-PETROLE] du mod. Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui petrole-rangee -- 9800 petrole-champ <source>
+  [FO-PETROLE] du mod. Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui petrole-rangee -- 41000 petrole-champ <source>
 ]]
 
 local SETUP, BATCH = 400, 30
@@ -15,7 +15,7 @@ local TECHS = { "automation", "electronics", "logistic-science-pack", "steel-pro
 local KIT = { { "pumpjack", 40 }, { "pipe", 900 }, { "medium-electric-pole", 160 }, { "small-electric-pole", 80 }, { "iron-plate", 400 },
   { "iron-gear-wheel", 100 }, { "steel-plate", 100 }, { "inserter", 20 }, { "iron-chest", 20 }, { "boiler", 2 },
   { "steam-engine", 4 }, { "offshore-pump", 3 }, { "coal", 400 } }
-local WELLS = 12
+local WELLS = 30
 
 local function teams()
   local ok, rows = pcall(remote.call, "fo-ia1", "teams")
@@ -50,7 +50,7 @@ end
 return {
   description = "PETROLE-RANGEE : extension d'un site de petrole a tous les puits d'un champ de 30 (collecteur droit, embranchements, ligne principale)",
   base = nil,
-  check_tick = 9750,
+  check_tick = 40750,
 
   init = function(ctx)
     local st = ctx.state()
@@ -168,13 +168,13 @@ return {
     ctx.log(string.format("[FO-PETROLE-CHAMP] FIN : chevalets %d, raccordes %d, alimentes %d ; puits du champ %s ; site %s", n, linked, powered, tostring(total),
       site and (tostring(site.ext_state) .. " exts=" .. tostring(site.exts and #site.exts or 0)) or "-"))
     -- 30 puits - 1 noye = 29 equipables ; l'emprise d'un puits peut chevaucher celle de son voisin (ecart minimal 5 : jamais) ; tolerance 2
-    -- le PLAN couvre tous les puits atteignables (12 puits - 1 noye - 2 de base = 9 pour l'extension) ; le chantier, lent (1 entite/s), n'est pas fini a 9 800 ticks
+    -- le PLAN couvre tous les puits atteignables (30 puits - 1 noye - 2 de base = 27 pour l extension) ; le chantier (1 entite par 50 ticks environ) demande ~ 30 000 ticks
     local plan = st.plan
-    ctx.check(plan ~= nil and plan.n >= 9 and plan.skipped <= 1 and plan.deferred == 0, "le plan d'extension couvre tous les puits atteignables (>= 9 equipes, <= 1 ecarte, aucun differe)",
+    ctx.check(plan ~= nil and plan.n >= 27 and plan.skipped <= 1 and plan.deferred == 0, "le plan d'extension couvre tous les puits atteignables (>= 27 equipes, <= 1 ecarte, aucun differe)",
       plan and string.format("n %s ecartes %s differes %s total %s", tostring(plan.n), tostring(plan.skipped), tostring(plan.deferred), tostring(plan.total)) or "pas de plan")
-    ctx.check(n >= 6, "au moins 6 chevalets poses par les PNJ a la fin du banc (2 de base + extension en cours)", n .. " chevalets")
+    ctx.check(n >= 29, "100 % des puits atteignables equipes a la fin du banc (30 puits - 1 noye = 29 chevalets, 2 de base compris)", n .. " chevalets")
     ctx.check(linked == n and n > 0, "chaque chevalet est raccorde a un tuyau", linked .. "/" .. n)
-    ctx.check(powered >= n - 2 and n > 0, "les chevalets poses sont alimentes (les poteaux suivent, 2 en retard au plus)", powered .. "/" .. n)
+    ctx.check(powered >= n - 1 and n > 0, "les chevalets poses sont alimentes (1 en retard au plus)", powered .. "/" .. n)
     -- le puits noye n'est pas equipe
     local drown = st.drown
     local bad = drown and s.find_entities_filtered({ name = "pumpjack", position = drown, radius = 1.5 })[1] or nil
