@@ -391,7 +391,7 @@ function B.generate(s, st)
   local early = 0
   do
     local kspec = T.outposts[key.top]
-    if kspec then
+    if kspec and not s.is_player then -- les factions seulement (la fonderie de votre équipe a sa propre règle)
       early = Fp.extra({ cap = s.cap[key.top], plate = s.stock[kspec.product], floor = Br.need_floor(s.workers, B.NEED_FLOOR),
         ore = s.stock[kspec.resource], have = (s.smelters or 0) + (s.smelters_pending or 0) })
       if early > 0 then smelters_want = math.max(smelters_want, (s.smelters or 0) + (s.smelters_pending or 0) + early) end
