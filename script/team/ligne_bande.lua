@@ -15,6 +15,8 @@
 local P = require("shared.team.plan")
 local Lb = require("shared.team.ligne_bande")
 local Cl = require("shared.team.centrale_loin")
+local okb, Board = pcall(require, "script.team.board") -- (la trace lit le tableau ; hors jeu, les bancs sans moteur n'ont pas le tableau)
+if not okb then Board = nil end
 
 local LB = {}
 
@@ -205,9 +207,8 @@ end
 local TRACE_EVERY = 7200
 function LB.trace(f, tick)
   local bd = f.build
-  if not (bd and bd.lignes) or tick - (bd.lignes_trace or -TRACE_EVERY) < TRACE_EVERY then return end
+  if not (Board and bd and bd.lignes) or tick - (bd.lignes_trace or -TRACE_EVERY) < TRACE_EVERY then return end
   bd.lignes_trace = tick
-  local Board = require("script.team.board")
   local ks = {}
   for k in pairs(bd.lignes) do ks[#ks + 1] = k end
   table.sort(ks)
