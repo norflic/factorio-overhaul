@@ -304,7 +304,7 @@ local function branches(block)
 end
 local block = plan_block(SRC_BUILD)
 local n_reset, n_both = branches(block)
-check(n_reset == 4, "quatre branches de la passe plan rendent ce qu'elles ont reserve (trouve " .. n_reset .. ")")
+check(n_reset == 5, "cinq branches de la passe plan rendent ce qu'elles ont reserve (dont « foreuses », lot TRANCHES-FOREUSES) (trouve " .. n_reset .. ")")
 check(n_both == n_reset, "chaque branche remet aussi p.quais et p.outs a zero (" .. n_both .. " sur " .. n_reset .. ")")
 check(block:find("p.sites_v = 1", 1, true) ~= nil, "un plan reussi marque p.sites_v")
 check(SRC_BUILD:find("if p.sites_v ~= 1 then Build.dedupe_sites(f, p) end", 1, true) ~= nil, "la passe des taches appelle Build.dedupe_sites")

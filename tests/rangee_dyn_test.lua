@@ -115,7 +115,8 @@ local p = project(true)
 f.build.projects[7] = p
 local gs = M.GEN.simple(CABLE, 2, A1, 2)
 local gm = Rg.full(p, gs)
-check("§3 gabarit a la borne (6), place entiere", gm.params.n == 6 and p.rangee_plan and p.rangee_plan.n == 2 and p.rangee_plan.n_max == 6)
+-- (borne 6 = 23 tuiles de long > 22 du lot : depuis le repli « trop grand », la rangee est bornee a 5 ; voir §3t)
+check("§3 gabarit a la borne (5, la plus grande qui tient dans le lot), place entiere", gm.params.n == 5 and p.rangee_plan and p.rangee_plan.n == 2 and p.rangee_plan.n_max == 5)
 p.outflow[CABLE], p.inflow[PLATE] = gm.nominal[CABLE], gm.inputs[PLATE]
 local ents = {}
 for _, e in ipairs(gm.entities) do ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, part = 1 } end
@@ -123,17 +124,17 @@ Rg.tag(p, ents, gm)
 p.ents = ents
 Rg.after(f, p, true)
 check("§3 2 machines posees, 4 en attente", count_kind(p.ents, "machine") == 2 and p.rangee and #p.rangee.held > 0 and p.rangee.n == 2)
-check("§3 debit annonce a 2/6", math.abs(p.outflow[CABLE] - 4) < 1e-6, p.outflow[CABLE])
-check("§3 journal de la rangee dynamique", LOGS[#LOGS]:find("rangee dynamique 2/6", 1, true) ~= nil, LOGS[#LOGS])
-local mv = Rg.grow(f, 7, 5, 100)
+check("§3 debit annonce a 2/5", math.abs(p.outflow[CABLE] - 4) < 1e-6, p.outflow[CABLE])
+check("§3 journal de la rangee dynamique", LOGS[#LOGS]:find("rangee dynamique 2/5", 1, true) ~= nil, LOGS[#LOGS])
+local mv = Rg.grow(f, 7, 4, 100)
 check("§3 rangee pas finie : pas d'agrandissement", mv == 0)
 p.state = "fini"
-mv = Rg.grow(f, 7, 5, 100)
-check("§3 finie : agrandie a 5 sur place", mv > 0 and p.rangee.n == 5 and count_kind(p.ents, "machine") == 5 and p.state == "reserve" and p.reopened == 1)
-check("§3 debit annonce a 5/6", math.abs(p.outflow[CABLE] - 10) < 1e-6, p.outflow[CABLE])
+mv = Rg.grow(f, 7, 4, 100)
+check("§3 finie : agrandie a 4 sur place", mv > 0 and p.rangee.n == 4 and count_kind(p.ents, "machine") == 4 and p.state == "reserve" and p.reopened == 1)
+check("§3 debit annonce a 4/5", math.abs(p.outflow[CABLE] - 8) < 1e-6, p.outflow[CABLE])
 p.state = "fini"
 Rg.grow(f, 7, 9, 200)
-check("§3 bornee a 6", p.rangee.n == 6 and count_kind(p.ents, "machine") == 6 and #p.rangee.held == 0)
+check("§3 bornee a 5", p.rangee.n == 5 and count_kind(p.ents, "machine") == 5 and #p.rangee.held == 0)
 p.state = "fini"
 local mv2, why2 = Rg.grow(f, 7, 9, 300)
 check("§3 pleine : rien", mv2 == 0 and why2 == "rangee pleine", why2)
@@ -156,6 +157,45 @@ check("§3b tapis inconnu lu aux prototypes : voie 15/s", sx and sx.kind == "bel
 check("§3b nom qui n'est pas un tapis : rien", M.spec("pas-un-tapis-banc") == nil)
 _G.game = nil
 
+-- §3 ter repli « trop grand » (8/11) : le gabarit à deux voies, assembleur 1, borne 6 mesure 23 tuiles de long (lot de 24, marge 1 de
+-- chaque côté : 22 au plus) ; planifié à la borne il donnait « trop grand » sans repli
+local P = require("shared.team.plan")
+local LIM = P.LOT - 2 * Rd.MARGIN
+local gw = M.GEN.simple(CABLE, 2, A1, 2)
+check("§3t le gabarit a la borne depasse le lot (23 > 22)", gw.extensions[1].max == 6 and M.extend(gw, 6).w > LIM and M.extend(gw, 5).w <= LIM)
+local pw = project(true)
+local nlog = #LOGS
+local gwm = Rg.full(pw, gw, { key = "t" })
+check("§3t ramenee a 5 : gabarit de 5 machines qui tient", gwm.params.n == 5 and math.max(gwm.w, gwm.h) <= LIM, gwm.params.n)
+check("§3t plan de rangee borne a 5, 2 posees", pw.rangee_plan and pw.rangee_plan.n == 2 and pw.rangee_plan.n_max == 5)
+check("§3t journal du repli", #LOGS == nlog + 1 and LOGS[#LOGS]:find("ramenee a 5", 1, true) ~= nil, LOGS[#LOGS])
+local entw = {}
+for _, e in ipairs(gwm.entities) do entw[#entw + 1] = { name = e.name, x = e.x, y = e.y, part = 1 } end
+Rg.tag(pw, entw, gwm)
+check("§3t colonnes lues : 5 machines, le plan tient", pw.rangee_plan and pw.rangee_plan.n_max == 5 and (function() for _, e in ipairs(entw) do if e.col then return true end end end)())
+pw.ents, pw.outflow, pw.inflow = entw, { [CABLE] = gwm.nominal[CABLE] }, { [PLATE] = gwm.inputs[PLATE] }
+Rg.after({ key = "t" }, pw, true)
+check("§3t 2 machines posees, rangee bornee a 5", pw.rangee and pw.rangee.n == 2 and pw.rangee.n_max == 5 and count_kind(pw.ents, "machine") == 2)
+local g2 = M.GEN.simple(CABLE, 5, A1, 2)
+local pf = project(true)
+check("§3t rangee demandee a 5 (19 tuiles) : borne 6 ramenee a 5 mais n == 5 : rangee fixe", Rg.full(pf, g2) == g2 and pf.rangee_plan == nil)
+local pg = project(true)
+local nlog2 = #LOGS
+check("§3t borne qui tient : gabarit a la borne, aucune ligne", Rg.full(pg, M.GEN.simple(CABLE, 2, A1, 1), { key = "t" }).params.n == 3 and #LOGS == nlog2)
+-- règle pure : plus grande extension qui tient
+local function rule2(R)
+  if R.largest_fit(2, 6, function(e) return e <= 5 end) ~= 5 then return false end
+  if R.largest_fit(2, 6, function(e) return e <= 2 end) ~= 2 then return false end
+  if R.largest_fit(2, 6, function(e) return e <= 1 end) ~= nil then return false end
+  if R.largest_fit(2, 6, function(e) return true end) ~= 6 then return false end
+  if R.largest_fit(3, 2, function() return true end) ~= nil then return false end
+  if R.largest_fit(0, 4, function() return true end) ~= nil then return false end
+  local seen = 0
+  R.largest_fit(1, 18, function(e) seen = seen + 1 return e <= 9 end)
+  return seen <= 6 and R.MARGIN == 1
+end
+check("§3t regle pure largest_fit (plus grande qui tient, dichotomie)", rule2(Rd))
+
 -- §4 mutants : chacun doit faire échouer au moins un contrôle de la règle pure
 local function rule_ok(R)
   local c2, m2 = R.columns(g6.entities, kind, width)
@@ -171,19 +211,24 @@ local function rule_ok(R)
   local a, b = R.grow(5, 6, 9)
   return a == 6 and b == 1
 end
-check("§4 temoin : la regle passe", rule_ok(Rd))
+check("§4 temoin : la regle passe", rule_ok(Rd) and rule2(Rd))
 local MUTANTS = {
   { "ordre sans alternance", function(R) R.order = function(n) local t = {} for i = 1, n do t[i] = i end return t end end },
   { "decoupe qui garde tout", function(R) local s = R.split R.split = function(c, n) local k = {} for i = 1, n do k[i] = i end return k, {} end end },
   { "bras sans colonne", function(R) local c0 = R.columns R.columns = function(e, kd, w) return c0(e, function(n) local k = kd(n) return k == "machine" and k or nil end, w) end end },
   { "croissance sans borne", function(R) R.grow = function(n, nm, n2) return n2, n2 - n end end },
+  { "repli : la borne prise telle quelle", function(R) R.largest_fit = function(n, nm) return nm end end },
+  { "repli : jamais d'extension", function(R) R.largest_fit = function(n) return n end end },
+  { "repli : trop petite", function(R) local l = R.largest_fit R.largest_fit = function(n, nm, f) local e = l(n, nm, f) return e and math.max(n, e - 1) end end },
+  { "repli : lineaire et faux au-dela de la borne", function(R) R.largest_fit = function(n, nm, f) for e = n, nm + 1 do if not f(e) then return e end end return nm end end },
+  { "repli : marge perdue", function(R) R.MARGIN = 0 end },
   { "machines comptees en double", function(R) local c0 = R.columns R.columns = function(...) local c, m3 = c0(...) return c, m3 + 1 end end },
 }
 for _, mu in ipairs(MUTANTS) do
   package.loaded["shared.team.rangee_dyn"] = nil
   local R = require("shared.team.rangee_dyn")
   mu[2](R)
-  check("§4 mutant refuse : " .. mu[1], not rule_ok(R))
+  check("§4 mutant refuse : " .. mu[1], not (rule_ok(R) and rule2(R)))
 end
 package.loaded["shared.team.rangee_dyn"] = nil
 

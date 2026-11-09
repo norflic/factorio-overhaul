@@ -278,24 +278,30 @@ inaudible, vu et TUÉ en moins de 1 s).
 ### 1.4 File d'attente et PLACES du banc : `banc.py`, `FO_PLACE` (lot BANC2, 27/10)
 
 Tous les agents lancent leurs bancs par la file `tools/autotest/banc.py` (en-tête du fichier : règle complète). Depuis
-le lot BANC2, jusqu'à **3 bancs sans images tournent en même temps**, chacun dans sa place :
+le lot BANC2, jusqu'à **3 bancs sans images tournent en même temps**, **6 depuis le lot BANC-PLACES (8/11)**, chacun dans sa place :
 
 | Place | Dossier | Verrou | Qui |
 |---|---|---|---|
 | 1 | `<racine>\fo-autotest\` | `fo-autotest.lock` (celui d'avant) | bancs ordinaires, **et seule place des images** (`fo-captures.bat`, `fo-visual.bat`, son) |
 | 2 | `<racine>\fo-autotest-2\` | `fo-autotest-2.lock` | bancs sans images (`fo-autotest.bat` avec `FO_PLACE=2`) |
 | 3 | `<racine>\fo-autotest-3\` | `fo-autotest-3.lock` | bancs sans images (`FO_PLACE=3`) |
+| 4 à 6 | `<racine>\fo-autotest-N\` | `fo-autotest-N.lock` | bancs sans images, lancés par **`<racine>\fo-autotest-multi.bat`** (`FO_PLACE=4` à `6`) |
 
-- **Nombre de places ouvertes** : `<racine>\fo-banc-places.txt` (« 1 », « 2 » ou « 3 »), relu par chaque lanceur à
+- **Nombre de places ouvertes** : `<racine>\fo-banc-places.txt` (« 1 » à « 6 »), relu par chaque lanceur à
   chaque tour d'attente : on le change sans relancer personne ; les bancs déjà partis aux places fermées finissent.
   Sans fichier : 2. Toute autre valeur, ou fichier illisible : 1. L'option `--places N` d'un lanceur l'emporte (et ce
   ticket ne prend alors aucune place au-delà de N).
   **Tant que le `fo-autotest.bat` de la racine ne connaît pas `FO_PLACE`** (ancien .bat), `banc.py` n'ouvre que la
   place 1, quoi que disent le fichier et `--places` : l'ancien .bat ferait tourner la place 2 dans `fo-autotest\`.
+  **Sans `fo-autotest-multi.bat`** (ou sans son marqueur `FO_PLACES_MULTI`), 3 places au plus. Ce fichier est une COPIE de
+  `tools/autotest/fo-autotest.bat` (qui accepte `FO_PLACE` de 1 à 6) déposée À CÔTÉ de `fo-autotest.bat` : `cmd.exe` relit un
+  `.bat` en cours de route par décalage d'octets, remplacer `fo-autotest.bat` pendant des bancs les corromprait. `banc.py` lance
+  les places 1 à 3 par `fo-autotest.bat`, les places 4 à 6 par `fo-autotest-multi.bat`. Sous `--seul`, `banc.py` redépose les
+  deux (toutes les places tenues). `--place-exacte N` (2 à 6, diagnostic) : le ticket n'accepte que la place N.
 - **Garde-fou mémoire** : une place au-delà de la première n'est prise que s'il reste au moins **6 Go** de mémoire
   physique libre (`GlobalMemoryStatusEx`), et au plus une place de plus par tour de 2 s.
 - **Genres de tickets** : ordinaire (n'importe quelle place) ; « place 1 » (`--captures`, `--visuel`, `--son`, et tout
-  ticket d'un ANCIEN `banc.py`) ; « seul » (`--seul`) : toutes les places, personne d'autre ne tourne. **Toute mesure
+  ticket d'un ANCIEN `banc.py`) ; « seul » (`--seul`) : toutes les places (1 à 6), personne d'autre ne tourne. **Toute mesure
   de performance (K10, `analyze.py`, étalon `[FO-CALIB]`) se lance avec `--seul`** : deux bancs en même temps se
   partagent les cœurs P (F30).
 - **Règle de la file** : classement par tour de rôle, inchangé (lot servi il y a le plus longtemps d'abord, premier
@@ -321,13 +327,23 @@ les images restent à la place 1.
 connaissent que `fo-autotest.lock` et calculent le même tour de rôle ; le nouveau lanceur compte leur ticket comme un
 ticket « place 1 » et leur verrou (sans `banc2.txt`) comme une place 1 occupée. Ils ne tournent donc jamais en même
 temps qu'un autre banc de la place 1 ; un ancien ticket `--captures` ou de mesure peut en revanche tourner pendant
-qu'un banc nouveau occupe la place 2 ou 3.
+qu'un banc nouveau occupe une place 2 à 6.
 
-Bancs hors jeu : `PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py` → « BILAN : 78 OK » (règles pures du
+**Cohabitation avec les lanceurs à 3 places** (lot BANC-PLACES ; `banc.py` d'avant le 8/11, limite « 3 » écrite dans leurs tickets) :
+(1) la limite d'un ticket est respectée PAR TICKET : un ticket limité à 3 ne reçoit jamais une place 4 à 6 et ne bloque pas ces
+places au ticket nouveau derrière lui ; (2) un ticket nouveau qui tourne à une place 4 à 6 passe de `.txt` à `.run` dans
+`fo-banc-file\` (les anciens lanceurs ne listent que les `.txt`, sinon ils le prendraient pour un ticket en attente et feraient
+attendre les autres tickets de son lot) ; (3) un ticket « seul » ANCIEN qui attend ne voit que les places 1 à 3 : tant qu'il
+attend, plus aucune place 4 à 6 n'est donnée ; une mesure déjà en route à une place 4 à 6 quand il part ne peut pas être
+arrêtée (limite connue : poser `fo-banc-places.txt` à 3 avant de lancer une mesure avec un ancien `banc.py`, ou relancer la
+mesure avec le nouveau) ; (4) un ticket `--seul` NOUVEAU prend les 6 places. Les anciens lanceurs ne voient pas les verrous
+4 à 6 : leurs affectations ne les concernent pas.
+
+Bancs hors jeu : `PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py` → « BILAN : 150 OK » (règles pures du
 tour de rôle, de l'affectation et du nombre de places ; puis vrais lanceurs sur une racine jetable : une place, trois
 bancs en même temps, passage de 3 à 1 place en cours de route, images à la place 1 pendant deux bancs aux places 2
 et 3, images en attente servies dès que la place 1 se libère, ticket « seul », garde-fou mémoire, cohabitation avec
-l'ancien `banc.py` du commit `aeb03ba` ; environ 75 s) ; `bat_double_source/run.py` → « BILAN : 70 OK » (cas 15 à 18 :
+l'ancien `banc.py` du commit `aeb03ba` ; environ 150 s ; 6 places, cohabitation avec le banc.py à 3 places e02ee0dc, tickets .run, --place-exacte, seul à 6 places) ; `bat_double_source/run.py` → « BILAN : 81 OK » (cas 15 à 18, places 2 à 6 :
 `FO_PLACE`).
 
 ## 2. Session visuelle automatique (`fo-visual.bat`)

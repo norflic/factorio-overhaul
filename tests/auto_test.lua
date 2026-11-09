@@ -100,9 +100,31 @@ local function k1_cases()
   -- k. la meilleure n'est ni palier ni voulue et une voulue PROCHE existe : la moins chère des voulues proches passe en tête
   r = run_k1({ cand("TE", 900, 500, {}), cand("TA", 300, 300, { { "wanted", "x" } }), cand("TC", 250, 120, { { "wanted", "y" } }) })
   check(r == "TC TE TA", "K1 k : voulue proche la moins chère devant le reste (" .. r .. ")")
-  -- l. la meilleure est un palier : elle reste, même si une voulue proche existe (les paliers ne reculent pas)
+  -- l. lot RECHERCHE-BRAS (A), décision du DC du 8/11 (« Oui, voulue proche devant ») qui PRÉCISE celle du 27/10 : un palier qui n'est
+  -- pas la première consommation d'un pack cède la tête à la voulue proche (directe, ou chaîne de 2 technologies au plus)
   r = run_k1({ cand("TB", 900, 500, { { "pack", "P3" } }), cand("TA", 300, 300, { { "wanted", "x" } }) })
-  check(r == "TB TA", "K1 l : palier en tête gardé devant la voulue proche (" .. r .. ")")
+  check(r == "TA TB", "K1 l : voulue directe devant le palier qui ouvre un pack (" .. r .. ")")
+  r = run_k1({ cand("TB", 900, 500, { { "pack", "P3" } }), cand("TA", 300, 300, {}) }, { TA = { v = 25, target = "TX", len = 2, wanted = true } })
+  check(r == "TA TB", "K1 l2 : voulue par chaîne de 2 technologies devant le palier (" .. r .. ")")
+  r = run_k1({ cand("TB", 900, 500, { { "pack", "P3" } }), cand("TA", 300, 300, {}) }, { TA = { v = 25, target = "TX", len = 3, wanted = true } })
+  check(r == "TB TA", "K1 l3 : voulue par chaîne de 3 technologies derrière le palier (" .. r .. ")")
+  r = run_k1({ cand("TC", 900, 500, {}), cand("TA", 300, 300, {}) },
+    { TC = { v = 33, target = "TX", len = 3, pack_len = 3 }, TA = { v = 25, target = "TY", len = 2, wanted = true } })
+  check(r == "TA TC", "K1 l4 : palier par chaîne courte vers un pack, cède aussi (" .. r .. ")")
+  -- l5. la PREMIÈRE consommation d'un pack fabriqué garde la tête
+  state.stock = { P2 = 10 }
+  r = run_k1({ cand("TD", 900, 500, {}), cand("TA", 300, 300, { { "wanted", "x" } }) })
+  check(r == "TD TA", "K1 l5 : première consommation d'un pack fabriqué gardée devant la voulue proche (" .. r .. ")")
+  state.stock = nil
+  -- l6. plusieurs voulues proches : la moins chère, puis le nom
+  r = run_k1({ cand("TB", 900, 500, { { "pack", "P3" } }), cand("TE", 400, 300, { { "wanted", "x" } }), cand("TA", 300, 120, { { "wanted", "y" } }) })
+  check(r == "TA TB TE", "K1 l6 : la moins chère des voulues proches passe en tête (" .. r .. ")")
+  -- l8. la meilleure est elle-même une voulue proche ET un palier : elle reste, même si une voulue proche moins chère existe
+  r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" }, { "pack", "P3" } }), cand("TC", 300, 100, { { "wanted", "y" } }) })
+  check(r == "TA TC", "K1 l8 : voulue proche qui est aussi un palier, gardée en tête (" .. r .. ")")
+  -- l7. une voulue proche absente : le palier reste
+  r = run_k1({ cand("TB", 900, 500, { { "pack", "P3" } }), cand("TE", 300, 300, {}) })
+  check(r == "TB TE", "K1 l7 : sans voulue proche, le palier reste (" .. r .. ")")
 end
 section("1. K1 dans le cerveau général (Gen.k1)")
 k1_cases()
@@ -206,7 +228,32 @@ end
 do
   local k1 = Gen.k1
   mutant("Gen.k1 sans effet", function() Gen.k1 = function() end end, function() Gen.k1 = k1 end, k1_cases)
+  -- lot RECHERCHE-BRAS (A) : mutants de SOURCE de la règle (la règle réécrite en défaisant une de ses conditions)
+  do
+    local fh = assert(io.open("shared/ai3/general.lua", "rb")); local src = fh:read("*a"); fh:close()
+    local function src_mutant(name, old, new)
+      local i, j = src:find(old, 1, true)
+      assert(i, "repere absent : " .. old)
+      local chunk = assert(load(src:sub(1, i - 1) .. new .. src:sub(j + 1), "=general-mutant"))
+      local keep_loaded = package.loaded["shared.ai3.general"]
+      local mod = chunk()
+      local k1 = Gen.k1
+      mutant(name, function() Gen.k1 = mod.k1 end, function() Gen.k1 = k1 end, k1_cases)
+      package.loaded["shared.ai3.general"] = keep_loaded
+    end
+    src_mutant("la première consommation d'un pack ne garde plus la tête", "if top.k1_palier and not top.k1_first and not top.k1_front then",
+      "if top.k1_palier and not top.k1_front then")
+    src_mutant("la première consommation cède AUSSI quand elle est la voulue : exemption perdue", "if top.k1_palier and not top.k1_first and not top.k1_front then",
+      "if top.k1_palier and not top.k1_first then")
+    src_mutant("règle A éteinte", "if top.k1_palier and not top.k1_first and not top.k1_front then", "if false then")
+    src_mutant("la plus chère des voulues proches", "if c.k1_front and (not best or c.cost < best.cost or", "if c.k1_front and (not best or c.cost > best.cost or")
+    src_mutant("la voulue directe n'est pas proche", "if w[1] == \"wanted\" then front = true end", "if w[1] == \"wanted\" then front = false end")
+  end
   local near = Gen.K1_NEAR
+  local front = Gen.K1_FRONT
+  mutant("voulue proche : chaîne de 3 technologies", function() Gen.K1_FRONT = 3 end, function() Gen.K1_FRONT = front end, k1_cases)
+  mutant("voulue proche : directe seule", function() Gen.K1_FRONT = 1 end, function() Gen.K1_FRONT = front end, k1_cases)
+  mutant("voulue proche : jamais devant un palier", function() Gen.K1_FRONT = 0 end, function() Gen.K1_FRONT = front end, k1_cases)
   mutant("chaîne courte à 4 technologies", function() Gen.K1_NEAR = 4 end, function() Gen.K1_NEAR = near end, k1_cases)
   mutant("chaîne courte à 2 technologies", function() Gen.K1_NEAR = 2 end, function() Gen.K1_NEAR = near end, k1_cases)
   -- Lot AGEBLOCAGE : « pack nouveau » = pack fabriqué (Gen.pack_made, Gen.NEW_PACK_UNITS).

@@ -78,6 +78,15 @@ local function battery(Pi, C, B, A, Sw, Rr)
     and Pi.porte(st, "migration", NEW_PRODUCT, true) == false,
     "un manque n'ouvre ni la recherche, ni l'amélioration des tapis, ni la migration")
   check(Pi.porte(st, "reparer", NEW_PRODUCT) == true, "réparer n'est jamais suspendu")
+  -- décision du DC du 8/11 (« Oui, toujours ») : la couverture des gisements passe la pile retenue, objet hors des cadres ouverts et SANS manque
+  check(st.hold and st.top == Pi.ADAPTER and not st.focus[NEW_PRODUCT], "couverture : adapter au sommet, l'objet n'est pas dans le focus")
+  check(Pi.porte(st, "couverture", NEW_PRODUCT) == true and Pi.porte(st, "couverture", NEW_PRODUCT, false) == true and Pi.porte(st, "couverture", nil) == true,
+    "couverture : passe toujours (hors focus, sans manque, sans objet)")
+  check(Pi.porte(st, "capi", NEW_PRODUCT) == false, "témoin : le reste de la capitalisation (même hors focus et sans manque) reste suspendu")
+  check(Pi.order_family("couvrir") == "couverture" and Pi.order_family("ouvrir") == "couverture" and Pi.FAMILY_RANK.couverture == Pi.AMELIORER,
+    "les ordres couvrir et ouvrir sont de la famille couverture (rang améliorer : L6 et la pile les rangent comme avant)")
+  local s0c = Pi.update(Pi.new(), sig({ survive = "effectif" }), 0)
+  check(s0c.top == Pi.SURVIVRE and Pi.porte(s0c, "couverture", NEW_PRODUCT) == true, "couverture : passe aussi sous R0 (survivre)")
   local s0 = Pi.update(Pi.new(), sig({ survive = "effectif" }), 0)
   check(s0.top == Pi.SURVIVRE and Pi.porte(s0, "reparer", NEW_PRODUCT) == true and Pi.porte(s0, "capital", NEW_PRODUCT) == false,
     "sous R0 aussi : réparer passe, l'amélioration non")
@@ -87,7 +96,8 @@ local function battery(Pi, C, B, A, Sw, Rr)
   check(Pi.module_family(false, false, true, nil) == "capi" and Pi.module_family(false, false, nil, nil) == "capital",
     "famille : module neuf de la capitalisation, module neuf ordinaire")
   check(Pi.order_family("labos") == "recherche" and Pi.order_family("packs") == "recherche" and Pi.order_family("techno") == "recherche"
-    and Pi.order_family("couvrir") == "capi" and Pi.order_family("equiper") == "capi", "familles des ordres de la capitalisation")
+    and Pi.order_family("couvrir") == "couverture" and Pi.order_family("ouvrir") == "couverture" and Pi.order_family("equiper") == "capi",
+    "familles des ordres de la capitalisation (couvrir et ouvrir : couverture, décision du DC du 8/11)")
   -- refus notés
   local rs = Pi.update(Pi.new(), sig({ posts = { hq } }), 0)
   check(Pi.suspend(rs, "k1", "a") == true and Pi.suspend(rs, "k1", "a") == false and Pi.suspend(rs, "k2", "b") == true,
@@ -380,6 +390,12 @@ has(auto, "if state == \"reserve\" and s.reason == \"pile\" then\n          m.re
 has(auto, "items = items, gain = m.gain, grow = grew }", "automatisation : le but d'alimentation dit qu'il porte un agrandissement")
 has(cerv, "st.short_core = Pi.short_core(E.raw, order, pile.focus)", "pensée : manques propres écrits pour la porte")
 has(cerv, "local short_prev = st.short_core or {}", "pensée : la porte des modules lit les manques propres")
+-- décision du DC du 8/11 (« Oui, toujours ») : la couverture passe à chaque étage (ordre, but de fond, départ de la bande, réserve de la bande)
+has(cerv, "if g.invest or Pi.COVER_KINDS[ord.kind] or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g",
+  "pensée : le but de fond d'un ordre couvrir ou ouvrir n'est pas suspendu")
+local mig = read("script/team/migration_champ.lua")
+has(mig, "PileRt.porte(f, it.wanted and \"couverture\" or \"capi\", product)", "champ : la bande d'un gisement voulu part malgré la retenue")
+has(mig, "pile = ((st.want_until or 0) > tick) and \"couverture\" or \"capi\"", "champ : la réserve de la bande d'un gisement voulu n'est pas suspendue")
 has(prt, "local short = f.team.ia3.short_core or {}", "runtime : la porte lit les manques propres")
 has(auto, "pile = rq.capi and \"capi\" or \"capital\", product = rq.product,", "automatisation : famille et produit portés par la demande")
 has(auto, "local grow_ok = (s and s.grow and #s.grow > 0) and PileRt.porte(f, \"invest\", m.product) or false",
@@ -404,6 +420,10 @@ local base_pass, base_fail = passes, failures
 
 section("7. Mutants")
 local MUTANTS = {
+  { name = "couverture suspendue comme le reste (décision du DC du 8/11)", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "  if Pi.ALWAYS_FAMILIES[family] then return true, nil end\n", to = "" },
+  { name = "couvrir pris pour de la capitalisation ordinaire", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "return Pi.COVER_KINDS[kind] and \"couverture\" or \"capi\"", to = "return \"capi\"" },
   { name = "porte toujours ouverte", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
     from = "  if short and Pi.INVEST_FAMILIES[family] then return true, nil end\n  return false,",
     to = "  if true then return true, nil end\n  return false," },
