@@ -137,6 +137,114 @@ do
   check(worst < 400, "coût d'un avant-poste sous 400 instructions (50 avant-postes : sous 20 000, très loin de 5 ms)")
 end
 
+-- 5 bis. Planificateur : l'avant-poste « défendu » à l'ancienne règle mais sous la garde de sa menace reçoit ses tourelles
+do
+  local T = require("shared.team.config")
+  local Book = require("shared.team.book")
+  local S = require("shared.team.scale")
+  local Planner = require("shared.team.planner")
+  local IRON, COPPER = T.outposts.iron.product, T.outposts.copper.product
+  local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+  local function view(outposts, stock)
+    local v = {
+      tech = 0, personality = "balanced", done = { coal = true, iron = true, copper = true, stone = true, defense = true },
+      deferred = {}, stock = stock, incoming = {}, outposts = outposts, pending = {}, sites = { iron = 1 }, smelters = 2,
+      smelters_pending = 0, smelter_task = false, smelter_output = 0, smelter_fuel_low = false, smelter_coal = 0,
+      turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 8, workers_max = 30, workers_idle = 0,
+      threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = T.player_ladder,
+      hq_turrets = T.defend_hq, defend_first = true,
+    }
+    v.recruit_cost = S.recruit_cost(v.workers)
+    return v
+  end
+  local function op(id, kind, drills, turrets, want_t, protect)
+    return { id = id, kind = kind, drills = drills, full = false, turrets = turrets, coal_needed = 0, fuel_low = false, output = 0,
+      idle_ticks = 0, has_task = true, has_fortify = false, want_t = want_t, protect = protect or nil }
+  end
+  local function stock_of(iron)
+    return { [IRON] = iron, [COPPER] = 1000, coal = 500, stone = 500, [T.turret_ammo] = 200, ["gun-turret"] = 6,
+      ["burner-mining-drill"] = 20, ["stone-furnace"] = 20, ["iron-chest"] = 8 }
+  end
+  local function fortify_of(plan, id)
+    for _, t in ipairs(plan.tasks) do if t.key == "fortify:" .. id then return t end end
+  end
+  local function count_turrets(t)
+    for _, it in ipairs(t.items or {}) do if it[1] == "gun-turret" then return it[2] end end
+    return 0
+  end
+  local function post_of(plan, id)
+    for _, d in ipairs(plan.defend and plan.defend.posts or {}) do if d.id == id then return d end end
+  end
+  local function facts(PlannerX)
+    local f = {}
+    -- fer 16 foreuses : la règle d'avant veut 3 tourelles ; la menace en veut 5
+    local base3 = { op(1, "coal", 4, 1, 1), op(2, "iron", 16, 3, 3), op(3, "copper", 3, 1, 1), op(4, "stone", 2, 1, 1) }
+    local menace5 = { op(1, "coal", 4, 1, 1), op(2, "iron", 16, 3, 5), op(3, "copper", 3, 1, 1), op(4, "stone", 2, 1, 1) }
+    local p0 = PlannerX.plan(view(base3, stock_of(3000)), book)
+    local p1 = PlannerX.plan(view(menace5, stock_of(3000)), book)
+    f.no_post_before = post_of(p0, 2) == nil and 1 or 0
+    f.no_task_before = fortify_of(p0, 2) == nil and 1 or 0
+    local d = post_of(p1, 2)
+    f.post_want = d and d.want or -1
+    f.post_have = d and d.have or -1
+    local t = fortify_of(p1, 2)
+    f.task_turrets = t and count_turrets(t) or -1
+    -- une menace plus petite que la règle d'avant ne change rien
+    local small = { op(1, "coal", 4, 1, 1), op(2, "iron", 16, 3, 3), op(3, "copper", 3, 1, 1), op(4, "stone", 2, 1, 1) }
+    f.small_no_task = fortify_of(PlannerX.plan(view(small, stock_of(3000)), book), 2) == nil and 1 or 0
+    -- avant-poste sans want_t (vue d'avant le lot) : la règle d'avant
+    local legacy = { op(1, "coal", 4, 1, nil), op(2, "iron", 16, 3, nil), op(3, "copper", 3, 1, nil), op(4, "stone", 2, 1, nil) }
+    f.legacy_no_task = fortify_of(PlannerX.plan(view(legacy, stock_of(3000)), book), 2) == nil and 1 or 0
+    -- protection avant le premier coup : fer 200 (150 de plancher laissent 50, 60 de plancher laissent 140 : une tourelle et ses chargeurs, 120), aucune tourelle au stock
+    local poor = stock_of(200)
+    poor["gun-turret"], poor[T.turret_ammo] = 0, 0
+    local prot = { op(1, "coal", 4, 1, 1), op(2, "iron", 16, 3, 5, true), op(3, "copper", 3, 1, 1), op(4, "stone", 2, 1, 1) }
+    local noprot = { op(1, "coal", 4, 1, 1), op(2, "iron", 16, 3, 5, false), op(3, "copper", 3, 1, 1), op(4, "stone", 2, 1, 1) }
+    local kp = PlannerX.plan(view(prot, poor), book)
+    local kn = PlannerX.plan(view(noprot, poor), book)
+    local function crafts(plan)
+      for _, t in ipairs(plan.tasks) do if t.key == "craft:gun-turret:defense:1" then return 1 end end
+      return 0
+    end
+    f.prot_craft, f.noprot_craft = crafts(kp), crafts(kn)
+    return f
+  end
+  local F1 = facts(Planner)
+  check(F1.no_post_before == 1 and F1.no_task_before == 1, "témoin : avant-poste à 3 tourelles sur 3 voulues (règle d'avant) : aucun poste")
+  check(F1.post_want == 5 and F1.post_have == 3, "la garde voulue par la menace (5) ouvre un poste 3/5 même si la règle d'avant est servie")
+  check(F1.task_turrets == 2, "la tâche de pose apporte l'écart (2 tourelles)")
+  check(F1.small_no_task == 1 and F1.legacy_no_task == 1, "menace plus petite ou vue sans want_t : rien ne change")
+  check(F1.prot_craft == 1 and F1.noprot_craft == 0, "protection avant le premier coup : plancher réduit, la tourelle se fabrique à 200 de fer ; sans elle, non")
+  -- mutants du planificateur
+  local psrc = read_all("shared/team/planner.lua")
+  local pmut = {
+    { "poste sans la garde voulue", "local wt = math.max(o.want_t or 0, T.defend_turrets(o.drills))", "local wt = T.defend_turrets(o.drills)" },
+    { "poste jamais pour un avant-poste défendu", "if lacking[o.id] or (o.turrets or 0) < wt then", "if lacking[o.id] then" },
+    { "protection sans la garde voulue", "(o.turrets or 0) < (o.want_t or T.defend_turrets(o.drills)) then protect_any = true end", "(o.turrets or 0) < T.defend_turrets(o.drills) then protect_any = true end" },
+  }
+  for _, m in ipairs(pmut) do
+    local a, b = psrc:find(m[2], 1, true)
+    if not a then check(false, "mutant planificateur « " .. m[1] .. " » : texte introuvable") else
+      local src2 = psrc:sub(1, a - 1) .. m[3] .. psrc:sub(b + 1)
+      local saved = package.loaded["shared.team.planner"]
+      package.loaded["shared.team.planner"] = nil
+      local chunk = assert(load(src2, "@shared.team.planner"))
+      local okm, PlM = pcall(chunk)
+      package.loaded["shared.team.planner"] = saved
+      local dead = false
+      if not okm then dead = true else
+        local okf, FM = pcall(facts, PlM)
+        if not okf then dead = true else
+          dead = not (FM.no_post_before == F1.no_post_before and FM.post_want == F1.post_want and FM.task_turrets == F1.task_turrets
+            and FM.small_no_task == F1.small_no_task and FM.legacy_no_task == F1.legacy_no_task and FM.prot_craft == F1.prot_craft
+            and FM.noprot_craft == F1.noprot_craft)
+        end
+      end
+      check(dead, "mutant planificateur « " .. m[1] .. " » refusé")
+    end
+  end
+end
+
 -- 6. Mutants
 local mutants = {
   { "marge à 1000", "Ga.MARGE = 1100", "Ga.MARGE = 1000" },
