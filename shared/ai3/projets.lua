@@ -170,7 +170,7 @@ function P.update(st, goals, tick, workers)
   -- Lot DEPENSES2 (relecture de 26268e60) : l'armée de VOTRE ÉQUIPE (g.late, shared/ai3/buts.lua) est une famille permanente servie
   -- APRÈS les projets ordinaires (extraction, fonderie, modules et centrale d'AUTO, recherche), devant le fond : ses soldats ne prennent
   -- jamais le fer de son économie vitale. Les factions gardent l'ordre d'avant (leurs soldats juste après l'objectif du moment).
-  local out, perm, rest, short, fond, invest, late = {}, {}, {}, {}, {}, {}, {}
+  local out, perm, rest, short, fond, invest, late, front = {}, {}, {}, {}, {}, {}, {}, {}
   local first = nil
   for _, p in ipairs(active) do
     if p.goal.permanent then
@@ -178,6 +178,7 @@ function P.update(st, goals, tick, workers)
     elseif p.goal.fond then
       if p.goal.short then short[#short + 1] = p
       elseif p.goal.invest then invest[#invest + 1] = p
+      elseif p.goal.front then front[#front + 1] = p -- lot AMELIORATION-CONTINUE : remplacement engagé ou en famine
       else fond[#fond + 1] = p end
     elseif not first then first = p
     elseif p.goal.short then short[#short + 1] = p
@@ -193,6 +194,7 @@ function P.update(st, goals, tick, workers)
   for _, p in ipairs(short) do out[#out + 1] = p end
   for _, p in ipairs(perm) do out[#out + 1] = p end
   for _, p in ipairs(invest) do out[#out + 1] = p end
+  for _, p in ipairs(front) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(late) do out[#out + 1] = p end
   for _, p in ipairs(fond) do out[#out + 1] = p end
