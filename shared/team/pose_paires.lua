@@ -114,6 +114,125 @@ function P.component(sorted, gap, center)
   return out
 end
 
+--- Lot COUT-600 : EXACTEMENT P.component(P.sorted(resources, center), gap, center) (mêmes tuiles, même ordre, mêmes tables {x, y} neuves),
+--- sans trier ni parcourir ce qui n'est pas du gisement : le coût grandit avec le gisement du centre, pas avec les gisements voisins lus
+--- dans le même rayon (mesuré, gisement de 3 209 tuiles : 3,4 M d'instructions avec P.sorted + P.component, 5,8 M avec deux gisements voisins).
+--- Méthode : composantes par RANGÉES. Dans une rangée, deux tuiles à moins de `gap + 1` en x se touchent : une suite de tuiles à pas <= gap + 1
+--- est un tronçon, et sa zone d'atteinte est exactement [premier - (gap + 1), dernier + (gap + 1)] (aucun trou plus large que la portée).
+--- Deux tronçons de rangées à moins de `gap + 1` en y se touchent si leurs intervalles [premier, dernier] se recouvrent à `gap + 1` près
+--- (démonstration : tests/nearest_component_test.lua compare à l'ancienne règle sur des milliers de gisements tirés au hasard). Le tri final
+--- ne porte que sur la composante (même comparateur : distance au centre, puis x, puis y).
+function P.nearest_component(resources, gap, center)
+  local n = #resources
+  if n == 0 then return {} end
+  gap = gap or P.GAP
+  local reach = gap + 1
+  local cx, cy = center.x, center.y
+  -- graine : la première tuile de P.sorted (plus petite distance au centre, puis x, puis y)
+  local seed, sd
+  for i = 1, n do
+    local r = resources[i]
+    local d = (r.x - cx) ^ 2 + (r.y - cy) ^ 2
+    if not seed or d < sd or (d == sd and (r.x < seed.x or (r.x == seed.x and r.y < seed.y))) then seed, sd = r, d end
+  end
+  if (seed.x - cx) ^ 2 + (seed.y - cy) ^ 2 > P.SEED_MAX * P.SEED_MAX then return {} end
+  -- rangées : y -> xs (tuiles entières), triés
+  local rows, ys = {}, {}
+  local floor = math.floor
+  for i = 1, n do
+    local r = resources[i]
+    local y = floor(r.y)
+    local row = rows[y]
+    if not row then row = {}; rows[y] = row; ys[#ys + 1] = y end
+    row[#row + 1] = floor(r.x)
+  end
+  table.sort(ys)
+  -- tronçons de chaque rangée (listes triées par x) ; chaque tronçon : { lo, hi, parent }
+  local runs_of, all = {}, {}
+  for _, y in ipairs(ys) do
+    local row = rows[y]
+    table.sort(row)
+    local list = {}
+    local lo, prev = row[1], row[1]
+    for j = 2, #row do
+      local x = row[j]
+      if x - prev > reach then
+        local run = { lo = lo, hi = prev }
+        run.parent = run
+        list[#list + 1] = run
+        all[#all + 1] = run
+        lo = x
+      end
+      prev = x
+    end
+    local run = { lo = lo, hi = prev }
+    run.parent = run
+    list[#list + 1] = run
+    all[#all + 1] = run
+    runs_of[y] = list
+  end
+  local function find(a)
+    while a.parent ~= a do
+      a.parent = a.parent.parent
+      a = a.parent
+    end
+    return a
+  end
+  -- tronçons de deux rangées à au plus `reach` d'écart : balayage des deux listes triées, recouvrement des intervalles à `reach` près
+  for _, y in ipairs(ys) do
+    local a = runs_of[y]
+    for dy = 1, reach do
+      local b = runs_of[y + dy]
+      if b then
+        local i, j = 1, 1
+        while i <= #a and j <= #b do
+          local ra, rb = a[i], b[j]
+          if ra.lo - reach <= rb.hi and rb.lo - reach <= ra.hi then
+            local pa, pb = find(ra), find(rb)
+            if pa ~= pb then pb.parent = pa end
+          end
+          if ra.hi <= rb.hi then i = i + 1 else j = j + 1 end
+        end
+      end
+    end
+  end
+  -- composante de la graine
+  local sx, sy = floor(seed.x), floor(seed.y)
+  local root
+  for _, run in ipairs(runs_of[sy]) do
+    if sx >= run.lo and sx <= run.hi then root = find(run) break end
+  end
+  local xs_, ys_, ds, order = {}, {}, {}, {}
+  local m = 0
+  for i = 1, n do
+    local r = resources[i]
+    local list = runs_of[floor(r.y)]
+    local x = floor(r.x)
+    for j = 1, #list do
+      local run = list[j]
+      if x >= run.lo and x <= run.hi then
+        if find(run) == root then
+          m = m + 1
+          xs_[m], ys_[m] = r.x, r.y
+          ds[m] = (r.x - cx) ^ 2 + (r.y - cy) ^ 2
+          order[m] = m
+        end
+        break
+      end
+    end
+  end
+  table.sort(order, function(i, j)
+    local di, dj = ds[i], ds[j]
+    if di ~= dj then return di < dj end
+    local xi, xj = xs_[i], xs_[j]
+    if xi ~= xj then return xi < xj end
+    return ys_[i] < ys_[j]
+  end)
+  local out = {}
+  for k = 1, m do out[k] = { x = xs_[order[k]], y = ys_[order[k]] } end
+  return out
+end
+
 --- Parcours des emplacements de foreuse. spec = {
 ---   resources = tuiles triées ({x, y}, centres de tuile), cap = essais au moteur au plus (P.MAX_ATTEMPTS),
 ---   w, h = emprise de la foreuse (2, 2), occupied = ensemble de clés de tuiles déjà prises, dead = ensemble des emplacements
