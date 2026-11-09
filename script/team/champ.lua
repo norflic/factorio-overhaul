@@ -597,8 +597,9 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
       local names = {}
       for _, e in ipairs(es) do names[#names + 1] = e.name .. (e.force and (" " .. e.force.name) or "") end
       table.sort(names)
-      cause = string.format(" ; 1re tuile prise (%.1f, %.1f), %s, %s : %s", at.x, at.y, at.fixed and "place du cadre figé" or "1re place essayee", at.side > 0 and "cote +" or "cote -",
-        #names > 0 and table.concat(names, ", ") or "rien de visible (reserve d'un projet du plan, eau ou falaise)")
+      local why_tile = spec.blocked and spec.blocked[Ch.key(math.floor(at.x), math.floor(at.y))] -- « eau », « cliff », « reserve », « couloir » ou le nom du bâtiment
+      cause = string.format(" ; 1re tuile prise (%.1f, %.1f), %s, %s : %s, relevee « %s »", at.x, at.y, at.fixed and "place du cadre figé" or "1re place essayee", at.side > 0 and "cote +" or "cote -",
+        #names > 0 and table.concat(names, ", ") or "aucune entite visible", tostring(why_tile))
     end
     return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie%s", plan.stats.band_drills or 0,
       plan.stats.no_smelter or 0, cause)
