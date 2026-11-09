@@ -72,6 +72,35 @@ for _, k in ipairs(State.sorted_keys(CHAMP_CFG)) do CHAMP_RAW_CFG[k] = CHAMP_CFG
 CHAMP_RAW_CFG.min_plates = Th.min_plates(true, CHAMP_CFG.min_plates)
 CHAMP_CFG.min_plates = Th.min_plates(false, CHAMP_CFG.min_plates)
 local EXT_PLATES = 3000
+
+--- Lot SATURATION (directive du DC du 9/11) : pièces d'une bande planifiée, par nom : { { name, n, machine } } (machine : rôle de foreuse ou de
+--- four du plan du champ). Nombres, chaînes et booléens seulement : gardé dans l'état de la migration (st.band_need) pour la porte des bandes en
+--- avance sans replanifier la bande.
+local function band_list(bd)
+  local count, mach, names = {}, {}, {}
+  for _, e in ipairs(bd and bd.ents or {}) do
+    if not count[e.name] then names[#names + 1] = e.name end
+    count[e.name] = (count[e.name] or 0) + 1
+    local r = tostring(e.role or "")
+    if r:find("foreuse", 1, true) or r:find("four", 1, true) then mach[e.name] = true end
+  end
+  table.sort(names)
+  local list = {}
+  for _, nm in ipairs(names) do list[#list + 1] = { name = nm, n = count[nm], machine = mach[nm] == true } end
+  return list
+end
+
+--- Fer (matières premières du livre) qu'il reste à FABRIQUER pour la bande `bd` une fois ses pièces déjà au stock `free` retirées (lot SATURATION :
+--- avant, la bande entière était comptée, stock dormant compris), et l'état de saturation. nil si le livre ne sait pas le dire.
+local function band_iron(book, bd, free)
+  if not (book and bd and bd.ents) then return nil end
+  local sat = Mp.saturation(band_list(bd), free)
+  if #sat.net == 0 then return 0, sat end
+  local ok, raw = pcall(function() return book:raw_cost(sat.net) end)
+  local iron = ok and raw and raw[T.outposts.iron.product] or nil
+  if iron == nil then return nil, sat end
+  return math.max(0, iron), sat
+end
 local FURNACE_INVENTORIES = { "furnace_source", "furnace_result", "fuel" }
 local CHEST_INVENTORIES = { "chest" }
 
@@ -852,7 +881,16 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   end
   -- une bande voulue par la capitalisation (Mig.want) n'attend pas que la plaque manque : la règle a déjà jugé l'agrandissement rentable
   local wanted = (st.want_until or 0) > tick
-  if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted then
+  -- lot SATURATION (DC 9/11) : une bande dont les foreuses et les fours DORMENT déjà au coffre n'attend ni que la plaque manque, ni qu'une
+  -- capitalisation la veuille : le stock dormant est la décision (mesuré : 52 à 68 foreuses électriques et 104 à 170 fours au coffre à 90 min,
+  -- champ du joueur à 48 % ; fo-logs/2026-11-09_VOIE-AVANT-FOURS)
+  st.band_need = band_list(bd)
+  local sat = Mp.saturation(st.band_need, free)
+  if sat.machines and #ids == 0 then
+    say_why(f, ms, st, "dormant:" .. pr, string.format("avant-poste %d : bande %d PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre, %d piece(s) a fabriquer) : elle part sans attendre que %s manque",
+      o.id, pr, sat.dormant, sat.want, #sat.net, product), true)
+  end
+  if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted and not sat.machines then
     say_why(f, ms, st, "ext:" .. pr, string.format("avant-poste %d : bande %d sans paire en attente (%d %s libres, agrandissement sous %d)", o.id, pr,
       free[product] or 0, product, EXT_PLATES))
     st.retry = tick + CFG.retry
@@ -1655,21 +1693,7 @@ end
 -- reprend pas la bande), ahead_reap (la compte posée), Mig.projects (le cerveau fabrique ses matières). État : st.ahead = { [bande] =
 -- { pid, t0 } } (nombres seulement). Une bande avec des paires thermiques dessous reste à la voie principale (retrait, dégel, retour arrière).
 
---- Fer (matières premières du livre) de la bande planifiée `bd`, ou nil si le livre ne sait pas le dire.
-local function band_iron(book, bd)
-  if not (book and bd and bd.ents) then return nil end
-  local count, names = {}, {}
-  for _, e in ipairs(bd.ents) do
-    if not count[e.name] then names[#names + 1] = e.name end
-    count[e.name] = (count[e.name] or 0) + 1
-  end
-  table.sort(names)
-  local list = {}
-  for _, nm in ipairs(names) do list[#list + 1] = { nm, count[nm] } end
-  local ok, raw = pcall(function() return book:raw_cost(list) end)
-  local iron = ok and raw and raw[T.outposts.iron.product] or nil
-  return (iron and iron > 0) and iron or nil
-end
+-- (band_iron : voir en tête du module, lot SATURATION : le fer de la bande est celui qu'il reste à fabriquer une fois le stock dormant pris)
 
 --- Les bandes en avance du champ : posées (fini), bloquées trop longtemps (laissées au plan) ou perdues ; rend le nombre de bandes comptées.
 local function ahead_reap(f, ms, o, st, tick)
@@ -1705,13 +1729,14 @@ local function ahead_reap(f, ms, o, st, tick)
 end
 
 --- Une bande de plus en avance pour le champ `o`, si la règle l'autorise. Rend vrai si une demande est partie.
-local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold)
+local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dormant)
   local b = f.build
   local p = st.pid and b.projects[st.pid]
   local inflight = (p and 1 or 0)
   for _ in ipairs(sorted_keys(st.ahead)) do inflight = inflight + 1 end
   local product = T.outposts[o.kind].product
-  local c = { on = true, power = power_ok(b), crisis = false, enemy = false, pairs_under = 0, inflight = inflight, par_max = st.mega_par or 1,
+  -- lot SATURATION : un champ dont les machines de la bande dorment au coffre a le plafond de parallélisme entier, méga-fonderie ou non
+  local c = { on = true, power = power_ok(b), crisis = false, enemy = false, pairs_under = 0, inflight = inflight, par_max = st.mega_par or (dormant and Mp.CFG.par_cap) or 1,
     main_ready = p ~= nil and p.state ~= "reserve" and p.state ~= "plan" and p.state ~= "attente", iron = free[T.outposts.iron.product] or 0, band_iron = 1 }
   local function refuse(why)
     say_why(f, ms, st, "avance:" .. why, string.format("%s %d (%s) : pas de bande en avance (%s), %d bande(s) en vol", o.field and "gisement" or "avant-poste", o.id, o.kind, why,
@@ -1741,6 +1766,7 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold)
     say(f, ms, string.format("avant-poste %d : bande %d ecartee en avance (%s)", o.id, pr, tostring(bwhy)))
     return false
   end
+  st.band_need = band_list(bd) -- lot SATURATION : la porte des bandes en avance relit le stock dormant sur cette liste
   local list = survey_field(f, o)
   local under = {}
   for i = 1, #bd.tiles - 1, 2 do under[P.tkey(bd.tiles[i], bd.tiles[i + 1])] = true end
@@ -1751,7 +1777,9 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold)
       if under[P.tkey(t[i], t[i + 1])] then pairs_under = pairs_under + 1; break end
     end
   end
-  c.pairs_under, c.band_iron = pairs_under, band_iron(book, bd)
+  local sat
+  c.pairs_under, c.band_iron, sat = pairs_under, nil, nil
+  c.band_iron, sat = band_iron(book, bd, free)
   if not c.band_iron then return refuse("cout de la bande illisible") end
   ok, why = Mp.allow(c)
   if not ok then
@@ -1771,8 +1799,9 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold)
   st.ahead[tostring(pr)] = { pid = id, t0 = tick }
   ms.requests = (ms.requests or 0) + 1
   st.why_last = nil
-  say(f, ms, string.format("%s %d (%s) : bande %d EN AVANCE demandee, projet %d (%d bande(s) en vol sur %d), fer libre %d pour %d (marge d'une bande comprise)",
-    o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, inflight + 1, c.par_max, math.floor(c.iron), math.ceil(c.band_iron * (1 + Mp.CFG.margin))), true)
+  say(f, ms, string.format("%s %d (%s) : bande %d EN AVANCE demandee, projet %d (%d bande(s) en vol sur %d), fer libre %d pour %d (marge d'une bande comprise)%s",
+    o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, inflight + 1, c.par_max, math.floor(c.iron), math.ceil(c.band_iron * (1 + Mp.CFG.margin)),
+    (sat and sat.machines) and string.format(" ; PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre)", sat.dormant, sat.want) or ""), true)
   return true
 end
 
@@ -1783,12 +1812,14 @@ local function ahead_step(f, surface, ms, free, book, tick, hold)
   local did = 0
   for _, oid in ipairs(sorted_keys(ms.o)) do
     local st = ms.o[oid]
-    if st.mega_par and st.frame and not st.abandoned then
+    -- lot SATURATION (DC 9/11) : les machines de la dernière bande planifiée dorment au coffre : le champ a droit aux bandes en avance, méga-fonderie ou non
+    local dormant = st.band_need ~= nil and Mp.saturation(st.band_need, free).machines == true
+    if (st.mega_par or dormant) and st.frame and not st.abandoned then
       local o = Champ.target(f, oid)
       if o then
         if st.ahead then ahead_reap(f, ms, o, st, tick) end
-        if did == 0 and (st.want_until or 0) > tick and tick >= (st.ahead_retry or 0) and st.pid and (st.stage == "projet" or st.stage == "chantier")
-          and ahead_launch(f, surface, ms, o, st, tick, free, book, hold) then did = 1 end
+        if did == 0 and ((st.want_until or 0) > tick or dormant) and tick >= (st.ahead_retry or 0) and st.pid and (st.stage == "projet" or st.stage == "chantier")
+          and ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dormant) then did = 1 end
       end
     end
   end

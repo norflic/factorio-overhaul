@@ -86,6 +86,26 @@ local function suite(Mp, tag, strict)
   -- déterminisme
   local a1, a2 = { Mp.allow(base()) }, { Mp.allow(base()) }
   ck(a1[1] == a2[1] and a1[2] == a2[2], "determinisme")
+  -- lot SATURATION : pièces d'une bande déjà au stock (directive du DC du 9/11)
+  local band = { { name = "d", n = 42, machine = true }, { name = "f", n = 46, machine = true }, { name = "b", n = 84 }, { name = "p", n = 38 } }
+  local s = Mp.saturation(band, { d = 52, f = 104, b = 10, p = 0 })
+  ck(s.machines == true and s.all == false, "saturation : 52 foreuses et 104 fours au coffre paient les machines, pas les tapis")
+  ck(s.dormant == 88 and s.want == 88, "saturation : machines prises au stock 88 sur 88")
+  ck(#s.net == 2 and s.net[1][1] == "b" and s.net[1][2] == 74 and s.net[2][1] == "p" and s.net[2][2] == 38, "saturation : reste a fabriquer 74 tapis et 38 poteaux, dans l'ordre de la liste")
+  s = Mp.saturation(band, { d = 41, f = 104, b = 100, p = 100 })
+  ck(s.machines == false and s.all == false and #s.net == 1 and s.net[1][2] == 1, "saturation : une foreuse manque : machines non payees, reste 1")
+  s = Mp.saturation(band, { d = 42, f = 46, b = 84, p = 38 })
+  ck(s.machines == true and s.all == true and #s.net == 0, "saturation : tout au stock : rien a fabriquer")
+  s = Mp.saturation(band, nil)
+  ck(s.machines == false and s.all == false and #s.net == 4 and s.dormant == 0, "saturation : stock vide : rien de paye")
+  s = Mp.saturation({ { name = "p", n = 38 } }, { p = 100 })
+  ck(s.machines == false and s.all == true, "saturation : une bande sans machine n'est pas « payee par le stock dormant »")
+  s = Mp.saturation(nil, { d = 1 })
+  ck(s.machines == false and #s.net == 0, "saturation : liste vide")
+  -- la bande payée par le stock ne demande plus de fer : allow passe avec un fer libre nul
+  c = base()
+  c.band_iron, c.iron = 0, 0
+  ck(Mp.allow(c) == true, "saturation : bande payee par le stock (reste 0) : le fer libre ne bloque pas")
   return fail == n0
 end
 
@@ -111,6 +131,10 @@ local MUT = {
   { "refuse non reconnu", 'if p.state == "annule" or p.state == "refuse" then return "perdue" end', "" },
   { "bloque trop tot", "%(p.blocked_for or 0%) > cfg.block_max", "(p.blocked_for or 0) >= cfg.block_max" },
   { "disparu non reconnu", 'if not p then return "perdue" end', "" },
+  { "saturation : machines jamais payees", "if e.machine then out.machines = false end", "" },
+  { "saturation : reste a fabriquer oublie", "out.net%[#out.net %+ 1%] = { e.name, n %- have }", "" },
+  { "saturation : bande sans machine payee", "if not any then out.machines = false end", "" },
+  { "saturation : stock inclusif", "if n > have then", "if n >= have then" },
 }
 local survivors = 0
 for _, m in ipairs(MUT) do

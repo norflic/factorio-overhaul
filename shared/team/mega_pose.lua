@@ -20,6 +20,13 @@
   Mp.par_max(rec)      -> nombre de bandes en vol au plus pour la décision `rec` { lines }
   Mp.allow(c)          -> vrai/faux, cause. c = { on, power, crisis, enemy, pairs_under, inflight, par_max, main_ready, iron, band_iron }
   Mp.reap(p)           -> "attendre" | "posee" | "perdue" | "bloquee" pour l'état d'un projet en avance { state, blocked_for }
+  Mp.saturation(l, s)  -> lot SATURATION (directive du DC du 9/11 : « fabriquer 300 foreuses pour les laisser dans un coffre ne sert à rien ;
+                          liez la condition de pose à l'inventaire disponible ») : les pièces d'une bande DÉJÀ au stock. l = { { name, n,
+                          machine } } (machine : foreuse ou four), s = { [objet] = n }. Rend { machines (toutes les machines de la bande
+                          dorment au stock), all (toutes les pièces), net = { { name, reste } } (ce qu'il reste à fabriquer), dormant, want }.
+                          Lecteurs (script/team/migration_champ.lua) : une bande dont les machines dorment part SANS attendre que la plaque
+                          manque (porte EXT_PLATES) ni qu'une capitalisation la veuille ; les bandes EN AVANCE s'ouvrent à tout champ ainsi
+                          payé (par_cap), et leur fer se compte sur le reste à fabriquer, pas sur la bande entière.
   Déterminisme : aucune horloge, aucune itération sur pairs.
 ]]
 
@@ -53,6 +60,28 @@ function Mp.allow(c, cfg)
   local need = (c.band_iron or 0) * (1 + cfg.margin)
   if (c.iron or 0) < need then return false, string.format("stock : fer libre %d sous %d", math.floor(c.iron or 0), math.ceil(need)) end
   return true, "libre"
+end
+
+--- Lot SATURATION : pièces d'une bande déjà au stock. l = { { name, n, machine } } (une entrée par nom), s = { [objet] = n }.
+function Mp.saturation(l, s)
+  s = s or {}
+  local out = { machines = true, all = true, net = {}, dormant = 0, want = 0 }
+  local any = false
+  for _, e in ipairs(l or {}) do
+    local n, have = e.n or 0, s[e.name] or 0
+    if e.machine then
+      any = true
+      out.want = out.want + n
+      out.dormant = out.dormant + math.min(have, n)
+    end
+    if n > have then
+      out.all = false
+      if e.machine then out.machines = false end
+      out.net[#out.net + 1] = { e.name, n - have }
+    end
+  end
+  if not any then out.machines = false end -- une bande sans machine (réseau seul) n'est jamais « payée par le stock dormant »
+  return out
 end
 
 --- État d'un projet en avance : p = { state, blocked_for } (nil : le projet n'existe plus). "posee" : fini ; "bloquee" : fantôme refusé depuis
