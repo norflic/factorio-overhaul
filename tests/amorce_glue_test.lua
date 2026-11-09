@@ -221,10 +221,14 @@ local function battery8(AmRt, verbose)
     if verbose then check(c, msg) end
   end
   local function world()
-    local f = { key = "player", team = { delivered = {} }, build = { order = { 94, 95, 60 }, projects = {
+    -- lot CHARBON-CENTRALE : le projet 3, ROUVERT pour reconstruction (reopened, Sw.rebuilding) et deja en chantier (REBUILD-RAPIDE), place
+    -- APRES la reserve 94 dans la file ; le 7, rouvert puis refini (finished apres reopened_tick), n'attend rien
+    local f = { key = "player", team = { delivered = {} }, build = { order = { 94, 95, 60, 3, 7 }, projects = {
       [94] = { id = 94, state = "reserve", stock = { asm2 = 1 }, missing = { { "asm2", 3 }, { "belt", 23 } } },
       [95] = { id = 95, state = "reserve", stock = {}, missing = { { "asm2", 4 } }, reserve_next = 99999 },
       [60] = { id = 60, state = "chantier", stock = {}, missing = { { "asm2", 9 } } },
+      [3] = { id = 3, state = "chantier", reopened = 1, reopened_tick = 121000, stock = {}, missing = { { "belt", 30 } } },
+      [7] = { id = 7, state = "chantier", reopened = 1, reopened_tick = 1000, finished = 2000, stock = {}, missing = { { "belt", 4 } } },
     } } }
     local inv = { has = { asm2 = 6, belt = 40 } }
     function inv.remove(t) inv.has[t.name] = (inv.has[t.name] or 0) - t.count; return t.count end
@@ -242,7 +246,12 @@ local function battery8(AmRt, verbose)
   ck(p60.stock.asm2 == nil and p60.missing[1][2] == 9, "remise directe : un projet en chantier n'est pas touche")
   ck(f.team.delivered.asm2 == 6, "remise directe : comptee comme livree au QG (f.team.delivered)")
   ck(#LOGS == 2 and LOGS[1]:find("[FO-AMORCE] player : remise directe : 3 asm2 au module 94", 1, true), "remise directe : une ligne [FO-AMORCE] par module (" .. #LOGS .. ")")
-  ck(AmRt.deliver(f, inv, "belt", 100) == 23 and f.build.projects[94].missing and #f.build.projects[94].missing == 0, "remise directe : les courroies, au plus le manque (23 sur 100)")
+  LOGS = {}
+  local p3, p7 = f.build.projects[3], f.build.projects[7]
+  ck(AmRt.deliver(f, inv, "belt", 100) == 53 and f.build.projects[94].missing and #f.build.projects[94].missing == 0, "remise directe : les courroies, au plus le manque (30 au projet 3 rouvert + 23 au module 94 sur 100)")
+  ck(p3.stock.belt == 30 and #p3.missing == 0, "remise directe : le projet 3 rouvert en chantier recoit ses 30 tapis dans p.stock (pris par le PNJ a sa prise, Build.take_reserved)")
+  ck(p7.stock.belt == nil and p7.missing[1][2] == 4, "remise directe : un projet rouvert puis refini (Sw.rebuilding faux) n'attend rien")
+  ck(#LOGS == 2 and LOGS[1]:find("remise directe : 30 belt au module 3", 1, true) and LOGS[1]:find("reconstruction", 1, true), "remise directe : ligne [FO-AMORCE] du projet rouvert d'abord (" .. tostring(LOGS[1]) .. ")")
   local f2, inv2 = world()
   ck(AmRt.deliver(f2, inv2, "inconnu", 5) == 0 and inv2.has.asm2 == 6, "remise directe : objet que personne n'attend : rien retire")
   ck(AmRt.deliver({ key = "x", team = {} }, inv2, "asm2", 5) == 0, "remise directe : equipe sans plan directeur : rien")
