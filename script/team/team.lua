@@ -550,6 +550,9 @@ function Team.view(f, tick)
         type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick)))) or nil
       Profiler.fstop("view:2-danger")
     end
+    -- Lot DEFENSE-AP : la garde voulue suit la menace du site (prévision), pas seulement ses foreuses ; une vague au moins égale au seuil de
+    -- protection (Sq.SITE_HIT) et des tourelles en manque : à protéger d'abord (planchers de fer réduits, Sq.floors) AVANT le premier coup.
+    local want_t, wave_t, why_t = SurvieQg.garde(f, oid, tick, T.defend_turrets(o.drills))
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
@@ -563,7 +566,8 @@ function Team.view(f, tick)
       lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,
       -- Lot S1 : des vagues ont touché cet avant-poste (mémoire de la prévision) et il lui manque des tourelles : à protéger avant d'être agrandi
       -- ou refait (shared/team/survie_qg.lua, Sq.protect_first ; lu par le planificateur si une tourelle est posable).
-      protect = SurvieQg.mark_protect(f, oid, tick, st.turrets, T.defend_turrets(o.drills)) or nil,
+      protect = (SurvieQg.mark_protect(f, oid, tick, st.turrets, want_t) or (why_t ~= "base" and wave_t >= Sq.SITE_HIT and st.turrets < want_t)) or nil,
+      want_t = want_t, why_t = why_t,
       -- R-QCM-25c (c) : distance au QG au carré (tuiles entières ; transport de fond sans tourelle : avant-postes proches).
       d2 = math.floor((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2),
     }

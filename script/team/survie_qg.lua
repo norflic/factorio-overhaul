@@ -12,6 +12,7 @@
 
 local Sq = require("shared.team.survie_qg")
 local Dc = require("shared.team.defchoix")
+local Ga = require("shared.team.garde_ap") -- lot DEFENSE-AP : garde d'un avant-poste dimensionnée sur la menace
 local Prev = require("script.ai3.prevision")
 local Pv = require("shared.ai3.prevision")
 local State = require("script.faction.state")
@@ -103,6 +104,16 @@ end
 --- L'avant-poste doit-il être protégé d'abord ? (vagues reçues et tourelles manquantes ; `turrets` : tourelles posées, `wanted` : voulues.)
 function SurvieQg.protect(f, oid, tick, turrets, wanted)
   return Sq.protect_first({ hit = SurvieQg.hit(f, oid, tick), turrets = turrets, wanted = wanted })
+end
+
+--- Lot DEFENSE-AP : tourelles voulues à l'avant-poste `oid` = le plus grand de `base` (règle d'avant : foreuses) et de ce que la plus grande vague
+--- connue du site exige (vague prévue à 5 et 15 min, vague reçue : prévision, clé « ap<oid> ») ; rend aussi cette vague (PV) et la raison.
+--- Prévision éteinte ou sans relevé : `base`. Lecteurs : Team.view (outposts[i].want_t, .protect), planificateur (postes de défense).
+function SurvieQg.garde(f, oid, tick, base)
+  local st = f.prevision
+  if not (st and st.pc and Prev.enabled()) then return base, 0, "base" end
+  local s = st.pc.sites and st.pc.sites["ap" .. tostring(oid)]
+  return Ga.want({ base = base, w5 = s and s.w5, w15 = s and s.w15, mem = SurvieQg.hit(f, oid, tick), tv = st.turret_value })
 end
 
 --- Comme SurvieQg.protect, et note le résultat dans f.team.s1.prot (tick du dernier constat, nombres seulement) : la reconstruction le lit sans
