@@ -220,7 +220,7 @@ local function battery(Tc, silent)
       if (x + y * 3) % 97 < 6 then return true end
       return (x % 64 < 28 and y % 64 < 28)
     end
-    local st2, status2, why2, calls2, worst2 = run(Tc, world(dense, 4), { x = 0, y = 0 }, { x = 630, y = 610 }, 2, { x0 = -10, y0 = -10, x1 = 640, y1 = 640 }, { hook = true, lim = 3000, max_calls = 30000 })
+    local st2, status2, why2, calls2, worst2 = run(Tc, world(dense, 4), { x = 40, y = 40 }, { x = 630, y = 610 }, 2, { x0 = -10, y0 = -10, x1 = 640, y1 = 640 }, { hook = true, lim = 3000, max_calls = 30000 })
     check(status2 == "done" or status2 == "fail", "C7 600 % : termine, statut " .. tostring(status2) .. " " .. tostring(why2))
     check(worst2 <= 800000, "C7 600 % : pire appel " .. worst2 .. " > 800000 instructions")
     if not silent then

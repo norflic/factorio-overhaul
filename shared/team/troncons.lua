@@ -30,9 +30,9 @@ Tc.LEG_CELLS = 5           -- cases par tronçon (40 tuiles : un A* local de que
 Tc.SHORT = 48              -- tuiles (Manhattan) : en deçà, un seul tronçon, sans plan grossier
 Tc.LEG_BUDGET = 4000       -- états développés au plus par tronçon (PROPRE à chaque tronçon ; multiplié à chaque échec à la même pointe)
 Tc.LEG_MARGIN = 20         -- tuiles autour des deux bouts d'un tronçon (la boîte de sa recherche)
-Tc.SLICE = 260             -- états développés au plus par appel (mesuré par debug.sethook : tests/troncons_test.lua)
+Tc.SLICE = 180             -- états développés au plus par appel (mesuré par debug.sethook : 1 500 instructions par état, souterrains compris ; le coût réel du monde est plus cher que la doublure)
 Tc.SAMPLE_CELLS = 48       -- cases lues au plus par appel (une case = 16 points ; au plus 3 chunks neufs par appel)
-Tc.COARSE_NODES = 800      -- cases développées au plus par appel
+Tc.COARSE_NODES = 500      -- cases développées au plus par appel (780 instructions par case mesurées : 390 000 par appel au pire)
 Tc.MIN_FREE = 2            -- points libres (sur 16) sous lesquels une case est bouchée
 Tc.ORE_COST = 3            -- surcoût d'une case de gisement au plan grossier (le couloir évite les champs sans en payer le prix à l'A* fin)
 Tc.MAX_REPAIRS = 24        -- réparations SANS tronçon réussi au plus (bandes de 5 cases : au plus environ 480 tuiles de décalage de chaque côté ; au-delà, la barrière est réelle)
@@ -375,7 +375,7 @@ local function run_leg(st, ctx)
   local b = st.box
   local box = { x0 = math.max(b.x0, math.min(sx, wp.x) - M), y0 = math.max(b.y0, math.min(sy, wp.y) - M),
     x1 = math.min(b.x1, math.max(sx, wp.x) + M), y1 = math.min(b.y1, math.max(sy, wp.y) + M) }
-  local budget = Tc.LEG_BUDGET * (1 + (st.long_fails or 0)) * (st.relaxed and 3 or 1) -- (un tronçon qui manque d'états, pas un tronçon sans issue)
+  local budget = Tc.LEG_BUDGET * (1 + math.min(st.long_fails or 0, 3)) * (st.relaxed and 3 or 1) -- (un tronçon qui manque d'états, pas un tronçon sans issue)
   local ugs = st.ugs
   local rctx = { maxd = ctx.maxd, ore = ctx.ore, sd = sd, weight = Tv.GAME_WEIGHT, max = budget, slice = ctx.slice or Tc.SLICE, resume = st.rs, no_detour = true }
   if ctx.maxd then
@@ -495,8 +495,5 @@ function Tc.step(st, ctx)
   end
   return "fail", "etat inconnu", false
 end
-
---- Nombre de tronçons posés, pour le journal.
-function Tc.legs(st) return #st.legs end
 
 return Tc
