@@ -19,13 +19,16 @@ local K = SPR.kaiju
 assert(K and K.course and K.attaque, "titans : feuilles du Kaiju absentes (py -3.9 tools/render/pieces/titans/feuilles_titans.py)")
 
 --- Une couche d'une animation : `c` (feuille), `a` (animation), `k` échelle du jeu, `extra` posé sur la couche et sa hr_version.
+--- Forme vanilla des déchiqueteurs (biterrunanimation) : `filenames` + `lines_per_file` + `line_length` + `slice` (OBLIGATOIRE avec
+--- `filenames`, prototype-api.json ; le moteur refusait « Key "slice" not found », banc content V0677) ; la grille d'un fichier est
+--- exactement ll × lpf = images d'UNE direction (lecture continue, direction par direction).
 local function couche(c, a, k, extra)
   local d = a.densite
   local layer = {
-    filenames = c.lr, lines_per_file = c.lpf, line_length = c.ll, width = c.lw, height = c.lh, frame_count = a.images, direction_count = K.directions,
+    filenames = c.lr, lines_per_file = c.lpf, line_length = c.ll, slice = c.ll, width = c.lw, height = c.lh, frame_count = a.images, direction_count = K.directions,
     shift = { c.sx * k, c.sy * k }, scale = k * 32 / (d / K.reduc),
     hr_version = {
-      filenames = c.hr, lines_per_file = c.lpf, line_length = c.ll, width = c.w, height = c.h, frame_count = a.images, direction_count = K.directions,
+      filenames = c.hr, lines_per_file = c.lpf, line_length = c.ll, slice = c.ll, width = c.w, height = c.h, frame_count = a.images, direction_count = K.directions,
       shift = { c.sx * k, c.sy * k }, scale = k * 32 / d,
     },
   }

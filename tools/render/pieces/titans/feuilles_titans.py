@@ -128,9 +128,15 @@ def kaiju(S, src, poids):
         for c, idx in (("main", 0), ("glow", 1), ("shadow", 2)):
             x0, y0, x1, y1 = uni[c]
             cw, ch = x1 - x0, y1 - y0
-            ll = max(1, min(nb, MAX_PX // cw))
-            lpf = (nb + ll - 1) // ll
-            assert ch * lpf <= MAX_PX, (anim, c, cw, ch, ll, lpf)
+            # grille EXACTE (ll × lpf = nb images) : le moteur lit `filenames` en continu, ll × lpf images par fichier (F-TITANS : une
+            # grille 3 × 3 pour 8 images décalait la direction suivante d'une cellule) ; la plus large qui tient dans MAX_PX
+            ll = None
+            for cand in range(nb, 0, -1):
+                if nb % cand == 0 and cand * cw <= MAX_PX and (nb // cand) * ch <= MAX_PX:
+                    ll = cand
+                    break
+            assert ll is not None, (anim, c, cw, ch, nb)
+            lpf = nb // ll
             fichiers_hr, fichiers_lr = [], []
             for k in range(DIRS):
                 feuille = np.zeros((ch * lpf, cw * ll, 4), np.uint8)

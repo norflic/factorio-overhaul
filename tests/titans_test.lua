@@ -228,6 +228,35 @@ for _, p in ipairs({ "script/robots/titans.lua", "shared/td/waves.lua" }) do
   check(not src:find("%f[%w_]global%f[^%w_]"), "§5 " .. p .. " : global jamais nommé")
 end
 check(read("script/td/director.lua"):find("TD.compose(st.wave, RNG.float, Armee.age(game.forces[DEFENDER]))", 1, true) ~= nil, "§5 le directeur passe l'âge de la partie aux vagues")
+-- F-TITANS (banc content V0677) : une RotatedAnimation à `filenames` exige `slice` et `lines_per_file` (prototype-api.json : « Mandatory if
+-- filenames is defined » ; le schéma du harness les voit facultatifs : il ne l'attrape pas). Contrôle textuel sur TOUT prototypes/ : chaque
+-- table qui pose `filenames =` pose aussi `slice =` (ou en hérite : arsenal_special le complète), et la grille d'un fichier du Kaiju est exacte.
+do
+  local function lua_files(dir, out)
+    local p = io.popen('dir /b /s "' .. dir:gsub("/", "\\") .. '\\*.lua" 2>nul')
+    if p then
+      for line in p:lines() do out[#out + 1] = line end
+      p:close()
+    end
+    return out
+  end
+  local files = lua_files("prototypes", {})
+  check(#files > 10, "§5 prototypes/ listé (" .. #files .. " fichiers)")
+  for _, f in ipairs(files) do
+    local src = read(f)
+    if src:find("filenames%s*=") then
+      check(src:find("slice%s*=") ~= nil, "§5 " .. f .. " : `filenames` sans `slice` (le moteur refuse la RotatedAnimation)")
+    end
+  end
+  if okspr and SPR.kaiju and SPR.kaiju.course then
+    for _, anim in ipairs({ "course", "attaque" }) do
+      for _, nomc in ipairs({ "main", "glow", "shadow" }) do
+        local c = SPR.kaiju[anim].couches[nomc]
+        check(c.ll * c.lpf == SPR.kaiju[anim].images, "§5 Kaiju " .. anim .. " " .. nomc .. " : grille exacte ll × lpf = images (lecture continue de filenames)")
+      end
+    end
+  end
+end
 
 ---------------------------------------------------------------------------------------------------
 -- §6 vagues
