@@ -5,7 +5,7 @@
   chevalets sont posés sur leurs puits (débit de brut : 7 chevalets = 70 unités/s contre 20 pour un module : 3 modules). Chaîne observée :
   Pet.think -> rangee_check (débit contre consommation, lus aux prototypes) -> chantier de rangée (plan pur : pas, bus, copies) -> réserve -> ravivage
   par les PNJ -> raffineries et usines posées, brut du bus relié à chaque raffinerie (un seul système de fluide), courant.
-  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui petrole-rangee -- 9800 petrole-rangee <source>
+  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui petrole-rangee -- 15000 petrole-rangee <source>
   Journal : [FO-PETROLE-RANGEE] (relevés) et les lignes [FO-PETROLE] du mod.
 ]]
 
@@ -60,7 +60,7 @@ end
 return {
   description = "PETROLE-RANGEE etape 2 : rangee de modules sur bus (raffinerie + usine du plastique copiees le long d'un bus de brut)",
   base = nil,
-  check_tick = 9750,
+  check_tick = 14750,
 
   init = function(ctx)
     local st = ctx.state()
@@ -156,6 +156,35 @@ return {
     local nr, np, linked, powered, nsys = 0, 0, 0, 0, 0
     if st.force then nr, np, linked, powered, nsys = census(s, st.force) end
     ctx.log(string.format("[FO-PETROLE-RANGEE] FIN : raffineries %d, usines %d, entrees raccordees %d, alimentees %d, systemes de brut %d", nr, np, linked, powered, nsys))
+    -- diagnostic : systemes de fluide des entrees de chaque raffinerie, puis des tuyaux regroupes par systeme (n, boite, fluide)
+    if st.force then
+      for _, r in ipairs(s.find_entities_filtered({ name = "oil-refinery", force = st.force })) do
+        ctx.log(string.format("[FO-PETROLE-RANGEE] raffinerie (%.1f, %.1f) dir %s : systemes entrees %s / %s, raccords %d / %d, courant %s", r.position.x, r.position.y,
+          tostring(r.direction), tostring(r.fluidbox.get_fluid_system_id(1)), tostring(r.fluidbox.get_fluid_system_id(2)),
+          #r.fluidbox.get_connections(1), #r.fluidbox.get_connections(2), tostring(r.electric_network_id)))
+      end
+      local groups, order = {}, {}
+      for _, pp in ipairs(s.find_entities_filtered({ name = "pipe", force = st.force })) do
+        local sid = pp.fluidbox.get_fluid_system_id(1) or 0
+        local g = groups[sid]
+        if not g then g = { n = 0, x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, fl = {} }; groups[sid] = g; order[#order + 1] = sid end
+        g.n = g.n + 1
+        g.x0, g.y0 = math.min(g.x0, pp.position.x), math.min(g.y0, pp.position.y)
+        g.x1, g.y1 = math.max(g.x1, pp.position.x), math.max(g.y1, pp.position.y)
+        for name in pairs(pp.get_fluid_contents()) do g.fl[name] = true end
+      end
+      table.sort(order)
+      for _, sid in ipairs(order) do
+        local g = groups[sid]
+        local fl = {}
+        for name in pairs(g.fl) do fl[#fl + 1] = name end
+        table.sort(fl)
+        ctx.log(string.format("[FO-PETROLE-RANGEE] systeme %d : %d tuyaux, boite (%.0f, %.0f) - (%.0f, %.0f), fluides [%s]", sid, g.n, g.x0, g.y0, g.x1, g.y1, table.concat(fl, ",")))
+      end
+      for _, pl in ipairs(s.find_entities_filtered({ name = "chemical-plant", force = st.force })) do
+        ctx.log(string.format("[FO-PETROLE-RANGEE] usine (%.1f, %.1f) : courant %s", pl.position.x, pl.position.y, tostring(pl.electric_network_id)))
+      end
+    end
     ctx.check(nr >= 3, "3 modules : au moins 3 raffineries (1 de base + 2 copies)", tostring(nr))
     ctx.check(np == nr, "autant d'usines que de raffineries", np .. "/" .. nr)
     ctx.check(linked == nr and nr > 0, "chaque raffinerie a ses deux entrees de brut raccordees", linked .. "/" .. nr)
