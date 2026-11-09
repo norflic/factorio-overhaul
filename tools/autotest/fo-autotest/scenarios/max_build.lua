@@ -83,8 +83,12 @@ return function(opts)
     local st = ctx.state()
     -- Coeur : un fichier (pas le journal) ecrit toutes les 3 600 ticks, pour savoir jusqu'ou le jeu tourne quand le journal se tait.
     if e.tick % 3600 == 0 then
-      game.write_file("fo-shots/coeur.txt", string.format("tick %d vitesse %s joueurs %d\n", e.tick, tostring(game.speed),
-        #game.connected_players), true)
+      local pl = game.players[1]
+      local ch = pl and pl.character
+      game.write_file("fo-shots/coeur.txt", string.format(
+        "tick %d vitesse %s joueurs %d finished %s continuing %s ticks_played %d personnage %s pv %s\n", e.tick,
+        tostring(game.speed), #game.connected_players, tostring(game.finished), tostring(game.finished_but_continuing),
+        game.ticks_played, tostring(ch and ch.valid), tostring(ch and ch.valid and ch.health)), true)
     end
     if not opts.nomap and e.tick >= opts.releve_at and e.tick % 300 == 0 and e.tick < opts.releve_at + 2400 and not st.releve_done then
       st.releve_done = C.releve(ctx, st) or false
