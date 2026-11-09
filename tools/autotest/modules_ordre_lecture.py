@@ -38,9 +38,13 @@ def num(s):
 
 def read(arch, teams, minutes):
     prod, tech, hand = {}, {}, {}
+    fer = {}
     relais = {}
     sature = {}
     for ln in lines_of(arch):
+        mf = re.search(r"\[FO-FONCTION\] prod minute (\d+) \| (\S+) \|.* fer_min=([\d.]+)", ln)
+        if mf:
+            fer[(int(mf.group(1)), mf.group(2))] = num(mf.group(3))
         m = re.search(r"\[FO-FONCTION\] prod minute (\d+) \| (\S+) \|.* engrenages_min=([\d.]+) circuits_min=([\d.]+) packs_fab=(\d+)", ln)
         if m:
             prod[(int(m.group(1)), m.group(2))] = (num(m.group(3)), num(m.group(4)))
@@ -82,6 +86,10 @@ def read(arch, teams, minutes):
             print("%-7s | %3d | %20s | %12s (%.2f PNJ) | %12s | %18s | %12s (%.2f PNJ) | %12s | %9s |" % (
                 t, mn, ci, hc[1], hc[0] or 0, part(ci, hc[1]), eg, hg[1], hg[0] or 0, part(eg, hg[1]),
                 ("%.1f" % (pk / 10.0)) if pk is not None else "-"))
+    for t in teams:
+        vals = [v for (mn, tt), v in sorted(fer.items()) if tt == t and 20 <= mn <= 120 and v is not None]
+        print("fer moyen 20-120 min (plaques de fer/min, [FO-FONCTION] prod fer_min) : %-7s %s sur %d releve(s)" % (
+            t, ("%.1f" % (sum(vals) / len(vals))) if vals else "-", len(vals)))
     print("relais (lignes [FO-PORTES] relais) : " + (", ".join("%s %d" % (k, relais[k]) for k in sorted(relais)) or "aucune"))
     print("retenues par la porte du transport (decisions de l'executant) : " + (", ".join("%s %d" % (k, sature[k]) for k in sorted(sature)) or "aucune"))
 
