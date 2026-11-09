@@ -495,10 +495,12 @@ function Champ.frame(f, surface, o)
     cs[#cs + 1] = string.format("cote %s %s%s", c.side > 0 and "+" or "-", c.voie and "voie de charbon" or "coffre de tete",
       c.why and (" (" .. c.why .. ")") or "")
   end
-  local journal = function(rep) -- lot COUT-600 : écrit en différé (Champ.flush) avec le résultat de Cv.verify
+  -- (lot COUT-600 : la ligne du plan est écrite tout de suite, comme avant, sans le résultat de Cv.verify ; ce résultat suit sur sa propre ligne,
+  -- écrite par Champ.flush avec log seul : say compte les lignes dans f.champ_logs (global), un compte écrit en différé ferait diverger une
+  -- partie rechargée de la même partie continuée)
   say(f, string.format("avant-poste %d (%s) : plan du champ, %d bande(s) (%d avec des paires), axe %s, sortie %s ; %d foreuses, %d fours, %d poteaux, %d tapis ; %s",
     o.id, o.kind, #prs, with, plan.axis, plan.exit > 0 and "+" or "-", plan.stats.drills, plan.stats.furnaces,
-    plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
+    plan.stats.poles, plan.stats.belts, "verification du plan : ligne suivante") .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
     .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
@@ -521,14 +523,14 @@ function Champ.frame(f, surface, o)
     log(string.format("[FO-CHAMP] %s : colonne refusee : pas de voie de charbon (avant-poste %d, bande %d, cote %s : %s) a %.1f min", f.key or "player",
       o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
   end
-  end
-  FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, journal = journal }
+  FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, oid = o.id, kind = o.kind }
   return plan.frame, prs, plan
 end
 
 --- Lot COUT-600 : UNE vérification de cadre en attente de l'équipe `f` (la plus ancienne) : Cv.verify puis la ligne de journal [FO-CHAMP]. À appeler à
 --- chaque pensée de la migration du champ (Mig.think) et avant un nouveau plan : un coût de vérification par appel, jamais celui du plan. Les attentes
---- sont LOCALES (jamais dans global) : un chargement de sauvegarde les perd, et seule la ligne de journal manque. Rend vrai si une vérification a eu lieu.
+--- sont LOCALES (jamais dans global) : un chargement de sauvegarde les perd, et seule la ligne de journal manque (Champ.flush n'écrit rien dans global ;
+--- c'est l'appelant, par un drapeau de global, qui décide de la pensée à part). Rend vrai si une vérification a eu lieu.
 function Champ.flush(f)
   for i, it in ipairs(FRAME_PENDING) do
     if it.f == f then
@@ -536,7 +538,8 @@ function Champ.flush(f)
       Profiler.fstart("champ:frame-verify")
       local rep = Cv.verify(it.plan, it.spec)
       Profiler.fstop("champ:frame-verify")
-      it.journal(rep)
+      log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : verification du plan : %s a %.1f min", f.key or "player", it.oid, tostring(it.kind), Cv.line(rep),
+        game.tick / 3600))
       return true
     end
   end
