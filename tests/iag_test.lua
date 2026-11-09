@@ -511,6 +511,7 @@ do
     ["shared/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) donné par l'appelant, lot RANGEES-ASM" },
     ["script/team/rapatriement.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) du bras choisi, lot RAPATRIEMENT" },
     ["shared/team/blocs_audit.lua"] = { "TYPE", 2, "genres de pièces (kind lab, inserter) de l'audit n entrées / m sorties, lot RESEAU-GRAPHE" },
+    ["shared/team/depart_coffre.lua"] = { "EXEC", 2, "stock de départ du coffre d'équipe posé d'office (DONNÉES, lot DEFAUTS-DC) : la liste des objets du guide, lue par PlayerTeam.found_default ; aucune décision n'y lit un nom" },
     ["shared/team/petrole_donnees.lua"] = { "EXEC", 4, "pièces de l'exécutant des chaînes à fluides (tuyau, coffre des quais, bras, poteaux) : briques du plan directeur, comme automatisation_donnees" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
     ["shared/team/lot_minerai_seuils.lua"] = { "EXEC", 1, "SEUILS de la règle pure shared/team/lot_minerai.lua en DONNÉES (lot MINERAI-SONDE) : le seul nom est le minerai à seuil de quantité (G42) ; la règle, elle, ne nomme rien" },

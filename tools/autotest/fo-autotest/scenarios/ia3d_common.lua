@@ -256,12 +256,8 @@ return {
   check_tick = TAG_CHECK,
 
   init = function(ctx)
-    -- Lot IA3-a : variantes « ia3a-* » : le réglage de l'essai est allumé AVANT la guerre (il est figé par chaque équipe
-    -- de faction à sa première pensée, settings/ia3.lua) ; sans le réglage dans le mod, la variante échoue ici.
-    if opts.ia3_research then
-      local v = ctx.remote("factorio-overhaul", "war_setting", "fo-war-ia3-recherche", true)
-      ctx.check(v == true, "reglage fo-war-ia3-recherche allume (essai IA3-a)", tostring(v))
-    end
+    -- Lot IA3-a : l'essai « recherche d'abord » (fo-war-ia3-recherche) n'existe plus dans le mod (aucun des 61 reglages) : war_setting
+    -- refuse sans erreur un reglage absent, l'ecriture ne faisait rien et son controle echouait. Supprime (lot DEFAUTS-DC).
     INIT[variant](ctx)
     local cfg = {}
     for _, n in ipairs({ "fo-npc-start", "fo-war-workers", "fo-recruit-idle-max", "fo-player-team-npc-max", "fo-war-factions", "fo-war-ia3-recherche" }) do
