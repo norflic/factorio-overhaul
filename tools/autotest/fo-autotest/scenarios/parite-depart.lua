@@ -1,7 +1,7 @@
 --[[
   Lot PARITE (retour du DC du 2/11, point 19) : le départ de votre équipe est celui d'une faction. La guerre part SEULE (réglages de carte
   du guide : lancement automatique), SANS aucun coffre posé par le banc : le mod pose le coffre d'équipe d'office (script/faction/war.lua,
-  PlayerTeam.found_default), l'équipe naît avec les 4 tourelles de QG d'une faction (shared/team/depart.lua), le coffre vide.
+  PlayerTeam.found_default), l'équipe naît avec les 4 tourelles de QG d'une faction (shared/team/depart.lua), le coffre garni du stock de depart (lot DEFAUTS-DC).
   Contrôles : voir fo-logs/2026-11-02_PARITE/CRITERES.md, P1.1 à P1.4 (P1.5 et P1.6 : tests/parite_test.lua et parite-migration).
   Lancement : `banc.py --qui PARITE -- 1500 parite-depart <source>` ; journal : [FO-PARITE-DEPART].
 ]]
@@ -14,7 +14,7 @@ local function ammo_of(t)
 end
 
 return {
-  description = "PARITE : coffre d'equipe pose d'office au lancement automatique, 4 tourelles de QG armees, coffre vide",
+  description = "PARITE : coffre d'equipe pose d'office au lancement automatique, 4 tourelles de QG armees, coffre garni du stock de depart",
   check_tick = CHECK,
 
   init = function(ctx)
@@ -65,7 +65,9 @@ return {
     ctx.check(#turrets == 4, "P1.2 exactement 4 tourelles de QG a votre equipe", #turrets)
     ctx.check(#turrets > 0 and low >= 15, "P1.2 chacune armee (au moins 15 chargeurs restants ; 20 offerts)", low)
     ctx.check(near, "P1.2 tourelles a moins de 16 tuiles du coffre")
-    ctx.check(st.items_at_birth == 0, "P1.3 le coffre ne contenait aucun objet offert a sa naissance", st.items_at_birth)
+    -- Lot DEFAUTS-DC (QCM du DC 9/11) : le coffre pose d'office est GARNI a sa naissance du stock de depart du guide (883 objets : 400 fer, 100 cuivre,
+    -- 200 charbon, 100 pierre, 3 pistolets, 60 chargeurs, 8 foreuses, 8 fours, 4 coffres), une seule fois (shared/team/depart_coffre.lua).
+    ctx.check(st.items_at_birth == 883, "P1.3 le coffre est garni du stock de depart a sa naissance (883 objets)", st.items_at_birth)
     local poi = ctx.call("points_of_interest")
     ctx.check(poi.player ~= nil, "P1.3 equipe du joueur active")
     local workers = #s.find_entities_filtered({ name = "fo-companion", force = "player" })
