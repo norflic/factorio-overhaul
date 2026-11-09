@@ -232,6 +232,13 @@ script.on_init(function()
   if not KIT_EGAL[SCENARIO] then
     pcall(remote.call, "factorio-overhaul", "war_setting", "fo-war-kit-genereux", true)
   end
+  -- Lot DEFAUTS-DC (QCM du DC 9/11 : « guerre cochee par defaut ») : le defaut du mod est devenu COCHE (fo-war-autostart). Les bancs qui ne
+  -- jouent pas la partie du DC (content, vitrine, mesures, scenarios de lot...) ne doivent pas voir une guerre lancee a leur insu : le banc
+  -- l'ETEINT explicitement, sauf pour un scenario qui declare `autostart_defaut = true` (la partie du guide : scenarios/verif_guide_common.lua
+  -- et tout ce qui en derive), qui LIT le defaut du mod. Les scenarios qui ecrivent eux-memes le reglage le font apres, a leur init.
+  if not (PLUGIN and PLUGIN.autostart_defaut == true) then
+    pcall(remote.call, "factorio-overhaul", "war_setting", "fo-war-autostart", false)
+  end
   if PLUGIN then
     if PLUGIN.base then
       if SCENARIOS[PLUGIN.base] then

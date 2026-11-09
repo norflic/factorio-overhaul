@@ -126,6 +126,14 @@ do
   local f = global.fo.pteam.team
   check(f ~= nil and f.is_player and f.hq and f.hq.valid, "équipe fondée d'office après le lancement automatique")
   check(f and f.hq and f.hq.name == "fo-team-chest" and f.hq.force.name == "player", "coffre d'équipe, force player")
+  -- Lot DEFAUTS-DC : le coffre posé d'office est GARNI du stock de départ du guide (shared/team/depart_coffre.lua), une seule fois
+  local DC = require("shared.team.depart_coffre")
+  local garni = f and f.hq and f.hq.valid
+  for _, it in ipairs(DC.CONTENTS) do
+    if not (garni and f.hq.get_item_count(it[1]) == it[2]) then garni = false end
+  end
+  check(garni, "coffre d'office garni exactement du stock de départ (9 objets)")
+  check(global.fo.pteam.depart_garni == true, "départ garni marqué dans la partie (ns.depart_garni)")
   local ts = turrets_of(s, "player")
   check(#ts == 4 and min_ammo(ts) >= 20, "4 tourelles armées au QG d'office (" .. #ts .. ")")
   local near = true
@@ -147,9 +155,25 @@ do
   local PlayerTeam = require("script.team.player_team")
   local ok, why = PlayerTeam.found_default(s, { x = 0, y = 0 })
   check(ok == false and why == "equipe-existe", "second appel : l'équipe existe, rien")
+  check(f.hq.get_item_count("iron-plate") == 400 and f.hq.get_item_count("iron-chest") == 4, "second appel : pas de double garniture")
   local pwr = 0
   for _, e in ipairs(s.find_entities_filtered({ name = "fo-team-chest" })) do pwr = pwr + 1 end
   check(pwr == 1, "un seul coffre d'équipe sur la carte")
+end
+
+---------------------------------------------------------------------------------------------------
+section("3b2. Lot DEFAUTS-DC : le joueur fonde lui-même l'équipe AVANT le lancement : aucun coffre d'office, aucune garniture")
+M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0, war_autostart = true })
+do
+  local s = game.surfaces[1]
+  local mine = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+  M.world().events[defines.events.on_built_entity]({ created_entity = mine, player_index = 1, tick = game.tick })
+  M.run_ticks(700)
+  local n = 0
+  for _ in ipairs(s.find_entities_filtered({ name = "fo-team-chest" })) do n = n + 1 end
+  check(n == 1 and mine.valid and mine.get_item_count("iron-plate") == 0 and mine.get_item_count("burner-mining-drill") == 0,
+    "coffre du joueur : seul coffre, vide (ni coffre d'office ni garniture)")
+  check(global.fo.pteam.depart_garni ~= true, "départ non marqué garni")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -159,6 +183,26 @@ do
   check(remote.call("factorio-overhaul", "war_start", 2, 100, 4, 320) == true, "guerre lancée par le remote")
   M.run_ticks(700)
   check(global.fo.pteam.team == nil, "aucun coffre d'équipe posé par le lancement de banc")
+end
+
+---------------------------------------------------------------------------------------------------
+section("3c2. Lot DEFAUTS-DC : sauvegardes existantes : le nouveau défaut (coché) ne lance rien chez elles")
+-- (a) réglage DÉJÀ ÉCRIT décoché dans la sauvegarde : aucune guerre, aucune équipe d'office, même longtemps après
+M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0, war_autostart = false })
+do
+  M.run_ticks(1500)
+  check(global.fo.war == nil or not global.fo.war.active, "réglage enregistré décoché : la guerre ne part pas")
+  check(global.fo.pteam == nil or global.fo.pteam.team == nil, "réglage enregistré décoché : aucune équipe d'office")
+end
+-- (b) guerre DÉJÀ lancée (remote, ou sauvegarde en cours) puis réglage coché : pas de seconde fondation, pas de coffre d'office
+M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0, war_autostart = true })
+do
+  check(remote.call("factorio-overhaul", "war_start", 2, 100, 4, 320) == true, "guerre lancée avant le passage du lancement automatique")
+  M.run_ticks(1500)
+  local nf = 0
+  for _ in ipairs(global.fo.war.factions or {}) do nf = nf + 1 end
+  check(nf == 2, "guerre déjà active, réglage coché : toujours 2 factions (" .. nf .. ")")
+  check(global.fo.pteam == nil or global.fo.pteam.team == nil, "guerre déjà active, réglage coché : aucun coffre d'office, aucune garniture")
 end
 
 ---------------------------------------------------------------------------------------------------
