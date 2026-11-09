@@ -1,5 +1,7 @@
 # REPRISE : état du projet pour l'orchestrateur suivant
 
+> **0.6.74 (9/11 fin d'après-midi, demande du DC, 30 min)** : 0.6.73 + `bus-long` + `mall-allonge` + `geant-d-abord` + réservation du charbon + famine forcée + repli du tampon (`v0674`). Preuve : `content` et parties de 60 min à 600 % en Normal seulement (`fo-logs/2026-11-09_V0674-F`), AUCUNE partie de 120 min sur cette tête ni mesure comparative suffisante. Cause de la stagnation, mesurée : (1) `o.full` posé par la migration dès sa demande, (2) `Planner.no_go` (« défendre d'abord ») sans tourelle. Le bus ne prime toujours pas sur les trajets PNJ : seul le tampon est débloqué ; refus suivant connu : « bras bloqué » à la sortie du four. Exemption de la tourelle : décision forcée du DC, à revoir si les pertes montent.
+
 > **À lire en premier** par tout agent qui reprend la gestion du projet. Les fichiers de référence sont
 > les suivants :
 > - `OBJECTIFS.md` : le contrat, avec les citations du Directeur Créatif, les critères et le suivi des
