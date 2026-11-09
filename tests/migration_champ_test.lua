@@ -321,6 +321,9 @@ local function suite(verbose)
   _, r = so({ pairs = CFG.min_pairs - 1 }); ck(r == "paires", "départ : trop peu de paires")
   _, r = so({ lattice = false }); ck(r == "treillis", "départ : champ hors du treillis")
   _, r = so({ plates = CFG.min_plates - 1 }); ck(r == "plaques", "départ : trop peu de plaques libres")
+  _, r = so({ plates = 100, min_plates = 100 }); ck(r == true or r == "ok", "départ : seuil propre au départ (100) atteint : il passe")
+  _, r = so({ plates = 99, min_plates = 100 }); ck(r == "plaques", "départ : seuil propre au départ (100) : 99 plaques refusées")
+  _, r = so({ plates = 0, min_plates = 0 }); ck(r == "ok", "départ : seuil propre 0 : aucune plaque exigée (plaque clé)")
   _, r = so({ retry = 2000 }); ck(r == "attente", "départ : nouvel essai plus tard")
   _, r = so({ enemy = true }); ck(r == "ennemi", "départ : ennemi à portée")
   _, r = so({ migr = "fini" }); ck(r == "fait", "départ : déjà migré")
@@ -1573,6 +1576,80 @@ do
     local bad = (not ok) and 1 or (failures - saved_f)
     passes, failures = saved_p, saved_f
     check(bad > 0, "P : mutant refusé : " .. mu[1] .. ((not ok) and (" (plantage : " .. tostring(err):sub(1, 60) .. ")") or ""))
+  end
+end
+
+do
+  -- K. Lot MEGA-FONDERIE (9/11) : la garde de plaques du DÉPART d'une bande de la plaque CLÉ (le fer) lit le coffre BRUT (seuil Th.CFG.key_min_plates, 0),
+  -- non le stock libre contre 150 (314159265 : 1 000 plaques au coffre, « libres » sous 150 pendant 40 min, aucune bande de fer). Les autres minerais gardent
+  -- la garde de plaques libres. Moteur simulé comme W2 : Champ.frame appelé = la bande a été planifiée (le départ est passé).
+  section("K. MEGA-FONDERIE : garde de la plaque cle sur le coffre brut")
+  local Thk = require("shared.team.thermique")
+  local function run_k(mutant)
+    local function trial(kind, free_plates, chest_plates, key_min)
+      local E = executor_run({ pairs = 8, mutant = mutant })
+      local Mig, f, o = E.Mig, E.f, E.o
+      local Ch = package.loaded["script.team.champ"]
+      local saved = { data = Ch.data, pole = Ch.powered_pole, frame = Ch.frame }
+      local asked = {}
+      Ch.data = function() return { stub = true }, {} end
+      Ch.powered_pole = function() return { x = 0, y = 0 } end
+      Ch.frame = function(_, _, oo) asked[#asked + 1] = oo.id; return nil, "essai" end
+      local saved_min = Thk.CFG.key_min_plates
+      if key_min then Thk.CFG.key_min_plates = key_min end
+      o.kind = kind
+      E.free[T.outposts.iron.product] = free_plates
+      E.chest[T.outposts.iron.product] = chest_plates
+      game.tick = 1000
+      E.think()
+      Thk.CFG.key_min_plates = saved_min
+      Ch.data, Ch.powered_pole, Ch.frame = saved.data, saved.pole, saved.frame
+      local said_key, said_wait = false, false
+      for _, l in ipairs(E.logs) do
+        if l:find("garde de la plaque cle", 1, true) then said_key = true end
+        if l:find("en veille (plaques)", 1, true) then said_wait = true end
+      end
+      E.restore()
+      return #asked > 0, said_key, said_wait
+    end
+    local started, said_key, said_wait = trial("iron", 50, 800)
+    check(started and said_key and not said_wait, "K1 : fer, libres 50 sous 150, brut 800 : la bande part, la ligne de journal dit libres et brut")
+    started, said_key = trial("iron", 800, 800)
+    check(started and not said_key, "K2 : fer, libres 800 : la bande part, pas de ligne (la regle ne change rien)")
+    started = trial("iron", 0, 0)
+    check(started, "K3 : fer, rien au coffre : seuil 0, la bande part (la pile reserve ses matieres)")
+    started, said_key, said_wait = trial("iron", 800, 50, 100)
+    check(not started and said_wait and not said_key, "K4 : seuil brut 100, brut 50 (libres 800) : c'est le BRUT qui garde, bande en veille")
+    started = trial("iron", 50, 800, 100)
+    check(started, "K5 : seuil brut 100, brut 800 (libres 50) : la bande part")
+    started, said_key, said_wait = trial("copper", 50, 800)
+    check(not started and said_wait and not said_key, "K6 : cuivre : la garde de plaques LIBRES reste (50 sous 150, brut 800), bande en veille")
+    started = trial("copper", 800, 0)
+    check(started, "K7 : cuivre : libres 800, la bande part")
+  end
+  run_k(nil)
+  local function mutk(from, to)
+    return function(src)
+      local i, j = src:find(from, 1, true)
+      assert(i and not src:find(from, j + 1, true), "motif de mutant : " .. from)
+      return src:sub(1, i - 1) .. to .. src:sub(j + 1)
+    end
+  end
+  local real_print = print
+  for _, mu in ipairs({
+    { "la plaque cle ignoree", mutk("local key = champ and o.kind == busy.key", "local key = false") },
+    { "tout minerai lit le brut", mutk("local key = champ and o.kind == busy.key", "local key = champ") },
+    { "la plaque cle lit le libre", mutk("local gross_plates = key and Stock.count(f, T.outposts.iron.product) or nil", "local gross_plates = key and free_plates or nil") },
+    { "journal toujours ecrit", mutk("if ok and key and free_plates < cfg.min_plates then", "if ok and key then") },
+    { "journal jamais ecrit", mutk("if ok and key and free_plates < cfg.min_plates then", "if false then") },
+  }) do
+    local saved_p, saved_f = passes, failures
+    _G.print = function() end
+    local ok, err = pcall(run_k, mu[2])
+    _G.print = real_print
+    local bad = (not ok) and 1 or (failures - saved_f)
+    passes, failures = saved_p, saved_f
+    check(bad > 0, "K : mutant refuse : " .. mu[1] .. ((not ok) and (" (plantage : " .. tostring(err):sub(1, 60) .. ")") or ""))
   end
 end
 
