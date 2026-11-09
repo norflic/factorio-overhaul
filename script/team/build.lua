@@ -716,67 +716,8 @@ local function plant_owner(b, pid)
   return nil
 end
 
---- Lot MALL-PAVAGE (directive du DC du 9/11 : « éradiquer l'espacement mort », un bloc par lot de 24 à pas 28 = 17 à 20 tuiles de vide) :
---- numéro du projet `pid` si c'est un bloc ou une cellule de mall (gen « bloc » ou « patron ») vivant, posé dans un lot du treillis :
---- son lot en reçoit un autre, collé à lui (Build.Pave.pin, Mp.pave_origin), sinon nil.
---- (Sous Build.Pave, sans locale nouvelle : le chunk principal de ce fichier est à la limite des 200 locales de Lua 5.2.)
-Build.Pave = { Mp = require("shared.team.mall_paving"), GEN = { bloc = true, patron = true } }
-function Build.Pave.owner(b, pid)
-  local p = b.projects[pid]
-  if p and not p.abandoned and p.spec and Build.Pave.GEN[p.spec.gen] and p.parts and p.parts[1] and p.parts[1].kind == "module" then return pid end
-  return nil
-end
-
---- Emprise, dans le lot `k` (rect), de tout ce que les projets vivants y ont planifié (modules, têtes, quais) : { x0, y0, x1, y1 }
---- (x1, y1 exclus) ou nil, et rotation du premier module du lot. Projets parcourus par numéro croissant (une union : l'ordre est sans effet).
-function Build.Pave.box(b, k, rect)
-  local box, kk
-  for _, pid in ipairs(sorted_keys(b.projects)) do
-    local p = b.projects[pid]
-    if not p.abandoned and p.parts and p.parts[1] and p.parts[1].lot == k then
-      kk = kk or p.parts[1].k or 0
-      for _, e in ipairs(p.ents or {}) do
-        for _, t in ipairs(P.tiles_of(e)) do
-          if t[1] >= rect.x0 and t[1] < rect.x1 and t[2] >= rect.y0 and t[2] < rect.y1 then
-            if not box then box = { x0 = t[1], y0 = t[2], x1 = t[1] + 1, y1 = t[2] + 1 }
-            else
-              box.x0, box.y0 = math.min(box.x0, t[1]), math.min(box.y0, t[2])
-              box.x1, box.y1 = math.max(box.x1, t[1] + 1), math.max(box.y1, t[2] + 1)
-            end
-          end
-        end
-      end
-    end
-  end
-  return box, kk or 0
-end
-
---- Lot MALL-PAVAGE : épingle `fopts.within` à la place collée au bloc précédent du lot (Mp.pave_origin : à l'est, sinon au sud, à
---- Mp.GAP tuile), dans l'orientation du premier bloc ; les têtes du gabarit (P.port_room) ne mordent pas sur lui. Rend le gabarit
---- (P.fit n'a plus qu'une place à essayer), ou nil, raison (lot plein : le lot suivant prend).
-function Build.Pave.pin(b, c, g, rect, fopts)
-  local Mp = Build.Pave.Mp
-  local prev, k = Build.Pave.box(b, c.k, rect)
-  if not prev then return g end -- (rien de planifié dans le lot : P.fit cherche comme d'habitude)
-  local r = (k == 0) and g or M.rotate(g, k)
-  if not r then return nil, "pavage : gabarit non orientable" end
-  local lead = { x0 = 0, y0 = 0, x1 = r.w, y1 = r.h }
-  for _, t in ipairs(P.port_room(M.instantiate(r, 0, 0, 0), fopts.fan)) do
-    lead.x0, lead.y0 = math.min(lead.x0, t[1]), math.min(lead.y0, t[2])
-    lead.x1, lead.y1 = math.max(lead.x1, t[1] + 1), math.max(lead.y1, t[2] + 1)
-  end
-  local o, why = Mp.pave_origin(prev, { w = r.w, h = r.h, lead = lead }, rect, Mp.GAP, fopts.margin)
-  if not o then return nil, "pavage : " .. why end
-  fopts.within = { x0 = o.x, y0 = o.y, x1 = o.x + r.w, y1 = o.y + r.h }
-  return g
-end
-
 local function candidates(b, states, toward, res)
   local out = {}
-  -- lot MALL-PAVAGE : `Build.Pave.want` (posé par place_module juste avant l'appel, consommé ici : aucun autre appelant ne le voit) : le
-  -- gabarit à poser est un bloc ou une cellule de mall, un lot déjà pris par l'un d'eux reste candidat
-  local pave = Build.Pave.want
-  Build.Pave.want = nil
   if b.opts and b.opts.no_lots then return out end -- banc seulement (lot TV-REPLI, remote fo-ia1d set_option) : aucun lot candidat, le repli de placement simple doit prendre
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
@@ -791,14 +732,11 @@ local function candidates(b, states, toward, res)
     -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
     -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
     local shared = l.used and l.state ~= "gisement" and states.rive and plant_owner(b, l.used) or nil
-    -- lot MALL-PAVAGE : un lot pris par un bloc ou une cellule de mall en reçoit un autre, collé au précédent (place_module, Build.Pave.pin) ;
-    -- le lot reste au nom de son premier bloc (comme la rive partagée)
-    local paved = pave and not shared and l.used and l.state ~= "gisement" and Build.Pave.owner(b, l.used) or nil
     -- lot GISEMENTS : gisement voisin du QG refusé sans fin « hors du treillis » (journal du DC, cuivre d'ambre à 33 tuiles) : l'état d'un lot
     -- ne retient qu'UNE ressource et son premier relevé ; le lot qui porte ce minerai sert (P.fit raisonne à la tuile)
     local ore_lot = states.gisement and res and Gisements.lot_for_ore(l, res, P.MIN_RES_TILES)
     if ore_lot then ok_state = true end
-    if ((not l.used or l.state == "gisement" or shared) or paved) and ok_state and (not res or l.res == res or ore_lot) and not (l.bad and l.bad >= 2) then
+    if (not l.used or l.state == "gisement" or shared) and ok_state and (not res or l.res == res or ore_lot) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
       local avoided = false
@@ -809,7 +747,7 @@ local function candidates(b, states, toward, res)
         end
       end
       if not avoided then
-        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), pave = paved, k = k, shared = shared }
+        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k, shared = shared }
       end
     end
   end
@@ -899,7 +837,6 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
   local last = "pas de lot"
   local tries = 0
   -- lot TV-PLACE (C07) : le repli simple fournit ses propres lots (spirale) ; sinon le classement par distance d'avant
-  Build.Pave.want = Build.Pave.GEN[g.gen] -- lot MALL-PAVAGE : lu et consommé par candidates (un bloc de mall pave un lot déjà pris par un autre)
   for _, c in ipairs((opts and opts.simple_lots) or candidates(b, kind_states, toward, res)) do
     tries = tries + 1
     if tries > 8 then break end
@@ -919,16 +856,12 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
     fopts.front_ok = Build.Pur.front_ok(f, surface) -- lot PURETE-TAPIS : la queue d'un tapis du gabarit ne verse sur aucun tapis existant (nil : éteint)
-    -- lot MALL-PAVAGE : dans un lot déjà pris par un bloc de mall, P.fit n'essaie que la place collée au précédent (Build.Pave.pin)
-    local gp, pwhy = g, nil
-    if c.pave then gp, pwhy = Build.Pave.pin(b, c, g, rect, fopts) end
-    local fit, why
-    if gp then fit, why = P.fit(gp, rect, fopts) else why = pwhy end
+    local fit, why = P.fit(g, rect, fopts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
       local inst = M.instantiate(r, 0, fit.ox, fit.oy)
       return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan,
-        axis = fopts.axis, pen = fit.pen, d = fit.d, pave = c.pave, shared = c.shared }
+        axis = fopts.axis, pen = fit.pen, d = fit.d, shared = c.shared }
     end
     last = why or last
     if not (opts and opts.simple_lots) then bump(b.stats.plan_refused, last) end -- (le repli simple ne fausse pas le décompte des refus du plan)
@@ -938,8 +871,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.diag then opts.diag[#opts.diag + 1] = c.k .. ":" .. tostring(why) end
     -- (lot ENERGIE-CROISSANCE : la rive d'une centrale qui n'a plus de bord libre n'est pas un mauvais lot : sa centrale y reste et
     -- la remplacer doit pouvoir y revenir)
-    -- (lot MALL-PAVAGE : un lot plein pour un bloc de plus n'est pas un mauvais lot : son premier bloc y reste, + 0)
-    if not (opts and opts.nobad) and not c.shared then c.l.bad = (c.l.bad or 0) + (c.pave and 0 or 1) end
+    if not (opts and opts.nobad) and not c.shared then c.l.bad = (c.l.bad or 0) + 1 end
   end
   return nil, last
 end
@@ -3010,12 +2942,6 @@ local function plan_project(f, surface, p)
     b.lots[main.lot].used = main.shared
     log(string.format("[FO-ENERGIE] %s : projet %d, centrale posee sur la rive de la centrale %d (lot %s, autre bord de la meme eau)",
       f.key or "player", p.id, main.shared, main.lot))
-  end
-  -- lot MALL-PAVAGE : le lot pavé reste au nom de son premier bloc (un abandon du bloc de plus ne libère pas le lot)
-  if main.pave then
-    b.lots[main.lot].used = main.pave
-    log(string.format("[FO-MALL] %s : projet %d, bloc de mall colle au bloc %d dans le lot %s (pavage, gap %d) en (%d, %d)",
-      f.key or "player", p.id, main.pave, main.lot, Build.Pave.Mp.GAP, main.ox, main.oy))
   end
   if spec.feed or is_plant then
     Profiler.start("build:plan:feed")
