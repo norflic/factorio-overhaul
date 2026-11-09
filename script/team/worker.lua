@@ -51,6 +51,7 @@ local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minag
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local Src = require("script.team.sources") -- lot MINAGE-MAIN : ce qui dort dans les coffres de SORTIE (fonderies), tournée « fetch »
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
+local Fp = require("shared.team.fabrication_place") -- lot POSE-PERDUE : fabrication sur place, une recette à la fois, file vide entre deux
 local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri des tuiles de minage, positions lues une fois
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
 local Events = require("script.core.events") -- EFFONDREMENT : parade du kit offert (mort d'un PNJ, corps rendu)
@@ -1381,7 +1382,7 @@ local function to_background(agent, f, list, i, t0, tick)
     agent.bg = { jobs = { job }, hold = {}, last = tick }
   end
   agent.task, agent.steps, agent.pc, agent.failed = nil, nil, nil, nil
-  agent.craft_i, agent.craft_started = nil, nil
+  agent.craft_i, agent.craft_started, agent.craft_place = nil, nil, nil
   agent.last_project = task.project
   Board.release(f, agent) -- réservation non prise rendue au libre (comme finish)
   local w = CB.window(f.team)
@@ -1607,29 +1608,25 @@ local function run_steps(agent, tick)
       set(agent, "wait", tick)
       return
     elseif kind == "craft_now" then
-      -- Lot STOCKAGE-VITAL : fabrication sur place avec ce que le PNJ porte (coffre urgent après sa récolte), puis attente de la durée
-      -- de fabrication ; jamais derrière une fabrication en arrière-plan (sa file est à elle : rien n'est lancé, le bois rentre au QG).
+      -- Lot STOCKAGE-VITAL : fabrication sur place avec ce que le PNJ porte (coffre urgent après sa récolte, paires de l'auto-financement) ;
+      -- jamais derrière une fabrication en arrière-plan (sa file est à elle : rien n'est lancé, le bois rentre au QG).
+      -- Lot POSE-PERDUE (banc 0.6.75 A : « 0 paire(s) posee(s) avec 41 iron-plate pris(es) sur place », [FO-EXTEND] « objets ») : les recettes
+      -- partaient toutes dans le même tick ; le produit final, dont les ingrédients étaient encore en file (pas dans l'inventaire), n'était
+      -- jamais mis en file (30 fabrications sur 38 : 15 + 15 + 0). État « craft_now » : une recette à la fois, file vide entre deux (Fp.avance),
+      -- comme l'état « craft » ; la durée estimée par la pensée (step[3]) ne sert plus de minuterie.
       local e = agent.entity
-      local n, why = 0, "file de fabrication occupee"
-      if not agent.bg and e.crafting_queue_size == 0 then
-        why = "matiere absente"
-        for _, c in ipairs(step[2] or {}) do
-          local ok, k = pcall(e.begin_crafting, { count = c.runs, recipe = c.recipe, silent = true })
-          if ok and type(k) == "number" then n = n + k end
+      if agent.bg or e.crafting_queue_size > 0 then
+        f.stats.stock_craft_logs = (f.stats.stock_craft_logs or 0) + 1
+        if f.stats.stock_craft_logs <= 40 then
+          log(string.format("[FO-STOCKAGE] %s : coffre urgent %s fabrique sur place par le PNJ %s : rien de lance (file de fabrication occupee) a %.1f min",
+            f.key or "player", tostring(step[4]), tostring(agent.id), (tick - (f.started or 0)) / 3600))
         end
-      end
-      f.stats.stock_craft_logs = (f.stats.stock_craft_logs or 0) + 1
-      if f.stats.stock_craft_logs <= 40 then
-        log(string.format("[FO-STOCKAGE] %s : coffre urgent %s fabrique sur place par le PNJ %s : %s a %.1f min", f.key or "player",
-          tostring(step[4]), tostring(agent.id), n > 0 and (n .. " fabrication(s) lancee(s)") or ("rien de lance (" .. why .. ")"),
-          (tick - (f.started or 0)) / 3600))
-      end
-      if n > 0 then
-        agent.wait_until = tick + (step[3] or 0)
-        set(agent, "wait", tick)
+        agent.pc = agent.pc + 1
+      else
+        agent.craft_place = { i = 1, n = 0, t0 = tick }
+        set(agent, "craft_now", tick)
         return
       end
-      agent.pc = agent.pc + 1
     elseif kind == "goto" then
       if not goto_step(agent, step[2], step[3] or 4, tick) then return end
       agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
@@ -1852,6 +1849,33 @@ FSM.define(MACHINE, {
     think = function(agent, tick)
       if defend(agent, tick) then return end
       if tick >= (agent.wait_until or 0) then
+        agent.pc = agent.pc + 1
+        set(agent, "step", tick)
+      end
+    end,
+  },
+  -- Lot POSE-PERDUE : fabrication sur place (étape « craft_now ») : une recette du plan à la fois, la suivante quand la file est vide
+  -- (ses ingrédients sont alors dans l'inventaire) ; l'autodéfense tourne. Le journal [FO-STOCKAGE] s'écrit à la fin, avec le compte réel.
+  craft_now = {
+    think = function(agent, tick)
+      if defend(agent, tick) then return end
+      local e = agent.entity
+      local step = agent.steps[agent.pc]
+      local st = agent.craft_place
+      local r = Fp.avance(e, step[2], st, tick, CRAFT_TIMEOUT)
+      if r == "fini" or r == "delai" then
+        local f = faction_of(agent)
+        if f then
+          f.stats.stock_craft_logs = (f.stats.stock_craft_logs or 0) + 1
+          if f.stats.stock_craft_logs <= 40 then
+            log(string.format("[FO-STOCKAGE] %s : coffre urgent %s fabrique sur place par le PNJ %s : %s a %.1f min", f.key or "player",
+              tostring(step[4]), tostring(agent.id),
+              st.n > 0 and string.format("%d fabrication(s) lancee(s) l'une apres l'autre, %s en %.1f s", st.n,
+                r == "fini" and "file vide" or "delai echu", (tick - st.t0) / 60) or "rien de lance (matiere absente)",
+              (tick - (f.started or 0)) / 3600))
+          end
+        end
+        agent.craft_place = nil
         agent.pc = agent.pc + 1
         set(agent, "step", tick)
       end
