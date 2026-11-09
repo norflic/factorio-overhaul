@@ -20,7 +20,7 @@ data:extend({
     type = "bool-setting",
     name = "fo-war-mall-tronc",
     setting_type = "runtime-global",
-    default_value = true,
+    default_value = false,
     order = "e-war-z-video-z",
   },
   {

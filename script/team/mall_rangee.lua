@@ -723,7 +723,7 @@ function Rt.report(f)
   end
   local outposts = 0
   for _ in pairs(f.outposts or {}) do outposts = outposts + 1 end -- (comptage : l'ordre n'a aucun effet)
-  return { sect = st.sect, rep = st.rep, rows = rows, fab = st.fab, pret = st.pret, force = st.force_pret, team_force = f.force, outposts = outposts }
+  return { s2 = st.s2, partiel = st.partiel ~= nil, sect = st.sect, rep = st.rep, rows = rows, fab = st.fab, pret = st.pret, force = st.force_pret, team_force = f.force, outposts = outposts }
 end
 
 local function team_of(key)
@@ -744,6 +744,9 @@ if remote and remote.add_interface then remote.add_interface("fo-mall", {
     local st = f.build.mall
     if name == "force_pret" then st.force_pret = v
     elseif name == "sans_raccord" then st.sans_raccord = v
+    elseif name == "force_plant" then st.force_plant = v
+    elseif name == "s2_tenue" then st.s2_tenue = v
+    elseif name == "etat_every" then st.etat_every = v
     elseif name == "sect" then st.sect = v; st.phase = "choisi" -- (le relevé du terrain ne l'écrase plus)
     else return nil end
     return v

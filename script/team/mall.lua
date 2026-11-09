@@ -237,12 +237,19 @@ local function crise(f)
 end
 
 --- Entrées de Mp.etat pour l'équipe (lecture seule).
-function Mall.inputs(f)
+function Mall.inputs(f, st, tick)
   local b = f.build
   local pp = b.plant and b.projects[b.plant]
-  local inp = { plant = pp ~= nil and pp.state == "fini" and b.plant_watch ~= nil and b.plant_watch.first_power ~= nil, plaques = {} }
+  local inp = { plant = st.force_plant == true or (pp ~= nil and pp.state == "fini" and b.plant_watch ~= nil and b.plant_watch.first_power ~= nil), plaques = {} }
+  st.s2 = st.s2 or {}
   for _, pl in ipairs(plates()) do
-    inp.plaques[#inp.plaques + 1] = { item = pl.item, auto = automated(f, pl) or (Mall.s2_debit() and plate_flow(f, pl.item) >= Mp.S2_PLAQUES_MIN) } -- automatisée : un projet fini, ou le débit mesuré
+    local par_debit = false
+    if Mall.s2_debit() then
+      -- la tenue ne commence qu'avec la première électricité : avant, le débit vient des fours à combustible du départ, pas d'une automatisation (A/B : votre équipe ouvrait dès 12,9 min, à la fin de S1)
+      st.s2[pl.item] = Mp.s2_tenue(st.s2[pl.item], inp.plant and plate_flow(f, pl.item) or 0, tick, st.s2_tenue)
+      par_debit = st.s2[pl.item].open == true
+    end
+    inp.plaques[#inp.plaques + 1] = { item = pl.item, auto = automated(f, pl) or par_debit } -- automatisée : un projet fini, ou le débit mesuré tenu (lecteur : Mp.etat)
   end
   inp.crise = crise(f)
   inp.asm = assembler_usable(f)
@@ -306,8 +313,8 @@ function Mall.step(h, f, surface, tick)
   end
   -- 2. état S
   if tick >= (st.etat_next or 0) then
-    st.etat_next = tick + Mall.ETAT_EVERY
-    local e = Mp.etat(Mall.inputs(f))
+    st.etat_next = tick + (st.etat_every or Mall.ETAT_EVERY)
+    local e = Mp.etat(Mall.inputs(f, st, tick))
     if e.cause ~= st.etat_sig then
       st.etat_sig = e.cause
       say(f, st, Mp.line_etat(who(f), e, st.sect ~= nil, tick / 3600))
