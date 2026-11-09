@@ -58,8 +58,11 @@ local function load_code(src, Qg)
     free_spot = function(_, _, x, y) return x, y end,
     is_plant_project = function() return false end,
     plant_burn_kw = function() return 0, 0 end,
-    Cc = {}, cc_say = function() end, Sante = { tasks = function() end }, M = {},
+    Cc = require("shared.team.charbon_centrale"), cc_say = function() end, Sante = { tasks = function() end }, M = {},
     Stock = { count = function(_, it) return (W.stock[it] or 0) end },
+    -- lot BRULEURS-A-SEC : reserve des bruleurs (burner_fuel_reserve) ; doublure sans bruleur : aucune reserve, le stock juste
+    T = require("shared.team.config"),
+    Outposts = { smelters = function() return {} end, coal_needed_for = function() return 0 end, coal_needed = function() return 0 end },
     defines = { inventory = { chest = 1 } },
     sorted_keys = function(t) local ks = {} for k in next, t or {} do ks[#ks + 1] = k end table.sort(ks) return ks end,
     -- (intégrateur, 8/11 : X10-S0 met des portées de mesure dans quai_tasks ; doublure muette, aucune décision)
@@ -72,7 +75,7 @@ end
 
 local surface = { find_entity = function(_, pos) return W.chests[pos[1] .. "," .. pos[2]] end,
   find_entities_filtered = function() return W.upgraded and { W.upgraded } or {} end }
-local f = { key = "f1", force = "f1", build = { lat = {} } }
+local f = { key = "f1", force = "f1", outposts = {}, build = { lat = {} } }
 local function smelter(with_flow)
   return { id = 7, prio = 55, state = "fini", spec = { gen = "smelter" },
     outflow = with_flow and { ["iron-plate"] = 0.625 } or nil,
@@ -189,7 +192,7 @@ local function battery_modules(X, Qg, verbose)
     return p
   end
   local function furnace(sp, pr) return { valid = true, force = { name = "f1" }, speed_bonus = sp, productivity_bonus = pr } end
-  local fg = { key = "f1", force = "f1", build = { lat = {}, stats = {} } }
+  local fg = { key = "f1", force = "f1", outposts = {}, build = { lat = {}, stats = {} } }
   local function step(p, tick)
     game.tick = tick
     local out = {}

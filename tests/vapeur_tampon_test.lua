@@ -184,6 +184,9 @@ local function run_quai(Vg_stub, mod_src)
   local env = {
     Cc = Cc, M = M, P = P, Build = Build,
     Stock = { count = function() return W.stock end },
+    -- lot BRULEURS-A-SEC : reserve des bruleurs (burner_fuel_reserve) ; doublure sans bruleur : aucune reserve, le stock juste
+    T = require("shared.team.config"),
+    Outposts = { smelters = function() return {} end, coal_needed_for = function() return 0 end, coal_needed = function() return 0 end },
     Sante = { tasks = function() end },
     seg_passable = function() return function() return true end end,
     free_spot = function(_, _, x, y) return x, y end,
@@ -198,7 +201,7 @@ local function run_quai(Vg_stub, mod_src)
     get_inventory = function() return { get_insertable_count = function() return 1600 - W.chest end, get_item_count = function() return W.chest end } end }
   local surf = { find_entity = function(name) if name == "iron-chest" then return chest end return nil end }
   local lat = P.lattice({ x = 0.5, y = 0.5 })
-  local f = { key = "f1", force = "f1", build = { opts = {}, lat = lat, segs = {}, projects = {}, order = {}, next_id = 1, occ = {} } }
+  local f = { key = "f1", force = "f1", outposts = {}, build = { opts = {}, lat = lat, segs = {}, projects = {}, order = {}, next_id = 1, occ = {} } }
   local pl = { id = 1, spec = { gen = "steam", prio = 60 }, state = "fini", prio = 60, outs = {}, parts = { { kind = "centrale" } },
     ents = { { name = "boiler", x = 5, y = 5 }, { name = "steam-engine", x = 5, y = 0 } },
     quais = { { x = 10.5, y = 4.5, item = "coal" } } }

@@ -48,7 +48,18 @@ function Cc.rate(kw, coal_kj)
   return kw / coal_kj
 end
 
---- Remplissage du coffre de la centrale. n = charbon au coffre ; rate = consommation (Cc.rate) ; have = charbon au coffre du QG ;
+--- Lot BRULEURS-A-SEC (B4, banc V0676-D graine 123456789) : combustible du coffre du QG LIBRE pour la centrale = le stock moins la réserve
+--- des tournées des brûleurs (la grandeur que shared/team/planner.lua retire du stock virtuel « avant toute fabrication » : fours de
+--- l'équipe, brûleurs des avant-postes qui ne produisent pas le combustible). À 36,3 min, 400 charbons au coffre, 46 brûleurs de fer à sec
+--- sur 60 (besoin 588) : la centrale (prio 91, cible 1080) prenait les 400, les brûleurs restaient à sec 45 min. Jamais négatif.
+function Cc.free_fuel(stock, reserve)
+  stock, reserve = stock or 0, reserve or 0
+  if reserve >= stock then return 0 end
+  return stock - reserve
+end
+
+--- Remplissage du coffre de la centrale. n = charbon au coffre ; rate = consommation (Cc.rate) ; have = charbon LIBRE au coffre du QG
+--- (hors la réserve des brûleurs, Cc.free_fuel) ;
 --- cap = place du coffre en charbon (contenu compris), nil si inconnue. steam_low (lot TV-VAPEUR, V36) : le tampon de vapeur de la
 --- centrale est bas (shared/team/vapeur_tampon.lua) : le remplissage est aussi dû tant que le coffre est sous le confort de la cible
 --- (Cc.STEAM_COMFORT), même au-dessus du seuil d'avance. Rend { low, target, prio, due, count, why, short, steam }.
