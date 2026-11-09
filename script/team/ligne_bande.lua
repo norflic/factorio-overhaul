@@ -18,7 +18,7 @@ local Cl = require("shared.team.centrale_loin")
 
 local LB = {}
 
-LB.LOGS = 40            -- lignes de journal au plus par équipe
+LB.LOGS = 400            -- lignes de journal au plus par équipe
 LB.LINE_MIN = 40        -- tuiles : en dessous, le refus du raccord local est un refus de terrain, pas une distance
 LB.LINE_FAR = 100       -- tuiles : au-delà, aucun palier local n'y mène : la ligne est demandée sans les essayer
 LB.TRIES = 3            -- demandes de ligne au plus par avant-poste (projets refusés)
@@ -200,11 +200,47 @@ function LB.projects(f)
   return out
 end
 
+--- Trace [FO-LIGNE-BANDE-ETAT] (lecture seule) : toutes les 2 min, l'etat de chaque ligne en chantier : poses/total, pieces non posees (fantome, refus,
+--- point d'appui) et taches du tableau (libre ou prise, age, pause). Lue pour savoir POURQUOI une ligne posee aux deux tiers ne porte pas de courant.
+local TRACE_EVERY = 7200
+function LB.trace(f, tick)
+  local bd = f.build
+  if not (bd and bd.lignes) or tick - (bd.lignes_trace or -TRACE_EVERY) < TRACE_EVERY then return end
+  bd.lignes_trace = tick
+  local Board = require("script.team.board")
+  local ks = {}
+  for k in pairs(bd.lignes) do ks[#ks + 1] = k end
+  table.sort(ks)
+  for _, k in ipairs(ks) do
+    local rec = bd.lignes[k]
+    local lp = bd.projects[rec.pid]
+    if lp and lp.ents then
+      local built, rest = 0, {}
+      for _, e in ipairs(lp.ents) do
+        if e.built then built = built + 1
+        elseif #rest < 6 then rest[#rest + 1] = string.format("(%.0f,%.0f g%d f%d a%s)", e.x, e.y, e.ghosted and 1 or 0, e.fails or 0, tostring(e.anchor)) end
+      end
+      local tk, bt = {}, Board.get(f)
+      local prefix = "ia1d:" .. tostring(lp.id) .. ":"
+      for key, t in pairs(bt.tasks) do
+        if key:sub(1, #prefix) == prefix then
+          tk[#tk + 1] = string.format("%s[%s prio %s age %.1f min%s]", key:sub(#prefix + 1), t.worker and "prise" or "libre", tostring(t.prio), (tick - (t.created or tick)) / 3600,
+            ((bt.cooldown[key] or 0) > tick) and " pause" or "")
+        end
+      end
+      table.sort(tk)
+      say(f, string.format("etat projet %d (%s, %s) a %.1f min : %d/%d poses ; non posees %s ; taches %s", lp.id, tostring(lp.state), tostring(lp.reason), tick / 3600, built, #lp.ents,
+        table.concat(rest, " "), #tk > 0 and table.concat(tk, " ", 1, math.min(#tk, 6)) or "aucune"))
+    end
+  end
+end
+
 --- Branche le site au plan directeur (appelé une fois par script/team/champ.lua).
 function LB.install(Build)
   LB.Build = Build
   Build.SITES = Build.SITES or {}
   Build.SITES.ligne_bande = plan_site
+  Build.line_trace = LB.trace
 end
 
 return LB

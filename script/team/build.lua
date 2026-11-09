@@ -5102,6 +5102,7 @@ end
 function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
+  if Build.line_trace then Build.line_trace(f, tick) end -- lot RACCORD-BANDE 2 : trace [FO-LIGNE-BANDE-ETAT] (lecture seule)
   Build.LotsMinerai.minute(f, tick) -- lot VIDEO L9 : [FO-LOTS-MINERAI], une ligne par équipe et par minute de jeu (la mesure avant la règle)
   Build.LotsMinerai.think(f, tick) -- lot VIDEO MINERAI-SONDE : pièce détruite, ennemi vu ou porte fermée : le relevé des lots est refait (Lm.needs_survey)
   local tasks = {}
