@@ -232,7 +232,7 @@ local src = {
   scer = read_src("shared/ai3/cerveau.lua"), buts = read_src("shared/ai3/buts.lua"), res = read_src("shared/ai3/reserve.lua"),
 }
 local function has(s, pat) return s:find(pat, 1, true) ~= nil end
-check(has(src.team, "protect = SurvieQg.mark_protect(f, oid, tick, st.turrets, T.defend_turrets(o.drills)) or nil") and has(src.team, "SurvieQg.note_plan(f, plan)"),
+check(has(src.team, "SurvieQg.mark_protect(f, oid, tick, st.turrets, want_t)") and has(src.team, "SurvieQg.note_plan(f, plan)"),
   "maillon 1 (vue) : chaque avant-poste porte `protect`, le plan dit si une tourelle est posable")
 check(has(src.planner, "local in_peril = qg_peril or protect_any") and has(src.planner, "out.turret_ok = turret_ok"),
   "maillon 2 (planificateur) : le site touché passe la défense d'abord (donc exclu de l'agrandissement), le plan publie turret_ok")
@@ -293,7 +293,7 @@ local mutants = {
   { "réserve sans seuil", "Sq", "if threat < Sq.SITE_HIT or turrets <= 0 or per <= 0 then return 0 end", "if turrets <= 0 or per <= 0 then return 0 end" },
   { "réserve arrondie vers le bas", "Sq", "local n = ceil(threat / Sq.PV_PER_MAG)", "local n = math.floor(threat / Sq.PV_PER_MAG)" },
   { "protection sans tourelle posable", "Pl", "  if df and turret_ok then\n    for _, o in ipairs(view.outposts or {}) do\n      if o.protect", "  if df then\n    for _, o in ipairs(view.outposts or {}) do\n      if o.protect" },
-  { "protection d'un site défendu (planificateur)", "Pl", "if o.protect and (o.turrets or 0) < T.defend_turrets(o.drills) then protect_any = true end", "if o.protect then protect_any = true end" },
+  { "protection d'un site défendu (planificateur)", "Pl", "if o.protect and (o.turrets or 0) < (o.want_t or T.defend_turrets(o.drills)) then protect_any = true end", "if o.protect then protect_any = true end" },
   { "protection sans effet sur la priorité", "Pl", "local in_peril = qg_peril or protect_any", "local in_peril = qg_peril" },
   { "pas de réserve dans le but", "B", "local ammo_target = math.max(B.AMMO_STOCK, reserve)", "local ammo_target = B.AMMO_STOCK" },
   { "réserve retenue par la production d'abord", "B", "minimal_n = math.max(0, math.max(B.AMMO_MIN, reserve) - (s.stock[ammo] or 0)) }", "minimal_n = math.max(0, B.AMMO_MIN - (s.stock[ammo] or 0)) }" },
