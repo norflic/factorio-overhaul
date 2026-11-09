@@ -359,7 +359,30 @@ function C.think(view, book, st, ctx)
   for _, it in ipairs(pile.reserve or {}) do E.avail[it[1]] = math.max(0, (E.avail[it[1]] or 0) - it[2]) end
   local repair_proj = { id = 0, key = "pile:reparer" }
   local pile_c0 = E.crafts
-  for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
+  -- lot RUINES-ATTENTE (partie neuve 20261020, [FO-PILE] « craft de pile » : foreuse de fer demandée x3 à x24, « parties 0 » pendant 25 min, fer qui manque
+  -- alors que le coffre en tient) : la fabrication qui refait l'EXTRACTION de la plaque clé (it[4]) est payée sur le stock AVANT les consommations du
+  -- plan permanent (used : tourelles, munitions, fonds de défense, recrues), sans fer il n'y a plus de défense. Ce qu'elle prend est ensuite retiré du
+  -- stock libre du reste (le plan permanent garde son dû sur ce qui reste) ; la foreuse fabriquée n'est pas comptée deux fois.
+  for _, it in ipairs(pile.crafts or {}) do
+    if it[4] then
+      local pre = {}
+      for _, k in ipairs(sorted_keys(view.stock)) do pre[k] = view.stock[k] end
+      for _, k in ipairs(sorted_keys(view.incoming or {})) do pre[k] = (pre[k] or 0) + view.incoming[k] end
+      for _, r in ipairs(pile.reserve or {}) do pre[r[1]] = math.max(0, (pre[r[1]] or 0) - r[2]) end
+      local pre0 = {}
+      for _, k in ipairs(sorted_keys(pre)) do pre0[k] = pre[k] end
+      local saved = E.avail
+      E.avail = pre
+      P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile")
+      E.avail = saved
+      for _, k in ipairs(sorted_keys(pre0)) do
+        local paid = pre0[k] - (pre[k] or 0)
+        if paid > 0 and k ~= it[1] then saved[k] = math.max(0, pre0[k] - paid - (used[k] or 0)) end
+      end
+    else
+      P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile")
+    end
+  end
   -- trace (lecture seule, lue par script/team/pile.lua PileRt.journal) : ce que la pile a demandé de fabriquer, ce qui est parti, ce qui manque
   do
     local wants, short = {}, {}
