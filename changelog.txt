@@ -25,6 +25,7 @@ Date: 2026-11-09
     - Gabarits (F450) : empreinte réservée pour la machine de l'âge cible, bras sur la ligne d'interface finale, décision « upgrade ou ajourne » sans bloquer la box (règle pure, branchement à suivre).
     - Bus d'intermédiaires (F451) : dès la phase mid, les intermédiaires pivots déduits des recettes ont leurs rangées demandées en priorité et leurs liaisons de bus passent devant ; artisanat local en repli tant que la ligne n'est pas servie.
     - Convoyeurs (F452) : la montée de palier visite enfin troncs du bus, sorties de méga-fonderie, liaisons et bandes, dans cet ordre, et s'anticipe à chaque recherche finie ; aucun tapis retiré sans le kit au stock.
+    - Mall (F453) : gabarit en ruban (deux rangées face à face, corridor de deux convoyeurs, coffres extérieurs) et pavage : un bloc de plus se colle au précédent dans le lot avec un gap d'une tuile au lieu d'un lot par bloc.
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------
