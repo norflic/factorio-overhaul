@@ -292,3 +292,16 @@ script.on_nth_tick(600, function(e)
   calibrate(e.tick)
   if e.tick == 600 then remote.call("factorio-overhaul", "log_report", "10 s") end
 end)
+
+-- Lot CARTE-MAX : temoins de fin de session d'images (le journal se taisait au tick 389 670 sans cause visible). Chaque evenement joueur
+-- est ecrit au journal ET dans fo-shots/coeur.txt ; le mod n'appelle jamais set_game_state, seul le moteur peut finir la partie.
+local function temoin(nom, e)
+  local msg = string.format("[FO-TEMOIN] tick %d : %s joueur %s", game.tick, nom, tostring(e and e.player_index))
+  log(msg)
+  game.write_file("fo-shots/coeur.txt", msg .. "\n", true)
+end
+script.on_event(defines.events.on_pre_player_died, function(e) temoin("on_pre_player_died", e) end)
+script.on_event(defines.events.on_player_died, function(e) temoin("on_player_died", e) end)
+script.on_event(defines.events.on_player_respawned, function(e) temoin("on_player_respawned", e) end)
+script.on_event(defines.events.on_player_left_game, function(e) temoin("on_player_left_game", e) end)
+script.on_event(defines.events.on_player_removed, function(e) temoin("on_player_removed", e) end)
