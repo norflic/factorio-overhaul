@@ -287,7 +287,8 @@ function C.think(view, book, st, ctx)
         -- Lot GISEMENTS : un ordre qui étend une matière en manque par rapport au besoin est un investissement de production, même sans
         -- manque brut (journal du DC : « capi:couvrir:copper-ore : suspendu » à 45 plaques de cuivre).
         local sv, ord = starved_pass, g.order or {}
-        if g.invest or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g
+        -- décision du DC du 8/11 : couvrir et ouvrir un gisement passent TOUJOURS (leurs manques sont fabriqués aussi)
+        if g.invest or Pi.COVER_KINDS[ord.kind] or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g
         else Pi.suspend(pile, g.key, "but de la capitalisation suspendu (pas un investissement de production)") end -- journal [FO-PILE]
       end
     end
@@ -409,7 +410,9 @@ function C.think(view, book, st, ctx)
     local now = {}
     for _, list in ipairs({ base.tasks or {}, E.tasks or {} }) do
       for _, t in ipairs(list) do
-        if t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
+        if t.kind == "craft" and t.kit then -- lot POSE-PAR-LOTS : toutes les pièces d'un kit
+          for _, w in ipairs(t.kit) do now[w[1]] = (now[w[1]] or 0) + w[2] end
+        elseif t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
       end
     end
     Ml.note(st.mall, tick, now)
