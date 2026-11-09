@@ -680,7 +680,7 @@ Build.SITES = Build.SITES or {}
 LB.install(Build)
 --- Lot FONDERIE : raccorde TOUTES les composantes des poteaux de `ents` (projet d'une bande ou d'un réseau du charbon) à un poteau alimenté
 --- (Ra.connect). Ajoute les poteaux de liaison à `ents` ; rend (poteaux posés, nil, nil, composantes) ou (nil, raison, attente).
-local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
+local function raccord_tous(f, surface, bd, ents, cx, cy, proj, o)
   local wire = bd.spec.pole.wire
   local own = {}
   for _, e in ipairs(ents) do if e.name == bd.names.pole then own[#own + 1] = { x = e.x, y = e.y } end end
@@ -713,7 +713,7 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
     local bl = blocked_by[margin]
     if not bl then
       bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine, nil,
-        bd.occ_libre or function(_, _, owner) return Cd.own(owner, o.id) end)
+        bd.occ_libre or function(_, _, owner) return o ~= nil and Cd.own(owner, o.id) end)
       blocked_by[margin] = bl
     end
     return function(tx, ty) return bl[Ch.key(tx, ty)] ~= nil end
@@ -910,7 +910,7 @@ Build.SITES.champ = function(f, surface, p, h)
     -- lot FONDERIE (3/11, ENERGIE4, lot7bis-20261020 : colonne de 16 à 20 poteaux à 101 tuiles du réseau, foreuses de charbon à 65 tuiles,
     -- jamais raccordées) : TOUTES les composantes des poteaux du projet rejoignent un poteau ALIMENTÉ (shared/team/champ_raccord.lua) ;
     -- les poteaux d'une bande voisine (déjà au plan, retirés ci-dessus) ne comptent pas : son projet peut ne jamais finir
-    local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p)
+    local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p, o)
     if not n_r then return nil, "champ: " .. why_r, wait_r end
     chain_n, comps, net = n_r, nc, true
   else

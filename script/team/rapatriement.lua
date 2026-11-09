@@ -807,7 +807,7 @@ local function stage_close(api, f, p, J)
   local L = J.L
   if not L.masks then -- chargement entre les étapes : le relevé est refait (rare ; quelques dizaines de chunks déjà lus, jamais plus d'une fois)
     for _, x in ipairs(p.ents) do J.chunk(math.floor(x.x / CHUNK), math.floor(x.y / CHUNK)) end
-    L.masks, L.wood = J.merged(), api.wood_of(surface, p.ents)
+    L.masks, L.wood = J.merged(), api.wood_of(J.surface, p.ents)
   end
   p.obstacles, p.obst_keys = {}, {}
   for _, x in ipairs(p.ents) do
