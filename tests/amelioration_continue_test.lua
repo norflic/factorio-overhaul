@@ -510,6 +510,9 @@ local function run(Cap, Am, quiet)
     check(Am.engage_update(st, t0 + 40001, { alive = false }) == nil, "§10 groupe sans candidat : lâché sans repos")
     check(Am.engage_update(st, t0 + 40002, { start = "g2" }) == "g2", "§10 un groupe fini sans échec peut se réengager aussitôt")
     check(Am.engage_update(st, t0 + 40003, { threat = true, start = "g2" }) == nil, "§10 danger : lâché et aucun engagement")
+    local sc = {}
+    check(Am.engage_update(sc, 0, { start = "g1", cost = Am.ENGAGE_COST + 1 }) == nil, "§10 un remplacement trop cher ne s'engage pas")
+    check(Am.engage_update(sc, 1, { start = "g1", cost = Am.ENGAGE_COST }) == "g1", "§10 au coût limite, il s'engage")
     local sr = {}
     Am.engage_update(sr, 0, { start = "g1" })
     Am.engage_update(sr, T + 1, {})
@@ -683,6 +686,7 @@ M("engagement lâché trop tôt", "am", "elseif tick - (st.progress or tick) > A
 M("paiement sans effet sur le compte", "am", "if st.group and ev.paid == st.group then st.progress = tick end", "")
 M("repos du groupe lâché oublié", "am", "st.rest[st.group] = tick + Am.REST_TICKS\n", "\n")
 M("intervalle après échec oublié", "am", "st.gap_until = tick + Am.FAIL_GAP\n", "\n")
+M("coût de l'engagement ignoré", "am", "(ev.cost or 0) <= Am.ENGAGE_COST and", "")
 M("danger sans effet sur l'engagement", "am", "if ev.threat or ev.alive == false then", "if ev.alive == false then")
 M("danger n'empêche pas l'engagement", "am", "if not st.group and ev.start and not ev.threat and", "if not st.group and ev.start and")
 M("groupe disparu garde l'engagement", "am", "if ev.threat or ev.alive == false then", "if ev.threat then")
