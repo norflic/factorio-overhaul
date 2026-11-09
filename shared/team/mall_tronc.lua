@@ -88,7 +88,8 @@ function Mt.section(lines, row, names)
   if row.bus.a then split_y[row.bus.a] = ya - 1 end
   if row.bus.b then split_y[row.bus.b] = yb - 1 end
   local y_to, routes = {}, {}
-  local tete_neuve = false
+  local premiere = true -- première section du tronc : aucune ligne n'est encore posée
+  for _, ln in ipairs(lines) do if ln.y_to then premiere = false end end
   local function flush(seg, item)
     if #seg > 0 then routes[#routes + 1] = { item = item, tiles = seg } end
   end
@@ -96,7 +97,6 @@ function Mt.section(lines, row, names)
     local x = Mt.XL(ln.k)
     local start = ln.y_to and (ln.y_to + 1) or 0
     if not ln.y_to then
-      tete_neuve = true
       local t = Mt.tete_ligne(ln.k, ln.item, names)
       for _, e in ipairs(t.ents) do ents[#ents + 1] = e end
       for _, q in ipairs(t.quais) do quais[#quais + 1] = q end
@@ -127,8 +127,9 @@ function Mt.section(lines, row, names)
   if row.j > 1 then
     -- (comme la tête d'une rangée à quais) relais vers la rangée précédente, dans la tuile de passage
     ents[#ents + 1] = { name = names.poteau, x = 3.5, y = (row.j - 1) * 15 - 0.5, dir = 0, role = "mall-poteau" }
-    -- tête de ligne posée avec une rangée au-delà de la première (les rangées d'avant sont à quais) : relais au nord de la rangée 1, à portée de fil du poteau de sa tête (−4,5 ; 4,5)
-    if tete_neuve then ents[#ents + 1] = { name = names.poteau, x = -4.5, y = -1.5, dir = 0, role = "mall-poteau" } end
+    -- tronc commencé au-delà de la première rangée (les rangées d'avant sont à quais) : relais au nord de la rangée 1, à portée de fil du poteau de sa tête (−4,5 ; 4,5). Une ligne ajoutée à un tronc
+    -- existant se raccorde au poteau de la ligne voisine.
+    if premiere then ents[#ents + 1] = { name = names.poteau, x = -4.5, y = -1.5, dir = 0, role = "mall-poteau" } end
   else
     -- liaison de poteaux entre la tête des lignes (poteau de la ligne 1, x = −8,5, y = −1,5) et le premier poteau de cellule (3,5 ; 3,5) : fils ≤ 5,7 tuiles
     ents[#ents + 1] = { name = names.poteau, x = -4.5, y = -1.5, dir = 0, role = "mall-poteau" }

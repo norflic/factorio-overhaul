@@ -184,12 +184,11 @@ do
   local _, dup3 = index(all3)
   check(#dup3 == 0, "§3 ligne neuve : aucune superposition (" .. table.concat(dup3, ",") .. ")")
   check(#s3.quais == 2, "§3 ligne neuve : deux coffres de tête")
-  local relais_tete = false
-  for _, e in ipairs(s3.ents) do if e.name == "pole" and e.x == -4.5 and e.y == -1.5 then relais_tete = true end end
-  check(relais_tete, "§3 ligne neuve au-delà de la rangée 1 : relais de la tête vers le poteau de la rangée 1")
-  local sans = false
-  for _, e in ipairs(s2.ents) do if e.name == "pole" and e.x == -4.5 and e.y == -1.5 then sans = true end end
-  check(not sans, "§3 rangée 2 sur des lignes existantes : pas de relais de tête")
+  local function relais(sec) for _, e in ipairs(sec.ents) do if e.name == "pole" and e.x == -4.5 and e.y == -1.5 then return true end end return false end
+  check(not relais(s3), "§3 ligne ajoutée à un tronc existant : pas de second relais de tête")
+  check(not relais(s2), "§3 rangée 2 sur des lignes existantes : pas de relais de tête")
+  local s4 = Mt.section(lines_for({ "fer", "cuivre" }), { j = 2, bus = { a = 1, b = 2 } }, NAMES)
+  check(relais(s4), "§3 tronc commencé à la rangée 2 : relais de la tête vers le poteau de la rangée 1")
 end
 
 -- §4 mutants
