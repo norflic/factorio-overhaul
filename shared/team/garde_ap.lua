@@ -21,6 +21,8 @@
 local Ga = {}
 
 Ga.MARGE = 1100 -- ‰ : défense visée = 1,1 × la plus grande vague connue (même valeur que Pc.MARGE, shared/ai3/prevision_choix.lua)
+Ga.HQ_MARGE = 2000 -- ‰ : le QG vise 2 x la plus grosse vague reçue (mesure fonds-on-20261020 : le QG à 4-5 tourelles tombe à 59 min sous des vagues de 2 000 à 2 500 PV
+                    -- qui se suivent ; les tourelles tombent une à une, 1,1 x ne suffit pas) ; la garde d'avant-poste garde la marge 1,1
 Ga.CAP = 0      -- tourelles voulues au plus par avant-poste. 0 = GARDE D'AVANT-POSTE COUPÉE (décision de l'intégrateur, 9/11 : effet non prouvé sur 8 graines,
                 -- voir tests/garde_ap_test.lua) ; 6 était la valeur essayée. Le QG (Ga.hq_want) ne dépend pas de cette constante.
 
@@ -61,7 +63,7 @@ function Ga.hq_want(a)
   local base, have, cap = math.floor(num(a.base)), math.floor(num(a.have)), math.floor(num(a.cap))
   local tv, threat = num(a.tv), num(a.threat)
   if tv <= 0 or threat <= 0 or threat < num(a.min) or cap <= base then return base, "base" end
-  local need = math.ceil(threat * Ga.MARGE / 1000 / tv - 1e-9)
+  local need = math.ceil(threat * Ga.HQ_MARGE / 1000 / tv - 1e-9)
   if need <= base then return base, "base" end
   local want, why = need, "menace"
   if want > cap then want, why = cap, "plafond" end
@@ -71,6 +73,28 @@ function Ga.hq_want(a)
   if want > payable then want, why = payable, "fer" end
   if want <= base then return base, "base" end
   return want, why
+end
+
+--- Lot DEFENSE-AP, FONDS DE DÉFENSE. Mesure (fo-logs/2026-11-09_DEFENSE-AP/long-1618, graine 1618033988, 120 min) : l'avant-poste de FER est à
+--- 0 tourelle sur 3 voulues de 40 à 75 min ([FO-DEFENSE] « 1 0/3 manque iron-plate 80 à 256 »), les 28 PNJ libres n'agrandissent rien
+--- ([FO-ZERO-IDLE] « iron=non_defendu »), le fer du coffre reste à 0-23 : 60 à 90 plaques arrivent par minute et partent en chargeurs de
+--- réserve (24 à 84 par minute, le coffre en tenait déjà 81 à 130), en modules et en science, par petites sommes, avant que la tourelle (40
+--- plaques + plancher de 150) soit payable : une grosse dépense ne s'accumule jamais face à un flot de petites. Règle : tant que la plaque
+--- clé a un avant-poste SANS AUCUNE tourelle (pas de « production d'abord »), (a) le plancher de fer et de cuivre de ce poste descend aux
+--- planchers du péril, (b) le fer de la tourelle manquante (au plus `cost`) est MIS DE CÔTÉ : les projets du cerveau ne le voient pas
+--- (shared/ai3/cerveau.lua, C.consumed). Rien n'est retiré à la défense : la retenue ne vise que ce que les autres dépenses prendraient.
+Ga.FUND_ON = true
+
+--- Un poste est CRITIQUE s'il garde la plaque clé (`iron`) et n'a aucune tourelle alors qu'il en veut.
+function Ga.critical(iron, have, want)
+  return Ga.FUND_ON and iron == true and num(have) <= 0 and num(want) > 0
+end
+
+--- Fer mis de côté : min(fer libre, coût en fer de ce qui manque) pour un poste critique hors « production d'abord », sinon 0.
+function Ga.fund(a)
+  a = a or {}
+  if not a.critical or a.production_first then return 0 end
+  return math.floor(math.min(num(a.avail), num(a.cost)))
 end
 
 return Ga

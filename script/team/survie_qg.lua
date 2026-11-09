@@ -140,7 +140,7 @@ function SurvieQg.hq_insure(f, tick, base, have, iron)
   if not (st and st.cal and Prev.enabled()) then return base end
   local threat = Sq.threat_any(Pv.threat_waves(st.cal, "qg"), tick)
   local n, why = Ga.hq_want({ base = base, have = have, cap = Dc.HQ_CAP, threat = threat, min = Sq.MIN_THREAT, tv = st.turret_value,
-    funds = iron, cost = st.turret_iron, reserve = 2 * T.defend_iron_floor })
+    funds = iron, cost = st.turret_iron, reserve = Sq.FLOOR_IRON })
   local s = state(f)
   if n > base and s.hq_ins ~= n then
     log(string.format("[FO-GARDE-AP] %s a %.1f min : QG assure %d tourelle(s) (regle d'avant %d, posees %d), plus grosse vague recue %d PV, fer %d, raison %s",

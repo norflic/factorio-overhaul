@@ -15,8 +15,10 @@
 ]]
 
 local Mr = require("shared.team.mall_rangee")
+local Mt = require("shared.team.mall_tronc") -- tranche 3 : le tronc et les prises
 local Cat = require("shared.team.motifs.catalogue")
 local P = require("shared.team.plan")
+local Pu = require("shared.team.purete")
 local M = require("shared.team.modules")
 local A = require("shared.ai3.automatiser")
 local Id = require("shared.ai3.industrie")
@@ -25,11 +27,13 @@ local Ml = require("shared.ai3.mall")
 local Build = require("script.team.build")
 local State = require("script.faction.state")
 local Events = require("script.core.events")
+local Voulues = require("script.ai3.voulues") -- tranche 3 : le mall demande les objets de ses prises (répartiteur, souterrain)
 
 local Rt = {}
 
 Rt.MAX_NEW = 8             -- machines ajoutées au plus par demande
 Rt.LOGS = 400              -- lignes de ce module au plus, par équipe (journal [FO-MALL])
+Rt.RETRY_TICKS = 5 * 3600  -- délai avant de reposer une section refusée sans cause de terrain
 
 local floor, ceil, max, min = math.floor, math.ceil, math.max, math.min
 
@@ -67,13 +71,15 @@ function Rt.ouvert(f)
   local b = f and f.build
   local st = b and b.mall
   if not (st and st.sect and Build.Mall.on()) then return false end
-  return st.pret == true or st.force_pret == true
+  return st.pret == true or st.force_pret == true or st.partiel ~= nil
 end
 
-local function repere(st)
+local function repere(st, f)
   if not st.rep then
-    local ox, oy = Mr.origin(st.sect)
-    st.rep = { ox = ox, oy = oy, k = Mr.frame(st.sect.dir) }
+    local west, north = Mr.TETE, 0
+    if Build.Mall.tronc_on and Build.Mall.tronc_on() then west, north = Mt.WEST, Mt.NORTH end
+    local ox, oy = Mr.origin(st.sect, west, north)
+    st.rep = { ox = ox, oy = oy, k = Mr.frame(st.sect.dir), west = west, north = north }
   end
   st.rows = st.rows or {}
   return st.rep
@@ -104,7 +110,9 @@ Build.SITES.mall = function(f, surface, p, h)
   local sp = p.spec.mall
   local row = st and st.rows and st.rows[sp.row]
   if not (row and st.rep) then return nil, "mall : rangee inconnue" end
-  local sec = Mr.section(P, modele(), row, sp.from, sp.to, sp.names, st.rep, sp.head == true)
+  local extra = nil
+  if sp.bus and sp.lines then extra = Mt.section(sp.lines, row, sp.names) end
+  local sec = Mr.section(P, modele(), row, sp.from, sp.to, sp.names, st.rep, sp.head == true, extra)
   local bx = Mr.box(sec.ents, size)
   local masks = h.read_masks(bx[1] - 2, bx[2] - 2, bx[3] + 3, bx[4] + 3)
   for _, e in ipairs(sec.ents) do
@@ -116,8 +124,23 @@ Build.SITES.mall = function(f, surface, p, h)
       if masks.blocked[k] then return nil, string.format("obstacle:batiment en (%d, %d)", t[1], t[2]) end
     end
   end
+  -- pureté (shared/team/purete.lua, script/team/purete.lua) : chaque tapis de la section porte ses objets déclarés ; aucun tapis étranger ne verse dessus, il ne verse sur aucun
+  if Build.Pur and surface then
+    local own = {}
+    for _, e in ipairs(sec.ents) do
+      for _, t in ipairs(P.tiles_of(e)) do own[Pu.tkey(t[1], t[2])] = true end
+    end
+    for k = 1, 2 do
+      local okp, whyp = Build.Pur.check_route(f, surface, p, "mall", sec.lines[k], sec.carries[k], {}, { own = own })
+      if not okp then return nil, "purete : " .. tostring(whyp) end
+    end
+    for _, r in ipairs(sec.routes or {}) do -- le tronc et les prises
+      local okp, whyp = Build.Pur.check_route(f, surface, p, "mall", r.tiles, r.item, {}, { own = own })
+      if not okp then return nil, "purete : " .. tostring(whyp) end
+    end
+  end
   -- raccord au réseau alimenté (section de tête : la rangée suivante se branche sur la précédente ou sur le réseau)
-  if sp.head and not st.sans_raccord then
+  if (sp.head or (sp.bus and sp.from == 1)) and not st.sans_raccord then
     local poles = {}
     for _, e in ipairs(sec.ents) do if e.role == "mall-poteau" then poles[#poles + 1] = e end end
     local cx, cy = 0, 0
@@ -179,18 +202,237 @@ local function machines_for(rate, par_min)
   return min(max(1, ceil((rate or 0) * Id.LEAD / par_min - 1e-9)), Ml.MACHINES_MAX or 64)
 end
 
+--- Objets « plaque » (produit fondu) : les seuls portés par le tronc à cette tranche.
+local PLATE_SET
+local function plate_set()
+  if not PLATE_SET then
+    PLATE_SET = {}
+    for _, o in pairs(T.outposts) do if o.product and o.resource and o.product ~= o.resource then PLATE_SET[o.product] = true end end
+  end
+  return PLATE_SET
+end
+
+local function bus_eligible(d, plates)
+  if #(d.solides or {}) == 0 or #d.solides > 2 then return false end
+  for _, s in ipairs(d.solides) do if not plates[s] then return false end end
+  return true
+end
+
+--- Noms du répartiteur et du souterrain à poser (le moins rapide dont la recette est débloquée) : { repartiteur, souterrain } ou nil. Lu aux prototypes.
+function Rt.logistique(f)
+  local force = game.forces[f.force]
+  if not force then return nil end
+  local out = {}
+  for _, what in ipairs({ { "repartiteur", T.LOGISTIC_TYPES.splitter }, { "souterrain", T.LOGISTIC_TYPES.underground } }) do
+    local best, best_speed
+    local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = what[2] } })
+    local names = {}
+    for name in pairs(protos) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do
+      local r = force.recipes[name]
+      if r and r.enabled then
+        local sp = protos[name].belt_speed or 0
+        if not best or sp < best_speed then best, best_speed = name, sp end
+      end
+    end
+    if not best then return nil end
+    out[what[1]] = best
+  end
+  return out
+end
+
+--- Tous les objets des types logistiques du jeu (la recherche voulue du mall : Voulues), triés. Un nom de plus ne coûte rien.
+local function logistic_items()
+  local out, seen = {}, {}
+  for _, typ in ipairs({ T.LOGISTIC_TYPES.splitter, T.LOGISTIC_TYPES.underground }) do
+    local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = typ } })
+    local names = {}
+    for name in pairs(protos) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do
+      local it = item_of(name)
+      if it and not seen[it] then seen[it] = true; out[#out + 1] = it end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+--- Débit nominal des plaques des demandes, en objets/s (d.rate : objets/min de la sortie), objet par objet : ce que lisent script/team/liaison.lua et script/team/rapatriement.lua pour décider de servir
+--- un coffre de tête de ligne par tapis, comme le quai d'un module.
+local function bus_inflow(demandes)
+  local out = {}
+  for _, d in ipairs(demandes) do
+    local proto = game.recipe_prototypes and game.recipe_prototypes[d.recipe]
+    local per, made = {}, 1
+    if proto then
+      for _, ing in ipairs(proto.ingredients) do per[ing.name] = ing.amount end
+      local pr = proto.products[1]
+      made = (pr and pr.amount and pr.amount > 0) and pr.amount or 1
+    end
+    for _, s in ipairs(d.solides) do
+      out[s] = (out[s] or 0) + (d.rate or 0) / 60 * (per[s] or 1) / made
+    end
+  end
+  return out
+end
+
+--- Rangée alimentée par le tronc pour ces objets (toutes leurs entrées sont des plaques) : un tapis par plaque, A = la ligne de plus petit numéro. Rend (projet) ou (nil, raison, attendre).
+function Rt.place_bus(f, demandes, names, tick, afford, why_text)
+  local b = f.build
+  local st = b.mall
+  repere(st)
+  local lg = Rt.logistique(f)
+  if not (lg or (names.repartiteur and names.souterrain)) then return nil, "tronc : repartiteur ou souterrain non debloque" end
+  local nm = {}
+  for k, v in pairs(names) do nm[k] = v end -- (copie d'une table de noms : l'ordre n'a aucun effet)
+  nm.repartiteur = names.repartiteur or lg.repartiteur
+  nm.souterrain = names.souterrain or lg.souterrain
+  st.lines = st.lines or {}
+  -- plaques voulues (au plus 2 pour un même appel, les autres objets repartent en candidats)
+  local want, seen = {}, {}
+  for _, d in ipairs(demandes) do
+    for _, s in ipairs(d.solides) do if not seen[s] then seen[s] = true; want[#want + 1] = s end end
+  end
+  table.sort(want)
+  if #want > 2 then return nil, "tronc : plus de 2 plaques dans ce groupe" end
+  -- une rangée alimentée par le tronc qui a ces plaques sur ses voies et de la place, sinon une neuve
+  local rows_max, cells_in = Mr.capacite(st.sect, st.rep.west, st.rep.north)
+  local cells_max = min(cells_in + floor((st.sect.ext or 0) / Mr.PERIODE), Mr.MAX_CELLS)
+  local row, newrow
+  for _, r in ipairs(st.rows) do
+    if r.bus and not r.stop and #r.cells < cells_max and not (r.retry_at and r.retry_at > tick) then
+      local has = true
+      for _, s in ipairs(want) do if not Mr.accepte(r.voies, { s }, "?") then has = false end end
+      if has then row = r break end
+    end
+  end
+  -- numéros des lignes (les nouvelles sont ajoutées à la fin ; rendues si le matériel manque)
+  local prev_lines = {}
+  for i, ln in ipairs(st.lines) do prev_lines[i] = { k = ln.k, item = ln.item, y_to = ln.y_to } end
+  local function line_of(item)
+    for _, ln in ipairs(st.lines) do if ln.item == item then return ln.k end end
+    return nil
+  end
+  for _, s in ipairs(want) do
+    if not line_of(s) then
+      if #st.lines >= Mt.KMAX then return nil, "tronc : lignes pleines (" .. Mt.KMAX .. ")" end
+      st.lines[#st.lines + 1] = Mt.ligne(#st.lines + 1, s)
+    end
+  end
+  local function restore()
+    st.lines = {}
+    for i, ln in ipairs(prev_lines) do st.lines[i] = ln end
+  end
+  if not row then
+    if #st.rows >= rows_max then restore() return nil, string.format("mall plein (%d rangee(s) sur %d)", #st.rows, rows_max) end
+    local ks = {}
+    for _, s in ipairs(want) do ks[#ks + 1] = { k = line_of(s), item = s } end
+    table.sort(ks, function(x, y) return x.k < y.k end)
+    local a, b2 = ks[1], ks[2]
+    local voies = { a.item, a.item }
+    if b2 then voies[3], voies[4] = b2.item, b2.item end
+    row, newrow = { j = #st.rows + 1, voies = voies, cells = {}, projects = {}, bus = { a = a.k, b = b2 and b2.k or nil } }, true
+  end
+  local aj = Mr.ajouts(row, demandes, Rt.MAX_NEW)
+  if #aj == 0 then restore() return nil, "mall : rien a ajouter" end
+  local cells = Mr.sceller(aj)
+  local from = #row.cells + 1
+  if from - 1 + #cells > cells_max then
+    if from - 1 >= cells_max then restore(); row.stop = "obstacle:secteur"; return nil, "mall : rangee " .. row.j .. " au bout du secteur" end
+    for i = #cells, cells_max - (from - 1) + 1, -1 do cells[i] = nil end
+  end
+  for _, c in ipairs(cells) do c.m = c.m or nm.machine; row.cells[#row.cells + 1] = c end
+  local to = #row.cells
+  local lines_snapshot = nil
+  local extra = nil
+  if from == 1 then
+    lines_snapshot = {}
+    for i, ln in ipairs(st.lines) do lines_snapshot[i] = { k = ln.k, item = ln.item, y_to = ln.y_to } end
+    extra = Mt.section(lines_snapshot, row, nm)
+  end
+  local sec = Mr.section(P, modele(), row, from, to, nm, st.rep, false, extra)
+  local list = {}
+  for _, it in ipairs(Mr.cout(sec.ents)) do list[#list + 1] = { item_of(it[1]), it[2] } end
+  if afford then
+    local ok, whyc = afford(list)
+    if not ok then
+      for i = to, from, -1 do row.cells[i] = nil end
+      restore()
+      -- seuls le répartiteur ou le souterrain manquent : pas d'attente, le mall continue en rangée à quais (l'attente d'un objet que personne n'a encore fabriqué bloquerait tout le mall)
+      local rest = {}
+      local logi = { [item_of(nm.repartiteur)] = true, [item_of(nm.souterrain)] = true }
+      for _, it in ipairs(list) do if not logi[it[1]] then rest[#rest + 1] = it end end
+      if #rest < #list and afford(rest) then return nil, "tronc : repartiteur ou souterrain pas encore disponibles" end
+      return nil, tostring(whyc), true
+    end
+  end
+  local spec = { site = "mall", domain = "production", why = why_text or "MALL rangee (tronc)", mall = { row = row.j, from = from, to = to, head = false, bus = true, lines = lines_snapshot, names = {
+    machine = nm.machine, bras = nm.bras, bras_long = nm.bras_long, tapis = nm.tapis, poteau = nm.poteau, coffre = nm.coffre, repartiteur = nm.repartiteur, souterrain = nm.souterrain }, decl = names.decl } }
+  local id, why = Build.request(f, spec)
+  if not id then
+    for i = to, from, -1 do row.cells[i] = nil end
+    restore()
+    return nil, why
+  end
+  if extra then
+    for _, ln in ipairs(st.lines) do if extra.y_to[ln.k] then ln.y_to = extra.y_to[ln.k] end end
+  end
+  local p = b.projects[id]
+  if p and extra then
+    -- seules les lignes dont la tête est dans CETTE section (ses coffres) ont un consommateur à déclarer
+    local flows, inflow = bus_inflow(demandes), {}
+    for _, q in ipairs(extra.quais) do inflow[q.item] = flows[q.item] end
+    p.inflow = inflow
+  end
+  if p then
+    p.keep_stock = {}
+    for _, d in ipairs(demandes) do p.keep_stock[d.item] = max(Id.COLLECT_AT or 50, Ml.target(d.rate or 0)) end
+  end
+  if newrow then
+    st.rows[#st.rows + 1] = row
+    say(f, st, tick, string.format("rangee %d OUVERTE sur le TRONC : voies {%s}, lignes %d/%s, %d cellule(s) (projet %d)", row.j, table.concat(row.voies, ","), row.bus.a, tostring(row.bus.b), to - from + 1, id))
+  else
+    say(f, st, tick, string.format("rangee %d (tronc) allongee : cellules %d a %d (projet %d)", row.j, from, to, id))
+  end
+  row.projects[#row.projects + 1] = { id = id, from = from, to = to, tick = tick, lines_prev = lines_snapshot and prev_lines or nil }
+  return id
+end
+
 --- Range des demandes dans une rangée. demandes = { { item, recipe, machine, machines, solides, rate } } ; names = le kit (machine, bras, bras_long, tapis, poteau, coffre, decl) ;
 --- rend (id du projet) ou (nil, raison, attendre).
 function Rt.place(f, demandes, names, tick, afford, why_text)
   local b = f.build
   local st = b.mall
   repere(st)
-  local rows_max, cells_in = Mr.capacite(st.sect)
+  -- S2 partiel : seuls les objets dont les plaques coulent
+  if not (st.pret or st.force_pret) and st.partiel then
+    local kept = {}
+    for _, d in ipairs(demandes) do
+      local ok_d = true
+      for _, s in ipairs(d.solides or {}) do
+        if st.partiel.all[s] and not st.partiel.ok[s] then ok_d = false end
+      end
+      if ok_d then kept[#kept + 1] = d end
+    end
+    if #kept == 0 then return nil, "S2 partiel : les plaques de ces objets ne coulent pas" end
+    demandes = kept
+  end
+  local plates = plate_set()
+  local bus_d = {}
+  for _, d in ipairs(demandes) do if bus_eligible(d, plates) then bus_d[#bus_d + 1] = d end end
+  if #bus_d > 0 and Build.Mall.tronc_on and Build.Mall.tronc_on() then
+    local id, why, wait = Rt.place_bus(f, bus_d, names, tick, afford, why_text)
+    if id or wait then return id, why, wait end
+    -- pas de tronc possible (répartiteur non débloqué, lignes pleines) : la rangée à quais d'avant
+  end
+  local rows_max, cells_in = Mr.capacite(st.sect, st.rep.west, st.rep.north)
   local cells_max = min(cells_in + floor((st.sect.ext or 0) / Mr.PERIODE), Mr.MAX_CELLS)
   -- une rangée dont les voies acceptent TOUT, sinon une neuve
   local row, newrow
   for _, r in ipairs(st.rows) do
-    local all_in = not r.stop and #r.cells < cells_max
+    local all_in = not r.stop and #r.cells < cells_max and not (r.retry_at and r.retry_at > tick)
     for _, d in ipairs(demandes) do
       if not Mr.accepte(r.voies, d.solides, d.item) then all_in = false end
     end
@@ -359,10 +601,16 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
         q.dead = true
         local why = p and p.reason or "projet perdu"
         for k = #r.cells, q.from, -1 do r.cells[k] = nil end
-        if tostring(why):find("obstacle", 1, true) then r.stop = tostring(why) end
+        if q.lines_prev then st.lines = q.lines_prev end -- (les lignes et leur étendue reviennent à leur état d'avant la section refusée)
+        if tostring(why):find("obstacle", 1, true) or tostring(why):find("purete", 1, true) then r.stop = tostring(why)
+        else r.retry_at = tick + Rt.RETRY_TICKS end -- (raccord, projet perdu : nouvel essai plus tard, pas à chaque minute)
         say(f, st, tick, string.format("rangee %d : section %d-%d refusee (%s) : cellules rendues, arret : %s", r.j, q.from, q.to, tostring(why), tostring(r.stop)))
       end
     end
+  end
+  -- 1b. la recherche voulue : les objets des prises du tronc, tant qu'ils ne sont pas débloqués (Voulues, lu par le cerveau général)
+  if Build.Mall.tronc_on and Build.Mall.tronc_on() and Rt.ouvert(f) then
+    if Rt.logistique(f) then Voulues.clear(f, "mall") else Voulues.set(f, "mall", logistic_items(), tick) end
   end
   -- 2. allongement (une demande à la fois : la dernière section finie)
   if Rt.ouvert(f) and #st.rows > 0 then
@@ -478,7 +726,9 @@ function Rt.report(f)
     end
     rows[#rows + 1] = { j = r.j, voies = r.voies, cells = #r.cells, stop = r.stop, projects = projs }
   end
-  return { sect = st.sect, rep = st.rep, rows = rows, fab = st.fab, pret = st.pret, force = st.force_pret }
+  local outposts = 0
+  for _ in pairs(f.outposts or {}) do outposts = outposts + 1 end -- (comptage : l'ordre n'a aucun effet)
+  return { s2 = st.s2, partiel = st.partiel ~= nil, sect = st.sect, rep = st.rep, rows = rows, fab = st.fab, pret = st.pret, force = st.force_pret, team_force = f.force, outposts = outposts }
 end
 
 local function team_of(key)
@@ -499,6 +749,9 @@ if remote and remote.add_interface then remote.add_interface("fo-mall", {
     local st = f.build.mall
     if name == "force_pret" then st.force_pret = v
     elseif name == "sans_raccord" then st.sans_raccord = v
+    elseif name == "force_plant" then st.force_plant = v
+    elseif name == "s2_tenue" then st.s2_tenue = v
+    elseif name == "etat_every" then st.etat_every = v
     elseif name == "sect" then st.sect = v; st.phase = "choisi" -- (le relevé du terrain ne l'écrase plus)
     else return nil end
     return v

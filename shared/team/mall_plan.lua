@@ -39,6 +39,27 @@ Mp.TRIES = { { size = 8, radius = 84 }, { size = 6, radius = 84 }, { size = 6, r
 -- fini. 30/min = un peu plus d'un four de pierre et demi (18,75/min) : le plus petit débit continu qu'une section de rangée peut boire. Partie neuve t2-neuve90-a31ce386 : votre
 -- équipe en « attente S2 » de 19,9 à 90 min avec +105 plaques de fer par minute d'excédent à 60 min (FO-BILAN) : aucun projet fini ne le disait.
 Mp.S2_PLAQUES_MIN = 30
+-- Tenue du débit (après l'A/B ab-a32fb69a) : une lecture sur 1 min faisait battre S (votre équipe, graine 20261020 : 22 bascules en 90 min) : le débit doit tenir Mp.S2_TENUE de suite pour ouvrir,
+-- puis ne referme qu'en passant sous Mp.S2_PLAQUES_BAS. 15/min : rejeu de la règle sur les séries de l'A/B (10 parties-équipes) : 22 bascules deviennent 4 au plus, et 10/min n'en enlève aucune de plus.
+Mp.S2_TENUE = 5 * 3600
+Mp.S2_PLAQUES_BAS = 15
+
+--- Mémoire du débit d'une plaque. mem = { since, open } ou nil ; flow = objets/min mesurés ; tenue : durée en ticks (nil : Mp.S2_TENUE). Rend la mémoire (open = vrai : la plaque compte pour S2).
+function Mp.s2_tenue(mem, flow, tick, tenue)
+  mem = mem or {}
+  if mem.open and flow < Mp.S2_PLAQUES_BAS then
+    mem.open = nil -- (la tenue repart de zéro juste en dessous : le débit est sous le seuil haut)
+  end
+  if not mem.open then
+    if flow >= Mp.S2_PLAQUES_MIN then
+      mem.since = mem.since or tick
+      if tick - mem.since >= (tenue or Mp.S2_TENUE) then mem.open = true end
+    else
+      mem.since = nil
+    end
+  end
+  return mem
+end
 Mp.EAU, Mp.MINERAI, Mp.BATI, Mp.INCONNU, Mp.ARBRE = 1, 2, 4, 8, 16
 Mp.INTERDIT = 1 + 2 + 4 + 8
 local CAT = { { bit = 1, name = "eau" }, { bit = 2, name = "minerai" }, { bit = 4, name = "bati" }, { bit = 8, name = "inconnu" } }
@@ -264,7 +285,16 @@ function Mp.etat(inp)
   for _, p in ipairs(inp.plaques or {}) do if not p.auto then missing[#missing + 1] = tostring(p.item) end end
   if #(inp.plaques or {}) == 0 then return { ok = false, code = "S2", cause = "attente S2 : aucune plaque fondue connue" } end
   if #missing > 0 then
-    return { ok = false, code = "S2", cause = "attente S2 : aucune source automatisee de " .. table.concat(missing, ", ") }
+    -- S2 PARTIEL : au moins une plaque coule et rien d'autre ne retient (S3, S4) : la rangée s'ouvre aux seuls objets dont les plaques coulent (partie neuve ab-a32fb69a, votre
+    -- équipe, graine 20261020 : du fer certaines minutes, jamais de cuivre, S jamais vrai en 90 min)
+    local ok_set, all_set, n_ok = {}, {}, 0
+    for _, p in ipairs(inp.plaques) do
+      all_set[p.item] = true
+      if p.auto then ok_set[p.item] = true; n_ok = n_ok + 1 end
+    end
+    local partiel = (n_ok > 0 and not inp.crise and inp.asm == true) and { ok = ok_set, all = all_set } or nil
+    return { ok = false, code = "S2", partiel = partiel,
+      cause = "attente S2 : aucune source automatisee de " .. table.concat(missing, ", ") .. (partiel and " (rangees ouvertes aux objets des plaques qui coulent)" or "") }
   end
   if inp.crise then return { ok = false, code = "S3", cause = "attente S3 : crise (" .. tostring(inp.crise) .. ")" } end
   if not inp.asm then return { ok = false, code = "S4", cause = "attente S4 : aucun assembleur utilisable" } end

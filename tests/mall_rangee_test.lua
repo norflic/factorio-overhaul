@@ -149,6 +149,15 @@ for _, s in ipairs(SECTORS) do
       check(pick ~= nil and pick.name == NAMES.tapis, tag .. "bras long : prise sur un tapis")
       check(drop ~= nil and drop.name == NAMES.machine, tag .. "bras long : dépose dans une machine")
     end
+    -- tracés de pureté : chaque tuile mène à la suivante, dans l'ordre du flux
+    for k = 1, 2 do
+      local ln = sec.lines[k]
+      check(#ln >= 12, tag .. "tracé du tapis " .. k .. " (" .. #ln .. " tuiles)")
+      for i = 1, #ln - 1 do
+        local v = DV[ln[i].dir]
+        check(ln[i].x + v[1] == ln[i + 1].x and ln[i].y + v[2] == ln[i + 1].y, tag .. string.format("tracé %d continu à la tuile %d", k, i))
+      end
+    end
     -- quais et sorties
     check(#sec.quais == Mr.ARMS * #voies, tag .. "Mr.ARMS quais par voie (" .. #sec.quais .. ")")
     for _, q in ipairs(sec.quais) do
@@ -166,6 +175,7 @@ for _, s in ipairs(SECTORS) do
     local both = {}
     for _, e in ipairs(sec.ents) do both[#both + 1] = e end
     for _, e in ipairs(sec2.ents) do both[#both + 1] = e end
+    check(#Mr.verifie(both, size, 7.5, 2.5) == 0, tag .. "deux rangées voisines reliées par le relais (fil de 7,5)")
     local o2 = {}
     local dup = false
     for _, e in ipairs(both) do
@@ -318,6 +328,36 @@ do
     if refused then killed = killed + 1 end
   end
   print(string.format("[MALL-RANGEE] mutants refusés : %d/%d", killed, #mutants))
+end
+
+-- §4b capacité : ce que Mr.capacite annonce tient dans le secteur, marge comprise, aux 4 orientations, avec et sans la place du tronc ; un de plus ne tient pas
+do
+  local floor = math.floor
+  local function inside(s, k, ox, oy, m, x, y)
+    local wx, wy = Mr.to_world(x + 0.5, y + 0.5, 0, k, ox, oy, 1)
+    local tx, ty = floor(wx), floor(wy)
+    return tx >= s.x0 + m and tx <= s.x1 - 1 - m and ty >= s.y0 + m and ty <= s.y1 - 1 - m
+  end
+  for _, dir in ipairs({ 0, 2, 4, 6 }) do
+    for _, place in ipairs({ { nil, nil }, { 16, 3 } }) do
+      for _, size in ipairs({ { 60, 45 }, { 61, 46 }, { 64, 64 }, { 48, 75 }, { 47, 74 }, { 90, 62 } }) do
+        local s = { x0 = 100, y0 = -40, x1 = 100 + size[1], y1 = -40 + size[2], dir = dir }
+        local west, north = place[1], place[2]
+        local tag = string.format("§4b dir %d, %dx%d, ouest %s, nord %s : ", dir, size[1], size[2], tostring(west), tostring(north))
+        local rows, cells = Mr.capacite(s, west, north)
+        local k = Mr.frame(dir)
+        local ox, oy = Mr.origin(s, west, north)
+        local m = Mr.MARGE
+        local w0, n0 = -(west or Mr.TETE), -(north or 0)
+        if rows > 0 and cells > 0 then
+          local xe, ye = 4 * cells - 1, 15 * (rows - 1) + 13
+          check(inside(s, k, ox, oy, m, w0, n0) and inside(s, k, ox, oy, m, xe, ye) and inside(s, k, ox, oy, m, w0, ye) and inside(s, k, ox, oy, m, xe, n0), tag .. "annoncé " .. rows .. "x" .. cells .. " : tient dans le secteur")
+        end
+        check(not inside(s, k, ox, oy, m, w0, 15 * rows + 13), tag .. "une rangée de plus ne tient pas (" .. rows .. ")")
+        check(not inside(s, k, ox, oy, m, 4 * (cells + 1) - 1, n0), tag .. "une cellule de plus ne tient pas (" .. cells .. ")")
+      end
+    end
+  end
 end
 
 print(string.format("[MALL-RANGEE] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))

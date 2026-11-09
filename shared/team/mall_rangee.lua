@@ -151,6 +151,7 @@ function Mr.cellule(modele, i, cell, names, carries)
       c.recipe = (p.groupe == "haut") and cell.h or cell.b
     elseif p.role == "tapis_entree" then
       c.carries = carries[p.k]
+      c.line, c.flow = p.k, dx + p.x
     elseif p.role == "coffre" then
       -- coffre : le coffre du haut (k = 1) reçoit la machine « haut », celui du bas (k = 2) la machine « bas »
       c.role = "mall-sortie"
@@ -164,7 +165,7 @@ end
 --- Tête canonique : les quais des voies (Mr.ARMS par voie, P.feeder de shared/team/plan.lua) ; par tapis alimenté, un poteau entre ses bras et un relais vers le
 --- premier poteau de cellule (fils de 4 et 4,1 tuiles, dans la portée d'un poteau de base).
 --- P = shared/team/plan.lua ; rend { ents, quais = { x, y, item } } (centres) ; nb = tapis alimentés (1 ou 2).
-function Mr.tete(P, voies, names)
+function Mr.tete(P, voies, names, j)
   local ents, quais = {}, {}
   local nb = (#voies >= 3) and 2 or 1
   local rows = { Mr.YA, Mr.YB }
@@ -173,18 +174,27 @@ function Mr.tete(P, voies, names)
   local lanes = { { voies[1], voies[2] or voies[1] }, { voies[3] or voies[1], voies[4] or voies[3] or voies[1] } }
   for k = 1, 2 do
     local y = rows[k]
-    for x = Mr.PORT_X, -1 do ents[#ents + 1] = { name = names.tapis, x = x + 0.5, y = y + 0.5, dir = 2, role = "mall-tete", carries = carries[k] } end
+    for x = Mr.PORT_X, -1 do ents[#ents + 1] = { name = names.tapis, x = x + 0.5, y = y + 0.5, dir = 2, role = "mall-tete", carries = carries[k], line = k, flow = -100 + (x - Mr.PORT_X) } end
     if k <= nb then
       local port = { x = Mr.PORT_X, y = y, dir = dirs[k], lanes = lanes[k] }
       local same = lanes[k][1] == lanes[k][2]
       local fd = P.feeder(port, { "quai", (not same) and "quai" or nil }, names.bras, names.tapis, Mr.ARMS)
+      local upstream = 0
       for _, e in ipairs(fd.entities) do
-        e.carries = (e.role == "tete") and carries[k] or nil
-        e.role = (e.role == "tete") and "mall-tete" or e.role
+        if e.role == "tete" then
+          upstream = upstream + 1 -- (P.feeder donne ses tapis du coude vers l'amont)
+          e.carries, e.line, e.flow = carries[k], k, -100 - upstream
+          e.role = "mall-tete"
+        end
         ents[#ents + 1] = e
       end
       for _, c in ipairs(fd.chests) do quais[#quais + 1] = { x = c.x, y = c.y, item = c.item } end
     end
+  end
+  if j and j > 1 then
+    -- relais vers la rangée précédente, dans la tuile de passage : 8 tuiles séparent les poteaux de deux rangées voisines, au-delà du fil d'un petit poteau (7,5 ; partie neuve
+    -- ab-a32fb69a, votre équipe : rangées 2 et 3 refusées au raccord, la réserve du secteur fermant tout autre chemin)
+    ents[#ents + 1] = { name = names.poteau, x = 3.5, y = -0.5, dir = 0, role = "mall-poteau" }
   end
   ents[#ents + 1] = { name = names.poteau, x = -4.5, y = 4.5, dir = 0, role = "mall-poteau" }
   ents[#ents + 1] = { name = names.poteau, x = -0.5, y = 4.5, dir = 0, role = "mall-poteau" }
@@ -214,9 +224,9 @@ end
 
 --- Translation de la rangée dans le secteur s (x0, y0 inclus, x1, y1 exclus ; s.dir = sens de croissance) : la tête contre le bord amont, à Mr.MARGE tuile du bord,
 --- la première rangée à Mr.MARGE tuile du bord latéral. Entiers : les centres tournés gardent leur demi-tuile. Rend ox, oy.
-function Mr.origin(s)
+function Mr.origin(s, west, north)
   local k = Mr.frame(s.dir)
-  local ax, ay = rot_pt(-Mr.TETE, 0, k)
+  local ax, ay = rot_pt(-(west or Mr.TETE), -(north or 0), k)
   local bx, by = rot_pt(Mr.PERIODE, Mr.LARGE, k)
   local x0, y0, x1, y1 = math.min(ax, bx), math.min(ay, by), math.max(ax, bx), math.max(ay, by)
   local m = Mr.MARGE
@@ -227,12 +237,12 @@ function Mr.origin(s)
 end
 
 --- Rangées (j max) et cellules (n max) que le secteur porte, à l'intérieur : rend (rows, cells_in, along, across).
-function Mr.capacite(s)
+function Mr.capacite(s, west, north)
   local k = Mr.frame(s.dir)
   local w, h = s.x1 - s.x0, s.y1 - s.y0
   local along, across = (k % 2 == 0) and w or h, (k % 2 == 0) and h or w
-  local rows = floor((across - 2 * Mr.MARGE + 1) / Mr.PITCH)
-  local cells = floor((along - 2 * Mr.MARGE - Mr.TETE) / Mr.PERIODE)
+  local rows = floor((across - 2 * Mr.MARGE - (north or 0) + 1) / Mr.PITCH)
+  local cells = floor((along - 2 * Mr.MARGE - (west or Mr.TETE)) / Mr.PERIODE)
   return math.max(rows, 0), math.max(cells, 0), along, across
 end
 
@@ -250,17 +260,36 @@ end
 
 --- Section (projet) : entités du monde (centres) des cellules from à to de la rangée, tête comprise quand `head` ; `P` = plan (feeder).
 --- row = { j, voies, cells, ... } ; repere = { ox, oy, k } ; rend { ents, quais, outs }.
-function Mr.section(P, modele, row, from, to, names, repere, head)
+function Mr.section(P, modele, row, from, to, names, repere, head, extra)
   local carries = Mr.carries(row.voies)
   local ents, quais, outs = {}, {}, {}
   local function push(list, dest)
     for _, e in ipairs(list) do
       local x, y, d = Mr.to_world(e.x, e.y, e.dir, repere.k, repere.ox, repere.oy, row.j)
-      dest[#dest + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item }
+      dest[#dest + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item, line = e.line, flow = e.flow }
+    end
+  end
+  local routes = {}
+  if extra then -- le tronc et les prises (shared/team/mall_tronc.lua) : coordonnées absolues, repère de la rangée 1
+    for _, r in ipairs(extra.routes or {}) do
+      local tiles = {}
+      for _, t in ipairs(r.tiles) do
+        local wx, wy, d = Mr.to_world(t.x + 0.5, t.y + 0.5, t.dir, repere.k, repere.ox, repere.oy, 1)
+        tiles[#tiles + 1] = { x = floor(wx), y = floor(wy), dir = d, ug = t.ug }
+      end
+      routes[#routes + 1] = { item = r.item, tiles = tiles }
+    end
+    for _, e in ipairs(extra.ents) do
+      local x, y, d = Mr.to_world(e.x, e.y, e.dir, repere.k, repere.ox, repere.oy, 1)
+      ents[#ents + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item, type = e.type }
+    end
+    for _, q in ipairs(extra.quais or {}) do
+      local x, y = Mr.to_world(q.x, q.y, nil, repere.k, repere.ox, repere.oy, 1)
+      quais[#quais + 1] = { x = x, y = y, item = q.item }
     end
   end
   if head then
-    local t = Mr.tete(P, row.voies, names)
+    local t = Mr.tete(P, row.voies, names, row.j)
     push(t.ents, ents)
     for _, q in ipairs(t.quais) do
       local x, y = Mr.to_world(q.x, q.y, nil, repere.k, repere.ox, repere.oy, row.j)
@@ -275,7 +304,13 @@ function Mr.section(P, modele, row, from, to, names, repere, head)
       outs[#outs + 1] = { x = x, y = y, item = o.item }
     end
   end
-  return { ents = ents, quais = quais, outs = outs }
+  -- tracés des deux tapis, dans l'ordre du flux (preuve de pureté : Pur.check_route)
+  local lines = { {}, {} }
+  for _, e in ipairs(ents) do
+    if e.line then lines[e.line][#lines[e.line] + 1] = { x = floor(e.x), y = floor(e.y), dir = e.dir, flow = e.flow } end
+  end
+  for k = 1, 2 do table.sort(lines[k], function(a, b) return a.flow < b.flow end) end
+  return { ents = ents, quais = quais, outs = outs, lines = lines, carries = carries, routes = routes }
 end
 
 --- Liste de matériel { { nom, n } } triée par nom, comptée sur des entités.
