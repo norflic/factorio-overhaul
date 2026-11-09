@@ -57,6 +57,8 @@ local function battery(B, verbose)
   local mid = B.lines(HUBS, "mid")
   ck(#mid == 3, "1.3 mid : k = 3 lignes (" .. #mid .. ")")
   ck(#B.lines(HUBS, "late") == 3, "1.4 late : lignes aussi")
+  ck(#B.lines(HUBS, "mid", nil, true) == 0 and #B.lines(HUBS, "late", nil, true) == 0, "1.4 bis famine de la plaque clé : aucune ligne, même en mid ou late")
+  ck(#B.lines(HUBS, "mid", nil, false) == 3, "1.4 ter sans famine : les 3 lignes")
   ck(mid[1] and mid[1].item == "h-gear" and mid[2].item == "h-circ" and mid[3].item == "h-wire", "1.5 ordre par débit décroissant")
   local names = {}
   for _, l in ipairs(B.lines(HUBS, "mid", { k = 6 })) do names[l.item] = true end
@@ -177,7 +179,7 @@ do
   check(ind:find('require("shared.team.bus_intermediaires")', 1, true) ~= nil, "6.1 industrie.lua requiert la règle")
   check(ind:find("intermediaires(f, ml, cs, book, tick)", 1, true) ~= nil, "6.2 Ind.think appelle les lignes d'intermédiaires")
   check(ind:find("Ml.want(ml, tick, l.item, l.rate, Bi.SRC)", 1, true) ~= nil, "6.3 la demande des lignes passe par Ml.want (source Bi.SRC)")
-  check(ind:find("Bi.lines(S.hubs(S.new(book, bus_set()), demands, Bi.CFG.k), phase, Bi.CFG)", 1, true) ~= nil, "6.4 contrat Solver.new(book, bus) / Solver.hubs(s, demands, k)")
+  check(ind:find("Bi.lines(S.hubs(S.new(book, bus_set()), demands, Bi.CFG.k), phase, Bi.CFG, famine)", 1, true) ~= nil and ind:find("Famine.team_starved(f, tick) == true", 1, true) ~= nil, "6.4 contrat Solver.new(book, bus) / Solver.hubs(s, demands, k) ; famine de la plaque clé transmise")
   check(ind:find("T.outposts[kind]", 1, true) ~= nil and ind:find("if T.fuel then out[T.fuel] = true end", 1, true) ~= nil, "6.5 bus = produits des avant-postes et combustible, lus aux données")
   check(ind:find("(f.elec and f.elec.phase) or \"early\"", 1, true) ~= nil, "6.6 phase : l'arbre de décision écrit par Elec (Dt.phase), early sinon")
   check(ind:find("cands = Bi.order_cands(cands, ml.bi and ml.bi.hubs)", 1, true) ~= nil, "6.7 les décisions d'un intermédiaire pivot devant les objets finis")
