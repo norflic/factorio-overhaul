@@ -80,7 +80,13 @@ return {
       ctx.check(hq ~= nil, "faction et QG releves (" .. tostring(st.key) .. ")")
       if not hq then return end
       if force.technologies["automation"] then force.technologies["automation"].researched = true end
-      st.box, st.tiles = lay_patch(ctx.surface(), math.floor(hq.position.x) + 90, math.floor(hq.position.y), 25, 13)
+      -- aucun minerai naturel (ni avant-poste de l'equipe dessus) a moins de 45 tuiles du gisement du banc : le cadre du champ ne deborde pas
+      -- sur un gisement deja occupe par des paires thermiques (premier passage : bande 334 bloquee 640/650 par un four et une foreuse a bruler)
+      local cx, cy = math.floor(hq.position.x) + 90, math.floor(hq.position.y)
+      for _, r in ipairs(ctx.surface().find_entities_filtered({ area = { { cx - 25 - 45, cy - 13 - 45 }, { cx + 25 + 45, cy + 13 + 45 } }, type = "resource" })) do
+        r.destroy()
+      end
+      st.box, st.tiles = lay_patch(ctx.surface(), cx, cy, 25, 13)
       ctx.log(string.format("gisement de fer pose : %d tuiles, boite (%d, %d)-(%d, %d)", st.tiles, st.box.x0, st.box.y0, st.box.x1, st.box.y1))
       ctx.check(ctx.remote("fo-ind", "stock", st.key, PARTS) ~= nil, "coffre : pieces de la rangee et de la centrale")
       local got = ctx.remote("fo-ind", "stock", st.key, BAND_PARTS) or {}
@@ -116,10 +122,10 @@ return {
         for pid = 1, 90 do
           local s = ctx.remote("fo-ia1d", "status", st.key, pid)
           if s and pid > 2 then
-            if s.state ~= "fini" and s.state ~= "refuse" and (s.total or 0) >= 10 then
-              if s.state == "chantier" or s.state == "fantomes" or s.state == "raccordement" then inflight = inflight + 1 end
-            end
-            listing[#listing + 1] = pid .. ":" .. tostring(s.state) .. ":" .. tostring(s.built) .. "/" .. tostring(s.total)
+            -- « en vol » = une bande dont des pieces sont DEJA posees et qui n'est pas finie : deux a la fois = des bandes batties en parallele
+            if s.state ~= "fini" and s.state ~= "refuse" and (s.total or 0) >= 10 and (s.built or 0) > 0 and (s.built or 0) < (s.total or 0) then inflight = inflight + 1 end
+            local miss = s.missing and s.missing[1] and (" manque " .. tostring(s.missing[1][1]) .. " " .. tostring(s.missing[1][2]) .. " (+" .. (#s.missing - 1) .. ")") or ""
+            listing[#listing + 1] = pid .. ":" .. tostring(s.state) .. (s.reason and ("[" .. tostring(s.reason) .. "]") or "") .. ":" .. tostring(s.built) .. "/" .. tostring(s.total) .. miss
           end
           if s and s.state ~= "fini" then ctx.remote("fo-ind", "revive", st.key, pid) end
           if s and s.state ~= "refuse" then fill_quais(ctx, s, 200) end
@@ -129,7 +135,7 @@ return {
           local n = ctx.surface().count_entities_filtered({ area = { { st.box.x0 - 4, st.box.y0 - 4 }, { st.box.x1 + 4, st.box.y1 + 4 } },
             name = "electric-mining-drill", force = force_of(st.key) })
           ctx.log(string.format("diag tick %d : %d projet(s) de bande en vol (max %d), %d foreuse(s) electrique(s) posee(s) sur le gisement ; projets : %s", t, inflight,
-            st.max_inflight, n, table.concat(listing, " ", 1, math.min(#listing, 14))))
+            st.max_inflight, n, table.concat(listing, " ; ", 1, math.min(#listing, 14))))
         end
       end
     end
