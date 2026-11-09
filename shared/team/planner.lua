@@ -371,7 +371,7 @@ function P.plan(view, book)
   local protect_any = false
   if df and turret_ok then
     for _, o in ipairs(view.outposts or {}) do
-      if o.protect and (o.turrets or 0) < T.defend_turrets(o.drills) then protect_any = true end
+      if o.protect and (o.turrets or 0) < (o.want_t or T.defend_turrets(o.drills)) then protect_any = true end -- (DEFENSE-AP : garde voulue sur la menace)
     end
   end
   out.turret_ok = turret_ok -- lot S1 : lu par script/team/survie_qg.lua (reconstruction et agrandissement de survie attendent les tourelles)
@@ -396,9 +396,14 @@ function P.plan(view, book)
     local qwant = qp and (qp.hq_want or (view.hq_turrets or 0) + (qp.fresh or 0)) or 0
     posts[1] = { id = "hq", want = qg_peril and math.max(dc.want, qwant) or dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
     for _, o in ipairs(view.outposts) do
-      if lacking[o.id] then
+      -- Lot DEFENSE-AP (mesure diag1, 9/11) : un avant-poste « défendu » selon ses foreuses mais sous la garde que sa menace exige (vague prévue
+      -- ou reçue, shared/team/garde_ap.lua) reçoit aussi ses tourelles : la règle d'avant (1 + foreuses / 8 = 3) laissait l'avant-poste de fer
+      -- face à 1750 PV de vague avec 1724 PV de défense, puis à 2457 PV ; il tombait à 15 min, le fer ne revenait plus. N'agit pas sur
+      -- `lacking` (agrandissement, tournées de fond : règles d'avant) ; ne retire rien à la défense.
+      local wt = math.max(o.want_t or 0, T.defend_turrets(o.drills))
+      if lacking[o.id] or (o.turrets or 0) < wt then
         local ospec = T.outposts[o.kind]
-        posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify,
+        posts[#posts + 1] = { id = o.id, want = wt, have = o.turrets or 0, busy = o.has_fortify,
           iron = (ospec and ospec.product == iron_key) or nil } -- lot DEFENSE-FACTIONS D5 : un avant-poste de fer non défendu passe AVANT le front
       end
     end
