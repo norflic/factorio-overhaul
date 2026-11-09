@@ -574,6 +574,7 @@ local function plan_once(spec)
   local total = fuelled and Ch.lane_drills(spec.belts[#spec.belts].lane, d.rate) or nil
   local ents, out_bands = {}, {}
   local capped, flow_all, cap_all, no_smelter = 0, 0, 0, 0
+  local no_smelter_at -- 9/11 : première tuile prise qui empêche la colonne de fonderie d'un groupe (diagnostic du refus « sans place de fonderie »)
   local function emit(kind, u, v, size, du, dv, bi, gi, pr, role, belt, module)
     local x, y = c.xy(u, v)
     local x2, y2 = c.xy(u + size - 1, v + size - 1)
@@ -611,6 +612,22 @@ local function plan_once(spec)
             local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
             list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
               c.is_ore, mode, fixed)
+            if not list and not no_smelter_at then
+              -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
+              local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
+              local pu, pv
+              for u = edge + side, s0 - side, side do if not pu and not c.free(u, bd.b) then pu, pv = u, bd.b end end
+              if not pu then
+                local lay = Co.layout(spec, bd.b, side, s0, fixed and fixed.count or Fd.count(spec, flow), mode)
+                for _, e in ipairs(lay or {}) do
+                  for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do if not pu and not c.free(u, v) then pu, pv = u, v end end end
+                end
+              end
+              if pu then
+                local px, py = c.xy(pu, pv)
+                no_smelter_at = { x = px, y = py, fixed = fixed ~= nil, band = bd.pr, side = side }
+              end
+            end
           end
         else
           list, len, s_edge, count = Fd.place(spec, bd.b, side, edge, flow, Ch.CFG.gap, Ch.CFG.shift, c.free, c.is_ore)
@@ -860,7 +877,7 @@ local function plan_once(spec)
     fuelled = fuelled or nil,
     frame = frame,
     stats = { tiles = #c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
-      chests = n.coffre, capped = capped, flow = flow_all, capacity = cap_all, umin = umin, umax = umax, no_smelter = no_smelter,
+      chests = n.coffre, capped = capped, flow = flow_all, capacity = cap_all, umin = umin, umax = umax, no_smelter = no_smelter, no_smelter_at = no_smelter_at,
       undergrounds = n.souterrain, splitters = n.repartiteur, coal = coal_stats,
       band_drills = (function() local k = 0; for _, bd in ipairs(bands) do k = k + #bd.n + #bd.s end; return k end)() },
   }

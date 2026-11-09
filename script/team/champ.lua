@@ -590,8 +590,18 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
   Profiler.fstop("champ:band-plan")
   if not plan then return nil, why end
   if #plan.ents == 0 then
-    return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie", plan.stats.band_drills or 0,
-      plan.stats.no_smelter or 0)
+    local at = plan.stats.no_smelter_at
+    local cause = ""
+    if at then
+      local es = surface.find_entities_filtered({ area = { { at.x - 0.5, at.y - 0.5 }, { at.x + 0.5, at.y + 0.5 } }, limit = 3 })
+      local names = {}
+      for _, e in ipairs(es) do names[#names + 1] = e.name .. (e.force and (" " .. e.force.name) or "") end
+      table.sort(names)
+      cause = string.format(" ; 1re tuile prise (%.1f, %.1f), %s, %s : %s", at.x, at.y, at.fixed and "place du cadre figé" or "1re place essayee", at.side > 0 and "cote +" or "cote -",
+        #names > 0 and table.concat(names, ", ") or "rien de visible (reserve d'un projet du plan, eau ou falaise)")
+    end
+    return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie%s", plan.stats.band_drills or 0,
+      plan.stats.no_smelter or 0, cause)
   end
   -- (lot FONDERIE, lot6-123456789 : une bande de 1 026 entités portait les deux réseaux du charbon) : au-delà de band_max, les réseaux les plus
   -- gros sont reportés dans des projets liés à la bande (script/team/migration_champ.lua les demande juste après elle)
