@@ -142,6 +142,9 @@ function X.debit(m, ctx)
     for _, c in ipairs(m.chaines or {}) do
       if c.contact and c.aval == g then serv[c.jeton] = true end   -- contact direct (vapeur de la chaudière à la machine)
     end
+    for _, fl in ipairs(m.fluides or {}) do
+      if fl.io == "in" then serv[fl.jeton] = true end              -- fluide amené par tuyau
+    end
     local toks = {}
     for tok in pairs(rec[g].entrees or {}) do toks[#toks + 1] = tok end
     table.sort(toks)
