@@ -53,6 +53,17 @@ local function copy_controls(c)
   return out
 end
 
+--- Diagnostic : entités de ressource sur toute la surface et dans un rayon de 150 autour de (0, 0).
+local function census(ctx, s, label)
+  local parts = {}
+  for _, n in ipairs(M.resource_entities()) do
+    local all = s.count_entities_filtered({ name = n })
+    local near = s.count_entities_filtered({ name = n, position = { 0, 0 }, radius = 150 })
+    if all > 0 then parts[#parts + 1] = string.format("%s %d (rayon 150 : %d)", n, all, near) end
+  end
+  ctx.log(M.TAG .. "recensement " .. label .. " : " .. table.concat(parts, " | "))
+end
+
 --- Applique les réglages max à la surface 1 et régénère ses chunks. À appeler AVANT toute génération lointaine.
 --- Écrit dans `st` : avant (réglages d'origine, copie), chunks, rayon, controles.
 function M.apply(ctx, st)
@@ -80,10 +91,12 @@ function M.apply(ctx, st)
     list[#list + 1] = { x = pos.x, y = pos.y }
     rmax = math.max(rmax, math.abs(pos.x), math.abs(pos.y))
   end
+  census(ctx, s, "AVANT")
   s.map_gen_settings = mgs
   for _, c in ipairs(list) do s.delete_chunk(c) end
   s.request_to_generate_chunks({ 0, 0 }, rmax + 1)
   s.force_generate_chunk_requests()
+  census(ctx, s, "APRES")
   local after = 0
   for _ in s.get_chunks() do after = after + 1 end
   st.chunks_avant, st.chunks_apres, st.rayon = #list, after, rmax
