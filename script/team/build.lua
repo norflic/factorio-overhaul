@@ -4204,6 +4204,25 @@ local function quai_tasks(f, p, surface, out)
             ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
           }
         end
+      elseif (q.flow or 0) > 0 then -- lot COMBUSTIBLE-MIGRATION : quai de COMBUSTIBLE d'une colonne de champ (q.flow = objets/s brûlés par ses fours) : seuil et cible à la consommation
+        -- (Cc.refill : 4 min d'avance, 20 min de cible), tâche URGENTE comme le coffre d'une centrale ; coffre du QG sans combustible : le tampon d'un avant-poste (Build.Ct)
+        local inv = chest.get_inventory(defines.inventory.chest)
+        local r = Cc.refill(n, q.flow, have, inv and (n + inv.get_insertable_count(q.item)) or nil, false)
+        local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+        if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+        local relay
+        if r.short and Build.Ct then
+          relay = Build.Ct.relay(f, p, surface, i, q, n, r, a.x, a.y, Build.Quartiers.DEPOT, game.tick)
+          if relay then r.short = nil end
+        end
+        if relay then out[#out + 1] = relay end
+        if r.due then
+          out[#out + 1] = {
+            key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = r.prio, no_rush = true, domain = "logistique", work = 40,
+            items = { { q.item, r.count } },
+            ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
+          }
+        end
       elseif feed then -- lot VIDEO L4 : module à sortie pleine, plus d'alimentation (V27) ; une minute d'ingrédients (V25), sinon l'ancienne règle
         local r = Build.Quotas.refill(qta, i, n, have, Build.QUAI_LOW, Build.QUAI_FILL)
         r = Build.Rempl.adjust(f, p, i, q, chest, n, have, qta, r, Build.QUAI_LOW, Build.QUAI_FILL) -- lot REMPLISSAGE : stock abondant, coffre plein
