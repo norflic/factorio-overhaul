@@ -147,6 +147,37 @@ return {
           for i = 1, 2 do items = items + e.get_transport_line(i).get_item_count() end
         end
       end
+      if t == 6000 then -- carte ASCII de l'emprise (+4) : tapis par sens et objets portes, bras (sens du depot) et etat, four, coffre, poteau
+        local b = st.box
+        local x0, y0, x1, y1 = b.x - 4, b.y - 4, b.x + b.w + 4, b.y + b.h + 4
+        local grid = {}
+        local arrows = { [0] = "^", [2] = ">", [4] = "v", [6] = "<" }
+        local sletter = { working = "W", waiting_for_source_items = "s", waiting_for_space_in_destination = "d", no_power = "P", no_fuel = "f", no_ingredients = "n" }
+        for _, e in ipairs(ctx.surface().find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } } })) do
+          local ch
+          if e.type == "transport-belt" then
+            local n = e.get_transport_line(1).get_item_count() + e.get_transport_line(2).get_item_count()
+            ch = (arrows[e.direction] or "?") .. (n > 0 and tostring(math.min(n, 9)) or ".")
+          elseif e.type == "inserter" then
+            ch = "i" .. (sletter[stname(e.status)] or "?")
+          elseif e.type == "furnace" then ch = "FF"
+          elseif e.type == "container" then ch = "CC"
+          elseif e.type == "electric-pole" then ch = "po"
+          end
+          if ch then
+            local bb = e.bounding_box
+            for gx = math.floor(bb.left_top.x + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1 do
+              for gy = math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.y - 0.01) - 1 do grid[gx .. "," .. gy] = ch end
+            end
+          end
+        end
+        ctx.log(string.format("CARTE emprise x %d..%d y %d..%d (inserter: i + W travaille, s attend source, d attend place, P sans courant ; tapis : sens + objets)", x0, x1, y0, y1))
+        for y = y0, y1 do
+          local row = {}
+          for x = x0, x1 do row[#row + 1] = grid[x .. "," .. y] or ".." end
+          ctx.log(string.format("CARTE %4d %s", y, table.concat(row, " ")))
+        end
+      end
       ctx.log(string.format("tick %d : DIAG quais [%s] ; fours %s ; bras %d (%s) ; tapis %d portant %d objet(s) ; unbuilt=%s", t, table.concat(qs, " "),
         table.concat(fs, ","), #ins, table.concat(ins, ","), belts, items, tostring(sx.unbuilt and #sx.unbuilt)))
       ctx.log(string.format("tick %d : %d four(s), %d acier fondu, %d dans les sorties, %d plaque(s) portee(s), debit mesure %s/min, coupe=%s",
