@@ -1185,4 +1185,17 @@ remote.add_interface("fo-capital", {
   end,
 })
 
+---------------------------------------------------------------------------------------------------
+-- Lot BOX-UPGRADE (DC 9/11) : la primitive de remplacement sur place, ouverte au rétrofit glissant des boxes
+-- (script/team/box_upgrade_rt.lua) : UNE seule façon de remplacer une entité dans le mod.
+---------------------------------------------------------------------------------------------------
+--- Remplace l'entité `e` par le prototype `to` (replace_one : paiement au stock libre, ancien objet rendu au stock, propriété et
+--- entrée du plan suivies, F39 : contenu et recette gardés). Rend la nouvelle entité, ou nil et le motif.
+function Capital.replace_entity(f, e, to) return replace_one(f, state_of(f), e, to) end
+--- L'objet `item` est-il fabricable par la force (une recette activée le produit) ?
+function Capital.unlocked(f, item) return unlocked(f, item) end
+-- Liaison tardive (F24 : aucun require pendant un événement ; capital -> automatisation -> build -> hygiene -> boxes_rt ->
+-- box_upgrade_rt ferait une boucle de require) : le moteur du rétrofit reçoit la primitive et le stock ici, au chargement.
+require("script.team.box_upgrade_rt").bind(Capital, Stock)
+
 return Capital

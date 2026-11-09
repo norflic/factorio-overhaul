@@ -31,6 +31,7 @@ local State = require("script.faction.state")
 local T = require("shared.team.config")
 local Mr = require("shared.team.mall_rangee")
 local Bx = require("shared.team.boxes")
+local Bur = require("script.team.box_upgrade_rt") -- lot BOX-UPGRADE (DC 9/11) : rétrofit glissant d'une box UPGRADE_REQUISE par impulsion
 
 local Boxes = {}
 
@@ -262,6 +263,7 @@ function Boxes.releve(f, surface, tick)
     local c, wakes = Bx.summary(list, before)
     log(Bx.line(key_of(f), tick, c, wakes))
   end
+  Bur.impulsion(f, surface, tick) -- lot BOX-UPGRADE (DC 9/11) : une tranche du rétrofit glissant d'UNE box UPGRADE_REQUISE (fonderie, mall)
 end
 
 --- Le poteau en (x, y) est-il dans une box MAXED de l'équipe ? (lu par l'audit d'hygiène)
