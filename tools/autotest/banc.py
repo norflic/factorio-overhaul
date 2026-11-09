@@ -689,8 +689,8 @@ def deployer_max():
     here = os.path.dirname(os.path.abspath(__file__))
     jobs = [(os.path.join(here, "fo-autotest.bat"), "fo-autotest-max.bat", b"--map-gen-seed %SEED%",
              b'--map-gen-seed %SEED% --map-gen-settings "%FO_MGS%"'),
-            (os.path.join(RACINE, "fo-captures.bat"), "fo-captures-max.bat", b'call "%ROOT%\fo-autotest.bat"',
-             b'call "%ROOT%\fo-autotest-max.bat"')]
+            (os.path.join(RACINE, "fo-captures.bat"), "fo-captures-max.bat", br'call "%ROOT%\fo-autotest.bat"',
+             br'call "%ROOT%\fo-autotest-max.bat"')]
     for src, name, old, new in jobs:
         data = open(src, "rb").read()
         if data.count(old) != 1:
