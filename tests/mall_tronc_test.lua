@@ -184,6 +184,12 @@ do
   local _, dup3 = index(all3)
   check(#dup3 == 0, "§3 ligne neuve : aucune superposition (" .. table.concat(dup3, ",") .. ")")
   check(#s3.quais == 2, "§3 ligne neuve : deux coffres de tête")
+  local relais_tete = false
+  for _, e in ipairs(s3.ents) do if e.name == "pole" and e.x == -4.5 and e.y == -1.5 then relais_tete = true end end
+  check(relais_tete, "§3 ligne neuve au-delà de la rangée 1 : relais de la tête vers le poteau de la rangée 1")
+  local sans = false
+  for _, e in ipairs(s2.ents) do if e.name == "pole" and e.x == -4.5 and e.y == -1.5 then sans = true end end
+  check(not sans, "§3 rangée 2 sur des lignes existantes : pas de relais de tête")
 end
 
 -- §4 mutants

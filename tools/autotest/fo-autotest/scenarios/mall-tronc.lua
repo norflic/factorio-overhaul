@@ -66,6 +66,7 @@ return {
       game.forces.player.recipes[r].enabled = true
     end
     ctx.check(ctx.call("war_setting", "fo-war-ia3e", false) == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)")
+    ctx.check(ctx.call("war_setting", "fo-war-mall-tronc", true) == true, "tronc allume (eteint par defaut)")
     ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
     local chest = s.create_entity({ name = "fo-team-chest", position = { 0.5, 0.5 }, force = "player", raise_built = true })
     ctx.check(chest ~= nil, "coffre d'equipe pose")
