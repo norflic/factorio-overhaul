@@ -35,6 +35,7 @@ local Mg = require("shared.team.migration_champ")
 local Mp = require("shared.team.mega_pose") -- lot MEGA-FONDERIE (A2) : bandes en avance d'un gisement à méga-fonderie décidée (règle pure)
 local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arrière d'une bande qui n'aboutit pas (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
+local Mc = require("shared.team.migration_combustible") -- lot COMBUSTIBLE-MIGRATION : plancher du combustible (générateurs + brûleurs), retrait permis, stock bas (règle pure)
 local Rc = require("shared.team.reconstruction")
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local State = require("script.faction.state")
@@ -552,6 +553,41 @@ local function fuel_burn(f, surface)
 end
 Mig._fuel_burn = fuel_burn -- (lot X10-S4) appel direct du micro-banc x10-s4-ombre (script/team/generateurs.lua) ; aucun autre usage
 
+--- Lot COMBUSTIBLE-MIGRATION : brûleurs de l'équipe (foreuses à brûleur et fours des avant-postes) regroupés par puissance de combustion,
+--- { { kw, n } } dans l'ordre des noms ; et énergie d'un objet de combustible (kJ). Lus aux données (Mod.spec, prototype), aucun nom écrit ici.
+local function burner_groups(f)
+  local by, names = {}, {}
+  local function add(e)
+    if e.valid then
+      local sp = Mod.spec(e.name)
+      local kw = sp and sp.burner_kw
+      if kw and kw > 0 then
+        if not by[e.name] then by[e.name] = { kw = kw, n = 0 }; names[#names + 1] = e.name end
+        by[e.name].n = by[e.name].n + 1
+      end
+    end
+  end
+  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    for _, d in ipairs(o.drill_list or {}) do if d.valid and d.burner then add(d) end end
+    for _, s in ipairs(o.sinks or {}) do if s.valid and s.type == "furnace" then add(s) end end
+  end
+  table.sort(names)
+  local out = {}
+  for _, n in ipairs(names) do out[#out + 1] = by[n] end
+  return out
+end
+
+local function fuel_kj()
+  local proto = game.item_prototypes and game.item_prototypes[T.fuel]
+  return proto and (proto.fuel_value or 0) / 1000 or 0
+end
+
+--- Plancher du combustible de l'équipe (objets/s) : générateurs mesurés + brûleurs à pleine cadence (Mc.floor).
+local function fuel_floor(f, surface)
+  return Mc.floor(fuel_burn(f, surface), burner_groups(f), fuel_kj())
+end
+
 --- Gisements de la force pour la règle pure : un par propriétaire de champ (les voisins du même gisement lui sont rattachés), un par
 --- avant-poste ou gisement voulu sinon. Rend (liste, par numéro).
 local function build_fields(f, surface, ms, free)
@@ -971,6 +1007,27 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
       local fl = byid[o.id]
       if fl then
         local ok, cwhy = Th.cut_ok(fl, fields, env.present * fl.th_rate, ctx)
+        -- lot COMBUSTIBLE-MIGRATION : le plancher de Th.cut_ok ne lit que les générateurs ; le retrait des paires d'une bande de combustible exige que la
+        -- bande soit constructible maintenant (matières réservées : l'état « degel » ; pas d'ennemi) et que le stock plus ce qui reste couvrent le manque
+        -- (brûleurs de l'équipe compris) pendant tout le chantier (Mc.cut_ok). Sinon la coupe attend, paires en place (Th.verdict : annulée après 20 min).
+        do
+          local rest = 0
+          for _, g in ipairs(fields) do
+            if g.res == fl.res then
+              local a, c2 = Th.supply(g)
+              rest = rest + a + c2
+            end
+          end
+          rest = math.max(0, rest - env.present * fl.th_rate)
+          local floor = fuel_floor(f, surface)
+          ok, cwhy = Mc.cut_ok({ fuel = true, ready = not env.enemy, rest = rest, floor = floor, stock = ctx.stock[o.kind] or 0 })
+          st.mc_logs = (st.mc_logs or 0) + 1
+          if st.mc_logs <= 3 or st.mc_why ~= cwhy then
+            st.mc_why = cwhy
+            say(f, ms, string.format("avant-poste %d (%s) : coupe des %d paire(s) du projet %d : %s (plancher du combustible %.2f/s dont bruleurs de l'equipe, reste %.2f/s, stock %d, chantier %d min)",
+              o.id, o.kind, env.present, st.pid, tostring(cwhy), floor, rest, ctx.stock[o.kind] or 0, Mc.CFG.build_s / 60), true)
+          end
+        end
         local verdict = Th.verdict(ok, ctx.critical[o.kind], env.gate_age)
         if verdict ~= "retirer" then
           env.hold = verdict
@@ -1215,8 +1272,12 @@ local function step_build(f, surface, ms, o, st, tick)
       nb_total = nb_total + 1
       if e.built then nb_built = nb_built + 1 end
     end
+    -- lot COMBUSTIBLE-MIGRATION : une bande de combustible retirée pendant que le stock de combustible ne tient plus Mc.CFG.horizon s du plancher est reposée au seuil court
+    local fuel_low = false
+    local ospec = T.outposts[o.kind]
+    if ospec and ospec.resource == T.fuel then fuel_low = Mc.low(Stock.count(f, T.fuel), fuel_floor(f, surface)) end
     local dec, rwhy = Rb.decide({ undo = #st.undo, produced = false, state = p and p.state or nil, stalled = Rb.stalled(st.pg, tick), abandon = ab,
-      built = nb_built, total = nb_total }) -- (9/11 : une bande bâtie à 90 % ou plus est finie, pas reposée)
+      built = nb_built, total = nb_total, fuel_low = fuel_low }) -- (9/11 : une bande bâtie à 90 % ou plus est finie, pas reposée)
     if rwhy == "presque-finie" then
       say_why(f, ms, st, "presque-finie", string.format("avant-poste %d : projet %d bati a %d/%d, sans progres : on le finit (pas de retour en arriere)", o.id, st.pid,
         nb_built, nb_total), true)
