@@ -432,7 +432,7 @@ function Outposts.build(f, surface, kind, site, carrier)
     id = oid, kind = kind, pos = { x = site.x, y = site.y }, drills = #drills,
     drill_list = drills, sinks = sinks, turret_list = {}, last_service = game.tick,
     -- Lot IA2-b : lectures du site (carte de valeur), rendues à la réserve si l'avant-poste est perdu.
-    site_info = { rich = site.rich, tiles = site.tiles, water = site.water, rough = site.rough, cliffs = site.cliffs },
+    site_info = { rich = site.rich, tiles = site.tiles, deposit = site.deposit, water = site.water, rough = site.rough, cliffs = site.cliffs },
   }
   for _, d in ipairs(drills) do State.own(d, f.id, "drill", oid) end
   for _, s in ipairs(sinks) do State.own(s, f.id, "sink", oid) end
@@ -1435,7 +1435,7 @@ function Outposts.on_drill_lost(f, oid)
       f.prospects = f.prospects or {}
       local info = o.site_info or {}
       f.prospects[#f.prospects + 1] = { x = o.pos.x, y = o.pos.y, resource = spec.resource, lost = true,
-        rich = info.rich, tiles = info.tiles, water = info.water, rough = info.rough, cliffs = info.cliffs }
+        rich = info.rich, tiles = info.tiles, deposit = info.deposit, water = info.water, rough = info.rough, cliffs = info.cliffs }
     end
   end
 end

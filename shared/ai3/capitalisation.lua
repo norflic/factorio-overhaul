@@ -101,6 +101,22 @@ Ca.KAPPA = 1000         -- ‰ des tuiles sous une foreuse : gisement couvert EN
 Ca.RESERVE_PCT = 25     -- places libres de débit inférieur à 25 % de la demande : ouvrir le suivant d'avance
 Ca.OPEN_RATIO = 120     -- % : un site neuf 20 % moins cher par débit que couvrir l'ancien : l'ouvrir
 Ca.OPEN_MIN = 2         -- foreuses au moins sur un gisement ouvert d'avance
+-- Lot GEANT-D-ABORD : parmi les sites d'un minerai, les 3 PLUS PROCHES étaient seuls évalués (Ca.SITES_EVAL) : un géant à 150 tuiles n'était jamais regardé
+-- tant que trois petits cercles étaient plus près. Le rang d'un site est sa distance moins un crédit de taille PLAFONNÉ (Ca.GIANT_CREDIT tuiles au plus,
+-- de 0 à Ca.GIANT_SMALL tuiles du gisement à plein crédit à Ca.GIANT_FULL) ; le crédit ne change que l'ORDRE : un site dangereux ou bloqué reste refusé
+-- plus loin (f.danger, f.blocked), aucun site n'est ajouté.
+Ca.GIANT_SMALL = 300
+Ca.GIANT_FULL = 2500
+Ca.GIANT_CREDIT = 90
+function Ca.size_credit(tiles)
+  if type(tiles) ~= "number" or tiles <= Ca.GIANT_SMALL then return 0 end
+  if tiles >= Ca.GIANT_FULL then return Ca.GIANT_CREDIT end
+  return math.floor(Ca.GIANT_CREDIT * (tiles - Ca.GIANT_SMALL) / (Ca.GIANT_FULL - Ca.GIANT_SMALL))
+end
+--- Rang d'un site `f` ({ dist, tiles }) : plus petit d'abord.
+function Ca.site_rank(f)
+  return (f.dist or Ca.DIST) - Ca.size_credit(f.tiles)
+end
 Ca.SITES_EVAL = 3       -- sites connus évalués par ressource et par passe, les plus proches (coût de calcul)
 -- Machines.
 Ca.U_MIN = 50           -- % : une machine de plus pour au moins une demi-machine de manque (goulot : dès le premier objet)
@@ -1580,7 +1596,14 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
     return tostring(a.id) < tostring(b.id)
   end
   table.sort(opened, by_dist)
-  table.sort(sites, by_dist)
+  -- lot GEANT-D-ABORD : distance moins crédit de taille (Ca.site_rank, calculé UNE fois par site), puis la distance, puis l'identifiant
+  local rank = {}
+  for _, f in ipairs(sites) do rank[f] = Ca.site_rank(f) end
+  table.sort(sites, function(a, b)
+    local ra, rb = rank[a], rank[b]
+    if ra ~= rb then return ra < rb end
+    return by_dist(a, b)
+  end)
   local per, cov = Ca.comb(d)
   local sh_cache = {}
   local function mk_drills(kind, f, n, fixed)

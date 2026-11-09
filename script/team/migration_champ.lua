@@ -1527,7 +1527,8 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       local sq = ms.o[oid]
       local th, el = rates_of_kind(f, o.kind)
       cand[#cand + 1] = { id = oid, res = o.kind, tier = is_furnace_kind(o.kind) and 0 or 1, pairs = thermal_count(o), th_rate = th or 1, el_rate = el or 1, working = 0,
-        have = free[T.outposts[o.kind].product] or 0, wanted = (sq and (sq.want_until or 0) > tick) and true or false }
+        have = free[T.outposts[o.kind].product] or 0, wanted = (sq and (sq.want_until or 0) > tick) and true or false,
+        tiles = o.deposit_tiles or (o.site_info and o.site_info.deposit) or 0 } -- (lot GEANT-D-ABORD : tuiles réelles du gisement, départage de Th.order)
     end
   end
   for _, oid in ipairs(sorted_keys(f.outposts)) do add(oid, f.outposts[oid]) end
@@ -1855,7 +1856,7 @@ function Mig.want(f, dep, tick, par)
     ms.nfield = (ms.nfield or 0) + 1
     local id = Champ.FIELD_BASE + ms.nfield
     o = { id = id, kind = kind, pos = { x = dep.cx, y = dep.cy }, field = true, dep = dep.id, drill_list = {}, sinks = {}, drills = 0,
-      box = { dep.x0, dep.y0, dep.x1, dep.y1 } }
+      box = { dep.x0, dep.y0, dep.x1, dep.y1 }, deposit_tiles = dep.tiles }
     ms.fields[id] = o
     say(f, ms, string.format("gisement %d (%s) : champ voulu par la capitalisation sur %s (%d tuiles), sans avant-poste", id, kind,
       tostring(dep.id), dep.tiles or 0), true)

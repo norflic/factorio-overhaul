@@ -448,6 +448,28 @@ local function refresh_reserve(f, tick)
   f.stats.reserve_dropped = (f.stats.reserve_dropped or 0) + 1
 end
 
+-- Lot GEANT-D-ABORD : nombre RÉEL de tuiles du gisement du site (shared/faction/valeur.lua, V.size_gain). Le site ne lit que 64 tuiles d'un chunk : un
+-- gisement de 3 000 tuiles valait un petit cercle. Un comptage du moteur (sans boucle Lua) dit d'abord si le voisinage est grand ; seulement alors le
+-- recensement borné (Sites.census, ~1 M d'instructions pour 3 200 tuiles) lit le gisement, UNE fois : sa boîte est gardée dans f.dep_boxes (global,
+-- Sites.DEP_BOXES_MAX au plus, les plus anciennes oubliées) et sert à tous les sites du même gisement. Rend le nombre de tuiles (une borne basse
+-- sous Sites.DEPOSIT_BIG : le voisinage compté, qui ne donne aucun gain).
+Sites.DEPOSIT_NEAR = 40     -- rayon (tuiles) du comptage du voisinage
+Sites.DEPOSIT_BIG = 400     -- tuiles du voisinage (comptage plafonné ici) au-delà desquelles le gisement est recensé
+Sites.DEP_BOXES_MAX = 48
+function Sites.deposit_of(f, surface, res, site)
+  for _, b in ipairs(f.dep_boxes or {}) do
+    if b.res == res and site.x >= b.x0 and site.x < b.x1 and site.y >= b.y0 and site.y < b.y1 then return b.tiles end
+  end
+  local near = surface.count_entities_filtered({ position = site, radius = Sites.DEPOSIT_NEAR, name = res, limit = Sites.DEPOSIT_BIG })
+  if near < Sites.DEPOSIT_BIG then return near end
+  local c = Sites.census(surface, res, { x = site.x, y = site.y })
+  if not c then return near end
+  f.dep_boxes = f.dep_boxes or {}
+  f.dep_boxes[#f.dep_boxes + 1] = { res = res, x0 = c.x0, y0 = c.y0, x1 = c.x1, y1 = c.y1, tiles = c.tiles }
+  while #f.dep_boxes > Sites.DEP_BOXES_MAX do table.remove(f.dep_boxes, 1) end
+  return c.tiles
+end
+
 --- Examine UN chunk (cx, cy) : gisement d'une ressource demandée, libre, centré sur ses tuiles, lu une fois (carte de
 --- valeur), mis en réserve s'il n'est ni hostile, ni pris, ni injoignable. Renvoie true si un site a été ajouté.
 --- (Corps de la boucle de Sites.prospect, sorti tel quel au lot IA3-f pour servir aussi à Sites.probe_at.)
@@ -532,6 +554,9 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
         f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
         refuse(f, tick, "hostile", best, site)
       else
+        Profiler.start("prospect:deposit")
+        site.deposit = Sites.deposit_of(f, surface, best, site) -- lot GEANT-D-ABORD : taille réelle du gisement (gain de valeur plafonné)
+        Profiler.stop("prospect:deposit")
         f.prospects[#f.prospects + 1] = site
         f.stats.prospected = (f.stats.prospected or 0) + 1
         return true

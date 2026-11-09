@@ -302,6 +302,10 @@ function M.order(cands)
     if ta ~= tb then return ta > tb end
     local ha, hb = a.have or 0, b.have or 0
     if ha ~= hb then return ha < hb end
+    -- lot GEANT-D-ABORD : à égalité, le gisement le plus GRAND d'abord (tuiles réelles ; un gisement de taille inconnue compte 0) : le champ du géant
+    -- avant celui d'un petit cercle plus ancien (le numéro seul donnait le premier avant-poste, près du QG, petit)
+    local sa, sb = a.tiles or 0, b.tiles or 0
+    if sa ~= sb then return sa > sb end
     return a.id < b.id
   end)
   return out
