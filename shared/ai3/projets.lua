@@ -40,7 +40,10 @@ P.K_MIN, P.K_PER, P.K_MAX = 2, 4, 10
 -- liste de 6,2 à 12,2 min). Règle : un PNJ SANS TÂCHE (idle) ouvre un projet de plus que les K places, dans l'ordre du classement ;
 -- au plus P.IDLE_K_MAX projets de plus à la fois ; un projet de plus reste ouvert tant que son but existe (pas de va-et-vient quand le PNJ
 -- libre est occupé par lui), il est servi APRÈS tous les projets ordinaires, l'armée de l'équipe ET le fond (agrandir foreuses et fours d'abord) : du stock qui reste, jamais devant eux.
-P.IDLE_K_ON = true
+-- ETEINT PAR DEFAUT (fo-logs/2026-11-09_ZERO-IDLE-3, etape1-guide, 5 a 6 graines, 3 equipes) : la regle baisse l'inactivite (votre equipe 10,1 -> 4,1 %,
+-- scarlet 9,4 -> 6,2 %) mais les plaques par minute de 10 a 40 min tombent a 86 % (votre equipe) et 76 % (scarlet) du temoin ; avec la priorite
+-- au plancher (P.EXTRA_PRIO) votre equipe tombe a 69 % : le critere C2 (>= 95 %) n'est pas tenu. A rallumer apres correction du fer (goulot).
+P.IDLE_K_ON = false
 P.IDLE_K_MAX = 3
 -- … et ses tâches passent APRÈS toutes les autres du tableau (priorité du plancher de P.prio_of) : un PNJ libre les prend faute de mieux,
 -- il ne préfère jamais la centrale ou une couverture électrique à l'agrandissement d'une fonderie (mesuré, 5 graines, projet de plus à sa

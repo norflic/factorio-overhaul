@@ -11,6 +11,7 @@
 ]]
 package.path = "./?.lua;" .. package.path
 local P = require("shared.ai3.projets")
+P.IDLE_K_ON = true -- la regle est eteinte par defaut (shared/ai3/projets.lua) : ce banc l'allume
 
 local passes, failures = 0, 0
 local QUIET = false
@@ -305,6 +306,7 @@ do
     else
       package.loaded["shared.ai3.projets"] = nil
       local ok, Pm = pcall(chunk)
+      if ok then Pm.IDLE_K_ON = true end -- (la copie mutee reprend le defaut eteint du module)
       if not ok then
         check(false, "mutant '" .. m[1] .. "' ne charge pas : " .. tostring(Pm))
       else

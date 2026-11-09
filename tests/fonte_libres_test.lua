@@ -169,6 +169,7 @@ do
       else
         local saved = Br
         local ok, Bm = pcall(chunk)
+        if ok then Bm.IDLE_SMELT_ON = true end -- (la copie mutee reprend le defaut eteint du module)
         if not ok then
           check(false, "mutant '" .. m[1] .. "' ne charge pas : " .. tostring(Bm))
         else
