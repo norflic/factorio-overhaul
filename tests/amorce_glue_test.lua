@@ -288,7 +288,14 @@ do -- crochet du depot des PNJ (C3) : la remise directe AVANT le coffre
   local d1 = wk:find("AmRt.deliver(f, inv, name, n)", 1, true)
   local d2 = wk:find("local moved = Stock.insert(f, name, n", 1, true) -- (intégrateur : STOCKAGE-VITAL y ajoute DEPOSIT_OPTS)
   local d0 = wk:find("local function deposit_inventory", 1, true)
-  check(d0 and d1 and d2 and d0 < d1 and d1 < d2 and d2 - d1 < 400, "worker.lua : deposit_inventory offre d'abord l'objet aux modules en reserve (AmRt.deliver), puis au coffre")
+  -- Les deux appels doivent rester dans deposit_inventory, deliver AVANT tout le reste. La limite d'avant, « moins de 400 octets entre
+  -- les deux », a sauté quand le lot STOCK-QG a posé entre eux le retrait de la poche au plafond de rapatriement (915 octets) : elle
+  -- mesurait la proximité, pas l'ordre. L'ordre est conservé, et deliver doit aussi précéder ce retrait (un module en réserve qui attend
+  -- un brut le reçoit même quand le stock n'en veut plus).
+  local dend = d0 and wk:find("\nend\n", d0, true)
+  local d3 = wk:find("Stock.cap_room(f, name)", 1, true)
+  check(d0 and d1 and d2 and dend and d0 < d1 and d1 < d2 and d2 < dend and (not d3 or (d1 < d3 and d3 < dend)),
+    "worker.lua : deposit_inventory offre d'abord l'objet aux modules en reserve (AmRt.deliver), puis au coffre")
   local _, k = wk:gsub("AmRt%.deliver", "")
   check(k == 1, "worker.lua : un seul crochet (" .. k .. ")")
 end
