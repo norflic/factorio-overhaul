@@ -373,12 +373,7 @@ do
   Build.brief = function() return { state = "chantier", missing = {} } end
   local mods = {}
   Rt.contexte(f, mods, {}, {}, nil, 200)
-  check(#mods == 1 and mods[1].pile == "capi", "§7x famille par défaut : capi (" .. tostring(mods[1] and mods[1].pile) .. ")")
-  Build.Mall.preparer_on = function() return true end
-  mods = {}
-  Rt.contexte(f, mods, {}, {}, nil, 200)
-  check(#mods == 1 and mods[1].pile == "preparer", "§7x réglage allumé : preparer (" .. tostring(mods[1] and mods[1].pile) .. ")")
-  Build.Mall.preparer_on = nil
+  check(#mods == 1 and mods[1].pile == "capi", "§7x famille des chantiers : capi (" .. tostring(mods[1] and mods[1].pile) .. ")")
   Build.brief = old_brief
 end
 

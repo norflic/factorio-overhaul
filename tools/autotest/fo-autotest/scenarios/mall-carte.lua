@@ -11,6 +11,8 @@ local base0 = require("scenarios/max_build")({
   releve_at = 1500,
   photo_ticks = { 216000, 323400 },
   fmin = 3,
+  shots = true,       -- (sans captures de fin, la session avec images s'arrête aux captures par défaut, vers 36 000 ticks)
+  shots_delay = 323700,
 })
 
 local TAG = "[FO-MALL-CARTE] "

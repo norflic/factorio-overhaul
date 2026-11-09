@@ -8,7 +8,7 @@ local base0 = require("scenarios/etape1-geants")
 
 local KEYS = { "player", "scarlet", "azure", "amber", "emerald" }
 
-return function(on, tronc, preparer)
+return function(on, tronc)
   local base = {}
   for k, v in pairs(base0) do base[k] = v end
   local init0, tick0 = base0.init, base0.tick
@@ -18,7 +18,6 @@ return function(on, tronc, preparer)
     if init0 then init0(ctx) end
     ctx.check(ctx.call("war_setting", "fo-war-mall-s2-debit", on) == on, "reglage fo-war-mall-s2-debit = " .. tostring(on))
     if tronc then ctx.check(ctx.call("war_setting", "fo-war-mall-tronc", true) == true, "reglage fo-war-mall-tronc = true") end
-    if preparer then ctx.check(ctx.call("war_setting", "fo-war-mall-preparer", true) == true, "reglage fo-war-mall-preparer = true") end
   end
 
   base.tick = function(ctx, e)

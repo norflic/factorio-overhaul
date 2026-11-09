@@ -190,12 +190,6 @@ local function automated(f, pl)
   return false
 end
 
---- Réglage fo-war-mall-preparer (mesure : les chantiers des rangées hors du rang « améliorer » de la pile ; absent : éteint).
-function Mall.preparer_on()
-  local ok, v = pcall(function() return settings.global["fo-war-mall-preparer"].value end)
-  return ok and v == true
-end
-
 --- Réglage fo-war-mall-tronc (tronc et prises du mall ; absent : éteint).
 function Mall.tronc_on()
   local ok, v = pcall(function() return settings.global["fo-war-mall-tronc"].value end)

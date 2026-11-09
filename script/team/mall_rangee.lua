@@ -849,8 +849,7 @@ function Rt.contexte(f, mods, feeds, stock, book, feed_stock)
         local p = f.build.projects[q.id]
         if p and p.state ~= "fini" and p.state ~= "refuse" then
           local ps = Build.brief(f, q.id)
-          local famille = (Build.Mall.preparer_on and Build.Mall.preparer_on()) and "preparer" or "capi" -- mesure (réglage fo-war-mall-preparer) : « preparer » est de rang s'adapter, jamais suspendu
-          if ps then mods[#mods + 1] = { product = "mall:" .. r.j .. ":" .. q.from, state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, pile = famille } end
+          if ps then mods[#mods + 1] = { product = "mall:" .. r.j .. ":" .. q.from, state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, pile = "capi" } end
         elseif p and p.state == "fini" and q.from == 1 then
           local ps = Build.brief(f, q.id)
           local items = {}
