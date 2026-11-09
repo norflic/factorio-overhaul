@@ -198,7 +198,11 @@ return {
         local now = game.forces[st.force].fluid_production_statistics.get_input_count("crude-oil")
         local d = now - (st.fs_prev or st.fs0 or now)
         st.fs_prev = now
-        ctx.log(string.format("[FO-PETROLE-CHAMP] debit tick %d : %.1f unites/s sur 10 s ; chevalets [%s] ; tuyaux %d remplis a %.1f en moyenne (max %.1f)", e.tick, d / 10, table.concat(parts, " "), np, np > 0 and tot / np or 0, mx))
+        local sinks = s.find_entities_filtered({ name = "infinity-pipe" })
+        local eeis = s.find_entities_filtered({ name = "electric-energy-interface", force = st.force })
+        local ebuf = eeis[1] and eeis[1].energy or -1
+        ctx.log(string.format("[FO-PETROLE-CHAMP] debit tick %d : %.1f unites/s sur 10 s ; chevalets [%s] ; tuyaux %d remplis a %.1f en moyenne (max %.1f) ; puits d'evacuation %d, interface d'energie %d (tampon %.0f)",
+          e.tick, d / 10, table.concat(parts, " "), np, np > 0 and tot / np or 0, mx, #sinks, #eeis, ebuf))
       end
       if st.first_req == nil and site and (site.ext_id or (site.exts and #site.exts > 0)) then st.first_req = e.tick end
       if site and site.ext_plan and not st.plan then st.plan = site.ext_plan end
