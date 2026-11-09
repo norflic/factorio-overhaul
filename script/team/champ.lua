@@ -1105,22 +1105,37 @@ function Champ.report(f, surface, tick)
       -- lot FONDERIE (3/11) : consommateurs électriques posés SANS courant, chantier compris (lot7bis-20261020 : 15 à 22 bras hors réseau
       -- de 50 à 130 min, vus par aucun relevé)
       if tapis_on then
-        local cons, off, at = 0, 0, nil
+        local cons, off, at, at_net = 0, 0, nil, nil
         for _, e in ipairs(p.ents) do
           if e.built and not e.skipped and (e.role == "champ-bras" or e.role == "champ-foreuse" or e.role == "champ-charbon") then
             local ent = surface.find_entity(e.name, { e.x, e.y })
             if ent and ent.valid and ent.prototype.electric_energy_source_prototype then
               cons = cons + 1
-              if ent.status == S.no_power then off = off + 1; at = at or { x = e.x, y = e.y } end
+              if ent.status == S.no_power then
+                off = off + 1
+                if not at then at, at_net = { x = e.x, y = e.y }, ent.electric_network_id end
+              end
             end
           end
         end
         if off > 0 and nopow_logs < 4 then
           nopow_logs = nopow_logs + 1
-          local np = powered_pole(f, surface, at.x, at.y, Champ.CFG.chain_far)
-          log(string.format("[FO-FONDERIE] bande sans courant : %s min %.0f, projet %d (%s, bande %s, %s) : %d consommateur(s) sans courant sur %d, poteau alimente le plus proche a %s tuiles",
+          -- lot COURANT-BANDE (V0675-A, graine 1618033988, 47 et 57 min) : le statut « no_power » vaut aussi quand le réseau est joint mais ne produit
+          -- rien (centrale détruite, chaudière à sec) : on lit d'abord le réseau du consommateur contre les réseaux à génératrice, puis sa
+          -- production ; le poteau alimenté le plus proche n'est cherché que si le réseau n'est PAS joint (Ra.cause_sans_courant, règle pure)
+          local live = Gens.networks(surface, f.force, "generator")
+          local kw, dist = 0, nil
+          if at_net and live[at_net] then
+            for _, g in ipairs(Gens.list(surface, f.force, "generator")) do
+              if g.electric_network_id == at_net then kw = kw + (g.energy_generated_last_tick or 0) * 60 / 1000 end
+            end
+          elseif at_net then
+            local np = powered_pole(f, surface, at.x, at.y, Champ.CFG.chain_far)
+            dist = np and math.sqrt((np.x - at.x) ^ 2 + (np.y - at.y) ^ 2) or nil
+          end
+          log(string.format("[FO-FONDERIE] bande sans courant : %s min %.0f, projet %d (%s, bande %s, %s) : %d consommateur(s) sans courant sur %d, %s",
             f.key or "player", tick / 3600, pid, p.state, tostring(p.spec.champ.pr), p.spec.champ.coal and "reseau du charbon" or "bande", off, cons,
-            np and string.format("%.0f", math.sqrt((np.x - at.x) ^ 2 + (np.y - at.y) ^ 2)) or ("plus de " .. Champ.CFG.chain_far)))
+            Ra.cause_sans_courant(at_net, live, kw, dist, Champ.CFG.chain_far)))
         end
       end
       local lk = sorted_keys(pd.lost)

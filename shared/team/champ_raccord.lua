@@ -219,4 +219,20 @@ function Ra.nearest(own, targets)
   return { at = { x = best.at.x, y = best.at.y }, to = { x = best.to.x, y = best.to.y }, d = math.sqrt(best.d2) }
 end
 
+--- Lot COURANT-BANDE (V0675-A, graine 1618033988) : cause, en clair, d'une bande « sans courant » ([FO-FONDERIE], script/team/champ.lua).
+--- `net` = numéro de réseau du premier consommateur sans courant (nil : sous aucun poteau) ; `live` = { [numéro] = true } des réseaux qui portent une
+--- génératrice (Gens.networks) ; `kw` = production de CE réseau (kW) ; `dist` = distance au poteau alimenté le plus proche (nil : aucun à `far` tuiles).
+--- Défaut mesuré : à 47 et 57 min, « 37 consommateur(s) sans courant, poteau alimente le plus proche a 1 tuiles » : le réseau de la bande ÉTAIT joint
+--- (FONCTION : foreuse_elec_reseau 8/8, poteaux_reseau_gen 84/85), la centrale ne produisait rien (machines à vapeur détruites 42,2 → 50,5 min,
+--- chaudière à sec 56,3 min) ; la ligne, qui ne lisait jamais le réseau du consommateur, faisait chercher un défaut de câblage inexistant.
+function Ra.cause_sans_courant(net, live, kw, dist, far)
+  if net == nil then return "sous aucun poteau" end
+  if live[net] then
+    return string.format("reseau JOINT au reseau alimente (n. %s), production %.0f kW : centrale a sec, detruite ou en chantier, pas un defaut de cablage",
+      tostring(net), kw or 0)
+  end
+  if dist then return string.format("reseau NON joint, poteau alimente le plus proche a %.0f tuiles", dist) end
+  return string.format("reseau NON joint, aucun poteau alimente a moins de %d tuiles", far)
+end
+
 return Ra
