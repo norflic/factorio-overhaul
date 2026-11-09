@@ -339,7 +339,7 @@ function C.think(view, book, st, ctx)
         and not (s.research and s.research.for_auto) then g.value = B.RESEARCH_PRE end
     end
   end
-  local order, K = P.update(st, goals, tick, s.workers)
+  local order, K, n_extra = P.update(st, goals, tick, s.workers, view.workers_idle) -- lot ZERO-IDLE-3 : un PNJ libre ouvre un projet de plus
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
   E.base_used = used -- étage CIRCUITS : ce que le planificateur permanent a pris (Cap.ahead_clamp)
@@ -566,7 +566,7 @@ function C.think(view, book, st, ctx)
     -- lot S1 (reconstruction, agrandissement de survie) ne s'allumaient jamais.
     turret_ok = base.turret_ok, turret_payable = base.turret_payable,
     defchoix = base.defchoix, -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats (journal [FO-DEFCHOIX], script/team/team.lua)
-    ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped, kept_unmeasured = kept_unmeasured,
+    ia3 = { K = K, extra = n_extra or 0, active = n_active, productive = n_productive, dropped = dropped, kept_unmeasured = kept_unmeasured,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)
       armee = famres, -- lot TV-PILOTE (V10) : réserve de la famille armée de cette pensée (journal [FO-ARMEE], script/ai3/cerveau.lua)

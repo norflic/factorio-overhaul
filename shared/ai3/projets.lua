@@ -33,6 +33,15 @@ local V = require("shared.faction.valeur") -- lot SITE-PROCHE : règle pure d'ag
 local P = {}
 
 P.K_MIN, P.K_PER, P.K_MAX = 2, 4, 10
+-- Lot ZERO-IDLE-3 (directive du DC du 8/11, 18 h 40 : zéro PNJ en attente tant que l'arbre et la carte ne sont pas conquis) : PLACES
+-- ÉLASTIQUES. Mesuré (fo-logs/2026-11-08_ZERO-IDLE-3/base2-neuve, scarlet) : la centrale-vapeur (valeur 64, 5e but) attend en « attente »
+-- de 4 à 12,3 min parce que les K = 4 places sont prises (extraction x4, capital:command), pendant que 1 à 4 PNJ sont libres
+-- (« sans-tache:rien », [FO-RIEN-A-FAIRE] : « manque transport-belt 5, small-electric-pole 4, burner-inserter 3, steam-engine 2 », la MÊME
+-- liste de 6,2 à 12,2 min). Règle : un PNJ SANS TÂCHE (idle) ouvre un projet de plus que les K places, dans l'ordre du classement ;
+-- au plus P.IDLE_K_MAX projets de plus à la fois ; un projet de plus reste ouvert tant que son but existe (pas de va-et-vient quand le PNJ
+-- libre est occupé par lui), il est servi APRÈS tous les projets ordinaires et l'armée de l'équipe (du stock qui reste : jamais devant eux).
+P.IDLE_K_ON = true
+P.IDLE_K_MAX = 3
 P.INERTIA_PCT = 20
 P.AGING_TICKS = 3600
 P.AGING_MAX = 20
@@ -101,7 +110,7 @@ end
 
 --- Met à jour les projets d'après les buts de la pensée. Renvoie la liste des projets à DÉPLIER (actifs dans l'ordre
 --- de priorité effective, puis les bloqués à revoir), et le nombre de places K.
-function P.update(st, goals, tick, workers)
+function P.update(st, goals, tick, workers, idle)
   st.projects = st.projects or {}
   st.next_id = st.next_id or 1
   local by_key = {}
@@ -128,14 +137,24 @@ function P.update(st, goals, tick, workers)
   end)
   local K = P.K(workers)
   local active, blocked, n_active = {}, {}, 0
+  local idle_n = P.IDLE_K_ON and math.max(0, math.floor(idle or 0)) or 0 -- lot ZERO-IDLE-3 : places élastiques
+  local n_extra, new_extra = 0, 0
   for _, r in ipairs(ranked) do
     local p, g = r.p, r.g
+    -- Lot ZERO-IDLE-3 : ce but ne tient pas dans les K places ; un PNJ libre lui en ouvre une (un projet de plus déjà ouvert la garde).
+    local extra = false
+    if P.IDLE_K_ON and n_active >= K and not g.permanent and not g.fond and not (p and p.state == "bloque")
+      and n_extra < P.IDLE_K_MAX then
+      if p and p.extra then extra = true
+      elseif idle_n > 0 and new_extra < idle_n then extra = true new_extra = new_extra + 1 end
+    end
     if p and p.state == "bloque" then
       p.goal, p.value, p.eff = g, g.value, r.e
+      p.extra = nil
       blocked[#blocked + 1] = p
     -- Lot CAPITAL : un but de FOND (investissement par défaut, H4 : améliorer avec ce qui dort au stock) ne prend pas de
     -- place parmi les K projets et n'est servi qu'APRÈS tous les autres (le reste du stock virtuel).
-    elseif n_active < K or g.permanent or g.fond then
+    elseif n_active < K or g.permanent or g.fond or extra then
       if not p then
         p = { id = st.next_id, key = g.key, family = g.family, opened = tick, state = "actif" }
         st.next_id = st.next_id + 1
@@ -147,11 +166,18 @@ function P.update(st, goals, tick, workers)
       end
       p.goal, p.value, p.eff = g, g.value, r.e
       p.prio = P.prio_of(math.min(100, r.e))
-      if not g.permanent and not g.fond then n_active = n_active + 1 end
+      if extra then
+        p.extra = true
+        n_extra = n_extra + 1
+      else
+        p.extra = nil
+        if not g.permanent and not g.fond then n_active = n_active + 1 end
+      end
       active[#active + 1] = p
     elseif p then
       p.goal, p.value, p.eff = g, g.value, r.e
       p.state = "attente"
+      p.extra = nil
     end
   end
   table.sort(st.projects, function(a, b) return a.id < b.id end)
@@ -168,10 +194,11 @@ function P.update(st, goals, tick, workers)
   -- Lot DEPENSES2 (relecture de 26268e60) : l'armée de VOTRE ÉQUIPE (g.late, shared/ai3/buts.lua) est une famille permanente servie
   -- APRÈS les projets ordinaires (extraction, fonderie, modules et centrale d'AUTO, recherche), devant le fond : ses soldats ne prennent
   -- jamais le fer de son économie vitale. Les factions gardent l'ordre d'avant (leurs soldats juste après l'objectif du moment).
-  local out, perm, rest, short, fond, invest, late = {}, {}, {}, {}, {}, {}, {}
+  local out, perm, rest, short, fond, invest, late, xtra = {}, {}, {}, {}, {}, {}, {}, {}
   local first = nil
   for _, p in ipairs(active) do
-    if p.goal.permanent then
+    if p.extra then xtra[#xtra + 1] = p -- lot ZERO-IDLE-3 : projet de plus ouvert par un PNJ libre, servi après les projets ordinaires et l'armée
+    elseif p.goal.permanent then
       if p.goal.late then late[#late + 1] = p else perm[#perm + 1] = p end
     elseif p.goal.fond then
       if p.goal.short then short[#short + 1] = p
@@ -193,9 +220,10 @@ function P.update(st, goals, tick, workers)
   for _, p in ipairs(invest) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(late) do out[#out + 1] = p end
+  for _, p in ipairs(xtra) do out[#out + 1] = p end
   for _, p in ipairs(fond) do out[#out + 1] = p end
   for _, p in ipairs(blocked) do out[#out + 1] = p end
-  return out, K
+  return out, K, n_extra
 end
 
 ---------------------------------------------------------------------------------------------------

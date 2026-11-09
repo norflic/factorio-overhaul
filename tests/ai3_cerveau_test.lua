@@ -292,7 +292,9 @@ end)
 -- (c) K = 1 : un seul projet actif.
 local k0 = P.K
 mutant("un seul projet", function() P.K = function() return 1 end end, function() P.K = k0 end, function()
-  local p = C.think(dc_view(), book, C.new_state(0), ctx)
+  local v = dc_view()
+  v.workers_idle = 0 -- lot ZERO-IDLE-3 : un PNJ libre ouvre des projets de plus que K (shared/ai3/projets.lua) ; ici K seul est mesuré
+  local p = C.think(v, book, C.new_state(0), ctx)
   return p.ia3.active >= 2
 end)
 -- (d) recherche sans contrôle de payabilité : packs chimiques fabriqués.

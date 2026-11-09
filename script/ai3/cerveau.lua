@@ -1159,7 +1159,7 @@ function Ia3.measure(f, tick, plan)
       local tk = taken[p.id] and "*" or ""
       if taken[p.id] then n_taken = n_taken + 1 end
       if p.state == "bloque" then n_block = n_block + 1 end
-      parts[#parts + 1] = p.key .. ":" .. p.state .. tk .. (p.cause and ("(" .. p.cause .. ")") or "")
+      parts[#parts + 1] = p.key .. ":" .. p.state .. tk .. (p.extra and "~" or "") .. (p.cause and ("(" .. p.cause .. ")") or "") -- "~" : projet de plus ouvert par un PNJ libre (ZERO-IDLE-3)
     end
     local sat = sorted_keys(st.saturated)
     local exp = sorted_keys(st.explore)
