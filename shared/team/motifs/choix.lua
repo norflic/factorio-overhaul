@@ -142,6 +142,9 @@ function X.debit(m, ctx)
     for _, c in ipairs(m.chaines or {}) do
       if c.contact and c.aval == g then serv[c.jeton] = true end   -- contact direct (vapeur de la chaudière à la machine)
     end
+    for _, fl in ipairs(m.fluides or {}) do
+      if fl.io == "in" then serv[fl.jeton] = true end              -- fluide amené par tuyau
+    end
     local toks = {}
     for tok in pairs(rec[g].entrees or {}) do toks[#toks + 1] = tok end
     table.sort(toks)
@@ -488,6 +491,7 @@ local function placer(m, cap, Z, obs, supplies)
       -- plus grand n (les valeurs sont gardées pour la suite)
       local bn = 0
       local nm = {}
+      local premier   -- sans entrée donnée : la première ancre (y puis x) qui atteint la demande suffit, rien ne la départage
       for iy = 1, #ys do
         local y = ys[iy]
         local ligne = {}
@@ -496,13 +500,17 @@ local function placer(m, cap, Z, obs, supplies)
           local n = n_max(obs, Z, axe, xs[ix], y, H, extra, per, cap)
           ligne[ix] = n
           if n > bn then bn = n end
+          if n >= cap and #supplies == 0 and not premier then premier = { xs[ix], y } end
         end
+        if premier then break end
       end
       if bn >= 1 then
         local L = extra + bn * per
         local w, h = (axe == "x") and L or H, (axe == "x") and H or L
         local cands = {}
+        if premier then cands[1] = premier end
         for iy = 1, #ys do
+          if premier then break end
           for ix = 1, #xs do
             if nm[iy][ix] >= bn and (#cands == 0 or #supplies > 0) then cands[#cands + 1] = { xs[ix], ys[iy] } end
           end
@@ -510,16 +518,38 @@ local function placer(m, cap, Z, obs, supplies)
         if #supplies > 0 then
           -- collée aux bords de la zone, côté de l'arrivée de la matière
           local xf, yf = zx1 - w, zy1 - h
-          local function dedans(a) for i = 1, #cands do if cands[i][1] == a[1] and cands[i][2] == a[2] then return true end end return false end
+          local vus = {}
+          for i = 1, #cands do vus[cands[i][1] * 65536 + cands[i][2]] = true end
+          local function dedans(a) return vus[a[1] * 65536 + a[2]] == true end
           local extras = { { xf, yf } }
           for iy = 1, #ys do extras[#extras + 1] = { xf, ys[iy] } end
           for ix = 1, #xs do extras[#extras + 1] = { xs[ix], yf } end
           for _, a in ipairs(extras) do
-            if not dedans(a) and n_max(obs, Z, axe, a[1], a[2], H, extra, per, bn) >= bn then cands[#cands + 1] = a end
+            if not dedans(a) and n_max(obs, Z, axe, a[1], a[2], H, extra, per, bn) >= bn then cands[#cands + 1] = a; vus[a[1] * 65536 + a[2]] = true end
           end
         end
         local meilleur
-        for _, T in ipairs(Ts) do
+        -- raccords hors côté par orientation (ne dépend pas de l'ancre) : seules les orientations qui en ont le moins sont essayées
+        local fauxT, minfaux = {}, math.huge
+        for ti, T in ipairs(Ts) do
+          local nf = 0
+          for _, e in ipairs(m.entrees or {}) do
+            local cote = entree_oriente(e, L, H, T)
+            local ok = false
+            for _, s in ipairs(supplies) do
+              if s.cote == cote then
+                for tok in pairs(e.jetons) do
+                  for _, t2 in ipairs(s.jetons) do if t2 == tok then ok = true end end
+                end
+              end
+            end
+            if not ok and #supplies > 0 then nf = nf + 1 end
+          end
+          fauxT[ti] = nf
+          if nf < minfaux then minfaux = nf end
+        end
+        for ti, T in ipairs(Ts) do
+         if fauxT[ti] == minfaux then
           local l, hh = D.dims(L, H, T)
           local es = {}
           for i, e in ipairs(m.entrees or {}) do
@@ -562,6 +592,7 @@ local function placer(m, cap, Z, obs, supplies)
             end
             if mieux then meilleur = { cle = cle, x = a[1], y = a[2], T = T, l = l, h = hh, faux = faux, ecart = gap + ecart } end
           end
+         end
         end
         local cand = { n = bn, x = meilleur.x, y = meilleur.y, T = meilleur.T, l = meilleur.l, h = meilleur.h, faux = meilleur.faux, ecart = meilleur.ecart }
         if not best or cand.n > best.n then best = cand
@@ -675,6 +706,8 @@ function X.choisir(req)
           n_besoin = 1
         elseif c.entrees then
           if not (dem.entrees and dem.sorties) then cause = "demande_incompatible"
+          elseif (c.pas ~= nil) ~= (dem.pas ~= nil) then cause = "demande_incompatible"   -- tête de distribution : la demande donne le pas
+          elseif c.pas and (c.pas ~= dem.pas or c.sorties ~= dem.sorties) then cause = "capacite_insuffisante"
           elseif c.entrees < dem.entrees or c.sorties < dem.sorties then cause = "capacite_insuffisante"
           end
           n_besoin = 1
