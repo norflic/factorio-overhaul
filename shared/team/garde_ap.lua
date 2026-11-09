@@ -21,7 +21,8 @@
 local Ga = {}
 
 Ga.MARGE = 1100 -- ‰ : défense visée = 1,1 × la plus grande vague connue (même valeur que Pc.MARGE, shared/ai3/prevision_choix.lua)
-Ga.CAP = 6      -- tourelles voulues au plus par avant-poste
+Ga.CAP = 0      -- tourelles voulues au plus par avant-poste. 0 = GARDE D'AVANT-POSTE COUPÉE (décision de l'intégrateur, 9/11 : effet non prouvé sur 8 graines,
+                -- voir tests/garde_ap_test.lua) ; 6 était la valeur essayée. Le QG (Ga.hq_want) ne dépend pas de cette constante.
 
 local function num(x)
   if type(x) ~= "number" or x ~= x or x < 0 then return 0 end

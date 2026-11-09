@@ -34,7 +34,10 @@ local function read_all(path)
   return s
 end
 
-local SRC = read_all("shared/team/garde_ap.lua")
+local SRC_REAL = read_all("shared/team/garde_ap.lua")
+-- Le module livré a la garde d'avant-poste COUPÉE (Ga.CAP = 0). Les contrôles de la règle (sections 1 à 4, mutants) se jouent sur la même
+-- source avec Ga.CAP = 6, la valeur essayée ; la section 0 dit explicitement que la garde livrée est coupée.
+local SRC = SRC_REAL:gsub("Ga%.CAP = 0 ", "Ga.CAP = 6 ", 1)
 
 -- Les contrôles, rejouables sur un module modifié (mutant) : rendent le nombre d'échecs.
 local function run_checks(Ga, label, loud)
@@ -93,6 +96,17 @@ local function run_checks(Ga, label, loud)
   ck(Ga.want({ base = "x", w5 = "y", tv = TV }) == 0, "chaînes ignorées")
   ck(Ga.want({ base = 2.9, tv = TV }) == 2, "base fractionnaire arrondie vers le bas")
   return fails
+end
+
+-- 0. Module livré : garde d'avant-poste COUPÉE
+do
+  local Real = load_module(SRC_REAL)
+  print("[GARDE-AP] garde d'avant-poste : COUPEE dans le module livre (Ga.CAP = " .. tostring(Real.CAP) .. ")")
+  check(Real.CAP == 0, "la garde d'avant-poste est COUPÉE dans le module livré (Ga.CAP = 0)")
+  local n, w, why = Real.want({ base = 3, w5 = 100000, w15 = 100000, mem = 100000, tv = 574 })
+  check(n == 3 and why == "base", "garde coupée : aucune menace ne relève la garde voulue d'un avant-poste (règle d'avant : 3)")
+  check(Real.hq_want({ base = 4, have = 3, cap = 8, threat = 4575, min = 300, tv = 574, funds = 1365, cost = 120, reserve = 300 }) == 8,
+    "la règle du QG, elle, reste allumée (4 575 PV, fer 1 365 : 8 tourelles)")
 end
 
 -- Module réel
