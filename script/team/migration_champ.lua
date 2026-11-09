@@ -1454,13 +1454,33 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
   for _, fid in ipairs(sorted_keys(ms.fields)) do add(fid, ms.fields[fid]) end
   cand = Th.order(cand) -- voulus d'abord, puis le plus d'extraction thermique en jeu, puis la plaque la plus en manque, puis le numéro
   local iron_waiting = false -- lot FER-D-ABORD : une bande de plaques attend le stock de fer (Th.iron_waits) : pas de bande brute neuve avant elle
+  local burn -- (lot FER-D-ABORD : combustible brûlé par les générateurs, lu une fois par pensée et seulement si une bande de combustible est en jeu)
   for _, it in ipairs(cand) do
     local oid = it.id
     local o = Champ.target(f, oid)
     local st = ms.o[oid]
-    if Th.FER_D_ABORD and Th.raw_holds(it.tier, it.wanted, iron_waiting) then
-      if st then say_why(f, ms, st, "fer-d-abord", string.format("avant-poste %d (%s) : bande brute neuve retenue, une bande de plaques attend le fer", o.id, o.kind)) end
-      goto next_outpost
+    if Th.FER_D_ABORD and iron_waiting and (it.tier or 0) == 1 and not it.wanted then
+      local spec = T.outposts[o.kind]
+      local is_fuel = spec.resource == T.fuel
+      local short = false
+      if is_fuel then
+        burn = burn or fuel_burn(f, surface)
+        short = Th.fuel_short(free[spec.product] or 0, burn)
+      end
+      local held, why_hold = Th.raw_holds({ tier = it.tier, wanted = it.wanted, iron_waiting = iron_waiting, fuel = is_fuel, fuel_short = short,
+        since = ms.iron_since, now = tick })
+      if held then
+        if st then say_why(f, ms, st, "fer-d-abord", string.format("avant-poste %d (%s) : bande brute neuve retenue, une bande de plaques attend le fer", o.id, o.kind)) end
+        goto next_outpost
+      elseif why_hold == "expire" and ms.iron_note ~= "expire" then
+        ms.iron_note = "expire"
+        say(f, ms, string.format("fer d'abord : retenue des bandes brutes levee apres %d min sans depart d'une bande de fer (plaques de fer libres : %d)",
+          (tick - (ms.iron_since or tick)) / 3600, free[T.outposts.iron.product] or 0), true)
+      elseif why_hold == "combustible" and ms.iron_note ~= "combustible" then
+        ms.iron_note = "combustible"
+        say(f, ms, string.format("fer d'abord : avant-poste %d (%s) non retenu, le combustible manque (stock %d, %.2f/s brules)", o.id, o.kind,
+          free[spec.product] or 0, burn or 0), true)
+      end
     end
     -- lot THERMIQUE : charbon et pierre n'existent que par le champ (le gabarit de fonderie du treillis ne sait pas poser un coffre)
     if not is_furnace_kind(o.kind) and Champ.data(f, o.kind) == nil then goto next_outpost end
@@ -1507,7 +1527,10 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       local plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
       local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates,
         lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
-      if Th.iron_waits(it.tier, why) then iron_waiting = true end -- lot FER-D-ABORD
+      if Th.iron_waits(it.tier, why) then -- lot FER-D-ABORD
+        iron_waiting = true
+        ms.iron_since, ms.iron_last = Th.iron_clock(ms.iron_since, ms.iron_last, true, tick)
+      end
       -- Lot THERMIQUE2 : la garde de fer du lot THERMIQUE (Th.financed : fer libre >= coût des foreuses de remplacement) est retirée : une force
       -- dont le fer est tout consommé ne lançait jamais la bande qui lui rendrait du fer (« migration en veille (fer) », champ-longue 20261020) ;
       -- la garde de plaques de Mg.start_ok (comme sur main) reste.
@@ -1517,9 +1540,13 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, it.wanted and "couverture" or "capi", product))) then
         say_why(f, ms, st, "pile", string.format("avant-poste %d (%s) : bande neuve retenue par la pile, %d paire(s) thermique(s)", o.id, o.kind, #list))
       elseif ok then
-        if champ then
-          if begin_band(f, surface, ms, o, st, list, tick, free) then return true end
-        elseif begin_part(f, surface, ms, o, st, list, rects, tick) then return true end
+        local began
+        if champ then began = begin_band(f, surface, ms, o, st, list, tick, free)
+        else began = begin_part(f, surface, ms, o, st, list, rects, tick) end
+        if began then
+          if (it.tier or 0) == 0 then ms.iron_since, ms.iron_last, ms.iron_note = nil, nil, nil end -- lot FER-D-ABORD : une bande de plaques part, l'attente est finie
+          return true
+        end
       elseif o.migr == "en cours" and (why == "paires" or why == "treillis") and st.done > 0 and not (champ and st.frame) then
         -- plus assez de paires pour une partie de plus : le reste est laissé tel quel
         finish(f, ms, o, st, (#list == 0) and "fini" or "partiel",
@@ -1529,6 +1556,10 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       end
     end
     ::next_outpost::
+  end
+  if not iron_waiting then -- lot FER-D-ABORD : rien n'attend le fer ; l'horloge de retenue s'éteint après cfg.iron_hold_gap
+    ms.iron_since, ms.iron_last = Th.iron_clock(ms.iron_since, ms.iron_last, false, tick)
+    if ms.iron_since == nil then ms.iron_note = nil end
   end
   return false
 end
