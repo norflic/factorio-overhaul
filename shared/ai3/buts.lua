@@ -28,6 +28,7 @@ local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bo
 local Dm = require("shared.ai3.demande") -- lot C2 : saturation relative au puits ouvert
 local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : relève d'un avant-poste quand tout gisement pris est plein
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : minerai brut plein (Th.raw_full)
+local Rv = require("shared.ai3.reinvestir") -- lot REINVESTIR-FER : la cible de fer monte quand le fer manque et que tout tourne
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : stock de chargeurs visé qui suit les tourelles (Mu.stock_target)
 local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : saturation jugée sur le stock projeté quand il fond
 
@@ -222,6 +223,24 @@ function B.targets(s, st)
       and (s.cap[kind] or 0) >= tg[kind] * 0.75 then
       tg[kind] = tg[kind] + 1
       st.short_n[product] = 0
+    end
+  end
+  -- Lot REINVESTIR-FER (mesuré par la sonde : 8 puis 16 foreuses sur le fer jusqu'à 15 min, toutes en marche, coffre à 0, remboursement d'un
+  -- avant-poste en moins d'une minute) : la cible du fer monte d'un avant-poste sans attendre le manque durable (shared/ai3/reinvestir.lua).
+  do
+    local top = key.top
+    local kspec = T.outposts[top]
+    st.reinv = st.reinv or {}
+    local rs = st.reinv
+    rs.maxcap = math.max(rs.maxcap or 0, (s.cap or {})[top] or 0)
+    if kspec and s.reinvest_cost and s.reinvest_cost[top] then
+      local up, why = Rv.decide({ have = s.stock[kspec.product] or 0, floor = Br.need_floor(s.workers, B.NEED_FLOOR), tg = tg[top] or 0,
+        cap = s.cap[top] or 0, pending = (s.pending or {})[top] or 0, max = grow_max, outs = (s.out_state or {})[top], maxcap = rs.maxcap,
+        cost = s.reinvest_cost[top], drills = kspec.drills, threatened = s.threatened, undefended = s.undef_n, tick = s.tick, last = rs.last })
+      if up then
+        tg[top] = (tg[top] or 0) + 1
+        rs.last, rs.n, rs.why = s.tick, (rs.n or 0) + 1, why -- lu par le journal [FO-REINVESTIR] (script/ai3/cerveau.lua)
+      end
     end
   end
   -- Lot IA-G (bras libres, demande « ils ne scalent pas ») : des PNJ sans tâche (s.idle_grow, règle Gen.ahead_depth) et

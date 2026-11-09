@@ -62,6 +62,7 @@ local Defauts = require("script.ai3.defauts_rt") -- lot TV-GARDES (V88) : table 
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
 local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
+local ReinvRt = require("script.ai3.reinvestir_rt") -- lot REINVESTIR-FER : coût brut d'un avant-poste (remboursement)
 local Sonde = require("script.team.sonde_fer") -- lot SONDE-FER : diagnostic du fer des premières minutes (lecture seule)
 local ZIrt = require("script.ai3.zero_idle_rt") -- lot ZERO-IDLE : journal [FO-ZERO-IDLE] de la minute
 local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : texte des pièces d'un kit ([FO-LOTS-KIT])
@@ -914,6 +915,7 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     thaw = Capital.thaw_active(f), -- lot AGES : le gel du centre est levé (shared/team/degel.lua) : la pile laisse passer son but
+    reinvest_cost = ReinvRt.cost(f, book), -- lot REINVESTIR-FER : matière brute d'un avant-poste de chaque type (remboursement)
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
@@ -926,6 +928,12 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
   Profiler.stop("ia3:think")
   local ok_sonde, err_sonde = pcall(Sonde.tick, f, tick) -- (diagnostic : jamais une erreur de partie)
   if not ok_sonde then log("[FO-SONDE-FER] erreur de la sonde : " .. tostring(err_sonde)) end
+  -- lot REINVESTIR-FER : journal de chaque hausse de la cible du fer (lecture seule)
+  if st.reinv and (st.reinv.n or 0) ~= (st.reinv.logged or 0) then
+    st.reinv.logged = st.reinv.n
+    log(string.format("[FO-REINVESTIR] %s : cible de capacite du fer montee (hausse %d, %s) a %.1f min", f.key or "player", st.reinv.n,
+      tostring(st.reinv.why), minutes(f, tick)))
+  end
   -- lot SONDE-FER : [FO-SONDE-FER] une ligne par minute (lecture seule)
   ZIrt.after(f, st, tick, math.floor(minutes(f, tick) + 0.5)) -- lot ZERO-IDLE : ligne [FO-ZERO-IDLE] (une par minute, PNJ libres)
   Pil.armee_line(f, plan, minutes(f, tick)) -- lot TV-PILOTE (V10) : journal [FO-ARMEE] aux changements de la réserve

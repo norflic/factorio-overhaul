@@ -106,6 +106,14 @@ function C.situation(view, st, ctx)
     if not o.full and (o.drills or 0) < T.max_drills(o.kind) then room[o.kind] = true end
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do if (cap[kind] or 0) > 0 then st.ever[kind] = true end end
+  -- Lot REINVESTIR-FER : état de chaque avant-poste par type (brûleurs à sec, réceptacles pleins, menace) ; lecteur : B.targets (Rv.decide)
+  local out_state = {}
+  for _, o in ipairs(view.outposts or {}) do
+    local l = out_state[o.kind] or {}
+    out_state[o.kind] = l
+    l[#l + 1] = { drills = o.drills or 0, dry = o.dry or 0, stuck = o.stuck or 0, fuel_low = o.fuel_low or false, unsafe = o.unsafe or false,
+      lethal = o.lethal or false, protect = o.protect or false }
+  end
   -- Lot IA3-e : un module FINI (fonderie électrique et ses foreuses) compte comme capacité d'extraction de son produit
   -- (en unités d'avant-poste) : le cerveau ne bâtit plus l'avant-poste que le module remplace. Après `ever` : un module
   -- n'est pas un avant-poste à reconstruire.
@@ -123,6 +131,7 @@ function C.situation(view, st, ctx)
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
     army_cap = view.army_cap or 0, -- lot DEPENSES2 (R1) : plafond des factions, celui de l'armée de votre équipe (B.generate)
     sites = view.sites or {}, sites_near = view.sites_near or {}, nout = nout, undef_n = undef_n, lethal_n = lethal_n,
+    out_state = out_state, reinvest_cost = ctx.reinvest_cost, -- lot REINVESTIR-FER
     threatened = view.threatened or false, expansion = ctx.expansion or 0, dominant = ctx.dominant or false,
     desired = ctx.desired, extension = ctx.industrie or false, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : l'équipe recrute encore vers son effectif voulu (lecteur : B.generate,
