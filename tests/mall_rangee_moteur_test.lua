@@ -32,7 +32,9 @@ package.loaded["script.team.build"] = Build
 package.loaded["script.team.champ"] = { _raccord_tous = function() return 0 end }
 package.loaded["script.faction.state"] = { faction = function() return nil end, alive = function() return {} end }
 package.loaded["script.core.events"] = { on_load = function() end }
-package.loaded["shared.ai3.automatiser"] = { declare = function() end }
+local LEC = { fab = {} }
+package.loaded["shared.ai3.automatiser"] = { declare = function() end, lecture = function() return LEC end,
+  patron_kit = function() return { bras = "inserter", bras_long = "long-handed-inserter", tapis = "transport-belt", coffre = "iron-chest", poteau = "small-electric-pole", decl = { kit = {}, machines = {} } } end }
 
 local P = require("shared.team.plan")
 local Mr = require("shared.team.mall_rangee")
@@ -278,6 +280,51 @@ do
   debug.sethook()
   print("[MALL-RANGEE-MOTEUR] minute, 4 rangées de 320 machines et coffres : " .. count .. " instructions")
   check(count <= 370000, "§8 coût de la minute ≤ 370 k instructions (" .. count .. ")")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §9 ordre « chaine » de la capitalisation
+---------------------------------------------------------------------------------------------------
+do
+  local book = { handcraftable = function() return true end }
+  local function entry(sol)
+    local solides = {}
+    for _, n in ipairs(sol) do solides[#solides + 1] = { name = n, amount = 1 } end
+    return { patronnable = true, solides = solides, fluides_in = {}, category = "crafting", machines = { { entity = NAMES.machine, item = NAMES.machine, par_min = 30 } },
+      produits = {} }
+  end
+  LEC.fab = { ["r-a"] = entry({ "fer" }), ["r-b"] = entry({ "cuivre", "fer" }), ["r-c"] = entry({ "a", "b", "c", "d", "e" }) }
+  LEC.fab["r-a"].produits = { "a" }; LEC.fab["r-b"].produits = { "b" }; LEC.fab["r-c"].produits = { "c1" }
+  LEC.par_produit = nil
+  local Id = require("shared.ai3.industrie")
+  local real = Id.recipe_of
+  Id.recipe_of = function(fab, item)
+    local r = ({ a = "r-a", b = "r-b", c1 = "r-c" })[item]
+    if r and fab[r] then return r, fab[r] end
+    return nil
+  end
+  local f = team()
+  f.build.mall.pret = nil
+  check(select(2, Rt.chaine(f, { item = "a", rate = 60 }, book, {}, 10, "small-electric-pole")) == "ferme", "§9 fermé : le chemin d'avant")
+  f.build.mall.pret = true
+  REQ = {}
+  local id = Rt.chaine(f, { item = "a", rate = 60 }, book, {}, 10, "small-electric-pole")
+  check(type(id) == "number" and REQ[1] and REQ[1].mall.names.poteau == "small-electric-pole", "§9 ordre chaine : une rangée demandée (poteau de l'appelant)")
+  local r1 = f.build.mall.rows[1]
+  check(#r1.cells == 2 and Mr.compte(r1, "r-a") == 4, "§9 machines dimensionnées (60/min × LEAD 2 ÷ 30 = 4 machines) : " .. Mr.compte(r1, "r-a"))
+  check(Rt.chaine(f, { item = "a", rate = 60 }, book, {}, 20, nil) == true, "§9 déjà servi : vrai, sans nouvelle section")
+  check(#REQ == 1, "§9 pas de seconde demande")
+  local nb = #REQ
+  local id2 = Rt.chaine(f, { item = "a", rate = 120 }, book, {}, 30, nil)
+  check(type(id2) == "number" and #REQ == nb + 1 and REQ[nb + 1].mall.from == 3, "§9 débit en hausse : section suivante de la même rangée")
+  local id3 = Rt.chaine(f, { item = "b", rate = 30 }, book, {}, 40, nil)
+  check(type(id3) == "number" and #f.build.mall.rows == 2, "§9 autre recette, autres voies : rangée dédiée")
+  local none, why = Rt.chaine(f, { item = "c1", rate = 30 }, book, {}, 50, nil)
+  check(none == nil and tostring(why):find("4 voies", 1, true) ~= nil, "§9 plus de 4 entrées : hors du mall, cause (" .. tostring(why) .. ")")
+  local logged
+  for _, l in ipairs(LOG) do if l:find("hors du mall", 1, true) then logged = true end end
+  check(logged, "§9 la cause est écrite")
+  Id.recipe_of = real
 end
 
 print(string.format("[MALL-RANGEE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))

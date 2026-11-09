@@ -205,7 +205,7 @@ do
   LOG = {}
   local f = team(100, -40)
   local w = world({ water = function(tx, ty) return not (math.abs(tx - 100) < 6 and math.abs(ty + 40) < 6) end })
-  local t = run(f, w, 0, 1 + 113 + 3)
+  local t = run(f, w, 0, 1 + 113 + #Mp.TRIES) -- (un essai de Mp.TRIES par passe)
   check(f.build.mall.phase == "aucun", "§5 aucune fenêtre : phase « aucun »")
   local found = false
   for _, l in ipairs(LOG) do if l:find("SECTEUR aucun", 1, true) and l:find("cause dominante : eau", 1, true) then found = true end end

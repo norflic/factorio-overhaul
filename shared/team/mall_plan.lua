@@ -31,8 +31,9 @@ Mp.READ_CHUNKS = 7          -- chunks lus de chaque côté du chunk du QG (15 ×
 Mp.EXT = 8                  -- cases d'étendue au plus (64 tuiles) lues au-delà de la fenêtre
 Mp.STEP = 2                 -- pas des fenêtres essayées, en cases (16 tuiles : le secteur n'a pas besoin d'être placé à la tuile)
 -- essais, dans l'ordre : (côté de la fenêtre en cases, rayon en tuiles). 8 cases = 64 tuiles : 4 places de rangées le long du tronc,
--- rangées de 3 à 4 cellules de chaque côté ; 6 cases = 48 tuiles quand le terrain proche est encombré.
-Mp.TRIES = { { size = 8, radius = 84 }, { size = 6, radius = 84 }, { size = 6, radius = 112 } }
+-- rangées de 3 à 4 cellules de chaque côté ; 6 cases = 48 tuiles quand le terrain proche est encombré. Les deux derniers essais (partie etape1-geants de 40 min, azure : aucune
+-- fenêtre à 112 tuiles en 4 passages, 92 eau, 118 minerai, 118 bâtiments) : une fenêtre plus petite à la même distance (32 tuiles : 2 rangées de 6 cellules), puis plus loin (160).
+Mp.TRIES = { { size = 8, radius = 84 }, { size = 6, radius = 84 }, { size = 6, radius = 112 }, { size = 4, radius = 112 }, { size = 6, radius = 160 } }
 
 Mp.EAU, Mp.MINERAI, Mp.BATI, Mp.INCONNU, Mp.ARBRE = 1, 2, 4, 8, 16
 Mp.INTERDIT = 1 + 2 + 4 + 8

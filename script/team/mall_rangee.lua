@@ -261,6 +261,45 @@ function Rt.accueille(f, c, mod, lec, tick, afford)
   return false, why, wait
 end
 
+--- Bascule d'un ordre « chaine » de la capitalisation (docs/MALL.md §3) : l'objet va dans une rangée du mall au lieu d'un module isolé du treillis (S vrai, entrées solides
+--- sur 4 voies au plus). `o` = { item, rate (objets/min), key } ; `pole` = poteau choisi par l'appelant ; rend l'identifiant du projet, ou vrai (déjà servi : la rangée a ses
+--- machines), ou (nil, raison) : le chemin d'avant (module isolé), cause écrite une fois par objet. La dépense a déjà été jugée par la capitalisation.
+function Rt.chaine(f, o, book, stock, tick, pole)
+  if not Rt.ouvert(f) then return nil, "ferme" end
+  local st = f.build.mall
+  local function refuse(why)
+    st.chaine_why = st.chaine_why or {}
+    if st.chaine_why[o.item] ~= why then
+      st.chaine_why[o.item] = why
+      say(f, st, tick, string.format("ordre chaine %s : hors du mall (%s)", tostring(o.item), tostring(why)))
+    end
+    return nil, why
+  end
+  local lec = A.lecture()
+  if not lec then return refuse("lecture des recettes absente") end
+  local usable = function(n) return book:handcraftable(n) or ((stock or {})[n] or 0) > 0 end
+  local pr, why = Id.profile(lec.fab, o.item, usable)
+  if not pr then return refuse(why) end
+  if pr.s > 4 then return refuse(pr.s .. " entrees solides (4 voies)") end
+  if pr.par_min <= 0 then return refuse("sans debit") end
+  local kit, whyk = A.patron_kit(lec, usable)
+  if not kit then return refuse(whyk) end
+  local decl = { kit = kit.decl.kit, machines = { { machine = pr.machine, categories = { pr.entry.category } } } }
+  A.declare(decl)
+  local names = { machine = pr.machine.entity, bras = kit.bras, bras_long = kit.bras_long, tapis = kit.tapis, poteau = pole or kit.poteau, coffre = kit.coffre, decl = decl }
+  st.names_kit = st.names_kit or names
+  local machines = machines_for(o.rate or 0, pr.par_min)
+  local dem = { { item = o.item, recipe = pr.recipe, machine = names.machine, machines = machines, solides = pr.solides, rate = o.rate or 0 } }
+  -- déjà servi : la rangée qui l'a porte assez de machines
+  for _, r in ipairs(st.rows or {}) do
+    if Mr.compte(r, pr.recipe) >= machines then return true end
+  end
+  local id, whyp = Rt.place(f, dem, names, tick, nil, "MALL ordre chaine " .. tostring(o.item))
+  if id then return id end
+  if tostring(whyp) == "mall : rien a ajouter" then return true end
+  return refuse(whyp)
+end
+
 ---------------------------------------------------------------------------------------------------
 -- La minute : barres, refus, allongement, compteurs
 ---------------------------------------------------------------------------------------------------
