@@ -160,6 +160,23 @@ local function battery(Am, verbose)
   for _, p in ipairs(file()) do
     if p.state ~= "reserve" then ck(#Am.direct({ p }, "asm2", 5) == 0, "directe : un projet en etat « " .. p.state .. " » n'attend pas de reserve") end
   end
+  -- lot CHARBON-CENTRALE (V0675-A, graine 1618033988) : un projet ROUVERT pour reconstruction (rebuilding : chantier des 30 tapis du projet 3
+  -- apres l'attaque de 33,6 min) passe AVANT les reserves, meme place apres elles dans la file ; un chantier non rouvert (60) n'attend rien.
+  local function file_rb()
+    return {
+      { id = 14, state = "reserve", missing = { { "belt", 152 } } },
+      { id = 3, state = "chantier", rebuilding = true, missing = { { "belt", 30 } } },
+      { id = 60, state = "chantier", missing = { { "belt", 9 } } },
+    }
+  end
+  local rb = Am.direct(file_rb(), "belt", 5)
+  ck(#rb == 1 and rb[1].id == 3 and rb[1].n == 5 and rb[1].rebuild == true, "directe : projet rouvert en chantier servi d'abord (5 tapis au projet 3, pas au module 14 en reserve)")
+  rb = Am.direct(file_rb(), "belt", 40)
+  ck(#rb == 2 and rb[1].id == 3 and rb[1].n == 30 and rb[2].id == 14 and rb[2].n == 10, "directe : le reste va a la reserve (30 au projet 3, 10 au module 14, rien au chantier 60)")
+  ck(#Am.direct({ { id = 3, state = "chantier", rebuilding = true, reason = "pile", missing = { { "belt", 30 } } } }, "belt", 5) == 0,
+    "directe : projet rouvert mais suspendu par la pile : rien")
+  local lr = Am.describe_direct({ id = 3, item = "belt", n = 5, rebuild = true }, 34)
+  ck(lr:find("reconstruction", 1, true) ~= nil, "ligne [FO-AMORCE] d'une remise a un projet rouvert (" .. lr .. ")")
   ck(#Am.direct(file(), "asm2", 0) == 0 and #Am.direct(file(), "asm2", -3) == 0 and #Am.direct(file(), "asm2", 0 / 0) == 0 and #Am.direct(file(), "asm2", math.huge) == 0
     and #Am.direct(file(), "asm2", nil) == 0, "directe : quantite nulle, negative, NaN, infinie ou absente : rien (ferme par defaut)")
   ck(#Am.direct(nil, "asm2", 5) == 0 and #Am.direct({ { id = 1, state = "reserve" } }, "asm2", 5) == 0, "directe : file ou manque absents : rien")
@@ -368,6 +385,15 @@ mutant("remise directe a un module suspendu par la pile", function(Am)
   Am.direct = function(projects, item, n)
     local cp = {}
     for i, p in ipairs(projects or {}) do cp[i] = { id = p.id, state = p.state, missing = p.missing } end
+    return base(cp, item, n)
+  end
+end)
+
+mutant("remise directe aux seules reserves (projet rouvert en chantier ignore : coupe CHARBON-CENTRALE retiree)", function(Am)
+  local base = Am.direct
+  Am.direct = function(projects, item, n)
+    local cp = {}
+    for i, p in ipairs(projects or {}) do cp[i] = { id = p.id, state = p.state, reason = p.reason, missing = p.missing } end
     return base(cp, item, n)
   end
 end)

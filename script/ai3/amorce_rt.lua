@@ -23,9 +23,12 @@ local Am = require("shared.ai3.amorce")
 local Ml = require("shared.ai3.mall")
 local Cf = require("shared.ai3.confirmation")
 local Dm = require("shared.ai3.demande") -- Dm.BUSY_TEXT : « plan directeur occupe », le refus de l'exécutant
+local Sw = require("shared.team.rebuild_sweep") -- Sw.rebuilding : projet rouvert pour reconstruction (règle pure, lot CHARBON-CENTRALE)
 
 local AmRt = {}
 AmRt.Am = Am
+-- États d'un projet ROUVERT dont le chantier a repris (REBUILD-RAPIDE, Build.think) : son manque (p.missing) est tenu par refresh_missing
+AmRt.REBUILD_STATES = { defrichage = true, fantomes = true, chantier = true }
 AmRt.MODULE_KINDS = { couvrir = true, ouvrir = true, chaine = true, packs = true } -- les ordres que le plan directeur (le déployeur) exécute
 AmRt.RELANCES_MAX = 2 -- un ordre refusé par l'exécutant occupé est re-émis au plus deux fois (Cf.RETRY chacune), puis laissé à la décision
 
@@ -192,7 +195,12 @@ function AmRt.deliver(f, inv, name, n)
   local list = {}
   for _, id in ipairs(b.order) do
     local p = b.projects[id]
-    if p and p.state == "reserve" then list[#list + 1] = { id = id, state = p.state, reason = p.reason, missing = p.missing } end
+    -- lot CHARBON-CENTRALE : un projet ROUVERT pour reconstruction (Sw.rebuilding) dont le chantier a repris (REBUILD-RAPIDE : défrichage, fantômes,
+    -- chantier ; p.missing tenu par refresh_missing) attend aussi, et d'abord : ses pièces détruites (tapis du charbon de la centrale) ne sont
+    -- refaites que si l'objet atteint son p.stock ou le coffre, et la réserve d'un module neuf prenait tout au dépôt
+    if p and (p.state == "reserve" or (AmRt.REBUILD_STATES[p.state] and Sw.rebuilding(p))) then
+      list[#list + 1] = { id = id, state = p.state, reason = p.reason, missing = p.missing, rebuilding = Sw.rebuilding(p) }
+    end
   end
   local given = 0
   for _, a in ipairs(Am.direct(list, name, n)) do
@@ -212,7 +220,7 @@ function AmRt.deliver(f, inv, name, n)
       end
       p.missing, p.reserve_next = rest, nil
       given = given + got
-      log(string.format("[FO-AMORCE] %s : %s", f.key or "?", Am.describe_direct({ id = a.id, item = name, n = got }, (game and game.tick or 0) / 3600)))
+      log(string.format("[FO-AMORCE] %s : %s", f.key or "?", Am.describe_direct({ id = a.id, item = name, n = got, rebuild = a.rebuild }, (game and game.tick or 0) / 3600)))
     end
   end
   if given > 0 then f.team.delivered[name] = (f.team.delivered[name] or 0) + given end

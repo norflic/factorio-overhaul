@@ -128,25 +128,33 @@ function Am.seed(st, tick, projets, have, book, Ml, cyc)
   return out, skipped
 end
 
---- (e) Remise directe. projects : file du plan directeur { { id, state, reason, missing = { { objet, manque } } } } ; item, n : ce que le PNJ
---- porte. Rend la liste { { id, item, n } } des remises (somme <= n, chacune <= le manque restant du module, premier de la file d'abord).
---- Seul un module en état « reserve » attend ; un module suspendu par la pile ou le QG (raison « pile », « qg » : objets rendus, manques
+--- (e) Remise directe. projects : file du plan directeur { { id, state, reason, rebuilding, missing = { { objet, manque } } } } ; item, n : ce que
+--- le PNJ porte. Rend la liste { { id, item, n, rebuild } } des remises (somme <= n, chacune <= le manque restant du module). Attendent, dans l'ordre
+--- de la file : D'ABORD les projets ROUVERTS pour reconstruction (rebuilding, Sw.rebuilding : leur chantier a repris avec ce qu'il y avait,
+--- REBUILD-RAPIDE, et refresh_missing tient leur manque), PUIS les modules en état « reserve ». Lot CHARBON-CENTRALE (V0675-A, graine 1618033988) :
+--- les 30 tapis du projet 3 (charbon de la centrale 1), rouvert en chantier après l'attaque de 33,6 min, n'étaient servis par personne : seule la
+--- réserve attendait, et la centrale 4 en réserve prenait chaque tapis déposé au QG ; « manque au coffre {transport-beltx30} » de 38,6 à 59 min,
+--- centrale 1 à sec à 43,5, 51,0, 56,3 et 59,6 min. Un module suspendu par la pile ou le QG (raison « pile », « qg » : objets rendus, manques
 --- effacés) n'attend rien. Fermé par défaut : quantité nulle, négative, NaN, infinie ou absente = rien ; manque illisible écarté.
 function Am.direct(projects, item, n)
   local out = {}
   if type(item) ~= "string" or item == "" or not pos(n) then return out end
   local left = math.floor(n)
-  for _, p in ipairs(projects or {}) do
-    if left <= 0 then break end
-    if p.state == "reserve" and p.reason ~= "pile" and p.reason ~= "qg" then
-      local want = 0
-      for _, m in ipairs(p.missing or {}) do
-        if m[1] == item and pos(m[2]) then want = want + math.floor(m[2]) end
-      end
-      local k = math.min(left, want)
-      if k > 0 then
-        out[#out + 1] = { id = p.id, item = item, n = k }
-        left = left - k
+  for pass = 1, 2 do -- 1 : les projets rouverts pour reconstruction ; 2 : les réserves
+    for _, p in ipairs(projects or {}) do
+      if left <= 0 then break end
+      local rebuild = p.rebuilding == true
+      local waits = (pass == 1 and rebuild) or (pass == 2 and not rebuild and p.state == "reserve")
+      if waits and p.reason ~= "pile" and p.reason ~= "qg" then
+        local want = 0
+        for _, m in ipairs(p.missing or {}) do
+          if m[1] == item and pos(m[2]) then want = want + math.floor(m[2]) end
+        end
+        local k = math.min(left, want)
+        if k > 0 then
+          out[#out + 1] = { id = p.id, item = item, n = k, rebuild = rebuild or nil }
+          left = left - k
+        end
       end
     end
   end
@@ -155,8 +163,8 @@ end
 
 --- Ligne du journal [FO-AMORCE] d'une remise directe (aucune décision ne la lit).
 function Am.describe_direct(a, tick_min)
-  return string.format("remise directe : %d %s au module %s sans passer par le coffre (il les attendait en reserve) a %.1f min", a.n, a.item,
-    tostring(a.id), tick_min or 0)
+  return string.format("remise directe : %d %s au module %s sans passer par le coffre (il les attendait %s) a %.1f min", a.n, a.item,
+    tostring(a.id), a.rebuild and "pour sa reconstruction" or "en reserve", tick_min or 0)
 end
 
 --- (b) et (c) Relevé d'une minute : flows[objet] = { made, hand } (tout ce qui est produit, dont la main) ; alive = { [objet] = vrai }
