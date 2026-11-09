@@ -40,6 +40,7 @@ local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
 local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le centre de la faction est lié à son QG
+local Ml = require("shared.ai3.mall") -- lot AMELIORATION-MALL : la demande d'objet du mall pour la version supérieure
 local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module
 
 local Capital = {}
@@ -662,6 +663,37 @@ function Capital.goal(f, view, book, tick, w)
   end
   Capital.log_blocs(f, c, d, tick)
   Capital.log_parc(f, c, census, tick)
+  -- Lot AMELIORATION-MALL : la version supérieure d'un remplacement à fabriquer est DEMANDÉE AU MALL (Ml.want, lue par Ind.think via Ml.sources) tant que
+  -- ni l'ingrédient de rang inférieur ni un autre ingrédient ne manque (Am.mall_want) ; renouvelée à chaque décision (TTL Ml.WANT_TTL, 10 min).
+  if Capital.blocs_on() and d.replace and d.unit then
+    local ia3 = f.team and f.team.ia3
+    local item = d.unit[1] and d.unit[1][1]
+    local rname = item and book and book:recipe_for(item)
+    local rec = rname and book.recipes and book.recipes[rname]
+    local ings = nil
+    if rec then
+      ings = {}
+      for _, ing in ipairs(rec.ingredients or {}) do
+        if ing.type ~= "fluid" then ings[#ings + 1] = { name = ing.name, amount = ing.amount } end
+      end
+    end
+    local want, rate, why = nil, nil, "aucun"
+    if ia3 then
+      local a, b = Am.mall_want(d, ings, view.stock, ia3.short)
+      if a then want, rate = a, b else why = b end
+    end
+    local sig = want and ("demande " .. want) or tostring(why)
+    if want then
+      ia3.mall = ia3.mall or Ml.new()
+      Ml.want(ia3.mall, tick, want, rate, "amelioration")
+    end
+    if c.mall_sig ~= sig and (want or why ~= "aucun") then
+      c.mall_sig = sig
+      log(string.format("[FO-AMELIORATION-MALL] %s : %s pour '%s' (%s x%d a fabriquer) a %.1f min", f.key or "?",
+        want and ("demande au mall de " .. want .. " a " .. string.format("%.1f", rate) .. "/min") or ("demande au mall retenue : " .. tostring(why)),
+        d.key or "?", d.replace.to or "-", d.fab or 0, minutes(f, tick)))
+    end
+  end
   -- Lot AMELIORATION-CONTINUE : le rang (tapis, bras) à monter en nombre, pas encore débloqué, est déclaré OBJET VOULU (Voulues, source
   -- « amelioration ») ; la règle K1 de Gen (voulue proche devant) et la recherche du cerveau général font le reste. Rien à monter : retiré.
   local rw = {}

@@ -70,6 +70,9 @@ Am.FAIL_GAP = 28800     -- 8 min : après un engagement lâché sans progrès, a
 Am.ENGAGE_COST = 120    -- coût (travail) au-delà duquel un remplacement ne s'engage pas (four d'acier : 337 pour une valeur de 25, engagé 3 fois sans paiement au banc f288d767)
 Am.REST_TICKS = 54000   -- 15 min : le groupe lâché ne reprend pas la tête avant ce repos
 Am.STARVE_TICKS = 72000 -- 20 min : un rang (objet cible) sans aucun paiement depuis ce temps passe devant les buts payables au stock
+Am.MALL_PERIOD_MIN = 10  -- minutes : les pièces du bloc à fabriquer sont demandées au mall à ce rythme (pièces ÷ 10 par minute)
+Am.MALL_RATE_MAX = 6     -- objets par minute au plus, une demande d'amélioration (le mall la tient avec Ml.LEAD, une machine ou deux)
+Am.MALL_BASE_UNITS = 4   -- le stock doit couvrir au moins ce nombre de pièces de l'ingrédient de rang inférieur pour que le mall le consomme
 Am.DIR_AXIS = { [0] = "v", [2] = "h", [4] = "v", [6] = "h" }   -- axe d'une direction du moteur (nord 0, est 2, sud 4, ouest 6)
 Am.DIR_SIGN = { [0] = -1, [2] = 1, [4] = 1, [6] = -1 }         -- sens du flux le long de l'axe (+1 : vers les coordonnées croissantes)
 
@@ -279,6 +282,26 @@ function Am.starved_kinds(st, tick, kinds)
     if tick - since >= Am.STARVE_TICKS then out[k] = true end
   end
   return out
+end
+
+--- Lot AMELIORATION-MALL (chaîne mall → stock → remplacement : rien ne demandait au mall la version SUPÉRIEURE, le tapis rapide se fabriquait
+--- à la main en 5 à 6 min, 0 tapis monté dans les parties du 8/11) : la demande d'objet du mall pour le remplacement décidé `d`.
+---   d      = décision (d.replace, d.unit = { { objet supérieur, 1 } }, d.fab = pièces demandées à la fabrication) ;
+---   ings   = ingrédients d'UNE pièce, liste { { name, amount } } (le runtime les lit au livre des recettes ; nil : recette inconnue) ;
+---   stock  = stock LIBRE { [objet] = n } ; short = besoins non servis de l'équipe { [objet] = manque }.
+--- Rend (objet, taux par minute), ou (nil, raison) : « aucun » (pas de remplacement à fabriquer), « manque:X » (un ingrédient est en manque
+--- aux besoins : le mall n'affame pas ce que les projets attendent), « base:X » (l'ingrédient de rang INFÉRIEUR, celui que la pièce remplace,
+--- n'est pas au stock en quantité : un tapis rapide consomme du tapis de base). Aucun nom d'objet : le rang inférieur est `d.replace.from`.
+function Am.mall_want(d, ings, stock, short)
+  if not (d and d.replace and d.unit and d.unit[1] and (d.fab or 0) > 0) then return nil, "aucun" end
+  local item = d.unit[1][1]
+  if type(item) ~= "string" then return nil, "aucun" end
+  for _, ing in ipairs(ings or {}) do
+    local name, amount = ing.name, ing.amount or 1
+    if ((short or {})[name] or 0) > 0 then return nil, "manque:" .. tostring(name) end
+    if name == d.replace.from and ((stock or {})[name] or 0) < amount * Am.MALL_BASE_UNITS then return nil, "base:" .. tostring(name) end
+  end
+  return item, math.min(Am.MALL_RATE_MAX, d.fab / Am.MALL_PERIOD_MIN)
 end
 
 --- Groupes (bloc, famille) du relevé. ents = liste { id, name, working, block, fixed } ; rend une liste TRIÉE de

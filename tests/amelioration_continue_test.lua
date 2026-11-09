@@ -613,6 +613,60 @@ local function run(Cap, Am, quiet)
     check(none <= 12, "§11 sans aucune matière : jamais plus que les 12 premières (" .. none .. ")")
   end
 
+  ---------------------------------------------------------------------------------------------------
+  -- §12 Lot AMELIORATION-MALL : la version supérieure du remplacement décidé est DEMANDÉE au mall, sauf si la base manque
+  ---------------------------------------------------------------------------------------------------
+  do
+    local ms = {}
+    line(ms, 1000, "transport-belt", "p1", 20, 0, 0, 2)
+    local d = Cap.choose(L, census_of(ms), base_ctx({ stock = {} }))
+    local function ings_of(item)
+      local r = recipes[item]
+      local out = {}
+      for _, ing in ipairs(r and r.ingredients or {}) do if ing.type ~= "fluid" then out[#out + 1] = { name = ing.name, amount = ing.amount } end end
+      return out
+    end
+    local belt_ings = ings_of("fast-transport-belt")
+    check(#belt_ings >= 2, "§12 la recette du tapis rapide est lue au livre (" .. #belt_ings .. " ingrédients)")
+    local item, rate = Am.mall_want(d, belt_ings, { ["transport-belt"] = 50 }, {})
+    check(item == "fast-transport-belt" and rate and rate > 0 and rate <= Am.MALL_RATE_MAX,
+      "§12 base au stock, aucun manque : le tapis rapide est demandé au mall (" .. tostring(item) .. ", " .. tostring(rate) .. "/min)")
+    check(rate == math.min(Am.MALL_RATE_MAX, d.fab / Am.MALL_PERIOD_MIN), "§12 taux = pièces ÷ " .. Am.MALL_PERIOD_MIN .. " min, borné (" .. tostring(rate) .. ")")
+    local i1, why1 = Am.mall_want(d, belt_ings, { ["transport-belt"] = Am.MALL_BASE_UNITS - 1 }, {})
+    check(i1 == nil and why1 == "base:transport-belt", "§12 la BASE manque au stock : aucune demande, pas de tapis de base affamé (" .. tostring(why1) .. ")")
+    local i1b = Am.mall_want(d, belt_ings, { ["transport-belt"] = Am.MALL_BASE_UNITS }, {})
+    check(i1b == "fast-transport-belt", "§12 au seuil exact de la base, la demande est notée")
+    local i2, why2 = Am.mall_want(d, belt_ings, { ["transport-belt"] = 50 }, { ["iron-gear-wheel"] = 12 })
+    check(i2 == nil and why2 == "manque:iron-gear-wheel", "§12 un ingrédient en MANQUE aux besoins : aucune demande (" .. tostring(why2) .. ")")
+    local i2b = Am.mall_want(d, belt_ings, { ["transport-belt"] = 50 }, { ["iron-gear-wheel"] = 0, ["unrelated"] = 99 })
+    check(i2b == "fast-transport-belt", "§12 un manque sur un autre objet ou nul ne retient pas la demande")
+    local i3, why3 = Am.mall_want({ none = true }, belt_ings, { ["transport-belt"] = 50 }, {})
+    check(i3 == nil and why3 == "aucun", "§12 aucune décision de remplacement : aucune demande")
+    local dnr = {}
+    for k, v in pairs(d) do dnr[k] = v end
+    dnr.replace = nil
+    check(Am.mall_want(dnr, belt_ings, { ["transport-belt"] = 50 }, {}) == nil, "§12 un bloc de bâtiments (ni remplacement) : aucune demande au mall")
+    local dz = {}
+    for k, v in pairs(d) do dz[k] = v end
+    dz.fab = 0
+    check(Am.mall_want(dz, belt_ings, { ["transport-belt"] = 50 }, {}) == nil, "§12 rien à fabriquer : aucune demande")
+    local dbig = {}
+    for k, v in pairs(d) do dbig[k] = v end
+    dbig.fab = 500
+    local _, rbig = Am.mall_want(dbig, belt_ings, { ["transport-belt"] = 50 }, {})
+    check(rbig == Am.MALL_RATE_MAX, "§12 le taux est borné à " .. Am.MALL_RATE_MAX .. "/min (" .. tostring(rbig) .. ")")
+    local i4 = Am.mall_want(d, nil, {}, {})
+    check(i4 == "fast-transport-belt", "§12 recette inconnue (ingrédients nil) : la demande est notée, aucun contrôle de base possible")
+    -- Un bras : le rang inférieur est le bras simple.
+    local mi = {}
+    line(mi, 3000, "inserter", "p2", 10, 0, 4, 2)
+    local di = Cap.choose(L, census_of(mi), base_ctx({ stock = {} }))
+    local ii = ings_of("fast-inserter")
+    local a1 = Am.mall_want(di, ii, { inserter = 50, ["iron-plate"] = 0 }, {})
+    local a2, wa2 = Am.mall_want(di, ii, { inserter = 1 }, {})
+    check(a1 == "fast-inserter" and a2 == nil and wa2 == "base:inserter", "§12 bras : le bras simple est la base (" .. tostring(a1) .. ", " .. tostring(wa2) .. ")")
+  end
+
   return pass, fail
 end
 
@@ -700,6 +754,14 @@ M("candidat front non marqué", "cap", "c.front = (front(c) == 1) or nil end", "
 M("lot de fabrication borné à 12", "cap", "Am.fab(total, Cap.REPLACE_FAB), gk, n", "Am.fab(total, Cap.REPLACE_BATCH), gk, n")
 M("au-delà de 12, tout demandé sans borne de matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "k")
 M("au-delà de 12, rien demandé hors matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "feasible(k)")
+M("demande notée alors que la base manque", "am", "if name == d.replace.from and ((stock or {})[name] or 0) < amount * Am.MALL_BASE_UNITS then return nil, \"base:\" .. tostring(name) end", "")
+M("demande notée alors qu'un ingrédient manque", "am", "if ((short or {})[name] or 0) > 0 then return nil, \"manque:\" .. tostring(name) end", "")
+M("la base est tout ingrédient", "am", "if name == d.replace.from and ((stock or {})[name] or 0) < amount * Am.MALL_BASE_UNITS then", "if ((stock or {})[name] or 0) < amount * Am.MALL_BASE_UNITS then")
+M("seuil de base ignoré (stock non nul suffit)", "am", "((stock or {})[name] or 0) < amount * Am.MALL_BASE_UNITS then return nil, \"base:\"", "((stock or {})[name] or 0) < 1 then return nil, \"base:\"")
+M("taux non borné", "am", "return item, math.min(Am.MALL_RATE_MAX, d.fab / Am.MALL_PERIOD_MIN)", "return item, d.fab / Am.MALL_PERIOD_MIN")
+M("taux par pièce, pas par minute", "am", "return item, math.min(Am.MALL_RATE_MAX, d.fab / Am.MALL_PERIOD_MIN)", "return item, math.min(Am.MALL_RATE_MAX, d.fab)")
+M("demande sans pièce à fabriquer", "am", "if not (d and d.replace and d.unit and d.unit[1] and (d.fab or 0) > 0) then return nil, \"aucun\" end", "if not (d and d.replace and d.unit and d.unit[1]) then return nil, \"aucun\" end")
+M("demande sans remplacement", "am", "if not (d and d.replace and d.unit and d.unit[1] and (d.fab or 0) > 0) then return nil, \"aucun\" end", "if not (d and d.unit and d.unit[1] and (d.fab or 0) > 0) then return nil, \"aucun\" end")
 M("évaluation non mémorisée coûte trop (mesure de coût)", "cap", "local e = memo[name]\n    if e then return e end", "local e = nil")
 
 QUIET = false
