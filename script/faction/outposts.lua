@@ -479,6 +479,10 @@ function Outposts.extend(f, surface, o, carrier)
     o.full = true
     o.full_by = "pose_paires" -- plein selon la règle d'EXTENSION-FER (et non par l'ancien défaut : Outposts.reopen)
     o.full_why = v.why -- lot PLAFOND-FOREUSES : motif du plein (lecteur : Outposts.uncap, migration du plafond supprimé)
+    -- Lot SONDE-FER (diagnostic, journal seul) : pourquoi cet avant-poste est dit plein, et à quelle couverture du gisement
+    log(string.format("[FO-PLEIN] %s : avant-poste %d %s plein (%s) a %.1f min : foreuses %d, posees ce tour %d, couverture %d pour mille (%d/%d tuiles), balayage complet %s, essais %d, occupees %d, ecartees %d",
+      tostring(f.key), o.id, o.kind, tostring(v.why), game.tick / 3600, o.drills, #drills, Paires.permille(rep.covered, rep.tiles), rep.covered or -1,
+      rep.tiles or -1, tostring(rep.exhausted), rep.attempts or -1, rep.occupied or -1, rep.dead or -1))
     o.hold_until = nil -- plein pour de bon (et non en attente après des échecs, lot ADOPTE)
   end
   if #drills > 0 then o.ext_fails = 0 elseif v.fail then o.ext_fails = (o.ext_fails or 0) + 1 end
