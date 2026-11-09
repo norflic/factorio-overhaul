@@ -183,7 +183,7 @@ do
   local ind = read("script/ai3/industrie.lua")
   check(ind:find('require("shared.team.bus_intermediaires")', 1, true) ~= nil, "6.1 industrie.lua requiert la règle")
   check(ind:find("intermediaires(f, ml, cs, book, tick)", 1, true) ~= nil, "6.2 Ind.think appelle les lignes d'intermédiaires")
-  check(ind:find("Ml.want(ml, tick, l.item, l.rate, Bi.SRC)", 1, true) ~= nil, "6.3 la demande des lignes passe par Ml.want (source Bi.SRC)")
+  check(ind:find("Ml.want(ml, tick, l.item, l.rate_row or l.rate, Bi.SRC)", 1, true) ~= nil, "6.3 la demande des lignes passe par Ml.want (source Bi.SRC), bornee a une rangee")
   check(ind:find("Bi.lines(S.hubs(S.new(book, bus_set()), demands, Bi.CFG.k), phase, Bi.CFG, famine)", 1, true) ~= nil and ind:find("Famine.team_starved(f, tick) == true", 1, true) ~= nil, "6.4 contrat Solver.new(book, bus) / Solver.hubs(s, demands, k) ; famine de la plaque clé transmise")
   check(ind:find("T.outposts[kind]", 1, true) ~= nil and ind:find("if T.fuel then out[T.fuel] = true end", 1, true) ~= nil, "6.5 bus = produits des avant-postes et combustible, lus aux données")
   check(ind:find("(f.elec and f.elec.phase) or \"early\"", 1, true) ~= nil, "6.6 phase : l'arbre de décision écrit par Elec (Dt.phase), early sinon")
