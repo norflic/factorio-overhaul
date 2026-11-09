@@ -186,11 +186,22 @@ end
 function Mu.stock_target(a)
   a = a or {}
   local turrets = num(a.turrets)
-  local t = num(a.missing) + turrets * Mu.SPARE
+  -- Lot FER-MUNITIONS : `defer_spare` (Mu.defer_spare) : la réserve DORMANTE (Mu.SPARE par tourelle) attend ; reste le manque urgent
+  local t = num(a.missing) + (a.defer_spare and 0 or turrets * Mu.SPARE)
   local cap = math.floor(turrets * num(a.base) * Mu.CAP_PCT / 100)
   if a.base ~= nil and t > cap then t = cap end
   local floor = num(a.floor)
   return t > floor and t or floor
+end
+
+--- Lot FER-MUNITIONS (9/11, mesuré en partie neuve : aux minutes 5 à 11, 884 plaques de fer en chargeurs contre 200 en tourelles ; 240 d'un
+--- coup à la minute 11 alors que 69 chargeurs dormaient au coffre et que toutes les tourelles étaient garnies ; le noyau de la défense
+--- manquait de 28 à 67 plaques). La réserve dormante de chargeurs (le stock visé au-delà du minimum, de la réserve sur la menace reçue et
+--- du manque urgent) est payée APRÈS la défense utile : tant que la pile retient parce que le NOYAU (postes sous leur minimum,
+--- reconstruction, recrues) n'est pas couvert par le stock, elle attend. `pile` : l'état de la pile (shared/ai3/pile.lua : hold,
+--- budget.core_ok). Faux sans pile ni budget évalué (règle d'avant). Aucune horloge ; l'état décide.
+function Mu.defer_spare(pile)
+  return type(pile) == "table" and pile.hold == true and type(pile.budget) == "table" and pile.budget.core_ok == false
 end
 
 --- La munition à fabriquer et à porter. list = { { enabled (recette ouverte), makeable (fabricable depuis le coffre), stock (au coffre) }, ... }
