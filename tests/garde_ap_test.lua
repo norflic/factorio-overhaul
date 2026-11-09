@@ -272,7 +272,7 @@ do
     f.mid, f.mid_why = w({ funds = 568 })
     f.poor, f.poor_why = w({ funds = 100 })
     f.small, f.small_why = w({ threat = 200 })
-    f.five, f.five_why = w({ threat = 2287 })
+    f.five, f.five_why = w({ threat = 1500 })
     f.below_min = w({ threat = 3000, min = 3500 })
     f.notv = w({ tv = 0 })
     f.nocap = w({ cap = 4 })
@@ -288,7 +288,7 @@ do
   check(H0.mid == 6 and H0.mid_why == "fer", "fer 568 : borné par le fer au-dessus de la réserve (2 tourelles de plus : 6)")
   check(H0.poor == 4 and H0.poor_why == "base" and H0.small == 4 and H0.small_why == "base", "fer insuffisant ou vague sous le seuil : la règle d'avant (4)")
   check(H0.below_min == 4, "vague sous le seuil de menace du lot : la règle d'avant")
-  check(H0.five == 5 and H0.five_why == "menace", "menace 2 287 PV : 5 tourelles (couvre 1,1 x la vague)")
+  check(H0.five == 6 and H0.five_why == "menace", "menace 1 500 PV : 6 tourelles (vise 2 x la vague)")
   check(H0.notv == 4 and H0.nocap == 4 and H0.nocost == 4 and H0.nothreat == 4 and H0.empty == 4 - 4, "entrées inconnues : la règle d'avant (tv 0, plafond atteint, coût inconnu, aucune vague)")
   check(H0.have_hi == 6 and H0.edge == 5, "déjà 6 posées avec 400 de fer : 6 ; 420 de fer et 4 posées : 5 (une de plus payée)")
   local gsrc = read_all("shared/team/garde_ap.lua")
@@ -297,7 +297,7 @@ do
     { "plafond ignoré", "if want > cap then want, why = cap, \"plafond\" end", "" },
     { "réserve oubliée", "math.max(0, num(a.funds) - num(a.reserve))", "num(a.funds)" },
     { "vague sous le seuil prise en compte", "or threat < num(a.min) or", "or" },
-    { "arrondi bas", "local need = math.ceil(threat * Ga.MARGE / 1000 / tv - 1e-9)", "local need = math.floor(threat * Ga.MARGE / 1000 / tv)" },
+    { "arrondi bas", "local need = math.ceil(threat * Ga.HQ_MARGE / 1000 / tv - 1e-9)", "local need = math.floor(threat * Ga.HQ_MARGE / 1000 / tv)" },
     { "tourelles déjà posées ignorées", "local payable = math.max(have, base) + pay", "local payable = base + pay" },
     { "coût nul = gratuit", "local pay = cost > 0 and math.floor(math.max(0, num(a.funds) - num(a.reserve)) / cost) or 0", "local pay = cost > 0 and math.floor(math.max(0, num(a.funds) - num(a.reserve)) / cost) or 99" },
   }

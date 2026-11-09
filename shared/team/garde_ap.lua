@@ -21,6 +21,8 @@
 local Ga = {}
 
 Ga.MARGE = 1100 -- ‰ : défense visée = 1,1 × la plus grande vague connue (même valeur que Pc.MARGE, shared/ai3/prevision_choix.lua)
+Ga.HQ_MARGE = 2000 -- ‰ : le QG vise 2 x la plus grosse vague reçue (mesure fonds-on-20261020 : le QG à 4-5 tourelles tombe à 59 min sous des vagues de 2 000 à 2 500 PV
+                    -- qui se suivent ; les tourelles tombent une à une, 1,1 x ne suffit pas) ; la garde d'avant-poste garde la marge 1,1
 Ga.CAP = 0      -- tourelles voulues au plus par avant-poste. 0 = GARDE D'AVANT-POSTE COUPÉE (décision de l'intégrateur, 9/11 : effet non prouvé sur 8 graines,
                 -- voir tests/garde_ap_test.lua) ; 6 était la valeur essayée. Le QG (Ga.hq_want) ne dépend pas de cette constante.
 
@@ -61,7 +63,7 @@ function Ga.hq_want(a)
   local base, have, cap = math.floor(num(a.base)), math.floor(num(a.have)), math.floor(num(a.cap))
   local tv, threat = num(a.tv), num(a.threat)
   if tv <= 0 or threat <= 0 or threat < num(a.min) or cap <= base then return base, "base" end
-  local need = math.ceil(threat * Ga.MARGE / 1000 / tv - 1e-9)
+  local need = math.ceil(threat * Ga.HQ_MARGE / 1000 / tv - 1e-9)
   if need <= base then return base, "base" end
   local want, why = need, "menace"
   if want > cap then want, why = cap, "plafond" end
