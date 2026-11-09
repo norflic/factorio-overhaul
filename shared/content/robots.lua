@@ -125,7 +125,9 @@ Ro.ROBOTS = {
     id = "trowel", age = 10, class = "M", role = "engineer", factory = "fo-robot-dock", dtype = "laser",
     hp0 = 12000, dmg0 = 300, hp = 43200, shot = { damage = 1080, cooldown = 30 }, range = 20, speed = 0.14, half = 0.6, tons = 4,
     engineer = { radius = 20, ghosts = 4, repair = 500, repair_max = 8 },
-    ingredients = { { "processing-unit", 100 }, { "fo-guidance-core", 40 }, { "fo-servo-motor", 20 }, { "steel-plate", 100 },
+    -- DEFAUTS-DC (QCM du DC 9/11 12 h 10, option A) : noyaux de guidage 40 -> 79 ; le processeur de l'age 10 est passe de 75 a 46 MU
+    -- (bdcc443c, 5/11) et la Truelle tombait a 10 778 MU (0,787 du but 13 700) : 13 679 MU, 0,998 du but.
+    ingredients = { { "processing-unit", 100 }, { "fo-guidance-core", 79 }, { "fo-servo-motor", 20 }, { "steel-plate", 100 },
       { "fo-controller", 20 }, { "fo-optical-sensor", 100 }, { "battery", 100 } }, time = 40, mu = 13700,
   },
   {

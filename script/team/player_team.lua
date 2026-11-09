@@ -30,6 +30,7 @@ local Team = require("script.team.team")
 local Poles = require("script.team.poles")
 local Sq = require("shared.team.survie_qg") -- lot S1 : sort du coffre détruit (reposé si des PNJ vivent)
 local Depart = require("shared.team.depart") -- lot PARITE : coffre posé d'office et tourelles de QG, comme une faction
+local DepartCoffre = require("shared.team.depart_coffre") -- lot DEFAUTS-DC : stock de départ du coffre posé d'office (données)
 local Fondation = require("shared.team.fondation")
 require("script.team.adopte") -- lot ADOPTE : machines posées à la main par le joueur, inscrites au registre de l'équipe
 
@@ -96,6 +97,20 @@ function PlayerTeam.found_default(surface, center)
   if not (chest and chest.valid and get()) then
     log(string.format("[FO-PTEAM] coffre d'office tick %d : non pose (aucune place a 20 tuiles du depart)", game.tick))
     return false, "pas-de-place"
+  end
+  -- Lot DEFAUTS-DC : le coffre posé d'office est GARNI du stock de départ du guide, une fois par partie (ns.depart_garni) ; un coffre fondé
+  -- par le joueur ne passe jamais ici. Les PNJ offerts sont déjà fondés (raise_built synchrone, F40) : le stock sert à la suite.
+  local due, wy = DepartCoffre.stock_due({ founded_by_default = true, garni = ns.depart_garni == true })
+  if due then
+    ns.depart_garni = true
+    local parts = {}
+    for _, it in ipairs(DepartCoffre.items()) do
+      local put = chest.insert({ name = it[1], count = it[2] })
+      parts[#parts + 1] = it[1] .. "=" .. put .. (put < it[2] and ("/" .. it[2]) or "")
+    end
+    log(string.format("[FO-PTEAM] coffre d'office garni tick %d : %s", game.tick, table.concat(parts, " ")))
+  else
+    log(string.format("[FO-PTEAM] coffre d'office tick %d : non garni (%s)", game.tick, wy))
   end
   game.print({ "fo-parite.office" })
   return true, why
