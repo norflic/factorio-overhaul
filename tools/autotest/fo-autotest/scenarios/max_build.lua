@@ -81,6 +81,21 @@ return function(opts)
   base.tick = function(ctx, e)
     if tick0 then tick0(ctx, e) end
     local st = ctx.state()
+    -- Le joueur de test (session d'images) n'a PAS de corps : sinon un personnage au point d'apparition, dans la zone de votre
+    -- equipe, attire des biters et MEURT (tick 389 682 sur carte-max-120d : plus rien ensuite, ni journal ni photos) ; il fausse aussi la
+    -- partie par rapport au banc sans images. Controleur spectateur, personnage retire (sans mort).
+    if not st.corps_retire and #game.connected_players > 0 and e.tick >= 5 then
+      st.corps_retire = true
+      local pl = game.connected_players[1]
+      local ch = pl.character
+      local pos = ch and ch.valid and ch.position or { x = 0, y = 0 }
+      local ok, err = pcall(function()
+        pl.set_controller({ type = defines.controllers.spectator })
+        if ch and ch.valid then ch.destroy() end
+      end)
+      log(C.TAG .. string.format("joueur de test : controleur %s, personnage retire de (%.0f, %.0f) : %s", tostring(pl.controller_type),
+        pos.x, pos.y, ok and "ok" or tostring(err)))
+    end
     -- Coeur : un fichier (pas le journal) ecrit toutes les 3 600 ticks, pour savoir jusqu'ou le jeu tourne quand le journal se tait.
     if e.tick % 3600 == 0 then
       local pl = game.players[1]
