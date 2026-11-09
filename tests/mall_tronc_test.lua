@@ -11,6 +11,7 @@ local function check(cond, what)
 end
 
 local Mt = require("shared.team.mall_tronc")
+local Pu = require("shared.team.purete")
 
 local NAMES = { tapis = "belt", bras = "arm", coffre = "chest", poteau = "pole", repartiteur = "split", souterrain = "ug" }
 local DV = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
@@ -112,6 +113,21 @@ for _, cas in ipairs({
     check(rr[Mt.XL(ln.k) .. ":" .. yb] ~= nil, tag .. "ligne " .. ln.k .. " continue jusqu'à yb")
   end
   check(#sec.quais == 2 * #cas.items, tag .. "deux coffres de tête par ligne")
+  -- tracés déclarés au contrôle de pureté : contigus, sur nos tapis, et refusés si un étranger verse dessus
+  check(#sec.routes > 0, tag .. "tracés déclarés")
+  for _, r in ipairs(sec.routes) do
+    local vide = Pu.check(r.tiles, r.item, function() return nil end, {})
+    check(vide == true, tag .. "tracé de " .. r.item .. " contigu, monde vide : accepté")
+    for _, t in ipairs(r.tiles) do
+      local e = at[t.x .. ":" .. t.y]
+      check(e ~= nil and (e.name == "belt" or e.name == "ug"), tag .. "tuile de tracé posée (" .. t.x .. "," .. t.y .. ")")
+      check(e ~= nil and e.carries and e.carries[1] == r.item, tag .. "tuile de tracé déclarée du bon objet")
+    end
+    local t1 = r.tiles[1]
+    local etranger = { x = t1.x + 1, y = t1.y, dir = 6, kind = "belt", item = "etranger" } -- à l'est de la première tuile, il verse vers l'ouest
+    local bad_ok = Pu.check(r.tiles, r.item, function(x, y) if x == etranger.x and y == etranger.y and not at[x .. ":" .. y] then return etranger end end, {})
+    if not at[etranger.x .. ":" .. etranger.y] then check(bad_ok == false, tag .. "un tapis étranger qui verse sur le tracé : refusé") end
+  end
   for _, e in ipairs(sec.ents) do
     if e.name == "belt" or e.name == "split" or e.name == "ug" then
       check(type(e.carries) == "table" and #e.carries == 1, tag .. "carries : un objet par tapis du tronc")
@@ -195,6 +211,9 @@ do
         local rr = follow(at, M2.XL(ln.k), M2.Y_TOP)
         if not rr[M2.XL(ln.k) .. ":" .. yb] then return false end
       end
+      for _, rt in ipairs(sec.routes) do
+        if not Pu.check(rt.tiles, rt.item, function() return nil end, {}) then return false end
+      end
       for _, e in ipairs(sec.ents) do
         if e.role == "quai-bras" then
           local v = DV[e.dir]
@@ -212,7 +231,9 @@ do
     { "x = x + 1.5, y = Y + 0.5, dir = 2", "x = x + 1.5, y = Y + 0.5, dir = 4", "sortie du répartiteur qui ne tourne pas" },
     { "if y ~= split_y[ln.k] then", "if true then", "tapis sous le répartiteur" },
     { "dir = 6, role = \"quai-bras\"", "dir = 2, role = \"quai-bras\"", "bras de tête à l'envers" },
-    { "for lx = Mt.LEAD_FROM, -1 do", "for lx = Mt.LEAD_FROM + 2, -1 do", "amenée trouée" },
+    { "for lx = Mt.LEAD_FROM, -1 do ents", "for lx = Mt.LEAD_FROM + 2, -1 do ents", "amenée trouée" },
+    { "        flush(seg, ln.item)\n        seg = {}\n", "", "tracé de ligne non coupé au répartiteur" },
+    { "for lx = Mt.LEAD_FROM, -1 do route", "for lx = Mt.LEAD_FROM + 1, -1 do route", "tracé de prise troué" },
   }
   local killed = 0
   for _, mu in ipairs(mutants) do

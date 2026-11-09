@@ -413,6 +413,7 @@ do
   PUR.calls = 0
   local lay = Build.SITES.mall(f, {}, p, { read_masks = masks })
   check(lay ~= nil, "§10 plan du site accepté")
+  check(PUR.calls == 8, "§10 pureté : 2 tapis de rangée, 4 segments de lignes, 2 prises (" .. PUR.calls .. ")")
   if lay then
     local ns, nu = 0, 0
     for _, e in ipairs(lay.ents) do

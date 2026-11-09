@@ -60,6 +60,12 @@ end
 local function prise(k, item, Y, names)
   local ents = {}
   local x = Mt.XL(k)
+  local route = { { x = x + 1, y = Y, dir = 2 } }
+  if k > 1 then
+    route[#route + 1] = { x = x + 2, y = Y, dir = 2, ug = "input" }
+    route[#route + 1] = { x = Mt.EXIT_X, y = Y, dir = 2, ug = "output" }
+  end
+  for lx = Mt.LEAD_FROM, -1 do route[#route + 1] = { x = lx, y = Y, dir = 2 } end
   -- répartiteur vers le sud sur les tuiles (x, Y − 1) et (x + 1, Y − 1) : centre en (x + 1, Y − 0,5)
   ents[#ents + 1] = { name = names.repartiteur, x = x + 1, y = Y - 1 + 0.5, dir = 4, role = "mall-prise", carries = { item } }
   ents[#ents + 1] = { name = names.tapis, x = x + 1.5, y = Y + 0.5, dir = 2, role = "mall-prise", carries = { item } } -- sortie droite du répartiteur, tourne vers l'est
@@ -68,19 +74,23 @@ local function prise(k, item, Y, names)
     ents[#ents + 1] = { name = names.souterrain, x = Mt.EXIT_X + 0.5, y = Y + 0.5, dir = 2, role = "mall-prise", carries = { item }, type = "output" }
   end
   for lx = Mt.LEAD_FROM, -1 do ents[#ents + 1] = { name = names.tapis, x = lx + 0.5, y = Y + 0.5, dir = 2, role = "mall-amenee", carries = { item } } end
-  return ents
+  return ents, route
 end
 
 --- Section du tronc pour la rangée `row` : prolonge chaque ligne jusqu'à yb, pose les prises des deux tapis, l'amenée. lines = liste de { k, item, y_to } (toutes les lignes existantes) ;
---- names = { tapis, bras, coffre, poteau, repartiteur, souterrain }. N'écrit RIEN dans `lines` ; rend { ents, quais, y_to = { [k] = y }, relais }, les poteaux de liaison compris pour la rangée 1
---- (entre la tête des lignes et le premier poteau de cellule).
+--- names = { tapis, bras, coffre, poteau, repartiteur, souterrain }. N'écrit RIEN dans `lines` ; rend { ents, quais, y_to = { [k] = y }, routes }, les poteaux de liaison compris pour la rangée 1
+--- (entre la tête des lignes et le premier poteau de cellule). routes = liste { item, tiles = { x, y, dir, ug } } dans l'ordre du flux, contiguës (une ligne est coupée au répartiteur) :
+--- le contrôle de pureté (shared/team/purete.lua, Pu.check).
 function Mt.section(lines, row, names)
   local ents, quais = {}, {}
   local ya, yb = heights(row)
   local split_y = {} -- y du répartiteur par ligne (prise de la rangée) : nil sans prise
   if row.bus.a then split_y[row.bus.a] = ya - 1 end
   if row.bus.b then split_y[row.bus.b] = yb - 1 end
-  local y_to = {}
+  local y_to, routes = {}, {}
+  local function flush(seg, item)
+    if #seg > 0 then routes[#routes + 1] = { item = item, tiles = seg } end
+  end
   for _, ln in ipairs(lines) do
     local x = Mt.XL(ln.k)
     local start = ln.y_to and (ln.y_to + 1) or 0
@@ -93,10 +103,25 @@ function Mt.section(lines, row, names)
       if y ~= split_y[ln.k] then ents[#ents + 1] = { name = names.tapis, x = x + 0.5, y = y + 0.5, dir = 4, role = "mall-tronc", carries = { ln.item } } end
     end
     y_to[ln.k] = yb
+    local seg = {}
+    for y = ln.y_to and start or Mt.Y_TOP, yb do
+      if y == split_y[ln.k] then
+        flush(seg, ln.item)
+        seg = {}
+      else
+        seg[#seg + 1] = { x = x, y = y, dir = 4 }
+      end
+    end
+    flush(seg, ln.item)
   end
   local function item_of(k) for _, ln in ipairs(lines) do if ln.k == k then return ln.item end end end
-  if row.bus.a then for _, e in ipairs(prise(row.bus.a, item_of(row.bus.a), ya, names)) do ents[#ents + 1] = e end end
-  if row.bus.b then for _, e in ipairs(prise(row.bus.b, item_of(row.bus.b), yb, names)) do ents[#ents + 1] = e end end
+  local function poser(k, Y)
+    local list, route = prise(k, item_of(k), Y, names)
+    for _, e in ipairs(list) do ents[#ents + 1] = e end
+    flush(route, item_of(k))
+  end
+  if row.bus.a then poser(row.bus.a, ya) end
+  if row.bus.b then poser(row.bus.b, yb) end
   if row.j > 1 then
     -- (comme la tête d'une rangée à quais) relais vers la rangée précédente, dans la tuile de passage
     ents[#ents + 1] = { name = names.poteau, x = 3.5, y = (row.j - 1) * 15 - 0.5, dir = 0, role = "mall-poteau" }
@@ -105,7 +130,7 @@ function Mt.section(lines, row, names)
     ents[#ents + 1] = { name = names.poteau, x = -4.5, y = -1.5, dir = 0, role = "mall-poteau" }
     ents[#ents + 1] = { name = names.poteau, x = -0.5, y = 2.5, dir = 0, role = "mall-poteau" }
   end
-  return { ents = ents, quais = quais, y_to = y_to }
+  return { ents = ents, quais = quais, y_to = y_to, routes = routes }
 end
 
 return Mt

@@ -269,7 +269,16 @@ function Mr.section(P, modele, row, from, to, names, repere, head, extra)
       dest[#dest + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item, line = e.line, flow = e.flow }
     end
   end
+  local routes = {}
   if extra then -- le tronc et les prises (shared/team/mall_tronc.lua) : coordonnées absolues, repère de la rangée 1
+    for _, r in ipairs(extra.routes or {}) do
+      local tiles = {}
+      for _, t in ipairs(r.tiles) do
+        local wx, wy, d = Mr.to_world(t.x + 0.5, t.y + 0.5, t.dir, repere.k, repere.ox, repere.oy, 1)
+        tiles[#tiles + 1] = { x = floor(wx), y = floor(wy), dir = d, ug = t.ug }
+      end
+      routes[#routes + 1] = { item = r.item, tiles = tiles }
+    end
     for _, e in ipairs(extra.ents) do
       local x, y, d = Mr.to_world(e.x, e.y, e.dir, repere.k, repere.ox, repere.oy, 1)
       ents[#ents + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item, type = e.type }
@@ -301,7 +310,7 @@ function Mr.section(P, modele, row, from, to, names, repere, head, extra)
     if e.line then lines[e.line][#lines[e.line] + 1] = { x = floor(e.x), y = floor(e.y), dir = e.dir, flow = e.flow } end
   end
   for k = 1, 2 do table.sort(lines[k], function(a, b) return a.flow < b.flow end) end
-  return { ents = ents, quais = quais, outs = outs, lines = lines, carries = carries }
+  return { ents = ents, quais = quais, outs = outs, lines = lines, carries = carries, routes = routes }
 end
 
 --- Liste de matériel { { nom, n } } triée par nom, comptée sur des entités.

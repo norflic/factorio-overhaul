@@ -134,6 +134,10 @@ Build.SITES.mall = function(f, surface, p, h)
       local okp, whyp = Build.Pur.check_route(f, surface, p, "mall", sec.lines[k], sec.carries[k], {}, { own = own })
       if not okp then return nil, "purete : " .. tostring(whyp) end
     end
+    for _, r in ipairs(sec.routes or {}) do -- le tronc et les prises
+      local okp, whyp = Build.Pur.check_route(f, surface, p, "mall", r.tiles, r.item, {}, { own = own })
+      if not okp then return nil, "purete : " .. tostring(whyp) end
+    end
   end
   -- raccord au réseau alimenté (section de tête : la rangée suivante se branche sur la précédente ou sur le réseau)
   if (sp.head or (sp.bus and sp.from == 1)) and not st.sans_raccord then
