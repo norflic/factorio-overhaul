@@ -125,6 +125,19 @@ check(S:find("if Rb.cooling(st.cool, tick) then", 1, true) ~= nil, "pause après
 check(S:find("for _, k in ipairs(st.stopped or {}) do bad[k] = true end", 1, true) ~= nil, "begin_band écarte les bandes parquées (réserve définitive ; hors cadre la migration de l'avant-poste s'arrête)")
 check(S:find("log(Rb.line(", 1, true) ~= nil, "journal [FO-ROLLBACK]")
 
+-- 9/11 (directive 6 du lead : pas de NOUVELLE paire thermique dans l'emprise d'une bande demandée) : la règle est déjà en vigueur et plus forte, elle est
+-- contrôlée ici pour qu'on ne la perde pas : (a) dès la demande d'une bande, l'avant-poste et ses voisins du gisement portent o.migr (migration_champ.lua,
+-- begin_band) et Outposts.extend rend 0 ; (b) la vue de l'équipe ne le dit jamais « agrandissable » ; (c) place_pairs refuse toute tuile réservée par un
+-- projet du plan (la bande planifiée) ; (d) la foreuse remplacée sur place ne touche pas un champ en migration.
+local OUT = read("script/faction/outposts.lua")
+check(S:find('o.migr, o.full, o.full_by = "en cours", true, "migration"', 1, true) ~= nil
+  and S:find('for _, q in ipairs(siblings(f, o)) do q.migr, q.full, q.full_by = "en cours", true, "migration" end', 1, true) ~= nil,
+  "demande d'une bande : l'avant-poste et ses voisins du gisement passent « en cours » (plus de paire de plus)")
+check(OUT:find("if o.migr then return 0 end", 1, true) ~= nil, "Outposts.extend : aucune paire thermique de plus sur un champ en migration")
+check(read("script/team/team.lua"):find("full = (o.full or o.migr ~= nil) or false", 1, true) ~= nil, "vue de l'équipe : un champ migré n'est jamais agrandissable")
+check(OUT:find("Outposts.reserved(f, T.DRILL, pos, dir)", 1, true) ~= nil, "place_pairs : jamais sur une tuile réservée par un projet du plan (la bande)")
+check(read("script/team/foreuse_swap.lua"):find('o.migr == "en cours" or o.dark_units ~= nil', 1, true) ~= nil, "foreuse_swap : champ en migration hors du remplacement sur place")
+
 -- mutants
 local src = read("shared/team/migration_retour.lua")
 local muts = {
