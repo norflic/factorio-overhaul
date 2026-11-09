@@ -1009,6 +1009,13 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
   end
   -- "retirer" ou "passer" : le plan reprend (p.degele)
   if act == "retirer" then
+    -- 9/11 (directive du lead, partie 271828182 scarlet) : on ne retire ce qui produit que si la matière de la bande qui le remplace est toute réunie
+    -- (p.missing vide), et un seul retrait par bande (Rb.may_retire)
+    local okr, whyr = Rb.may_retire({ missing = p and #(p.missing or {}) or 0, rollbacks = st.rollbacks or 0 })
+    if not okr then
+      say_why(f, ms, st, "retrait:" .. whyr, string.format("avant-poste %d : projet %d : retrait des paires remis (%s)", o.id, st.pid, whyr), true)
+      return
+    end
     if not list then if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end end
     local removed, got, undo, full = retire(f, surface, o, st, list, ents)
     if full then -- lot STOCKAGE-VITAL : le stock ne tient pas le contenu des paires ; la partie attend au même stade, rien au sol

@@ -13,7 +13,7 @@ local function run(R)
   local r = {}
   local C = R.CFG
   -- 1. les valeurs de la decision du DC
-  r.c1 = C.stall == 15 * MIN and C.cool == 30 * MIN and C.max_rollbacks == 2 and C.undo_max == 40
+  r.c1 = C.stall == 15 * MIN and C.cool == 30 * MIN and C.max_rollbacks == 1 and C.undo_max == 40
   -- 2. pack : trie, borne, ne garde que des nombres et des chaines, compte l'ecart
   local es = {}
   for i = 1, 45 do es[#es + 1] = { name = "d", x = 100 - i, y = 5, dir = 2, oid = 1, sink = { name = "f", x = 100 - i, y = 7 } } end
@@ -60,7 +60,8 @@ local function run(R)
   local _, w5 = R.decide({ undo = 3, produced = true })
   r.c8 = w1 == "chantier-lent" and w2 == "abandon" and w3 == "avance" and w4 == "sans-paire" and w5 == "produit"
   -- 9. suite : premier retour -> reserve, deuxieme -> annuler, final -> annuler
-  r.c9 = R.after(1) == "reserve" and R.after(2) == "parquer" and R.after(1, true) == "parquer" and R.after(5) == "parquer"
+  r.c9 = R.after(1) == "parquer" and R.after(2) == "parquer" and R.after(1, true) == "parquer" and R.after(5) == "parquer"
+    and R.after(1, false, { max_rollbacks = 2 }) == "reserve" and R.after(2, false, { max_rollbacks = 2 }) == "parquer"
   -- 10. pause
   r.c10 = R.cooling(1000, 999) == true and R.cooling(1000, 1000) == false and R.cooling(nil, 5) == false
   -- 11. ligne
@@ -97,12 +98,22 @@ local function run(R)
     and ok2 and u2.gear == 2 and u2.plate == 2 and ok3 and u3.gear == 2 and u3.plate == 3 + 2 and u3.stone == 5
     and not ok4 and ok5 and u5.plate == 2 and not ok6 and not ok7 and not R.plan("zero", 1, have, rec)
     and (select(2, R.plan("two", 1, have, rec)).gear == 2) and (select(2, R.plan("two", 1, have, rec)).plate == 4)
+  -- 14. retrait permis : matieres reunies ET premier retrait de la bande (directive du 9/11)
+  local m1, w1 = R.may_retire({ missing = 0, rollbacks = 0 })
+  local m2, w2 = R.may_retire({ missing = 3, rollbacks = 0 })
+  local m3, w3 = R.may_retire({ missing = 0, rollbacks = 1 })
+  local m4, w4 = R.may_retire({ missing = 1, rollbacks = 1 })
+  local m5 = R.may_retire({})
+  local m6 = R.may_retire({ missing = 0, rollbacks = 1 }, { max_rollbacks = 2 })
+  local m7 = R.may_retire({ missing = 0, rollbacks = 2 }, { max_rollbacks = 2 })
+  r.c14 = m1 == true and w1 == "ok" and m2 == false and w2 == "matieres" and m3 == false and w3 == "deja-retiree" and m4 == false and w4 == "matieres"
+    and m5 == true and m6 == true and m7 == false
   return r
 end
 
 local R = require("shared.team.migration_retour")
 local res = run(R)
-for i = 1, 13 do check(res["c" .. i], "cas " .. i) end
+for i = 1, 14 do check(res["c" .. i], "cas " .. i) end
 
 -- branchement (lecture des sources)
 local S = read("script/team/migration_champ.lua")
@@ -123,7 +134,10 @@ local muts = {
   { "abandon ignore", "if c.abandon then return \"retour\", \"abandon\" end", "" },
   { "pas de paire", "if (c.undo or 0) == 0 then return \"rien\", \"sans-paire\" end", "" },
   { "ligne finie reposee", "if c.state == \"fini\" then return \"rien\", \"fini\" end", "" },
-  { "max retours", "max_rollbacks = 2", "max_rollbacks = 3" },
+  { "max retours", "max_rollbacks = 1,", "max_rollbacks = 2," },
+  { "retrait sans matieres", "if (c.missing or 0) > 0 then return false, \"matieres\" end", "" },
+  { "retrait repete", "if (c.rollbacks or 0) >= cfg.max_rollbacks then return false, \"deja-retiree\" end", "" },
+  { "retrait repete (inclusif)", "(c.rollbacks or 0) >= cfg.max_rollbacks then", "(c.rollbacks or 0) > cfg.max_rollbacks then" },
   { "dernier retour sans annulation", "if final or n >= cfg.max_rollbacks then", "if n >= cfg.max_rollbacks + 1 then" },
   { "progres a la baisse", "if not rec or built > (rec.built or 0) then", "if not rec or built ~= (rec.built or 0) then" },
   { "pause jamais finie", "return until_tick ~= nil and now < until_tick", "return until_tick ~= nil" },
@@ -147,7 +161,7 @@ for _, m in ipairs(muts) do
   if ok then
     local ok2, x = pcall(run, M)
     all = ok2
-    if ok2 then for i = 1, 13 do if not x["c" .. i] then all = false end end end
+    if ok2 then for i = 1, 14 do if not x["c" .. i] then all = false end end end
   end
   if not all then caught = caught + 1 else print("mutant survivant : " .. m[1]) end
 end

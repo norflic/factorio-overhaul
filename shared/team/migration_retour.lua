@@ -15,7 +15,8 @@
   - `progress` / `stalled` : le dernier tick où une entité de plus de la bande a été posée ;
   - `decide` : retour en arrière si la ligne n'a rien produit, qu'il y a des paires à reposer et que la bande est abandonnée ou sans progrès
     depuis R.CFG.stall ; jamais une bande qui avance, jamais une ligne qui a produit, jamais une ligne finie (elle a son propre délai) ;
-  - `after` : après le retour la bande attend en réserve (pause R.CFG.cool), au plus R.CFG.max_rollbacks fois, puis elle est annulée ;
+  - `after` : après le retour la bande est parquée (R.CFG.max_rollbacks = 1 depuis le 9/11 : un seul retour par bande) ;
+  - `may_retire` : pas de retrait tant que la matière de la bande n'est pas toute réunie, ni pour une bande qui a déjà eu son retour ;
   - `line` : la ligne [FO-ROLLBACK].
   Aucun `pairs` décisionnel, aucun hasard, aucun temps mesuré.
 ]]
@@ -25,7 +26,8 @@ local R = {}
 R.CFG = {
   stall = 15 * 3600,     -- 15 min sans entité de plus posée : chantier lent
   cool = 30 * 3600,      -- 30 min en réserve avant que le plan puisse retirer de nouveau (les paires produisent entre-temps)
-  max_rollbacks = 2,     -- retours en arrière par bande au plus ; le dernier annule la bande
+  max_rollbacks = 1,     -- retours en arrière par bande au plus ; le dernier parque la bande (9/11, directive du lead : « jamais plus d'une fois par bande » ;
+                         -- partie 271828182, scarlet : retrait à 43,8 min, retour à ~62, pause de 30 min, nouveau retrait : le fer restait thermique plus de 49 min)
   undo_max = 40,         -- paires gardées au plus (une bande retire 8 paires par partie en général, 21 au pire mesuré)
   craft_depth = 3,       -- profondeur des recettes dépliées pour refaire un objet rendu au stock puis dépensé (foreuse -> engrenage -> plaque)
 }
@@ -76,6 +78,16 @@ function R.decide(c, cfg)
   if c.state == "fini" then return "rien", "fini" end
   if (c.stalled or 0) >= cfg.stall then return "retour", "chantier-lent" end
   return "rien", "avance"
+end
+
+--- Le retrait des paires thermiques d'une bande est-il permis ? c = { missing (objets qui manquent encore à la bande : p.missing), rollbacks (retours en
+--- arrière déjà faits sur cette bande) }. Refus : la matière de la bande qui REMPLACE les paires n'est pas toute réunie (on ne retire pas ce qui produit
+--- pour une bande qui ne peut pas se bâtir), ou la bande a déjà eu son retour (un seul retrait par bande). Rend (vrai, "ok") ou (faux, cause).
+function R.may_retire(c, cfg)
+  cfg = cfg or R.CFG
+  if (c.missing or 0) > 0 then return false, "matieres" end
+  if (c.rollbacks or 0) >= cfg.max_rollbacks then return false, "deja-retiree" end
+  return true, "ok"
 end
 
 --- Suite du retour n° `n` (1 pour le premier, compte PAR BANDE) : "reserve" (la bande attend, pause R.CFG.cool) ou "parquer" (dernier retour, ou fin

@@ -827,8 +827,9 @@ do
   drive_plan(E, p, "chantier")
   for _ = 1, math.floor(CFG.build_max / CFG.every) + 3 do E.think() end
   check(left < 8 and E.alive() == 8, "Dbis1 : chantier sans issue après un retrait : les paires retirées sont reposées (" .. E.alive() .. " sur 8)")
-  check(E.f.migration.o[1].rollbacks == 0 and p.state == "refuse" and #E.Build.cancels >= 1,
-    "Dbis2 : la bande revient en réserve, puis (matières jamais réunies, AUCUNE entité bâtie) le plan l'annule ; compte des retours remis à 0 (revue A2)")
+  -- 9/11 (directive du lead) : un seul retour en arrière par bande : le PREMIER parque la bande (réserve définitive, jamais annulée), compte des retours remis à 0
+  check(E.f.migration.o[1].rollbacks == 0 and p.state == "bloque" and p.parked == true and #E.Build.cancels == 0,
+    "Dbis2 : le premier (et seul) retour parque la bande : réserve définitive, jamais annulée ; compte des retours remis à 0")
   check(table.concat(E.logs, "\n"):find("[FO-ROLLBACK]", 1, true) ~= nil, "Dbis3 : journal [FO-ROLLBACK]")
   E.restore()
 end
@@ -2111,6 +2112,10 @@ do
     return r
   end
 
+  -- Depuis le 9/11 la production est à Rb.CFG.max_rollbacks = 1 (un seul retour par bande : le premier PARQUE). La machinerie du retour suivi d'une
+  -- remise en réserve (pause, nouvel essai, 2e retour) reste contrôlée ci-dessous avec le réglage 2 ; la règle de production l'est par la batterie K.
+  local MAXR_PROD = Rb.CFG.max_rollbacks
+  Rb.CFG.max_rollbacks = 2
   local base = battery(nil)
   local names = {}
   for k in pairs(base) do names[#names + 1] = k end
@@ -2166,6 +2171,66 @@ do
   end
   check(caught == #muts, string.format("AZURE : mutants de l'exécutant refusés %d sur %d", caught, #muts))
   print(string.format("[MIGRATION-CHAMP] AZURE : exécutant, mutants %d refusés sur %d", caught, #muts))
+  Rb.CFG.max_rollbacks = MAXR_PROD
+
+  -- K. règle de production (9/11) : le PREMIER retour parque la bande ; le retrait n'a lieu que matières réunies et une seule fois par bande
+  local function battery_k(mutator)
+    local r = {}
+    do
+      local E = world({ pairs = 8 }, mutator)
+      local p, st = to_chantier(E)
+      local band_n = #st.ids
+      p.ents[#p.ents + 1] = { name = D.PARTS.belt, x = 6300, y = 6300, dir = 0, built = true } -- une entité bâtie (la bande est entamée)
+      for _ = 1, math.floor(Rb.CFG.stall / CFG.every) + 3 do E.think() end
+      local jr = table.concat(E.logs, "\n")
+      r.k1 = E.alive() == 8 and p.state == "bloque" and p.parked == true and st.stage == "veille" and (st.rollbacks or 0) == 0 and E.f.migration.cur == nil
+        and #E.Build.cancels == 0 and p.ents[#p.ents].built == true
+      r.k2 = jr:find("retour 1, bande en reserve, plus de nouvel essai", 1, true) ~= nil and jr:find("bande remise en reserve", 1, true) == nil
+      -- jamais un second retrait pour cette bande, même après la pause d'avant
+      drive_plan(E, p, "degel")
+      for _ = 1, math.floor(2 * Rb.CFG.cool / CFG.every) do E.think() end
+      r.k3 = E.alive() == 8 and p.degele ~= true
+      E.restore()
+    end
+    do
+      -- matières : le retrait attend que la bande ait TOUTE sa matière (p.missing vide)
+      local E = world({ pairs = 8 }, mutator)
+      E.think()
+      local p = E.project()
+      drive_plan(E, p, "plan"); E.think()
+      drive_plan(E, p, "materiaux"); E.think()
+      drive_plan(E, p, "degel")
+      p.missing = { { "inserter", 2 } }
+      for _ = 1, 4 do E.think() end
+      r.k4 = E.alive() == 8 and p.degele ~= true and table.concat(E.logs, "\n"):find("retrait des paires remis (matieres)", 1, true) ~= nil
+      p.missing = {}
+      for _ = 1, 3 do E.think() end
+      r.k5 = E.alive() < 8 and p.degele == true
+      E.restore()
+    end
+    return r
+  end
+  local bk = battery_k(nil)
+  local kn = {}
+  for k in pairs(bk) do kn[#kn + 1] = k end
+  table.sort(kn)
+  for _, k in ipairs(kn) do check(bk[k], "AZURE " .. k .. " : retour unique, retrait matières réunies (9/11)") end
+  local kmuts = {
+    { "retours sans limite (production)", mutsrc("local nxt = Rb.after(st.rollbacks, final)", "local nxt = \"reserve\"") },
+    { "retrait sans garde matieres/une fois", mutsrc("if not okr then", "if false then") },
+    { "garde ignore les matieres", mutsrc("missing = p and #(p.missing or {}) or 0,", "missing = 0,") },
+    -- (« garde ignore les retours » : mutant ÉQUIVALENT, leave_band remet le compte à 0 au parquage ; la garde ne sert qu'aux états chargés d'une sauvegarde)
+  }
+  local kcaught = 0
+  for _, mu in ipairs(kmuts) do
+    _G.print = function() end
+    local ok, got = pcall(battery_k, mu[2])
+    _G.print = real_print
+    local bad = not ok
+    if ok then for _, k in ipairs(kn) do if not got[k] then bad = true end end end
+    if bad then kcaught = kcaught + 1 else print("  mutant survivant (K) : " .. mu[1]) end
+  end
+  check(kcaught == #kmuts, string.format("AZURE K : mutants refusés %d sur %d", kcaught, #kmuts))
 end
 
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
