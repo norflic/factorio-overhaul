@@ -191,6 +191,16 @@ local function order_field(f, st, dep, rec, tick)
   return fid
 end
 
+--- Courant de l'équipe, lu À L'INSTANT (partie 1618033988, scarlet, 117 à 119 min : une 2e centrale demandée sort Auto.plant_state de « fini » et la
+--- décision repassait en « aucun reseau qui produit » alors que 4 centrales donnaient 3 890 kW ; le champ cessait d'être voulu). Un réseau est là si la
+--- capitalisation dit « centrale finie » OU si le suivi de santé du réseau (f.build.sante.healthy, relevé toutes les quelques secondes par
+--- script/team/reseau_vivant.lua, aussi lu par la migration du champ) le dit sain. Une panne réelle (aucune centrale finie ET réseau malsain) reste vue.
+function Mega.power(f, ctx)
+  if ctx and ctx.power == true then return true end
+  local sv = f and f.build and f.build.sante
+  return sv ~= nil and sv.healthy == true
+end
+
 --- Une étape de décision (capitalisation, étape 11). cs = f.team.capi (cs.deps : gisements recensés) ; ctx = { power, crisis }.
 --- Rend le nombre de gisements relus.
 function Mega.think(f, cs, tick, ctx)
@@ -205,6 +215,7 @@ function Mega.think(f, cs, tick, ctx)
   end
   local ids = State.sorted_keys(cs.deps)
   if #ids == 0 then return 0 end
+  local power = Mega.power(f, ctx)
   -- le curseur avance sur la liste ENTIÈRE et saute les gisements « statiques » (minerai sans four) : il lit Mega.PER_THINK gisements vivants
   local n, scanned = 0, 0
   while n < Mega.PER_THINK and scanned < #ids do
@@ -213,7 +224,7 @@ function Mega.think(f, cs, tick, ctx)
     local dep = cs.deps[ids[st.cursor]]
     local known = st.deps[dep.id]
     if not (known and known.static) then
-      consider(f, st, dep, tick, ctx or {}, on)
+      consider(f, st, dep, tick, { power = power, crisis = ctx and ctx.crisis }, on)
       local rec = st.deps[dep.id]
       if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end
       n = n + 1
