@@ -136,6 +136,7 @@ function C.situation(view, st, ctx)
     -- Lot MUNITIONS : tourelles de l'équipe et chargeurs qui leur manquent pour leur cible (view.turret_groups, Mu.group) : le stock visé au
     -- coffre les suit (B.generate, Mu.stock_target). nil : vue sans ce relevé (règle d'avant).
     turrets_n = C.turrets_seen(view).n, ammo_missing = C.turrets_seen(view).missing,
+    turrets_short = C.turrets_short(view), -- lot DEFENSE-AP : tourelles à poser (la réserve de chargeurs attend, B.generate)
     turret_ammo = view.turret_ammo, -- lot MUNITIONS : munition choisie (la meilleure fabricable) ; nil : munition de base
     -- Lot IA-V2 : l'économie est « faite » au fer II de l'ancienne échelle OU quand un avant-poste de fer tourne et que
     -- le fer est SATURÉ (st.economy_ok, collant) : le cerveau par besoins ne bâtit pas un 2e avant-poste de fer qui ne
@@ -179,6 +180,18 @@ function C.turrets_seen(view)
   end
   if not seen then return {} end
   return { n = n, missing = missing }
+end
+
+--- Lot DEFENSE-AP : tourelles qui MANQUENT aux postes de défense (avant-postes sous leur garde voulue, QG sous ses tourelles voulues) ; 0 sans
+--- « défendre d'abord ». Lu par ammo_target (Mu.stock_target, `short`) : la réserve de chargeurs attend les tourelles manquantes.
+function C.turrets_short(view)
+  if not view.defend_first then return 0 end
+  local n = 0
+  for _, o in ipairs(view.outposts or {}) do
+    n = n + math.max(0, math.max(o.want_t or 0, T.defend_turrets(o.drills)) - (o.turrets or 0))
+  end
+  n = n + math.max(0, (view.hq_defend or T.defend_hq) - (view.hq_turrets or 0))
+  return n
 end
 
 --- Consommation du stock virtuel par les tâches et décisions du planificateur permanent.

@@ -186,7 +186,12 @@ end
 function Mu.stock_target(a)
   a = a or {}
   local turrets = num(a.turrets)
-  local t = num(a.missing) + turrets * Mu.SPARE
+  -- Lot DEFENSE-AP (mesure diag1/new3-def, 9/11 : 124 puis 204 plaques de fer en chargeurs aux minutes 10 et 11 pour un stock de réserve de 10 par
+  -- tourelle, tourelles toutes pleines, pendant que l'avant-poste de fer attendait sa 5e tourelle ; le fer tombait à 0 à 12 min) : tant qu'il
+  -- MANQUE des tourelles (`short`, postes de défense), la réserve de 10 chargeurs par tourelle attend ; seuls comptent le manque urgent et la
+  -- charge ordinaire des tourelles à poser. Sans `short` (vue d'avant, ou aucune tourelle en manque) : la règle d'avant.
+  local short = num(a.short)
+  local t = num(a.missing) + (short > 0 and short * num(a.base) or turrets * Mu.SPARE)
   local cap = math.floor(turrets * num(a.base) * Mu.CAP_PCT / 100)
   if a.base ~= nil and t > cap then t = cap end
   local floor = num(a.floor)

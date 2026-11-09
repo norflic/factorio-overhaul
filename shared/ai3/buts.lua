@@ -405,7 +405,8 @@ function B.generate(s, st)
   -- fer) : le stock visé couvre le manque URGENT des tourelles (jusqu'à la cible ordinaire) plus Mu.SPARE chargeurs par tourelle, au plus une
   -- charge ordinaire par tourelle (essai 1 : 988 chargeurs au coffre, les recrues sans fer). Vue sans ce relevé : règle d'avant.
   if T.munitions_on and s.turrets_n then
-    ammo_target = Mu.stock_target({ turrets = s.turrets_n, missing = s.ammo_missing, base = T.turret_ammo_target, floor = ammo_target })
+    ammo_target = Mu.stock_target({ turrets = s.turrets_n, missing = s.ammo_missing, base = T.turret_ammo_target, floor = ammo_target,
+      short = s.turrets_short })
   end
   if boot and (s.stock[ammo] or 0) < ammo_target then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,

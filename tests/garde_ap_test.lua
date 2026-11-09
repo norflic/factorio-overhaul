@@ -245,6 +245,83 @@ do
   end
 end
 
+-- 5 ter. La réserve de chargeurs attend les tourelles manquantes (Mu.stock_target, C.turrets_short)
+do
+  local T = require("shared.team.config")
+  local msrc = read_all("shared/team/munitions.lua")
+  local csrc = read_all("shared/ai3/cerveau.lua")
+  local function mu_facts(Mu, C)
+    local f = {}
+    f.old = Mu.stock_target({ turrets = 10, missing = 0, base = 20, floor = 60 })
+    f.zero = Mu.stock_target({ turrets = 10, missing = 0, base = 20, floor = 60, short = 0 })
+    f.one = Mu.stock_target({ turrets = 10, missing = 0, base = 20, floor = 60, short = 1 })
+    f.five = Mu.stock_target({ turrets = 10, missing = 0, base = 20, floor = 60, short = 5 })
+    f.miss = Mu.stock_target({ turrets = 10, missing = 30, base = 20, floor = 0, short = 2 })
+    f.cap = Mu.stock_target({ turrets = 2, missing = 0, base = 20, floor = 0, short = 9 })
+    f.nobase = Mu.stock_target({ turrets = 10, missing = 0, floor = 0, short = 3 })
+    local function view(over)
+      local v = { defend_first = true, hq_turrets = T.defend_hq, outposts = {
+        { id = 1, kind = "iron", drills = 16, turrets = 3, want_t = 5 }, { id = 2, kind = "coal", drills = 4, turrets = 1, want_t = 1 },
+        { id = 3, kind = "copper", drills = 3, turrets = 0 }, { id = 4, kind = "stone", drills = 2, turrets = 5 } } }
+      for k, x in pairs(over or {}) do v[k] = x end
+      return v
+    end
+    f.short = C.turrets_short(view())
+    f.nodef = C.turrets_short(view({ defend_first = false }))
+    f.hq = C.turrets_short(view({ hq_turrets = T.defend_hq - 2 }))
+    f.none = C.turrets_short(view({ outposts = {} }))
+    return f
+  end
+  local Mu0 = load_module(msrc)
+  local C0 = require("shared.ai3.cerveau")
+  local G0 = mu_facts(Mu0, C0)
+  check(G0.old == 100 and G0.zero == 100, "témoin : sans tourelle manquante, la réserve vaut 10 chargeurs par tourelle (100)")
+  check(G0.one == 60 and G0.five == 100, "une tourelle à poser : la réserve attend (plancher 60) ; cinq : leur charge ordinaire (100)")
+  check(G0.miss == 70 and G0.cap == 40 and G0.nobase == 0, "manque urgent ajouté (30 + 2 x 20) ; plafond d'une charge ordinaire par tourelle (2 x 20) ; sans cible : 0")
+  check(G0.short == 3, "tourelles à poser : fer 5 - 3 = 2, cuivre 1 - 0 = 1, charbon servi, pierre en excédent ignoré : 3")
+  check(G0.nodef == 0 and G0.none == 0 and G0.hq == 5, "sans « défendre d'abord » : 0 ; sans avant-poste : 0 ; le QG sous ses tourelles compte (3 + 2 = 5)")
+  local mm = {
+    { "réserve toujours à 10 par tourelle", "(short > 0 and short * num(a.base) or turrets * Mu.SPARE)", "(turrets * Mu.SPARE)" },
+    { "réserve jamais à 10 par tourelle", "(short > 0 and short * num(a.base) or turrets * Mu.SPARE)", "(short * num(a.base))" },
+    { "tourelle manquante sans charge", "(short > 0 and short * num(a.base) or turrets * Mu.SPARE)", "(short > 0 and 0 or turrets * Mu.SPARE)" },
+    { "manque urgent oublié", "local t = num(a.missing) + (", "local t = 0 + (" },
+  }
+  for _, m in ipairs(mm) do
+    local a, b = msrc:find(m[2], 1, true)
+    if not a then check(false, "mutant munitions « " .. m[1] .. " » : texte introuvable") else
+      local ok, MuM = pcall(load_module, msrc:sub(1, a - 1) .. m[3] .. msrc:sub(b + 1))
+      local dead = not ok
+      if ok then
+        local okf, FM = pcall(mu_facts, MuM, C0)
+        dead = (not okf) or FM.old ~= G0.old or FM.one ~= G0.one or FM.five ~= G0.five or FM.miss ~= G0.miss or FM.cap ~= G0.cap or FM.nobase ~= G0.nobase
+      end
+      check(dead, "mutant munitions « " .. m[1] .. " » refusé")
+    end
+  end
+  local cm = {
+    { "tourelles à poser sans la garde voulue", "math.max(o.want_t or 0, T.defend_turrets(o.drills))", "T.defend_turrets(o.drills)" },
+    { "QG oublié", "n = n + math.max(0, (view.hq_defend or T.defend_hq) - (view.hq_turrets or 0))", "" },
+    { "sans défendre d'abord", "if not view.defend_first then return 0 end", "" },
+    { "excédent compté en négatif", "n = n + math.max(0, math.max(o.want_t or 0", "n = n + (math.max(o.want_t or 0" },
+  }
+  for _, m in ipairs(cm) do
+    local a, b = csrc:find(m[2], 1, true)
+    if not a then check(false, "mutant cerveau « " .. m[1] .. " » : texte introuvable") else
+      local src2 = csrc:sub(1, a - 1) .. m[3] .. csrc:sub(b + 1)
+      local saved = package.loaded["shared.ai3.cerveau"]
+      package.loaded["shared.ai3.cerveau"] = nil
+      local okc, CM = pcall(function() return assert(load(src2, "@shared.ai3.cerveau"))() end)
+      package.loaded["shared.ai3.cerveau"] = saved
+      local dead = not okc
+      if okc then
+        local okf, FM = pcall(mu_facts, Mu0, CM)
+        dead = (not okf) or FM.short ~= G0.short or FM.nodef ~= G0.nodef or FM.hq ~= G0.hq or FM.none ~= G0.none
+      end
+      check(dead, "mutant cerveau « " .. m[1] .. " » refusé")
+    end
+  end
+end
+
 -- 6. Mutants
 local mutants = {
   { "marge à 1000", "Ga.MARGE = 1100", "Ga.MARGE = 1000" },
