@@ -7,7 +7,7 @@ Date: 2026-11-09
     - Mall : les rangées s'allongent quand la matière est en surplus.
   Bugfixes:
     - Famine du fer (F434) : la famine forcée de la plaque clé lit aussi le besoin évalué (noyau) ; elle ne se referme plus à 27 min pendant que la bande du champ attend 887 plaques en réserve (graine 1618033988).
-    - Stock dormant (F435) : une bande dont les foreuses et les fours dorment déjà au coffre part sans attendre que la plaque manque ; les bandes en avance s'ouvrent à tout champ ainsi payé.
+    - Stock dormant (F435) : une bande dont 30 % au moins des foreuses et des fours dorment déjà au coffre part sans attendre que la plaque manque (on pose ce qu'on a, on complète ensuite) ; les bandes en avance s'ouvrent à tout champ ainsi payé.
     - Auto-financement (F436) : un agrandissement thermique dont seule la plaque manque au QG prend ses plaques dans les fours de l'avant-poste et fabrique les paires sur place.
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
