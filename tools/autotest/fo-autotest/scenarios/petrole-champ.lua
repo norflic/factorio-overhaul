@@ -8,7 +8,7 @@
   [FO-PETROLE] du mod. Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui petrole-rangee -- 41000 petrole-champ <source>
 ]]
 
-local SETUP, BATCH = 400, 30
+local SETUP, BATCH, POWER = 400, 30, 16000
 local TECHS = { "automation", "electronics", "logistic-science-pack", "steel-processing", "automation-2", "engine",
   "fluid-handling", "oil-processing", "plastics", "advanced-electronics", "sulfur-processing", "chemical-science-pack",
   "electric-energy-distribution-1", "logistics" }
@@ -129,6 +129,10 @@ return {
         ents[#ents + 1] = { name = "pipe", x = mx + 0.5, y = ty + 0.5, dir = 0, role = "tuyau" }
       end
       st.made = pa ~= nil and pb ~= nil
+      -- puits d'evacuation du brut (tuyau infini qui retire le brut) au bout de la ligne : le debit extrait est alors celui du reseau, sans contre-pression
+      local sink = s.create_entity({ name = "infinity-pipe", position = { mx + 0.5, cy + 7.5 }, force = row.force })
+      if sink and sink.valid then sink.set_infinity_pipe_filter({ name = "crude-oil", percentage = 0, mode = "remove" }) end
+      st.sink = sink ~= nil
       -- kit au QG
       local put = 0
       for _, it in ipairs(KIT) do put = put + hq.insert({ name = it[1], count = it[2] }) end
@@ -139,6 +143,25 @@ return {
       return
     end
     if not st.team or not st.made then return end
+    if e.tick == POWER then
+      -- courant du banc : la centrale de l'equipe n'est pas finie ; une interface d'energie (10 MW) est posee dans la zone d'un poteau du champ
+      local poles = s.find_entities_filtered({ name = { "medium-electric-pole", "small-electric-pole" }, force = st.force })
+      local best
+      for _, pl in ipairs(poles) do
+        if pl.valid and (not best or pl.unit_number < best.unit_number) then best = pl end
+      end
+      if best then
+        local pos = s.find_non_colliding_position("electric-energy-interface", { best.position.x + 2, best.position.y + 2 }, 8, 0.5)
+        local eei = pos and s.create_entity({ name = "electric-energy-interface", position = pos, force = st.force })
+        if eei and eei.valid then
+          eei.power_production = 1e7 / 60
+          eei.electric_buffer_size = 1e7
+          st.power_tick = e.tick
+          st.fs0 = game.forces[st.force].fluid_production_statistics.get_input_count("crude-oil")
+        end
+      end
+      ctx.log(string.format("[FO-PETROLE-CHAMP] tick %d : courant pose (%s), poteaux de l'equipe %d, puits d'evacuation %s", e.tick, tostring(st.power_tick ~= nil), #poles, tostring(st.sink)))
+    end
     if e.tick > SETUP and e.tick % 600 == 0 then
       local okp, stt = pcall(remote.call, "fo-petrole", "status", st.team)
       local site
@@ -193,6 +216,21 @@ return {
     ctx.log("[FO-PETROLE-CHAMP] puits sans chevalet et justifies par l'emprise : " .. table.concat(blocked_list, " ; "))
     ctx.check(free_unequipped == 0, "100 % des puits atteignables equipes : aucun puits libre (ni eau ni batiment sur son emprise) sans chevalet", tostring(free_unequipped))
     ctx.check(plan ~= nil and n >= plan.n + 2, "le chantier est fini : chevalets = ceux du plan + les 2 de base", n .. " chevalets, plan " .. tostring(plan and plan.n))
+    -- FONCTION : part des chevalets qui travaillent, reseau electrique unique, brut reellement extrait depuis la mise sous tension
+    local working, nets, netn = 0, {}, 0
+    for _, pj in ipairs(s.find_entities_filtered({ name = "pumpjack", force = st.force or "player" })) do
+      if pj.status == defines.entity_status.working then working = working + 1 end
+      local nid = pj.electric_network_id
+      if nid and not nets[nid] then nets[nid] = true; netn = netn + 1 end
+    end
+    local secs = st.power_tick and (game.tick - st.power_tick) / 60 or 0
+    local got = st.fs0 and (game.forces[st.force].fluid_production_statistics.get_input_count("crude-oil") - st.fs0) or 0
+    local theo = n * 10 * secs
+    ctx.log(string.format("[FO-PETROLE-CHAMP] FONCTION : chevalets en travail %d / %d, reseaux electriques %d, brut extrait %.0f unites en %.0f s (theorique %.0f, %.0f %%)",
+      working, n, netn, got, secs, theo, theo > 0 and 100 * got / theo or 0))
+    ctx.check(n > 0 and working >= math.ceil(0.9 * n), "au moins 90 % des chevalets poses travaillent (part des puits exploites)", working .. "/" .. n)
+    ctx.check(netn == 1, "tous les chevalets sont dans UN SEUL reseau electrique", tostring(netn))
+    ctx.check(theo > 0 and got >= 0.6 * theo, "le brut extrait atteint 60 % du debit theorique (chevalets x 10/s x duree sous tension)", string.format("%.0f / %.0f", got, theo))
     ctx.check(linked == n and n > 0, "chaque chevalet est raccorde a un tuyau", linked .. "/" .. n)
     ctx.check(powered >= n - 1 and n > 0, "les chevalets poses sont alimentes (1 en retard au plus)", powered .. "/" .. n)
     -- le puits noye n'est pas equipe
