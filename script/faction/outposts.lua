@@ -25,6 +25,7 @@ local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un fou
 local Chaine = require("shared.team.chaine_main") -- lot BRIQUES : partage des fours (C.releases, règle pure)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
+local Famine = require("script.team.famine_fer") -- lot FAMINE-FER : plaque clé en famine, bande migrée qui n'a rien commencé : l'extension thermique continue
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
 local Zone = require("script.team.zone_melee") -- lot MELANGE2 : zone minée de la foreuse thermique (2 × 2) lue au moteur, sans cycle de require
 local Flux = require("shared.team.flux") -- lot FLUX : sorties pleines d'un avant-poste (règle pure)
@@ -449,7 +450,7 @@ end
 --- (lot PLAFOND-FOREUSES : le plafond de foreuses est supprimé, T.max_drills rend l'infini). Plafond
 --- d'essais atteint ou ouvrier sans objets : pas plein, le prochain appel reprend. Journal [FO-EXTEND].
 function Outposts.extend(f, surface, o, carrier)
-  if o.migr then return 0 end -- lot MIGRATION-CHAMP : le champ est migré vers des foreuses électriques en rangées, pas de paire thermique de plus
+  if o.migr and not Famine.open(f, o) then return 0 end -- lot MIGRATION-CHAMP (lot FAMINE-FER : sauf plaque clé en famine et bande qui n'a rien commencé) : le champ est migré vers des foreuses électriques en rangées, pas de paire thermique de plus
   local spec = T.outposts[o.kind]
   -- Lot GISEMENTS (DC 31/10 : « il y a des fours sur le gisement, ça prend de l'espace ») : champ passé à l'électrique (foreuses remplacées
   -- ici ou prêtes à l'être, paires déjà retirées d'ici) : le minerai se couvre en électrique, pas en paires à four ; jamais pour une matière
