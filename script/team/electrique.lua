@@ -16,6 +16,7 @@
 
 local T = require("shared.team.config")
 local E = require("shared.team.electrique")
+local Dt = require("shared.team.decision_tree") -- arbre de décision Early / Mid / Late (DC, 9/11) : phase et électriques qui dorment au coffre
 local Stock = require("script.team.stock")
 
 local Elec = {}
@@ -101,10 +102,57 @@ local function inputs(v, kind, craft)
   local rr = (kind and not craft and v.res) and v.res[kind] or nil
   return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
     fuel = craft or (spec ~= nil and spec.product == T.fuel), el_live = v.el_live, poles_stock = v.poles_stock, since = v.since,
-    res_live = res_live,
+    res_live = res_live, phase = v.phase, elec_drill_stock = v.elec_drill_stock, -- arbre de décision (Dt.thermal_allowed)
     res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was }
 end
 Elec.inputs = inputs
+
+--- Arbre de décision (DC, 9/11) : compteurs GÉNÉRIQUES du mall au stock, classés au PROTOTYPE de l'entité que pose chaque objet (un tapis a
+--- une vitesse de tapis, un bras une vitesse de rotation, une machine une vitesse de fabrication hors four) : aucun nom d'objet. Classe
+--- mémorisée par nom dans une table de module (jamais dans `global`). Rend { machines, belts, inserters } ; sans moteur : zéros.
+local CLASS = {}
+local function proto_get(obj, k)
+  local ok, v = pcall(function() return obj[k] end)
+  if ok then return v end
+  return nil
+end
+local function class_of(item)
+  local c = CLASS[item]
+  if c ~= nil then return c end
+  local ip = game and game.item_prototypes
+  local pe = ip and ip[item] and proto_get(ip[item], "place_result")
+  c = false
+  if pe then
+    if proto_get(pe, "belt_speed") then c = "belts"
+    elseif proto_get(pe, "inserter_rotation_speed") then c = "inserters"
+    elseif proto_get(pe, "crafting_speed") and proto_get(pe, "type") ~= "furnace" then c = "machines" end
+  end
+  CLASS[item] = c
+  return c
+end
+local function mall_stock(f)
+  local out = { machines = 0, belts = 0, inserters = 0 }
+  local ok, contents = pcall(Stock.contents, f)
+  for item, n in pairs(ok and contents or {}) do -- (sommes seules : l'ordre ne compte pas)
+    local c = class_of(item)
+    if c then out[c] = out[c] + n end
+  end
+  return out
+end
+
+--- Phase de l'arbre de décision et foreuses électriques qui dorment au coffre, écrites dans `v` (lues par inputs -> E.thermal). Une ligne
+--- [FO-ELECTRIQUE] quand la phase change.
+local function phase_of(f, st, tick, v)
+  v.elec_drill_stock = Stock.count(f, T.DRILL_ELECTRIC)
+  local stock = mall_stock(f)
+  local phase, why = Dt.phase({ plant_ok = (v.plants or 0) >= 1 and v.healthy == true, elec_drill = v.obtainable == true, stock = stock })
+  v.phase = phase
+  if st.phase ~= phase then
+    say(f, st, tick, string.format("phase %s -> %s : %s ; %d foreuse(s) electrique(s) au coffre, mall %d machines, %d tapis, %d bras",
+      tostring(st.phase or "-"), phase, why, v.elec_drill_stock, stock.machines, stock.belts, stock.inserters))
+    st.phase = phase
+  end
+end
 
 --- (a) Entrées du verdict, relues à chaque pensée d'équipe (stock, livre de recettes, centrale). Une ligne quand le verdict change.
 function Elec.think(f, book, tick)
@@ -162,6 +210,7 @@ function Elec.think(f, book, tick)
     poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw,
     el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
     since = st.switch_tick and (tick - st.switch_tick) or nil }
+  phase_of(f, st, tick, v) -- arbre de décision : v.phase, v.elec_drill_stock
   st.v = v
   -- bascule datée (retour au thermique après E.CFG.revert sans électrique) : posée au premier refus, effacée quand une cause MATÉRIELLE
   -- rend la thermique (centrale, objet, poteaux) ; gardée pendant le retour pour cause de 0 électrique (la règle se réarme quand une tourne)

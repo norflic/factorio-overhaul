@@ -66,6 +66,22 @@ local function suite(E)
     local oks, whys = E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0 })
     check(oks == true and whys:find("cette ressource", 1, true) ~= nil, "1o : 5 electriques ailleurs, 0 sur cette ressource : permise (jamais affamee)")
     check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 1 }) == false, "1o : une electrique sur cette ressource : refusee")
+    -- Arbre de décision (DC, 9/11, shared/team/decision_tree.lua) : hors early, des électriques qui DORMENT AU COFFRE interdisent la
+    -- thermique même sur une ressource sans électrique (le cas 1o ci-dessus reste vrai : il n'a ni phase ni stock lus, règle d'avant)
+    local okp, whyp = E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0, phase = "mid", elec_drill_stock = 5 })
+    check(okp == false and whyp:find("dorment au coffre : thermique interdite", 1, true) ~= nil and whyp:find("phase mid", 1, true) ~= nil,
+      "1p : mid, 5 electriques au coffre, 0 sur la ressource : refusee, cause ecrite (" .. tostring(whyp) .. ")")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0, phase = "mid", elec_drill_stock = 0 }) == true,
+      "1p : mid, aucune au coffre : la regle d'avant (ressource sans electrique : permise)")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0, phase = "early", elec_drill_stock = 5 }) == true,
+      "1p : early, 5 au coffre : la regle d'avant (permise)")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0, phase = "late", elec_drill_stock = 1 }) == false,
+      "1p : late, 1 au coffre : refusee")
+    -- l'effondrement (DEFENSE-AP) ne rouvre pas la thermique tant que des electriques dorment (choix documente dans decision_tree.lua)
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, res_live = 0, phase = "mid", elec_drill_stock = 2,
+      res_active = 0, res_peak = 10, res_stalled = E.CFG.stall, res_was = true }) == false, "1p : effondree mais 2 electriques au coffre : refusee")
+    check(E.thermal({ obtainable = true, plants = 1, poles = true, el_live = 5, fuel = true, healthy = false, phase = "mid", elec_drill_stock = 5 }) == true,
+      "1p : combustible d'une centrale a l'arret : permise meme avec des electriques au coffre (sinon rien ne la relance)")
     -- partie du DC (0.6.66, joueur) : centrale 1 finie à 28,0 min, foreuse électrique fabricable dès le début, poteaux : refusée dès 28 min
     check(E.thermal({ on = true, el_live = 1, obtainable = true, plants = 1, poles = true, healthy = true }) == false, "1k : cas du DC a 28 min : refusee")
   end
@@ -330,6 +346,9 @@ local mutants = {
   { "thermal : jamais de retour thermique", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if false then" },
   { "thermal : retour avant le delai", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if live <= 0 and (num(s.since) or 0) > 0 then" },
   { "thermal : ressource affamee refusee", "  if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then", "  if false then" },
+  { "thermal : electriques au coffre ignorees (arbre de decision)", "  if not dt_ok then return false, dt_why end\n", "" },
+  { "thermal : electriques au coffre ferment l'exception combustible", "if s.fuel and s.healthy == false then return true",
+    "if s.fuel and s.healthy == false and (num(s.elec_drill_stock) or 0) <= 0 then return true" },
   { "thermal : toujours permise", "  return false, string.format(\"electrique possible", "  return true, string.format(\"electrique possible" },
   { "task_drills : craft d'autre objet compte", "    if t.item == drill then return max(1, floor(num(t.count) or 1)) end\n    return 0", "    return max(1, floor(num(t.count) or 1))" },
   { "task_drills : build sans type compte", "if t.kind ~= \"extend\" and not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end", "if t.kind ~= \"extend\" and t.kind ~= \"build\" then return 0 end" },

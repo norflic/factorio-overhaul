@@ -20,6 +20,7 @@
 ]]
 
 local E = {}
+local Dt = require("shared.team.decision_tree") -- arbre de décision Early / Mid / Late (directive du DC du 9/11) : électriques qui dorment au coffre
 
 E.CFG = {
   draw = 0.6,        -- part de leur puissance nominale que tirent les chantiers admis (comme S.power_ok et S.DRAW de sante_centrale)
@@ -54,7 +55,8 @@ end
 --- poles (un poteau obtenable), fuel (le produit de ce type d'avant-poste est le combustible de la centrale), healthy (centrale saine),
 --- el_live (foreuses électriques de la force qui tournent ; absent = 0), poles_stock (poteaux au stock ; absent = 0),
 --- since (ticks depuis la bascule, nil avant), res_live (électriques qui tournent sur la ressource de ce type ; nil : pas de ressource lue,
---- seule la règle globale) }. L'électrique doit être MATÉRIELLEMENT là : une électrique qui tourne, ou des poteaux au stock pour un gabarit
+--- seule la règle globale), phase (Dt.phase : "early" | "mid" | "late" ; absente : early), elec_drill_stock (foreuses électriques au
+--- coffre ; absent = 0 : hors early, > 0 interdit la thermique, Dt.thermal_allowed) }. L'électrique doit être MATÉRIELLEMENT là : une électrique qui tourne, ou des poteaux au stock pour un gabarit
 --- (cfg.poles_min) ; 0 électrique cfg.revert ticks après la bascule : retour au thermique ; une ressource sur laquelle AUCUNE électrique ne
 --- tourne garde sa thermique (agrandir, bâtir, reconstruire : jamais affamée). Rend (permise, raison).
 --- Lot DEFENSE-AP : l'extraction d'une ressource est-elle EFFONDRÉE ET À L'ARRÊT ? a = { active (foreuses qui travaillent sur la ressource,
@@ -86,6 +88,10 @@ function E.thermal(s, cfg)
     return true, string.format("retour thermique : aucune foreuse electrique ne tourne %.0f min apres la bascule", (num(s.since) or 0) / 3600)
   end
   if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
+  -- Arbre de décision (DC, 9/11) : hors early, des foreuses électriques qui DORMENT AU COFFRE interdisent toute thermique, même sur une
+  -- ressource sans électrique (l'aberration visée) ; ni la famine (F434) ni l'effondrement (DEFENSE-AP) ne la rouvrent tant que le coffre en tient.
+  local dt_ok, dt_why = Dt.thermal_allowed({ phase = s.phase, elec_drill_stock = s.elec_drill_stock, res_live = s.res_live })
+  if not dt_ok then return false, dt_why end
   if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then
     return true, "aucune foreuse electrique ne tourne sur cette ressource : thermique permise (agrandir, batir, reconstruire)"
   end
