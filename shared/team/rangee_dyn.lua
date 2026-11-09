@@ -73,4 +73,21 @@ function Rd.grow(n, n_max, n2)
   return t, t - (n or 0)
 end
 
+--- Marge de pose d'un gabarit dans un lot (valeur par défaut de place_module : fopts.margin = 1).
+Rd.MARGIN = 1
+
+--- Repli « trop grand » (RECHERCHE-BRAS suite, 8/11) : une rangée dynamique planifiée à sa borne peut dépasser le lot (côté > lot - 2 marges :
+--- P.fit rend « trop grand », aucun repli avant ce lot). Plus grande extension e de [n, n_max] dont le gabarit tient (fits(e) vrai ; la
+--- largeur croît avec e, dichotomie). Rend e (n : rangée fixe de n machines) ou nil si même n ne tient pas.
+function Rd.largest_fit(n, n_max, fits)
+  n, n_max = math.floor(tonumber(n) or 0), math.floor(tonumber(n_max) or 0)
+  if n < 1 or n_max < n then return nil end
+  local lo, hi, best = n, n_max, nil
+  while lo <= hi do
+    local mid = math.floor((lo + hi + 1) / 2)
+    if fits(mid) then best, lo = mid, mid + 1 else hi = mid - 1 end
+  end
+  return best
+end
+
 return Rd

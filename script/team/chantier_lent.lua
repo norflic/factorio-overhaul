@@ -8,6 +8,7 @@
 ]]
 local C = require("shared.team.chantier_lent")
 local Board = require("script.team.board")
+local Mq = require("shared.team.manquantes")
 
 local Cl = {}
 
@@ -15,6 +16,12 @@ local function mem(f)
   local b = f.build
   b.cl = b.cl or { logs = 0, said = {} }
   return b.cl
+end
+
+--- Suffixe de [FO-BLOQUE] : les entités qui manquent, nommées avec leur état (« ; manquantes (1 sur 57) : ... »), ou "" si rien ne manque.
+function Cl.missing(p)
+  local d = Mq.describe(p and p.ents)
+  return d and (" ; " .. d) or ""
 end
 
 --- Une ligne par projet de bande (le premier arrêt), C.LOGS lignes par équipe au plus.
@@ -46,7 +53,7 @@ function Cl.report(f, p, tick, cause, rec)
     team = f.key or "player", pid = p.id, band = p.spec.champ.pr, state = p.state, reason = p.reason, minute = tick / 3600,
     cause = cause, stall_min = rec and rec.since and math.floor((tick - rec.since) / 3600) or 0, built = built, total = #(p.ents or {}),
     roles = roles, tasks = tasks, tasks_n = #view.tasks, oldest_min = oldest, ahead = view.ahead, busy = view.busy,
-    fails = f.team and f.team.fail_reasons or {},
+    fails = f.team and f.team.fail_reasons or {}, miss = Mq.describe(p.ents),
   }))
   return true
 end

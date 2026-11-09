@@ -52,6 +52,40 @@ local EPS = 1e-9
 local function floor_eps(x) return floor(x + EPS) end
 
 ---------------------------------------------------------------------------------------------------
+-- 0. Ratios usuels : CALCULÉS d'après les recettes et les vitesses lues en jeu, jamais écrits
+---------------------------------------------------------------------------------------------------
+--- Machines amont pour UNE machine aval (insertion directe ou tapis) afin que le jeton intermédiaire s'équilibre.
+---   amont = { temps, vitesse, sorties = { jeton = quantité par fabrication } }, aval = { temps, vitesse, entrees = { jeton = quantité } }
+--- Exemples (données de la recette, vitesses égales) : engrenage → pack rouge 0,1 (1 pour 10), câble → circuit 1,5 (3 pour 2),
+--- plaque → acier 1 (1 pour 1).
+function X.rapport(amont, aval, jeton)
+  local pa = amont.vitesse / amont.temps * ((amont.sorties or {})[jeton] or 0)
+  local cb = aval.vitesse / aval.temps * ((aval.entrees or {})[jeton] or 0)
+  if pa <= 0 or cb <= 0 then return nil end
+  return cb / pa
+end
+
+--- Nombre de bras (entier) pour porter `flux` items/s avec des bras de `cadence` items/s ; depuis_tapis : prise sur un tapis (0,85).
+function X.bras_necessaires(flux, cadence, depuis_tapis, marge)
+  local c = cadence * (depuis_tapis and X.BELT_PICKUP or 1) * (marge or X.MARGE)
+  if c <= 0 then return nil end
+  return max(1, ceil(flux / c - EPS))
+end
+
+--- Machines qu'une voie de tapis nourrit : floor(voie / consommation d'une machine).
+function X.machines_par_voie(conso_par_machine, voie)
+  if conso_par_machine <= 0 then return nil end
+  return floor_eps((voie or X.LANE_RATE) / conso_par_machine)
+end
+
+--- Rapport amont / aval réalisé par une chaîne d'un motif : machines du groupe amont ÷ machines du groupe aval, par tuile.
+function X.rapport_motif(m, indice)
+  local c = (m.chaines or {})[indice or 1]
+  if not c then return nil end
+  return m.derive.groupes[c.amont].n / m.derive.groupes[c.aval].n
+end
+
+---------------------------------------------------------------------------------------------------
 -- 1. Débit d'une tuile
 ---------------------------------------------------------------------------------------------------
 --- Débit nominal d'UNE tuile du motif m selon ctx. Renvoie un tableau
@@ -92,6 +126,7 @@ function X.debit(m, ctx)
   for _, fl in ipairs(m.fluides or {}) do
     if fl.io == "out" then term[fl.jeton] = term[fl.jeton] or {}; term[fl.jeton][#term[fl.jeton] + 1] = 0 end
   end
+  for _, tok in ipairs(m.produits or {}) do term[tok] = term[tok] or {}; term[tok][#term[tok] + 1] = 0 end   -- produit sans tapis (courant, recherche…)
   -- chaque groupe sert tous les ingrédients de SA recette et sort tous ses produits (jamais une tuile à 1 entrée pour une recette
   -- à 2 matières) ; le combustible aussi
   local amont_de = {}
@@ -103,6 +138,9 @@ function X.debit(m, ctx)
       if l.io == "in" and l.groupe == g then for _, t in ipairs(l.jetons or {}) do serv[t] = true end
       elseif l.io == "mid" and l.vers == g then serv[l.jeton] = true
       elseif l.io == "out" and l.groupe == g then for _, t in ipairs(l.jetons or {}) do sort[t] = true end end
+    end
+    for _, c in ipairs(m.chaines or {}) do
+      if c.contact and c.aval == g then serv[c.jeton] = true end   -- contact direct (vapeur de la chaudière à la machine)
     end
     local toks = {}
     for tok in pairs(rec[g].entrees or {}) do toks[#toks + 1] = tok end
@@ -121,7 +159,7 @@ function X.debit(m, ctx)
   end
 
   -- demande et capacité de chaque lien (par tuile, à pleine cadence)
-  local flux, f = {}, {}
+  local flux, f, caps = {}, {}, {}
   local limites = {}
   for _, id in ipairs(ids) do
     local l = der.liens[id]
@@ -144,12 +182,17 @@ function X.debit(m, ctx)
       end
     end
     local cap = 0
-    for role, n in pairs(l.bras) do
+    local roles_bras = {}
+    for role in pairs(l.bras) do roles_bras[#roles_bras + 1] = role end
+    table.sort(roles_bras)   -- ordre fixe : la somme en virgule flottante ne dépend jamais de l'ordre de pairs
+    for _, role in ipairs(roles_bras) do
+      local n = l.bras[role]
       local v = (ctx.bras or {})[role]
       if not v then return nil, "bras_inconnu:" .. role end
       cap = cap + n * v * (l.prise_tapis and X.BELT_PICKUP or 1) * marge
     end
     flux[id] = dem
+    caps[id] = cap
     if dem > EPS then
       f[id] = min(1, cap / dem)
       if f[id] < 1 - EPS then limites[#limites + 1] = string.format("bras:%s (%.2f/%.2f)", id, cap, dem) end
@@ -172,28 +215,51 @@ function X.debit(m, ctx)
   end
   local ch = m.chaines or {}
   local R = {}   -- production et consommation de l'intermédiaire de chaque chaîne (par tuile)
+  local n_fixe = math.huge   -- tuiles qu'un producteur de TÊTE (fixe, une fois pour toute la rangée) peut servir
   for i, c in ipairs(ch) do
     local ra, rb = rec[c.amont], rec[c.aval]
     R[i] = {
       a = der.groupes[c.amont].n * cad[c.amont] * ((ra.sorties or {})[c.jeton] or 0),
       b = der.groupes[c.aval].n * cad[c.aval] * ((rb.entrees or {})[c.jeton] or 0),
+      fixe = der.groupes[c.amont].fixe,
     }
   end
-  -- 1) l'aval est borné par ce que ses amonts fournissent
+  -- 1) l'aval est borné par ce que ses amonts fournissent (un amont fixe borne le NOMBRE de tuiles, pas leur utilisation)
   for i, c in ipairs(ch) do
     local r = R[i]
     if r.b > EPS then
-      local fourni = r.a * util[c.amont]
-      local u = min(util[c.aval], fourni / r.b)
-      if u < util[c.aval] - EPS then limites[#limites + 1] = string.format("rapport:%s->%s", c.amont, c.aval) end
-      util[c.aval] = u
+      if r.fixe then
+        local nf = floor_eps(r.a * util[c.amont] / r.b)
+        if nf < n_fixe then n_fixe = nf end
+        limites[#limites + 1] = string.format("producteur de tête:%s sert %d tuiles", c.amont, nf)
+      else
+        local fourni = r.a * util[c.amont]
+        local u = min(util[c.aval], fourni / r.b)
+        if u < util[c.aval] - EPS then limites[#limites + 1] = string.format("rapport:%s->%s", c.amont, c.aval) end
+        util[c.aval] = u
+      end
     end
   end
   -- 2) chaque amont ne produit que ce que l'aval consomme
   for i, c in ipairs(ch) do
     local r = R[i]
-    if r.a > EPS then
+    if r.a > EPS and not r.fixe then
       util[c.amont] = min(util[c.amont], util[c.aval] * r.b / r.a)
+    end
+  end
+  -- chaîne en série (laboratoires : le premier bras porte les paquets de tous les suivants)
+  if m.serie_directe then   -- { lien = décalage } : le bras d'entrée porte n machines (décalage 0), chaque liaison n − 1 (décalage 1)
+    local liens_s = {}
+    for id in pairs(m.serie_directe) do liens_s[#liens_s + 1] = id end
+    table.sort(liens_s)
+    for _, id in ipairs(liens_s) do
+      local l = der.liens[id]
+      local un = flux[id] / max(1, l.mg[l.groupe] or 1)
+      if un > EPS then
+        local nc = floor_eps(caps[id] / un) + m.serie_directe[id]
+        if nc < n_fixe then n_fixe = nc end
+        limites[#limites + 1] = string.format("chaîne en série (%s) : %d machines", id, nc)
+      end
     end
   end
 
@@ -203,7 +269,9 @@ function X.debit(m, ctx)
   for _, id in ipairs(ids) do
     local l = der.liens[id]
     local g = l.groupe
-    if l.io == "out" then
+    if der.groupes[g] and der.groupes[g].fixe then
+      -- groupe de tête : sa consommation et sa production ne croissent pas avec le nombre de tuiles
+    elseif l.io == "out" then
       avec_lien_sortie[g] = true
       local r = rec[g]
       for _, tok in ipairs(l.jetons or {}) do
@@ -229,7 +297,7 @@ function X.debit(m, ctx)
   end
   -- groupes sans lien de sortie (champ de foreuses, chevalets : le produit tombe directement sur le tapis ou dans la conduite)
   for _, g in ipairs(groupes) do
-    if not avec_lien_sortie[g] then
+    if not avec_lien_sortie[g] and not der.groupes[g].fixe then
       local r = rec[g]
       local toks = {}
       for tok in pairs(r.sorties or {}) do toks[#toks + 1] = tok end
@@ -256,7 +324,11 @@ function X.debit(m, ctx)
     for _, e in ipairs(liste or {}) do
       local t = tab[e.k]
       if t then
-        for tok, q in pairs(t) do
+        local toks = {}
+        for tok in pairs(t) do toks[#toks + 1] = tok end
+        table.sort(toks)
+        for _, tok in ipairs(toks) do
+          local q = t[tok]
           local lanes = e.jetons and e.jetons[tok]
           if lanes and q > EPS then
             local n = floor_eps(#lanes * voie / q)
@@ -269,6 +341,8 @@ function X.debit(m, ctx)
   end
   borne(m.entrees, conso, "tapis_entree")
   borne(m.sorties, rejet, "tapis_sortie")
+  borne(m.sorties_internes, rejet, "tapis_sortie")   -- voies fusionnées en queue : chaque rangée garde SA voie
+  if n_fixe < n_tapis then n_tapis = n_fixe end
   return { sortie = sortie, util = util, conso = conso, rejet = rejet, limites = limites, n_tapis = n_tapis }
 end
 
@@ -358,7 +432,10 @@ end
 
 local function sides_de(req)
   local s = {}
-  for _, e in ipairs(req.entrees or {}) do s[#s + 1] = { cote = D.COTES[e.cote], pos = e.pos, jetons = e.jetons or {} } end
+  for i, e in ipairs(req.entrees or {}) do
+    if D.COTES[e.cote] == nil then error("Choix.choisir : entrée " .. i .. " sans côté valide (N, E, S ou O) : " .. tostring(e.cote), 0) end
+    s[#s + 1] = { cote = D.COTES[e.cote], pos = e.pos, jetons = e.jetons or {} }
+  end
   return s
 end
 
@@ -565,6 +642,9 @@ function X.choisir(req)
   local ctx = req.ctx or {}
   local dem = req.demande or {}
   local Z = req.zone
+  if type(Z) ~= "table" or not (Z.x and Z.y and Z.l and Z.h) or Z.l < 0 or Z.h < 0 then
+    error("Choix.choisir : zone = { x, y, l, h } requise (tuiles entières, l et h positifs)", 0)
+  end
   local obs = obstacles_de(req)
   local supplies = sides_de(req)
   local fams
@@ -624,10 +704,10 @@ function X.choisir(req)
       ecartes[#ecartes + 1] = { id = m.id, cause = cause }
     else
       local cap = n_besoin
-      if deb and deb.n_tapis < cap then cap = max(0, deb.n_tapis) end
-      if cap > max_n then cap = max_n end
       local limite = "demande"
-      if deb and deb.n_tapis < n_besoin then limite = "tapis" end
+      if m.max_tuiles and m.max_tuiles < cap then cap = m.max_tuiles; limite = "borne" end   -- borne propre du motif (eau d'une pompe…)
+      if deb and deb.n_tapis < cap then cap = max(0, deb.n_tapis); limite = "tapis" end
+      if cap > max_n then cap = max_n end
       if cap < 1 then
         ecartes[#ecartes + 1] = { id = m.id, cause = "tapis_sature" }
       else
