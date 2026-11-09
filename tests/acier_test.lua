@@ -36,7 +36,7 @@ local FURN1, FURN2 = "stone-furnace", "steel-furnace"
 section("1. gabarit : rangee de fours d'acier")
 for _, fu in ipairs({ FURN1, FURN2 }) do
   local speed = M.spec(fu).speed
-  for _, n in ipairs({ 1, 2, 5, 7 }) do
+  for _, n in ipairs({ 1, 2, 5, 6 }) do
     local g, why = M.GEN.simple(STEEL, n, fu)
     local errs, rep = {}, nil
     if g then errs, rep = M.check(g) end
@@ -50,17 +50,43 @@ for _, fu in ipairs({ FURN1, FURN2 }) do
   end
   local g9 = M.GEN.simple(STEEL, 9, fu)
   check(g9 == nil or #M.check(g9) > 0, fu .. " : 9 fours depassent l'emprise (refus)")
-  local g8 = M.GEN.simple(STEEL, 8, fu)
-  check(g8 and g8.w > 22, fu .. " : 8 fours = " .. tostring(g8 and g8.w) .. " tuiles, plus que le lot du plan (22 utiles) : borne a 7")
+  local g7 = M.GEN.simple(STEEL, 7, fu)
+  check(g7 and g7.w + M.PORT_ROOM > M.MAX_SIDE, fu .. " : 7 fours = " .. tostring(g7 and g7.w) .. " tuiles + " .. M.PORT_ROOM .. " de ports, plus que le lot du plan (24) : borne a 6")
   local g = M.GEN.simple(STEEL, 3, fu)
-  check(g and g.extensions[1].max == 7 and g.extensions[1].arg == 2, fu .. " : borne 7 fours (22 tuiles utiles du lot), argument 2")
-  local ge = g and M.extend(g, 7)
-  check(ge and #M.check(ge) == 0 and ge.args[2] == 7 and ge.w <= 22, fu .. " : extension a 7 fours refaite, controlee, dans le lot")
+  check(g and g.extensions[1].max == 6 and g.extensions[1].arg == 2, fu .. " : borne 6 fours (ports compris, 24 tuiles du lot), argument 2")
+  local ge = g and M.extend(g, 6)
+  check(ge and #M.check(ge) == 0 and ge.args[2] == 6 and ge.w + M.PORT_ROOM <= M.MAX_SIDE, fu .. " : extension a 6 fours refaite, controlee, dans le lot")
   local lanes
   for _, p in ipairs(g.ports) do if p.io == "in" and p.lanes then lanes = p.lanes end end
   check(lanes and lanes[1] == IRON and lanes[2] == "coal", fu .. " : voies d'entree = plaques de fer et charbon")
 end
 -- un assembleur reste un assembleur : la rangee de cables est inchangee (cle, borne)
+---------------------------------------------------------------------------------------------------
+section("1b. la borne tient dans le lot du plan directeur, ports compris (P.fit sur un lot entierement libre ; moteur reel : 8 fours -> \"trop grand\", 7 -> \"place\")")
+do
+  local P = require("shared.team.plan")
+  local free = function() return true end
+  local rect = { x0 = 0, y0 = 0, x1 = P.LOT, y1 = P.LOT }
+  check(M.MAX_SIDE == P.LOT, "le lot du plan fait M.MAX_SIDE tuiles")
+  for _, fu in ipairs({ FURN1, FURN2 }) do
+    local bound = M.GEN.simple(STEEL, 1, fu).extensions[1].max
+    for n = 1, bound + 1 do
+      local g = M.GEN.simple(STEEL, n, fu)
+      local fit, why = nil, "gabarit refuse"
+      if g then fit, why = P.fit(g, rect, { free = free }) end
+      if n <= bound then
+        check(fit ~= nil, fu .. " x" .. n .. " : tient dans un lot libre du plan (" .. tostring(why) .. ")")
+      else
+        check(fit == nil, fu .. " x" .. n .. " (borne + 1) : refuse par le plan, la borne est donc la plus grande taille qui tient (" .. tostring(why) .. ")")
+      end
+    end
+    -- la constante M.PORT_ROOM est la mesure de P.port_room : largeur des cases de ports - largeur du gabarit
+    local g = M.GEN.simple(STEEL, 3, fu)
+    local x0, x1 = math.huge, -math.huge
+    for _, t in ipairs(P.port_room(M.instantiate(g, 0, 0, 0))) do x0, x1 = math.min(x0, t[1]), math.max(x1, t[1]) end
+    check(x1 - x0 + 1 - g.w == M.PORT_ROOM, fu .. " : M.PORT_ROOM = " .. M.PORT_ROOM .. " = mesure de P.port_room (" .. tostring(x1 - x0 + 1 - g.w) .. ")")
+  end
+end
 local gc = M.GEN.simple("copper-cable", 3, "assembling-machine-1")
 check(gc and gc.extensions[1].max == 3 and #M.check(gc) == 0, "rangee d'assembleurs inchangee (cables a 3)")
 -- refus : une recette d'assembleur dans un four, une recette de fonte dans un assembleur, une entite sans machine
@@ -281,7 +307,7 @@ end
 
 -- d) transition : un bloc fini qui produit retire l'acier du plan
 local function fini(rate, id) return { id = id or 7, product = STEEL, state = "fini", gen = "simple", args = { STEEL, 2, FURN2 }, rate_nom = 15, rate_meas = rate,
-  brief = { state = "fini", rangee = { n = 2, n_max = 8, held = 6 } } } end
+  brief = { state = "fini", rangee = { n = 2, n_max = 6, held = 4 } } } end
 do
   local f = world({ mods = { fini(20) } })
   local extra = { { key = "smelt2", kind = "smelt", prio = 60, smelt = { [STEEL] = 60, ["stone-brick"] = 10 } } }
@@ -405,7 +431,7 @@ do
     outflow = { [STEEL] = 0 }, inflow = { [IRON] = 0 } }
   local f = { key = "test", build = { projects = { [7] = p } } }
   local gm = Rg.full(p, gs)
-  check(gm.params.n == 7 and p.rangee_plan and p.rangee_plan.n == 2 and p.rangee_plan.n_max == 7, "gabarit de fours planifie a la borne (7), place entiere reservee")
+  check(gm.params.n == 6 and p.rangee_plan and p.rangee_plan.n == 2 and p.rangee_plan.n_max == 6, "gabarit de fours planifie a la borne (6), place entiere reservee")
   p.outflow[STEEL], p.inflow[IRON] = gm.nominal[STEEL], gm.inputs[IRON]
   local ents = {}
   for _, e in ipairs(gm.entities) do ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, part = 1 } end
@@ -413,13 +439,13 @@ do
   p.ents = ents
   Rg.after(f, p, true)
   local function nmach(list) local c = 0 for _, e in ipairs(list) do local s = M.spec(e.name) if s and (s.kind == "furnace") then c = c + 1 end end return c end
-  check(p.rangee and p.rangee.n == 2 and nmach(p.ents) == 2 and #p.rangee.held > 0, "2 fours poses, 6 en attente avec leurs bras")
-  check(math.abs(p.outflow[STEEL] - 2 * M.spec(FURN2).speed / 16) < 1e-6, "debit annonce a 2/7 de la rangee")
+  check(p.rangee and p.rangee.n == 2 and nmach(p.ents) == 2 and #p.rangee.held > 0, "2 fours poses, 4 en attente avec leurs bras")
+  check(math.abs(p.outflow[STEEL] - 2 * M.spec(FURN2).speed / 16) < 1e-6, "debit annonce a 2/6 de la rangee")
   -- chaque taille partielle (pieces en attente retirees) reste un gabarit valide, au debit de n fours
-  for n = 1, 7 do
+  for n = 1, 6 do
     local cols = Rd.columns(gm.entities, function(nm) local s = M.spec(nm) if s and s.kind == "furnace" then return "machine" end if s and s.kind == "inserter" then return "bras" end end,
       function(nm) return M.spec(nm).w end)
-    local _, h = Rd.split(cols, #gm.entities, Rd.order(7, nil), n)
+    local _, h = Rd.split(cols, #gm.entities, Rd.order(6, nil), n)
     local drop = {}
     for _, i in ipairs(h) do drop[i] = true end
     local gp = { entities = {}, ports = {}, w = gm.w, h = gm.h, key = gm.key, anchors = gm.anchors, fuel_ports = gm.fuel_ports, water = gm.water, notes = {}, params = gm.params }
@@ -428,12 +454,12 @@ do
     for _, q in ipairs(gm.ports) do local c = {} for k, v in pairs(q) do c[k] = v end c.ent = remap[q.ent] gp.ports[#gp.ports + 1] = c end
     gp.power_pole = remap[gm.power_pole]
     local errs, rep = M.check(gp)
-    check(#errs == 0 and math.abs((rep.outputs[STEEL] or 0) - n * M.spec(FURN2).speed / 16) < 1e-6, "rangee partielle " .. n .. "/7 : 0 erreur, " .. n * 0.125 .. " acier/s (" .. tostring(errs[1]) .. ")")
+    check(#errs == 0 and math.abs((rep.outputs[STEEL] or 0) - n * M.spec(FURN2).speed / 16) < 1e-6, "rangee partielle " .. n .. "/6 : 0 erreur, " .. n * 0.125 .. " acier/s (" .. tostring(errs[1]) .. ")")
   end
   p.state = "fini"
   local mv = Rg.grow(f, 7, 5, 100)
   check(mv > 0 and p.rangee.n == 5 and nmach(p.ents) == 5 and p.state == "reserve", "finie : agrandie a 5 fours sur place, projet rouvert en reserve")
-  check(math.abs(p.outflow[STEEL] - 5 * M.spec(FURN2).speed / 16) < 1e-6, "debit annonce a 5/7")
+  check(math.abs(p.outflow[STEEL] - 5 * M.spec(FURN2).speed / 16) < 1e-6, "debit annonce a 5/6")
 end
 
 ---------------------------------------------------------------------------------------------------

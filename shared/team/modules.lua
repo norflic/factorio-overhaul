@@ -46,6 +46,7 @@ local Pt = need("shared.team.patrons", "shared/team/patrons") -- lot INDUSTRIE I
 
 local M = {}
 
+M.PORT_ROOM = 5                -- tuiles que les ports d'une rangée ajoutent à sa largeur (tête d'alimentation + sortie, plan.lua P.port_room)
 M.MAX_SIDE = 24                -- emprise maximale (EQUIPES_PNJ §6.4 ; lot de 24 × 24, §6.5)
 M.STREET = 4                   -- largeur de la rue autour d'un lot (§6.5)
 M.BUILD_DISTANCE = 16          -- O.SCRIPT_BUILD_DISTANCE (shared/team/org.lua), recopié : modules ne lit pas org
@@ -1023,9 +1024,11 @@ function G.simple(recipe, n, machine, voies, belt)
   local lane_n = floor_eps(lane_rate / (r.products[1].amount * rate))
   local bounds = { row_width_bound(sp.w), two and 2 * lane_n or lane_n }
   if furnace then
-    -- le lot du plan directeur est de 24 tuiles avec une marge de 1 de chaque côté (shared/team/plan.lua, P.fit) : au-delà de 22 tuiles de
-    -- large, la rangée entière (place réservée) est refusée « trop grand » (moteur réel, lot ACIER : 8 fours de 2 = 23 tuiles)
-    bounds[#bounds + 1] = floor_eps((M.MAX_SIDE - 2 + 1) / (sp.w + 1))
+    -- la rangée entière (place réservée) doit tenir AVEC la place de ses ports dans le lot de 24 tuiles du plan directeur (P.fit : la tête
+    -- d'alimentation de 3 tuiles derrière le port d'entrée et 1 tuile après la sortie, soit M.PORT_ROOM = 5 tuiles de plus que la largeur
+    -- w = n·(w machine + 1) − 1 ; mesuré par P.port_room, verrouillé par tests/acier_test.lua §1b). Moteur réel, lot ACIER : 8 fours
+    -- (23 tuiles) refusés « trop grand », 7 fours (20 tuiles, 25 avec les ports) refusés « place » sur un lot entièrement libre.
+    bounds[#bounds + 1] = floor_eps((M.MAX_SIDE - M.PORT_ROOM + 1) / (sp.w + 1))
   end
   if #ings == 1 and fuel > 0 then
     bounds[#bounds + 1] = floor_eps(lane_rate / (ings[1].amount * rate))
