@@ -223,13 +223,13 @@ local function machines_for(rate, par_min)
 end
 
 --- Objets « plaque » (produit fondu) : les seuls portés par le tronc à cette tranche.
-local PLATE_SET
-local function plate_set()
-  if not PLATE_SET then
-    PLATE_SET = {}
-    for _, o in pairs(T.outposts) do if o.product and o.resource and o.product ~= o.resource then PLATE_SET[o.product] = true end end
+local function plate_set() -- (posé une fois, dans un champ du module : pas de table neuve dans un local de module, F403)
+  if not Rt.PLATE_SET then
+    local out = {}
+    for _, o in pairs(T.outposts) do if o.product and o.resource and o.product ~= o.resource then out[o.product] = true end end
+    Rt.PLATE_SET = out
   end
-  return PLATE_SET
+  return Rt.PLATE_SET
 end
 
 local function bus_eligible(d, plates)
@@ -660,13 +660,13 @@ local function sorted_keys(t)
   return ks
 end
 
-local STATUS_NAMES
 local function status_name(s)
-  if not STATUS_NAMES then
-    STATUS_NAMES = {}
-    for name, v in pairs(defines.entity_status) do STATUS_NAMES[v] = name end
+  if not Rt.STATUS_NAMES then
+    local out = {}
+    for name, v in pairs(defines.entity_status) do out[v] = name end
+    Rt.STATUS_NAMES = out
   end
-  return STATUS_NAMES[s] or tostring(s)
+  return Rt.STATUS_NAMES[s] or tostring(s)
 end
 
 --- Une fois par décision (Ind.think) : barres des coffres de sortie, cellules rendues par une section refusée, allongement, compteurs.
