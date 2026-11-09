@@ -22,6 +22,7 @@ local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
+local Cd = require("shared.team.champ_dedupe") -- lot COMBUSTIBLE-MIGRATION : une pièce n'est écartée que si le détenteur de sa tuile porte la même (règle pure)
 local Ln = require("shared.team.champ_lien") -- revue-fonderie (point 7) : lecteur des projets liés du réseau du charbon
 local LB = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : ligne de poteaux d'une bande lointaine
 local Ra = require("shared.team.champ_raccord") -- lot FONDERIE : tous les poteaux d'une bande rejoignent le réseau alimenté
@@ -53,6 +54,7 @@ Champ.CFG = {
   -- lot FONDERIE
   coal_r = 192,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché (320 au lot3 : des tracés de centaines de
                     -- tuiles faisaient attendre les bandes ; le tracé est désormais plafonné, Co.ROUTE_MAX)
+  cut_wait = 5 * 3600, -- lot COMBUSTIBLE-MIGRATION : attente au plus (ticks) d'un réseau du charbon dont le tronc est coupé par un autre projet, avant de l'accepter
   coal_prio = 52,   -- priorité du projet « réseau du charbon » d'un côté du champ : celle des bandes (Mg.CFG.prio). À 80 (alimentation d'une
                     -- centrale, lot4-20261020), emerald était en retard dès 30 min (14 fours sur 59, 2 735 plaques qui dorment, 10 PNJ contre 18)
   -- (3/11, lot4 et lot5 : 6 projets séparés du réseau du charbon sur 24 jamais finis : bande refusée après la demande du réseau, matières jamais
@@ -402,7 +404,8 @@ local function spec_of(f, surface, o, frame, only)
   local fm = data.drill.size + 2 * data.drill.reach + 1
   local foreign, nforeign = foreign_in(surface, names.resource, names.cats, ox0 - fm, oy0 - fm, ox1 + fm, oy1 + fm)
   Profiler.fstart("champ:blocked")
-  local blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft)
+  -- lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre de cet avant-poste a retenues pour son réseau du charbon reporté lui restent libres
+  local blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft, function(_, _, owner) return Cd.own(owner, o.id) end)
   Profiler.fstop("champ:blocked")
   local spec = {
     ore = ore, blocked = blocked, mine = mine, soft = soft, foreign = foreign, nforeign = nforeign,
@@ -443,6 +446,7 @@ local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres
 
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
 function Champ.frame(f, surface, o)
+  if f.build and f.build.occ then Cd.clear(f.build.occ, o.id) end -- lot COMBUSTIBLE-MIGRATION : un cadre refait libère les tuiles retenues par l'ancien
   Profiler.fstart("champ:frame-spec")
   local spec, names = spec_of(f, surface, o, nil, nil)
   Profiler.fstop("champ:frame-spec")
@@ -641,9 +645,16 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
   end
   local ents, quais, outs = named(plan, names, coal_side, exclude)
   if coal_side and #ents == 0 then return nil, "reseau du charbon vide" end
+  -- lot COMBUSTIBLE-MIGRATION : pièces du réseau du charbon REPORTÉ dans des projets liés (pas encore planifiés) : leurs tuiles, retenues par Build.SITES.champ
+  local deferred_tiles = {}
+  for _, sd in ipairs(defer) do
+    for _, e in ipairs((named(plan, names, sd, nil))) do
+      for _, t in ipairs(P.tiles_of(e)) do deferred_tiles[#deferred_tiles + 1] = { t[1], t[2] } end
+    end
+  end
   local tiles = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do tiles[#tiles + 1] = t[1]; tiles[#tiles + 1] = t[2] end end
-  return { ents = ents, quais = quais, outs = outs, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer }
+  return { ents = ents, quais = quais, outs = outs, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer, deferred_tiles = deferred_tiles }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -701,7 +712,8 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
   local function blocked_of(margin)
     local bl = blocked_by[margin]
     if not bl then
-      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine, nil, bd.occ_libre)
+      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine, nil,
+        bd.occ_libre or function(_, _, owner) return Cd.own(owner, o.id) end)
       blocked_by[margin] = bl
     end
     return function(tx, ty) return bl[Ch.key(tx, ty)] ~= nil end
@@ -803,13 +815,34 @@ Build.SITES.champ = function(f, surface, p, h)
   local ents = {}
   local dropped = 0
   local dropped_by, holders, drop_roles = {}, {}, {} -- (revue-fonderie, 3/11) pièces écartées : plus en silence (journal ci-dessous)
+  -- lot COMBUSTIBLE-MIGRATION : ce que le détenteur d'une tuile y porte (index par projet, lu une fois) ; une pièce n'est écartée que si c'est la même
+  -- (Cd.verdict) ; une pièce du réseau du charbon en conflit coupe le tronc : le réseau est refusé plus bas, avec la cause
+  local hidx, cut, cut_by = {}, 0, {}
+  local function held_ent(q, tk)
+    local idx = hidx[q]
+    if not idx then
+      idx = {}
+      local pq = b.projects[q]
+      for _, he in ipairs(pq and pq.ents or {}) do
+        for _, t in ipairs(P.tiles_of(he)) do idx[P.tkey(t[1], t[2])] = he end
+      end
+      hidx[q] = idx
+    end
+    return idx[tk]
+  end
   for _, e in ipairs(bd.ents) do
     local taken = false
+    local held = {}
     for _, t in ipairs(P.tiles_of(e)) do
-      local q = b.occ[P.tkey(t[1], t[2])]
-      if q and q ~= p.id then taken = true; holders[q] = true end
+      local tk = P.tkey(t[1], t[2])
+      local q = b.occ[tk]
+      if q and q ~= p.id and not Cd.own(q, o.id) then taken = true; holders[tostring(q)] = true; held[#held + 1] = { pid = q, ent = held_ent(q, tk) } end
     end
     if taken then
+      if Cd.cuts_trunk(Cd.verdict(e, held), e.role == "champ-charbon") then
+        cut = cut + 1
+        cut_by[tostring(held[1].pid)] = (cut_by[tostring(held[1].pid)] or 0) + 1
+      end
       dropped = dropped + 1
       dropped_by[e.name] = (dropped_by[e.name] or 0) + 1
       -- (revue-fonderie) tri par rôle ; le charbon commun à part
@@ -833,6 +866,35 @@ Build.SITES.champ = function(f, surface, p, h)
       log(string.format("[FO-CHAMP] %s : projet %d (bande %s) : pieces ecartees du role %s : %d (%s)", f.key or "player", p.id, tostring(cs.pr), rk, n,
         table.concat(np, ", ")))
     end
+  end
+  -- lot COMBUSTIBLE-MIGRATION : le réseau du charbon REPORTÉ de cette bande n'est planifié que plus tard : ses tuiles sont retenues dès maintenant (Cd.reserve), pour que les
+  -- projets planifiés entre-temps (bande de cuivre du projet 11, 0,2 min avant le réseau du projet 9) les évitent
+  if not cs.coal and bd.deferred_tiles and #bd.deferred_tiles > 0 then
+    local n = Cd.reserve(b.occ, bd.deferred_tiles, o.id, P.tkey)
+    if n > 0 then
+      log(string.format("[FO-CHAMP] %s : projet %d (bande %s, avant-poste %d) : %d tuile(s) du reseau du charbon reporte retenue(s) au plan pour lui (cadre:%d) a %.1f min",
+        f.key or "player", p.id, tostring(cs.pr), o.id, n, o.id, game.tick / 3600))
+    end
+  end
+  -- lot COMBUSTIBLE-MIGRATION : une pièce du réseau du charbon dont la tuile est au plan d'un autre projet qui n'y porte PAS la même pièce coupe le
+  -- tronc : le réseau attend (CUT_WAIT : le détenteur peut disparaître, ou le plan se relire) puis est accepté tel quel, avec la ligne [FO-CHAMP] « TRONC COUPE »
+  if cut > 0 then
+    b.champ_cut = b.champ_cut or {}
+    local ck = tostring(o.id) .. ":" .. tostring(cs.coal or ("b" .. tostring(cs.pr)))
+    local t0 = b.champ_cut[ck] or game.tick
+    b.champ_cut[ck] = t0
+    local hs2 = {}
+    for _, h in ipairs(sorted_keys(cut_by)) do hs2[#hs2 + 1] = h .. " (" .. cut_by[h] .. ")" end
+    local waiting = game.tick - t0 < Champ.CFG.cut_wait
+    b.champ_cut_say = b.champ_cut_say or {}
+    local said = waiting and "attend" or "accepte"
+    if b.champ_cut_say[ck] ~= said then -- (une ligne par changement : pas à chaque relecture du plan)
+    b.champ_cut_say[ck] = said
+    log(string.format("[FO-CHAMP] %s : projet %d (reseau du charbon, bande %s) : TRONC COUPE : %d piece(s) du reseau du charbon sur des tuiles du projet %s, que son plan occupe d'une AUTRE piece (nom, role ou direction) ; %s a %.1f min",
+      f.key or "player", p.id, tostring(cs.pr), cut, table.concat(hs2, ", "),
+      waiting and string.format("le reseau attend (au plus %.0f min depuis %.1f min)", Champ.CFG.cut_wait / 3600, t0 / 3600) or "attente finie : reseau accepte tel quel", game.tick / 3600))
+    end
+    if waiting then return nil, string.format("champ: reseau du charbon coupe (%d piece(s) en conflit avec le projet %s)", cut, hs2[1] or "?"), true end
   end
   -- raccord au réseau : un poteau alimenté à portée d'un poteau de la bande, sinon une chaîne de poteaux
   -- (lot FONDERIE) les poteaux du réseau du charbon (loin, vers le gisement de charbon) ne comptent pas : le raccord part de la bande
@@ -953,6 +1015,18 @@ function Champ.report(f, surface, tick)
   local b = f.build
   if not b then return end
   Champ.links_step(f, tick) -- (revue-fonderie, point 7)
+  do -- lot COMBUSTIBLE-MIGRATION : un cadre sans projet de champ vivant (bande refusée ou annulée, réseau du charbon jamais demandé) libère ses tuiles retenues
+    local alive = {}
+    for _, pid in ipairs(b.order) do
+      local q = b.projects[pid]
+      local qc = q and q.spec and q.spec.champ
+      if qc and q.state ~= "refuse" then alive[qc.oid] = true end
+    end
+    for _, oid in ipairs(Cd.dead(Cd.owners(b.occ), alive)) do
+      local n = Cd.clear(b.occ, oid)
+      log(string.format("[FO-CHAMP] %s : cadre de l'avant-poste %d sans projet de champ vivant : %d tuile(s) retenue(s) pour son reseau du charbon liberee(s) a %.1f min", f.key or "player", oid, n, tick / 3600))
+    end
+  end
   local st, miss, ids = {}, {}, {}
   local d = { n = 0, run = 0, stuck = 0, nopow = 0 }
   local fu = { n = 0, run = 0, noin = 0, nofuel = 0, full = 0 }
@@ -961,6 +1035,7 @@ function Champ.report(f, surface, tick)
   local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
   local S = defines.entity_status
   local tapis_on, nopow_logs = Champ.tapis(), 0
+  local vlogs = 0 -- lot COMBUSTIBLE-MIGRATION : lignes [FO-CHAMP-VOIE] de ce relevé
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and p.spec and p.spec.champ then
@@ -971,7 +1046,7 @@ function Champ.report(f, surface, tick)
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
-      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0 }
+      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0 }
       for _, e in ipairs(p.ents) do
         if e.built and not e.skipped and not e.dropped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
@@ -989,10 +1064,42 @@ function Champ.report(f, surface, tick)
               elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1 end
             else
               fu.n = fu.n + 1
+              pd.fn = pd.fn + 1
+              if s == S.no_fuel then pd.fnofuel = pd.fnofuel + 1 end
               if s == S.working then fu.run = fu.run + 1 elseif s == S.no_ingredients then fu.noin = fu.noin + 1; pd.noin = pd.noin + 1
               elseif s == S.no_fuel then fu.nofuel = fu.nofuel + 1 elseif s == S.full_output then fu.full = fu.full + 1 end
             end
           end
+        end
+      end
+      -- lot COMBUSTIBLE-MIGRATION : état de la VOIE DE CHARBON du projet (tapis posés, avec du charbon, vides ; foreuses du charbon) et fours sans combustible
+      -- de sa bande : lecture seule, une ligne par projet qui porte du charbon ou des fours, 8 lignes au plus par relevé (cause des fours à sec des fins de partie)
+      if vlogs < 8 then
+        local planned, belts, withc, empty, dr, drun, dstuck = 0, 0, 0, 0, 0, 0, 0
+        for _, e in ipairs(p.ents) do
+          if e.role == "champ-charbon" and not e.skipped and not e.dropped then
+            planned = planned + 1
+            if e.built then
+              local ent = surface.find_entity(e.name, { e.x, e.y })
+              if ent and ent.valid then
+                local pr = ent.prototype -- (un tapis a une vitesse de tapis, une foreuse une vitesse de minage : lus au prototype, aucun nom écrit)
+                if pr.belt_speed ~= nil and ent.get_max_transport_line_index() > 0 then
+                  belts = belts + 1
+                  local n = ent.get_transport_line(1).get_item_count() + ent.get_transport_line(2).get_item_count()
+                  if n > 0 then withc = withc + 1 else empty = empty + 1 end
+                elseif pr.mining_speed ~= nil then
+                  dr = dr + 1
+                  if ent.status == S.working then drun = drun + 1 elseif ent.status == S.waiting_for_space_in_destination then dstuck = dstuck + 1 end
+                end
+              end
+            end
+          end
+        end
+        if planned > 0 or pd.fn > 0 then
+          vlogs = vlogs + 1
+          log(string.format("[FO-CHAMP-VOIE] %s min %.0f | projet %d (%s, %s) : voie de charbon : %d pieces au plan, tapis poses %d (avec du charbon %d, vides %d), foreuses de charbon %d (en marche %d, bloquees sortie pleine %d) ; fours de la bande %d, sans combustible %d",
+            f.key or "player", tick / 3600, pid, p.state, p.spec.champ.coal and ("reseau du charbon cote " .. (p.spec.champ.coal > 0 and "+" or "-")) or ("bande " .. tostring(p.spec.champ.pr)),
+            planned, belts, withc, empty, dr, drun, dstuck, pd.fn, pd.fnofuel))
         end
       end
       -- lot FONDERIE (3/11) : consommateurs électriques posés SANS courant, chantier compris (lot7bis-20261020 : 15 à 22 bras hors réseau

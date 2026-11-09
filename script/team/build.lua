@@ -135,6 +135,7 @@ Build.Rempl = require("script.team.remplissage_glue")
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
+Build.Cd = require("shared.team.champ_dedupe") -- lot COMBUSTIBLE-MIGRATION : tuiles retenues par le cadre d'un champ pour son réseau du charbon (champ de Build, pas une locale)
 Build.Ct = require("script.team.charbon_tampon") -- lot COMBUSTIBLE-CENTRALE : tampon de charbon des avant-postes (levier a)
 Build.FonderieBloc = require("script.team.fonderie_bloc") -- lot FONDERIE-BLOC : le coffre de charbon d'une fonderie de champ relié par un tapis au charbon ; champ de Build, pas une locale
 Build.Piquage = require("script.team.piquage") -- lot PIQUAGE : entrée d'un bloc alimentée par le surplus d'un tapis existant ; champ de Build, pas une locale (build.lua est à 199 locales)
@@ -879,7 +880,9 @@ local function reserve_tiles(b, p, list)
   for _, e in ipairs(list) do
     for _, t in ipairs(P.tiles_of(e)) do
       local k = P.tkey(t[1], t[2])
-      if b.occ[k] and b.occ[k] ~= p.id then return false end
+      -- (lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre du champ de ce projet a retenues pour son réseau du charbon reporté lui reviennent)
+      local ow = b.occ[k]
+      if ow and ow ~= p.id and not (p.spec and p.spec.champ and Build.Cd.own(ow, p.spec.champ.oid)) then return false end
     end
   end
   for _, e in ipairs(list) do
@@ -4198,6 +4201,25 @@ local function quai_tasks(f, p, surface, out)
         if r.due then
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
           if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          out[#out + 1] = {
+            key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = r.prio, no_rush = true, domain = "logistique", work = 40,
+            items = { { q.item, r.count } },
+            ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
+          }
+        end
+      elseif (q.flow or 0) > 0 then -- lot COMBUSTIBLE-MIGRATION : quai de COMBUSTIBLE d'une colonne de champ (q.flow = objets/s brûlés par ses fours) : seuil et cible à la consommation
+        -- (Cc.refill : 4 min d'avance, 20 min de cible), tâche URGENTE comme le coffre d'une centrale ; coffre du QG sans combustible : le tampon d'un avant-poste (Build.Ct)
+        local inv = chest.get_inventory(defines.inventory.chest)
+        local r = Cc.refill(n, q.flow, have, inv and (n + inv.get_insertable_count(q.item)) or nil, false)
+        local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+        if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+        local relay
+        if r.short and Build.Ct then
+          relay = Build.Ct.relay(f, p, surface, i, q, n, r, a.x, a.y, Build.Quartiers.DEPOT, game.tick)
+          if relay then r.short = nil end
+        end
+        if relay then out[#out + 1] = relay end
+        if r.due then
           out[#out + 1] = {
             key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = r.prio, no_rush = true, domain = "logistique", work = 40,
             items = { { q.item, r.count } },
