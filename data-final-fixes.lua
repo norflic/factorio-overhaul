@@ -74,6 +74,10 @@ end
 local A = require("shared.content.arsenal")
 local Lv = require("shared.levels.config")
 local inherits = {}
+for _, t in ipairs(A.ages or {}) do -- lot ARMES-AGES : la lignée Bastion hérite aussi des bonus de sa tourelle vanilla
+  inherits[t.copy] = inherits[t.copy] or {}
+  table.insert(inherits[t.copy], t.name)
+end
 for _, t in ipairs(A.turrets) do
   inherits[t.copy] = inherits[t.copy] or {}
   table.insert(inherits[t.copy], t.name)

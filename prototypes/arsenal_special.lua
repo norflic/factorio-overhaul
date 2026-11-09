@@ -586,3 +586,6 @@ for i, spec in pairs(A.special_techs) do
 end
 
 data:extend(out)
+
+-- Lot ARMES-AGES (9/11) : lignée Bastion (un mode par âge), armes de poing, frappe orbitale ; données A.ages (data.lua intact).
+require("prototypes.arsenal_ages")
