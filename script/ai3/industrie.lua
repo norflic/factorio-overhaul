@@ -304,6 +304,21 @@ local function afford_list(f, book, view, list, tick, orders)
   return true
 end
 
+--- Stock LIBRE pour l'allongement du mall au surplus : hors besoin, débité de ce que cette décision engage et du fer mis de côté pour la défense (planificateur, defense_hold). Rend { [objet] = n } ou nil.
+local function mall_libre(f, res, tick)
+  local rv = Dep.capi_reserve(f, Rsv.input(f, tick), tick)
+  if not rv then return nil end
+  local hold = f.team and f.team.ia3 and f.team.ia3.defense_hold or {}
+  local libre = {}
+  for _, k in ipairs(sorted_keys(rv.free)) do libre[k] = math.max(0, rv.free[k] - (hold[k] or 0)) end
+  for _, o in ipairs(res and res.orders or {}) do
+    for _, it in ipairs(o.items or {}) do
+      if libre[it[1]] then libre[it[1]] = math.max(0, libre[it[1]] - (it[2] or 0)) end
+    end
+  end
+  return libre
+end
+
 --- Le stock HORS besoin paie-t-il le module ? Rend vrai, ou faux et la raison. Les objets du gabarit qu'on ne sait pas fabriquer
 --- ni n'a au coffre sont refusés (« recherche : … »). `orders` : les ordres de la décision de cette minute, que le même stock paie déjà.
 local function affordable(f, book, view, mod, tick, orders)
@@ -476,7 +491,7 @@ function Ind.think(f, cs, res, view, book, tick)
       end
     end
   end
-  MallRt.minute(f, f.hq and f.hq.surface, lec, keep, function(list) return afford_list(f, book, view, list, tick, res and res.orders) end, tick) -- lot MALL : barres, cellules rendues, allongement, compteurs
+  MallRt.minute(f, f.hq and f.hq.surface, lec, keep, function(list) return afford_list(f, book, view, list, tick, res and res.orders) end, tick, mall_libre(f, res, tick)) -- lot MALL : barres, cellules rendues, allongement, compteurs
   Ind.sweep(f, tick)
   for _, k in ipairs(sorted_keys(st.hold)) do if st.hold[k] <= tick then st.hold[k] = nil end end
   Profiler.stop("ind:think")

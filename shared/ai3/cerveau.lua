@@ -219,6 +219,7 @@ function C.think(view, book, st, ctx)
   -- 2. Familles permanentes (planificateur sans échelle).
   local base = Planner.plan(C.base_view(view, st), book)
   local used = C.consumed(base, view)
+  st.defense_hold = base.defense_hold -- (lecteur : le stock libre du mall, script/ai3/industrie.lua)
   local avail = {}
   for _, k in ipairs(sorted_keys(view.stock)) do avail[k] = view.stock[k] end
   for _, k in ipairs(sorted_keys(view.incoming)) do avail[k] = (avail[k] or 0) + view.incoming[k] end
