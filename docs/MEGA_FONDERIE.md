@@ -155,3 +155,13 @@ Preuve hors jeu : `tests/mega_pose_test.lua` (48 OK, 17 mutants refusés), `test
 moteur réel : micro-bancs `mega-decision` (K1, 13 OK) et `mega-pose` (14 OK : au plus 3 bandes en vol, 2 bandes du même champ posées en
 parallèle, 49 foreuses électriques posées en 3 min de jeu après la décision), voir le rapport du lot.
 Fichier d'intégrateur : `settings/mega_fonderie.lua` (déjà dans le dépôt) doit être requis par `settings.lua`.
+
+### 11.1 Mesures en moteur réel (9/11, branche `mega-fonderie-t2`, archives `fo-logs/2026-11-09_MEGA-FONDERIE/`)
+| Critère | Résultat | Preuve |
+|---|---|---|
+| K1 (décision < 20 min) | OUI pour les trois équipes : votre équipe 10,0 min (centrale finie à 9,4), scarlet 19,8, azure 15,9 (avant le saut des gisements « statiques » : 21,8 et 21,9, ratés) | `geants-1` puis `geants-3` : `[FO-MEGA] ... DECIDE ... a N min` |
+| K2 (couverture ≥ 50 % à 40 min) | NON : 0,2 à 0,9 % des 27 000 tuiles de 8 gisements (azure 8,6 pm, scarlet 3,1 pm, votre équipe 2,1 pm) | `geants_lecture.py` sur `geants-3` ; cause lue : le fer manque (« fer au stock 9 à 137, plancher 150 »), les bandes attendent leurs matières (26 « en attente (matieres) » pour azure) ; aucune bande en avance n'est partie (0 « EN AVANCE demandee » : la bande principale n'a jamais ses matières réunies) |
+| K3 (≥ 15 plaques/s) | NON MESURÉ (rien d'assez posé) | |
+| K4 (aucune foreuse électrique dans un four) | OUI au micro-banc : 0 foreuse dans un four, 49 sur un tapis | `mega-pose-3` : `[FO-MEGA-POSE] K4 : 0 ... 49 sur un tapis` ; non lu sur `etape1-geants` |
+| K5 (`mega:think` < 5 ms) | NON PROUVÉ au profileur épinglé : 4,2 à 4,4 ms (1 gisement, banc non épinglé, charge faible) puis 13,1 ms (charge forte, première lecture) ; hors jeu 282 k instructions au pire pour la partie pure | `mega-decision-2` / `mega-decision-3` : `[FO-MEGA-COUT]` |
+| A2 (bandes en parallèle quand le stock paie) | OUI au micro-banc : jusqu'à 3 projets de bande en vol, 2 bandes du même champ posées en parallèle, plafond respecté, 49 foreuses posées en 3 min de jeu | `mega-pose-3` et `-4` : `[FO-MIGRATION] ... EN AVANCE demandee / posee` |
