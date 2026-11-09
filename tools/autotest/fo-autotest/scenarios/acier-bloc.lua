@@ -8,9 +8,9 @@
      les fours du bloc fondent l'acier par tapis et bras ; débit mesuré par l'automatisation (rate_meas) ;
   6. quand le bloc fini produit au moins la demande, les tâches manuelles d'acier sont COUPÉES (fo-acier status.cut).
   Journal du mod : [FO-ACIER], [FO-RANGEES-ASM], [FO-IA3E]. Lancement (par la file, jamais directement) :
-    banc.py --out <archive> --qui acier -- 9000 acier-bloc <source>
+    banc.py --out <archive> --qui acier -- 11500 acier-bloc <source>
 ]]
-local CHECK = 8900
+local CHECK = 11400 -- le debit mesure demande 2 lectures d'une minute (3 600 ticks, script/ai3/automatisation.lua roll) : bloc fini a ~4 700, lectures a 7 200 et 10 800
 local EVERY = 120
 local ITEM = "steel-plate"
 local PARTS = { { "assembling-machine-1", 40 }, { "assembling-machine-2", 20 }, { "fast-inserter", 60 }, { "inserter", 120 },
@@ -148,7 +148,10 @@ return {
       end
     end
     if st.fini and st.box and t % 600 == 0 then
-      local n, done, steel, plates = furnaces(ctx, st.box)
+        local n, done, steel, plates = furnaces(ctx, st.box)
+      local ids = {}
+      for _, e in ipairs(ctx.surface().find_entities_filtered({ area = area(st.box), type = "furnace" })) do ids[#ids + 1] = string.format("#%s:%d", tostring(e.unit_number), e.products_finished or 0) end
+      ctx.log("tick " .. t .. " : fours " .. table.concat(ids, " "))
       local s = ctx.remote("fo-acier", "status", st.key) or {}
       local m = steel_mod(ctx, st.key)
       st.n, st.done, st.steel = n, done, steel
