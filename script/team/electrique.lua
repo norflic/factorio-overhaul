@@ -98,9 +98,11 @@ local function inputs(v, kind, craft)
   local res_live = nil
   if spec then res_live = (v.by or {})[spec.resource] or 0 end
   if craft then res_live = v.min_live end
+  local rr = (kind and not craft and v.res) and v.res[kind] or nil
   return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
     fuel = craft or (spec ~= nil and spec.product == T.fuel), el_live = v.el_live, poles_stock = v.poles_stock, since = v.since,
-    res_live = res_live }
+    res_live = res_live,
+    res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was }
 end
 Elec.inputs = inputs
 
@@ -122,7 +124,39 @@ function Elec.think(f, book, tick)
     local n = sp and (lv.by[sp.resource] or 0) or 0
     if min_live == nil or n < min_live then min_live = n end
   end
-  local v = { tick = tick, on = Elec.on(), obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
+  -- Lot DEFENSE-AP : extraction EFFONDRÉE par ressource (foreuses qui travaillent : thermiques des avant-postes + électriques de la force sur
+  -- cette ressource), pic récent, durée sans foreuse de plus, hystérésis ; lu par E.thermal (inputs : res_active, res_peak, res_stalled, res_was).
+  st.res = st.res or {}
+  local res = {}
+  for _, k in ipairs(T.OUTPOST_ORDER or {}) do
+    local sp = T.outposts[k]
+    if sp then
+      local thermal = 0
+      for _, oid in ipairs(State_sorted(f.outposts)) do
+        local o = f.outposts[oid]
+        if o.kind == k then
+          for _, d in ipairs(o.drill_list or {}) do
+            if d.valid and d.name == T.DRILL then thermal = thermal + 1 end
+          end
+        end
+      end
+      local active = thermal + (lv.by[sp.resource] or 0)
+      local r = st.res[k] or { peak = active, peak_t = tick, last = active, rise_t = tick, was = false }
+      if active >= r.peak or tick - r.peak_t > E.CFG.peak_keep then r.peak, r.peak_t = active, tick end
+      if active > r.last then r.rise_t = tick end
+      r.last = active
+      local stalled = tick - r.rise_t
+      local down = E.collapsed({ active = active, peak = r.peak, stalled = stalled, was = r.was }) -- effondrée ET (à l'arrêt, ou déjà entrée)
+      if down ~= r.was then
+        say(f, st, tick, string.format("extraction de %s %s : %d foreuse(s) actives pour un pic recent de %d, %.1f min sans foreuse de plus",
+          k, down and "EFFONDREE (thermique permise)" or "retablie (thermique refusee de nouveau)", active, r.peak, stalled / 3600))
+      end
+      r.was = down
+      st.res[k] = r
+      res[k] = { active = active, peak = r.peak, stalled = stalled, was = down }
+    end
+  end
+  local v = { tick = tick, on = Elec.on(), res = res, obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
     poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw,
     el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
     since = st.switch_tick and (tick - st.switch_tick) or nil }
