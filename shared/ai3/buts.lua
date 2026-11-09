@@ -237,6 +237,8 @@ function B.targets(s, st)
       local up, why = Rv.decide({ have = s.stock[kspec.product] or 0, floor = Br.need_floor(s.workers, B.NEED_FLOOR), tg = tg[top] or 0,
         cap = s.cap[top] or 0, pending = (s.pending or {})[top] or 0, max = grow_max, outs = (s.out_state or {})[top], maxcap = rs.maxcap,
         cost = s.reinvest_cost[top], drills = kspec.drills, threatened = s.threatened, undefended = s.undef_n, tick = s.tick, last = rs.last })
+      rs.hist = rs.hist or {}
+      rs.hist[why] = (rs.hist[why] or 0) + 1 -- journal [FO-REINVESTIR] : pourquoi la règle a dit non (nombres seulement)
       if up then
         tg[top] = (tg[top] or 0) + 1
         rs.last, rs.n, rs.why = s.tick, (rs.n or 0) + 1, why -- lu par le journal [FO-REINVESTIR] (script/ai3/cerveau.lua)

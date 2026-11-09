@@ -934,6 +934,15 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     log(string.format("[FO-REINVESTIR] %s : cible de capacite du fer montee (hausse %d, %s) a %.1f min", f.key or "player", st.reinv.n,
       tostring(st.reinv.why), minutes(f, tick)))
   end
+  if st.reinv and st.reinv.hist and math.floor(tick / 3600) ~= (st.reinv.logm or -1) and math.floor(tick / 3600) % 3 == 0 then
+    st.reinv.logm = math.floor(tick / 3600)
+    local ks = {}
+    for k in next, st.reinv.hist do ks[#ks + 1] = k end
+    table.sort(ks)
+    local parts = {}
+    for _, k in ipairs(ks) do parts[#parts + 1] = k .. "=" .. st.reinv.hist[k] end
+    log(string.format("[FO-REINVESTIR-NON] %s minute %d : raisons des refus (pensees) %s", f.key or "player", st.reinv.logm, table.concat(parts, " ; ")))
+  end
   -- lot SONDE-FER : [FO-SONDE-FER] une ligne par minute (lecture seule)
   ZIrt.after(f, st, tick, math.floor(minutes(f, tick) + 0.5)) -- lot ZERO-IDLE : ligne [FO-ZERO-IDLE] (une par minute, PNJ libres)
   Pil.armee_line(f, plan, minutes(f, tick)) -- lot TV-PILOTE (V10) : journal [FO-ARMEE] aux changements de la réserve
