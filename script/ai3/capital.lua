@@ -641,7 +641,8 @@ function Capital.goal(f, view, book, tick, w)
     local before = eng.group
     local rg = d.replace and d.replace.group or nil
     Am.engage_update(eng, tick, { start = (not d.all_in) and rg or nil, -- engagé seulement pour une pièce À FABRIQUER
-      cost = d.work, -- aucun `threat` : la pile (script/team/pile.lua) suspend déjà les améliorations sous danger réel, ctx.threat vaut aussi « guerre déclarée » alive = (before == nil) or (d.rep_groups and d.rep_groups[before]) or false })
+      cost = d.work, -- aucun `threat` : la pile suspend déjà les améliorations sous danger réel, ctx.threat vaut aussi « guerre déclarée »
+      alive = (before == nil) or (d.rep_groups and d.rep_groups[before]) or false })
     -- Diagnostic (banc f288d767 : azure n'engage jamais le tapis alors que la famine devait s'en charger) : l'état lu, toutes les 3 min.
     if tick - (eng.diag or -1e9) >= 10800 and #(d.rep_kinds or {}) > 0 then
       eng.diag = tick
