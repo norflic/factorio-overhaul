@@ -41,6 +41,7 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
+local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module (mall…)
 local Lj = require("script.ai3.labo_journal") -- lot BLOCAGE-LABOS : journal [FO-LABO] (cause d'une recherche qui attend ses packs)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
 local Harvest = require("script.team.harvest") -- lot KIT : arbres qui donnent le bois (matière naturelle des poteaux)
@@ -506,6 +507,14 @@ local function research_step(f, st, book, w, tick, view)
       local m = {}
       for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
       for _, k in ipairs(sorted_keys(pw)) do m[k] = true end
+      wanted = m
+    end
+    -- Lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module (script/ai3/voulues.lua : mall, répartiteur et souterrain…)
+    local vw = Voulues.wanted(f)
+    if vw then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      for _, k in ipairs(sorted_keys(vw)) do m[k] = true end
       wanted = m
     end
     -- Lot RB-FLUIDE : le kit du premier robot d'une faction qui n'en a aucun (script/robots/faction.lua ; non chargé hors jeu : nil)
