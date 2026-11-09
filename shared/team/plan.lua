@@ -31,6 +31,7 @@ local Poteaux = need("shared.team.poteaux", "shared/team/poteaux") -- lot POTEAU
 local Ligne = need("shared.team.ligne", "shared/team/ligne") -- lot AGENCEMENT : disposition des bras de sortie
 local T = need("shared.team.config", "shared/team/config") -- lot RECHARGE : type de prototype du répartiteur (T.LOGISTIC_TYPES)
 local Lm = need("shared.team.lot_minerai", "shared/team/lot_minerai") -- lot MINERAI-SONDE : seuils par ressource d'un lot de gisement (règle pure)
+local Pu = need("shared.team.purete", "shared/team/purete") -- lot PURETE-TAPIS : queues de tapis d'un gabarit (règle pure)
 
 local P = {}
 
@@ -484,6 +485,23 @@ function P.port_room(inst, fan)
   return out
 end
 
+local TAILS = setmetatable({}, { __mode = "k" }) -- queues par gabarit (P.fit) : cache LOCAL, jamais dans global
+
+--- Lot PURETE-TAPIS : queues d'un gabarit posé à l'origine (inst = M.instantiate(g, k, 0, 0)) : les tuiles devant ses tapis dont la tuile suivante
+--- n'est pas une de ses pièces, hors tuiles déjà réservées pour les ports (`room` = P.port_room). Liste triée { x, y, bx, by, dir } relative à
+--- l'origine ; ce que verse la queue d'un tapis d'entrée (ingrédients de la rangée) ne doit atterrir sur aucun tapis étranger (Pu.tail_refusals).
+function P.template_tails(inst, room)
+  local belts, occ, skip = {}, {}, {}
+  for _, e in ipairs(inst.entities) do
+    local ent = { name = e.name, x = e.position.x, y = e.position.y, dir = e.direction or 0 }
+    for _, t in ipairs(P.tiles_of(ent)) do occ[Pu.tkey(t[1], t[2])] = true end
+    local sp = M.spec(e.name)
+    if sp and sp.kind == "belt" then belts[#belts + 1] = { x = floor(ent.x), y = floor(ent.y), dir = ent.dir } end
+  end
+  for _, t in ipairs(room or {}) do skip[Pu.tkey(t[1], t[2])] = true end
+  return Pu.tails(belts, occ, skip)
+end
+
 --- Meilleur placement d'un gabarit dans un rectangle (lot) : { k, ox, oy, cover, score } ou nil, raison.
 --- opts : ore = { [tkey] = true } (tuiles de minerai de la ressource visée ; foreuses) ; toward = {x, y} (entrées et
 --- consommateurs : le placement le plus proche gagne) ; free(tx, ty) -> bool (tuile utilisable : ni eau, ni falaise,
@@ -571,6 +589,17 @@ function P.fit(g, rect, opts)
       end
       local inst0 = M.instantiate(r, 0, 0, 0)
       local room0 = P.port_room(inst0, opts.fan)
+      -- lot PURETE-TAPIS : les queues de tapis du gabarit (le bout du tapis d'entrée d'une rangée sort d'une tuile de l'emprise) ne doivent verser
+      -- sur aucun tapis existant ; opts.front_ok(tx, ty) -> faux si un tapis occupe cette tuile (nil : comme avant)
+      local tails0
+      if opts.front_ok then
+        -- (la géométrie d'un gabarit ne change pas : queues gardées par gabarit, rotation et nombre de bras de sortie, dans un cache à clés faibles)
+        local cache = TAILS[g]
+        if not cache then cache = {}; TAILS[g] = cache end
+        local ck = k .. ":" .. (opts.fan or 1)
+        tails0 = cache[ck]
+        if not tails0 then tails0 = P.template_tails(inst0, room0); cache[ck] = tails0 end
+      end
       -- bout de la tête d'alimentation du port d'entrée (FEED_DEPTH tuiles derrière le port), relatif à l'origine
       -- lot PD-FONDERIEQG (D82) : sortie du collecteur et son sens (premier port de sortie tapis)
       local out_tip, pen = nil, 0
@@ -623,6 +652,11 @@ function P.fit(g, rect, opts)
               local tx, ty = ox + t0[1], oy + t0[2]
               if tx < rect.x0 or tx >= rect.x1 or ty < rect.y0 or ty >= rect.y1 then ok = false break end
               if opts.free and not opts.free(tx, ty) then ok = false break end
+            end
+          end
+          if ok and tails0 then
+            for _, t0 in ipairs(tails0) do
+              if not opts.front_ok(ox + t0.x, oy + t0.y) then ok = false break end
             end
           end
           if ok and wt then

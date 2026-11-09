@@ -32,6 +32,7 @@ local Mod = require("shared.team.modules")
 local P = require("shared.team.plan")
 local D = require("shared.team.automatisation_donnees")
 local Mg = require("shared.team.migration_champ")
+local Mp = require("shared.team.mega_pose") -- lot MEGA-FONDERIE (A2) : bandes en avance d'un gisement à méga-fonderie décidée (règle pure)
 local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arrière d'une bande qui n'aboutit pas (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Rc = require("shared.team.reconstruction")
@@ -671,6 +672,39 @@ local function failed(f, ms, o, st, tick, why)
   end
 end
 
+--- Lot FONDERIE (projet séparé, 3/11) : le réseau du charbon de chaque côté d'une bande (ligne de foreuses, tracé, tronc) est un projet À PART,
+--- demandé avant la première bande en voie de ce côté, à la priorité d'une alimentation. (Extrait de begin_band au lot MEGA-FONDERIE A2 : les
+--- bandes en avance le demandent aussi ; le texte et l'ordre des demandes sont inchangés.)
+local function coal_projects(f, ms, o, st, bd, pr)
+  st.coal_req = st.coal_req or {}
+  for _, bo in ipairs(Champ.CFG.coal_project and bd.plan.bands or {}) do
+    for _, g in ipairs(bo.groups or {}) do
+      local sk = tostring(g.side)
+      local old = st.coal_req[sk]
+      if old and not (f.build and f.build.projects[old]) then st.coal_req[sk] = nil end
+      if g.mode == "voie" and not st.coal_req[sk] then
+        local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = g.side }, near = { x = o.pos.x, y = o.pos.y },
+          prio = Champ.CFG.coal_prio, domain = "infrastructures", lazy_clear = true })
+        if cid then
+          st.coal_req[sk] = cid
+          say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s demande, projet %d (avant la bande %d)", o.field and "gisement" or "avant-poste",
+            o.id, o.kind, g.side > 0 and "+" or "-", cid, pr), true)
+        end
+      end
+    end
+  end
+end
+
+--- Lot FONDERIE : réseaux du charbon reportés (bande au-delà de Champ.CFG.band_max) : projets LIÉS à la bande `id`, demandés juste après elle.
+local function defer_projects(f, ms, o, st, bd, pr, id)
+  for _, sd in ipairs(bd.defer or {}) do
+    local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = sd, link = id }, near = { x = o.pos.x, y = o.pos.y },
+      prio = CFG.prio, domain = "production", lazy_clear = true })
+    say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s reporte dans le projet lie %s (bande %d, projet %d)", o.field and "gisement" or "avant-poste",
+      o.id, o.kind, sd > 0 and "+" or "-", tostring(cid), pr, id), true)
+  end
+end
+
 --- Lot CHAMP : la bande suivante du champ de l'avant-poste `o` (cadre figé au premier appel), demandée au plan directeur comme un SITE
 --- (Build.SITES.champ, script/team/champ.lua). Les paires dont une tuile est sous la bande sont celles que le dégel retire. Rend vrai si la
 --- demande est partie.
@@ -695,14 +729,19 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   local product = T.outposts[o.kind].product
   local pr
   for _, x in ipairs(st.order) do
-    if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.prot and st.prot[x]) then pr = x end
+    if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[tostring(x)]) then pr = x end
   end
   if not pr and st.prot then
     -- lot THERMIQUE : toutes les bandes restantes ont été retenues par la protection : on les redemande, la coupe attendra au dégel
     st.prot = nil
     for _, x in ipairs(st.order) do
-      if not pr and not st.done_pr[tostring(x)] and not bad[x] then pr = x end
+      if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.ahead and st.ahead[tostring(x)]) then pr = x end
     end
+  end
+  if not pr and st.ahead then
+    -- lot MEGA-FONDERIE (A2) : des bandes en avance sont encore au plan : le champ n'est pas « posé » tant qu'elles ne le sont pas
+    st.retry = tick + CFG.retry
+    return false
   end
   if not pr then
     -- lot THERMIQUE5 (revue du 3/11, cause 2) : l'ordre épuisé ne déclare plus « fini » un champ qui porte encore des paires (Th.order_end) ;
@@ -785,23 +824,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   -- lot FONDERIE (projet séparé, 3/11) : le réseau du charbon d'un côté (ligne de foreuses, tracé, tronc) est un projet À PART, demandé avant
   -- la première bande en voie de ce côté, à la priorité d'une alimentation : aucune bande n'attend des centaines de pièces qui ne sont pas
   -- les siennes (lot3-20261020 : 1 161 entités pour une bande, « en attente (matières) » jusqu'à la fin)
-  st.coal_req = st.coal_req or {}
-  for _, bo in ipairs(Champ.CFG.coal_project and bd.plan.bands or {}) do
-    for _, g in ipairs(bo.groups or {}) do
-      local sk = tostring(g.side)
-      local old = st.coal_req[sk]
-      if old and not (f.build and f.build.projects[old]) then st.coal_req[sk] = nil end
-      if g.mode == "voie" and not st.coal_req[sk] then
-        local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = g.side }, near = { x = o.pos.x, y = o.pos.y },
-          prio = Champ.CFG.coal_prio, domain = "infrastructures", lazy_clear = true })
-        if cid then
-          st.coal_req[sk] = cid
-          say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s demande, projet %d (avant la bande %d)", o.field and "gisement" or "avant-poste",
-            o.id, o.kind, g.side > 0 and "+" or "-", cid, pr), true)
-        end
-      end
-    end
-  end
+  coal_projects(f, ms, o, st, bd, pr)
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
     domain = "production", lazy_clear = true, pile = ((st.want_until or 0) > tick) and "couverture" or "capi", product = product }
   if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
@@ -812,12 +835,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     return false
   end
   -- lot FONDERIE : réseaux du charbon reportés (bande au-delà de Champ.CFG.band_max) : projets LIÉS à la bande, demandés juste après elle
-  for _, sd in ipairs(bd.defer or {}) do
-    local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = sd, link = id }, near = { x = o.pos.x, y = o.pos.y },
-      prio = CFG.prio, domain = "production", lazy_clear = true })
-    say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s reporte dans le projet lie %s (bande %d, projet %d)", o.field and "gisement" or "avant-poste",
-      o.id, o.kind, sd > 0 and "+" or "-", tostring(cid), pr, id), true)
-  end
+  defer_projects(f, ms, o, st, bd, pr, id)
   st.stage, st.pid, st.ids, st.t0, st.band_key = "projet", id, ids, tick, pr
   st.cx, st.cy, st.gate_t0, st.why_last, st.retired = cx, cy, nil, nil, nil
   o.migr, o.full, o.full_by = "en cours", true, "migration"
@@ -1509,6 +1527,156 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
   return false
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot MEGA-FONDERIE (A2) : bandes EN AVANCE d'un gisement à méga-fonderie décidée (règle pure : shared/team/mega_pose.lua)
+---------------------------------------------------------------------------------------------------
+-- Une bande de plus est demandée au plan directeur pendant que la bande principale du même cadre est déjà au chantier (ses matières
+-- réunies). Déclencheur : script/team/mega_fonderie.lua (Mega.think) pose st.mega_par par Mig.want ; décision : Mp.allow (courant, ennemi,
+-- plafond de bandes en vol, stock qui PAIE la bande et une marge, pile) ; action : Build.request du même site « champ » que la bande
+-- principale ; effet : des bandes qui se bâtissent en parallèle (journal [FO-MIGRATION] « EN AVANCE »). Lecteur de st.ahead : begin_band (ne
+-- reprend pas la bande), ahead_reap (la compte posée), Mig.projects (le cerveau fabrique ses matières). État : st.ahead = { [bande] =
+-- { pid, t0 } } (nombres seulement). Une bande avec des paires thermiques dessous reste à la voie principale (retrait, dégel, retour arrière).
+
+--- Fer (matières premières du livre) de la bande planifiée `bd`, ou nil si le livre ne sait pas le dire.
+local function band_iron(book, bd)
+  if not (book and bd and bd.ents) then return nil end
+  local count, names = {}, {}
+  for _, e in ipairs(bd.ents) do
+    if not count[e.name] then names[#names + 1] = e.name end
+    count[e.name] = (count[e.name] or 0) + 1
+  end
+  table.sort(names)
+  local list = {}
+  for _, nm in ipairs(names) do list[#list + 1] = { nm, count[nm] } end
+  local ok, raw = pcall(function() return book:raw_cost(list) end)
+  local iron = ok and raw and raw[T.outposts.iron.product] or nil
+  return (iron and iron > 0) and iron or nil
+end
+
+--- Les bandes en avance du champ : posées (fini), bloquées trop longtemps (laissées au plan) ou perdues ; rend le nombre de bandes comptées.
+local function ahead_reap(f, ms, o, st, tick)
+  local b = f.build
+  local n = 0
+  for _, k in ipairs(sorted_keys(st.ahead)) do
+    local a = st.ahead[k]
+    local p = b.projects[a.pid]
+    local blocked_for = 0
+    if p and p.state == "bloque" then
+      a.block_t0 = a.block_t0 or tick
+      blocked_for = tick - a.block_t0
+    else
+      a.block_t0 = nil
+    end
+    local v = Mp.reap(p and { state = p.state, blocked_for = blocked_for } or nil)
+    if v == "posee" or v == "bloquee" then
+      st.done_pr[k] = true
+      st.produced = st.produced + 1
+      ms.lines = (ms.lines or 0) + 1
+      st.ahead[k] = nil
+      n = n + 1
+      say(f, ms, string.format("%s %d (%s) : bande %s EN AVANCE %s (projet %d, %.1f min), %d bande(s) encore en avance", o.field and "gisement" or "avant-poste", o.id,
+        o.kind, k, v == "posee" and "posee" or "bloquee, laissee au plan", a.pid, (tick - a.t0) / 3600, #sorted_keys(st.ahead)), true)
+    elseif v == "perdue" then
+      st.ahead[k] = nil
+      say(f, ms, string.format("%s %d (%s) : bande %s EN AVANCE perdue (projet %d disparu ou annule) : elle redevient une bande du cadre", o.field and "gisement" or "avant-poste",
+        o.id, o.kind, k, a.pid), true)
+    end
+  end
+  if next(st.ahead) == nil then st.ahead = nil end
+  return n
+end
+
+--- Une bande de plus en avance pour le champ `o`, si la règle l'autorise. Rend vrai si une demande est partie.
+local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold)
+  local b = f.build
+  local p = st.pid and b.projects[st.pid]
+  local inflight = (p and 1 or 0)
+  for _ in ipairs(sorted_keys(st.ahead)) do inflight = inflight + 1 end
+  local product = T.outposts[o.kind].product
+  local c = { on = true, power = power_ok(b), crisis = false, enemy = false, pairs_under = 0, inflight = inflight, par_max = st.mega_par or 1,
+    main_ready = p ~= nil and p.state ~= "reserve" and p.state ~= "plan" and p.state ~= "attente", iron = free[T.outposts.iron.product] or 0, band_iron = 1 }
+  local function refuse(why)
+    say_why(f, ms, st, "avance:" .. why, string.format("%s %d (%s) : pas de bande en avance (%s), %d bande(s) en vol", o.field and "gisement" or "avant-poste", o.id, o.kind, why,
+      inflight))
+    return false
+  end
+  local ok, why = Mp.allow(c)
+  if not ok then return refuse(why) end -- (les causes sans coût : courant, plafond, matières de la principale ; l'ennemi et le plan viennent après)
+  if hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "couverture", product))) then return refuse("pile") end
+  c.enemy = enemy_near(f, surface, o.pos.x, o.pos.y)
+  ok, why = Mp.allow(c)
+  if not ok then return refuse(why) end
+  -- la bande à demander : la première du cadre qui n'est ni posée, ni écartée, ni en vol, ni celle de la voie principale
+  local bad = {}
+  for _, k in ipairs(st.bad or {}) do bad[k] = true end
+  for _, k in ipairs(st.stopped or {}) do bad[k] = true end
+  local pr
+  for _, x in ipairs(st.order) do
+    local k = tostring(x)
+    if not pr and not st.done_pr[k] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[k]) and x ~= st.band_key then pr = x end
+  end
+  if not pr then return refuse("aucune bande de plus dans le cadre") end
+  local bd, bwhy = Champ.band(f, surface, o, st.frame, pr)
+  if not bd then
+    st.bad = st.bad or {}
+    st.bad[#st.bad + 1] = pr
+    say(f, ms, string.format("avant-poste %d : bande %d ecartee en avance (%s)", o.id, pr, tostring(bwhy)))
+    return false
+  end
+  local list = survey_field(f, o)
+  local under = {}
+  for i = 1, #bd.tiles - 1, 2 do under[P.tkey(bd.tiles[i], bd.tiles[i + 1])] = true end
+  local pairs_under = 0
+  for _, pr2 in ipairs(list) do
+    local t = Mg.tiles({ Mg.box(pr2.drill), Mg.box(pr2.sink) })
+    for i = 1, #t - 1, 2 do
+      if under[P.tkey(t[i], t[i + 1])] then pairs_under = pairs_under + 1; break end
+    end
+  end
+  c.pairs_under, c.band_iron = pairs_under, band_iron(book, bd)
+  if not c.band_iron then return refuse("cout de la bande illisible") end
+  ok, why = Mp.allow(c)
+  if not ok then
+    st.ahead_retry = tick + 3600 -- (le plan d'une bande est cher : un refus de stock ou de paires se relit dans une minute)
+    return refuse(why)
+  end
+  coal_projects(f, ms, o, st, bd, pr)
+  local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
+    domain = "production", lazy_clear = true, pile = "couverture", product = product }
+  local id, rwhy = Build.request(f, spec)
+  if not id then
+    st.ahead_retry = tick + CFG.retry
+    return refuse("demande impossible : " .. tostring(rwhy))
+  end
+  defer_projects(f, ms, o, st, bd, pr, id)
+  st.ahead = st.ahead or {}
+  st.ahead[tostring(pr)] = { pid = id, t0 = tick }
+  ms.requests = (ms.requests or 0) + 1
+  st.why_last = nil
+  say(f, ms, string.format("%s %d (%s) : bande %d EN AVANCE demandee, projet %d (%d bande(s) en vol sur %d), fer libre %d pour %d (marge d'une bande comprise)",
+    o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, inflight + 1, c.par_max, math.floor(c.iron), math.ceil(c.band_iron * (1 + Mp.CFG.margin))), true)
+  return true
+end
+
+--- Passage des bandes en avance de tous les champs voulus par une méga-fonderie (st.mega_par). Une demande au plus par passage. Rend 1 si une
+--- demande est partie.
+local function ahead_step(f, surface, ms, free, book, tick, hold)
+  if not free then return 0 end
+  local did = 0
+  for _, oid in ipairs(sorted_keys(ms.o)) do
+    local st = ms.o[oid]
+    if st.mega_par and st.frame and not st.abandoned then
+      local o = Champ.target(f, oid)
+      if o then
+        if st.ahead then ahead_reap(f, ms, o, st, tick) end
+        if did == 0 and (st.want_until or 0) > tick and tick >= (st.ahead_retry or 0) and st.pid and (st.stage == "projet" or st.stage == "chantier")
+          and ahead_launch(f, surface, ms, o, st, tick, free, book, hold) then did = 1 end
+      end
+    end
+  end
+  return did
+end
+
 local function ms_of(f)
   local ms = f.migration
   if not ms then
@@ -1540,7 +1708,7 @@ end
 --- (ms.fields, créé ici si un réseau alimenté est à portée d'une chaîne de poteaux). La cible devient « voulue » (st.want_until) : servie
 --- avant les autres (start_next), une paire n'y est pas exigée, une bande sans paire n'attend pas que la plaque manque (begin_band).
 --- Rend (numéro de la cible, bandes qui produisent déjà) ou nil, raison.
-function Mig.want(f, dep, tick)
+function Mig.want(f, dep, tick, par)
   local kind = Mig.takes(f, dep.resource)
   if not kind then return nil, "pas de champ pour ce minerai" end
   local ms = ms_of(f)
@@ -1589,6 +1757,7 @@ function Mig.want(f, dep, tick)
   if st.abandoned then return nil, "champ abandonne il y a moins de " .. math.floor(wait / 3600) .. " min" end
   if o.migr == "partiel" and st.stage == "veille" then o.migr, st.fails, st.bad = nil, 0, nil end -- arrêté après des échecs : on reprend
   st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)
+  if par and par >= 1 then st.mega_par = par end -- lot MEGA-FONDERIE (A2) : bandes en vol au plus (Mp.par_max), lu par ahead_step
   return o.id, st.produced
 end
 
@@ -1669,6 +1838,9 @@ function Mig.think(f, surface, book, free, tick, hold)
   Profiler.fstart("mig:balayage")
   if free and Th.pile_permits("balayer", hold) and sweep(f, surface, ms, free, book, tick) > 0 then did = 1 end
   Profiler.fstop("mig:balayage")
+  Profiler.fstart("mig:avance")
+  if ahead_step(f, surface, ms, free, book, tick, hold) > 0 then did = 1 end -- lot MEGA-FONDERIE (A2)
+  Profiler.fstop("mig:avance")
   -- un créneau libre : trois au plus, un seul par minerai (lot THERMIQUE ; lot CHAMP : deux), la migration du treillis (sans cadre) seule
   local busy = { total = 0, ids = {} }
   for _, slot in ipairs(SLOTS) do
@@ -1712,6 +1884,14 @@ function Mig.projects(f)
     local o = id and Champ.target(f, id)
     if st and (st.stage == "projet" or st.stage == "chantier") and st.pid then
       out[#out + 1] = { pid = st.pid, item = st.frame and o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
+    end
+  end
+  -- lot MEGA-FONDERIE (A2) : les bandes en avance aussi (le cerveau fabrique leurs matières manquantes)
+  for _, oid in ipairs(sorted_keys(ms and ms.o)) do
+    local st = ms.o[oid]
+    local o = st.ahead and Champ.target(f, oid)
+    for _, k in ipairs(sorted_keys(st.ahead)) do
+      out[#out + 1] = { pid = st.ahead[k].pid, item = o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
     end
   end
   return out
