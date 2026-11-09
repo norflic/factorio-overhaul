@@ -22,7 +22,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 1,
-   "sha256": "fd2ae095db0c884dd188428ad53718b0fe041e6ef4eaef46e22efe2c1d7ee249",
+   "sha256": "a7ffbeebd3568ec6a61e7c7e7e298f20bc162c0a740804f5f26ada6f67730124",
    "type": "effectivity"
   },
   "effectivity-module-2": {
@@ -47,7 +47,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 2,
-   "sha256": "cab175662c945f5208e15189b46bed92ffcfe41d3c2004a99a5be9c2629dcf4d",
+   "sha256": "3be313414ba380ada0b3246ba033b00ff8f17496210fd8b065e66bd6679c59b2",
    "type": "effectivity"
   },
   "effectivity-module-3": {
@@ -72,7 +72,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 3,
-   "sha256": "fb3f92606c310eb64084b658355a0c5fa79d7b1feb9de3bb8c975f427c5f3629",
+   "sha256": "46ce8e3666c9fa830005117585333980f0dd37cf06bbc385491c09c853b99125",
    "type": "effectivity"
   },
   "fo-effectivity-module-10": {
@@ -97,7 +97,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 10,
-   "sha256": "27ab1d7d45822a2dbbb358b0fb03cc8194fb5bcd44157d5a399f1cafecb30a55",
+   "sha256": "759586fddfeaa8fc8b20c6ac83009645edda2b333c674c16e36d00c246557591",
    "type": "effectivity"
   },
   "fo-effectivity-module-4": {
@@ -122,7 +122,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 4,
-   "sha256": "8b492685bdb230a04674d405038c8bf9af08e8306c8e1557e3e133439f99828e",
+   "sha256": "60bc822d570fe060be5efbe160e2ee0499a2ae25d5f417fbe4f2fcad853a216f",
    "type": "effectivity"
   },
   "fo-effectivity-module-5": {
@@ -147,7 +147,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 5,
-   "sha256": "6274a4ec6d3e370db5fb7e9c631a3af53ba6b5f9fe8c3c4355066e0e74376787",
+   "sha256": "e79effd1adc10261186ca4e18d6ad5cfe1c0b33464acb5479d61cc42942b0ed9",
    "type": "effectivity"
   },
   "fo-effectivity-module-6": {
@@ -172,7 +172,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 6,
-   "sha256": "1ce47b2d7855f9fdb24e6e272d0e96370cc35475f1762a8b4fa18692f8b2965e",
+   "sha256": "c98ae5f3c658d6f379652e172a1745c1941244222ab724c991a271d22d85ae6a",
    "type": "effectivity"
   },
   "fo-effectivity-module-7": {
@@ -197,7 +197,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 7,
-   "sha256": "fe415463d91d7eb0fd8bdd3551de6444dfd46eff533d456eddbb19fc084d26b5",
+   "sha256": "7c983f5e5f27a5d55c2bd79086b8288169a03304e06f7a7bd26167732cfb4e00",
    "type": "effectivity"
   },
   "fo-effectivity-module-8": {
@@ -222,7 +222,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 8,
-   "sha256": "f7ea8235b614a067bf64572452c9568586e77887ab4d290d48da7f48e9a82d86",
+   "sha256": "6904c268743c10a94113f72eb5d0e3b989fef252357087a77121a19e7a17f9c6",
    "type": "effectivity"
   },
   "fo-effectivity-module-9": {
@@ -247,7 +247,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 9,
-   "sha256": "9ad50e87aea657f2c70b5e9cd7916045bde7d66e79afd04610d85a53aed2a6f7",
+   "sha256": "92a97a8112cff88197ecc57c913115404144b4c2a83ab6740a37c1abc1498e08",
    "type": "effectivity"
   },
   "fo-productivity-module-10": {
@@ -272,7 +272,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 10,
-   "sha256": "7ea6cf2e525942ed60b46507dc5da93e09bbd482287993fa96ab2926928a1052",
+   "sha256": "4a5a2d62d35b4fb322a205b3ca676df205af3be0a26aedd6c400e55feaaf3023",
    "type": "productivity"
   },
   "fo-productivity-module-4": {
@@ -297,7 +297,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 4,
-   "sha256": "2c48ef7aa83fde7075f26a36317eeeb90b39545df88ebd65da71c8a6481013fb",
+   "sha256": "94271000177689258c4e7498ff9273ca349f423dd59b7b0245e79538bc04169c",
    "type": "productivity"
   },
   "fo-productivity-module-5": {
@@ -322,7 +322,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 5,
-   "sha256": "b77068bf4fc63e18d4a911b9ca4a9db2829ea04fa493dd550d93157f8df6d0bd",
+   "sha256": "902684fd67740cdd26bbc8f163fca0b4c680ef61cbe3371acc3071d05beda581",
    "type": "productivity"
   },
   "fo-productivity-module-6": {
@@ -347,7 +347,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 6,
-   "sha256": "c37c21ffc0c3e4ec8e5374c437199a21b0f0e04dbe3810ed3c2dfcb0209346a4",
+   "sha256": "6c1c910c445b6ddc99e5f4dd6851a12d0c3c310399dec2486331e10f3df66be3",
    "type": "productivity"
   },
   "fo-productivity-module-7": {
@@ -372,7 +372,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 7,
-   "sha256": "5f8685452e8b97a5f367a85178aa328b1163523520ad56dde9e59c2c66d52cc8",
+   "sha256": "47de1d3a111abfd63d5a029f50a4a8f6336c1fa4e352b0e0d0222481c9160390",
    "type": "productivity"
   },
   "fo-productivity-module-8": {
@@ -397,7 +397,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 8,
-   "sha256": "873db8f6666dbd97ed7c2839773c2e1c3a91d35a8e8962e22f2586352aec7ef7",
+   "sha256": "ac5cff1245965d16d1192c1100fc794394f8c18053157593740841cbbd5588f4",
    "type": "productivity"
   },
   "fo-productivity-module-9": {
@@ -422,7 +422,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 9,
-   "sha256": "1efd9c68d83b5578f6863df8d8b433305fd145b52a803cbbc132e6aff7ccb4ed",
+   "sha256": "833e6f2db0d740ea559dcd78832bc25150683a16decfe56c8ed356a7ee699c09",
    "type": "productivity"
   },
   "fo-speed-module-10": {
@@ -447,7 +447,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 10,
-   "sha256": "6e3eb2506f929ca569c9198b192335f3b3cb906cd3bfd194d536a87db4b2150f",
+   "sha256": "32676e9eecc495f7f1a7043a91cc9222b06cbb3b38f8b57acb346dcfcbdf3024",
    "type": "speed"
   },
   "fo-speed-module-4": {
@@ -472,7 +472,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 4,
-   "sha256": "7a70cd93b4340d317674c7676fda8cd3ddf3c0bf37819d255a9b8d0cc60d2679",
+   "sha256": "1bc7c41ea58c647f88070a8c77726dff01dc01bcd5e75d75d1332387eb3aff44",
    "type": "speed"
   },
   "fo-speed-module-5": {
@@ -497,7 +497,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 5,
-   "sha256": "f1e82296e8901325a1c5644e7606f180218d84239822473237c779ee0318c120",
+   "sha256": "507b14f7bf5e25c18cc625356312973b66feccc498ada428d92a4ccb2907a156",
    "type": "speed"
   },
   "fo-speed-module-6": {
@@ -522,7 +522,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 6,
-   "sha256": "89f9c6bbbbc6ef3c1ccc2fbe11725338110773df5328c7ea49b889b1f4791968",
+   "sha256": "f51a29ada1b1c234f062fb0cae8a18faf837f4e5e8131829f428d73c5de32b52",
    "type": "speed"
   },
   "fo-speed-module-7": {
@@ -547,7 +547,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 7,
-   "sha256": "a776f0f87755755dd210be4cda2079f4947b06185d00f4482faa32853ba56ece",
+   "sha256": "6a6f21b090e513588d53a67ce74f1732a186983bb3c4751c31d57667665d737e",
    "type": "speed"
   },
   "fo-speed-module-8": {
@@ -572,7 +572,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 8,
-   "sha256": "5d51ab22d65e14905aa1de285463e2e06cc7eafefeb8882565b8e53734bed55b",
+   "sha256": "76213218809bbd92af5fe2f5890ba6068a82964e99eb8308b667246b0458e72b",
    "type": "speed"
   },
   "fo-speed-module-9": {
@@ -597,7 +597,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 9,
-   "sha256": "607aa96e0398c48f83f8bcd9217a37565eaba1ba66ad9edf73de044b66b16bb7",
+   "sha256": "ff25f5218d5f1dcf551dc656bb619a4deb852c172eeb401890cd6e03eaf3907e",
    "type": "speed"
   },
   "productivity-module": {
@@ -622,7 +622,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 1,
-   "sha256": "a801c03599190a54f632db6ac17aa8dbd97693b810d64d754341e58ceadc3e52",
+   "sha256": "b1c95188026d95923373bb32e907a6fe06b986da235fe50447fbb3a15a70c4a3",
    "type": "productivity"
   },
   "productivity-module-2": {
@@ -647,7 +647,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 2,
-   "sha256": "d6d38ed90567ac9e7e297718bbd87b5e2217c6435f8073aeaa36de40f9ebd00a",
+   "sha256": "8f1321ef19be74d5248a596ce65eae2b72c2d3405fcea151973936f01fecf250",
    "type": "productivity"
   },
   "productivity-module-3": {
@@ -672,7 +672,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 3,
-   "sha256": "81b206800935ce6c91f8f7a61d4d172598e83040a613ff479a4933a5f544780b",
+   "sha256": "6369a2dbaee4af5b91f75859e747dbdf148fc09a35eecc5c0b110dd5a15fd879",
    "type": "productivity"
   },
   "speed-module": {
@@ -697,7 +697,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 1,
-   "sha256": "5f0179ee00a449d68ad3671b3d1aa9f09dc474fdff5574a06a99989e6defc988",
+   "sha256": "301ebbb512a7bf2e35fc5324b97c48c2f9415e2e4a4176b414915075977cab97",
    "type": "speed"
   },
   "speed-module-2": {
@@ -722,7 +722,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 2,
-   "sha256": "b19c35f7721ed0c1372162adab7d3bcec82d699b7bdd2774cb14cdd9c3668c92",
+   "sha256": "c51f4a86e694ef56778b23efdf99021874b837b555b56bb3e41e718cfc4ce2e2",
    "type": "speed"
   },
   "speed-module-3": {
@@ -747,7 +747,7 @@
    "icon_size": 64,
    "largeur": 120,
    "palier": 3,
-   "sha256": "9e3c003f819f05a05c4399d557b021dc6cae5f6f3d4b5696448eca6e1185533a",
+   "sha256": "8307fca2b5c8dcbdea71011a1b66638733c0d3375666df5c927a36f74b3271d1",
    "type": "speed"
   }
  },
@@ -760,7 +760,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 1,
-   "sha256": "30e47b6432a93ad866757169d069d398d1c76f57f7f363c3179dde066caa82cd",
+   "sha256": "567038f611da95ffaffa837555addd679727a1b26d0a21d7965333accac4b1ad",
    "type": "effectivity"
   },
   "effectivity-module-2": {
@@ -770,7 +770,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 2,
-   "sha256": "10d7396afde025ae723cbda76a8b8fb4e1548a0c9d028917ad09f0c94106d481",
+   "sha256": "ef594676502691c294404f5439524f78e40fb3298b6e52abf726c27a9607b67f",
    "type": "effectivity"
   },
   "effectivity-module-3": {
@@ -780,7 +780,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 3,
-   "sha256": "e7e4516c3a145b968cb73329be858b399a68a65ce2c6e8505e5871278d894ff0",
+   "sha256": "239f735870acd0e124819253cf2d62e5671a11e7c106d30a2f6b4283475ba3d9",
    "type": "effectivity"
   },
   "fo-effectivity-module-10": {
@@ -790,7 +790,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 10,
-   "sha256": "08ffceedd18587537df6eda0ad79d889b96a8d3f96d1eb37ee7d4d49752e50aa",
+   "sha256": "cdba8fef2dce517a18a0a45b79f86f4891595465b3a6b6016377e587443ef947",
    "type": "effectivity"
   },
   "fo-effectivity-module-4": {
@@ -800,7 +800,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 4,
-   "sha256": "7bee2e3400cf3f43b8c0cf9d09665298b58e8fdc3fb5714b4bb947f95d038b73",
+   "sha256": "e9d3b7fe15ec331b6163c770257771ea248525336eac0e22ba3c751b9cc8482a",
    "type": "effectivity"
   },
   "fo-effectivity-module-5": {
@@ -810,7 +810,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 5,
-   "sha256": "f6f4110b5a5100b397a974c4364675a44c21722947cb2ac8099dc0ff16e8550a",
+   "sha256": "4a50d644e8dadce3ded3fc11274eb6d021c79176c2f7bdc3c93f0ac2e18214e3",
    "type": "effectivity"
   },
   "fo-effectivity-module-6": {
@@ -820,7 +820,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 6,
-   "sha256": "5cac1b4cb28802de97ccfc780aab9cdb502e81ac074afee289e8e334cc753235",
+   "sha256": "09a26dfe88feebb996121642347d0270263454e13f729ab4d5fbd71ede837b80",
    "type": "effectivity"
   },
   "fo-effectivity-module-7": {
@@ -830,7 +830,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 7,
-   "sha256": "efa0aa24255ad9fce9dec5ff31da3d9e080942a1d3e06ccfc0b219af755a2fff",
+   "sha256": "1540f95a6fa2e1f13d191b43ddab23418528057e632fdbf511b382922989a0d8",
    "type": "effectivity"
   },
   "fo-effectivity-module-8": {
@@ -840,7 +840,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 8,
-   "sha256": "856519655ea0bb7ac3e59fc2514518ed870ff287e62f76b430143a3e44914928",
+   "sha256": "cd675036fe9ce800962d75714e8c41811e7c7f9349688a52c33203a0f43dc2c0",
    "type": "effectivity"
   },
   "fo-effectivity-module-9": {
@@ -850,7 +850,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 9,
-   "sha256": "b19f24df91e5c35644dacb23d15de44d9b72ce9f9d49de9500f215249c2c325a",
+   "sha256": "a3561a6476674be87c72677595e2db133331e2b47953032732c32dedc732d230",
    "type": "effectivity"
   },
   "fo-productivity-module-10": {
@@ -860,7 +860,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 10,
-   "sha256": "f055bc9c3837ace6e1714bfea35b9c5374cf0e89cea1f495f82089d617c673d8",
+   "sha256": "cc527093c780f664968f98ca984c282e0739d5f38db009eeb3ce84ae4f9018b7",
    "type": "productivity"
   },
   "fo-productivity-module-4": {
@@ -870,7 +870,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 4,
-   "sha256": "c92ee7ce93ccf6efa2ee78ed55086da239b93e8a4e3201cd217e89b58f9456d3",
+   "sha256": "5a09f6d1413aedae7dea57d5a37477d2648a11e204bce6b912788aa612941334",
    "type": "productivity"
   },
   "fo-productivity-module-5": {
@@ -880,7 +880,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 5,
-   "sha256": "6bdc56f7e8b29d84634d54b0561d4afd8f1d24c8fa106f2d20281b3f70579c86",
+   "sha256": "eccd4035c44bbe41d3c7bff59ff78dae2715699debde20fcbae9d61a34666b40",
    "type": "productivity"
   },
   "fo-productivity-module-6": {
@@ -890,7 +890,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 6,
-   "sha256": "4aadee3b490632a13dac3d49703ce2fd0464c8e93687d0bf333eab82d42b71e5",
+   "sha256": "171ed5c82bbe8651b4861a1e5314c75975b27a79e370677080c96b9511273dbe",
    "type": "productivity"
   },
   "fo-productivity-module-7": {
@@ -900,7 +900,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 7,
-   "sha256": "5dde4cb7f2815f444042f3b5cd5790ac199011038c1854868bfbecf17d0d1643",
+   "sha256": "fb8c8e49f18d0c3fe5ceabf14d381efe6eb2a04068550d87762de32289100d82",
    "type": "productivity"
   },
   "fo-productivity-module-8": {
@@ -910,7 +910,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 8,
-   "sha256": "0cbea87c236026236c055adc67610b58c4957ef43c62096bffe8ebd84c4996d1",
+   "sha256": "7b507115a3bf07948e0036ff9cb133ae190e2d98fd629ed7934ab4d40f2d9938",
    "type": "productivity"
   },
   "fo-productivity-module-9": {
@@ -920,7 +920,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 9,
-   "sha256": "126335ed5a344507f5e1c67e90d5e0526fb9199e6d7b3aec636e9f288d6dda57",
+   "sha256": "65ef17438717dd7553bcce1b5e4ace4e27ea7e2cdf42efa2f9b9acb57d9ebfd2",
    "type": "productivity"
   },
   "fo-speed-module-10": {
@@ -930,7 +930,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 10,
-   "sha256": "8ee9c56ac07fe6481c8dcb33c224040862d4c86f4b5b2cf66b4751fe2e8264dc",
+   "sha256": "9d66fc454314ffc4604881fc40cd6f3402082159dfff9965280c399eb4583d78",
    "type": "speed"
   },
   "fo-speed-module-4": {
@@ -940,7 +940,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 4,
-   "sha256": "1e95bee07c960301f96e1694600541116086ce57e55f3bd7c4d8bff033997c28",
+   "sha256": "3787a631dc2fa45c875126130cbc273031a7e629f3d0a9da1b9f8c7d28e8c1ea",
    "type": "speed"
   },
   "fo-speed-module-5": {
@@ -950,7 +950,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 5,
-   "sha256": "5db5078b0eb259ef8238f4603d03e95c48aca9c41c39558e721b7ef27a904371",
+   "sha256": "4af7a028811b214c7263e1484c8ea8403cd4a5ff4365d2345230698fc09c1772",
    "type": "speed"
   },
   "fo-speed-module-6": {
@@ -960,7 +960,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 6,
-   "sha256": "ed76e6b1d737bce31ea3db1403a59fc47696d84e2e44e4a152c5c1375efef764",
+   "sha256": "d4435c37caa9a9104bddd8d4fbca001d15f81940eba512719b9224a96f2e57bb",
    "type": "speed"
   },
   "fo-speed-module-7": {
@@ -970,7 +970,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 7,
-   "sha256": "bfd569850d0fe80c330aea1385e659e1e203bffc0d63267d44a686301f76051d",
+   "sha256": "a5cb69d438107b25615f66a649ac6bbd6a29956932f1aea2908f5cccb1095bb7",
    "type": "speed"
   },
   "fo-speed-module-8": {
@@ -980,7 +980,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 8,
-   "sha256": "2105a2425ac031555df169d0dfc417e2fa30a1e6452618ced65227e7a7e67da2",
+   "sha256": "11509e37f81532d39e9e39bf5a1f3b80e70937c63e6737217ff0917ad6d6bfba",
    "type": "speed"
   },
   "fo-speed-module-9": {
@@ -990,7 +990,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 9,
-   "sha256": "9a0fc4d6712f5a3a76e38a5507013717e5f11abfa28bc3a101fb9dd59aed389d",
+   "sha256": "25ebb4606f001478bdad2d1154b2195fb4122ce13d64d95ede21a642ba7a5079",
    "type": "speed"
   },
   "productivity-module": {
@@ -1000,7 +1000,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 1,
-   "sha256": "3d76204628b332d92220cb88fac924575963b9332e97b179b8e28300672a3955",
+   "sha256": "a46c7bddefe069e6826190182e0d58270779215fc1bf27b0ef28ab6ccf963f5e",
    "type": "productivity"
   },
   "productivity-module-2": {
@@ -1010,7 +1010,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 2,
-   "sha256": "9f145450e6f29aae73fc8541d4629b5fd08ec06c6788e26c2ed653fca6794a23",
+   "sha256": "dada93199ec2ad69845f39eed9cefe6bb4096a084c475ff3e67d6c17cfc96281",
    "type": "productivity"
   },
   "productivity-module-3": {
@@ -1020,7 +1020,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 3,
-   "sha256": "2a38cae42ca40ab64f7e6c18904eb301e63f678b6859367239a4e004247dacbc",
+   "sha256": "467bf13a0debbdaebfdeceeeff677cf43b5e47477288d58d5d64f47fbbaa4f17",
    "type": "productivity"
   },
   "speed-module": {
@@ -1030,7 +1030,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 1,
-   "sha256": "5a598828c119fbebd809e68771331198ccfb04bed012ba906701dbc10f9f28de",
+   "sha256": "33de17e46f6733828cf7af0f561e90562fef8785c6f82c6764cfb7bb39a623a4",
    "type": "speed"
   },
   "speed-module-2": {
@@ -1040,7 +1040,7 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 2,
-   "sha256": "68ecd1e080c77685ceee8aeb5fa6c49d3b80f1a696d86cdb45b241a510a2efa6",
+   "sha256": "acb1ac177e3e6d25ddc6ca7387646f8781ea9a93d5ba0c8fd73e32232c42a0d3",
    "type": "speed"
   },
   "speed-module-3": {
@@ -1050,9 +1050,9 @@
    "icon_size": 256,
    "largeur": 480,
    "palier": 3,
-   "sha256": "365f518f12357c56e64e223b93c0ff8c759da0f0943634389b8274f53cf3c9e1",
+   "sha256": "ce6211c7deb40b379cf1c300c0c8df9aecb393fce39096040ded0a46a7a9b570",
    "type": "speed"
   }
  },
- "version": 2
+ "version": 3
 }
