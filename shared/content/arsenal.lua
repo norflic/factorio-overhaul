@@ -213,4 +213,129 @@ A.special_techs = {
   },
 }
 
+---------------------------------------------------------------------------------------------------
+-- Lot ARMES-AGES (9/11, directive du DC « balistique, armements et tourelles PAR ÂGE ») : la lignée « Bastion »,
+-- UNE tourelle par âge d'armement dont le MODE d'attaque change (pas seulement les dégâts) :
+--   âge 1 : cinetique (chargeurs, projectile)      âge 3 : arc (arcs électriques EN CHAÎNE : cible, puis voisins, puis leurs voisins)
+--   âge 2 : laser (faisceau focalisé)              âge 4 : plasma (artillerie à zone : orbe lourde guidée, explosion de zone)
+-- Un âge d'armement = une ÈRE des niveaux (shared/levels/config.lua : L.ERA_EPOCHS = 3 époques par ère) :
+-- âge 1 = époques 1-3, âge 2 = 4-6, âge 3 = 7-9, âge 4 = 10-12. Les PNJ lisent ces DONNÉES (mode, âge, rôle, tech) : aucun
+-- nom en dur dans les cerveaux. Prototypes : prototypes/arsenal_ages.lua ; test pur : tests/arsenal_ages_test.lua.
+-- Équilibrage PROVISOIRE (le DC tranche) : coûts voisins de A.turrets et A.special_turrets ; la recherche (tech.count) et
+-- la valeur des ingrédients croissent strictement avec l'âge (testé).
+---------------------------------------------------------------------------------------------------
+A.AGE_EPOCHS = 3
+A.MODES = { "cinetique", "laser", "arc", "plasma" }
+
+local PACKS = {
+  age1 = { "automation-science-pack", "logistic-science-pack" },
+  age2 = { "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack" },
+  age3 = { "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack", "production-science-pack", "utility-science-pack" },
+  age4 = { "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack", "production-science-pack", "utility-science-pack" },
+}
+A.AGE_PACKS = PACKS
+
+A.ages = {
+  {
+    age = 1, mode = "cinetique", name = "fo-bastion-1", copy_type = "ammo-turret", copy = "gun-turret", role = "ligne",
+    tint = { r = 0.78, g = 0.82, b = 0.92 }, glow = { r = 1.00, g = 0.75, b = 0.35 },
+    hp = 700, range = 20, cooldown = 5, damage_modifier = 1.25, ammo_category = "bullet",
+    ingredients = { { "gun-turret", 1 }, { "steel-plate", 8 }, { "iron-gear-wheel", 10 } },
+    tech = { name = "fo-bastion-1", icon_from = "gun-turret", prerequisites = { "gun-turret", "military-2" },
+      packs = PACKS.age1, count = 120, time = 30 },
+  },
+  {
+    age = 2, mode = "laser", name = "fo-bastion-2", copy_type = "electric-turret", copy = "laser-turret", role = "ligne",
+    tint = { r = 0.70, g = 0.95, b = 1.00 }, glow = { r = 0.35, g = 0.90, b = 1.00 },
+    hp = 1400, range = 28, cooldown = 30, damage_modifier = 3, energy = "1200kJ", energy_scale = 1.5,
+    beam = { copy = "laser-beam", teinte = { 0.45, 0.92, 1.00 }, coeur = { 0.85, 1.00, 1.00 }, epaisseur = 1.3 },
+    ingredients = { { "laser-turret", 1 }, { "plastic-bar", 20 }, { "fo-tungsten-plate", 10 }, { "advanced-circuit", 10 } },
+    tech = { name = "fo-bastion-2", icon_from = "laser-turret", prerequisites = { "fo-bastion-1", "laser-turret", "fo-tungsten-processing" },
+      packs = PACKS.age2, count = 350, time = 30 },
+  },
+  {
+    age = 3, mode = "arc", name = "fo-bastion-3", copy_type = "electric-turret", copy = "laser-turret", role = "nuee",
+    tint = { r = 0.55, g = 0.80, b = 1.00 }, glow = { r = 0.45, g = 0.85, b = 1.00 },
+    hp = 2000, range = 24, cooldown = 45, energy = "2MJ",
+    -- arc : dégâts électriques sur la cible, puis SAUTS : chaque saut frappe les ennemis à `radius` du maillon précédent
+    -- (part `share` des dégâts) ; le 1er saut tire un arc visible vers chacun (faisceau), le 2e frappe seulement.
+    arc = { damage = 70, hops = { { radius = 4.5, share = 0.6, beam = true }, { radius = 3.5, share = 0.35 } } },
+    ingredients = { { "laser-turret", 1 }, { "fo-resonance-crystal", 20 }, { "battery", 20 }, { "advanced-circuit", 15 } },
+    tech = { name = "fo-bastion-3", icon_from = "laser-turret", prerequisites = { "fo-bastion-2", "fo-arc-and-acid" },
+      packs = PACKS.age3, count = 700, time = 45 },
+  },
+  {
+    age = 4, mode = "plasma", name = "fo-bastion-4", copy_type = "electric-turret", copy = "laser-turret", role = "siege",
+    platform = "artillery",
+    tint = { r = 0.95, g = 0.70, b = 1.00 }, glow = { r = 1.00, g = 0.45, b = 0.95 },
+    hp = 3000, range = 36, min_range = 6, cooldown = 90, energy = "6MJ",
+    -- plasma : orbe lourde (projectile guidé), dégâts directs puis explosion de zone (laser + explosion)
+    plasma = { direct = 200, radius = 5, area = { laser = 250, explosion = 150 }, speed = 0.25 },
+    ingredients = { { "laser-turret", 2 }, { "processing-unit", 10 }, { "fo-titanium-plate", 20 }, { "fo-superconducting-coil", 5 } },
+    tech = { name = "fo-bastion-4", icon_from = "artillery", prerequisites = { "fo-bastion-3", "fo-titanium-processing", "fo-superconductors" },
+      packs = PACKS.age4, count = 1500, time = 60 },
+  },
+}
+
+-- Armes de poing et équipement expérimentaux du lot (mécaniques RÉELLES de 1.1, limites nommées dans prototypes/arsenal_ages.lua) :
+--   fusil à rail        : DÉJÀ livré en session 4 (A.special_guns « fo-railgun », balle « fo-rail-slug » : action « line »,
+--                         traverse tout sur 40 tuiles) ; inscrit ici pour que les cerveaux et le test le voient par les données ;
+--   lanceur de singularités : projectile (roquette) qui ouvre un CHAMP (smoke-with-trigger) : dégâts électriques de zone et
+--                         ralentissement à 15 % (sticker) pendant `duration` ticks. Pas d'attraction native en 1.1 : les
+--                         ennemis sont RETENUS dans le champ, pas tirés vers son centre ;
+--   projecteur de champ : équipement de défense active (active-defense-equipment, déclenché par sa télécommande) : onde qui
+--                         REPOUSSE (push-back), ralentit (sticker), et pose un ANNEAU de flammes plasma (fire, durée bornée)
+--                         autour du porteur. Pas de mur temporaire natif (aucun prototype à collision ET durée de vie).
+A.hand_weapons = {
+  { name = "fo-railgun", age = 3, mode = "rail", existing = "special_guns", ammo = "fo-rail-slug", tech = { name = "fo-railgun" } },
+  {
+    name = "fo-singularity-launcher", age = 3, mode = "singularite", copy = "rocket-launcher", ammo = "fo-singularity-charge",
+    ammo_category = "fo-singularity", range = 30, cooldown = 90,
+    tint = { r = 0.60, g = 0.35, b = 0.95 },
+    field = { radius = 5.5, duration = 360, cooldown = 20, damage = 12, burst = 80, slow = 0.15, slow_ticks = 60 },
+    ingredients = { { "rocket-launcher", 1 }, { "fo-resonance-crystal", 20 }, { "advanced-circuit", 15 }, { "battery", 10 } },
+    ammo_ingredients = { { "fo-resonance-crystal", 3 }, { "battery", 1 }, { "explosives", 2 } }, ammo_energy = 8,
+    tech = { name = "fo-singularity-launcher", icon_from = "rocketry", prerequisites = { "fo-bastion-3", "rocketry" },
+      packs = PACKS.age3, count = 800, time = 45 },
+  },
+  {
+    name = "fo-field-projector", age = 2, mode = "champ", copy = "discharge-defense-equipment", remote = "fo-field-projector-remote",
+    tint = { r = 0.40, g = 0.90, b = 1.00 }, buffer = "6MJ", energy = "3MJ", cooldown = 300,
+    field = { radius = 9, push = 5, slow = 0.3, slow_ticks = 180, damage = 20,
+      ring = { count = 10, distance = 4, lifetime = 480, damage_per_tick = 0.4 } },
+    ingredients = { { "energy-shield-equipment", 1 }, { "fo-tungsten-plate", 10 }, { "advanced-circuit", 10 }, { "battery", 5 } },
+    remote_ingredients = { { "electronic-circuit", 1 } },
+    tech = { name = "fo-field-projector", icon_from = "energy-shield-equipment", prerequisites = { "fo-bastion-2", "energy-shield-equipment" },
+      packs = PACKS.age2, count = 400, time = 30 },
+  },
+}
+
+-- Arme cataclysmique (prototype ACTIVABLE) : la FRAPPE ORBITALE. Capsule lancée sur une position ; à l'arrivée, un drone de
+-- marquage (combat-robot immobile, durée de vie `delay` ticks) dont la destroy_action est la frappe : flash (explosion
+-- nucléaire vanilla teintée), brûlure au sol et trois cercles de dégâts (force « not-same » : épargne les siens).
+-- Recette verrouillée derrière la DERNIÈRE technologie de l'âge 4 (fo-bastion-4).
+A.cataclysm = {
+  name = "fo-orbital-strike", age = 4, mode = "orbital", copy = "poison-capsule", marker_copy = "defender",
+  tint = { r = 1.00, g = 0.55, b = 0.25 }, range = 30, cooldown = 600, delay = 180,
+  blast = { { radius = 8, laser = 2500, explosion = 1500 }, { radius = 16, explosion = 800 }, { radius = 24, explosion = 250 } },
+  ingredients = { { "fo-superconducting-coil", 5 }, { "processing-unit", 10 }, { "explosives", 20 }, { "fo-resonance-crystal", 20 } },
+  energy = 30,
+  tech = { name = "fo-orbital-strike", icon_from = "atomic-bomb", prerequisites = { "fo-bastion-4" },
+    packs = PACKS.age4, count = 2500, time = 60 },
+}
+
+--- Entrée de la lignée pour un âge (1 à 4), ou nil.
+function A.age_turret(age)
+  for _, t in ipairs(A.ages) do if t.age == age then return t end end
+  return nil
+end
+
+--- Âge d'armement d'une époque des niveaux (1 à 4 ; au-delà de l'âge 4, l'âge 4 reste le dernier mode).
+function A.age_of_epoch(epoch)
+  local a = math.floor((epoch - 1) / A.AGE_EPOCHS) + 1
+  if a > #A.ages then a = #A.ages end
+  if a < 1 then a = 1 end
+  return a
+end
+
 return A
