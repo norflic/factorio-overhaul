@@ -37,6 +37,9 @@
   Déterminisme : listes triées, entiers, égalités départagées par les coordonnées puis le nom ; aucun hasard.
 ]]
 
+local Col = require("shared.ai3.collecteur") -- lot PETROLE-RANGEE : collecteur d'un champ de puits (règle pure)
+local Rf = require("shared.ai3.rangee_fluides") -- lot PETROLE-RANGEE, étape 2 : rangée de modules sur bus (règle pure)
+
 local Fl = {}
 
 Fl.MAX_SOLID_IN = 3
@@ -289,6 +292,8 @@ Fl.rect_of = rect_of
 local function conn_tile(cx, cy, pos)
   return math.floor(cx + pos[1] + 0.01), math.floor(cy + pos[2] + 0.01)
 end
+
+Fl.conn_tile = conn_tile
 
 local Site = {}
 Site.__index = Site
@@ -796,13 +801,17 @@ function Site:power(electric)
       -- couronne voisine : moteur réel, 28/10, « poteau : aucune place autour de inserter » dans un quai entouré de coffres et
       -- de tuyaux) ; le plus d'entités non couvertes d'abord, puis la plus proche, puis l'ordre de balayage
       local best, bn, bd
+      -- entités non couvertes, une fois pour toute la recherche de cette entité (aucun poteau n'est posé pendant elle) : même résultat
+      -- que de les recompter à chaque tuile, sans le produit entités x tuiles x poteaux (lot PETROLE-RANGEE : 30 chevalets)
+      local unc = {}
+      for _, o in ipairs(electric) do if not covered(o) then unc[#unc + 1] = o end end
       local reach = math.max(1, math.floor(s))
       for ty = y0 - reach, y1 + reach do
         for tx = x0 - reach, x1 + reach do
           if (tx < x0 or tx > x1 or ty < y0 or ty > y1) and self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil
               and covers(tx + 0.5, ty + 0.5, ent) then
             local n = 0
-            for _, o in ipairs(electric) do if not covered(o) and covers(tx + 0.5, ty + 0.5, o) then n = n + 1 end end
+            for _, o in ipairs(unc) do if covers(tx + 0.5, ty + 0.5, o) then n = n + 1 end end
             local dist = math.max(x0 - tx, tx - x1, y0 - ty, ty - y1)
             if not bn or n > bn or (n == bn and dist < bd) then best, bn, bd = { tx, ty }, n, dist end
           end
@@ -1267,6 +1276,257 @@ local function layout_once(req, shift)
   end
   return { ents = s.ents, quais = s.quais, outs = s.outs, box = { x0, y0, x1, y1 }, pipes = s.npipes, poles = npoles,
     line = line, extractors = #extractors }
+end
+
+---------------------------------------------------------------------------------------------------
+-- EXTENSION D'UN SITE DE PÉTROLE (lot PETROLE-RANGEE) : tous les puits du champ, un collecteur droit, une ligne principale
+---------------------------------------------------------------------------------------------------
+--[[
+  Un site de pétrole (Fl.layout) n'équipe que Fl.EXTRACTORS puits : sa cellule (raffinerie, usines chimiques) est fermée. Directive du DC
+  (8/11) : « un joueur humain pose des chevalets sur l'intégralité des puits disponibles, les relie entre eux, et fait sortir tout ce
+  pétrole brut vers une ligne principale ». L'EXTENSION est un second chantier du plan directeur au même gisement : des chevalets sur
+  les puits restants, un collecteur droit qui traverse le champ avec des embranchements droits ou en L (règle pure
+  shared/ai3/collecteur.lua), la ligne principale tracée (A* par tranches, comme tout tuyau) jusqu'au tuyau de brut du site, les poteaux.
+    Fl.ext_net(rel, ents, extractor)   tuyaux de BRUT d'un site déjà planifié (liste d'entités du projet) : { net = {clé = vrai},
+                                       forbid = {clé = vrai} } ; `forbid` : tuiles où un tuyau de brut toucherait un autre fluide
+                                       (tuyaux d'un autre fluide et leurs voisines, raccords des machines).
+    Fl.ext_step(req, job, budget)      comme Fl.layout_step : "more" | "done", implantation | "fail", raison. Implantation :
+                                       { ents, quais = {}, outs = {}, box, pipes, poles, line, extractors, skipped = { {x, y, cause} } }.
+  req : ents, conduit, extractor, fluid, poles, network, blocked(tx, ty), wells, net, toward, max_n, hint (voir Col.plan). `blocked` doit
+  déjà contenir `forbid`. Les tracés sont repris du journal job.calls (comme layout_step) ; le plan pur est gardé dans job.col.
+]]
+function Fl.ext_net(rel, ents, extractor)
+  local tube, starts = {}, {}
+  local conn_set = {}
+  for _, e in ipairs(ents or {}) do
+    local info = rel.entities[e.name]
+    if e.role == "tuyau" then
+      tube[tkey(math.floor(e.x), math.floor(e.y))] = true
+    elseif info and info.boxes then
+      for _, b in ipairs(info.boxes) do
+        local pos = b.conns and b.conns[e.dir or 0]
+        for _, p in ipairs(pos or {}) do
+          local tx, ty = conn_tile(e.x, e.y, p)
+          if e.role == "extracteur" and e.name == extractor then starts[#starts + 1] = tkey(tx, ty) else conn_set[tkey(tx, ty)] = true end
+        end
+      end
+    end
+  end
+  local net = {}
+  table.sort(starts)
+  local stack = {}
+  for _, k in ipairs(starts) do if tube[k] and not net[k] then net[k] = true; stack[#stack + 1] = k end end
+  while #stack > 0 do
+    local k = table.remove(stack)
+    local x, y = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
+    for _, d in ipairs(DIRS) do
+      local nk = tkey(x + DV[d][1], y + DV[d][2])
+      if tube[nk] and not net[nk] then net[nk] = true; stack[#stack + 1] = nk end
+    end
+  end
+  local forbid = {}
+  for _, k in ipairs(sorted_keys(tube)) do
+    if not net[k] then
+      forbid[k] = true
+      local x, y = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
+      for _, d in ipairs(DIRS) do
+        local nk = tkey(x + DV[d][1], y + DV[d][2])
+        if not net[nk] then forbid[nk] = true end
+      end
+    end
+  end
+  for k in pairs(conn_set) do if not net[k] then forbid[k] = true end end
+  return net, forbid
+end
+
+local function layout_ext(req)
+  local s = new_site(req)
+  Fl.last_site = s
+  local job = req.job
+  local fl = req.fluid
+  local ename = req.extractor
+  local e = req.ents[ename]
+  if not e then return nil, "extracteur inconnu" end
+  local N = req.net or {}
+  local col = job.col
+  if not col then
+    col = Col.plan({ wells = req.wells, ext = e, free = function(tx, ty) return s:free(tx, ty) end, net = N, toward = req.toward,
+      max_n = req.max_n, hint = req.hint })
+    job.col = col
+  end
+  local skipped = {}
+  for _, x in ipairs(col.skipped) do skipped[#skipped + 1] = { x = x.x, y = x.y, cause = x.cause } end
+  if #col.extractors == 0 then
+    return nil, #skipped > 0 and ("aucun puits equipable : " .. skipped[1].cause) or "aucun puits a equiper"
+  end
+  -- composantes : les tuyaux neufs qui ne touchent pas le réseau existant, et leurs chevalets
+  local tubeset = {}
+  for _, k in ipairs(col.tubes) do tubeset[k] = true end
+  local function flood(from)
+    local seen, stack = { [from] = true }, { from }
+    while #stack > 0 do
+      local k = table.remove(stack)
+      local x, y = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
+      for _, d in ipairs(DIRS) do
+        local nk = tkey(x + DV[d][1], y + DV[d][2])
+        if tubeset[nk] and not seen[nk] then seen[nk] = true; stack[#stack + 1] = nk end
+      end
+    end
+    return seen
+  end
+  local comp_tiles, comp_of = {}, {}
+  for i, c in ipairs(col.comps) do
+    comp_tiles[i] = flood(tkey(c.from[1], c.from[2]))
+    for k in pairs(comp_tiles[i]) do comp_of[k] = i end
+  end
+  local groups = { [0] = { ext = {}, tubes = {} } }
+  for i = 1, #col.comps do groups[i] = { ext = {}, tubes = {} } end
+  for _, x in ipairs(col.extractors) do
+    local g = comp_of[tkey(x.cx, x.cy)] or 0
+    local list = groups[g].ext
+    list[#list + 1] = x
+  end
+  for _, k in ipairs(col.tubes) do
+    local g = comp_of[k] or 0
+    local list = groups[g].tubes
+    list[#list + 1] = k
+  end
+  local placed = {}
+  local net_tiles = {} -- tuyaux de brut déjà reliés au réseau existant (cible des composantes suivantes)
+  for k in pairs(N) do net_tiles[k] = true end
+  local function put_group(g)
+    for _, k in ipairs(g.tubes) do
+      if not s.tube[k] then s.tube[k] = fl; s.npipes = s.npipes + 1 end
+    end
+    for _, x in ipairs(g.ext) do
+      local ent = s:put(ename, x.x, x.y, x.dir, { role = "extracteur", fluid = fl })
+      local map = {}
+      for bi, b in ipairs(e.boxes or {}) do if b.type ~= "input" then map[bi] = fl end end
+      s:reserve_conns(ent, map)
+      placed[#placed + 1] = ent
+    end
+  end
+  put_group(groups[0])
+  for _, k in ipairs(groups[0].tubes) do net_tiles[k] = true end
+  local dropped = 0
+  for i, c in ipairs(col.comps) do
+    local g = groups[i]
+    local snap = s:snapshot({})
+    local nplaced = #placed
+    put_group(g)
+    local n = s:route(c.from[1], c.from[2], net_tiles, fl)
+    if n == nil then
+      local why = s.why_route or "?"
+      s:restore(snap, {})
+      for j = #placed, nplaced + 1, -1 do placed[j] = nil end
+      for _, x in ipairs(g.ext) do
+        skipped[#skipped + 1] = { x = x.x, y = x.y, cause = "ligne principale impossible jusqu'au reseau de brut (" .. why .. ")" }
+      end
+      dropped = dropped + #g.ext
+    else
+      -- la tuile but du tracé est un tuyau du réseau EXISTANT (déjà au plan du site de base) : il ne se repose pas
+      for _, k in ipairs(sorted_keys(N)) do
+        if s.tube[k] then s.tube[k] = nil; s.npipes = s.npipes - 1 end
+      end
+      for k in pairs(comp_tiles[i]) do net_tiles[k] = true end
+      -- les tuyaux de la ligne principale font partie du réseau relié
+      for _, k in ipairs(sorted_keys(s.tube)) do if s.tube[k] == fl then net_tiles[k] = true end end
+    end
+  end
+  if #placed == 0 then return nil, skipped[#skipped] and skipped[#skipped].cause or "aucun chevalet relie" end
+  for _, k in ipairs(sorted_keys(s.tube)) do
+    local tx, ty = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
+    s:put(req.conduit, tx + 0.5, ty + 0.5, 0, { role = "tuyau", fluid = s.tube[k] })
+  end
+  local npoles, line = 0, 0
+  local electric = {}
+  for _, p in ipairs(placed) do if e.electric then electric[#electric + 1] = p end end
+  if #electric > 0 then
+    if not req.poles then return nil, "aucun poteau" end
+    local a, b = s:power(electric)
+    if not a then return nil, b end
+    npoles, line = a, b
+  end
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, en in ipairs(s.ents) do
+    if en.role ~= "liaison" then
+      x0, y0 = math.min(x0, math.floor(en.x)), math.min(y0, math.floor(en.y))
+      x1, y1 = math.max(x1, math.floor(en.x)), math.max(y1, math.floor(en.y))
+    end
+  end
+  return { ents = s.ents, quais = {}, outs = {}, box = { x0, y0, x1, y1 }, pipes = s.npipes, poles = npoles, line = line,
+    extractors = #placed, skipped = skipped, deferred = col.deferred, trunk = col.trunk, kinds = (function()
+      local k = {}
+      for _, x in ipairs(col.extractors) do k[x.kind] = (k[x.kind] or 0) + 1 end
+      return k
+    end)() }
+end
+
+--- RANGÉE de modules sur bus (lot PETROLE-RANGEE, étape 2) : les copies du module du site de base (req.mod, Rf.analyze) le long de ses bus,
+--- plan pur de shared/ai3/rangee_fluides.lua (gardé dans job.rg) ; poteaux par Site:power. Pas d'A* : une seule tranche.
+local function layout_rangee(req)
+  local s = new_site(req)
+  Fl.last_site = s
+  local job = req.job
+  local rg = job.rg
+  if not rg then
+    -- deux tranches : les (pas, bus) sans contact (aucun terrain), puis les copies contre le terrain
+    if not job.cands then
+      local cands, why = Rf.candidates(req.mod, req.fixed)
+      if not cands then return nil, "aucune copie du module ne tient : " .. tostring(why) end
+      job.cands = cands
+      error(Fl.YIELD, 0)
+    end
+    rg = Rf.plan(req.mod, { blocked = req.blocked, L0 = req.L0, conn0 = req.conn0, kmax = req.kmax, from = req.from, fixed = req.fixed, cands = job.cands })
+    job.rg = rg
+  end
+  if rg.n == 0 then return nil, "aucune copie du module ne tient : " .. tostring(rg.cause) end
+  local placed = {}
+  for _, e in ipairs(rg.ents) do
+    placed[#placed + 1] = s:put(e.name, e.x, e.y, e.dir, { role = e.role, recipe = e.recipe })
+  end
+  for _, t in ipairs(rg.tubes) do
+    s.tube[tkey(t.x, t.y)] = t.fluid
+    s.npipes = s.npipes + 1
+  end
+  for _, k in ipairs(sorted_keys(s.tube)) do
+    local tx, ty = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
+    s:put(req.conduit, tx + 0.5, ty + 0.5, 0, { role = "tuyau", fluid = s.tube[k] })
+  end
+  local electric = {}
+  for _, p in ipairs(placed) do
+    local info = req.ents[p.name]
+    if info and info.electric then electric[#electric + 1] = p end
+  end
+  local npoles, line = 0, 0
+  if #electric > 0 then
+    if not req.poles then return nil, "aucun poteau" end
+    local a, b = s:power(electric)
+    if not a then return nil, b end
+    npoles, line = a, b
+  end
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, en in ipairs(s.ents) do
+    if en.role ~= "liaison" then
+      x0, y0 = math.min(x0, math.floor(en.x)), math.min(y0, math.floor(en.y))
+      x1, y1 = math.max(x1, math.floor(en.x)), math.max(y1, math.floor(en.y))
+    end
+  end
+  return { ents = s.ents, quais = rg.quais, outs = rg.outs, box = { x0, y0, x1, y1 }, pipes = s.npipes, poles = npoles, line = line, extractors = 0,
+    skipped = {}, copies = rg.n, dx = rg.dx, sign = rg.sign, hs = rg.hs, cause = rg.cause }
+end
+
+function Fl.ext_step(req, job, budget)
+  job.slice, job.limit = 0, math.max(1, budget or math.huge)
+  job.ord = 0
+  req.job = job
+  local ok, lay, why = pcall(req.mod and layout_rangee or layout_ext, req)
+  if not ok then
+    if lay == Fl.YIELD then return "more" end
+    error(lay, 0)
+  end
+  if lay then return "done", lay end
+  return "fail", why
 end
 
 --- Étang au gisement (lot PETROLE 2) : coin (sx, sy) d'un carré de `n` tuiles d'eau à poser près de `origin`, cherché sur des

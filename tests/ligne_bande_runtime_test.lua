@@ -110,7 +110,7 @@ do
   check(#LB.projects(f) == 1 and LB.projects(f)[1].key == "b", "§1ter une ligne finie n'est plus un projet à nourrir")
   check(#LB.projects({ build = { projects = {} } }) == 0, "§1ter sans registre : aucune")
   local auto = read("script/ai3/automatisation.lua")
-  check(auto:find("for i, lp in ipairs(LigneBande.projects(f)) do", 1, true) ~= nil and auto:find("pile = \"couverture\" }", 1, true) ~= nil,
+  check(auto:find("for i, lp in ipairs(LigneBande.projects(f)) do", 1, true) ~= nil and auto:find("pile = \"couverture\", line = true }", 1, true) ~= nil,
     "§1ter automatisation : les poteaux manquants d'une ligne sont des buts « ligne-bande » de la famille couverture")
 end
 
