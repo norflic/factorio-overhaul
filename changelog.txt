@@ -23,6 +23,8 @@ Date: 2026-11-09
     - Boxes (F448) : gisements, fonderies, mall et énergie modélisés en boxes avec statut MAXED ; une box MAXED est ignorée par les scans jusqu'à épuisement ou déblocage de recherche ; journal [FO-BOX].
     - Solveur de recettes (F449) : arbre de production par objet et débit, machines par recette et besoins du bus, mémoïsé ; classement des intermédiaires pivots.
     - Gabarits (F450) : empreinte réservée pour la machine de l'âge cible, bras sur la ligne d'interface finale, décision « upgrade ou ajourne » sans bloquer la box (règle pure, branchement à suivre).
+    - Bus d'intermédiaires (F451) : dès la phase mid, les intermédiaires pivots déduits des recettes ont leurs rangées demandées en priorité et leurs liaisons de bus passent devant ; artisanat local en repli tant que la ligne n'est pas servie.
+    - Convoyeurs (F452) : la montée de palier visite enfin troncs du bus, sorties de méga-fonderie, liaisons et bandes, dans cet ordre, et s'anticipe à chaque recherche finie ; aucun tapis retiré sans le kit au stock.
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------
