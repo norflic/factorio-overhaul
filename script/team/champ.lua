@@ -336,7 +336,7 @@ end
 
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
 --- autre projet du plan directeur ; les tuiles `mine` restent libres.
-local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
+local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
   local blocked = {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
     blocked[Ch.key(math.floor(t.position.x), math.floor(t.position.y))] = "eau"
@@ -355,7 +355,7 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
   for x = math.floor(x0), math.ceil(x1) do
     for y = math.floor(y0), math.ceil(y1) do
       local k = P.tkey(x, y)
-      if occ[k] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
+      if occ[k] and not blocked[Ch.key(x, y)] and not (occ_libre and occ_libre(x, y, occ[k])) then blocked[Ch.key(x, y)] = "reserve" end -- occ_libre : le mall ouvre à la chaîne les tuiles que ses rangées n'utilisent jamais
       if cor[k] and not blocked[Ch.key(x, y)] then
         blocked[Ch.key(x, y)] = "couloir"
         if f.stats then f.stats.couloir_champ = (f.stats.couloir_champ or 0) + 1 end -- revue (B3)
@@ -666,7 +666,7 @@ local function raccord_tous(f, surface, bd, ents, cx, cy, proj)
   local function blocked_of(margin)
     local bl = blocked_by[margin]
     if not bl then
-      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine)
+      bl = blocked_in(f, surface, math.floor(x0) - margin, math.floor(y0) - margin, math.ceil(x1) + margin, math.ceil(y1) + margin, bd.spec.mine, nil, bd.occ_libre)
       blocked_by[margin] = bl
     end
     return function(tx, ty) return bl[Ch.key(tx, ty)] ~= nil end

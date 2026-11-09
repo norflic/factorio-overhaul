@@ -140,7 +140,16 @@ Build.SITES.mall = function(f, surface, p, h)
     end
   end
   -- raccord au réseau alimenté (section de tête : la rangée suivante se branche sur la précédente ou sur le réseau)
-  if (sp.head or (sp.bus and sp.from == 1)) and not st.sans_raccord then
+  -- une rangée dont la précédente vit se branche par son poteau relais, même si la précédente n'est pas encore bâtie : chercher le réseau pour elle la faisait refuser (partie tronc-partie-30bfce34,
+  -- azure rangée 2 : la cible était un poteau de la rangée 1, en chantier)
+  local relais_ok = false
+  if row.j > 1 then
+    for _, q in ipairs((st.rows[row.j - 1] or {}).projects or {}) do
+      local pp = b.projects[q.id]
+      if q.from == 1 and not q.dead and pp and pp.state ~= "refuse" then relais_ok = true end
+    end
+  end
+  if (sp.head or (sp.bus and sp.from == 1)) and not st.sans_raccord and not relais_ok then
     local poles = {}
     for _, e in ipairs(sec.ents) do if e.role == "mall-poteau" then poles[#poles + 1] = e end end
     local cx, cy = 0, 0
@@ -148,6 +157,12 @@ Build.SITES.mall = function(f, surface, p, h)
     cx, cy = cx / #poles, cy / #poles
     local bd = { spec = { pole = { wire = P.wire(sp.names.poteau) or 7.5 }, mine = {}, ore = {} }, names = { pole = sp.names.poteau },
       plan = { bands = {}, pitch = 0, axis = "x" } }
+    local rep_s = st.rep
+    bd.occ_libre = function(x, y, owner)
+      if owner ~= Build.Mall.OCC then return false end
+      local rx, ry = Mr.from_world(x + 0.5, y + 0.5, rep_s.k, rep_s.ox, rep_s.oy)
+      return Mr.reserve_libre(floor(rx), floor(ry), rep_s.west or Mr.TETE, rep_s.north or 0)
+    end
     local Champ = package.loaded["script.team.champ"] -- (lecture : champ.lua est chargé par le plan directeur ; aucun require pendant un événement, F24)
     if not Champ then return nil, "mall raccord : champ non charge", true end
     local n, why, wait = Champ._raccord_tous(f, surface, bd, sec.ents, cx, cy, p)

@@ -236,6 +236,23 @@ function Mr.origin(s, west, north)
   return s.x0 + m - x0, s.y1 - m - y1
 end
 
+--- Inverse de Mr.to_world pour la rangée 1 : du monde au repère canonique (coordonnées absolues).
+function Mr.from_world(wx, wy, k, ox, oy)
+  local x, y = wx - ox, wy - oy
+  for _ = 1, k do x, y = y, -x end
+  return x, y
+end
+
+--- Vrai si cette tuile du repère canonique n'est utilisée par aucune rangée ni par le tronc, quelle que soit la croissance du mall : une chaîne de poteaux peut y passer (la réserve du secteur
+--- la fermait : sections refusées au raccord, parties tronc-partie-30bfce34). west, north : place réservée à l'ouest et au nord (Mr.TETE, 0 sans tronc). Bande libre : hors de la place du tronc,
+--- les tuiles de passage entre deux rangées (sauf x = 3, le poteau relais d'une rangée).
+function Mr.reserve_libre(rx, ry, west, north)
+  if rx < -west or ry < -north then return true end
+  if ry < 0 then return rx >= 0 end
+  if ry % Mr.PITCH == Mr.PITCH - 1 then return rx >= 0 and rx ~= 3 end
+  return false
+end
+
 --- Rangées (j max) et cellules (n max) que le secteur porte, à l'intérieur : rend (rows, cells_in, along, across).
 function Mr.capacite(s, west, north)
   local k = Mr.frame(s.dir)

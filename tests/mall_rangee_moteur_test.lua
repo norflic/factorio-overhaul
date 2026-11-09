@@ -301,6 +301,50 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §7y raccord : la chaîne peut passer sur les tuiles que les rangées n'utilisent jamais
+---------------------------------------------------------------------------------------------------
+do
+  local f = team()
+  local id = Rt.place(f, { dem("belt", 2, { "fer", "gear" }) }, NAMES, 100, afford, "t")
+  local st = f.build.mall
+  local p = f.build.projects[id]
+  local CAPT
+  local champ = package.loaded["script.team.champ"]
+  local old = champ._raccord_tous
+  champ._raccord_tous = function(_, _, bd) CAPT = bd; return 0 end
+  Build.Mall.OCC = Build.Mall.OCC or -1
+  st.sans_raccord = nil
+  local lay = Build.SITES.mall(f, {}, p, { read_masks = function() return { water = {}, blocked = {}, clear = {} } end })
+  champ._raccord_tous = old
+  check(lay ~= nil and CAPT ~= nil and CAPT.occ_libre ~= nil, "§7y le raccord reçoit la règle des tuiles libres")
+  if CAPT and CAPT.occ_libre then
+    local r = st.rep
+    local function monde(cx, cy)
+      local x, y = Mr.to_world(cx + 0.5, cy + 0.5, 0, r.k, r.ox, r.oy, 1)
+      return math.floor(x), math.floor(y)
+    end
+    local px, py = monde(10, 14)
+    local qx, qy = monde(10, 5)
+    check(CAPT.occ_libre(px, py, Build.Mall.OCC) == true, "§7y passage entre rangées : ouvert à la chaîne")
+    check(CAPT.occ_libre(qx, qy, Build.Mall.OCC) == false, "§7y tuile de rangée : fermée")
+    check(CAPT.occ_libre(px, py, 12) == false, "§7y tuile d'un autre projet : fermée")
+  end
+  -- rangée 2 : sa précédente vit, le poteau relais suffit ; sa précédente refusée, elle cherche le réseau
+  local id2 = Rt.place(f, { dem("x", 2, { "a", "b", "c" }) }, NAMES, 200, afford, "t")
+  check(id2 ~= nil and #st.rows == 2, "§7y deuxième rangée ouverte")
+  local p2 = f.build.projects[id2]
+  local n_raccord = 0
+  champ._raccord_tous = function() n_raccord = n_raccord + 1; return 0 end
+  local masks = function() return { water = {}, blocked = {}, clear = {} } end
+  local lay2 = Build.SITES.mall(f, {}, p2, { read_masks = masks })
+  check(lay2 ~= nil and n_raccord == 0, "§7y rangée 1 vivante : pas de raccord pour la rangée 2 (" .. n_raccord .. ")")
+  f.build.projects[id].state = "refuse"
+  lay2 = Build.SITES.mall(f, {}, p2, { read_masks = masks })
+  check(lay2 ~= nil and n_raccord == 1, "§7y rangée 1 refusée : la rangée 2 cherche le réseau (" .. n_raccord .. ")")
+  champ._raccord_tous = old
+end
+
+---------------------------------------------------------------------------------------------------
 -- §7z rangée à l'arrêt : le journal dit pourquoi
 ---------------------------------------------------------------------------------------------------
 do
