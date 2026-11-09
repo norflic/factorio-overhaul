@@ -1545,8 +1545,10 @@ local function run_steps(agent, tick)
     elseif kind == "take" then
       -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
       local all
+      Stock.ctx = agent.task and ((agent.task.kind or "?") .. ":" .. tostring(agent.task.key or "?"):sub(1, 28)) or nil -- diagnostic DEFENSE-AP
       if agent.resa_id then all = Board.take_reserved(f, agent, main_inv(agent), step[2])
       else all = take(agent, f, step[2]) end
+      Stock.ctx = nil
       if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
         abort(agent, f, tick, (agent.task and agent.task.preempted) and "preempte" or "stock")
