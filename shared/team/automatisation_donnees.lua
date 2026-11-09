@@ -23,6 +23,10 @@ D.METHODS = {
 -- La centrale à vapeur (générateur « steam » de modules.lua), demandée avant le premier module électrique.
 D.PLANT = { gen = "steam", args = { 1 } }
 
+-- Générateurs de modules qui ne sont PAS de la fabrication (fonderie, foreuses, vapeur, laboratoires) : lus par la porte de la pile
+-- (shared/ai3/premier.lua, lot PORTE-PILE) pour reconnaître le premier module de fabrication de l'équipe.
+D.NOT_FAB = { smelter = true, drills = true, steam = true, labs = true, fonderie = true }
+
 -- Machines d'une rangée GÉNÉRÉE depuis une recette, dans l'ordre d'essai (la première dont les catégories contiennent
 -- celle de la recette).
 D.MACHINES = { "assembling-machine-1", "assembling-machine-2" }

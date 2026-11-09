@@ -107,25 +107,25 @@ end
 --- shared/ai3/pile.lua Pi.short_core : la matière manque hors des besoins des améliorations elles-mêmes, investissement de production
 --- permis ; relecture : f.team.ia3.short comptait les manques du module lui-même, qui passait alors tout seul). Sans cerveau par
 --- besoins ni pile : permis.
-function PileRt.porte(f, family, item)
+function PileRt.porte(f, family, item, mall)
   local st = pile_of(f)
   if not (st and st.hold) then return true, nil end
   local short = f.team.ia3.short_core or {}
   local starved = f.team.ia3.starved_open or {} -- lot GISEMENTS : manque par rapport au besoin, G.passent (shared/team/gisement.lua)
-  return Pi.porte(st, family, item, item ~= nil and ((short[item] or 0) > 0 or starved[item] == true))
+  return Pi.porte(st, family, item, item ~= nil and ((short[item] or 0) > 0 or starved[item] == true), mall) -- lot PORTE-PILE : `mall`, bloc du mall
 end
 
 --- Comme PileRt.porte pour plusieurs objets (un ordre qui produit un minerai et sa plaque) : permis si l'un d'eux l'est.
-function PileRt.porte_any(f, family, items)
+function PileRt.porte_any(f, family, items, mall)
   local why = nil
   local any = false
   for _, it in ipairs(items or {}) do
     any = true
-    local ok, w = PileRt.porte(f, family, it)
+    local ok, w = PileRt.porte(f, family, it, mall)
     if ok then return true, nil end
     why = why or w
   end
-  if not any then return PileRt.porte(f, family, nil) end
+  if not any then return PileRt.porte(f, family, nil, mall) end
   return false, why
 end
 

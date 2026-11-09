@@ -31,6 +31,8 @@ local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles
 local Profiler = require("script.core.profiler")
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (agrandissement des lignes)
+local D = require("shared.team.automatisation_donnees") -- lot PORTE-PILE : générateurs qui ne sont pas de la fabrication (D.NOT_FAB)
+local Pm = require("shared.ai3.premier") -- lot PORTE-PILE : module de fabrication ou non (premiers modules)
 local Pi = require("shared.ai3.pile") -- lot FUITES-PILE : famille d'un module (reconstruction, neuf, agrandissement)
 local Rsv = require("script.ai3.reserve") -- lot C2 : réglage maître (fo-war-industrie), puits ouvert
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D10) : module au plafond de son produit, plus nourri
@@ -695,8 +697,19 @@ function Auto.think(f, view, book, tick, research)
       if spec.product == p then cap[kind] = (cap[kind] or 0) + fini_rate[p] / (spec.drills * A.BURNER_RATE * 60) end
     end
   end
+  -- Lot PORTE-PILE : les modules de fabrication de l'équipe (finis, et non finis dans l'ordre des projets avec leur coût restant) : la pile
+  -- laisse passer les premiers (shared/ai3/premier.lua). Un module rouvert pour reconstruction n'est ni l'un ni l'autre.
+  local pdone, pcands = 0, {}
+  for _, m in ipairs(st.mods) do
+    if Pm.is_fab(m.gen, D.NOT_FAB) and Sweep.goal_for_module(m) and not m.rebuild then
+      if m.state == "fini" then pdone = pdone + 1
+      elseif m.state ~= "refuse" then
+        pcands[#pcands + 1] = { key = m.id, item = m.product, cost = Build.cost_left(f, m.id) or {} }
+      end
+    end
+  end
   Profiler.stop("ia3e:auto")
-  return { mods = mods, cap = cap, covered = covered, feeds = feeds }
+  return { mods = mods, cap = cap, covered = covered, feeds = feeds, premiers = { done = pdone, cands = pcands } }
 end
 
 --- Ligne de la minute (lisibilité, critère 6) : charges et débits de la fenêtre, modules, verdicts et leurs raisons.

@@ -5324,6 +5324,19 @@ function Build.brief(f, id)
     rangee = Build.Rangee.brief(p) } -- lot RANGEES-ASM : { n, n_max, held } d'une rangée dynamique
 end
 
+--- Lot PORTE-PILE : objets qui manquent encore à la RÉSERVE du projet `id` ({ {objet, n} } triés : besoin des pièces non posées moins ce que sa
+--- réserve tient déjà), ou nil sans projet. Lecteur : script/ai3/automatisation.lua (premiers modules de fabrication, shared/ai3/premier.lua).
+function Build.cost_left(f, id)
+  local p = f and f.build and f.build.projects[id]
+  if not p then return nil end
+  local need, out = needs_of(p), {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local n = need[it] - ((p.stock or {})[it] or 0)
+    if n > 0 then out[#out + 1] = { it, n } end
+  end
+  return out
+end
+
 --- Lot ENERGIE (relecture) : projet d'alimentation de centrale ouvert de l'équipe (un seul à la fois, Cc.want_alim), ou nil. Lecteur :
 --- script/ai3/automatisation.lua, qui en fait un but « fabriquer ses manques ». Lecture seule.
 function Build.alim_project(f)

@@ -404,7 +404,7 @@ function Ind.think(f, cs, res, view, book, tick)
     for _, c in ipairs(cands) do
       local dec, kind = c.dec, c.kind
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item
-      local allowed, pwhy = PileRt.porte_any(f, "capital", c.items)
+      local allowed, pwhy = PileRt.porte_any(f, "capital", c.items, true) -- lot PORTE-PILE : le mall passe tant qu'une des premières places de fabrication est libre
       local mod, why
       if allowed then mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule") end
       if not allowed then

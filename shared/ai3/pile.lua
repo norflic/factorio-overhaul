@@ -46,6 +46,7 @@
 
 local T = require("shared.team.config")
 local Bg = require("shared.ai3.budget") -- lot PILE-BUDGET : la retenue ne vaut que si le budget manque
+local Pm = require("shared.ai3.premier") -- lot PORTE-PILE : le premier module de fabrication de l'équipe passe la retenue
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite de votre équipe sous l'effectif de départ
 
 local Pi = {}
@@ -256,10 +257,11 @@ function Pi.update(st, sig, tick)
   -- Lot PILE-BUDGET : la retenue ne vaut QUE si le budget manque. Défense (postes sous leur minimum, objets non encore pris par une
   -- tâche) + reconstruction (pièces sans tâche, projet rouvert) + une amélioration payées sur le stock : tout passe en parallèle.
   local budget, parallel = nil, false
+  local claims = nil -- lot PORTE-PILE : le noyau (défense, reconstruction), relu par la règle du premier module
   -- Relecture : QG menacé (tout le monde garde le coffre, team.lua) : le stock n'y change rien, la retenue reste. Sous l'effectif de
   -- départ : les recrues manquantes entrent au noyau (une amélioration ne les paie jamais à leur place, F241).
   if hold and sig.book and sig.survive ~= "qg" then
-    local claims = { defense = {}, rebuild = {}, upgrades = sig.upgrades or {} }
+    claims = { defense = {}, rebuild = {}, upgrades = sig.upgrades or {} }
     for _, it in ipairs(sig.recruit_claim or {}) do claims.defense[#claims.defense + 1] = it end
     for _, p in ipairs(sig.posts or {}) do
       if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id] then
@@ -273,6 +275,20 @@ function Pi.update(st, sig, tick)
     for _, it in ipairs(sig.plan_wants or {}) do claims.rebuild[#claims.rebuild + 1] = it end
     budget = Bg.assess(sig.book, sig.avail or {}, claims, st.parallel)
     if budget.covered then hold, parallel = false, true end
+  end
+  -- Lot PORTE-PILE : la retenue demeure (noyau non couvert, ou plafond d'une pile bloquée) : le premier module de fabrication de l'équipe
+  -- (puis le mall) passe quand le stock restant, le noyau payé, couvre son coût (shared/ai3/premier.lua). QG menacé : le coffre est gardé.
+  local premier = nil
+  if hold and claims and sig.premiers and sig.book then
+    local prem = sig.premiers
+    local prev = (st.premier or {}).admitted_set or {}
+    local cands = {}
+    for _, c in ipairs(prem.cands or {}) do
+      cands[#cands + 1] = { key = c.key, item = c.item, cost = c.cost, prev = prev[tostring(c.key)] == true }
+    end
+    premier = Pm.eval({ done = prem.done, cands = cands }, sig.book, sig.avail or {}, claims)
+    premier.admitted_set = {}
+    for _, k in ipairs(premier.admitted) do premier.admitted_set[tostring(k)] = true end
   end
   -- Ouvertures et fermetures (par l'état, jamais par l'horloge).
   local now = {}
@@ -292,6 +308,7 @@ function Pi.update(st, sig, tick)
   end
   st.changed = (top ~= st.top) or (hold ~= st.hold) or (blocked ~= st.blocked)
   st.top, st.hold, st.blocked = top, hold, blocked
+  st.premier = premier -- lot PORTE-PILE : { items = { [objet] = vrai }, mall, admitted, skipped, why } ou nil ; lu par Pi.porte
   st.parallel, st.budget = parallel, budget -- lot PILE-BUDGET : lus par le journal seulement ; la retenue (hold) en tient compte
   if not hold then st.refus = nil end -- lot FUITES-PILE : fin de l'épisode de retenue, un refus futur sera de nouveau écrit
   st.frames, st.opened, st.focus, st.short = frames, opened, focus, short
@@ -338,19 +355,28 @@ end
 Pi.INVEST_FAMILIES = { capital = true, capi = true, invest = true, produire = true, extraction = true }
 -- Décision du DC du 8/11 (« Oui, toujours ») : la couverture des gisements passe la pile retenue, matière en manque ou non.
 Pi.ALWAYS_FAMILIES = { couverture = true }
+-- Lot PORTE-PILE : familles d'un module NEUF du plan directeur (réserve au coffre, fabrication de ses manques, bloc du mall).
+Pi.PREMIER_FAMILIES = { capital = true, capi = true }
 
 --- Un travail de la famille `family` (objet produit `item`, facultatif ; `short` : cette matière manque) peut-il AVANCER (ouvrir
 --- un ordre, réserver au coffre, faire fabriquer ses objets) ? Rend (permis, raison du refus).
 --- Permis : pile non retenue ; famille de rang ≤ sommet ; objet d'un cadre ouvert (focus) ; investissement de production d'une
 --- matière qui manque. RÉPARER (rang R1 et moins) n'est JAMAIS suspendu par cette porte : la pile ne suspend que ce qui améliore
 --- (R0 passe devant la réparation par les priorités des tâches, pas par une suspension).
-function Pi.porte(st, family, item, short)
+function Pi.porte(st, family, item, short, mall)
   if not st or not st.hold then return true, nil end
   local rank = Pi.FAMILY_RANK[family] or Pi.AMELIORER
   if rank <= Pi.ADAPTER then return true, nil end
   if Pi.ALWAYS_FAMILIES[family] then return true, nil end
   if Pi.allows(st, family, item) then return true, nil end
   if short and Pi.INVEST_FAMILIES[family] then return true, nil end
+  -- Lot PORTE-PILE : le premier module de fabrication (admis par Pm.eval : son coût se paie sur le stock restant, le noyau payé) ; le
+  -- mall (`mall` : décision d'un bloc, pas encore un projet) tant qu'une des premières places est libre.
+  local pm = st.premier
+  if pm and Pi.PREMIER_FAMILIES[family] then
+    if item ~= nil and pm.items and pm.items[item] then return true, nil end
+    if mall and pm.mall then return true, nil end
+  end
   return false, string.format("pile au sommet %s : %s (rang %s) suspendu%s", Pi.RANK_NAME[st.top or Pi.AMELIORER] or "?",
     tostring(family), Pi.RANK_NAME[rank] or "?", item and (", " .. tostring(item) .. " hors des cadres ouverts et sans manque") or "")
 end
@@ -471,6 +497,7 @@ function Pi.signals(view, base, inp, s, ctx, bud)
     raw_need = base.raw_need, sources = sources, inputs = inputs,
     production_first = (base.priorite and base.priorite.production_first) or false,
     penurie = view.survie and true or false,
+    premiers = ctx and ctx.auto and ctx.auto.premiers or nil, -- lot PORTE-PILE : { done, cands } des modules de fabrication
     prep = ctx and ctx.prevu or nil, -- lot PREVISION
     book = bud and bud.book or nil, avail = bud and bud.avail or nil, upgrades = bud and bud.upgrades or nil, -- lot PILE-BUDGET
     plan_wants = inp.plan_wants, recruit_claim = recruit_claim }
@@ -494,6 +521,7 @@ function Pi.describe(st)
     #parts > 0 and table.concat(parts, " ; ") or "pile vide", st.closed_n or 0,
     (st.closed and #st.closed > 0) and (" (" .. table.concat(st.closed, ", ") .. ")") or "")
     .. (st.budget and (" ; " .. Bg.describe(st.budget)) or "")
+    .. (st.premier and (" ; " .. Pm.describe(st.premier)) or "")
 end
 
 return Pi
