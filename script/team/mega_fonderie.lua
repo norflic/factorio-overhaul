@@ -36,6 +36,7 @@ Mega.SETTING = "fo-war-mega-fonderie"
 Mega.PER_THINK = 2   -- gisements relus au plus par pensée (étape 11 : une fois par minute)
 Mega.LOGS = 60       -- lignes [FO-MEGA] d'attente ou de refus au plus par équipe
 Mega.LOGS_D = 120    -- lignes [FO-MEGA] de décision au plus par équipe (comptées à part : jamais coupées par les refus)
+Mega.POSE_RETRY = 3 * 3600 -- ticks : un champ en attente d'un réseau alimenté n'est redemandé qu'après 3 min
 Mega.SAMPLE = 3      -- colonnes du bloc contrôlées (Mf.sample : première, une du milieu, la dernière partielle)
 
 --- Le réglage de carte (absent avant que l'intégrateur requière settings/mega_fonderie.lua : éteint).
@@ -173,8 +174,12 @@ end
 --- Tranche 2 (A2) : une décision `rec` sur le gisement recensé `dep` ordonne son champ au passage de la migration (une fois par minute : la
 --- cible reste « voulue » CFG.want_ttl). Lecteurs de rec.field et rec.pose : Mega.summary (bancs), le journal. Rend le numéro du champ ou nil.
 local function order_field(f, st, dep, rec, tick)
+  -- un champ qui attend un réseau alimenté n'est redemandé que toutes les Mega.POSE_RETRY ticks (la recherche du poteau alimenté le plus proche, rayon
+  -- Champ.CFG.chain_r, coûte au moteur ; mesuré au banc : 13 ms au premier appel d'une pensée chargée)
+  if rec.pose_next and tick < rec.pose_next then return rec.field end
   local fid, produced = MigChamp.want(f, dep, tick, Mp.par_max(rec))
   local key = fid and "champ" or ("attente:" .. tostring(produced))
+  rec.pose_next = (not fid) and (tick + Mega.POSE_RETRY) or nil
   rec.field = fid
   if fid then rec.produced = produced or 0 end
   if key ~= rec.pose_key then

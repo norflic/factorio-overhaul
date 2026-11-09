@@ -170,6 +170,13 @@ local function suite(Mega, src)
     local r = g2.mega and g2.mega.deps[11]
     want(r and r.state == "decide" and r.field == nil and r.pose_key:find("attente:", 1, true) == 1, "sans reseau : decision gardee, champ en attente")
     want(grep("jaune : gisement 11 (iron-ore, 1000 tuiles) : POSE : champ en attente : aucun reseau alimente") == 1, "sans reseau : cause ecrite une seule fois")
+    local nj = 0
+    for _, c in ipairs(WANT.calls) do if c.team == "jaune" then nj = nj + 1 end end
+    want(nj == 1, "sans reseau : la recherche du reseau n'est redemandee qu'apres 3 min (" .. nj .. " appel(s) en 3 pensees d'une minute)")
+    Mega.think(g2, { deps = { [11] = deps()[11] } }, 6 * 3600, { power = true })
+    nj = 0
+    for _, c in ipairs(WANT.calls) do if c.team == "jaune" then nj = nj + 1 end end
+    want(nj == 2, "sans reseau : redemande apres 3 min (" .. nj .. ")")
     WANT.refuse = nil
   end
   -- sans courant : attente, jamais de décision
@@ -229,6 +236,7 @@ local MUTANTS = {
   { "decisions purgees", '(rec.state == "refuse" or rec.state == "attente")', 'true' },
   { "refus jamais purges", 'if not cs.deps[id] and (rec.state', 'if false and (rec.state' },
   { "garde ecrite a chaque fois", '(action == "decider" or action == "garder") and "decide"', '(action == "decider") and "decide"' },
+  { "attente redemandee a chaque pensee", "if rec.pose_next and tick < rec.pose_next then return rec.field end", "" },
   { "statiques relus", "if not (known and known.static) then", "if true then" },
   { "champ jamais ordonne", 'if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end', "" },
   { "plafond ignore", "MigChamp.want(f, dep, tick, Mp.par_max(rec))", "MigChamp.want(f, dep, tick, 99)" },
