@@ -62,6 +62,7 @@ local Defauts = require("script.ai3.defauts_rt") -- lot TV-GARDES (V88) : table 
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
 local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de plus quand les plaques dorment
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
+local Sonde = require("script.team.sonde_fer") -- lot SONDE-FER : diagnostic du fer des premières minutes (lecture seule)
 local ZIrt = require("script.ai3.zero_idle_rt") -- lot ZERO-IDLE : journal [FO-ZERO-IDLE] de la minute
 local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : texte des pièces d'un kit ([FO-LOTS-KIT])
 
@@ -923,6 +924,8 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  local ok_sonde, err_sonde = pcall(Sonde.tick, f, tick) -- lot SONDE-FER (diagnostic, lecture seule : jamais une erreur de partie)
+  if not ok_sonde then log("[FO-SONDE-FER] erreur de la sonde : " .. tostring(err_sonde)) end
   ZIrt.after(f, st, tick, math.floor(minutes(f, tick) + 0.5)) -- lot ZERO-IDLE : ligne [FO-ZERO-IDLE] (une par minute, PNJ libres)
   Pil.armee_line(f, plan, minutes(f, tick)) -- lot TV-PILOTE (V10) : journal [FO-ARMEE] aux changements de la réserve
   Ext.after(f, view, st, tick) -- lot C3 EXTENSION : mesures (étendue, rayon de base, sites gardés) et journal [FO-EXTENSION]
