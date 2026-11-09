@@ -31,6 +31,7 @@ local Rt = {}
 
 Rt.MAX_NEW = 8             -- machines ajoutées au plus par demande
 Rt.LOGS = 400              -- lignes de ce module au plus, par équipe (journal [FO-MALL])
+Rt.RETRY_TICKS = 5 * 3600  -- délai avant de reposer une section refusée sans cause de terrain
 
 local floor, ceil, max, min = math.floor, math.ceil, math.max, math.min
 
@@ -68,7 +69,7 @@ function Rt.ouvert(f)
   local b = f and f.build
   local st = b and b.mall
   if not (st and st.sect and Build.Mall.on()) then return false end
-  return st.pret == true or st.force_pret == true
+  return st.pret == true or st.force_pret == true or st.partiel ~= nil
 end
 
 local function repere(st)
@@ -197,12 +198,25 @@ function Rt.place(f, demandes, names, tick, afford, why_text)
   local b = f.build
   local st = b.mall
   repere(st)
+  -- S2 partiel : seuls les objets dont les plaques coulent
+  if not (st.pret or st.force_pret) and st.partiel then
+    local kept = {}
+    for _, d in ipairs(demandes) do
+      local ok_d = true
+      for _, s in ipairs(d.solides or {}) do
+        if st.partiel.all[s] and not st.partiel.ok[s] then ok_d = false end
+      end
+      if ok_d then kept[#kept + 1] = d end
+    end
+    if #kept == 0 then return nil, "S2 partiel : les plaques de ces objets ne coulent pas" end
+    demandes = kept
+  end
   local rows_max, cells_in = Mr.capacite(st.sect)
   local cells_max = min(cells_in + floor((st.sect.ext or 0) / Mr.PERIODE), Mr.MAX_CELLS)
   -- une rangée dont les voies acceptent TOUT, sinon une neuve
   local row, newrow
   for _, r in ipairs(st.rows) do
-    local all_in = not r.stop and #r.cells < cells_max
+    local all_in = not r.stop and #r.cells < cells_max and not (r.retry_at and r.retry_at > tick)
     for _, d in ipairs(demandes) do
       if not Mr.accepte(r.voies, d.solides, d.item) then all_in = false end
     end
@@ -371,7 +385,8 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
         q.dead = true
         local why = p and p.reason or "projet perdu"
         for k = #r.cells, q.from, -1 do r.cells[k] = nil end
-        if tostring(why):find("obstacle", 1, true) or tostring(why):find("purete", 1, true) then r.stop = tostring(why) end
+        if tostring(why):find("obstacle", 1, true) or tostring(why):find("purete", 1, true) then r.stop = tostring(why)
+        else r.retry_at = tick + Rt.RETRY_TICKS end -- (raccord, projet perdu : nouvel essai plus tard, pas à chaque minute)
         say(f, st, tick, string.format("rangee %d : section %d-%d refusee (%s) : cellules rendues, arret : %s", r.j, q.from, q.to, tostring(why), tostring(r.stop)))
       end
     end

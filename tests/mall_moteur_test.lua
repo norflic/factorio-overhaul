@@ -256,6 +256,16 @@ do
   _G.FLOW = {}
 end
 
+-- §7c S2 partiel
+do
+  local e = Mp.etat({ plant = true, plaques = { { item = "fer", auto = true }, { item = "cuivre", auto = false } }, asm = true })
+  check(e.ok == false and e.partiel and e.partiel.ok.fer == true and e.partiel.all.cuivre == true and e.partiel.ok.cuivre == nil, "§7c S2 partiel : le fer coule, le cuivre non")
+  local e2 = Mp.etat({ plant = true, plaques = { { item = "fer", auto = true }, { item = "cuivre", auto = false } }, asm = true, crise = "survie" })
+  check(e2.partiel == nil, "§7c crise : pas de S2 partiel")
+  local e3 = Mp.etat({ plant = true, plaques = { { item = "fer", auto = false }, { item = "cuivre", auto = false } }, asm = true })
+  check(e3.partiel == nil, "§7c aucune plaque : pas de S2 partiel")
+end
+
 -- §7 état S
 do
   LOG = {}

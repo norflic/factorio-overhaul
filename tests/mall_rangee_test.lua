@@ -175,6 +175,7 @@ for _, s in ipairs(SECTORS) do
     local both = {}
     for _, e in ipairs(sec.ents) do both[#both + 1] = e end
     for _, e in ipairs(sec2.ents) do both[#both + 1] = e end
+    check(#Mr.verifie(both, size, 7.5, 2.5) == 0, tag .. "deux rangées voisines reliées par le relais (fil de 7,5)")
     local o2 = {}
     local dup = false
     for _, e in ipairs(both) do

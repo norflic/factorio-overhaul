@@ -301,6 +301,33 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §8b S2 partiel, reprise après un refus de raccord
+---------------------------------------------------------------------------------------------------
+do
+  local f = team()
+  local st = f.build.mall
+  st.pret = nil
+  st.partiel = { ok = { fer = true }, all = { fer = true, cuivre = true } }
+  check(Rt.ouvert(f) == true, "§8b S2 partiel : ouvert")
+  local _, why = Rt.place(f, { dem("cable", 1, { "cuivre" }) }, NAMES, 10, afford, "t")
+  check(tostring(why):find("S2 partiel", 1, true) ~= nil, "§8b objet d'une plaque qui ne coule pas : refusé (" .. tostring(why) .. ")")
+  local id = Rt.place(f, { dem("gear", 1, { "fer" }), dem("cable", 1, { "cuivre" }) }, NAMES, 10, afford, "t")
+  check(id ~= nil and #st.rows == 1 and Mr.compte(st.rows[1], "r-gear") >= 1 and Mr.compte(st.rows[1], "r-cable") == 0, "§8b seul l'objet dont la plaque coule entre")
+  local p = f.build.projects[id]
+  p.state, p.reason = "refuse", "mall raccord : 1 composante(s)"
+  Rt.minute(f, surface_mock({}, {}), { fab = {} }, {}, afford, 100)
+  local r = st.rows[1]
+  check(#r.cells == 0 and r.stop == nil and r.retry_at == 100 + Rt.RETRY_TICKS, "§8b refus de raccord : cellules rendues, nouvel essai plus tard (" .. tostring(r.retry_at) .. ")")
+  local n0 = #st.rows
+  local id2 = Rt.place(f, { dem("gear", 1, { "fer" }) }, NAMES, 200, afford, "t")
+  check(id2 ~= nil and #st.rows == n0 + 1, "§8b pendant le délai, la rangée en attente n'est pas reprise")
+  local r2 = st.rows[2]
+  r2.stop = "obstacle:test"
+  local id3 = Rt.place(f, { dem("gear", 2, { "fer" }) }, NAMES, 100 + Rt.RETRY_TICKS + 1, afford, "t")
+  check(id3 ~= nil and #st.rows == n0 + 1 and #r.cells >= 1, "§8b après le délai, la rangée est reprise")
+end
+
+---------------------------------------------------------------------------------------------------
 -- §9 ordre « chaine » de la capitalisation
 ---------------------------------------------------------------------------------------------------
 do

@@ -307,6 +307,7 @@ function Mall.step(h, f, surface, tick)
       say(f, st, Mp.line_etat(who(f), e, st.sect ~= nil, tick / 3600))
     end
     st.pret = e.ok or nil
+    st.partiel = e.partiel -- lecteur : Rt.ouvert et Rt.place (script/team/mall_rangee.lua)
   end
 end
 

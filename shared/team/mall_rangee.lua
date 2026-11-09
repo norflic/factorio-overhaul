@@ -165,7 +165,7 @@ end
 --- Tête canonique : les quais des voies (Mr.ARMS par voie, P.feeder de shared/team/plan.lua) ; par tapis alimenté, un poteau entre ses bras et un relais vers le
 --- premier poteau de cellule (fils de 4 et 4,1 tuiles, dans la portée d'un poteau de base).
 --- P = shared/team/plan.lua ; rend { ents, quais = { x, y, item } } (centres) ; nb = tapis alimentés (1 ou 2).
-function Mr.tete(P, voies, names)
+function Mr.tete(P, voies, names, j)
   local ents, quais = {}, {}
   local nb = (#voies >= 3) and 2 or 1
   local rows = { Mr.YA, Mr.YB }
@@ -190,6 +190,11 @@ function Mr.tete(P, voies, names)
       end
       for _, c in ipairs(fd.chests) do quais[#quais + 1] = { x = c.x, y = c.y, item = c.item } end
     end
+  end
+  if j and j > 1 then
+    -- relais vers la rangée précédente, dans la tuile de passage : 8 tuiles séparent les poteaux de deux rangées voisines, au-delà du fil d'un petit poteau (7,5 ; partie neuve
+    -- ab-a32fb69a, votre équipe : rangées 2 et 3 refusées au raccord, la réserve du secteur fermant tout autre chemin)
+    ents[#ents + 1] = { name = names.poteau, x = 3.5, y = -0.5, dir = 0, role = "mall-poteau" }
   end
   ents[#ents + 1] = { name = names.poteau, x = -4.5, y = 4.5, dir = 0, role = "mall-poteau" }
   ents[#ents + 1] = { name = names.poteau, x = -0.5, y = 4.5, dir = 0, role = "mall-poteau" }
@@ -265,7 +270,7 @@ function Mr.section(P, modele, row, from, to, names, repere, head)
     end
   end
   if head then
-    local t = Mr.tete(P, row.voies, names)
+    local t = Mr.tete(P, row.voies, names, row.j)
     push(t.ents, ents)
     for _, q in ipairs(t.quais) do
       local x, y = Mr.to_world(q.x, q.y, nil, repere.k, repere.ox, repere.oy, row.j)

@@ -264,7 +264,16 @@ function Mp.etat(inp)
   for _, p in ipairs(inp.plaques or {}) do if not p.auto then missing[#missing + 1] = tostring(p.item) end end
   if #(inp.plaques or {}) == 0 then return { ok = false, code = "S2", cause = "attente S2 : aucune plaque fondue connue" } end
   if #missing > 0 then
-    return { ok = false, code = "S2", cause = "attente S2 : aucune source automatisee de " .. table.concat(missing, ", ") }
+    -- S2 PARTIEL : au moins une plaque coule et rien d'autre ne retient (S3, S4) : la rangée s'ouvre aux seuls objets dont les plaques coulent (partie neuve ab-a32fb69a, votre
+    -- équipe, graine 20261020 : du fer certaines minutes, jamais de cuivre, S jamais vrai en 90 min)
+    local ok_set, all_set, n_ok = {}, {}, 0
+    for _, p in ipairs(inp.plaques) do
+      all_set[p.item] = true
+      if p.auto then ok_set[p.item] = true; n_ok = n_ok + 1 end
+    end
+    local partiel = (n_ok > 0 and not inp.crise and inp.asm == true) and { ok = ok_set, all = all_set } or nil
+    return { ok = false, code = "S2", partiel = partiel,
+      cause = "attente S2 : aucune source automatisee de " .. table.concat(missing, ", ") .. (partiel and " (rangees ouvertes aux objets des plaques qui coulent)" or "") }
   end
   if inp.crise then return { ok = false, code = "S3", cause = "attente S3 : crise (" .. tostring(inp.crise) .. ")" } end
   if not inp.asm then return { ok = false, code = "S4", cause = "attente S4 : aucun assembleur utilisable" } end
