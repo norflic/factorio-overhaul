@@ -167,7 +167,7 @@ do
   -- raccord sauté si pas de site ; plan accepté
   st.sans_raccord = true
   local lay4 = Build.SITES.mall(f, nil, p, { read_masks = mock_masks() })
-  check(lay4 ~= nil and #lay4.ents > 0 and #lay4.outs == 2 * #st.rows[1].cells and #lay4.quais == 2, "§5 plan accepté (pièces, sorties, quais)")
+  check(lay4 ~= nil and #lay4.ents > 0 and #lay4.outs == 2 * #st.rows[1].cells and #lay4.quais == 2 * Mr.ARMS, "§5 plan accepté (pièces, sorties, quais)")
   check(f.build.occ[P.tkey(t0[1], t0[2])] == nil, "§5 les tuiles du plan quittent la réserve du secteur")
   check(f.build.occ[P.tkey(SECT.x1 - 1, SECT.y1 - 1)] == -1, "§5 le reste du secteur reste réservé")
 end

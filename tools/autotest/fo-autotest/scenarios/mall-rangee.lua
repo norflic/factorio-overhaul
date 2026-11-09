@@ -120,8 +120,8 @@ return {
       ctx.check(id ~= nil, "projet de la premiere rangee demande", tostring(id))
       st.phase = "premier"
     elseif st.phase == "premier" and row and row.projects[1] and row.projects[1].state == "fini" then
-      -- courant du banc : interface et poteau reliés à la tête (2 tuiles à l'ouest du poteau nord de la tête, x = −3.5 + ox)
-      local hx = rep.rep.ox - 3.5
+      -- courant du banc : interface et poteau reliés à la tête (à l'ouest du poteau nord de la tête, x = −4.5 + ox)
+      local hx = rep.rep.ox - 4.5
       local hy = rep.rep.oy + 4.5
       local p2 = s.create_entity({ name = "small-electric-pole", position = { hx - 4, hy - 1 }, force = "player" })
       local eei = s.create_entity({ name = "electric-energy-interface", position = { hx - 6, hy - 1 }, force = "player" })

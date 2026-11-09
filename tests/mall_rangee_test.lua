@@ -150,7 +150,7 @@ for _, s in ipairs(SECTORS) do
       check(drop ~= nil and drop.name == NAMES.machine, tag .. "bras long : dépose dans une machine")
     end
     -- quais et sorties
-    check(#sec.quais == #voies, tag .. "un quai par voie (" .. #sec.quais .. ")")
+    check(#sec.quais == Mr.ARMS * #voies, tag .. "Mr.ARMS quais par voie (" .. #sec.quais .. ")")
     for _, q in ipairs(sec.quais) do
       local c = at[tile(q.x, q.y)]
       check(c ~= nil and c.name == NAMES.coffre, tag .. "quai = un coffre posé")
@@ -272,7 +272,7 @@ do
         end
         if e.name == NAMES.tapis and e.carries == nil then return false end
       end
-      if #sec.quais ~= 4 then return false end
+      if #sec.quais ~= 2 * 4 then return false end
       -- tapis continus jusqu'aux deux bouts
       local ends = 0
       for _, e in ipairs(sec.ents) do
@@ -308,7 +308,7 @@ do
     { "c.recipe = (p.groupe == \"haut\") and cell.h or cell.b", "c.recipe = cell.h", "recette du bas perdue" },
     { "rot_pt(x, y + ((j or 1) - 1) * Mr.PITCH, k)", "rot_pt(x, y, k)", "toutes les rangées au même endroit" },
     { "for x = Mr.PORT_X, -1 do", "for x = Mr.PORT_X + 2, -1 do", "tapis de tête troué" },
-    { "x = -3.5, y = 4.5", "x = -7.5, y = 4.5", "poteau de tête hors de portée" },
+    { "x = -4.5, y = 4.5", "x = -8.5, y = 4.5", "poteau de tête hors de portée" },
   }
   local killed = 0
   for _, mu in ipairs(mutants) do

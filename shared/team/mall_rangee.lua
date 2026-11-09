@@ -31,6 +31,7 @@ Mr.TETE = 6         -- tuiles de tête à l'ouest de la première cellule (x de 
 Mr.MAX_CELLS = 64   -- cellules par rangée au plus (garde-fou)
 Mr.MARGE = 1        -- tuiles laissées libres au bord du secteur
 Mr.PORT_X = -4      -- abscisse canonique du coude de la tête (bout amont des deux tapis)
+Mr.ARMS = 2         -- bras (et coffres) par voie à la tête : un seul bras plafonne la voie (micro-banc t2-rangee3 : 0,8 objet/s pour 12 machines, tapis clairsemés, mesuré)
 
 local floor, ceil = math.floor, math.ceil
 
@@ -159,8 +160,8 @@ function Mr.cellule(modele, i, cell, names, carries)
   return { ents = ents, outs = outs }
 end
 
---- Tête canonique : les quais des voies (un par voie, P.feeder de shared/team/plan.lua) ; deux poteaux à 7,07 tuiles des premiers poteaux des cellules
---- (dans la portée d'un fil de poteau de base : 7,5).
+--- Tête canonique : les quais des voies (Mr.ARMS par voie, P.feeder de shared/team/plan.lua) ; par tapis alimenté, un poteau entre ses bras et un relais vers le
+--- premier poteau de cellule (fils de 4 et 4,1 tuiles, dans la portée d'un poteau de base).
 --- P = shared/team/plan.lua ; rend { ents, quais = { x, y, item } } (centres) ; nb = tapis alimentés (1 ou 2).
 function Mr.tete(P, voies, names)
   local ents, quais = {}, {}
@@ -175,7 +176,7 @@ function Mr.tete(P, voies, names)
     if k <= nb then
       local port = { x = Mr.PORT_X, y = y, dir = dirs[k], lanes = lanes[k] }
       local same = lanes[k][1] == lanes[k][2]
-      local fd = P.feeder(port, { "quai", (not same) and "quai" or nil }, names.bras, names.tapis, 1)
+      local fd = P.feeder(port, { "quai", (not same) and "quai" or nil }, names.bras, names.tapis, Mr.ARMS)
       for _, e in ipairs(fd.entities) do
         e.carries = (e.role == "tete") and carries[k] or nil
         e.role = (e.role == "tete") and "mall-tete" or e.role
@@ -184,8 +185,12 @@ function Mr.tete(P, voies, names)
       for _, c in ipairs(fd.chests) do quais[#quais + 1] = { x = c.x, y = c.y, item = c.item } end
     end
   end
-  ents[#ents + 1] = { name = names.poteau, x = -3.5, y = 4.5, dir = 0, role = "mall-poteau" }
-  ents[#ents + 1] = { name = names.poteau, x = -3.5, y = 9.5, dir = 0, role = "mall-poteau" }
+  ents[#ents + 1] = { name = names.poteau, x = -4.5, y = 4.5, dir = 0, role = "mall-poteau" }
+  ents[#ents + 1] = { name = names.poteau, x = -0.5, y = 4.5, dir = 0, role = "mall-poteau" }
+  if nb == 2 then
+    ents[#ents + 1] = { name = names.poteau, x = -4.5, y = 9.5, dir = 0, role = "mall-poteau" }
+    ents[#ents + 1] = { name = names.poteau, x = -0.5, y = 9.5, dir = 0, role = "mall-poteau" }
+  end
   return { ents = ents, quais = quais, nb = nb }
 end
 
