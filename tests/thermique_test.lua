@@ -183,6 +183,34 @@ local function suite(Th, verbose)
     check(not s and w == "minerai-occupe", "4 : un chantier de fer : pas un deuxième (" .. tostring(w) .. ")")
     s = Th.free_slot("cuivre", busy)
     check(s == true, "4 : un autre minerai prend un autre créneau")
+    -- 9/11 : la plaque clé (busy.key) a un 2e chantier quand TOUS les siens sont bloqués par leurs matières ; jamais les autres minerais
+    busy = { total = 1, fer = 1, key = "fer", stuck = { fer = 1 } }
+    s, w = Th.free_slot("fer", busy)
+    check(s and w == "libre-cle", "4 : fer clé, chantier bloqué par ses matières : un 2e chantier (" .. tostring(w) .. ")")
+    busy = { total = 1, fer = 1, key = "fer", stuck = {} }
+    s, w = Th.free_slot("fer", busy)
+    check(not s and w == "minerai-occupe", "4 : fer clé, chantier qui avance : pas de 2e")
+    busy = { total = 2, fer = 2, key = "fer", stuck = { fer = 2 } }
+    s, w = Th.free_slot("fer", busy)
+    check(not s and w == "creneaux", "4 : tous les créneaux pris : pas de 3e")
+    busy = { total = 1, cuivre = 1, key = "fer", stuck = { cuivre = 1 } }
+    s, w = Th.free_slot("cuivre", busy)
+    check(not s and w == "minerai-occupe", "4 : un minerai qui n'est pas la plaque clé n'a jamais de 2e chantier")
+    busy = { total = 1, fer = 1, stuck = { fer = 1 } }
+    s, w = Th.free_slot("fer", busy)
+    check(not s and w == "minerai-occupe", "4 : sans plaque clé déclarée : comme avant")
+    busy = { total = 1, fer = 1, key = "fer", stuck = { fer = 0 } }
+    check(not (Th.free_slot("fer", busy)), "4 : bloqués 0 sur 1 : pas de 2e")
+    busy = { total = 2, fer = 2, key = "fer", stuck = { fer = 2 } }
+    local C2 = {}
+    for k, v in pairs(C) do C2[k] = v end
+    C2.slots = 3
+    s, w = Th.free_slot("fer", busy, C2)
+    check(not s and w == "minerai-occupe", "4 : plafond de 2 chantiers de la plaque clé (key_per_mineral)")
+    check(Th.band_stuck("reserve", "materiaux", C.stuck_wait + 1) == true and Th.band_stuck("reserve", "materiaux", C.stuck_wait) == false
+      and Th.band_stuck("reserve", "degel", C.stuck_wait * 3) == false and Th.band_stuck("chantier", nil, C.stuck_wait * 3) == false
+      and Th.band_stuck("reserve", "pile", C.stuck_wait + 1) == true and Th.band_stuck("reserve", "materiaux", nil) == false,
+      "4 : bande bloquée = en réserve (hors porte « degel ») depuis plus de stuck_wait")
     busy = { total = C.slots, fer = 1, cuivre = 1, charbon = 1 }
     s, w = Th.free_slot("pierre", busy)
     check(not s and w == "creneaux", "4 : tous les créneaux pris : attendre (" .. tostring(w) .. ")")
@@ -335,6 +363,12 @@ local mutants = {
   { "verdict : l'ordinaire n'attend jamais", "if age > cfg.protect_wait then return \"retirer\" end", "return \"retirer\"" },
   { "verdict : l'ordinaire attend toujours", "if age > cfg.protect_wait then return \"retirer\" end", "if false then return \"retirer\" end" },
   { "free_slot : un minerai plusieurs chantiers", "if (busy[res] or 0) >= cfg.per_mineral then", "if false then" },
+  { "free_slot : 2e chantier sans bloquage", "((busy.stuck and busy.stuck[res]) or 0) >= (busy[res] or 0) then", "true then" },
+  { "free_slot : 2e chantier pour tout minerai", "if busy.key ~= nil and busy.key == res and", "if busy.key ~= nil and" },
+  { "free_slot : plafond de la plaque clé", "(busy[res] or 0) < cfg.key_per_mineral and", "" },
+  { "band_stuck : degel compte", "reason ~= \"degel\" and", "" },
+  { "band_stuck : seuil inclusif", "(age or 0) > cfg.stuck_wait", "(age or 0) >= cfg.stuck_wait" },
+  { "band_stuck : chantier compte", "state == \"reserve\" and reason", "reason" },
   { "free_slot : total ignoré", "if (busy.total or 0) >= cfg.slots then", "if false then" },
   { "raw_full : seuil ignoré", "return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max", "return true" },
   { "raw_full : seuil strict", "return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max", "return ((stock or {})[spec.product] or 0) > cfg.raw_stock_max" },
