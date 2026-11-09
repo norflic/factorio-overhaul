@@ -60,6 +60,8 @@ local function load_code(src, Qg)
     plant_burn_kw = function() return 0, 0 end,
     Cc = {}, cc_say = function() end, Sante = { tasks = function() end }, M = {},
     Stock = { count = function(_, it) return (W.stock[it] or 0) end },
+    Collecte = { low_due = function() return false end }, -- (lot COLLECTE-CHAMP : coffre sous le seuil ; doublure muette, la règle a son banc)
+    game = { tick = 0 },
     defines = { inventory = { chest = 1 } },
     sorted_keys = function(t) local ks = {} for k in next, t or {} do ks[#ks + 1] = k end table.sort(ks) return ks end,
     -- (intégrateur, 8/11 : X10-S0 met des portées de mesure dans quai_tasks ; doublure muette, aucune décision)

@@ -984,6 +984,7 @@ function Champ.report(f, surface, tick)
         if c and c.valid then
           local n = c.get_inventory(defines.inventory.chest).get_item_count()
           out.n, out.sum, out.max = out.n + 1, out.sum + n, math.max(out.max, n)
+          out.fer = (out.fer or 0) + c.get_item_count(T.outposts.iron.product) -- lot COLLECTE-CHAMP : part du fer dans les coffres de sortie
           if n >= (o.at or Build.COLLECT_AT) then out.due = out.due + 1 end
         end
       end
@@ -1002,9 +1003,9 @@ function Champ.report(f, surface, tick)
   local mk = sorted_keys(miss)
   table.sort(mk, function(a, c) if miss[a] ~= miss[c] then return miss[a] > miss[c] end return a < c end)
   for i, k in ipairs(mk) do if i <= 5 then mparts[#mparts + 1] = k .. " " .. miss[k] end end
-  log(string.format("[FO-CHAMP-ETAT] %s min %.0f | bandes %d (%s)%s | foreuses %d (marche %d, figees %d, sans courant %d) | fours %d (marche %d, sans entree %d, sans combustible %d, sortie pleine %d) | coffres de sortie %d (plaques %d, max %d, %d au seuil de collecte) | coffres de combustible %d (charbon min %s)",
+  log(string.format("[FO-CHAMP-ETAT] %s min %.0f | bandes %d (%s)%s | foreuses %d (marche %d, figees %d, sans courant %d) | fours %d (marche %d, sans entree %d, sans combustible %d, sortie pleine %d) | coffres de sortie %d (plaques %d dont fer %d, max %d, %d au seuil de collecte) | coffres de combustible %d (charbon min %s)",
     f.key or "player", tick / 3600, #ids, table.concat(parts, ", "), #mparts > 0 and (" ; manque " .. table.concat(mparts, ", ")) or "",
-    d.n, d.run, d.stuck, d.nopow, fu.n, fu.run, fu.noin, fu.nofuel, fu.full, out.n, out.sum, out.max, out.due, fuel.n, tostring(fuel.min or "-"))
+    d.n, d.run, d.stuck, d.nopow, fu.n, fu.run, fu.noin, fu.nofuel, fu.full, out.n, out.sum, out.fer or 0, out.max, out.due, fuel.n, tostring(fuel.min or "-"))
     .. (#bad > 0 and (" | " .. table.concat(bad, " ; ")) or ""))
 end
 

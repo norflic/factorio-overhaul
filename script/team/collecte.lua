@@ -125,6 +125,35 @@ local function apply_mq(f, tasks, res, tick)
   return n
 end
 
+--- Lot COLLECTE-CHAMP : un coffre de sortie du champ SOUS son seuil de collecte reçoit sa tâche quand il tient de quoi combler un manque mesuré
+--- (Co.low_due sur f.team.mq.res.net, résultat frais). Appelé par out_tasks (build.lua) ; au plus Co.LOW_MAX coffres par pensée. Lecture seule
+--- des coffres ; la sûreté du trajet est celle de toute tâche de collecte (porte du danger à la prise). Journal [FO-COLLECTE].
+Col.LOW_ON = true        -- faux : la règle d'avant (banc témoin)
+Col.LOW_LOGS = 12
+function Col.low_due(f, p, chest, tick)
+  if not Col.LOW_ON or not (p.spec and p.spec.champ) then return false end
+  local mq = f.team and f.team.mq
+  local res = mq and mq.res
+  if not (res and res.net and mq.tick and tick - mq.tick <= Col.MQ_AGE) then return false end
+  local st = f.team.collecte
+  if not st then
+    st = { t = -Col.EVERY, picked = {} }
+    f.team.collecte = st
+  end
+  if st.low_tick ~= tick then st.low_tick, st.low_n = tick, 0 end
+  if (st.low_n or 0) >= Co.LOW_MAX then return false end
+  local contents = chest.get_inventory(defines.inventory.chest).get_contents()
+  if not Co.low_due(contents, res.net) then return false end
+  st.low_n = st.low_n + 1
+  f.stats = f.stats or {}
+  f.stats.collecte_basse = (f.stats.collecte_basse or 0) + 1
+  if f.stats.collecte_basse <= Col.LOW_LOGS then
+    log(string.format("[FO-COLLECTE] %s a %.1f min : coffre du champ (projet %d) SOUS son seuil mais %d objets d'un manque mesure : collecte emise",
+      f.key or "player", tick / 3600, p.id or -1, Co.useful(contents, res.net)))
+  end
+  return true
+end
+
 --- Passe en urgence les collectes choisies parmi `tasks` (liste de la pensée, avant Board.add). Rend le nombre de tâches passées.
 function Col.apply(f, surface, b, tasks, tick)
   local mq = Col.MQ and f.team and f.team.mq

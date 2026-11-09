@@ -74,6 +74,36 @@ function C.pick(cands, short, now)
   return out
 end
 
+-- Lot COLLECTE-CHAMP (9/11, graine 123456789, votre équipe) : les coffres de sortie du champ tenaient 1 946 à 2 281 plaques de 42 à 87 min
+-- (15 coffres sur 21 SOUS le seuil de collecte de 200) pendant que le registre disait « manque iron-plate 369 à 615 » ; la tâche de
+-- collecte n'existe qu'au seuil, et « sans tâche, la sortie dort » (Col.waiting_all) : le manque mesuré ne les voyait pas. Règle : un coffre
+-- sous le seuil, qui tient au moins C.LOW_MIN objets d'un objet en MANQUE MESURÉ (res.net < 0, shared/ai3/manque_local.lua), reçoit sa tâche
+-- de collecte ; au plus C.LOW_MAX coffres de plus par pensée et par équipe. Aucun nom d'objet : le manque arrive en donnée.
+C.LOW_MIN = 40
+C.LOW_MAX = 3
+
+function C.sorted(t)
+  local ks = {}
+  for k in pairs(t or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+
+--- Objets du coffre qui comblent un manque mesuré. contents = { [objet] = n }, net = { [objet] = solde } (négatif : manque).
+function C.useful(contents, net)
+  local total = 0
+  for _, item in ipairs(C.sorted(contents)) do
+    local s = net and net[item]
+    if type(s) == "number" and s < 0 then total = total + math.min(contents[item], -s) end
+  end
+  return total
+end
+
+--- Le coffre, sous son seuil, mérite-t-il une collecte (il tient au moins C.LOW_MIN objets utiles) ?
+function C.low_due(contents, net)
+  return C.useful(contents, net) >= C.LOW_MIN
+end
+
 --- Un projet dans l'état `state` avec `n_outs` coffres de sortie voit-il ses coffres vidés ? Tout état : un coffre posé se remplit tant que son
 --- four tourne, que la bande soit « fini », « chantier », « reserve:pile » ou « refuse:migration » (les coffres absents sont ignorés plus loin).
 function C.collects_outs(state, n_outs)

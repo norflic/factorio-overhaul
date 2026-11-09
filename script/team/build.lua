@@ -4144,7 +4144,9 @@ local function out_tasks(f, p, surface, out)
   for i, o in ipairs(p.outs) do
     local chest = chests[i]
     -- lot PETROLE : seuil propre d'une sortie de site (o.at) ; lot VIDEO L4 : borné par le quota
-    if chest and counts[i] >= Build.Quotas.collect_at(q, i, o.at or Build.COLLECT_AT) and out_wanted(f, p, chest) then
+    local due = chest and counts[i] >= Build.Quotas.collect_at(q, i, o.at or Build.COLLECT_AT)
+    if chest and not due and Collecte.low_due(f, p, chest, game.tick) then due = true end -- lot COLLECTE-CHAMP : coffre sous le seuil qui comble un manque mesuré
+    if chest and due and out_wanted(f, p, chest) then
       local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
       if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
       out[#out + 1] = {
