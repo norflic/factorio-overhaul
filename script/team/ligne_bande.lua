@@ -205,6 +205,7 @@ end
 --- Trace [FO-LIGNE-BANDE-ETAT] (lecture seule) : toutes les 2 min, l'etat de chaque ligne en chantier : poses/total, pieces non posees (fantome, refus,
 --- point d'appui) et taches du tableau (libre ou prise, age, pause). Lue pour savoir POURQUOI une ligne posee aux deux tiers ne porte pas de courant.
 local TRACE_EVERY = 7200
+local function lg_pole(lp) return lp.spec and lp.spec.lg and lp.spec.lg.pole or "?" end
 function LB.trace(f, tick)
   local bd = f.build
   if not (Board and bd and bd.lignes) or tick - (bd.lignes_trace or -TRACE_EVERY) < TRACE_EVERY then return end
@@ -230,7 +231,8 @@ function LB.trace(f, tick)
         end
       end
       table.sort(tk)
-      say(f, string.format("etat projet %d (%s, %s) a %.1f min : %d/%d poses ; non posees %s ; taches %s", lp.id, tostring(lp.state), tostring(lp.reason), tick / 3600, built, #lp.ents,
+      say(f, string.format("etat projet %d (%s, %s) a %.1f min : %d/%d poses ; reserve %s, manque %s ; non posees %s ; taches %s", lp.id, tostring(lp.state), tostring(lp.reason), tick / 3600, built, #lp.ents,
+        tostring((lp.stock or {})[lg_pole(lp)] or 0), tostring(#(lp.missing or {}) > 0 and (lp.missing[1][1] .. "x" .. lp.missing[1][2]) or "rien"),
         table.concat(rest, " "), #tk > 0 and table.concat(tk, " ", 1, math.min(#tk, 6)) or "aucune"))
     end
   end

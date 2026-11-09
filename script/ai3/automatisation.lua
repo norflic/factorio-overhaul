@@ -655,7 +655,7 @@ function Auto.think(f, view, book, tick, research)
     local ps = Build.brief(f, lp.pid)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
       mods[#mods + 1] = { product = (i == 1) and "ligne-bande" or ("ligne-bande-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0,
-        pile = "couverture" }
+        pile = "couverture", line = true }
     end
   end
   local feeds = {}
