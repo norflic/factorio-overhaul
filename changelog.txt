@@ -11,6 +11,7 @@ Date: 2026-11-09
     - Auto-financement (F436) : un agrandissement thermique dont seule la plaque manque au QG prend ses plaques dans les fours de l'avant-poste et fabrique les paires sur place.
     - Chantier gelé (F437) : une bande de champ ne compte « commencée » pour la famine de la plaque clé qu'à sa première entité bâtie ; une bande dégelée qui ne bâtit rien ne gèle plus l'extension thermique.
     - Pose perdue (F438) : la fabrication sur place lance ses recettes l'une après l'autre, file vide entre deux ; les foreuses auto-financées sont bien fabriquées avant la pose.
+    - Courant des bandes (F439) : le journal « bande sans courant » distingue un réseau non joint d'une centrale qui ne produit pas (détruite, à sec, en chantier).
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------
