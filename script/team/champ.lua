@@ -22,6 +22,7 @@ local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
+local Cd = require("shared.team.champ_dedupe") -- lot COMBUSTIBLE-MIGRATION : une pièce n'est écartée que si le détenteur de sa tuile porte la même (règle pure)
 local Ln = require("shared.team.champ_lien") -- revue-fonderie (point 7) : lecteur des projets liés du réseau du charbon
 local LB = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : ligne de poteaux d'une bande lointaine
 local Ra = require("shared.team.champ_raccord") -- lot FONDERIE : tous les poteaux d'une bande rejoignent le réseau alimenté
@@ -53,6 +54,7 @@ Champ.CFG = {
   -- lot FONDERIE
   coal_r = 192,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché (320 au lot3 : des tracés de centaines de
                     -- tuiles faisaient attendre les bandes ; le tracé est désormais plafonné, Co.ROUTE_MAX)
+  cut_wait = 5 * 3600, -- lot COMBUSTIBLE-MIGRATION : attente au plus (ticks) d'un réseau du charbon dont le tronc est coupé par un autre projet, avant de l'accepter
   coal_prio = 52,   -- priorité du projet « réseau du charbon » d'un côté du champ : celle des bandes (Mg.CFG.prio). À 80 (alimentation d'une
                     -- centrale, lot4-20261020), emerald était en retard dès 30 min (14 fours sur 59, 2 735 plaques qui dorment, 10 PNJ contre 18)
   -- (3/11, lot4 et lot5 : 6 projets séparés du réseau du charbon sur 24 jamais finis : bande refusée après la demande du réseau, matières jamais
@@ -803,13 +805,34 @@ Build.SITES.champ = function(f, surface, p, h)
   local ents = {}
   local dropped = 0
   local dropped_by, holders, drop_roles = {}, {}, {} -- (revue-fonderie, 3/11) pièces écartées : plus en silence (journal ci-dessous)
+  -- lot COMBUSTIBLE-MIGRATION : ce que le détenteur d'une tuile y porte (index par projet, lu une fois) ; une pièce n'est écartée que si c'est la même
+  -- (Cd.verdict) ; une pièce du réseau du charbon en conflit coupe le tronc : le réseau est refusé plus bas, avec la cause
+  local hidx, cut, cut_by = {}, 0, {}
+  local function held_ent(q, tk)
+    local idx = hidx[q]
+    if not idx then
+      idx = {}
+      local pq = b.projects[q]
+      for _, he in ipairs(pq and pq.ents or {}) do
+        for _, t in ipairs(P.tiles_of(he)) do idx[P.tkey(t[1], t[2])] = he end
+      end
+      hidx[q] = idx
+    end
+    return idx[tk]
+  end
   for _, e in ipairs(bd.ents) do
     local taken = false
+    local held = {}
     for _, t in ipairs(P.tiles_of(e)) do
-      local q = b.occ[P.tkey(t[1], t[2])]
-      if q and q ~= p.id then taken = true; holders[q] = true end
+      local tk = P.tkey(t[1], t[2])
+      local q = b.occ[tk]
+      if q and q ~= p.id then taken = true; holders[q] = true; held[#held + 1] = { pid = q, ent = held_ent(q, tk) } end
     end
     if taken then
+      if Cd.cuts_trunk(Cd.verdict(e, held), e.role == "champ-charbon") then
+        cut = cut + 1
+        cut_by[tostring(held[1].pid)] = (cut_by[tostring(held[1].pid)] or 0) + 1
+      end
       dropped = dropped + 1
       dropped_by[e.name] = (dropped_by[e.name] or 0) + 1
       -- (revue-fonderie) tri par rôle ; le charbon commun à part
@@ -833,6 +856,26 @@ Build.SITES.champ = function(f, surface, p, h)
       log(string.format("[FO-CHAMP] %s : projet %d (bande %s) : pieces ecartees du role %s : %d (%s)", f.key or "player", p.id, tostring(cs.pr), rk, n,
         table.concat(np, ", ")))
     end
+  end
+  -- lot COMBUSTIBLE-MIGRATION : une pièce du réseau du charbon dont la tuile est au plan d'un autre projet qui n'y porte PAS la même pièce coupe le
+  -- tronc : le réseau attend (CUT_WAIT : le détenteur peut disparaître, ou le plan se relire) puis est accepté tel quel, avec la ligne [FO-CHAMP] « TRONC COUPE »
+  if cut > 0 then
+    b.champ_cut = b.champ_cut or {}
+    local ck = tostring(o.id) .. ":" .. tostring(cs.coal or ("b" .. tostring(cs.pr)))
+    local t0 = b.champ_cut[ck] or game.tick
+    b.champ_cut[ck] = t0
+    local hs2 = {}
+    for _, h in ipairs(sorted_keys(cut_by)) do hs2[#hs2 + 1] = h .. " (" .. cut_by[h] .. ")" end
+    local waiting = game.tick - t0 < Champ.CFG.cut_wait
+    b.champ_cut_say = b.champ_cut_say or {}
+    local said = waiting and "attend" or "accepte"
+    if b.champ_cut_say[ck] ~= said then -- (une ligne par changement : pas à chaque relecture du plan)
+    b.champ_cut_say[ck] = said
+    log(string.format("[FO-CHAMP] %s : projet %d (reseau du charbon, bande %s) : TRONC COUPE : %d piece(s) du reseau du charbon sur des tuiles du projet %s, que son plan occupe d'une AUTRE piece (nom, role ou direction) ; %s a %.1f min",
+      f.key or "player", p.id, tostring(cs.pr), cut, table.concat(hs2, ", "),
+      waiting and string.format("le reseau attend (au plus %.0f min depuis %.1f min)", Champ.CFG.cut_wait / 3600, t0 / 3600) or "attente finie : reseau accepte tel quel", game.tick / 3600))
+    end
+    if waiting then return nil, string.format("champ: reseau du charbon coupe (%d piece(s) en conflit avec le projet %s)", cut, hs2[1] or "?"), true end
   end
   -- raccord au réseau : un poteau alimenté à portée d'un poteau de la bande, sinon une chaîne de poteaux
   -- (lot FONDERIE) les poteaux du réseau du charbon (loin, vers le gisement de charbon) ne comptent pas : le raccord part de la bande
