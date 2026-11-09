@@ -45,6 +45,13 @@ local function battery(Mc, R, Th)
   check(Mc.low(0, 4, Mc.CFG) == true and Mc.low(4 * Mc.CFG.horizon, 4, Mc.CFG) == false and Mc.low(4 * Mc.CFG.horizon - 1, 4, Mc.CFG) == true,
     "stock bas : sous horizon x plancher")
   check(Mc.low(0, 0, Mc.CFG) == false, "sans plancher : pas de manque")
+  -- 6 bis. même formule que Th.fuel_short de la branche mega-fer-ordre (zero-idle-4 : floor > 1e-9 et stock + 1e-9 < floor x horizon, horizon 600 s) ; comparée à elle si elle est présente
+  for _, c in ipairs({ { 0, 0 }, { 5, 0 }, { 0, 0.5 }, { 299, 0.5 }, { 300, 0.5 }, { 301, 0.5 }, { 1e9, 3 }, { 1e-12, 1e-12 } }) do
+    local want = (c[2] > 1e-9) and (c[1] + 1e-9 < c[2] * 600)
+    check(Mc.low(c[1], c[2], Mc.CFG) == want, string.format("Mc.low(%g, %g) = formule de Th.fuel_short", c[1], c[2]))
+    if Th.fuel_short then check(Mc.low(c[1], c[2], Mc.CFG) == Th.fuel_short(c[1], c[2]), string.format("Mc.low(%g, %g) = Th.fuel_short", c[1], c[2])) end
+  end
+  check(Mc.CFG.horizon == 600 and Th.CFG.horizon == Mc.CFG.horizon, "horizon de Mc.low = Th.CFG.horizon (600 s)")
   -- 7. retour en arrière : seuil court quand le combustible manque
   check(R.CFG.stall_fuel == 5 * MIN and R.CFG.stall == 15 * MIN, "seuils : 5 min (combustible bas) et 15 min")
   local d, w = R.decide({ undo = 10, produced = false, state = "chantier", stalled = 6 * MIN, built = 0, total = 134, fuel_low = true })

@@ -38,4 +38,58 @@ function M.cuts_trunk(verdict, role_coal)
   return verdict == "conflit" and role_coal == true
 end
 
+--- RÉSERVATION DU TRONC (partie 90 min 123456789, « TRONC COUPE » : 28 pièces du réseau du charbon du projet 9 sur des tuiles de la bande de cuivre du projet 11,
+--- planifiée 0,2 min plus tôt que lui alors que le cadre du champ de fer, tronc compris, datait de 12,1 min) : dès que la première bande d'un cadre est planifiée, les
+--- tuiles du réseau du charbon REPORTÉ (projets liés, pas encore planifiés) sont retenues au plan sous un propriétaire de cadre ; les autres projets les évitent
+--- (blocked_in lit b.occ) ; les projets du MÊME avant-poste les traitent comme libres et les prennent (leur propriétaire devient le projet).
+function M.marker(oid) return "cadre:" .. tostring(oid) end
+
+--- Ce propriétaire de tuile est-il la réservation du cadre de l'avant-poste `oid` ?
+function M.own(owner, oid)
+  return owner ~= nil and owner == M.marker(oid)
+end
+
+--- Retient les tuiles `tiles` ({ { x, y }, ... }) au nom du cadre de `oid` dans `occ` ({ [clé] = propriétaire }) ; `key(x, y)` donne la clé. Une tuile déjà prise
+--- (un projet, ou un autre cadre) n'est jamais écrasée. Rend le nombre de tuiles retenues.
+function M.reserve(occ, tiles, oid, key)
+  local n = 0
+  for _, t in ipairs(tiles) do
+    local k = key(t[1], t[2])
+    if occ[k] == nil then occ[k] = M.marker(oid); n = n + 1 end
+  end
+  return n
+end
+
+--- Libère les tuiles retenues par le cadre de `oid` (cadre refait). Rend le nombre libéré. (L'ordre de passage est sans effet.)
+function M.clear(occ, oid)
+  local n, m = 0, M.marker(oid)
+  for k, v in pairs(occ or {}) do
+    if v == m then occ[k] = nil; n = n + 1 end
+  end
+  return n
+end
+
+--- Avant-postes dont un cadre retient des tuiles dans `occ`, triés (nombres).
+function M.owners(occ)
+  local seen, out = {}, {}
+  for _, v in pairs(occ or {}) do
+    if type(v) == "string" then
+      local id = tonumber(v:match("^cadre:(.+)$"))
+      if id and not seen[id] then seen[id] = true; out[#out + 1] = id end
+    end
+  end
+  table.sort(out)
+  return out
+end
+
+--- Cadres à libérer : ceux dont l'avant-poste n'a plus aucun projet de champ vivant (`alive` = { [oid] = true } : projets ni refusés ni annulés ; un réseau du charbon
+--- qui n'est finalement pas demandé, une bande refusée ou un cadre abandonné ne gardent pas leurs tuiles). Rend la liste triée des numéros.
+function M.dead(owners, alive)
+  local out = {}
+  for _, oid in ipairs(owners) do
+    if not (alive and alive[oid]) then out[#out + 1] = oid end
+  end
+  return out
+end
+
 return M
