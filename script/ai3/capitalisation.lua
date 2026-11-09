@@ -1148,6 +1148,15 @@ function Capi.portes_on()
   return ok and v == true
 end
 
+--- Lot MODULES-ORDRE (9/11) : RELAIS de la porte du transport (shared/ai3/couverture.lua, Cv.relief). Réglage de carte fo-war-relais, ALLUMÉ par
+--- défaut dans le jeu (settings/relais.lua) ; ABSENT (moteur simulé des tests, qui ne le déclare pas) : éteint, la décision d'avant. Seul un
+--- réglage déclaré à vrai l'allume ; les bancs l'éteignent par remote war_setting (témoin A/B).
+Capi.RELAIS_SETTING = "fo-war-relais"
+function Capi.relais_on()
+  local ok, v = pcall(function() return settings.global[Capi.RELAIS_SETTING].value end)
+  return ok and v == true
+end
+
 --- Porte de la décision : { [clé d'ordre] = raison } des ordres retenus, ou nil (réglage éteint : la décision d'avant, inchangée).
 --- Entrées : PNJ et PNJ sans tâche de la vue (view.workers, view.workers_waiting), tâches libres qui attendent (view.backlog, écrit par
 --- Team.view), modules posés et chantiers ouverts (cs.slots, Capi.slots). État : cs.portes (nombres, booléens, une chaîne).
@@ -1182,7 +1191,20 @@ function Capi.portes(f, cs, res, view, tick)
   for _, c in ipairs(res.coverage or {}) do free_of[tostring(c.id)] = c.free end
   local crisis = (view.survie or view.hq_threat) and true or false
   local verdict = {} -- clé d'ordre -> { vrai/faux, raison } de la règle de couverture en boucle
+  -- Lot MODULES-ORDRE : charge à la main (PNJ) mesurée sur la fenêtre pour chaque objet pesé (verdicts d'A.decide, f.team.ia3e.verdicts : lecture seule),
+  -- et verdict du relais par clé d'ordre (journal [FO-PORTES] relais).
+  local hand_load, relief = {}, {}
+  if Capi.relais_on() then
+    for _, v in ipairs(f.team and f.team.ia3e and f.team.ia3e.verdicts or {}) do
+      if type(v) == "table" and type(v.product) == "string" and type(v.L) == "number" then hand_load[v.product] = v.L end
+    end
+  end
   local function root_of(o)
+    if o.kind == "chaine" and Capi.relais_on() then
+      local ok, why = Cv.relief({ kind = o.kind, load = hand_load[o.item], load_min = A.LOAD_MIN, crisis = crisis })
+      relief[o.key] = { ok, why }
+      return ok and 1 or nil
+    end
     if o.kind ~= "couvrir" and o.kind ~= "ouvrir" then return nil end
     local meth = METHOD_OF_ORE[o.resource]
     local n = meth and short[meth.product] or nil
@@ -1196,7 +1218,10 @@ function Capi.portes(f, cs, res, view, tick)
   local r = Pe.filter(cs.portes, a, res.orders, { family_of = Pi.order_family, family_rank = Pi.FAMILY_RANK,
     site_kinds = Capi.MODULE_KINDS, tours_kinds = PORTES_TOURS, measured = build, measured_n = n_build, root_of = root_of })
   for _, rt in ipairs(r.roots or {}) do
-    if not (verdict[rt.key] and verdict[rt.key][1]) then
+    if relief[rt.key] and relief[rt.key][1] then
+      log(string.format("[FO-PORTES] %s minute %d : relais : %s passe L6 fermee (%s)", f.key or "?", math.floor(minutes(f, tick) + 0.5), tostring(rt.key),
+        tostring(relief[rt.key][2])))
+    elseif not (verdict[rt.key] and verdict[rt.key][1]) then
       log(string.format("[FO-PORTES] racine : %s passe L6 (manque %s %s)", tostring(rt.key), tostring(product_of[rt.key] or rt.item), tostring(rt.need)))
     end
   end

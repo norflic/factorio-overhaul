@@ -84,3 +84,4 @@ require("settings.electrique") -- lot ELECTRIQUE (8/11) : fo-war-electrique, bas
 require("settings.mall") -- lot MALL (8/11) : fo-war-mall, secteur du mall centralise reserve par le terrain (allume par defaut)
 require("settings.petrole_rangee") -- lot PETROLE-RANGEE (8/11) : fo-war-petrole-champ, extension du champ jusqu aux puits atteignables (allume par defaut)
 require("settings.acier") -- lot ACIER (8/11) : fo-war-acier, rangee dynamique de fours d acier, coupure des tournees quand le bloc debite (allume par defaut)
+require("settings.relais") -- lot MODULES-ORDRE (9/11) : fo-war-relais, une chaine faite a la main passe la porte du transport sature (allume par defaut)

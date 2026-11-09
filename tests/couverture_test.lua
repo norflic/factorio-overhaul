@@ -43,6 +43,25 @@ local function suite(Cv)
   want(Cv.loop(nil) == false, "entree absente : refus")
   want(Cv.loop(with({ saturated = NIL })) == true, "table de saturation absente : aucun produit sature")
 
+  -- 1b. RELAIS (lot MODULES-ORDRE) : l'ordre qui retire de la main une fabrication des PNJ passe la porte du transport fermee.
+  local rb = { kind = "chaine", load = 2.13, load_min = 0.25, crisis = false }
+  local function rwith(t) local c = {} for k, v in pairs(rb) do c[k] = v end for k, v in pairs(t) do if v == NIL then c[k] = nil else c[k] = v end end return c end
+  local rok, rwhy = Cv.relief(rb)
+  want(rok == true and rwhy:find("relais", 1, true) ~= nil, "relais : une chaine dont 2,13 PNJ sont a la main passe (" .. tostring(rwhy) .. ")")
+  want(Cv.relief(rwith({ load = 0.25 })) == true, "relais : charge egale au seuil : passe")
+  local lo, lowhy = Cv.relief(rwith({ load = 0.24 }))
+  want(lo == false and lowhy:find("seuil", 1, true) ~= nil, "relais : charge sous le seuil : retenu, la raison dit le seuil")
+  want(Cv.relief(rwith({ kind = "couvrir" })) == false and Cv.relief(rwith({ kind = "packs" })) == false and Cv.relief(rwith({ kind = "labos" })) == false,
+    "relais : seule une chaine automatise une fabrication (couvrir, packs, labos : non)")
+  want(Cv.relief(rwith({ kind = NIL })) == false, "relais : sorte absente : refus")
+  local rc, rcwhy = Cv.relief(rwith({ crisis = true }))
+  want(rc == false and rcwhy:find("crise", 1, true) ~= nil, "relais : crise : le travail de base d'abord")
+  want(Cv.relief(rwith({ load = NIL })) == false and Cv.relief(rwith({ load = 0 / 0 })) == false and Cv.relief(rwith({ load = "2" })) == false,
+    "relais : charge absente, NaN ou illisible : refus (garde fermee par defaut)")
+  want(Cv.relief(rwith({ load_min = NIL })) == false and Cv.relief(rwith({ load_min = 0 })) == false and Cv.relief(rwith({ load_min = -1 })) == false
+    and Cv.relief(rwith({ load_min = 0 / 0 })) == false, "relais : seuil absent, nul, negatif ou NaN : refus (jamais un relais sans seuil)")
+  want(Cv.relief(nil) == false, "relais : entree absente : refus")
+
   -- 2. Compte des modules posés.
   want(Cv.batis(0, 0) == 0, "batis : rien")
   want(Cv.batis(30, 2) == 32, "batis : cumul + finis des ordres ouverts")
@@ -138,6 +157,35 @@ local function suite(Cv)
   Pe.filter(st6, B60, { couv }, ctx_for({}, 11, false))
   local r6 = Pe.filter(st6, B60, { couv, c2 }, ctx_for({}, 11, false))
   want(r6.why[couv.key] == nil and r6.why[c2.key] == nil, "60 modules poses (cumul) : deux chantiers en boucle de front")
+  -- 3b. RELAIS branche sur la vraie porte L6 : root_of rend 1 pour une chaine dont les PNJ font la fabrication a la main.
+  local function ctx_relief(load, crisis)
+    return { family_of = function() return "capi" end, family_rank = { capi = 3 }, site_kinds = { couvrir = true, ouvrir = true, chaine = true },
+      tours_kinds = { couvrir = true, ouvrir = true, chaine = true }, measured = {}, measured_n = 0,
+      root_of = function(o)
+        if o.kind ~= "chaine" then return nil end
+        local okk = Cv.relief({ kind = o.kind, load = load[o.item], load_min = 0.25, crisis = crisis })
+        return okk and 1 or nil
+      end }
+  end
+  local gear = { key = "chaine:gear", kind = "chaine", item = "gear", n = 2 }
+  local rare = { key = "chaine:rare", kind = "chaine", item = "rare", n = 1 }
+  local stR = Pe.new()
+  Pe.filter(stR, A, { gear }, ctx_relief({ gear = 2.1 }, false))
+  local rr = Pe.filter(stR, A, { gear, rare }, ctx_relief({ gear = 2.1, rare = 0.05 }, false))
+  want(rr.closed, "relais : porte du transport fermee")
+  want(rr.why[gear.key] == nil, "relais : la chaine dont la main fait 2,1 PNJ passe la porte FERMEE")
+  want(rr.why[rare.key] ~= nil and rr.why[rare.key]:find("transport sature", 1, true) ~= nil, "relais : la chaine a faible charge a la main reste retenue")
+  local stC = Pe.new()
+  Pe.filter(stC, A, { gear }, ctx_relief({ gear = 2.1 }, true))
+  local rcr = Pe.filter(stC, A, { gear }, ctx_relief({ gear = 2.1 }, true))
+  want(rcr.why[gear.key] ~= nil, "relais : crise : retenu")
+  -- la porte des chantiers borne les relais : un seul chantier a 0 module pose
+  local gear2 = { key = "chaine:gear2", kind = "chaine", item = "gear2", n = 2 }
+  local stB = Pe.new()
+  Pe.filter(stB, B0, { gear }, ctx_relief({ gear = 2.1, gear2 = 1.5 }, false))
+  local rB = Pe.filter(stB, B0, { gear, gear2 }, ctx_relief({ gear = 2.1, gear2 = 1.5 }, false))
+  want(rB.why[gear.key] == nil and rB.why[gear2.key] ~= nil and rB.why[gear2.key]:find("chantier", 1, true) ~= nil,
+    "relais : borne par la porte des chantiers (le second relais est retenu faute de place)")
   -- Déterminisme.
   local sa, sb = Pe.new(), Pe.new()
   Pe.filter(sa, A, { couv }, ctx_for({}, 11, false)) Pe.filter(sb, A, { couv }, ctx_for({}, 11, false))
@@ -164,6 +212,14 @@ local MUTANTS = {
   { "places inconnues admises", "if type(a.free) ~= \"number\" or a.free ~= a.free or a.free <= 0 then return false, \"gisement sans place libre\"", "if (type(a.free) ~= \"number\" and a.free ~= nil) or a.free ~= a.free or a.free <= 0 then return false, \"gisement sans place libre\"" },
   { "saturation ignoree", "if (a.saturated or {})[a.product] and not a.saturation then return false,", "if false then return false," },
   { "saturation de tout produit", "if (a.saturated or {})[a.product] and not a.saturation then return false,", "if next(a.saturated or {}) ~= nil and not a.saturation then return false," },
+  { "relais : toute sorte", "if not Cv.RELIEF_KINDS[a.kind] then return false,", "if false then return false," },
+  { "relais : couvrir admis", "Cv.RELIEF_KINDS = { chaine = true }", "Cv.RELIEF_KINDS = { chaine = true, couvrir = true }" },
+  { "relais : packs admis", "Cv.RELIEF_KINDS = { chaine = true }", "Cv.RELIEF_KINDS = { chaine = true, packs = true }" },
+  { "relais : crise ignoree", "if a.crisis then return false, \"crise (survie ou QG menace) : le travail de base d'abord\" end\n  local load, min", "local load, min" },
+  { "relais : charge absente admise", "if type(load) ~= \"number\" or load ~= load then return false,", "if false then return false," },
+  { "relais : seuil ignore", "if load < min then return false,", "if false then return false," },
+  { "relais : seuil exclusif", "if load < min then return false,", "if load <= min then return false," },
+  { "relais : seuil nul admis", "if type(min) ~= \"number\" or min ~= min or min <= 0 then return false,", "if type(min) ~= \"number\" or min ~= min then return false," },
   { "emplacements : tranche ignoree", "return math.floor(d / per)", "return 0" },
   { "emplacements : pas nul admis", "if type(per) ~= \"number\" or per ~= per or per < 1 then return 0 end", "" },
   { "modules : bras ignores", "local by_hands = 1 + math.floor(h / ph + 1e-9)", "local by_hands = 1000" },
