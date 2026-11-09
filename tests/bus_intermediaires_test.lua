@@ -55,35 +55,37 @@ local function battery(B, verbose)
   ck(type(early) == "table" and #early == 0, "1.1 early : liste vide, jamais nil")
   ck(#B.lines(HUBS, nil) == 0 and #B.lines(HUBS, "autre") == 0, "1.2 phase absente ou inconnue : aucune ligne")
   local mid = B.lines(HUBS, "mid")
-  ck(#mid == 3, "1.3 mid : k = 3 lignes (" .. #mid .. ")")
-  ck(#B.lines(HUBS, "late") == 3, "1.4 late : lignes aussi")
-  ck(#B.lines(HUBS, "mid", nil, true) == 0 and #B.lines(HUBS, "late", nil, true) == 0, "1.4 bis famine de la plaque clé : aucune ligne, même en mid ou late")
-  ck(#B.lines(HUBS, "mid", nil, false) == 3, "1.4 ter sans famine : les 3 lignes")
+  ck(#mid == 0, "1.3 mid : aucune ligne (mesuré : en mid le fer des engrenages manque aux bandes, bancs V0676-M/N/O) (" .. #mid .. ")")
+  local late = B.lines(HUBS, "late")
+  ck(#late == 3, "1.4 late : k = 3 lignes")
+  ck(#B.lines(HUBS, "late", nil, true) == 0, "1.4 bis famine de la plaque clé : aucune ligne, même en late")
+  ck(#B.lines(HUBS, "late", nil, false) == 3, "1.4 ter sans famine : les 3 lignes")
+  mid = late
   do -- débit demandé borné à une rangée (banc V0676-N : 36 machines d'engrenages demandées d'un coup)
-    local big = B.lines({ { item = "h-big", rate = 72, machines = 36 }, { item = "h-one", rate = 2, machines = 1 } }, "mid", { machines_par_rangee = 6 })
+    local big = B.lines({ { item = "h-big", rate = 72, machines = 36 }, { item = "h-one", rate = 2, machines = 1 } }, "late", { machines_par_rangee = 6 })
     ck(big[1] and big[1].item == "h-big" and math.abs(big[1].rate_row - 12) < 1e-9, "1.6 36 machines pour 72/min : la ligne demande 12/min (une rangée de 6)")
     ck(big[2] and math.abs(big[2].rate_row - 2) < 1e-9, "1.6 bis une machine : le débit entier")
   end
   ck(mid[1] and mid[1].item == "h-gear" and mid[2].item == "h-circ" and mid[3].item == "h-wire", "1.5 ordre par débit décroissant")
   local names = {}
-  for _, l in ipairs(B.lines(HUBS, "mid", { k = 6 })) do names[l.item] = true end
+  for _, l in ipairs(B.lines(HUBS, "late", { k = 6 })) do names[l.item] = true end
   ck(names["h-pipe"] == nil and names["h-steel"] and names["h-stick"], "1.6 débit minimal dérivé : 0,4 machine écarté, 1 machine entière gardée")
-  local two = B.lines(HUBS, "mid", { k = 2 })
+  local two = B.lines(HUBS, "late", { k = 2 })
   ck(#two == 2 and two[2].item == "h-circ", "1.7 cfg.k = 2")
-  ck(#B.lines(HUBS, "mid", { k = 0 }) == 0, "1.8 k = 0 : rien")
-  local tie = B.lines({ { item = "b", rate = 6, machines = 1 }, { item = "a", rate = 6, machines = 1 } }, "mid")
+  ck(#B.lines(HUBS, "late", { k = 0 }) == 0, "1.8 k = 0 : rien")
+  local tie = B.lines({ { item = "b", rate = 6, machines = 1 }, { item = "a", rate = 6, machines = 1 } }, "late")
   ck(tie[1].item == "a" and tie[2].item == "b", "1.9 égalité de débit : le nom départage")
   ck(mid[1].rows == 1 and mid[1].machines == 3 and mid[1].rate == 30, "1.10 une rangée pour 3 machines (rows, machines, rate rendus)")
-  local big = B.lines({ { item = "x", rate = 1000, machines = P.MAX_N + 1 } }, "mid")
+  local big = B.lines({ { item = "x", rate = 1000, machines = P.MAX_N + 1 } }, "late")
   ck(big[1].rows == 2, "1.11 " .. (P.MAX_N + 1) .. " machines : 2 rangées (machines_par_rangee = P.MAX_N)")
-  ck(B.lines({ { item = "x", rate = 1000, machines = P.MAX_N } }, "mid")[1].rows == 1, "1.12 exactement une rangée pleine : 1")
-  ck(B.lines({ { item = "x", rate = 100, machines = 25 } }, "mid", { machines_par_rangee = 10 })[1].rows == 3, "1.13 cfg.machines_par_rangee = 10 : 25 machines -> 3 rangées")
-  ck(#B.lines({ { item = "x", rate = 0, machines = 2 }, { item = 7, rate = 5, machines = 2 } }, "mid") == 0, "1.14 débit nul ou objet non nommé : écarté")
-  ck(#B.lines({ { item = "x", rate = 3, machines = 2 } }, "mid", { min_rate = 5 }) == 0, "1.15 cfg.min_rate : seuil de plus")
+  ck(B.lines({ { item = "x", rate = 1000, machines = P.MAX_N } }, "late")[1].rows == 1, "1.12 exactement une rangée pleine : 1")
+  ck(B.lines({ { item = "x", rate = 100, machines = 25 } }, "late", { machines_par_rangee = 10 })[1].rows == 3, "1.13 cfg.machines_par_rangee = 10 : 25 machines -> 3 rangées")
+  ck(#B.lines({ { item = "x", rate = 0, machines = 2 }, { item = 7, rate = 5, machines = 2 } }, "late") == 0, "1.14 débit nul ou objet non nommé : écarté")
+  ck(#B.lines({ { item = "x", rate = 3, machines = 2 } }, "late", { min_rate = 5 }) == 0, "1.15 cfg.min_rate : seuil de plus")
   local rev = {}
   for i = #HUBS, 1, -1 do rev[#rev + 1] = HUBS[i] end
-  ck(ser(B.lines(rev, "mid")) == ser(mid), "1.16 déterminisme : liste inversée, même résultat")
-  ck(ser(B.lines(HUBS, "mid")) == ser(mid), "1.17 déterminisme : deux appels, même résultat")
+  ck(ser(B.lines(rev, "late")) == ser(mid), "1.16 déterminisme : liste inversée, même résultat")
+  ck(ser(B.lines(HUBS, "late")) == ser(mid), "1.17 déterminisme : deux appels, même résultat")
   ck(#HUBS == 6 and HUBS[1].rows == nil, "1.18 l'entrée n'est pas modifiée")
   -- §2 repli
   ck(B.fallback(nil) == true, "2.1 état absent : main permise")
@@ -167,11 +169,11 @@ do
   local hubs = Solver.hubs(Solver.new(book, bus), demands, Bi.CFG.k)
   check(#hubs == 2 and hubs[1].item == "iron-gear-wheel" and hubs[1].rate == 30 and hubs[2].item == "electronic-circuit" and hubs[2].rate == 18,
     "5.1 doublure : les plaques (bus) ne sont pas des hubs, les intermédiaires le sont, triés par débit")
-  local lines = Bi.lines(hubs, "mid", Bi.CFG)
+  local lines = Bi.lines(hubs, "late", Bi.CFG)
   check(#lines == 2 and lines[1].item == "iron-gear-wheel" and lines[1].rows == 1 and lines[2].machines == 1.8, "5.2 Bi.lines sur la sortie du solveur (mid)")
   check(#Bi.lines(hubs, "early", Bi.CFG) == 0, "5.3 early : aucune ligne malgré les hubs")
-  check(#Bi.lines(hubs, "mid", Bi.CFG, true) == 0, "5.3 bis famine de la plaque clé : aucune ligne en mid (le fer va aux bandes)")
-  check(#Bi.lines(hubs, "mid", Bi.CFG, false) == #lines, "5.3 ter sans famine : les lignes de 5.1")
+  check(#Bi.lines(hubs, "late", Bi.CFG, true) == 0, "5.3 bis famine de la plaque clé : aucune ligne en late (le fer va aux bandes)")
+  check(#Bi.lines(hubs, "mid", Bi.CFG, false) == 0, "5.3 ter mid : aucune ligne (mesure des bancs M/N/O)")
   local small = Solver.hubs(Solver.new(book, bus), { { item = "assembling-machine-1", rate = 1 } }, Bi.CFG.k)
   check(#Bi.lines(small, "mid", Bi.CFG) == 0, "5.4 demande d'une machine par minute : moins d'une machine entière par hub, aucune ligne (pas de micro-usine)")
 end
@@ -214,7 +216,7 @@ end
 ---------------------------------------------------------------------------------------------------
 local SRC = read("shared/team/bus_intermediaires.lua")
 local MUTANTS = {
-  { "phase : toute phase sauf early", 'return phase == "mid" or phase == "late"', 'return phase ~= "early"' },
+  { "phase : mid rouvert", 'return phase == "late"', 'return phase == "mid" or phase == "late"' },
   { "famine ignorée", "if famine == true then return out end", "" },
   { "débit d'une rangée non borné", "math.min(l.rate, l.rate * c.machines_par_rangee / l.machines)", "l.rate" },
   { "débit minimal : demi-machine admise", "m + Bi.EPS >= c.min_machines", "m + Bi.EPS >= 0" },

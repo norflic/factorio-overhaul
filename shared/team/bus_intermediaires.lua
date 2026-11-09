@@ -54,8 +54,12 @@ local function cfg_of(cfg)
 end
 
 --- La phase ouvre-t-elle des lignes d'intermédiaires ? (mid ou late ; early et toute autre valeur : non)
+--- Phase LATE seulement. Mesuré (graine 123456789, 90 min) : ouvertes en mid, les lignes d'intermédiaires (même retenues en famine et bornées
+--- à une rangée) coûtaient 6 bandes de champ sur 8 et 2 900 plaques livrées (bancs V0676-M/N/O contre K ; ISO-B sans ce câblage = K à l'octet) :
+--- en mid le fer des rangées d'engrenages manque aux bandes. Late = stocks du mall constitués (Dt.CFG : machines, tapis, bras), l'économie
+--- les paie ; le mid garde le « dépliage » existant (intermediaire_manquant) et l'artisanat local.
 function Bi.phase_ok(phase)
-  return phase == "mid" or phase == "late"
+  return phase == "late"
 end
 
 --- (a) hubs = { { item, rate (objets/min), machines } } (Solver.hubs) ; phase = Dt.phase ; cfg (facultatif) = clés de Bi.CFG, et min_rate
