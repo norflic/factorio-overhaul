@@ -61,6 +61,7 @@ end
 return {
   iron_tranche = iron_tranche, -- (lot FER-MARQUE : exposée pour tests/fer_marque_test.lua ; le banc ne lit pas ce champ)
   IRON_TRANCHE = IRON_TRANCHE,
+  autostart_defaut = true, -- lot DEFAUTS-DC : le banc (control.lua) ne coupe PAS le lancement automatique de la guerre pour cette partie : elle le LIT
   description = "VERIF-NUIT : partie du guide aux reglages livres (lancement automatique, Normal, coffre d'equipe garni par le mod)",
   base = nil,
   check_tick = CHECK,
