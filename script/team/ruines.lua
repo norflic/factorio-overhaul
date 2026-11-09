@@ -24,7 +24,7 @@ local Ru = require("shared.team.ruines")
 
 local Ruines = {}
 
-Ruines.LOGS = 30
+Ruines.LOGS = 120
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -95,6 +95,25 @@ function Ruines.drop(f, s, oid, why, tick)
   local key = "ruin_" .. why
   s.stats[key] = (s.stats[key] or 0) + 1
   note(f, s, "ruine de l'avant-poste %d lachee (%s) a %.1f min, %.1f min apres la perte", oid, why, tick / 3600, (tick - x.tick) / 3600)
+end
+
+--- Lot RUINES-ATTENTE (trace [FO-RUINE-ATTENTE], LECTURE SEULE) : pourquoi la pièce d'une ruine attend (objet absent du stock, ennemi à portée, tourelles
+--- à poser) ; une ligne par ruine et par minute au plus, avec les compteurs de la minute. État : s.ruins[oid].wait = { stock, ennemi, tourelles, item,
+--- ennemis, last } (nombres et chaînes). Lecteur : cette ligne de journal.
+function Ruines.wait(f, s, seed, cause, tick, extra)
+  local x = seed.kind and s.ruins and s.ruins[seed.oid]
+  if not x then return end
+  local w = x.wait or { stock = 0, ennemi = 0, tourelles = 0, last = tick }
+  x.wait = w
+  w[cause] = (w[cause] or 0) + 1
+  if cause == "stock" then w.item = seed.item end
+  if cause == "ennemi" then w.ennemis = extra end
+  if tick - w.last >= 3600 then
+    note(f, s, "ATTENTE avant-poste %d (%s) a %.1f min, %.1f min apres la perte : en 1 min, sans objet au stock %d (%s), ennemi a portee %d (%s), tourelles a poser %d",
+      seed.oid, tostring(x.kind), tick / 3600, (tick - x.tick) / 3600, w.stock or 0, tostring(w.item),
+      w.ennemi or 0, tostring(w.ennemis), w.tourelles or 0)
+    w.stock, w.ennemi, w.tourelles, w.last = 0, 0, 0, tick
+  end
 end
 
 --- Une pensée de l'équipe : verdict de chaque ruine.
