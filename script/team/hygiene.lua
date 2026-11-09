@@ -32,6 +32,7 @@ local BoiteChunks = require("script.team.boite_chunks")
 local Lourd = require("script.core.lourd")
 local Profiler = require("script.core.profiler")
 local St = require("shared.team.scan_tranches")
+local Boxes = require("script.team.boxes_rt") -- lot BOXES (DC 9/11) : relevé des boxes à la tranche 0, poteaux d'une box MAXED sautés à l'audit
 
 local Hy = {}
 
@@ -138,10 +139,13 @@ local function slice_step(f, surface, h, slice)
   if b < a then return end
   Profiler.fstart("hyg:tranche")
   for i = a, b do
-    local e = pole_at(surface, f.force, h.poles[i])
+    local boxed = Boxes.skip_at(f, h.poles[i][2], h.poles[i][3]) -- lot BOXES : poteau d'une box MAXED : ni retrouvé ni audité, compté
+    local e = (not boxed) and pole_at(surface, f.force, h.poles[i]) or nil
     if e then
       audit(surface, f, h, e)
       h.audited = h.audited + 1
+    elseif boxed then
+      h.boxed = (h.boxed or 0) + 1 -- lot BOXES
     else
       h.gone = h.gone + 1
     end
@@ -156,6 +160,7 @@ local function report(f, h, why)
   if h.r0 == nil then extra = " ; jeton des travaux lourds refuse sur toute la fenetre : rien releve" end
   if h.skipped > 0 then extra = extra .. string.format(" ; %d non audites (plafond %d par tranche)", h.skipped, Hy.CFG.max_per_slice) end
   if h.gone > 0 then extra = extra .. string.format(" ; %d disparus pendant la passe", h.gone) end
+  if (h.boxed or 0) > 0 then extra = extra .. string.format(" ; %d ignores (box MAXED)", h.boxed) end -- lot BOXES
   if why then extra = extra .. " ; " .. why end
   log(string.format("[FO-HYGIENE] %s : impulsion a %.1f min : %d poteaux releves, %d sur gisement, %d redondants candidats (feuilles sans consommateur propre) ; cout : %d tranches%s",
     key_of(f), h.t0 / 3600, h.n, h.sur, h.red, h.cost, extra))
@@ -173,6 +178,7 @@ function Hy.step(f, surface, tick, slice)
     t.hygiene = h
   end
   if h.logged then return end
+  if slice == 0 then Boxes.releve(f, surface, tick) end -- lot BOXES : relevé des boxes au début de l'impulsion (une ligne [FO-BOX])
   local last = (slice == Hy.CFG.slices - 1)
   if h.r0 == nil then
     if not releve(f, surface, h, tick, slice) then

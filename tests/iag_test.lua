@@ -517,6 +517,7 @@ do
     ["shared/team/lot_minerai_seuils.lua"] = { "EXEC", 1, "SEUILS de la règle pure shared/team/lot_minerai.lua en DONNÉES (lot MINERAI-SONDE) : le seul nom est le minerai à seuil de quantité (G42) ; la règle, elle, ne nomme rien" },
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
     ["script/team/build.lua"] = { "EXEC", 23, "construction : pièces posées (tapis, coffre, poteaux, bras)" },
+    ["shared/team/boxes.lua"] = { "TYPE", 1, "types du moteur des machines de chaque sorte de box (Bx.TYPES : mining-drill, furnace, assembling-machine, generator, boiler, solar-panel, reactor), lus pour juger un déblocage applicable, lot BOXES : le GENRE, jamais un niveau" },
     ["script/team/reseau_vivant.lua"] = { "TYPE", 3, "types du moteur lus par la santé de la centrale et du réseau (boiler, generator, offshore-pump, inserter) : le GENRE de la pièce, jamais un niveau" },
     ["script/team/raccord.lua"] = { "TYPE", 2, "types du moteur lus par le relevé de couverture électrique (lot PD-ELEC : machines électriques, machines génératrices dont solar-panel) : le GENRE, jamais un niveau" },
     ["script/team/generateurs.lua"] = { "TYPE", 1, "types du moteur des génératrices tenues par le registre (lot X10-S4 : burner-generator, generator, solar-panel, les types lus par raccord.lua) : le GENRE, jamais un niveau" },
