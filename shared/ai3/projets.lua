@@ -39,7 +39,7 @@ P.K_MIN, P.K_PER, P.K_MAX = 2, 4, 10
 -- (« sans-tache:rien », [FO-RIEN-A-FAIRE] : « manque transport-belt 5, small-electric-pole 4, burner-inserter 3, steam-engine 2 », la MÊME
 -- liste de 6,2 à 12,2 min). Règle : un PNJ SANS TÂCHE (idle) ouvre un projet de plus que les K places, dans l'ordre du classement ;
 -- au plus P.IDLE_K_MAX projets de plus à la fois ; un projet de plus reste ouvert tant que son but existe (pas de va-et-vient quand le PNJ
--- libre est occupé par lui), il est servi APRÈS tous les projets ordinaires et l'armée de l'équipe (du stock qui reste : jamais devant eux).
+-- libre est occupé par lui), il est servi APRÈS tous les projets ordinaires, l'armée de l'équipe ET le fond (agrandir foreuses et fours d'abord) : du stock qui reste, jamais devant eux.
 P.IDLE_K_ON = true
 P.IDLE_K_MAX = 3
 P.INERTIA_PCT = 20
@@ -220,8 +220,8 @@ function P.update(st, goals, tick, workers, idle)
   for _, p in ipairs(invest) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(late) do out[#out + 1] = p end
-  for _, p in ipairs(xtra) do out[#out + 1] = p end
   for _, p in ipairs(fond) do out[#out + 1] = p end
+  for _, p in ipairs(xtra) do out[#out + 1] = p end -- lot ZERO-IDLE-3 : après le fond (agrandir foreuses et fours d'abord, directive du DC du 8/11 14 h 35)
   for _, p in ipairs(blocked) do out[#out + 1] = p end
   return out, K, n_extra
 end

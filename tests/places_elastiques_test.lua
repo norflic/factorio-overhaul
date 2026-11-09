@@ -145,7 +145,7 @@ do
   check(c and c.state == "actif" and not c.extra, "une place K libre : la centrale devient ordinaire (plus extra)")
 end
 
-section("5. ordre de service : le projet de plus passe APRES les ordinaires et l'armee, avant le fond")
+section("5. ordre de service : le projet de plus passe APRES les ordinaires, l'armee et le fond")
 do
   local g = goals()
   g[#g + 1] = { key = "armee", family = "armee", kind = "army", value = 83, permanent = true }
@@ -159,7 +159,7 @@ do
   for _, k in ipairs({ "extraction:iron", "extraction:coal", "extraction:copper", "extraction:stone", "armee", "armee-joueur" }) do
     check(pos[k] and pos[k] < pos["auto:centrale"], k .. " est servi AVANT le projet de plus (" .. keys_of(order) .. ")")
   end
-  check(pos["fond-x"] and pos["fond-x"] > pos["auto:centrale"], "le fond est servi APRES le projet de plus")
+  check(pos["fond-x"] and pos["fond-x"] < pos["auto:centrale"], "le fond (agrandir foreuses et fours) est servi AVANT le projet de plus")
 end
 
 section("6. permanents et fond ne comptent pas, un bloque ne prend pas la place")
@@ -276,6 +276,7 @@ do
     { "un seul PNJ libre en ouvre autant que voulu", "elseif idle_n > 0 and new_extra < idle_n then", "elseif idle_n > 0 then" },
     { "la regle ouvre sans PNJ libre", "elseif idle_n > 0 and new_extra < idle_n then", "elseif true then" },
     { "extra servi avec les ordinaires", "if p.extra then xtra[#xtra + 1] = p", "if false then xtra[#xtra + 1] = p" },
+    { "extra servi avant le fond", "for _, p in ipairs(fond) do out[#out + 1] = p end\n  for _, p in ipairs(xtra) do out[#out + 1] = p end", "for _, p in ipairs(xtra) do out[#out + 1] = p end\n  for _, p in ipairs(fond) do out[#out + 1] = p end" },
     { "un bloque prend une place de plus", "and not (p and p.state == \"bloque\")", "" },
   }
   for _, m in ipairs(mutants) do
@@ -308,6 +309,7 @@ do
             local pos = {}
             for i, p in ipairs(order) do pos[p.key] = i end
             if not (pos["armee-joueur"] and pos["auto:centrale"] and pos["armee-joueur"] < pos["auto:centrale"]) then detected = true end
+            if not (pos["fond-x"] and pos["auto:centrale"] and pos["fond-x"] < pos["auto:centrale"]) then detected = true end
           end
         end
         check(detected, "mutant detecte : " .. m[1])
