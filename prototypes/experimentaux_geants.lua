@@ -205,3 +205,6 @@ for i, r in ipairs(Xp.GEANTS) do
 end
 
 data:extend(out)
+
+-- Lot TITANS : le Juggernaut, titan allié de la famille des géants
+require("prototypes.titans")

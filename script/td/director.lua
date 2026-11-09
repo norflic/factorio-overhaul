@@ -19,6 +19,7 @@ local Storage = require("script.core.storage")
 local RNG = require("script.core.rng")
 local TD = require("shared.td.waves")
 local Profiler = require("script.core.profiler")
+local Armee = require("script.robots.armee") -- lot TITANS : âge de la partie (le Kaiju de l'ère au spawn)
 
 local Director = {}
 
@@ -234,7 +235,7 @@ local function begin_wave(tick)
   st.phase = "wave"
   st.started = tick
   st.target = base_center(surface)
-  st.pending = TD.compose(st.wave, RNG.float)
+  st.pending = TD.compose(st.wave, RNG.float, Armee.age(game.forces[DEFENDER]))
   st.spawns = pick_spawns(surface, st.target, TD.spawn_points(st.wave))
   st.groups = {}
   st.gstate = {}

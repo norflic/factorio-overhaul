@@ -9,6 +9,7 @@
 ]]
 
 local E = require("shared.content.enemies")
+local T = require("shared.robots.titans")
 
 local TD = {}
 
@@ -66,7 +67,9 @@ end
 
 --- Composition d'une vague : { { name, count }, ... } (tri déterministe), boss éventuel en tête.
 --- rng() renvoie un flottant dans [0, 1) (générateur déterministe de l'appelant).
-function TD.compose(wave, rng)
+--- `age` (lot TITANS, facultatif) : âge de la partie ; donné, un KAIJU de l'ère de cet âge mène les vagues de boss à partir de
+--- T.KAIJU_FIRST_WAVE (T.kaiju_in_wave) ; sans âge (bancs d'avant), rien ne change.
+function TD.compose(wave, rng, age)
   local budget = TD.budget(wave)
   local top = TD.max_tier(wave)
   local fams = TD.families(wave)
@@ -80,6 +83,11 @@ function TD.compose(wave, rng)
     counts[name] = counts[name] + n
   end
 
+  local kaijus = age and T.kaiju_in_wave(wave, TD.boss_every) or 0
+  if kaijus > 0 then
+    add(T.kaiju_name(T.era(age)), kaijus)
+    budget = math.floor(budget * 0.6)
+  end
   if TD.is_boss(wave) then
     local tier = TD.boss_tier(wave)
     local fam = #fams > 0 and fams[(math.floor(wave / TD.boss_every) - 1) % #fams + 1] or nil
