@@ -30,7 +30,6 @@ function Build.request(f, spec)
 end
 package.loaded["script.team.build"] = Build
 package.loaded["script.team.champ"] = { _raccord_tous = function() return 0 end }
-package.loaded["script.team.stock"] = {}
 package.loaded["script.faction.state"] = { faction = function() return nil end, alive = function() return {} end }
 package.loaded["script.core.events"] = { on_load = function() end }
 package.loaded["shared.ai3.automatiser"] = { declare = function() end }

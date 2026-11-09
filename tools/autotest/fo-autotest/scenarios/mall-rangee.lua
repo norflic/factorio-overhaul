@@ -38,9 +38,12 @@ end
 
 local function stock_chest(chest)
   for _, it in ipairs({
-    { "iron-plate", 6000 }, { "copper-plate", 1000 }, { "iron-gear-wheel", 1200 }, { "electronic-circuit", 800 }, { "coal", 100 },
+    { "iron-plate", 3000 }, { "copper-plate", 1000 }, { "iron-gear-wheel", 1200 }, { "electronic-circuit", 800 }, { "coal", 100 },
     { "assembling-machine-1", 24 }, { "inserter", 80 }, { "long-handed-inserter", 40 }, { "transport-belt", 300 }, { "small-electric-pole", 60 }, { "iron-chest", 40 },
-  }) do chest.insert({ name = it[1], count = it[2] }) end
+  }) do
+    local n = chest.insert({ name = it[1], count = it[2] })
+    if n ~= it[2] then log(string.format("[FO-MALL-RANGEE] STOCK INCOMPLET : %s, %d sur %d (coffre plein)", it[1], n, it[2])) end
+  end
 end
 
 local function shape(ctx)

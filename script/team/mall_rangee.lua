@@ -20,10 +20,9 @@ local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local A = require("shared.ai3.automatiser")
 local Id = require("shared.ai3.industrie")
+local T = require("shared.team.config")
 local Ml = require("shared.ai3.mall")
 local Build = require("script.team.build")
-local Champ = require("script.team.champ")
-local Stock = require("script.team.stock")
 local State = require("script.faction.state")
 local Events = require("script.core.events")
 
@@ -126,6 +125,8 @@ Build.SITES.mall = function(f, surface, p, h)
     cx, cy = cx / #poles, cy / #poles
     local bd = { spec = { pole = { wire = P.wire(sp.names.poteau) or 7.5 }, mine = {}, ore = {} }, names = { pole = sp.names.poteau },
       plan = { bands = {}, pitch = 0, axis = "x" } }
+    local Champ = package.loaded["script.team.champ"] -- (lecture : champ.lua est chargé par le plan directeur ; aucun require pendant un événement, F24)
+    if not Champ then return nil, "mall raccord : champ non charge", true end
     local n, why, wait = Champ._raccord_tous(f, surface, bd, sec.ents, cx, cy, p)
     if not n then return nil, "mall raccord : " .. tostring(why), wait end
     -- (raccord_tous ajoute des pièces role « liaison »)
@@ -373,6 +374,32 @@ function Rt.minute(f, surface, lec, sources, afford, tick)
   st.fab = { made = total_made, chests = total_chests, machines = total_m, run = total_run, tick = tick }
 end
 
+--- Contexte du cerveau (script/ai3/automatisation.lua, comme la centrale et la migration) : une section en chantier est un projet dont les MANQUES sont fabriqués (mods) ; une
+--- section de tête finie demande les objets de ses quais qui manquent au coffre (feeds). `pile` : famille « capi » de la pile (la porte de la pensée la lit).
+function Rt.contexte(f, mods, feeds, stock, book, feed_stock)
+  local st = f.build and f.build.mall
+  for _, r in ipairs(st and st.rows or {}) do
+    for _, q in ipairs(r.projects) do
+      if not q.dead then
+        local p = f.build.projects[q.id]
+        if p and p.state ~= "fini" and p.state ~= "refuse" then
+          local ps = Build.brief(f, q.id)
+          if ps then mods[#mods + 1] = { product = "mall:" .. r.j .. ":" .. q.from, state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, pile = "capi" } end
+        elseif p and p.state == "fini" and q.from == 1 then
+          local ps = Build.brief(f, q.id)
+          local items = {}
+          for _, it in ipairs(ps and ps.quais or {}) do
+            local makeable = (book and book.handcraftable and book:handcraftable(it)) or T.smelter_inputs[it] ~= nil
+            local have = stock[it] or 0
+            if makeable and have < feed_stock then items[#items + 1] = { it, feed_stock - have } end
+          end
+          if #items > 0 then feeds[#feeds + 1] = { product = "mall:" .. r.j, id = q.id, items = items, gain = 0 } end
+        end
+      end
+    end
+  end
+end
+
 --- Rapport (bancs) : rangées et compteurs.
 function Rt.report(f)
   local st = f and f.build and f.build.mall
@@ -398,7 +425,7 @@ local function team_of(key)
   return nil
 end
 
-remote.add_interface("fo-mall", {
+if remote and remote.add_interface then remote.add_interface("fo-mall", {
   --- BANC SEULEMENT : force_pret / sans_raccord.
   set_param = function(key, name, v)
     local f = team_of(key)
@@ -427,6 +454,6 @@ remote.add_interface("fo-mall", {
     return true
   end,
   report = function(key) return Rt.report(team_of(key)) end,
-})
+}) end
 
 return Rt

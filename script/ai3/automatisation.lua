@@ -33,6 +33,7 @@ local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENC
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (agrandissement des lignes)
 local Pi = require("shared.ai3.pile") -- lot FUITES-PILE : famille d'un module (reconstruction, neuf, agrandissement)
 local Rsv = require("script.ai3.reserve") -- lot C2 : réglage maître (fo-war-industrie), puits ouvert
+local MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : les sections de rangée du mall, projets du cerveau (manques, quais)
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D10) : module au plafond de son produit, plus nourri
 
 local Auto = {}
@@ -650,6 +651,7 @@ function Auto.think(f, view, book, tick, research)
   end
   local feeds = {}
   local stock = view.stock or {}
+  MallRt.contexte(f, mods, feeds, stock, book, Auto.FEED_STOCK) -- lot MALL : manques des sections en chantier, objets des quais de tête
   for _, m in ipairs(st.mods) do
     -- Lot CAPIB : un module demandé par la capitalisation est un projet « capi » du cerveau (but de fond), pas « auto ».
     -- Lot INTEG-RECONSTRUCTION (D1) : sauf rouvert par le relevé de reconstruction : l'ordre CAPI est alors fermé depuis longtemps
