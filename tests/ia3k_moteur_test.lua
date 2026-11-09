@@ -528,7 +528,12 @@ do
     "DANGER-ACTIF 2e essai : chargeurs dans le sac, arme vide, garde sous une meute : mise de côté")
   gmain.remove({ name = "firearm-magazine", count = 20 })
   gammo.insert({ name = "firearm-magazine", count = 10 })
+  -- Lot CRAFT-ROLE : la règle jugée ici est celle des MUNITIONS ; une fabrication en arrière-plan (agent.bg, CB.EXCLUDED) refuse aussi la garde,
+  -- et depuis ce lot un PNJ qui fabrique part miner en famine : sa fabrication peut être encore en cours à cet instant du scénario.
+  local gv_bg = gv.bg
+  gv.bg = nil
   check(Bd.market_npc(gv).cannot == nil or Bd.market_npc(gv).cannot.garrison ~= true, "DANGER-ACTIF 2e essai : arme chargée : la garde est permise")
+  gv.bg = gv_bg
   -- (A) seulement pour une MEUTE et seulement DANS la base (zone de PORTE-BASE, M.base_zone : case du QG et marge de 24 tuiles, amas de bâtiments).
   remote.call("fo-ia3k", "forget", "player")
   remote.call("fo-ia3k", "mark", "player", home.x + 10, home.y, "worm", 25)

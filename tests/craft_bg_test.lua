@@ -38,6 +38,9 @@ check(CB.fits("mine", 60, 0, 100, 13) == false, "minage de 60 s pendant 13 s de 
 check(CB.fits("mine", 30, 0, 100, 13) == true, "30 s pendant 13 s + 20 s de marge : accepté")
 check(CB.fits("mine", 600, 100, 100, 0) == true, "urgence : toujours acceptée")
 check(CB.fits("craft", 600, 0, 100, 0) == true, "fabrication (au QG) : pas de borne de durée")
+-- Lot CRAFT-ROLE (graine 1618033988 : mine:indice 84 pendant la famine de la plaque clé) : en famine, le retard de livraison ne borne plus
+check(CB.fits("mine", 60, 0, 100, 13, true) == true, "famine de la plaque clé : minage de 60 s pendant 13 s de file : accepté")
+check(CB.fits("mine", 60, 0, 100, 13, false) == false, "hors famine : refusé (inchangé)")
 check(CB.allowed("garrison") == false and CB.allowed("build") == false and CB.allowed("mine") == true, "garde et avant-poste exclus")
 check(CB.allowed("craft", false) == true and CB.allowed("craft", true) == false, "fabrication de plus : jusqu'à MAX_JOBS")
 local shared_cannot = { garrison = true, design = true }
