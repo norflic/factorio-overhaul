@@ -432,6 +432,7 @@ local function nearest_network(f, surface, x, y, b)
     if best then return best end
   end
   -- poteaux PLANIFIÉS de la centrale (pas encore bâtis) : la ligne y viendra
+  local bd
   local pl = b.plant and b.projects[b.plant]
   for _, e in ipairs((pl and pl.ents) or {}) do
     if e.name:find("electric%-pole") then
