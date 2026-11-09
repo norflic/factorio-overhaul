@@ -40,6 +40,12 @@ Br.CAP_PCT = 20           -- capacités visées au plus par ressource : 20 % de 
 Br.SMELT_PCT = 50         -- fours du QG au plus : la moitié de l'effectif (8 PNJ : 4 ; 30 PNJ : 15), au moins le défaut
 Br.SMELT_STEP = 2         -- fours de plus par vague
 Br.SMELT_EVERY = 3600     -- une vague de fours au plus par minute
+-- Lot ZERO-IDLE-3 : des PNJ SANS TÂCHE (s.workers_idle) et un minerai au coffre qui COUVRE le manque de plaques (stock >= manque, au lieu de
+-- Br.ORE_WAIT fois) agrandissent la fonderie du QG au-delà de la borne de l'effectif, d'une vague, jusqu'à Br.SMELT_HARD. Mesuré
+-- (fo-logs/2026-11-09_ZERO-IDLE-3, scarlet, 8 PNJ) : 4 fours du QG de 8 à 40 min, minerai de fer au coffre 105 à 131, fer manquant 74 à 158 et 1 à
+-- 4 PNJ libres : trois seuils qui ne se composent pas (le minage à la main s'arrête à 100 minerais, Mi.COVER x Fond.MINE_BATCH ; la vague exige
+-- 2 x le manque ; la borne vaut 50 % de 8 PNJ) ; la fonderie restait à 4 fours pour toujours.
+Br.IDLE_SMELT_ON = true
 Br.ORE_WAIT = 2           -- … quand le minerai au coffre couvre au moins 2 fois ce qu'il faut pour le manque de plaques
 -- Étape 1 / électrification (27/10 au soir, banc etape1-guide, Écarlate : 8 PNJ bloqués à l'effectif de départ, donc 4 fours
 -- au QG au plus, dont 2 pris par l'acier ; minerai de fer au coffre 99 -> 378 entre 30 et 40 min, plaque de fer à 15, aucune
@@ -138,6 +144,18 @@ function Br.smelters(s, st, base, grow_thinks)
   if by_ore > max then max = math.min(by_ore, math.max(max, Br.SMELT_HARD)) end
   -- … et dès qu'une plaque est automatisée, la fonderie à la main est BORNÉE (base, plus une vague par plaque non couverte
   -- qui manque durablement). st.fq : la borne et sa raison, lues par le runtime pour le journal [FO-FONDERIE-QG].
+  local idle = Br.IDLE_SMELT_ON and math.max(0, s.workers_idle or 0) or 0
+  if idle > 0 then
+    for _, it in ipairs(s.smelter_inputs or {}) do
+      local plate, ore, per = it[1], it[2], it[3] or 1
+      local short = (st.short or {})[plate] or 0
+      if not covered[plate] and short > 0 and ((st.short_n or {})[plate] or 0) >= (grow_thinks or 0)
+        and ((s.stock or {})[ore] or 0) >= short * per then
+        max = math.max(max, math.min(Br.SMELT_HARD, have + math.min(idle, Br.SMELT_STEP)))
+        break
+      end
+    end
+  end
   local n_auto = #FQ.automated(s.smelter_inputs, covered)
   local lim, why = FQ.limit(max, base, n_auto, FQ.open_short(s.smelter_inputs, covered, st, grow_thinks), Br.SMELT_STEP)
   if n_auto > 0 then st.fq = { cap = lim, why = why or "", auto = n_auto, have = have, max = max } else st.fq = nil end
@@ -149,7 +167,8 @@ function Br.smelters(s, st, base, grow_thinks)
       local plate, ore, per = it[1], it[2], it[3] or 1
       local short = (st.short or {})[plate] or 0
       local n = (st.short_n or {})[plate] or 0
-      if not covered[plate] and short > 0 and n >= (grow_thinks or 0) and (s.stock[ore] or 0) >= Br.ORE_WAIT * short * per then
+      if not covered[plate] and short > 0 and n >= (grow_thinks or 0)
+        and (s.stock[ore] or 0) >= (idle > 0 and 1 or Br.ORE_WAIT) * short * per then
         target = math.min(max, target + Br.SMELT_STEP)
         st.smelt_tick = s.tick or 0
         st.smelt_waves = (st.smelt_waves or 0) + 1

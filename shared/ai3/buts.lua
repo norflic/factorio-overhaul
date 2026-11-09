@@ -287,7 +287,8 @@ end
 --- précédente, lot IA3-e) borne la fonderie du QG (lot PD-FONDERIEQG, shared/ai3/fonderie_qg.lua).
 function B.smelt_situation(s, st)
   return { workers = s.workers, stock = s.stock or {}, smelters = s.smelters, smelters_pending = s.smelters_pending,
-    tick = s.tick, smelter_inputs = SMELT_INPUTS, covered = st and st.covered or nil, extra_cap = s.extra_cap }
+    tick = s.tick, smelter_inputs = SMELT_INPUTS, covered = st and st.covered or nil, extra_cap = s.extra_cap,
+    workers_idle = s.workers_idle } -- lot ZERO-IDLE-3 : PNJ sans tâche (Br.smelters)
 end
 
 --- Buts de la pensée. s = situation (shared/ai3/cerveau.lua, B.situation) ; rend une liste triée (valeur
