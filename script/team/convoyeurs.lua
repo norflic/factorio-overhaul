@@ -6,14 +6,17 @@
     Conv.choose(f, flow)        tapis d'un nouveau tracé de l'équipe (nil : aucun tapis débloqué, l'appelant garde le sien)
     Conv.step(f, surface, tick) amélioration sur place, en tâche de fond bornée (appelée par Build.think)
 
-  Amélioration : un tracé de foreuses FINI dont le tapis sature (débit voulu >= 80 % d'une voie) passe au niveau supérieur
-  débloqué, Conv.BATCH tuiles par passage toutes les Conv.EVERY ticks, par fast_replace (même groupe : le contenu du tapis
-  reste). Matière : les tapis neufs sortent du stock de l'équipe, les anciens y retournent. Le script remplace SANS
-  déplacement de PNJ (la main-d'oeuvre n'est pas comptée) ; sans tapis neuf en stock, rien ne se passe (Conv.wanted dit
-  lesquels il faudrait fabriquer).
+  Amélioration : un segment FINI du plan (ligne de rapatriement, tronc du bus, liaison, bande de méga-fonderie, tracé de foreuses)
+  dont le tapis se remplit à 60 % au moins (Cs.CFG.min_fill, shared/team/conveyor_scaling.lua) passe au niveau supérieur
+  débloqué, Conv.BATCH tuiles par passage toutes les Conv.EVERY ticks (ou dès qu'une passe de scan « recherche » vient d'être
+  servie : f.team.scan, lecture seule), dans l'ORDRE de Cs.rank (troncs d'abord) et sous le budget de Cs.budget (le stock de
+  tapis cibles), par fast_replace (même groupe : le contenu du tapis reste). Matière : les tapis neufs sortent du stock de
+  l'équipe, les anciens y retournent. Le script remplace SANS déplacement de PNJ (la main-d'oeuvre n'est pas comptée) ; sans
+  tapis neuf en stock, rien n'est retiré : l'existant continue (Conv.wanted dit lesquels il faudrait fabriquer).
 ]]
 
 local C = require("shared.team.convoyeurs")
+local Cs = require("shared.team.conveyor_scaling") -- lot CONVEYOR-SCALING : ordre (troncs, sorties de fonderie…) et budget de la passe
 local Stock = require("script.team.stock")
 
 local Conv = {}
@@ -155,9 +158,113 @@ local function upgrade(f, surface, p, idx, part, target)
   return done
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot CONVEYOR-SCALING (directive du DC du 9/11) : l'ordre de la passe vient de la règle pure Cs.rank (troncs du bus, puis sorties de
+-- méga-fonderie, puis liaisons, bandes, tracés de foreuses ; à sorte égale le plus saturé d'abord) et de Cs.budget (le stock de tapis
+-- cibles) ; la primitive de remplacement (upgrade, fast_replace) ne change pas. Segments lus dans les projets FINIS du plan :
+--   « tronc »            ligne de rapatriement (p.spec.rapatriement) ou liaison du bus (p.spec.liaison.bus) : tapis et débit dans la spec ;
+--   « liaison »          liaison d'un quai (p.spec.liaison sans bus) ;
+--   « sortie-fonderie »  bande d'un champ dont le gisement a une méga-fonderie DÉCIDÉE (f.mega.deps[oid], script/team/mega_fonderie.lua) :
+--                        ses tapis (rôle champ-tapis), débit nominal = max(minerai par ligne, plaques par colonne) de la décision ;
+--   « bande »            bande d'un champ ordinaire : débit inconnu dans le plan (la bande est dimensionnée à son tapis, Db.belt_pairs),
+--                        laissée par Cs.rank (« débit inconnu ») ;
+--   « autre »            tracés de foreuses (parts à `belt` et `flow`, l'existant).
+-- Le porteur (`holder`) est la table qui tient `belt` et `flow` : la part, la spec de la ligne, ou p.conv (bande ; données seules).
+---------------------------------------------------------------------------------------------------
+
+local function speed_of(name)
+  for _, b in ipairs(Conv.belts()) do if b.name == name then return b.speed end end
+  return nil
+end
+
+--- Palier supérieur disponible (nom, vitesse) du tapis `cur`, sans condition de saturation (Cs.rank la juge).
+local function next_tier(usable, cur)
+  local cs = speed_of(cur)
+  if not cs then return nil end
+  for _, b in ipairs(Conv.belts()) do
+    if b.speed > cs and usable(b.name) then return b.name, b.speed end
+  end
+  return nil
+end
+
+--- Ajoute à `out` le segment du porteur `holder` (belt, flow) du tracé `idx` du projet `p`, de sorte `kind`.
+local function add_segment(out, usable, p, idx, holder, kind, lanes)
+  local target, tspeed = next_tier(usable, holder.belt)
+  out[#out + 1] = { id = p.id, kind = kind, flow = holder.flow, len = remaining(p, idx, holder.belt), lanes = lanes,
+    tier_now = speed_of(holder.belt), tier_target = tspeed, item = target and item_of(target) or nil, target = target,
+    p = p, idx = idx, holder = holder }
+end
+
+--- Bande de champ : porteur p.conv = { belt = le plus LENT de ses tapis, flow } ; sortie de méga-fonderie quand le gisement est décidé.
+local function champ_segment(out, f, usable, p)
+  local slowest, sp
+  for _, e in ipairs(p.ents) do
+    if e.role == "champ-tapis" and Conv.is_belt(e.name) then
+      local s = speed_of(e.name)
+      if s and (not sp or s < sp) then slowest, sp = e.name, s end
+    end
+  end
+  if not slowest then return end
+  local rec = f.mega and f.mega.deps and f.mega.deps[p.spec.champ.oid]
+  local flow
+  if rec and rec.state == "decide" and (rec.lines or 0) > 0 then
+    flow = math.max((rec.ore or 0) / rec.lines, (rec.plates or 0) / math.max(1, rec.cols or rec.lines))
+  end
+  p.conv = p.conv or {}
+  p.conv.belt, p.conv.flow = slowest, flow
+  add_segment(out, usable, p, 1, p.conv, flow and "sortie-fonderie" or "bande", 2)
+end
+
+--- Segments de l'équipe pour Cs.rank, dans l'ordre stable des projets (b.order).
+local function segments(f, b, usable)
+  local out = {}
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.state == "fini" and not p.abandoned then
+      for idx = 1, #p.parts do
+        local part = p.parts[idx]
+        if part.belt and part.flow then add_segment(out, usable, p, idx, part, "autre", 1) end
+      end
+      local spec = p.spec
+      if spec and spec.rapatriement and spec.rapatriement.belt and spec.rapatriement.flow then
+        add_segment(out, usable, p, 1, spec.rapatriement, "tronc", 1)
+      elseif spec and spec.liaison and spec.liaison.belt and spec.liaison.flow then
+        add_segment(out, usable, p, 1, spec.liaison, spec.liaison.bus and "tronc" or "liaison", 1)
+      elseif spec and spec.champ and p.ents then
+        champ_segment(out, f, usable, p)
+      end
+    end
+  end
+  for i, s in ipairs(out) do s.ref = i end -- (Cs.rank rend des copies : `ref` retrouve le segment et son porteur)
+  return out
+end
+
+--- Réveil au déblocage (lecture seule de f.team.scan, posé par script/team/scan_reveil.lua et servi par hygiene.lua) : vrai UNE fois
+--- par passe « recherche » servie (b.conv_served = tick de la dernière passe vue ; donnée, jamais un temps mesuré).
+local function woke(f, b)
+  local sc = f.team and f.team.scan
+  if not (sc and sc.why == "recherche" and sc.served) then return false end
+  if b.conv_served == sc.served then return false end
+  b.conv_served = sc.served
+  return true
+end
+
+--- Journal « montée de palier » : une ligne quand le plan (segments payés, manques) change, pas à chaque lot.
+local function say_plan(f, b, plan)
+  local sig = {}
+  for _, s in ipairs(plan.pay) do sig[#sig + 1] = s.kind .. ":" .. tostring(s.id) end
+  for _, w in ipairs(plan.short) do sig[#sig + 1] = w.item .. "x" .. w.n end
+  local key = table.concat(sig, "|")
+  if key == "" or key == b.conv_plan_key then return end
+  b.conv_plan_key = key
+  log(Cs.line(f.key or "player", plan.pay, plan.short) .. string.format(" a %.1f min", (game.tick or 0) / 3600))
+end
+
 function Conv.step(f, surface, tick)
   local b = f.build
-  if not b or tick < (b.conv_next or 0) then return end
+  if not b then return end
+  local early = woke(f, b)
+  if not early and tick < (b.conv_next or 0) then return end
   b.conv_next = tick + Conv.EVERY
   local belts = Conv.belts()
   if #belts < 2 then return end
@@ -167,23 +274,22 @@ function Conv.step(f, surface, tick)
     note(f, "debloque", string.format("tapis plus rapide débloqué (%s) ; les nouveaux tracés le prennent dès que leur débit atteint %.1f/s par voie (mode %s), les tracés finis passent au niveau supérieur à ce débit, avec ses tapis au stock",
       table.concat(ok, ", "), C.SATURATION * C.capacity(0.03125), Conv.MODE))
   end
-  for _, pid in ipairs(b.order) do
-    local p = b.projects[pid]
-    if p and p.state == "fini" then
-      for idx = 1, #p.parts do
-        local part = p.parts[idx]
-        if part.belt and part.flow then
-          local target = C.upgrade_target(belts, usable, part.belt, part.flow)
-          if target then
-            local from = part.belt
-            local n = upgrade(f, surface, p, idx, part, target)
-            if n > 0 then
-              log(string.format("[FO-CONVOYEURS] %s : projet %d, tracé %d : %d tuile(s) %s -> %s (débit %.2f/s sur une voie)",
-                f.key or "player", p.id, idx, n, from, target, part.flow))
-              return
-            end
-          end
-        end
+  local segs = segments(f, b, usable)
+  local ranked = Cs.rank(segs, Cs.CFG)
+  local kit = {}
+  for _, s in ipairs(ranked) do if s.item and kit[s.item] == nil then kit[s.item] = Stock.count(f, s.item) end end
+  local plan = Cs.budget(ranked, kit, { min_pieces = Conv.BATCH })
+  say_plan(f, b, plan)
+  if plan.short[1] and not b.conv_wait then b.conv_wait = { item = plan.short[1].item, count = plan.short[1].n } end
+  for _, s in ipairs(plan.pay) do
+    local seg = segs[s.ref]
+    if seg then
+      local from = seg.holder.belt
+      local n = upgrade(f, surface, seg.p, seg.idx, seg.holder, seg.target)
+      if n > 0 then
+        log(string.format("[FO-CONVOYEURS] %s : projet %d, tracé %d (%s) : %d tuile(s) %s -> %s (débit %.2f/s, remplissage %d %%)",
+          f.key or "player", seg.p.id, seg.idx, s.kind, n, from, seg.target, seg.flow or 0, math.floor((s.fill or 0) * 100 + 0.5)))
+        return
       end
     end
   end

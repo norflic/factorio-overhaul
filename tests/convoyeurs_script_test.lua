@@ -120,5 +120,66 @@ local before = #placed
 Conv.step(team3, surface, 10 * 1800)
 check(#placed == before, "tracé à 2/s : aucune amélioration")
 
+---------------------------------------------------------------------------------------------------
+-- Lot CONVEYOR-SCALING : l'ordre de la passe (troncs du bus d'abord), les lignes du plan (spec), la méga-fonderie, le réveil « recherche »
+---------------------------------------------------------------------------------------------------
+local function line_ents(n, y, name)
+  local out = {}
+  for i = 1, n do
+    out[i] = { name = name or "transport-belt", item = name or "transport-belt", x = i + 0.5, y = y, part = 1, built = true, role = "champ-tapis" }
+    old_alive[(i + 0.5) .. "," .. y] = true
+  end
+  return out
+end
+local team4 = team("azure")
+team4.team = { scan = {} }
+team4.build.order = { 1, 2, 3, 4 }
+-- projet 1 : tracé de foreuses très saturé (7/s sur une voie) ; projet 2 : liaison de quai ; projet 3 : tronc du bus (moins saturé) ;
+-- projet 4 : bande d'un champ dont le gisement 9 a une méga-fonderie décidée (18 minerai/s sur 2 lignes)
+team4.build.projects[1] = { id = 1, state = "fini", ents = line_ents(10, 10.5), parts = { { belt = "transport-belt", flow = 7 } } }
+team4.build.projects[2] = { id = 2, state = "fini", ents = line_ents(10, 20.5), parts = { { kind = "liaison" } }, spec = { liaison = { belt = "transport-belt", flow = 6 } } }
+team4.build.projects[3] = { id = 3, state = "fini", ents = line_ents(12, 30.5), parts = { { kind = "liaison" } }, spec = { liaison = { belt = "transport-belt", flow = 5, bus = true } } }
+team4.build.projects[4] = { id = 4, state = "fini", ents = line_ents(6, 40.5), parts = { { kind = "module" } }, spec = { champ = { oid = 9 } } }
+team4.mega = { deps = { [9] = { state = "decide", lines = 2, cols = 2, ore = 18, plates = 18 } } }
+STOCK["fast-transport-belt"] = 100
+placed = {}
+Conv.step(team4, surface, 20 * 1800)
+check(#placed == Conv.BATCH and placed[1].position.y == 30.5, "le tronc du bus (projet 3) passe AVANT la liaison et le tracé plus saturés", placed[1] and placed[1].position.y)
+check(count_logs("[FO-CONVOYEURS]", "montée de palier : tronc 3 (12 tuiles) puis sortie-fonderie 4 (6 tuiles) puis liaison 2 (10 tuiles) puis autre 1 (10 tuiles)") == 1,
+  "ligne du plan : tronc, sortie-fonderie, liaison, autre")
+check(count_logs("[FO-CONVOYEURS]", "tracé 1 (tronc)") == 1, "ligne du lot nomme la sorte")
+-- cadence : rien avant Conv.EVERY
+placed = {}
+Conv.step(team4, surface, 20 * 1800 + 100)
+check(#placed == 0, "passe bornée par Conv.EVERY")
+-- réveil « recherche » servi : la passe part sans attendre la cadence ; une seule fois par passe servie
+team4.team.scan = { why = "recherche", served = 20 * 1800 + 50 }
+Conv.step(team4, surface, 20 * 1800 + 200)
+check(#placed == 12 - Conv.BATCH, "réveil « recherche » servi : passe anticipée (le tronc finit ses 4 tuiles)", #placed)
+check(team4.build.projects[3].spec.liaison.belt == "fast-transport-belt", "tronc fini : sa spec porte le tapis rapide (une reconstruction le garde)")
+placed = {}
+Conv.step(team4, surface, 20 * 1800 + 300)
+check(#placed == 0, "le même réveil ne relance pas la passe")
+team4.team.scan = { why = "stock", served = 20 * 1800 + 350 }
+Conv.step(team4, surface, 20 * 1800 + 400)
+check(#placed == 0, "un réveil « stock » n'anticipe pas")
+-- kit vide : rien n'est retiré, la ligne « en attente » sort une fois
+STOCK["fast-transport-belt"] = 0
+Conv.step(team4, surface, 22 * 1800)
+check(#placed == 0 and count_logs("[FO-CONVOYEURS]", "en attente : fast-transport-belt x") == 1, "sans kit : rien n'est retiré, manque journalisé")
+check(team4.build.conv_wait and team4.build.conv_wait.item == "fast-transport-belt", "Conv.wanted dit le tapis à fabriquer")
+-- la bande d'un champ SANS méga-fonderie décidée n'a pas de débit : laissée
+local team5 = team("azure")
+team5.build.order = { 1 }
+team5.build.projects[1] = { id = 1, state = "fini", ents = line_ents(6, 50.5), parts = { { kind = "module" } }, spec = { champ = { oid = 3 } } }
+STOCK["fast-transport-belt"] = 100
+placed = {}
+Conv.step(team5, surface, 30 * 1800)
+check(#placed == 0, "bande ordinaire : débit inconnu, laissée")
+-- rien dans global qui ne soit une donnée
+for _, k in ipairs({ "conv_next", "conv_served", "conv_plan_key" }) do
+  check(type(team4.build[k]) == "number" or type(team4.build[k]) == "string", "f.build." .. k .. " est une donnée")
+end
+
 print(string.format("[CONVOYEURS-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
