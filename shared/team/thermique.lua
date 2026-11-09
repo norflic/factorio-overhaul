@@ -43,7 +43,7 @@
 
 local M = {}
 
-M.FER_D_ABORD = true -- faux : la règle d'avant (banc témoin) ; lot FER-D-ABORD
+M.FER_D_ABORD = false -- vrai : le fer d abord (lot FER-D-ABORD) ; ETEINT : mesuré en Normal sur 2 graines, votre équipe moins bien (fo-logs/2026-11-09_FER-D-ABORD/CRITERES.md)
 
 -- Réglages propres au lot (ni dans shared/team/config.lua, ni de nom d'objet).
 M.CFG = {
