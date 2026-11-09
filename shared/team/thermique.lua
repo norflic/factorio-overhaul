@@ -43,6 +43,8 @@
 
 local M = {}
 
+M.FER_D_ABORD = true -- faux : la règle d'avant (banc témoin) ; lot FER-D-ABORD
+
 -- Réglages propres au lot (ni dans shared/team/config.lua, ni de nom d'objet).
 M.CFG = {
   cover_ratio = 1.0,      -- extraction électrique en marche / extraction thermique restante à partir de laquelle le gisement est couvert
@@ -298,6 +300,20 @@ function M.order(cands)
     return a.id < b.id
   end)
   return out
+end
+
+-- Lot FER-D-ABORD (9/11, graine 123456789, votre équipe ; fo-logs/2026-11-09_COLLECTE-CHAMP/off-123456789) : la bande de FER (tier 0, plaques) est refusée
+-- « plaques » (stock libre sous min_plates) pendant toute la partie, mais les bandes de charbon et de pierre (tier 1, sans garde de plaques : Th.min_plates)
+-- partent et dépensent le fer qu'elle attend : 10 foreuses de fer sur 1 935 tuiles à 60 et 100 min, 91 + 80 + 102 foreuses de charbon et de pierre planifiées.
+-- Règle : tant qu'un gisement qui fournit les matières des bandes (tier 0) attend les plaques, un gisement brut (tier 1) que la capitalisation n'a pas voulu
+-- n'ouvre pas de bande neuve ; le fer d'abord. Pure : aucun nom d'objet.
+function M.iron_waits(tier, why)
+  return (tier or 0) == 0 and why == "plaques"
+end
+
+--- Un gisement de ce rang attend-il le fer (un gisement tier 0 attend déjà les plaques) ? wanted : voulu par la capitalisation (jamais retenu).
+function M.raw_holds(tier, wanted, iron_waiting)
+  return iron_waiting == true and (tier or 0) == 1 and not wanted
 end
 
 --- Reste-t-il un créneau pour un chantier de ce minerai ? busy = { total, [res] = n } (chantiers de bande en cours). Rend (vrai/faux, raison).

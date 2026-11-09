@@ -1453,10 +1453,15 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
   for _, oid in ipairs(sorted_keys(f.outposts)) do add(oid, f.outposts[oid]) end
   for _, fid in ipairs(sorted_keys(ms.fields)) do add(fid, ms.fields[fid]) end
   cand = Th.order(cand) -- voulus d'abord, puis le plus d'extraction thermique en jeu, puis la plaque la plus en manque, puis le numéro
+  local iron_waiting = false -- lot FER-D-ABORD : une bande de plaques attend le stock de fer (Th.iron_waits) : pas de bande brute neuve avant elle
   for _, it in ipairs(cand) do
     local oid = it.id
     local o = Champ.target(f, oid)
     local st = ms.o[oid]
+    if Th.FER_D_ABORD and Th.raw_holds(it.tier, it.wanted, iron_waiting) then
+      if st then say_why(f, ms, st, "fer-d-abord", string.format("avant-poste %d (%s) : bande brute neuve retenue, une bande de plaques attend le fer", o.id, o.kind)) end
+      goto next_outpost
+    end
     -- lot THERMIQUE : charbon et pierre n'existent que par le champ (le gabarit de fonderie du treillis ne sait pas poser un coffre)
     if not is_furnace_kind(o.kind) and Champ.data(f, o.kind) == nil then goto next_outpost end
     -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement), lot THERMIQUE : un
@@ -1502,6 +1507,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       local plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
       local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates,
         lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
+      if Th.iron_waits(it.tier, why) then iron_waiting = true end -- lot FER-D-ABORD
       -- Lot THERMIQUE2 : la garde de fer du lot THERMIQUE (Th.financed : fer libre >= coût des foreuses de remplacement) est retirée : une force
       -- dont le fer est tout consommé ne lançait jamais la bande qui lui rendrait du fer (« migration en veille (fer) », champ-longue 20261020) ;
       -- la garde de plaques de Mg.start_ok (comme sur main) reste.
