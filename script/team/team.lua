@@ -567,7 +567,7 @@ function Team.view(f, tick)
       -- Lot S1 : des vagues ont touché cet avant-poste (mémoire de la prévision) et il lui manque des tourelles : à protéger avant d'être agrandi
       -- ou refait (shared/team/survie_qg.lua, Sq.protect_first ; lu par le planificateur si une tourelle est posable).
       protect = (SurvieQg.mark_protect(f, oid, tick, st.turrets, want_t) or (why_t ~= "base" and wave_t >= Sq.SITE_HIT and st.turrets < want_t)) or nil,
-      want_t = want_t, why_t = why_t,
+      want_t = want_t, -- lot DEFENSE-AP : lu par le planificateur (postes de défense, protect_any) ; le journal [FO-DEFENSE] l'écrit en « have/want »
       -- R-QCM-25c (c) : distance au QG au carré (tuiles entières ; transport de fond sans tourelle : avant-postes proches).
       d2 = math.floor((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2),
     }

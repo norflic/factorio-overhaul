@@ -122,6 +122,21 @@ do
   end
 end
 
+-- Coût (palier 2 : instructions Lua comptées par debug.sethook, jamais l'horloge) : la règle d'un avant-poste, au pire cas
+do
+  local worst = 0
+  for _, a in ipairs({ { base = 3, w5 = 0, w15 = 0, mem = 0, tv = 574 }, { base = 1, w5 = 100000, w15 = 100000, mem = 100000, tv = 574 },
+    { base = 3, w5 = 2457, w15 = 2457, mem = 1500, tv = 574 }, {} }) do
+    local n = 0
+    debug.sethook(function() n = n + 1 end, "", 1)
+    Ga.want(a)
+    debug.sethook()
+    if n > worst then worst = n end
+  end
+  print(string.format("[GARDE-AP] cout : Ga.want pire %d instructions par avant-poste (sethook, compte de 1)", worst))
+  check(worst < 400, "coût d'un avant-poste sous 400 instructions (50 avant-postes : sous 20 000, très loin de 5 ms)")
+end
+
 -- 6. Mutants
 local mutants = {
   { "marge à 1000", "Ga.MARGE = 1100", "Ga.MARGE = 1000" },
