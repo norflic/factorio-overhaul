@@ -130,3 +130,28 @@ Moteur simulé (partie de 15 min, 4 factions et votre équipe, réglage allumé)
 moteur simulé ne peut pas décider (recensement à 1 tuile par gisement, prototypes sans rayon de foreuse : `Champ.data` répond « foreuse ou
 minerai »). La décision n'est donc prouvée qu'avec `Champ.data` doublé. À prouver en moteur réel : micro-banc de décision (gisement de
 1 000 tuiles, centrale finie, 2 500 ticks), puis `etape1-geants`.
+
+## 11. Tranche 2 (A2, 9/11) : la décision ORDONNE le champ, ses bandes partent EN AVANCE
+
+Constat de la tranche 1 (lu sur la partie géants-b36e23b2) : la décision n'avait aucun lecteur ; le champ ne bâtit qu'une bande à la fois par
+gisement. Levier A2, validé par le lead le 8/11 : aligné sur la ligne de bande (`ligne-bande`, fusionné dans cette branche), parallélisme
+borné par ce que le stock paie, sans priver la défense ni le mall.
+
+Chaîne (déclencheur → décision → action → effet) :
+1. `Mega.think` (étape 11, une fois par minute) lit un gisement : `Mf.decide` → « decide » (`script/team/mega_fonderie.lua`).
+2. `order_field` : `MigChamp.want(f, dep, tick, Mp.par_max(rec))` (`migration_champ.lua`, `Mig.want`) : le champ est « voulu » (servi d'abord,
+   aucune paire exigée, gisement sans avant-poste créé s'il y a un réseau alimenté à portée), `st.mega_par` = bandes en vol au plus (plafond 3,
+   jamais plus que de lignes de bus). Journal `[FO-MEGA] ... POSE : champ N voulu` (ou la cause : aucun réseau alimenté à portée).
+3. `ahead_step` (`Mig.think`, après le balayage) : quand la bande PRINCIPALE du cadre est au chantier (matières réunies), une bande de plus est
+   demandée au plan directeur si `Mp.allow` (`shared/team/mega_pose.lua`) le permet : courant, pas d'ennemi, pas de paire thermique sous la
+   bande (voie principale), moins de bandes en vol que le plafond, fer libre ≥ (1 + marge) × fer de la bande (livre de recettes), pile.
+   Journal `[FO-MIGRATION] ... bande N EN AVANCE demandee` / `posee` / `pas de bande en avance (<cause>)`.
+4. `ahead_reap` : une bande en avance « fini » est comptée posée (`done_pr`), les suivantes l'ignorent ; `Mig.projects` rend leurs projets au
+   cerveau (il fabrique leurs matières) ; `begin_band` ne déclare pas le champ « posé » tant qu'une bande est en avance.
+Lecteurs de chaque état écrit : `st.mega_par` (`ahead_step`), `st.ahead` (`begin_band`, `ahead_reap`, `Mig.projects`), `st.ahead_retry`
+(`ahead_step`), `rec.field` / `rec.pose_key` (`Mega.summary`, journal).
+
+Preuve hors jeu : `tests/mega_pose_test.lua` (48 OK, 17 mutants refusés), `tests/mega_fonderie_moteur_test.lua` (52 OK, 14 mutants). Preuve en
+moteur réel : micro-bancs `mega-decision` (K1, 13 OK) et `mega-pose` (14 OK : au plus 3 bandes en vol, 2 bandes du même champ posées en
+parallèle, 49 foreuses électriques posées en 3 min de jeu après la décision), voir le rapport du lot.
+Fichier d'intégrateur : `settings/mega_fonderie.lua` (déjà dans le dépôt) doit être requis par `settings.lua`.
