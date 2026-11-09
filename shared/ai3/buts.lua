@@ -28,6 +28,7 @@ local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bo
 local Dm = require("shared.ai3.demande") -- lot C2 : saturation relative au puits ouvert
 local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : relève d'un avant-poste quand tout gisement pris est plein
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : minerai brut plein (Th.raw_full)
+local Fp = require("shared.ai3.fonte_precoce") -- lot FONTE-PRECOCE : fours du QG avant le premier avant-poste de fer
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : stock de chargeurs visé qui suit les tourelles (Mu.stock_target)
 local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : saturation jugée sur le stock projeté quand il fond
 
@@ -386,7 +387,17 @@ function B.generate(s, st)
   -- Lot SCALE (capacité de FONTE) : une faction dont une plaque manque alors que son minerai attend au coffre agrandit sa
   -- fonderie, par vagues, jusqu'à la moitié de son effectif (shared/ai3/bras.lua, Br.smelters).
   if not s.is_player then smelters_want = Br.smelters(B.smelt_situation(s, st), st, B.SMELTERS_WANT, B.GROW_THINKS) end
-  if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and (s.cap[key.top] or 0) >= 0.75 then
+  -- Lot FONTE-PRECOCE : avant le premier avant-poste de fer, le minerai qui attend au coffre fait grandir la fonderie du QG (shared/ai3/fonte_precoce.lua)
+  local early = 0
+  do
+    local kspec = T.outposts[key.top]
+    if kspec then
+      early = Fp.extra({ cap = s.cap[key.top], plate = s.stock[kspec.product], floor = Br.need_floor(s.workers, B.NEED_FLOOR),
+        ore = s.stock[kspec.resource], have = (s.smelters or 0) + (s.smelters_pending or 0) })
+      if early > 0 then smelters_want = math.max(smelters_want, (s.smelters or 0) + (s.smelters_pending or 0) + early) end
+    end
+  end
+  if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and ((s.cap[key.top] or 0) >= 0.75 or early > 0) then
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
       n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }
   end
