@@ -196,7 +196,7 @@ mut("return (have or 0) <= 0", "return true", "la main toujours permise")
 mut("math.min(#cands, Ml.MAX_ITEMS)", "#cands", "plafond d'objets retiré")
 mut("if a.n ~= b.n then return a.n > b.n end", "if a.n ~= b.n then return a.n < b.n end", "ordre inversé")
 mut("u.n, u.episodes = math.floor(u.n / 2), math.floor(u.episodes / 2)", "", "fenêtre sans moitié")
-mut("if it.rate > 0 then out[#out + 1] = { item = it.item, rate = it.rate, want = it.rate } end", "", "le mall sans puits : aucune usine")
+mut("if it.rate > 0 and not seen[it.item] then out[#out + 1] = { item = it.item, rate = it.rate, want = it.rate } end", "", "le mall sans puits : aucune usine") -- lot BUS-INTERMEDIAIRES : les lignes d'abord, sans doublon
 mut("(fl.made or 0) - (fl.hand or 0) > 0", "(fl.made or 0) > 0", "la main comptée comme le mall")
 mut("if tick - (w.tick or 0) <= Ml.WANT_TTL then", "if true then", "demande notée jamais périmée")
 mut("if u.episodes >= Ml.MIN_EPISODES and u.n > 0 then out[#out + 1] = { item = k, rate = u.n / Ml.WINDOW_MIN, src = \"main\" } end",
