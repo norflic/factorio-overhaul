@@ -425,6 +425,15 @@ function Recon.think(f, surface, tick)
   substitute_drills(f, s, surface, tick)
   Profiler.fstop("recon:secours")
   local due = Rc.due(s, tick)
+  -- lot RUINES-ATTENTE : les pièces d'un avant-poste dont la matière MANQUE (f.team.ia3.starved, écrit par la pensée) passent d'abord
+  local sv = f.team and f.team.ia3 and f.team.ia3.starved
+  if sv and #due > 1 then
+    due = Ru.prefer_scarce(due, function(r)
+      local host = r.kind and ((f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid]))
+      local spec = host and T.outposts[host.kind]
+      return spec ~= nil and (sv[spec.product] == true or sv[spec.resource] == true)
+    end)
+  end
   if #due == 0 then return 0 end
   local added, tried = {}, 0
   local have, taken = {}, {}

@@ -94,4 +94,19 @@ function Ru.sink_of(ex, ey, dir, drop, boxes)
   return nil
 end
 
+--- Lot RUINES-ATTENTE : les pièces dues (`due`, déjà triées valeur, date, clé) dont l'avant-poste produit une matière qui MANQUE (`scarce(piece)` vrai) passent
+--- avant les autres, SANS changer l'ordre relatif à l'intérieur de chaque groupe (partition stable). Partie neuve 0.6.72 : le charbon et le cuivre (détruits
+--- 0,1 min avant le fer, valeur égale) prenaient les 11 foreuses que la pierre permettait de fabriquer ; l'avant-poste de FER (31 pièces, 16 foreuses) a attendu
+--- 21 min (recréé à 37,4 min) alors que le fer était la matière qui manquait à tout (iron-plate 203 au coffre pour un besoin de 430). Aucune matière ne manque :
+--- l'ordre est celui d'avant.
+function Ru.prefer_scarce(due, scarce)
+  local first, rest = {}, {}
+  for _, r in ipairs(due) do
+    if scarce(r) then first[#first + 1] = r else rest[#rest + 1] = r end
+  end
+  if #first == 0 or #rest == 0 then return due end
+  for _, r in ipairs(rest) do first[#first + 1] = r end
+  return first
+end
+
 return Ru
