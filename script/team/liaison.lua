@@ -35,6 +35,7 @@ local Rsv = require("script.ai3.reserve") -- le réglage maître (fo-war-industr
 local Registry = require("script.companion.registry")
 local Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités
 local Tv = require("shared.team.traversee")
+local Pur = require("script.team.purete") -- lot PURETE-TAPIS : aucun tapis étranger ne verse sur un tracé, le tracé ne verse sur aucun tapis étranger
 
 local Liaison = {}
 
@@ -415,10 +416,12 @@ function Liaison.plan(api, f, surface, p)
   end
   local planned = {}
   local function inside(x, y) return x >= x0 and x <= x1 and y >= y0 and y <= y1 end
+  -- lot PURETE-TAPIS : la tuile où un tapis du MONDE (hors plan : usine du joueur, autre force, fantôme, répartiteur) d'un autre objet verse reste libre
+  local worldf = Pur.fronts(f, surface, lc.item, p, { world_only = true })
   local function free(x, y)
     if not inside(x, y) then return false end
     local k = P.tkey(x, y)
-    return not (masks.water[k] or masks.blocked[k] or b.occ[k] or guard[k] or planned[k])
+    return not (masks.water[k] or masks.blocked[k] or b.occ[k] or guard[k] or planned[k]) and not worldf(x, y)
   end
   local S, D = { x = src.x, y = src.y }, { x = dock.x, y = dock.y }
   local ends = Ln.pick_ends(S, D, free, Ln.ROUTE_TRIES)
@@ -459,6 +462,9 @@ function Liaison.plan(api, f, surface, p)
       local m = Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by)
       local ok, w2
       if lc.bus then ok, w2 = Bus.route_ok(#tiles, m) else ok, w2 = Ln.route_ok(#tiles, m) end
+      if ok then -- lot PURETE-TAPIS : la preuve de pureté du tracé (causes a, b, c, d) contre une lecture fraîche du monde ; refus : le bout suivant
+        ok, w2 = Pur.check_route(f, surface, p, lc.bus and "bus" or "liaison", tiles, lc.item, { [P.tkey(e.dst.ax, e.dst.ay)] = true }, nil)
+      end
       if ok then
         -- lot RESEAU-GRAPHE : les poteaux se cherchent POUR CE BOUT ; sans place, on essaie le bout suivant (avant : refus au premier bout)
         local taken = {}
