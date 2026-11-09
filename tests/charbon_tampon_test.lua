@@ -110,6 +110,11 @@ t, why = Ct.relay(f, plant, nil, 1, q, 0, { short = nil, target = 540 }, 1, 1, O
 check(t == nil and why == "le QG a du charbon", "le QG a du charbon : jamais de tampon")
 t, why = Ct.relay(ffrom({}), plant, nil, 1, q, 0, r0, 1, 1, OUT.sink, 1)
 check(t == nil, "aucun avant-poste : rien (l'ancien verdict)")
+local build0 = f.build
+f.build = { opts = { no_tampon = true } } -- interrupteur du banc temoin (remote fo-ia1d set_option no_tampon)
+t, why = Ct.relay(f, plant, nil, 1, q, 0, r0, 10.5, 5, OUT.sink, 3600)
+check(t == nil and why:find("regle coupee", 1, true), "regle coupee (temoin) : jamais de tampon")
+f.build = build0
 
 -- 3. le vrai quai_tasks
 local fh = assert(io.open("script/team/build.lua", "rb"))

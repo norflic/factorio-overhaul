@@ -40,6 +40,7 @@ end
 --- (short) ; ax, ay : point d'appui du coffre de la centrale ; depot_name : nom du coffre des dépôts (Build.Quartiers.DEPOT).
 function Ct.relay(f, p, surface, i, q, n, r, ax, ay, depot_name, tick)
   if not (r and r.short) then return nil, "le QG a du charbon" end
+  if f.build and f.build.opts and f.build.opts.no_tampon then return nil, "regle coupee (banc temoin)" end -- remote fo-ia1d set_option no_tampon
   local want = (r.target or 0) - n
   local pick, why = Cc.pick_buffer(Ct.buffers(f, q.item, q.x, q.y, depot_name), want)
   if not pick then return nil, why end

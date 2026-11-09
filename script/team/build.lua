@@ -5454,14 +5454,14 @@ remote.add_interface("fo-ia1d", {
   end,
   --- Lot TV-ENERGIE (BANC SEULEMENT, micro-banc tv-energie-kw) : pose comme centrale FINIE de l'équipe un projet dont les pièces sont des entités
   --- RÉELLES déjà créées par le banc (ents = { { name, x, y } }) : le relevé de la centrale (PA.watch, Sante.observe) les lit au moteur.
-  bench_plant = function(key, ents, gen)
+  bench_plant = function(key, ents, gen, quais) -- quais (facultatif, lot COMBUSTIBLE-CENTRALE) : { { x, y, item } } coffres de quai de la centrale du banc
     local f = team_of_key(key)
     local b = f and f.build
     if not (b and type(ents) == "table") then return nil end
     local id = b.next_id
     b.next_id = id + 1
     local p = { id = id, spec = { gen = gen, args = { 1 }, feed = true, plant = true, bench = "remote" }, state = "fini", created = game.tick,
-      finished = game.tick, reason = nil, parts = { { kind = "centrale", ox = ents[1] and ents[1].x or 0, oy = ents[1] and ents[1].y or 0, w = 3, h = 3, k = 0 } }, ents = {}, wires = {}, stock = {}, quais = {}, outs = {},
+      finished = game.tick, reason = nil, parts = { { kind = "centrale", ox = ents[1] and ents[1].x or 0, oy = ents[1] and ents[1].y or 0, w = 3, h = 3, k = 0 } }, ents = {}, wires = {}, stock = {}, quais = type(quais) == "table" and quais or {}, outs = {},
       obstacles = {}, fails = 0, prio = Build.PRIO, domain = "infrastructures" }
     for _, e in ipairs(ents) do p.ents[#p.ents + 1] = { name = e.name, x = e.x, y = e.y, built = true } end
     b.projects[id] = p
@@ -5483,7 +5483,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_lots" or name == "no_alim" or name == "no_sante" or name == "no_coupure" or name == "no_energie_dabord" or name == "no_tampon")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,
