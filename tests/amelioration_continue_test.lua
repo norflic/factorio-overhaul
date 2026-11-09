@@ -477,6 +477,24 @@ local function run(Cap, Am, quiet)
     local d7 = pick({ engaged = "p9|absent" })
     check(d7.replace and d7.replace.to == "fast-inserter", "§10 un engagement sur un groupe absent ne change rien")
 
+    -- Le but du remplacement engagé : valeur d'objectif (50), classe « front » ; le but ordinaire reste au fond.
+    local g0, g1 = Cap.goal(d0, {}), Cap.goal(d1, {})
+    check(g1.front == true and g1.value >= Cap.GOAL_FRONT and not g0.front, "§10 le but du remplacement engagé est de classe front, valeur >= " .. Cap.GOAL_FRONT .. " (" .. tostring(g1.front) .. ", " .. g1.value .. ")")
+    do
+      local PP = require("shared.ai3.projets")
+      local goals = {
+        { key = "fond-fort", family = "capital", kind = "upgrade", value = 45, fond = true },
+        { key = "fond-front", family = "capital", kind = "upgrade", value = 50, fond = true, front = true },
+        { key = "ordinaire", family = "extraction", kind = "stock", value = 60 },
+        { key = "fond-faible", family = "capital", kind = "upgrade", value = 30, fond = true },
+      }
+      local order = PP.update({ projects = {} }, goals, 0, 8)
+      local pos = {}
+      for i, pr in ipairs(order) do pos[pr.key] = i end
+      check(pos.ordinaire and pos["fond-front"] and pos["ordinaire"] < pos["fond-front"] and pos["fond-front"] < pos["fond-fort"] and pos["fond-fort"] < pos["fond-faible"],
+        "§10 le fond engagé est servi après l'objectif du moment, devant le reste du fond (" .. table.concat((function() local o = {} for i, pr in ipairs(order) do o[i] = pr.key end return o end)(), ",") .. ")")
+    end
+
     -- Pas de l'engagement.
     local st = {}
     local T = Am.ENGAGE_TICKS
@@ -638,6 +656,9 @@ M("danger n'empêche pas l'engagement", "am", "if not st.group and ev.start and 
 M("groupe disparu garde l'engagement", "am", "if ev.threat or ev.alive == false then", "if ev.threat then")
 M("famine : borne ignorée", "am", "if tick - since >= Am.STARVE_TICKS then out[k] = true end", "out[k] = true")
 M("famine : paiement ignoré", "am", "local since = math.max(st.seen[k], st.paid[k] or 0)", "local since = st.seen[k]")
+M("but engagé au fond", "cap", "front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi", "front = nil, -- lot AMELIORATION-CONTINUE : servi")
+M("valeur du but engagé non relevée", "cap", "if d.front then base = math.max(base, Cap.GOAL_FRONT) end", "")
+M("candidat front non marqué", "cap", "c.front = (front(c) == 1) or nil end", "c.front = nil end")
 M("évaluation non mémorisée coûte trop (mesure de coût)", "cap", "local e = memo[name]\n    if e then return e end", "local e = nil")
 
 QUIET = false

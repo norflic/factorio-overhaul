@@ -61,6 +61,7 @@ Cap.TOP = 3             -- candidats gardés pour le journal
 Cap.GOAL_VALUE = 30
 Cap.GOAL_STOCK = 12
 Cap.GOAL_EPOCH = 6
+Cap.GOAL_FRONT = 50     -- lot AMELIORATION-CONTINUE : valeur du but d'un remplacement ENGAGÉ ou en famine (objectif du moment : 50), servi devant le fond
 -- Le but est de FOND (shared/ai3/projets.lua, P.update : g.fond) : aucune des K places de projet, servi après tous les
 -- autres projets, avec ce qui reste au stock virtuel ; ses tâches (fabrication, manques) à la priorité de sa valeur (53 à
 -- 61, sous la recherche et l'extraction). Moteur réel, bancs c1 et c1-temoin (27/10, graine 271828182, même code, capital
@@ -508,6 +509,7 @@ function Cap.candidates(Ld, census, ctx)
     if ctx.starved and ctx.starved[c.replace.to] then return 1 end
     return 0
   end
+  for _, c in ipairs(cands) do c.front = (front(c) == 1) or nil end -- lu par Cap.goal : le but passe devant le fond au stock virtuel
   table.sort(cands, function(a, b)
     local fa, fb = front(a), front(b)
     if fa ~= fb then return fa > fb end
@@ -635,12 +637,14 @@ end
 function Cap.goal(d, weights)
   if not d or d.none or not d.key then return nil end
   local base = Cap.GOAL_VALUE + (d.all_in and Cap.GOAL_STOCK or 0) + (d.center and Cap.GOAL_EPOCH or 0)
+  if d.front then base = math.max(base, Cap.GOAL_FRONT) end -- lot AMELIORATION-CONTINUE : la fabrication du remplacement engagé n'attend plus derrière tout le reste
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
     short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
     -- Lot AMELIORATION : un lot de bâtiments d'un bloc (n bâtiments, `unit` = coût d'un seul) ; Cap.emit peut en payer moins (E.pay.n).
     bloc = d.bloc, n = (d.bloc or d.fab) and d.n or nil, unit = (d.bloc or d.fab) and d.unit or nil,
+    front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi après les investissements, devant les projets ordinaires et le fond (projets.lua)
     fab = d.fab, -- lot AMELIORATION-CONTINUE : pièces du bloc demandées à la fabrication (≥ n)
     -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre) ; essai 2 : aussi l'amélioration d'un bâtiment
     -- pendant que le centre est PAYABLE (porte ouverte) : ses paiements sont le chemin du centre (règle du loueur de skis, Cap.starved).
