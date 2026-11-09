@@ -431,9 +431,9 @@ demande une partie plus longue : `etape1-geants` porté à 90 min, soit un banc 
 - **S2 lu aussi au débit** (`Mp.S2_PLAQUES_MIN` = 30 plaques/min, statistiques de la force), en plus du projet fini : décision à soumettre au DC (risque au dernier point).
 - **Machine la moins rapide utilisable**, non la plus rapide.
 
-Chaîne : `Ind.think` (`script/ai3/industrie.lua:422`) ou ordre « chaine » (`script/ai3/capitalisation.lua:1666`) → `Rt.place` (`script/team/mall_rangee.lua:184`) → projet `site = "mall"`
+Chaîne : `Ind.think` (`script/ai3/industrie.lua:422`) ou ordre « chaine » (`script/ai3/capitalisation.lua:1668`) → `Rt.place` (`script/team/mall_rangee.lua:184`) → projet `site = "mall"`
 (`Build.SITES.mall`, `:101`) → chantier ordinaire → `Rt.minute` (`:335`) : barres, cellules rendues, allongement, compteurs `[FO-MALL] … PRODUCTION`. Le cerveau fabrique les manques
-(`Rt.contexte`, `:444`, lu par `script/ai3/automatisation.lua:671`).
+(`Rt.contexte`, `:444`, lu par `script/ai3/automatisation.lua:689`).
 
 Mesuré :
 - Micro-banc `mall-rangee` (`fo-logs/2026-11-09_MALL/t2-rangee4-58f1f0c7`) : 23 OK ; 12 machines en ligne, 150 objets fabriqués, tapis purs, arbre défriché, arrêt devant l'eau avec sa
