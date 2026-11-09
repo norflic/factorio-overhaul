@@ -193,7 +193,10 @@ local function measure_module(f, m)
       if ok then made = made + (e.products_finished or 0) end
     end
   end
-  local rate = m.made_prev and math.max(0, made - m.made_prev) or 0
+  -- Un compteur qui BAISSE vient d'un remplacement de machine (amélioration de niveau : l'entité neuve repart à 0, moteur réel, banc
+  -- acier-bloc : four remplacé, minute lue 3/min pour 7,5/min produits) : la production depuis le remplacement est le plancher de la minute.
+  local rate = 0
+  if m.made_prev then rate = made >= m.made_prev and (made - m.made_prev) or made end
   m.made_prev = made
   return rate
 end
