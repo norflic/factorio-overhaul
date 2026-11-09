@@ -29,7 +29,7 @@ end
 function Book.new(recipes, opts)
   opts = opts or {}
   local handcraft = opts.handcraft or { crafting = true }
-  local b = setmetatable({ recipes = recipes, by_product = {} }, Book)
+  local b = setmetatable({ recipes = recipes, by_product = {}, stack_of = opts.stack_of }, Book) -- lot POSE-PAR-LOTS : taille des piles (kits)
   for _, name in ipairs(sorted_keys(recipes)) do
     local r = recipes[name]
     local p = r.products[1]
