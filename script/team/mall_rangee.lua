@@ -17,6 +17,7 @@
 local Mr = require("shared.team.mall_rangee")
 local Mt = require("shared.team.mall_tronc") -- tranche 3 : le tronc et les prises
 local Ma = require("shared.team.mall_allonge") -- allongement au-delà de la demande, au surplus de matière
+local Liq = require("shared.team.mall_liquidation") -- lot MALL-LIQUIDATION : le stock de machines qui dort paie une section de plus (réserve 20 %)
 local Cat = require("shared.team.motifs.catalogue")
 local P = require("shared.team.plan")
 local Pu = require("shared.team.purete")
@@ -719,6 +720,31 @@ local function cellule_de_plus(r, lec)
   return { item = best.item, recipe = best.recipe, machine = best.machine, machines = best.n + Ma.PAR_CELLULE, solides = solides, rate = par_min }
 end
 
+--- Lot MALL-LIQUIDATION : les pièces d'UNE section de la rangée, lues au plan de sa dernière section finie (aucun nom en dur) : liste triée { objet, n, machine }
+--- (machine = vrai pour la pièce posée au rôle de machine de la rangée). Rend nil sans section finie.
+local function pieces_section(b, r)
+  local last = r.projects[#r.projects]
+  local p = last and not last.dead and b.projects[last.id]
+  if not (p and p.state == "fini" and p.ents) then return nil end
+  local machines = {}
+  for _, e in ipairs(p.ents) do if e.role == "mall-machine_asm" then machines[item_of(e.name)] = true end end
+  local out = {}
+  for _, it in ipairs(Mr.cout(p.ents)) do
+    local objet = item_of(it[1])
+    out[#out + 1] = { objet, it[2], machines[objet] or false }
+  end
+  return out
+end
+
+--- Lot MALL-LIQUIDATION : le stock dormant de la rangée paie-t-il une section de plus ? Rend (nombre de sections, machine au coffre, nom de la machine) ou nil.
+local function stock_dormant(b, r, libre)
+  local section = pieces_section(b, r)
+  if not section then return nil end
+  local ok, n, piece = Liq.surplus(libre, section)
+  if not ok then return nil end
+  return n, libre[piece] or 0, piece
+end
+
 --- Une fois par décision (Ind.think) : barres des coffres de sortie, cellules rendues par une section refusée, allongement, compteurs.
 function Rt.minute(f, surface, lec, sources, afford, tick, libre)
   local b = f.build
@@ -833,12 +859,21 @@ function Rt.minute(f, surface, lec, sources, afford, tick, libre)
       table.sort(ordre, function(x, y) if #x.cells ~= #y.cells then return #x.cells < #y.cells end return x.j < y.j end)
       for _, r in ipairs(ordre) do
         if not r.stop and not (r.retry_at and r.retry_at > tick) and #r.cells < Mr.MAX_CELLS then
-          local cible = Ma.cible(#r.cells, parts[r.j] or {}, flow, libre, conso, Mr.MAX_CELLS)
+          -- lot MALL-LIQUIDATION (le DC, 9/11 : « fin de la thésaurisation ») : AVANT le débit, le stock de machines qui dort au coffre paie la section
+          -- (shared/team/mall_liquidation.lua, réserve Liq.RESERVE_PCT) ; les plaques restent exigées par `afford`, la place par la rangée. Sinon : la règle du débit mesuré.
+          local dormant, au_coffre, machine = stock_dormant(b, r, libre)
+          local cible
+          if dormant then cible = #r.cells + 1 else cible = Ma.cible(#r.cells, parts[r.j] or {}, flow, libre, conso, Mr.MAX_CELLS) end
           local d = cible > #r.cells and cellule_de_plus(r, lec) or nil
           if d then
             local id = Rt.place(f, { d }, st.names_kit, tick, afford, "MALL rangee " .. r.j .. " allongee au surplus", r)
             if id then
-              say(f, st, tick, string.format("rangee %d : surplus : cible %d cellule(s), une de plus (%s, projet %d)", r.j, cible, d.item, id))
+              if dormant then
+                say(f, st, tick, string.format("rangee %d : section de plus PAYEE PAR LE STOCK DORMANT (%d %s au coffre, reserve %d %%, %d section(s) payables ; %s, projet %d)",
+                  r.j, au_coffre, tostring(machine), floor(Liq.RESERVE_PCT * 100 + 0.5), dormant, d.item, id))
+              else
+                say(f, st, tick, string.format("rangee %d : surplus : cible %d cellule(s), une de plus (%s, projet %d)", r.j, cible, d.item, id))
+              end
               break
             end
           end
