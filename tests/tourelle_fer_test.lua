@@ -118,7 +118,7 @@ do
   local cer, plan, buts = read_src("shared/ai3/cerveau.lua"), read_src("shared/team/planner.lua"), read_src("shared/ai3/buts.lua")
   check(cer:find("iron_unlock = iron_unlock", 1, true) and cer:find("o.kind == top_kind and (o.turrets or 0) < T.defend_turrets(o.drills or 0)", 1, true),
     "cerveau : iron_unlock lu aux avant-postes de la ressource clé sous leurs tourelles")
-  check(plan:find("Tf.floors(p, fl_i, fl_c, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)", 1, true) ~= nil, "planificateur : planchers de la tourelle du fer")
+  check(plan:find("if not qg_peril and pri.mode ~= Pr.MODE_SURVIE_PENURIE then fi, fc, reduced = Tf.floors(p, fl_i, fl_c, Sq.FLOOR_IRON, Sq.FLOOR_COPPER) end", 1, true) ~= nil, "planificateur : planchers de la tourelle du fer")
   check(buts:find("Mu.defer_spare(s.iron_unlock)", 1, true) ~= nil, "buts : la réserve lit le signal")
 end
 print("== 6. Mutants")
@@ -138,7 +138,7 @@ mutant("tout poste a le plancher réduit", "Tf", TFP, "not post.iron or", "false
 mutant("le nombre de tourelles atteint ne compte pas", "Tf", TFP, "or num(post.have) >= num(post.want)", "")
 mutant("plancher jamais réduit", "Tf", TFP, "local fi, fc = math.min(base_iron, num(low_iron)), math.min(base_copper, num(low_copper))", "local fi, fc = base_iron, base_copper")
 mutant("plancher relevé au réduit", "Tf", TFP, "math.min(base_iron, num(low_iron))", "num(low_iron)")
-mutant("le planificateur ignore la règle", "Pl", PLP, "Tf.floors(p, fl_i, fl_c, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)", "fl_i, fl_c, false")
+mutant("le planificateur ignore la règle", "Pl", PLP, "fi, fc, reduced = Tf.floors(p, fl_i, fl_c, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)", "fi, fc, reduced = fl_i, fl_c, false")
 mutant("le planificateur ne passe pas le plancher", "Pl", PLP, "d.why = want_defense(items, fi, fc) and \"fabrication\" or \"manque\"\n              if d.why == \"manque\" then d.raw = last_raw end\n            end",
   "d.why = want_defense(items) and \"fabrication\" or \"manque\"\n              if d.why == \"manque\" then d.raw = last_raw end\n            end")
 mutant("la réserve dormante n'attend pas", "Mu", MUP, "(a.defer_spare and 0 or turrets * Mu.SPARE)", "(turrets * Mu.SPARE)")

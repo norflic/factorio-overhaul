@@ -830,7 +830,9 @@ function P.plan(view, book)
               end
             else
               -- Lot TOURELLE-FER : la tourelle d'un avant-poste de fer (elle débloque son agrandissement) se paie au plancher réduit du QG en péril
-              local fi, fc, reduced = Tf.floors(p, fl_i, fl_c, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)
+              -- (QG en péril, ou mode survie-pénurie : le fer va d'abord au QG / à la production, règles du lot S1 et de SURVIE-PENURIE inchangées)
+              local fi, fc, reduced = fl_i, fl_c, false
+              if not qg_peril and pri.mode ~= Pr.MODE_SURVIE_PENURIE then fi, fc, reduced = Tf.floors(p, fl_i, fl_c, Sq.FLOOR_IRON, Sq.FLOOR_COPPER) end
               if reduced then d.floor_i, d.floor_cu, d.reduced = fi, fc, true end
               d.why = want_defense(items, fi, fc) and "fabrication" or "manque"
               if d.why == "manque" then d.raw = last_raw end
