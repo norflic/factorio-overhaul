@@ -98,6 +98,16 @@ local function battery(Rc)
   -- coffre du QG 0 : sa tournee part avec 0 charbon ; avec la regle, elle part la premiere
   check(Rc.producer_prio(95, { fuel = true, low = true, safe = true, short = Rc.short(0, { bruleurs = 1008 + 80 }) }) == 96, "A4 56,3 min : le producteur part le premier")
 
+  section("1g. Amorce sur place du producteur que le coffre du QG ne peut pas amorcer (F477, second maillon)")
+  -- banc TOURNEE-A (graine 123456789) a 67,5 min : producteur refait, 6 foreuses a sec, voulu au depart 60, coffre du QG 0
+  check(Rc.prime_on_site({ fuel = true, carry = 60, stock = 0, drills = 8 }) == 16, "TOURNEE-A 67,5 min : 16 a miner sur place (2 par foreuse, 8 foreuses), le coffre ne porte rien")
+  check(Rc.PRIME_PER == 2, "amorce par foreuse = celle d'un avant-poste de combustible neuf (2)")
+  check(Rc.prime_on_site({ fuel = true, carry = 60, stock = 50, drills = 8 }) == 10, "le coffre porte 50 des 60 : 10 sur place")
+  check(Rc.prime_on_site({ fuel = true, carry = 60, stock = 60, drills = 8 }) == 0 and Rc.prime_on_site({ fuel = true, carry = 60, stock = 900, drills = 8 }) == 0, "le coffre porte tout : rien sur place")
+  check(Rc.prime_on_site({ fuel = false, carry = 600, stock = 0, drills = 33 }) == 0, "un avant-poste qui ne produit pas le combustible ne mine pas son combustible sur place")
+  check(Rc.prime_on_site({ fuel = true, carry = 0, stock = 0, drills = 8 }) == 0, "rien de voulu (ses coffres couvrent) : rien")
+  check(Rc.prime_on_site({ fuel = true, carry = 60, stock = 0, drills = 0 }) == 0 and Rc.prime_on_site(nil) == 0, "sans foreuse ou sans contexte : rien")
+
   section("1e. Journal")
   local line = Rc.line("player centrale 1", 36.3, Rc.parts(400, { vital = 108, bruleurs = 588, confort = 432 }), { vital = 108, bruleurs = 588, confort = 432 })
   check(line:find("[FO-CHARBON-PARTS] player centrale 1 : coffre du QG 400 charbon(s) a 36.3 min : vital 108/108, bruleurs 292/588, confort 0/432, libre 0", 1, true) ~= nil, "ligne [FO-CHARBON] : " .. line)
@@ -176,6 +186,13 @@ do
     and planner:find("short = fuel_spec and Rc.short(view.stock[T.fuel] or 0, { bruleurs = fuel_need.bruleurs + (o.coal_needed or 0) })", 1, true) ~= nil,
     "planner.lua : la priorite des tournees passe par Rc.producer_prio (F477), besoin des tournees complet + celui du producteur")
 
+  local wk = slurp("script/team/worker.lua")
+  check(wk:find("local prime = Rsv.prime_on_site({ fuel = Rsv.is_fuel_outpost(fuel_spec, T.fuel), carry = carry, stock = Stock.count(f, T.fuel), drills = o.drills })", 1, true) ~= nil
+    and wk:find('steps[#steps + 1] = { "mine", T.fuel, prime }', 1, true) ~= nil and wk:find("task.target = tile", 1, true) ~= nil
+    and wk:find("function Worker.prime_tile(f, surface, center, item, tick)", 1, true) ~= nil,
+    "worker.lua : la tournee du producteur mine son amorce sur place (Rc.prime_on_site, tuile libre de son gisement, cible de l'etat mine)")
+  check(wk:find("[FO-CHARBON-AMORCE]", 1, true) ~= nil, "worker.lua : journal [FO-CHARBON-AMORCE]")
+
   local build = slurp("script/team/build.lua")
   check(build:find('Build.Rc = require("shared.team.reserve_charbon")', 1, true) ~= nil, "build.lua : lit la regle (champ de Build)")
   check(build:find("have = parts.vital + parts.confort", 1, true) ~= nil and build:find("local parts = Rc.parts(have, need)", 1, true) ~= nil, "build.lua quai_tasks : la centrale prend vital + confort")
@@ -238,6 +255,10 @@ mutant("tout avant-poste a sec prioritaire", function(s) return (s:gsub("if a.fu
 mutant("priorite plus haute abaissee", function(s) return (s:gsub(" and %(tonumber%(base%) or 0%) < Rc.PRODUCER_PRIO then", " then")) end)
 mutant("producteur au rang des bruleurs (95)", function(s) return (s:gsub("Rc.PRODUCER_PRIO = 96", "Rc.PRODUCER_PRIO = 95")) end)
 mutant("manque compte au sens large", function(s) return (s:gsub("return whole%(stock%) < sum", "return whole(stock) <= sum")) end)
+mutant("amorce sur place sans borne par foreuse", function(s) return (s:gsub("return lack < cap and lack or cap", "return lack")) end)
+mutant("amorce sur place de tout le voulu, coffre ignore", function(s) return (s:gsub("local lack = whole%(a.carry%) %- whole%(a.stock%)", "local lack = whole(a.carry)")) end)
+mutant("amorce sur place pour tout avant-poste", function(s) return (s:gsub("if not a.fuel then return 0 end", "")) end)
+mutant("amorce de 1 par foreuse", function(s) return (s:gsub("Rc.PRIME_PER = 2", "Rc.PRIME_PER = 1")) end)
 mutant("manque sans la somme des parts", function(s) return (s:gsub("for _, k in ipairs%(Rc.ORDER%) do sum = sum %+ whole%(need%[k%]%) end", "sum = whole(need.bruleurs)")) end)
 
 print(string.format("[RESERVE-CHARBON] BILAN : %d OK, %d ECHEC(S)", passes, failures))

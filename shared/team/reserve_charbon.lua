@@ -88,6 +88,23 @@ function Rc.producer_prio(base, a)
   return base
 end
 
+--- Lot CHARBON-TOURNEE (F477, second maillon) : AMORCE SUR PLACE du producteur. Servi le premier, il part quand même à vide si le coffre du
+--- QG est à 0 ; et le minage de fond ne trouve pas de combustible à portée du QG (banc TOURNEE-A, graine 123456789 : coffre à 0 de 57 à
+--- 90 min, producteur refait à 63,6 min sans charbon, « minage a la main de 'coal' sans tuile libre ni sure (rayon 96) » à 78,8, 81,8 et
+--- 84,8 min, 46 à 58 brûleurs à sec de 60 à 90 min). Son gisement EST le combustible : la tournée en mine à la main sur place, juste de quoi
+--- relancer ses foreuses (Rc.PRIME_PER par foreuse, l'amorce d'un avant-poste neuf), ce que le coffre ne porte pas.
+--- a = { fuel = avant-poste de combustible, carry = combustible voulu au départ (après ses coffres), stock = coffre du QG, drills = foreuses }.
+--- Rend le nombre à miner sur place (0 sinon).
+Rc.PRIME_PER = 2 -- combustibles par foreuse (= l'amorce d'un avant-poste de combustible neuf, shared/team/planner.lua outpost_items)
+function Rc.prime_on_site(a)
+  a = a or {}
+  if not a.fuel then return 0 end
+  local lack = whole(a.carry) - whole(a.stock)
+  if lack <= 0 then return 0 end
+  local cap = Rc.PRIME_PER * whole(a.drills)
+  return lack < cap and lack or cap
+end
+
 --- Ce que la centrale peut prendre (vital + confort), ce que l'amorce peut prendre (vital), ce qui reste à la fabrication (libre).
 function Rc.centrale(stock, need) local p = Rc.parts(stock, need) return p.vital + p.confort end
 function Rc.vital(stock, need) return Rc.parts(stock, need).vital end
