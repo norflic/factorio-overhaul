@@ -39,6 +39,12 @@ Fx.BORNES = {
   pulsation_min = 0.35,
   pulsation_max = 1.0,
   vortex_echelle_max = 24.0,  -- DIAMÈTRE en tuiles d'un vortex ou d'une onde (feuille de 4 tuiles à l'échelle 1)
+  -- lot ART-IMPACTS (11/11) : marque au sol éphémère, faisceau dense, feuilles en grille
+  brulure_tenue_max = 1800,  -- ticks avant que la brûlure au sol ne s'efface (30 s : éphémère)
+  faisceau_epaisseur_min = 0.2,
+  faisceau_epaisseur_max = 3.0,
+  feuille_px_max = 2048,     -- côté d'une feuille (VRAM sobre)
+  feuille_images_max = 64,
 }
 Fx.LUMIERE_SPRITE_TUILES = 300 / 32   -- diamètre (tuiles) du sprite utility/light_medium à l'échelle 1 (rendering.draw_light)
 Fx.FEUILLE_TUILES = 4                -- côté (tuiles) d'une image de feuille à l'échelle 1 (128 px à 32 px/tuile)
@@ -50,6 +56,7 @@ Fx.MODES = {
   -- âge 2 : faisceau focalisé : éclat d'impact au point de contact, étincelles fines, flash de bouche. Sources vanilla NEUTRES
   -- (explosion-hit : blanc-or) : une teinte MULTIPLIE (F36) ; laser-bubble, rouge, donnait du brun sous une teinte cyan (planche du 10/11).
   laser = {
+    faisceau = { epaisseur = 0.9 },   -- ART-IMPACTS : corps DENSE (cœur blanc, gaine, filaments), éclat au contact
     bouche = { taille = 5, intensite = 0.55, duree = 6 },
     impact = { source = "explosion-hit", echelle = 0.9, duree = 20, lumiere = { taille = 6, intensite = 0.6, tenue = 0.35 },
       etincelles = { source = "spark-particle", nombre = 5, vitesse = 0.06, montee = 0.03 } },
@@ -66,13 +73,16 @@ Fx.MODES = {
     projectile = { lumiere = { taille = 10, intensite = 0.9 }, vortex = { echelle = 1.6 },
       trainee = { source = "smoke-fast", frequence = 2, debut = 0.5, fin = 1.4, duree = 40, alpha = 0.55 } },
     impact = { source = "big-explosion", echelle = 1.4, duree = 40, lumiere = { taille = 16, intensite = 1.0, tenue = 0.25, onde = 0.4 },
-      etincelles = { source = "spark-particle-debris", nombre = 12, vitesse = 0.14, montee = 0.06 }, onde = { echelle = 10.0, duree = 30 } },
+      etincelles = { source = "spark-particle-debris", nombre = 12, vitesse = 0.14, montee = 0.06 },
+      choc = { echelle = 9.0, duree = 40 }, brulure = { source = "medium-scorchmark-tintable", tenue = 900 } },
   },
   -- fusil à rail : la ligne est déjà un faisceau ; impact perforant à chaque cible, flash de bouche
   rail = {
+    faisceau = { epaisseur = 0.7, duree = 10 },   -- ART-IMPACTS : la trace n'est plus l'arc électrique vanilla
     bouche = { taille = 7, intensite = 0.8, duree = 6 },
     impact = { source = "explosion-hit", echelle = 1.5, duree = 12, lumiere = { taille = 5, intensite = 0.6, tenue = 0.4 },
-      etincelles = { source = "spark-particle", nombre = 8, vitesse = 0.12, montee = 0.04 } },
+      etincelles = { source = "spark-particle", nombre = 8, vitesse = 0.12, montee = 0.04 },
+      brulure = { source = "small-scorchmark-tintable", tenue = 600 } },
   },
   -- lanceur de singularités : roquette-vortex, champ dessiné par le vortex, onde à l'ouverture
   singularite = {
@@ -80,7 +90,9 @@ Fx.MODES = {
       trainee = { source = "smoke-fast", frequence = 3, debut = 0.4, fin = 1.2, duree = 36, alpha = 0.5 } },
     champ = { vortex = { echelle = 11.0 } },
     impact = { source = "medium-explosion", echelle = 1.2, duree = 30, lumiere = { taille = 12, intensite = 0.8, tenue = 0.3, onde = 0.5 },
-      etincelles = { source = "spark-particle-debris", nombre = 10, vitesse = 0.12, montee = 0.05 }, onde = { echelle = 11.0, duree = 26 } },
+      etincelles = { source = "spark-particle-debris", nombre = 10, vitesse = 0.12, montee = 0.05 },
+      choc = { echelle = 10.0, duree = 44 }, distorsion = { echelle = 7.0, duree = 54 },
+      brulure = { source = "medium-scorchmark-tintable", tenue = 900 } },
   },
   -- projecteur de champ : onde de choc autour du porteur, bulle sur chaque ennemi repoussé
   champ = {
@@ -89,13 +101,15 @@ Fx.MODES = {
   },
   -- frappe orbitale : le flash vanilla teinté reste ; onde de choc au sol en plus, drone de marquage lumineux
   orbital = {
-    impact = { onde = { echelle = 24.0, duree = 60 }, lumiere = { taille = 24, intensite = 1.0, tenue = 0.2, onde = 0.3 } },
+    impact = { choc = { echelle = 22.0, duree = 60 }, lumiere = { taille = 24, intensite = 1.0, tenue = 0.2, onde = 0.3 },
+      brulure = { source = "big-scorchmark-tintable", tenue = 1500 } },
   },
   -- titans alliés : singularité pulsée (Sentinelle), tirs des drones lumineux (Léviathan), éclairs des griffes (Juggernaut)
   titan = {
     projectile = { lumiere = { taille = 8, intensite = 0.7 },
       trainee = { source = "smoke-fast", frequence = 3, debut = 0.3, fin = 0.9, duree = 30, alpha = 0.45 } },
-    impact = { onde = { echelle = 10.0, duree = 30 }, lumiere = { taille = 14, intensite = 0.8, tenue = 0.3, onde = 0.4 } },
+    impact = { choc = { echelle = 12.0, duree = 44 }, lumiere = { taille = 14, intensite = 0.8, tenue = 0.3, onde = 0.4 },
+      distorsion = { echelle = 8.0, duree = 54 }, brulure = { source = "medium-scorchmark-tintable", tenue = 900 } },
     singularite = { vortex = { echelle = 6.0 }, lumiere = { taille = 18, intensite = 0.7 }, pulsation = { n = 6, periode = 180 } },
   },
 }
@@ -133,7 +147,7 @@ function Fx.pack(spec)
   if not couleur then return nil, "aucune couleur dans la table de " .. tostring(spec.name) end
   local p = copie(m)
   p.nom, p.mode, p.couleur, p.age = spec.name, spec.mode, couleur, spec.age
-  for _, k in ipairs({ "bouche", "impact", "projectile", "champ", "singularite" }) do
+  for _, k in ipairs({ "bouche", "impact", "projectile", "champ", "singularite", "faisceau" }) do
     if p[k] then
       p[k].couleur = couleur
       if p[k].lumiere then p[k].lumiere.couleur = couleur end
@@ -190,6 +204,15 @@ function Fx.verifier(pack, B)
     lumiere(i.lumiere, "impact")
     if i.etincelles and not nombre(i.etincelles.nombre, 1, B.etincelles_max) then m("impact : " .. tostring(i.etincelles.nombre) .. " étincelles") end
     if i.onde and not (nombre(i.onde.echelle, 0.5, B.vortex_echelle_max) and nombre(i.onde.duree, 1, B.duree_max)) then m("impact : onde hors bornes") end
+    if i.choc and not (nombre(i.choc.echelle, 0.5, B.vortex_echelle_max) and nombre(i.choc.duree, 1, B.duree_max)) then m("impact : onde de choc hors bornes") end
+    if i.distorsion and not (nombre(i.distorsion.echelle, 0.5, B.vortex_echelle_max) and nombre(i.distorsion.duree, 1, B.duree_max)) then m("impact : distorsion hors bornes") end
+    if i.brulure and not (type(i.brulure.source) == "string" and nombre(i.brulure.tenue, 60, B.brulure_tenue_max)) then m("impact : brûlure hors bornes") end
+    if not (i.source or i.onde or i.choc) then m("impact sans porteur (ni explosion, ni onde, ni choc)") end
+  end
+  local f = pack.faisceau
+  if f then
+    if not nombre(f.epaisseur, B.faisceau_epaisseur_min, B.faisceau_epaisseur_max) then m("faisceau : épaisseur " .. tostring(f.epaisseur)) end
+    if f.duree ~= nil and not nombre(f.duree, 1, B.duree_max) then m("faisceau : durée " .. tostring(f.duree)) end
   end
   local p = pack.projectile
   if p then
@@ -207,6 +230,23 @@ function Fx.verifier(pack, B)
     if s.vortex and not nombre(s.vortex.echelle, 0.5, B.vortex_echelle_max) then m("singularité : vortex hors bornes") end
     if s.pulsation and not (nombre(s.pulsation.n, 2, 32) and nombre(s.pulsation.periode, 30, 600)) then m("singularité : pulsation hors bornes") end
   end
+  return motifs
+end
+
+--- Vérifie une feuille de graphics/effets/sprites.lua contre le budget (lot ART-IMPACTS) : nombre d'images, côté de la
+--- feuille HR (colonnes × largeur, rangées × hauteur), hr = 2 × lr. Rend la liste des motifs (vide = conforme).
+function Fx.verifier_feuille(cle, s, B)
+  B = B or Fx.BORNES
+  local motifs = {}
+  local function m(x) motifs[#motifs + 1] = tostring(cle) .. " : " .. x end
+  if type(s) ~= "table" or not (s.lr and s.hr) then m("entrée absente") return motifs end
+  if not nombre(s.images, 1, B.feuille_images_max) then m(tostring(s.images) .. " images") end
+  local cols = s.line_length or s.images
+  local rows = math.ceil((s.images or 1) / (cols or 1))
+  if not (s.hr.width * cols <= B.feuille_px_max and s.hr.height * rows <= B.feuille_px_max) then
+    m(string.format("feuille HR de %d × %d px", s.hr.width * (cols or 0), s.hr.height * rows))
+  end
+  if not (s.hr.width == 2 * s.lr.width and s.hr.height == 2 * s.lr.height) then m("hr n'est pas 2 × lr") end
   return motifs
 end
 
