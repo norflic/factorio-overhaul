@@ -9,6 +9,7 @@ local AV = require("prototypes.ateliers_visuels")   -- lot DA-ATELIERS : visuels
 local T = require("shared.content.titanium")
 local Vis = require("prototypes.robotique_icones") -- icônes dédiées (lot DA-ICONES) ; un nom absent garde la copie teintée
 local CV = require("prototypes.chimie_visuels")
+local Mx = require("prototypes.metaux_icones") -- icônes dédiées des métaux (lot ICONES-DISTINCTES, 11/11)
 
 local out = {}
 
@@ -65,7 +66,7 @@ end
 for i, name in ipairs(C.ITEMS) do
   local x = assert(T.x_item(name), "crafts : objet X0 absent " .. name)
   local ic = assert(ICON[name], "crafts : icône provisoire absente pour " .. name)
-  local vis = Vis.icones_objet(name)
+  local vis = Vis.icones_objet(name) or Mx.icones_objet(name)
   local item = {
     type = "item",
     name = name,

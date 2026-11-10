@@ -7,6 +7,7 @@ local lib = require("prototypes.lib")
 local T = require("shared.content.titanium")
 local CV = require("prototypes.chimie_visuels")
 local W = require("shared.content.world")
+local Mx = require("prototypes.metaux_icones") -- icônes dédiées des métaux (lot ICONES-DISTINCTES, 11/11)
 
 local out = {}
 local TI = W.resources.ilmenite.tint
@@ -43,19 +44,20 @@ for i, name in ipairs(T.ITEMS) do
   if name ~= W.resources.ilmenite.item then
     local x = T.x_item(name)
     local ic = assert(ICON[name], "titane : icône provisoire absente pour " .. name)
+    local vis = Mx.icones_objet(name)
     local item = {
       type = "item",
       name = name,
       localised_name = { "item-name." .. name },
       localised_description = { "item-description." .. name },
-      icons = icon_of(ic[1], ic[2], ic[3]),
+      icons = vis or icon_of(ic[1], ic[2], ic[3]),
       subgroup = "fo-titanium",
       order = string.format("z[fo]-b[titanium]-%02d", i),
       stack_size = x.stack,
     }
     -- images au sol : celles de l'objet copié, teintées (sinon l'icône seule)
     local src = data.raw[ic[1]][ic[2]]
-    if src.pictures then
+    if src.pictures and not vis then -- une icône dédiée sert aussi au sol et sur les tapis
       item.pictures = table.deepcopy(src.pictures)
       lib.tint_sprites(item.pictures, ic[3])
     end
