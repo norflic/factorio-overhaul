@@ -9,6 +9,7 @@ Date: 2026-11-10
     - Bâtiments (F469) : le coffre d'équipe, le pylône haute tension et la cuve d'électrolyse ignée ont de vrais visuels rendus (argent iridescent, conduits cyan, accents magenta) à la place des copies vanilla teintées ; le pylône attache ses fils sur ses isolateurs.
   Bugfixes:
     - Chantiers (F474) : une tourelle de l'équipe posée sur l'emprise d'une pièce d'un chantier SUR du minerai est désormais déplacée ou reprise comme ailleurs ; le minerai du gisement ne comptait comme un obstacle que là, et la bande restait bloquée à une pièce de la fin.
+    - Chantiers (F475) : un PNJ rappelé, en fuite ou bloqué rend à son chantier les pièces qu'il portait, au lieu de les remettre à un autre projet ; une bande presque finie ne reste plus bloquée faute de matière (graine 123456789 : la bande -30 finit à 28,6 min au lieu de rester à 341/365).
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.78
 Date: 2026-11-10
