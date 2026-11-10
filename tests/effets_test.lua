@@ -193,6 +193,40 @@ if okspr then
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §5 bis bâtiments refaits (livrable B) : feuilles de graphics/batiments, prototypes qui les lisent, ancrages du pylône
+---------------------------------------------------------------------------------------------------
+local okb, BAT = pcall(dofile, "graphics/batiments/sprites.lua")
+check(okb and type(BAT) == "table", "§5bis graphics/batiments/sprites.lua lisible (sinon : py -3.9 tools/render/pieces/batiments/feuilles.py)")
+if okb then
+  local man = read("graphics/batiments/MANIFEST.json") or ""
+  for _, cle in ipairs({ "coffre", "pylone", "cuve" }) do
+    local u = BAT[cle]
+    check(u and u.main and u.shadow and u.glow and u.icone and u.boite and u.map_color, "§5bis " .. cle .. " : couches principale, ombre, lueur, icône, boîte, couleur de carte")
+    for _, k in ipairs({ "main", "shadow", "glow" }) do
+      for _, res in ipairs({ "lr", "hr" }) do
+        local d = u and u[k] and u[k][res]
+        local pth = d and d.filename:gsub("^__factorio%-overhaul__/", "")
+        local w, h
+        if pth then w, h = png_size(pth) end
+        check(d and w == d.width and h == d.height, "§5bis " .. cle .. " " .. k .. " " .. res .. " : PNG présent aux dimensions de sprites.lua")
+        check(pth and man:find(pth:match("([^/]+)$"), 1, true) ~= nil, "§5bis MANIFEST cite " .. tostring(pth))
+      end
+    end
+  end
+  local anc = BAT.pylone and BAT.pylone.ancrages
+  check(anc and anc.copper and anc.red and anc.green, "§5bis pylône : ancrages des trois fils (cuivre, rouge, vert)")
+  if anc then
+    check(anc.copper.fil[2] < anc.red.fil[2] and anc.red.fil[1] > 0 and anc.green.fil[1] < 0, "§5bis pylône : cuivre au sommet, rouge à droite, vert à gauche")
+    check(anc.copper.fil[2] < -3 and anc.copper.fil[2] > -5, "§5bis pylône : fil de cuivre à la hauteur du grand poteau vanilla (3 à 5 tuiles)")
+    check(anc.copper.ombre[1] > 0, "§5bis pylône : l'ombre du fil tombe à l'est (soleil à l'ouest)")
+  end
+end
+local BV = read("prototypes/batiments_visuels.lua")
+check(BV ~= nil and BV:find("fo%-team%-chest") and BV:find("fo%-ht%-pylon") and BV:find("fo%-reduction%-cell"), "§5bis prototypes/batiments_visuels.lua habille les trois bâtiments")
+check(BV ~= nil and BV:find("direction_count = 1") ~= nil and BV:find("connection_points") ~= nil and BV:find("ancrages") ~= nil, "§5bis pylône : une direction, points d'attache lus dans la feuille")
+check((read("prototypes/faction.lua") or ""):find('require%("prototypes.batiments_visuels"%)') ~= nil, "§5bis chargé à la fin de prototypes/faction.lua")
+
+---------------------------------------------------------------------------------------------------
 -- §6 mutants de la règle
 ---------------------------------------------------------------------------------------------------
 local function charge(src)

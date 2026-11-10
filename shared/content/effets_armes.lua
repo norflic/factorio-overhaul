@@ -47,16 +47,17 @@ Fx.FEUILLE_TUILES = 4                -- côté (tuiles) d'une image de feuille �
 Fx.MODES = {
   -- âge 1 : les tirs des tourelles à balles sont habillés par le lot TIRS (flamme de bouche orientée, dards, impacts par âge)
   cinetique = { delegue = "tirs" },
-  -- âge 2 : faisceau focalisé : bulle d'impact au point de contact, étincelles fines, flash de bouche
+  -- âge 2 : faisceau focalisé : éclat d'impact au point de contact, étincelles fines, flash de bouche. Sources vanilla NEUTRES
+  -- (explosion-hit : blanc-or) : une teinte MULTIPLIE (F36) ; laser-bubble, rouge, donnait du brun sous une teinte cyan (planche du 10/11).
   laser = {
     bouche = { taille = 5, intensite = 0.55, duree = 6 },
-    impact = { source = "laser-bubble", echelle = 1.6, duree = 20, lumiere = { taille = 6, intensite = 0.6, tenue = 0.35 },
+    impact = { source = "explosion-hit", echelle = 0.9, duree = 20, lumiere = { taille = 6, intensite = 0.6, tenue = 0.35 },
       etincelles = { source = "spark-particle", nombre = 5, vitesse = 0.06, montee = 0.03 } },
   },
   -- âge 3 : arcs en chaîne : chaque maillon frappe avec une bulle électrique et des débris d'étincelles
   arc = {
     bouche = { taille = 6, intensite = 0.7, duree = 8 },
-    impact = { source = "laser-bubble", echelle = 1.2, duree = 16, lumiere = { taille = 7, intensite = 0.7, tenue = 0.3 },
+    impact = { source = "explosion-hit", echelle = 1.1, duree = 16, lumiere = { taille = 7, intensite = 0.7, tenue = 0.3 },
       etincelles = { source = "spark-particle-debris", nombre = 8, vitesse = 0.10, montee = 0.05 } },
   },
   -- âge 4 : orbe de plasma : vortex tournant en vol, traînée, lumière portée, explosion avec onde de choc
@@ -83,7 +84,7 @@ Fx.MODES = {
   },
   -- projecteur de champ : onde de choc autour du porteur, bulle sur chaque ennemi repoussé
   champ = {
-    impact = { source = "laser-bubble", echelle = 1.4, duree = 18, lumiere = { taille = 6, intensite = 0.6, tenue = 0.3 },
+    impact = { source = "explosion-hit", echelle = 1.0, duree = 18, lumiere = { taille = 6, intensite = 0.6, tenue = 0.3 },
       etincelles = { source = "spark-particle", nombre = 6, vitesse = 0.08, montee = 0.04 }, onde = { echelle = 18.0, duree = 36 } },
   },
   -- frappe orbitale : le flash vanilla teinté reste ; onde de choc au sol en plus, drone de marquage lumineux

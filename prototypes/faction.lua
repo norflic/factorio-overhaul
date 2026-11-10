@@ -187,3 +187,7 @@ for _, faction in ipairs(owners) do
 end
 
 data:extend(out)
+
+-- Lot POLISSAGE-FX (10/11) : vrais visuels du coffre d'équipe, du pylône haute tension et de la cuve d'électrolyse (feuilles rendues,
+-- graphics/batiments) ; APRÈS le coffre ci-dessus et les bâtiments de la bauxite (data.lua les charge avant les factions).
+require("prototypes.batiments_visuels")
