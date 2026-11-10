@@ -10,7 +10,11 @@
     §5 pave_origin : collé à l'est, puis au sud, débords des têtes, lot plein (le bloc 11 × 14 à têtes 17 ne se double pas dans 24) ;
     §6 câblage (source de build.lua) : crochets présents, aucun `pairs` nouveau, fonctions courtes ;
     §7 MUTANTS du module (substitution du source) : gap ignoré, chevauchement non détecté, sortie manquante acceptée, offset décalé,
-       poteau dans la machine, pavage sans débords.
+       poteau dans la machine, pavage sans débords ;
+    §8 serie (lot MALL-RUE) : section suivante de l'autre côté de la rue, souterrain d'un bord de lot à l'autre (écart = rue + 1 dans la
+       portée), rallonge et raccords, axe y, refus (portée insuffisante ou inconnue, section 1 sur la rue), déterminisme ;
+    §9 check_serie : section sur la rue, chevauchement, corridor coupé, souterrain hors des bords, portée ; mutants : section posée sur
+       la rue, portée ignorée, corridor coupé, vérification aveugle.
 ]]
 package.path = "./?.lua;" .. package.path
 
@@ -245,6 +249,93 @@ mutant("pavage sans débords", "local o = { x = fo.x - lead.x0, y = fo.y - lead.
 -- 8. entree manquante acceptee
 mutant("entrée manquante acceptée", "if not fed[m] then return false", "if false then return false",
   function(M2) local q = M2.pattern({ asm = { w = 3, h = 3 }, n = 2 }); for i = #q.cells, 1, -1 do if q.cells[i].kind == "arm_in" then table.remove(q.cells, i) end end; return M2.check(q) == false end)
+
+---------------------------------------------------------------------------------------------------
+print("== §8 serie : la section suivante de l'autre cote de la rue, corridor en souterrain")
+---------------------------------------------------------------------------------------------------
+-- grille du treillis : lots de 24 à pas 28 (rue de 4), lot 0 en x = 0..23, rue 24..27, lot 1 en 28..51
+local LOTS = { pitch = 28, lot = 24, ox = 0, oy = 0 }
+local RUE = { w = 4, underground_reach = 5 } -- souterrain de base : écart 5 au plus
+-- une section de 11 x 14 (le bloc de la mesure), corridor sur la ligne 7 (le second convoyeur) ; corps en x = 4..14 (têtes à l'ouest)
+local s1 = { x = 4, y = 3, w = 11, h = 14, belts = { 7 } }
+local sr, swhy = Mp.serie(s1, 2, "x", LOTS, 1, RUE)
+check(sr ~= nil, "serie de 2 : rendue (" .. tostring(swhy) .. ")")
+check(sr and #sr.sections == 2 and sr.sections[1].x == 4 and sr.sections[1].lot.i == 0 and sr.sections[1].lot.j == 0, "section 1 a l'origine, lot 0:0")
+check(sr and sr.sections[2].x == 29 and sr.sections[2].y == 3 and sr.sections[2].lot.i == 1, "section 2 de l'autre cote de la rue : corps en x = 29 (lot 1, a 1 de la rue), meme ligne")
+check(sr and #sr.traversees == 1 and sr.traversees[1].voie == 7 and sr.traversees[1].section == 2, "une traversee par voie du corridor, vers la section 2")
+local tv = sr and sr.traversees[1]
+check(tv and tv.entree.x == 23 and tv.entree.y == 10 and tv.sortie.x == 28 and tv.sortie.y == 10, "entree sur la derniere tuile du lot (23), sortie sur la premiere du suivant (28), sur la ligne du convoyeur")
+check(tv and tv.ecart == 5 and tv.dir == Mp.E, "ecart 5 = rue + 1, vers l'est")
+check(tv and #tv.rallonge == 8 and tv.rallonge[1].x == 15 and tv.rallonge[8].x == 22, "rallonge de la fin du corridor (15) a l'entree exclue (22)")
+check(sr and #sr.raccords == 0, "aucun raccord : les deux sections sont dans deux lots")
+check(sr and Mp.check_serie(sr, LOTS, RUE) == true, "la serie passe sa verification : " .. tostring((select(2, Mp.check_serie(sr, LOTS, RUE)))))
+-- portee insuffisante : refus ecrit, rien n'est pose sur la rue
+local sn, nwhy = Mp.serie(s1, 2, "x", LOTS, 1, { w = 4, underground_reach = 4 })
+check(sn == nil and nwhy:find("portee insuffisante"), "portee 4 pour une rue de 4 (ecart 5) : refus ecrit (" .. tostring(nwhy) .. ")")
+local su, uwhy = Mp.serie(s1, 2, "x", LOTS, 1, 4)
+check(su == nil and uwhy:find("portee inconnue"), "rue sans portee : refus ecrit")
+check(Mp.serie(s1, 2, "x", LOTS, 1, { w = 4, underground_reach = 7 }) ~= nil, "souterrain rapide (7) : passe")
+-- petites sections : trois dans le meme lot, collees, raccords sur le gap ; la quatrieme franchit
+local sp = assert(Mp.serie({ x = 1, y = 3, w = 5, h = 14, belts = { 6, 7 } }, 4, "x", LOTS, 1, RUE))
+check(sp.sections[2].x == 7 and sp.sections[3].x == 13 and sp.sections[3].lot.i == 0, "sections 2 et 3 collees dans le lot 0 (7, 13)")
+check(sp.sections[4].x == 29 and sp.sections[4].lot.i == 1, "section 4 (19..23 ne tient pas a 1 de la rue) de l'autre cote")
+check(#sp.raccords == 4 and sp.raccords[1].x == 6 and sp.raccords[1].y == 9 and sp.raccords[1].voie == 6, "raccords : 2 gaps x 2 voies, le premier en (6, 9)")
+check(#sp.traversees == 2 and sp.traversees[2].voie == 7 and sp.traversees[2].entree.y == 10, "deux souterrains (2 voies), le second sur la ligne 10")
+check(Mp.check_serie(sp, LOTS, RUE) == true, "serie de 4 valide : " .. tostring((select(2, Mp.check_serie(sp, LOTS, RUE)))))
+-- sections de tailles differentes (liste), axe y, grille decalee
+local LY = { pitch = 28, lot = 24, ox = -12, oy = -12 }
+local sy = assert(Mp.serie({ x = -5, y = -11, w = 14, h = 11, belts = { 6 } }, { { w = 14, h = 11 }, { w = 14, h = 12 } }, "y", LY, 1, RUE))
+check(sy.sections[2].y == 17 and sy.sections[2].x == -5 and sy.sections[2].lot.j == 1 and sy.sections[2].lot.i == 0, "axe y : section 2 (12 de haut : 1..12 mordrait la marge) en y = 17 (lot 0:1), meme colonne")
+check(sy.traversees[1].entree.y == 11 and sy.traversees[1].sortie.y == 16 and sy.traversees[1].entree.x == 1 and sy.traversees[1].dir == Mp.S, "axe y : entree en y = 11, sortie en 16, colonne du convoyeur (x = 1), vers le sud")
+check(Mp.check_serie(sy, LY, RUE) == true, "axe y valide : " .. tostring((select(2, Mp.check_serie(sy, LY, RUE)))))
+-- refus et contrats
+check(select(2, Mp.serie({ x = 20, y = 3, w = 11, h = 14 }, 2, "x", LOTS, 1, RUE)):find("section 1"), "section 1 a cheval sur la rue : refus")
+check(not pcall(Mp.serie, s1, 2, "x", { pitch = 24, lot = 24 }, 1, RUE), "grille sans rue : erreur de contrat")
+check(not pcall(Mp.serie, s1, 2, "x", LOTS, 1, { w = 9, underground_reach = 20 }), "rue plus large que le pas moins le lot : erreur de contrat")
+check(not pcall(Mp.serie, s1, 2, "z", LOTS, 1, RUE), "axe inconnu : erreur de contrat")
+check(not pcall(Mp.serie, s1, 0, "x", LOTS, 1, RUE), "n = 0 : erreur de contrat")
+check(not pcall(Mp.serie, s1, 2, "x", LOTS, 3, RUE), "gap 3 : erreur de contrat")
+-- determinisme
+local sa, sb = Mp.serie(s1, 3, "x", LOTS, 1, RUE), Mp.serie(s1, 3, "x", LOTS, 1, RUE)
+check(sa and sb and sa.sections[3].x == sb.sections[3].x and sa.sections[3].x == 57, "deterministe : section 3 en 57 (lot 2) les deux fois")
+
+---------------------------------------------------------------------------------------------------
+print("== §9 check_serie : rien sur la rue, aucun chevauchement, corridor continu")
+---------------------------------------------------------------------------------------------------
+local function cs(res) local out = {} for k, v in pairs(res) do out[k] = v end return out end -- (copie superficielle : l'ordre est sans effet)
+local bad_s = cs(sr); bad_s.sections = { sr.sections[1], { x = 24, y = 3, w = 11, h = 14, lot = { i = 1, j = 0 } } }
+check(not Mp.check_serie(bad_s, LOTS, RUE) and select(2, Mp.check_serie(bad_s, LOTS, RUE)):find("sur la rue"), "section posee sur la rue : refus")
+bad_s = cs(sr); bad_s.sections = { sr.sections[1], { x = 10, y = 3, w = 11, h = 14, lot = { i = 0, j = 0 } } }
+check(select(2, Mp.check_serie(bad_s, LOTS, RUE)):find("chevauchent"), "sections qui se chevauchent : refus")
+bad_s = cs(sr); bad_s.traversees = {}
+check(select(2, Mp.check_serie(bad_s, LOTS, RUE)):find("corridor coupe"), "sans souterrain : corridor coupe")
+bad_s = cs(sr); bad_s.traversees = { { entree = { x = 23, y = 10 }, sortie = { x = 28, y = 10 }, voie = 7, dir = Mp.E, ecart = 5, rallonge = {} } }
+check(select(2, Mp.check_serie(bad_s, LOTS, RUE)):find("corridor coupe en %(15, 10%)"), "sans rallonge : corridor coupe juste apres la section 1")
+bad_s = cs(sr); bad_s.traversees = { { entree = { x = 22, y = 10 }, sortie = { x = 28, y = 10 }, voie = 7, rallonge = tv.rallonge } }
+check(select(2, Mp.check_serie(bad_s, LOTS, RUE)):find("entree hors du bord"), "entree avant le bord du lot : refus")
+bad_s = cs(sr); bad_s.traversees = { { entree = { x = 23, y = 10 }, sortie = { x = 29, y = 10 }, voie = 7, rallonge = tv.rallonge } }
+check(select(2, Mp.check_serie(bad_s, LOTS, RUE)):find("sortie hors du bord"), "sortie au-dela du bord du lot suivant : refus")
+check(select(2, Mp.check_serie(sr, LOTS, { w = 4, underground_reach = 4 })):find("hors de la portee"), "portee trop courte pour la traversee rendue : refus")
+bad_s = cs(sr); bad_s.raccords = { { x = 25, y = 10, voie = 7 } }
+check(select(2, Mp.check_serie(bad_s, LOTS, RUE)):find("raccord sur la rue"), "raccord sur la rue : refus")
+check(not Mp.check_serie(nil, LOTS, RUE) and not Mp.check_serie({ sections = {} }, LOTS, RUE), "serie vide : refus")
+
+-- mutants de la serie
+-- 9. section posee sur la rue : le test de place dans le lot oublie le bord
+mutant("section posée sur la rue", "if start + sz[A.w] <= lot_end - Mp.MARGE then", "if true then",
+  function(M2) local r = M2.serie(s1, 2, "x", LOTS, 1, RUE); return r ~= nil and r.sections[2].x == 29 and M2.check_serie(r, LOTS, RUE) == true end)
+-- 10. portee ignoree : la rue est franchie quelle que soit la portee
+mutant("portée ignorée", "if ecart > S.reach or ecart < 2 then return nil", "if false then return nil",
+  function(M2) return M2.serie(s1, 2, "x", LOTS, 1, { w = 4, underground_reach = 4 }) == nil end)
+-- 11. corridor coupe : plus de rallonge jusqu'a l'entree
+mutant("corridor coupé", "for a = prev_end, a_in - 1 do t.rallonge[#t.rallonge + 1] = pt(A, a, c0 + bk) end", "",
+  function(M2) local r = M2.serie(s1, 2, "x", LOTS, 1, RUE); return r ~= nil and #r.traversees[1].rallonge == 8 and M2.check_serie(r, LOTS, RUE) == true end)
+-- 12. la verification laisse passer un corridor coupe
+mutant("vérification sans continuité", "if not section_at(res, A, a, c) and not (cover[bk] and cover[bk][a]) then", "if false then",
+  function(M2) local r = cs(M2.serie(s1, 2, "x", LOTS, 1, RUE)); r.traversees = {}; return M2.check_serie(r, LOTS, RUE) == false end)
+-- 13. la verification laisse une section sur la rue
+mutant("vérification sans la rue", "return false, string.format(\"section %d sur la rue en (%d, %d)\", idx, s.x, s.y)", "",
+  function(M2) local r = cs(M2.serie(s1, 2, "x", LOTS, 1, RUE)); r.sections = { r.sections[1], { x = 24, y = 3, w = 11, h = 14, lot = { i = 1, j = 0 } } }; return M2.check_serie(r, LOTS, RUE) == false end)
 
 print(string.format("[MALL-PAVAGE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
