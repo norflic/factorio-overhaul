@@ -1,7 +1,7 @@
 --[[
   Lot KAIJUS-MUTANTS (10/11) : la PONTE de l'Écorcheur en jeu (règle pure : shared/robots/titans.lua, T.ECORCHEUR.ponte, T.ponte(era, k)).
   Un Écorcheur d'une ère où la ponte est ouverte (T.kaiju(era, k).ponte) met bas des ÉCORCHÉS quand un ennemi de sa force est à portée
-  (ponte.radius : la plus proche entité ennemie qui a un propriétaire, bâtiment compris : find_nearest_enemy_entity_with_owner) : base + plus_era par ère au-delà de la première, variantes en rotation (T.ponte), au plus ponte.max_vivants enfants vivants
+  (ponte.radius : la plus proche entité ennemie destructible, bâtiment compris : K.candidates, la règle de ciblage des titans) : base + plus_era par ère au-delà de la première, variantes en rotation (T.ponte), au plus ponte.max_vivants enfants vivants
   par Écorcheur, une ponte toutes les ponte.cooldown ticks. Les enfants rejoignent le groupe d'unités du parent (assaut, vague) ou reçoivent
   l'ordre d'attaquer l'ennemi relevé.
   Balayage toutes les SCAN ticks : les Écorcheurs sont relevés par leurs noms (T.kaiju_name, lus aux données) sur chaque surface ; l'état
@@ -96,6 +96,20 @@ local function pondre(p, j, ennemi, tick)
   return n
 end
 
+--- La cible ennemie la plus proche du parent dans `radius` : candidats de la règle commune des titans (K.candidates : forces ennemies
+--- triées, entités qui ont des PV et peuvent être détruites), le plus proche au carré de la distance, à égalité le plus petit id.
+--- (find_nearest_enemy_entity_with_owner ne rendait RIEN au banc content KAIJUS-DIAG du 10/11 avec cinq murs ennemis INDESTRUCTIBLES à
+--- 12 tuiles, is_enemy vrai, sans cessez-le-feu : sonde [FO-DIAG-PONTE], retirée ; K.candidates les trouve dès qu'ils sont destructibles.)
+local function plus_proche(s, e, radius)
+  local best, bd
+  local px, py = e.position.x, e.position.y
+  for _, c in ipairs(K.candidates(s, e.force, e.position, radius)) do
+    local d = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py)
+    if d <= radius * radius and (not best or d < bd or (d == bd and c.id < best.id)) then best, bd = c, d end
+  end
+  return best and best.e
+end
+
 local function scan(ev)
   local st = S()
   if not st or #NOMS_PONTE == 0 then return end
@@ -108,7 +122,7 @@ local function scan(ev)
         local k, era = T.kaiju_of_name(e.name)
         local j = k and T.kaiju(era, k)
         if j and j.ponte and ev.tick >= p.next and vivants(p) < k.ponte.max_vivants then
-          local ennemi = s.find_nearest_enemy_entity_with_owner({ position = e.position, max_distance = k.ponte.radius, force = e.force })
+          local ennemi = plus_proche(s, e, k.ponte.radius)
           if ennemi then
             pondre(p, j, ennemi, ev.tick)
             p.next = ev.tick + k.ponte.cooldown

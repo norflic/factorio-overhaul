@@ -3,7 +3,7 @@
 --       animations de corps du Ravageur (8 directions) existent (rendering.draw_animation les accepte) ;
 --   (2) un Écorcheur de la première ère et un de l'ère de la PONTE, trois Écorchés (une variante chacun) posés sur la force naturelle vivent
 --       et s'animent (vitesse de course non nulle, distance_per_frame) ;
---   (3) PONTE en moteur : l'Écorcheur de l'ère de la ponte, posé avec un mur INDESTRUCTIBLE du joueur à portée (ponte.radius), met bas des
+--   (3) PONTE en moteur : l'Écorcheur de l'ère de la ponte, posé avec un mur d'une force ennemie à portée (ponte.radius), met bas des
 --       Écorchés au balayage suivant (600 ticks) : des Écorchés de son ère sont comptés autour de lui et l'état « ponte » de l'interface les compte.
 --   (les ères vont de era_min à era_max, données par l'interface : les listes de noms commencent à era_min, jamais de # sur elles)
 local CIBLE_DX = 60   -- la zone du greffon est à part (prepare_zone) : rien d'autre n'y vit
@@ -40,10 +40,7 @@ return {
     st.mur = {}
     for i = -2, 2 do
       local w = s.create_entity({ name = "stone-wall", position = { px + 12, py + i }, force = cible })
-      if w then
-        w.destructible = false -- la cible reste : la ponte ne dépend pas de la vitesse à laquelle le parent la détruit
-        st.mur[#st.mur + 1] = w
-      end
+      if w then st.mur[#st.mur + 1] = w end -- destructibles : la ponte vise ce qui peut être blessé (K.candidates) ; elle part au balayage du tick 0
     end
     if st.parent then st.parent.set_command({ type = defines.command.wander, radius = 2 }) end
     -- Écorchés : une variante chacun, de leur première ère, à part
