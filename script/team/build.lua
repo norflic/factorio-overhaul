@@ -3603,6 +3603,29 @@ function Build.take_reserved(f, pid, items, inv)
   return all
 end
 
+--- Lot BANDE-FIN-TAPIS (F475) : inverse de Build.take_reserved. Une tâche de chantier ABANDONNÉE (Worker.abort : PNJ rappelé, en fuite,
+--- chemin, bail) rend à la réserve de SON projet ce que le PNJ porte encore de ses objets, au plus le compte de la tâche. Avant, le retour au QG
+--- (deposit_inventory) remettait ces objets d'abord aux modules en réserve (AmRt.deliver), puis au coffre libre : graine 123456789, à 29,5 min,
+--- les 24 tapis de la bande -30 du joueur (projet 4, 341/365) sont partis à la bande suivante encore à 0/366 ; la bande est restée à 341/365
+--- jusqu'à 90 min (p.stock 0, coffre 0, échecs « stock » en boucle). Projet fini, refusé ou inconnu : rien n'est rendu (sa réserve est déjà
+--- rendue au coffre, release). Rend le nombre d'objets rendus.
+function Build.restore_reserved(f, pid, items, inv)
+  local p = f.build and f.build.projects[pid]
+  if not (p and p.stock and inv) or p.state == "fini" or p.state == "refuse" then return 0 end
+  local n = 0
+  for _, it in ipairs(items or {}) do
+    local k = math.min(it[2], inv.get_item_count(it[1]))
+    if k > 0 then
+      local got = inv.remove({ name = it[1], count = k })
+      if got > 0 then
+        p.stock[it[1]] = (p.stock[it[1]] or 0) + got
+        n = n + got
+      end
+    end
+  end
+  return n
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Fantômes
 ---------------------------------------------------------------------------------------------------

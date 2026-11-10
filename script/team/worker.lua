@@ -1091,6 +1091,12 @@ end
 
 --- Échec : on rapporte au QG ce qu'on porte, puis la tâche est rendue.
 local function abort(agent, f, tick, reason)
+  -- Lot BANDE-FIN-TAPIS (F475) : objets d'une tâche de chantier pris à la réserve du projet (take_res) : rendus à cette réserve, pas au coffre
+  -- (le retour au QG les donnait d'abord à un autre module en réserve) ; un PNJ tué ne passe pas ici
+  local t = agent.task
+  if t and t.took and t.ia1d and t.ia1d.mode == "build" and agent.entity and agent.entity.valid then
+    Build.restore_reserved(f, t.ia1d.pid, t.items, main_inv(agent))
+  end
   if agent.task then agent.task.fail = reason end
   agent.failed = true
   agent.steps = { { "home" } }
