@@ -201,6 +201,10 @@ function C.consumed(base, view)
   -- Lot DEFENSE-AP : fonds de défense (planificateur, Ga.fund) : le fer mis de côté pour la tourelle d'un avant-poste de fer sans défense n'est pas
   -- au stock libre des projets du cerveau (chargeurs de réserve, modules, science).
   for _, k in ipairs(sorted_keys(base.defense_hold or {})) do used[k] = (used[k] or 0) + base.defense_hold[k] end
+  -- Lot CC-COMBUSTIBLE (partie du DC du 10/11, graine 3592985581) : le charbon des tournees des bruleurs, reserve par le planificateur
+  -- (base.fuel_reserve, shared/team/planner.lua), n'est plus au stock virtuel des projets : avant, agrandissements (zero-idle, projets)
+  -- et fabrications prenaient ce charbon pendant que les bruleurs deja poses restaient a sec (tournees parties a 0 charbon).
+  if (base.fuel_reserve or 0) > 0 then used[T.fuel] = (used[T.fuel] or 0) + base.fuel_reserve end
   -- EFFONDREMENT : une recrue gratuite (base.recruit_free) ne prend rien au stock virtuel.
   if base.recruit_workers and not base.recruit_unarmed and not base.recruit_free then add(base.recruit_uses or view.recruit_cost) end
   local tr = base.train

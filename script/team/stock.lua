@@ -191,10 +191,14 @@ end
 -- DIAGNOSTIC (lot DEFENSE-AP, journal seul, aucune décision ne le lit) : où va la plaque de fer de votre équipe ? Chaque retrait
 -- est compté par minute sous « fichier:ligne de l'appelant » et la tâche en cours (`Stock.ctx`, posée par Worker au pas « take »).
 -- Compteur de module (jamais dans `global`) : une session rechargée repart de zéro, sans effet sur le jeu.
-local FER = { acc = {}, minute = nil }
-local function fer_flush(f, minute)
+-- Lot CC-COMBUSTIBLE (diagnostic, journal seul) : meme compte pour le combustible, ligne [FO-CHARBON-SORTIE] (ou va le charbon du
+-- coffre pendant que les bruleurs des avant-postes restent a sec : partie du DC du 10/11, graine 3592985581).
+local FER = { acc = {}, minute = nil, tag = "[FO-FER-SORTIE] %s minute %d : %d plaque(s) de fer sorties du coffre | %s" }
+local CHB = { acc = {}, minute = nil, tag = "[FO-CHARBON-SORTIE] %s minute %d : %d charbon(s) sortis du coffre | %s" }
+local function fer_flush(f, minute, D)
+  D = D or FER
   local rows = {}
-  for k, v in pairs(FER.acc) do rows[#rows + 1] = { k = k, n = v } end
+  for k, v in pairs(D.acc) do rows[#rows + 1] = { k = k, n = v } end
   table.sort(rows, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.k < b.k end)
   local out, tot = {}, 0
   for i, r in ipairs(rows) do
@@ -202,20 +206,21 @@ local function fer_flush(f, minute)
     if i <= 8 then out[#out + 1] = r.k .. "=" .. r.n end
   end
   if tot > 0 then
-    log(string.format("[FO-FER-SORTIE] %s minute %d : %d plaque(s) de fer sorties du coffre | %s", f.key or "player", minute, tot,
-      table.concat(out, " ; ")))
+    log(string.format(D.tag, f.key or "player", minute, tot, table.concat(out, " ; ")))
   end
-  FER.acc = {}
+  D.acc = {}
 end
 local function fer_note(f, item, got)
-  if got <= 0 or item ~= T.outposts.iron.product or (f.key and f.key ~= "player") then return end
+  if got <= 0 or (f.key and f.key ~= "player") then return end
+  local D = (item == T.outposts.iron.product and FER) or (item == T.fuel and CHB) or nil
+  if not D then return end
   local minute = math.floor(game.tick / 3600)
-  if FER.minute and minute ~= FER.minute then fer_flush(f, FER.minute) end
-  FER.minute = minute
+  if D.minute and minute ~= D.minute then fer_flush(f, D.minute, D) end
+  D.minute = minute
   local info = debug.getinfo(3, "Sl")
   local at = info and (((info.short_src or "?"):gsub("^.*[/\\]", "")) .. ":" .. (info.currentline or 0)) or "?"
   local k = at .. "/" .. (Stock.ctx or "-")
-  FER.acc[k] = (FER.acc[k] or 0) + got
+  D.acc[k] = (D.acc[k] or 0) + got
 end
 
 --- Retire jusqu'à `n` objets (coffre du QG d'abord) ; rend le nombre retiré.

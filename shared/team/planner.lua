@@ -670,6 +670,7 @@ function P.plan(view, book)
 
   -- Le charbon nécessaire aux tournées est réservé avant toute fabrication (grenades, etc.).
   avail[T.fuel] = math.max(0, (avail[T.fuel] or 0) - math.min(fuel_reserve, avail[T.fuel] or 0))
+  out.fuel_reserve = fuel_reserve -- lot CC-COMBUSTIBLE : la meme reserve, retiree du stock virtuel du cerveau (shared/ai3/cerveau.lua, C.consumed)
 
   -- Lot MUNITIONS : la munition FABRIQUÉE et PORTÉE aux tourelles (view.turret_ammo : la meilleure fabricable, Mu.best_ammo) ; la pose d'une
   -- tourelle reste payée en munition de base (base_ammo, Outposts.add_turret).
