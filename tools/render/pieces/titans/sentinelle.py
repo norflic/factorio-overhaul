@@ -30,11 +30,25 @@ GRIS = os.environ.get("FO_GRIS", "") == "1"
 HAUTEUR = 31.0 * KE
 RAYON = 17.0 * KE
 ZC = 16.5                    # centre de la singularité
+# ANIMÉE (TITANS-8DIR, 10/11) : 8 directions × 8 images de marche (flottement, pattes qui ondulent) + 4 de salve (la singularité gonfle
+# puis se libère) ; même contrat que juggernaut.py / ravageur.py (SERIE, AO, GLOW_BLANC, FOULEE, build_anime) pour batch_titans.anime.
+SERIE = {"course": 8, "attaque": 4, "densite": 14.0, "R": 17.5, "zmax": 32.5, "sol": 400.0}
+AO = 0.6
+GLOW_BLANC = False
+FOULEE = 6.0                 # tuiles par cycle de flottement (distance_per_frame du script : FOULEE / images)
+BOB = 0.6                    # amplitude du flottement (unités de modèle)
+ONDE = (0.6, 0.9)            # ondulation d'une patte : vers l'extérieur, vers le haut
+ATTAQUE = ((1.08, 1.1, 0.0), (1.22, 1.35, 0.0), (1.35, 1.6, 0.45), (0.85, 1.9, 1.0))   # par image : singularité, halo, éclat
 
 
 def XF(v):
     p = G.rot_z(v, PSI)
     return (p[0] * KE, p[1] * KE, max(0.0, p[2] * KE))
+
+
+def XF0(v):
+    """Repère local sans lacet : la série animée est tournée 8 fois par batch_titans.anime."""
+    return (v[0] * KE, v[1] * KE, max(0.0, v[2] * KE))
 
 
 def gravure(lot, M, p, n, up, w, h, k=3):
@@ -47,7 +61,7 @@ def gravure(lot, M, p, n, up, w, h, k=3):
         lot.put(M["turq"], G.tube([a, b], 0.07, 5))
 
 
-def corps(lot, M, stage):
+def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     """Couronne blindée autour de la singularité (axe x), vortex et halo, carénage dorsal, ventral et arrière."""
     C = (0.0, 0.0, ZC)
     rc = 4.6
@@ -60,8 +74,12 @@ def corps(lot, M, stage):
     lot.put(M["turq"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc + 0.2, 0.08))
     lot.put(M["conduit"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc - 0.3, 0.06))
     # singularité : vortex (cœur) + halo large ; sous-disque sombre derrière
-    lot.put(M["singularite"], G.sphere(C, rc - 0.9, 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
-    lot.put(M["halo"], G.sphere(C, rc + 0.6, 20, 10))
+    lot.put(M["singularite"], G.sphere(C, (rc - 0.9) * gonfle[0], 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
+    lot.put(M["halo"], G.sphere(C, (rc + 0.6) * gonfle[1], 20, 10))
+    if gonfle[2] > 0:
+        # TITANS-8DIR : la singularité se LIBÈRE : jet lumineux vers l'avant
+        e = gonfle[2]
+        lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.2, 1.6 * e), (3.2 * e, 0.8), (5.0 * e, 0.0)], 14, "z", cap0=True), (C[0] + 1.2, C[1], C[2]), (1.0, 0.0, 0.0)))
     lot.put(M["struct"], G.tour([(-1.0, 0.0), (-0.9, rc - 0.2), (-0.4, rc + 0.3)], 24, "x", C, cap0=True))
     # carénage arrière : coque octogonale derrière la couronne, cheminées et conduits
     lot.put(M["blind2"], G.loft([[(-1.0, (rc + 0.8) * math.cos(G.TAU * (k + 0.5) / 8), ZC + (rc + 0.8) * math.sin(G.TAU * (k + 0.5) / 8)) for k in range(8)],
@@ -189,7 +207,7 @@ def tete_canon(lot, M, stage):
         lot.put(M["anneau"], anneau((5.2, s * 7.4, ZC + 0.6), "x", 2.0, 0.3, 0.12))
 
 
-def pattes(lot, M, stage):
+def pattes(lot, M, stage, u=None):
     """Six pattes digitigrades autour du bassin : hanche, cuisse vers l'extérieur-haut, tibia vers le bas, tuyère cyan vers le sol."""
     for k, ang in enumerate((35.0, 90.0, 145.0, -35.0, -90.0, -145.0)):
         a = math.radians(ang)
@@ -197,6 +215,12 @@ def pattes(lot, M, stage):
         H = (4.0 * math.cos(a), 4.0 * math.sin(a), ZC - 6.2)
         K = (7.4 * math.cos(a), 7.4 * math.sin(a), ZC - 3.4)
         T = (9.6 * math.cos(a), 9.6 * math.sin(a), 3.6)
+        if u is not None:
+            # TITANS-8DIR : l'onde fait le tour des six pattes (une phase par patte) ; le genou suit à demi
+            ph = G.TAU * (u + k / 6.0)
+            ro, dz = ONDE[0] * math.sin(ph), ONDE[1] * math.cos(ph)
+            T = (T[0] + ro * math.cos(a), T[1] + ro * math.sin(a), T[2] + dz)
+            K = (K[0], K[1], K[2] + 0.45 * dz)
         lot.put(M["struct"], G.sphere(H, 1.0, 10, 5))
         lot.put(M["blind"], hexseg(H, K, 1.25, 0.95, 6, 0.2))
         lot.put(M["struct"], G.sphere(K, 0.95, 10, 5))
@@ -213,9 +237,9 @@ def pattes(lot, M, stage):
             lot.put(M["cristal"], pointe(G.add(K, G.mul(out, 0.8)), G.norm(G.add(out, (0, 0, 0.9))), 1.6, 0.26))
 
 
-def sphere_flottante(lot, M, stage):
+def sphere_flottante(lot, M, stage, dz=0.0):
     """Sphère-œil flottante au-dessus du corps : coque blindée fendue, cœur, anneau incliné, pétales."""
-    C = (0.6, 0.0, ZC + 12.4)
+    C = (0.6, 0.0, ZC + 12.4 + dz)
     lot.put(M["blind2"], G.sphere(C, 1.5, 12, 6))
     lot.put(M["coeur"], G.sphere(C, 1.0, 12, 6))
     lot.put(M["halo"], G.sphere(C, 2.0, 12, 6))
@@ -231,15 +255,29 @@ def sphere_flottante(lot, M, stage):
             lot.put(M["cristal"], pointe((C[0] + 1.3 * math.cos(a), C[1] + 1.3 * math.sin(a), C[2] + 0.8), G.norm((math.cos(a) * 0.5, math.sin(a) * 0.5, 1.0)), 1.4, 0.2))
 
 
-def build(S, lot, stage=1):
-    """Construit la Sentinelle au stade `stage` (1 à 3)."""
+def build(S, lot, stage=1, u=None, attaque=None, dirs=False):
+    """Construit la Sentinelle au stade `stage` (1 à 3) : repos (une image, lacet PSI), marche (u) ou salve (attaque) sans lacet (dirs)."""
     M = TM.matieres(S, PREFIX, GRIS)
-    lot.xf = XF
+    xf = XF0 if dirs else XF
     R.raz()
-    corps(lot, M, stage)
+    gonfle, bob, dz = (1.0, 1.0, 0.0), 0.0, 0.0
+    if attaque is not None:
+        gonfle = ATTAQUE[int(round(attaque * SERIE["attaque"])) % SERIE["attaque"]]
+        u = None
+    elif u is not None:
+        bob = BOB * math.sin(G.TAU * u)
+        dz = 0.5 * math.sin(G.TAU * u + 1.6)
+    lot.xf = (lambda v: xf((v[0], v[1], v[2] + bob))) if bob else xf
+    corps(lot, M, stage, gonfle)
     ailes(lot, M, stage)
     canon_annulaire(lot, M, stage)
     tete_canon(lot, M, stage)
-    pattes(lot, M, stage)
-    sphere_flottante(lot, M, stage)
-    return {"stage": stage, "pieces": lot.n}
+    pattes(lot, M, stage, u)
+    sphere_flottante(lot, M, stage, dz)
+    lot.xf = xf
+    return {"stage": stage, "pieces": lot.n, "u": u, "attaque": attaque}
+
+
+def build_anime(S, lot, stage, u, attaque):
+    """Entrée commune des titans animés (batch_titans.anime) : stade, phase de marche ou de salve, sans lacet (8 directions)."""
+    return build(S, lot, stage, u=u if attaque is None else None, attaque=attaque, dirs=True)

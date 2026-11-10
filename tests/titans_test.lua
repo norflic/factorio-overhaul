@@ -118,7 +118,25 @@ check(type(T.JUGGERNAUT.anime) == "table" and T.JUGGERNAUT.anime.images.course =
   "§1 Juggernaut animé : images de course et d'attaque = SERIE du modèle (juggernaut.py)")
 check(FOULEE and math.abs(T.JUGGERNAUT.anime.foulee - FOULEE) < 1e-6, "§1 Juggernaut animé : foulée de la règle = FOULEE du modèle (" .. tostring(FOULEE) .. ")")
 check(T.JUGGERNAUT.anime.attaque_ticks > 0 and T.JUGGERNAUT.anime.attaque_ticks % 1 == 0, "§1 Juggernaut animé : durée de salve entière, positive")
-check(T.SENTINELLE.anime == nil and T.LEVIATHAN.anime == nil, "§1 seuls les archétypes à feuilles animées portent `anime`")
+-- TITANS-8DIR (10/11) : la Sentinelle et le Léviathan sont animés à leur tour (SERIE et FOULEE de sentinelle.py / leviathan.py)
+local SE_PY, LE_PY = read("tools/render/pieces/titans/sentinelle.py"), read("tools/render/pieces/titans/leviathan.py")
+local SERIE_SE, SERIE_LE = {}, {}
+for k, v in SE_PY:match("\nSERIE = {(.-)}"):gmatch('"(%a+)":%s*([%d%.]+)') do SERIE_SE[k] = tonumber(v) end
+for k, v in LE_PY:match("\nSERIE = {(.-)}"):gmatch('"(%a+)":%s*([%d%.]+)') do SERIE_LE[k] = tonumber(v) end
+local FOULEE_SE, FOULEE_LE = py_num(SE_PY:match("\nFOULEE = ([^#\n]+)")), py_num(LE_PY:match("\nFOULEE = ([^#\n]+)"))
+for _, c in ipairs({ { T.SENTINELLE, SERIE_SE, FOULEE_SE, "Sentinelle" }, { T.LEVIATHAN, SERIE_LE, FOULEE_LE, "Léviathan" } }) do
+  local r, se, fo, nom = c[1], c[2], c[3], c[4]
+  check(type(r.anime) == "table" and r.anime.images.course == se.course and r.anime.images.attaque == se.attaque,
+    "§1 " .. nom .. " animé(e) : images de marche et de salve = SERIE du modèle")
+  check(fo and math.abs(r.anime.foulee - fo) < 1e-6, "§1 " .. nom .. " animé(e) : foulée de la règle = FOULEE du modèle (" .. tostring(fo) .. ")")
+  check(r.anime.attaque_ticks > 0 and r.anime.attaque_ticks % 1 == 0, "§1 " .. nom .. " animé(e) : durée de salve entière, positive")
+  check(se.densite and se.R and se.zmax and se.densite <= 16, "§1 " .. nom .. " : série à densité bornée (≤ 16 px par unité : ≤ 80 Mpx)")
+end
+for _, r in ipairs(T.ALLIES) do check(r.anime ~= nil, "§1 " .. r.id .. " : corps animé (les quatre alliés)") end
+local SCR = read("script/robots/titans.lua")
+check(SCR:find("j.singularite.cooldown\n          if not j.armes.canon then anim_attaque(g, r, ev.tick) end", 1, true) ~= nil,
+  "§1 script : au palier 1 de la Sentinelle, la singularité joue la salve à l'écran")
+check(SCR:match("local function drones_tirer.-anim_attaque%(g, archetype%(g%), tick%)") ~= nil, "§1 script : la salve de drones du Léviathan joue la salve à l'écran")
 -- KAIJUS-MUTANTS : le Ravageur est animé comme le Juggernaut (SERIE et FOULEE de ravageur.py)
 local RA = read("tools/render/pieces/titans/ravageur.py")
 local SERIE_RA = {}
@@ -528,6 +546,11 @@ local function refuse(T2)
     assert(not T2.allie(T2.RAVAGEUR, T2.AGE_MIN).armes.lames and T2.allie(T2.RAVAGEUR, T2.AGE_MIN + 1).armes.lames, "lames au palier 2")
     assert(T2.RAVAGEUR.mitraille.n > 1, "mitraille à plusieurs projectiles")
     assert(T2.RAVAGEUR.anime.images.course == SERIE_RA.course and math.abs(T2.RAVAGEUR.anime.foulee - FOULEE_RA) < 1e-3, "animation du Ravageur = SERIE du modèle")
+    -- TITANS-8DIR
+    for _, c in ipairs({ { T2.SENTINELLE, SERIE_SE, FOULEE_SE }, { T2.LEVIATHAN, SERIE_LE, FOULEE_LE } }) do
+      local a = c[1].anime
+      assert(a and a.images.course == c[2].course and a.images.attaque == c[2].attaque and math.abs(a.foulee - c[3]) < 1e-6, "animation de " .. c[1].id .. " = SERIE du modèle")
+    end
     for _, kk in ipairs(T2.KAIJUS) do
       local c = T2.kaiju_curve(T2.ERAS, kk)
       assert(c[1][1] < c[2][1] and c[2][1] < c[3][1], "courbe de nid strictement croissante (" .. kk.id .. ")")
@@ -574,6 +597,13 @@ local MUTANTS = {
     "local e0 = math.min(0.96, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(0.99, e0 + 0.03)",
     "local e0 = math.min(0.98, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(1.0, e0 + 0.03)" },
   { "images du Ravageur écrites en dur fausses", "anime = { images = { course = 8, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }", "anime = { images = { course = 6, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }" },
+  -- TITANS-8DIR
+  { "Sentinelle sans corps animé", "anime = { images = { course = 8, attaque = 4 }, foulee = 6.0, attaque_ticks = 30 }", "anime = nil" },
+  { "foulée de la Sentinelle fausse", "foulee = 6.0, attaque_ticks = 30", "foulee = 4.0, attaque_ticks = 30" },
+  { "salve de la Sentinelle à 2 images", "attaque = 4 }, foulee = 6.0", "attaque = 2 }, foulee = 6.0" },
+  { "Léviathan sans corps animé", "anime = { images = { course = 8, attaque = 4 }, foulee = 9.0, attaque_ticks = 30 }", "anime = nil" },
+  { "foulée du Léviathan fausse", "foulee = 9.0, attaque_ticks = 30", "foulee = 6.9, attaque_ticks = 30" },
+  { "nage du Léviathan à 6 images", "course = 8, attaque = 4 }, foulee = 9.0", "course = 6, attaque = 4 }, foulee = 9.0" },
 }
 local T0 = charger(SRC, nil)
 T0.__src = SRC

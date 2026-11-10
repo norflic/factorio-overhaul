@@ -3,6 +3,8 @@ Version: 0.6.84
 Date: 2026-11-10
   Graphics:
     - Pulvérisateur d'acide (F483) : socle neuf à citerne et sellette, dessiné dans ses quatre directions, liseré vert corrosif, tête tournante à 64 directions ; le jet part de la lance dessinée.
+  Features:
+    - Titans (F482) : la Sentinelle et le Léviathan marchent et tirent en 8 directions comme le Juggernaut et le Ravageur : la Sentinelle flotte et ondule de ses six pattes, sa singularité gonfle puis se libère ; le Léviathan ondule le long du corps, ouvre ses anneaux et lâche ses drones par la gueule.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.83
 Date: 2026-11-10

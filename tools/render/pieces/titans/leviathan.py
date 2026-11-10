@@ -31,11 +31,38 @@ HAUTEUR = 21.0 * KE
 RAYON = 19.0 * KE
 CTRL = [(-17.5, 4.5, 8.4), (-13.5, 5.6, 8.9), (-9.5, 3.2, 9.5), (-5.5, -1.4, 10.1), (-1.5, -3.0, 10.5), (2.5, -1.6, 10.7), (6.5, 0.9, 10.5),
         (10.5, 1.6, 10.2), (13.5, 0.6, 10.0)]
+# ANIMÉ (TITANS-8DIR, 10/11) : 8 directions × 8 images de nage (onde qui court de la tête à la queue le long de l'axe) + 4 de salve
+# (les anneaux s'ouvrent, les drones sortent de la gueule) ; même contrat que juggernaut.py / ravageur.py pour batch_titans.anime.
+SERIE = {"course": 8, "attaque": 4, "densite": 13.0, "R": 20.0, "zmax": 23.0, "sol": 400.0}
+AO = 0.6
+GLOW_BLANC = False
+FOULEE = 9.0                 # tuiles par cycle d'ondulation (distance_per_frame du script : FOULEE / images)
+ONDE = (1.4, 0.35)           # amplitude latérale à la queue, amplitude verticale
+ATTAQUE = ((0.3, 0), (0.7, 1), (1.0, 2), (0.6, 3))   # par image : ouverture des anneaux, drones sortis de la gueule
+DRONE_K = 1.7                # échelle des drones de la salve (le drone d'escorte du script garde son image)
 
 
 def XF(v):
     p = G.rot_z(v, PSI)
     return (p[0] * KE, p[1] * KE, max(0.0, p[2] * KE))
+
+
+def XF0(v):
+    """Repère local sans lacet : la série animée est tournée 8 fois par batch_titans.anime."""
+    return (v[0] * KE, v[1] * KE, max(0.0, v[2] * KE))
+
+
+def colonne(u):
+    """Points de contrôle de la colonne : CTRL au repos ; en nage, une onde court de la tête vers la queue (phase u), plus forte à la queue."""
+    if u is None:
+        return CTRL
+    n = len(CTRL)
+    out = []
+    for i, (x, y, z) in enumerate(CTRL):
+        t = i / float(n - 1)
+        ph = G.TAU * (u + t)
+        out.append((x, y + ONDE[0] * (1.0 - 0.7 * t) * math.sin(ph), z + ONDE[1] * math.sin(ph + 1.0)))
+    return out
 
 
 def rayon(t):
@@ -71,9 +98,9 @@ def lame(lot, M, p, d, n, L, w, k_grav=2):
         lot.put(M["turq"], G.tube([a, b], 0.06, 5))
 
 
-def corps(lot, M, stage):
+def corps(lot, M, stage, u=None, ouvre=0.0):
     """Tube blindé segmenté le long de la colonne, conduits dorsal et latéraux, anneaux, nageoires, nacelle, queue."""
-    pts = G.catmull(CTRL, 6)
+    pts = G.catmull(colonne(u), 6)
     frs = G._frames(pts)
     n = len(pts)
     rings, prof = [], []
@@ -109,9 +136,9 @@ def corps(lot, M, stage):
     for k in range(n_an):
         i = int(round((0.22 + 0.62 * k / float(n_an - 1)) * (n - 1)))
         p, r, t = prof[i]
-        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", r + 1.3, 0.45, 0.15), p, frs[i][0]))
+        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", r + 1.3 + 1.4 * ouvre, 0.45, 0.15), p, frs[i][0]))
         if stage >= 3:
-            lot.put(M["cristal"], G.oriente(rainure((0.0, 0.0, 0.0), "z", r + 1.35, 0.05), G.add(p, G.mul(frs[i][0], 0.2)), frs[i][0]))
+            lot.put(M["cristal"], G.oriente(rainure((0.0, 0.0, 0.0), "z", r + 1.35 + 1.4 * ouvre, 0.05), G.add(p, G.mul(frs[i][0], 0.2)), frs[i][0]))
     # nageoires-lames dorsales (3, puis 4, puis 5), ventrales (2), pectorales-lames à la tête
     nd = 3 + (stage >= 2) + (stage >= 3)
     for k in range(nd):
@@ -152,7 +179,7 @@ def corps(lot, M, stage):
     return pts, frs, prof
 
 
-def tete(lot, M, pts, frs, prof, stage):
+def tete(lot, M, pts, frs, prof, stage, ouvre=0.0):
     """Gueule circulaire : couronne blindée, vortex (cœur) et halo, crocs (os) en cercle, pointes de cristal rayonnantes, lames pectorales."""
     p, r, t = prof[-1]
     d = frs[-1][0]
@@ -171,9 +198,9 @@ def tete(lot, M, pts, frs, prof, stage):
         if k % 2 == 0:
             lot.put(M["cristal"], pointe(G.add(G.add(p, G.mul(off, rc + 0.9)), G.mul(d, -0.2)), G.norm(G.add(off, G.mul(d, 0.35))), 2.2 if k % 4 == 0 else 1.4, 0.26))
     if stage >= 2:
-        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", rc + 2.2, 0.5, 0.16), G.add(p, G.mul(d, -0.8)), d))
+        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", rc + 2.2 + 1.2 * ouvre, 0.5, 0.16), G.add(p, G.mul(d, -0.8)), d))
     if stage >= 3:
-        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", rc + 3.4, 0.6, 0.2), G.add(p, G.mul(d, -2.2)), d))
+        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", rc + 3.4 + 1.6 * ouvre, 0.6, 0.2), G.add(p, G.mul(d, -2.2)), d))
     # lames pectorales derrière la tête
     i = len(pts) - 8
     q, rq, _ = prof[i]
@@ -197,14 +224,33 @@ def drone(lot, M):
     lot.put(M["cristal"], pointe((1.2, 0.0, z), (1.0, 0.0, 0.0), 0.9, 0.12))
 
 
-def build(S, lot, stage=1):
-    """Construit le Léviathan au stade `stage` (1 à 3), ou son drone d'escorte (stage = « drone »)."""
+def build(S, lot, stage=1, u=None, attaque=None, dirs=False):
+    """Construit le Léviathan au stade `stage` (1 à 3), ou son drone d'escorte (stage = « drone ») : repos (lacet PSI), nage (u) ou
+    salve (attaque) sans lacet (dirs : 8 directions)."""
     M = TM.matieres(S, PREFIX, GRIS)
-    lot.xf = XF
+    xf = XF0 if dirs else XF
+    lot.xf = xf
     R.raz()
     if stage == "drone":
         drone(lot, M)
         return {"stage": "drone", "pieces": lot.n}
-    pts, frs, prof = corps(lot, M, stage)
-    tete(lot, M, pts, frs, prof, stage)
-    return {"stage": stage, "pieces": lot.n}
+    ouvre, n_dr = 0.0, 0
+    if attaque is not None:
+        ouvre, n_dr = ATTAQUE[int(round(attaque * SERIE["attaque"])) % SERIE["attaque"]]
+        u = None
+    pts, frs, prof = corps(lot, M, stage, u, ouvre)
+    tete(lot, M, pts, frs, prof, stage, ouvre)
+    # salve : les drones sortent de la gueule, en éventail devant la tête (un de plus par image)
+    p, d = prof[-1][0], frs[-1][0]
+    for k in range(n_dr):
+        s = 1 if k % 2 == 0 else -1
+        off = G.add(G.add(p, G.mul(d, 3.0 + 2.2 * k)), (0.0, s * (1.2 + 0.8 * k), 1.5 + 1.1 * k - 1.5))
+        lot.xf = (lambda v, o=off: xf((v[0] * DRONE_K + o[0], v[1] * DRONE_K + o[1], v[2] * DRONE_K + o[2])))   # grossis : lisibles à 32 px/tuile
+        drone(lot, M)
+    lot.xf = xf
+    return {"stage": stage, "pieces": lot.n, "u": u, "attaque": attaque}
+
+
+def build_anime(S, lot, stage, u, attaque):
+    """Entrée commune des titans animés (batch_titans.anime) : stade, phase de nage ou de salve, sans lacet (8 directions)."""
+    return build(S, lot, stage, u=u if attaque is None else None, attaque=attaque, dirs=True)
