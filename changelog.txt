@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.88
+Date: 2026-11-10
+  Bugfixes:
+    - Combustible (F493) : le charbon réservé aux tournées des brûleurs n'est plus pris par les agrandissements et les fabrications du cerveau ; les foreuses et les fours déjà posés sont ravitaillés avant l'expansion.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.87
 Date: 2026-11-10
   Graphics:
