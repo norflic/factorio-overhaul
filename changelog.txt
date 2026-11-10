@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.86
+Date: 2026-11-10
+  Changes:
+    - Charbon (F485) : le bilan du combustible du planificateur lit ses cadences aux données (vitesse et temps de minage, puissance des brûleurs, valeur du combustible) et compte les foreuses à brûleur des bandes du plan ; décisions identiques sur le panel.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.85
 Date: 2026-11-10
   Graphics:
