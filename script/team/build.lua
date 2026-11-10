@@ -769,6 +769,7 @@ function Build.Pave.pin(b, c, g, rect, fopts)
   local o, why = Mp.pave_origin_dir(prev, { w = r.w, h = r.h, lead = lead }, rect, Mp.GAP, fopts.margin, g.gen == "ruban" and Build.Pave.Sd.dir_of(k) or nil)
   if not o then return nil, "pavage : " .. why end
   fopts.within = { x0 = o.x, y0 = o.y, x1 = o.x + r.w, y1 = o.y + r.h }
+  fopts.rot = { k } -- (lot MALL-DIRECTIONS : la même orientation que le premier bloc du lot, pas sa retournée de même emprise)
   return g
 end
 
