@@ -249,9 +249,10 @@ do
   local old_log = log
   log = function(s) logs[#logs + 1] = s end
   local alive = {}
+  local PROD = 3000 -- J/tick produits par chaque machine a vapeur vivante (lot CC-ENERGIE, F491 : la demande mesurée change au fil du test)
   local surface = { find_entity = function(name, pos)
     if alive[name .. ":" .. pos[1]] then
-      return { valid = true, force = { name = "f" }, energy_generated_last_tick = (name == "steam-engine") and 3000 or 0,
+      return { valid = true, force = { name = "f" }, energy_generated_last_tick = (name == "steam-engine") and PROD or 0,
         get_fuel_inventory = function() return { is_empty = function() return false end } end }
     end
     return nil
@@ -273,7 +274,18 @@ do
   -- 6000 J/tick produits sur 30000 de capacité (20 %) : ni saturée ni avance (0,6 x 500 kW de retenu < 70 %)
   check(run(Cv0.LOSS_CHECKS, 50) == false, "kW retenus mais épargne de 50 MU : pas de centrale de plus")
   check(run(2, 5000) == false, "déficit avec épargne, 2 relevés : pas encore")
-  check(run(1, 5000) == true and asked == 1, "3e relevé de suite : une centrale d'UNE chaudière est demandée (" .. tostring(asked) .. ")")
+  -- lot CC-ENERGIE (F491, règle du DC) : le déficit installé ne fait plus grandir une centrale dont la demande MESURÉE reste sous 75 %
+  check(run(1, 5000) == false, "F491 : 3e relevé, déficit installé, demande mesurée 360 kW sur 1 800 (20 %) : AUCUNE centrale")
+  local held
+  for _, l in ipairs(logs) do if l:find("croissance RETENUE", 1, true) then held = l end end
+  check(held ~= nil and held:find("(20 %", 1, true) and held:find("seuil 75 %", 1, true) and held:find("deficit 500 kW", 1, true),
+    "F491 : journal [FO-ENERGIE] croissance RETENUE : charge, seuil et déclencheur écarté (" .. tostring(held) .. ")")
+  check(run(20, 5000) == false, "F491 : le déficit dure 20 relevés à 20 % : toujours aucune centrale")
+  local n_held = 0
+  for _, l in ipairs(logs) do if l:find("croissance RETENUE", 1, true) then n_held = n_held + 1 end end
+  check(n_held == 1, "F491 : une seule ligne RETENUE par épisode (" .. n_held .. ")")
+  PROD = 11400 -- 22 800 J/tick sur 30 000 : 76 %, au-dessus du seuil
+  check(run(1, 5000) == true and asked == 1, "demande mesurée 76 %, déficit installé : une centrale d'UNE chaudière est demandée (" .. tostring(asked) .. ")")
   local line
   for _, l in ipairs(logs) do if l:find("DEFICIT de kW", 1, true) then line = l end end
   check(line ~= nil and line:find("500 kW retenus", 1, true) and line:find("1 chaudiere(s)", 1, true), "journal [FO-ENERGIE] : DEFICIT de kW, kW retenus et taille")
@@ -296,16 +308,25 @@ do
     end
     local engines = { { name = "boiler", x = 11, y = 0 }, { name = "steam-engine", x = 12, y = 0 }, { name = "steam-engine", x = 13, y = 0 } }
     f.build.projects[2].ents = engines
+    -- F491 : le chantier ouvert compte dans la capacité : 22 800 J/tick sur 30 000 bâtis + 30 000 en chantier = 38 % : rien en parallèle
+    check(kw_run(10, 5000) == false, "F491 E1 : demande 1 368 kW sur 1 800 bâtis + 1 800 en chantier (38 %) : AUCUN chantier en parallèle")
+    -- centrale finie de 16 machines (14 400 kW) à 97 % : 232 000 J/tick sur 240 000 + 30 000 en chantier = 86 %, déficit de 5 000 kW
+    for i = 4, 17 do plant.ents[#plant.ents + 1] = { name = "steam-engine", x = i, y = 0 }; alive["steam-engine:" .. i] = true end
+    PROD = 14500
+    f.build.grow.cool_until = 0
     check(kw_run(10, 5000) == true and asked ~= nil and asked >= 2,
-      "E1 : déficit de 5 000 kW, chantier ouvert de 1 800 kW : chantier EN PARALLELE de " .. tostring(asked) .. " chaudière(s)")
+      "E1 : déficit de 5 000 kW, demande 86 % avec le chantier ouvert de 1 800 kW : chantier EN PARALLELE de " .. tostring(asked) .. " chaudière(s)")
     local par
     for _, l in ipairs(logs) do if l:find("EN PARALLELE", 1, true) then par = l end end
     check(par ~= nil, "E1 : journal [FO-ENERGIE] centrale EN PARALLELE")
     f.build.extra_plants = { 2, 3 }
     f.build.projects[3] = { id = 3, state = "chantier", spec = { gen = "steam" }, ents = engines }
     f.build.grow.cool_until = 0
+    PROD = 15000 -- 240 000 J/tick sur 240 000 + 60 000 en chantier = 80 % : la garde du DC passe, la borne des chantiers seule retient
     check(kw_run(40, 50000) == false, "E2 : deux chantiers ouverts, déficit de 50 000 kW durable (40 relevés) : AUCUNE troisième demande")
     f.build.projects[3] = nil
+    for _ = 4, 17 do plant.ents[#plant.ents] = nil end
+    PROD = 11400
     f.build.extra_plants = { 2 }
     f.build.projects[2].ents = {}
   end
@@ -313,7 +334,11 @@ do
   f.build.extra_plants, f.build.projects[2] = nil, nil
   f.build.grow.requests = C0.MAX_REQUESTS
   f.build.grow.cool_until = 0
-  check(run(10, 5000) == false, "C.MAX_REQUESTS atteint : plus de demande, même avec un déficit")
+  check(run(10, 5000) == false, "C.MAX_REQUESTS atteint : plus de demande, même avec un déficit (demande mesurée 76 %)")
+  PROD = 3000
+  tick = tick + PA.WATCH_EVERY -- (F491 : un relevé à 20 % sans retenu remet à zéro l'avance comptée pendant les phases à 76-100 %)
+  f.team.capi.kw_blocked = nil
+  PA.watch(f, surface, tick)
   -- l'avance interrompue s'écrit (hypothèse du compteur d'anticipation, diagnostic azure)
   f.build.grow.requests = 0
   logs[#logs + 1] = "-- avance --"
