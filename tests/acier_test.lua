@@ -459,7 +459,7 @@ do
   -- chaque taille partielle (pieces en attente retirees) reste un gabarit valide, au debit de n fours
   for n = 1, 6 do
     local cols = Rd.columns(gm.entities, function(nm) local s = M.spec(nm) if s and s.kind == "furnace" then return "machine" end if s and s.kind == "inserter" then return "bras" end end,
-      function(nm) return M.spec(nm).w end)
+      function(nm) return (gm.cell and gm.cell.w) or M.spec(nm).w end) -- (lot RETROFIT-GABARITS : colonne = cellule réservée du gabarit)
     local _, h = Rd.split(cols, #gm.entities, Rd.order(6, nil), n)
     local drop = {}
     for _, i in ipairs(h) do drop[i] = true end

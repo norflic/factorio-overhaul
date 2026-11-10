@@ -88,7 +88,8 @@ function Rg.tag(p, ents, g)
   local rp = p.rangee_plan
   if not rp then return end
   if not (g and g.entities and #g.entities == #ents) then p.rangee_plan = nil return end
-  local cols, m = Rd.columns(g.entities, kind, width)
+  -- lot RETROFIT-GABARITS : pas d'une colonne = la cellule réservée du gabarit (g.cell, données), sinon la machine
+  local cols, m = Rd.columns(g.entities, kind, function(nm) return (g.cell and g.cell.w) or width(nm) end)
   if m ~= rp.n_max then p.rangee_plan = nil return end
   for i, e in ipairs(ents) do e.col = cols[i] end
 end

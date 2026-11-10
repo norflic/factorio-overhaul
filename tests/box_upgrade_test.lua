@@ -12,6 +12,10 @@
     §4 script/team/box_upgrade_rt.lua sur un moteur minimal (capital et stock doublés) : relevé par type, rôles des bras (cible du
        moteur, point de dépôt), tranche 1 (2 machines + bras, ordre d'émission, ajournée), tranche suivante, attente du kit, reprise,
        MAXED et état oublié, menace du QG, une seule box par impulsion, pièce du plan renommée pour la machine seulement, état en données pures.
+    §5 lot RETROFIT-GABARITS (DC 10/11, emprises distinctes) : règle pure (Bu.grows, grown_successors, arm_move, fit, deferred_causes,
+       ligne « (emprise) ») et ses mutants (emprise ignorée, bras non repositionné) ; moteur : unité qui grandit (2×2 → 3×3) traitée par la
+       primitive partagée (swap_entity doublé) quand sa cellule l'accueille, ajournée « emprise » quand un tapis la bloque, bras déplacé
+       sur la ligne d'interface, pièce du plan renommée et déplacée ; mutant du moteur « can_place ignoré » (fits court-circuité).
   Usage : lua5.2 tests/box_upgrade_test.lua   (depuis la racine du mod ; moins d'une seconde)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -170,6 +174,75 @@ line = Bu.line("eq1", BOX, 1, 1, nil, 0, { item = "it", manque = 2 })
 check(line == "[FO-RETROFIT] eq1 : box fonderie 7 : tranche 1/1 non emise, en attente de it x2", "ligne d'attente : " .. line)
 check(Bu.key(BOX) == "fonderie:7", "clé d'une box")
 
+-- lot RETROFIT-GABARITS : détecteurs des règles d'emprise (partagés avec §5 mutants)
+local S2, S3 = { w = 2, h = 2 }, { w = 3, h = 3 }
+function DET.emprise(B)
+  local bad = {}
+  if B.grows({ fp_now = S2, fp_target = S3 }) ~= true or B.grows({ fp_now = S3, fp_target = S3 }) ~= false or B.grows({}) ~= false then
+    bad[#bad + 1] = "grows"
+  end
+  -- cellules : 3 machines 2×2 en x = 9, 19, 29 (y = -1), espacées de 10 : la 1re grandit librement
+  local cells = { { x = 9, y = -1, w = 2, h = 2 }, { x = 19, y = -1, w = 2, h = 2 }, { x = 29, y = -1, w = 2, h = 2 } }
+  local ft = B.fit(cells, 1, S3, {}, {})
+  if not (ft.ok and ft.rect.x == 9 and ft.rect.y == -1 and ft.rect.w == 3 and ft.rect.h == 3 and ft.cause == nil) then bad[#bad + 1] = "fit libre" end
+  -- un tapis sur la colonne est (11, 0) : refus « emprise »
+  local occ = { ["11,0"] = true }
+  ft = B.fit(cells, 1, S3, occ, {})
+  if not (ft.ok == false and ft.cause == "emprise" and ft.conflits[1] == "11,0") then bad[#bad + 1] = "fit tapis : " .. tostring(ft.cause) end
+  -- cellules serrées (pas de 3) : la voisine bloque
+  local tight = { { x = 9, y = -1, w = 2, h = 2 }, { x = 11, y = -1, w = 2, h = 2 } }
+  ft = B.fit(tight, 1, S3, {}, {})
+  if ft.ok then bad[#bad + 1] = "voisine ignorée" end
+  -- bras au sud, dans le rectangle cible (y = 1), tapis en y = 3 : déplacé sur la ligne d'interface (y = 2), portée courte
+  local arms = { { id = 5, x = 10, y = 1, far = { x = 10, y = 3 } } }
+  ft = B.fit(cells, 1, S3, {}, arms)
+  local mv = ft.moves[5]
+  if not (ft.ok and mv and mv.x == 10 and mv.y == 2 and mv.long == false) then bad[#bad + 1] = "bras déplacé" end
+  -- même bras, tapis collé (y = 2) : la place du bras est le tapis : refus « emprise »
+  ft = B.fit(cells, 1, S3, { ["10,2"] = true }, { { id = 5, x = 10, y = 1, far = { x = 10, y = 2 } } })
+  if ft.ok or ft.cause ~= "emprise" then bad[#bad + 1] = "bras sans place accepté" end
+  -- même bras, tapis en y = 3 mais un poteau sur la ligne d'interface (10, 2) : la case du bras déplacé est prise : refus « emprise »
+  ft = B.fit(cells, 1, S3, { ["10,2"] = true }, arms)
+  if ft.ok or ft.cause ~= "emprise" then bad[#bad + 1] = "bras déplacé sur un poteau" end
+  -- bras à l'est (x = 11), tapis en x = 14 : ligne d'interface est (x = 12), bras LONG (portée 2)
+  local am = B.arm_move({ id = 6, x = 11, y = 0, far = { x = 14, y = 0 } }, cells[1], { x = 9, y = -1, w = 3, h = 3 })
+  if not (am and am.x == 12 and am.y == 0 and am.long == true) then bad[#bad + 1] = "bras long à l'est" end
+  if B.arm_move({ id = 7, x = 10, y = -2, far = { x = 10, y = -3 } }, cells[1], { x = 9, y = -1, w = 3, h = 3 }) ~= nil then bad[#bad + 1] = "bras au nord déplacé à tort" end
+  if B.arm_move({ id = 8, x = 11, y = 0, far = { x = 15, y = 0 } }, cells[1], { x = 9, y = -1, w = 3, h = 3 }) ~= false then bad[#bad + 1] = "tapis hors de portée accepté" end
+  -- causes comptées et dites
+  local c = B.deferred_causes({ deferred = { { cause = "emprise" }, { cause = "emprise" }, {} } })
+  if not (c.emprise == 2 and c.place == 1) then bad[#bad + 1] = "causes" end
+  local l = B.line("eq1", { kind = "fonderie", id = 1 }, 1, 2, nil, 0, nil, nil, 2)
+  if l ~= "[FO-RETROFIT] eq1 : box fonderie 1 : tranche 1/2 non emise, ajournees 2 (emprise)" then bad[#bad + 1] = "ligne : " .. l end
+  return bad
+end
+-- successeurs à emprise plus grande : même type, vitesse >, emprise ≥ et > sur un axe, énergie identique ou électrique, niveaux > 1 exclus
+function DET.grown(B)
+  local bad = {}
+  local P = {
+    f1 = { type = "F", speed = 1, item = "i1", w = 2, h = 2, energy = "burner", cats = { s = true } },
+    f2 = { type = "F", speed = 2, item = "i2", w = 2, h = 2, energy = "burner", cats = { s = true } },
+    fe = { type = "F", speed = 2, item = "ie", w = 3, h = 3, energy = "electric", cats = { s = true } },
+    fb = { type = "F", speed = 3, item = "ib", w = 3, h = 3, energy = "burner", cats = { s = true } },
+    fx = { type = "F", speed = 3, item = "ix", w = 3, h = 3, energy = "fluid", cats = { s = true } },
+    fc = { type = "F", speed = 3, item = "ic", w = 3, h = 3, energy = "burner", cats = { t = true } },
+    fl = { type = "F", speed = 4, item = "il", w = 4, h = 4, energy = "electric", cats = { s = true } },
+    a1 = { type = "A", speed = 9, item = "ia", w = 3, h = 3, energy = "electric", cats = { s = true } },
+  }
+  local ctx = { mproto = function(n) return P[n] end, machines = { "a1", "f1", "f2", "fb", "fc", "fe", "fl", "fx" },
+    parse = function(n) if n == "fl" then return { key = "furnace" }, 7 end return nil end }
+  local out = table.concat(B.grown_successors(ctx, "f1"), ",")
+  if out ~= "fe,fb" then bad[#bad + 1] = "f1 → " .. out end -- (fe vitesse 2 puis fb vitesse 3 ; fx : énergie ; fc : catégorie ; fl : niveau 7 ; f2 : même emprise ; a1 : type)
+  out = table.concat(B.grown_successors(ctx, "f2"), ",")
+  if out ~= "fb" then bad[#bad + 1] = "f2 → " .. out end -- (fe : même vitesse)
+  if #B.grown_successors(ctx, "zz") ~= 0 or #B.grown_successors({}, "f1") ~= 0 then bad[#bad + 1] = "inconnu" end
+  if B.long_arm({ { name = "b", reach = 1, speed = 1 }, { name = "l2", reach = 2, speed = 2 }, { name = "l1", reach = 2, speed = 1 } }) ~= "l1" then bad[#bad + 1] = "bras long" end
+  return bad
+end
+local emprise_bad = {}
+for _, k in ipairs({ "emprise", "grown" }) do for _, d in ipairs(DET[k](Bu)) do emprise_bad[#emprise_bad + 1] = k .. " : " .. d end end
+check(#emprise_bad == 0, "détecteurs d'emprise sur la règle : " .. table.concat(emprise_bad, " | "))
+
 ---------------------------------------------------------------------------------------------------
 section("§2 mutants : chacun refusé par les mêmes détecteurs")
 ---------------------------------------------------------------------------------------------------
@@ -196,6 +269,20 @@ for _, m in ipairs(MUT) do
   local faults = mutant(m[1], m[2], m[3])
   print("  mutant « " .. m[1] .. " » : " .. (faults[1] or "(rien)"))
 end
+-- lot RETROFIT-GABARITS : mutants des règles d'emprise, vus par DET.emprise / DET.grown
+local function mutant_emprise(name, from, to, det)
+  local s, n = src:gsub(from, function() return to end)
+  check(n == 1, "mutant « " .. name .. " » : retouche appliquée une fois (" .. n .. ")")
+  local B = assert(load(s, "=" .. name))()
+  local faults = DET[det](B)
+  check(#faults > 0, "mutant « " .. name .. " » refusé par les détecteurs")
+  print("  mutant « " .. name .. " » : " .. (faults[1] or "(rien)"))
+end
+mutant_emprise("emprise ignorée (Bl.grow sans effet)", "local ok, conflits = Bl%.grow%(cells, i, new_size, occupied%)", "local ok, conflits = true, {}", "emprise")
+mutant_emprise("bras non repositionné (déplacement oublié)", "local mv = Bu%.arm_move%(a, cells%[i%], rect%)", "local mv = nil", "emprise")
+mutant_emprise("bras déplacé sur une case prise", "if mv == false or %(mv and not free_for_arm%(mv, rect, cells, i, occupied%)%) then", "if mv == false then", "emprise")
+mutant_emprise("successeur de même emprise accepté", "and %(%(p1%.w or 0%) > %(p0%.w or 0%) or %(p1%.h or 0%) > %(p0%.h or 0%)%)", "", "grown")
+mutant_emprise("énergie ignorée", 'and %(p1%.energy == p0%.energy or p1%.energy == "electric"%)', "", "grown")
 
 ---------------------------------------------------------------------------------------------------
 section("§3 câblage textuel")
@@ -238,6 +325,19 @@ local lm, ln = longest(rt)
 check(lm < 80, "fonctions du moteur < 80 lignes (la plus longue : " .. ln .. ", " .. lm .. ")")
 lm, ln = longest(src)
 check(lm < 80, "fonctions de la règle < 80 lignes (la plus longue : " .. ln .. ", " .. lm .. ")")
+-- lot RETROFIT-GABARITS : câblage de l'emprise distincte
+check(rt:find("if Bu.grows(u) then return fits(surface, u, ref) end", 1, true) ~= nil, "can_place : une unité qui grandit passe par sa cellule (fits)")
+check(rt:find("Bu.fit(cells, i, u.fp_target, occ, arms)", 1, true) ~= nil and rt:find("Bl.grown(", 1, true) ~= nil, "fits : Bu.fit sur l'occupation relevée autour de Bl.grown")
+check(rt:find("Se.swap(surface, f, e, u.target,", 1, true) ~= nil and rt:find("Se.swap(surface, f, e, name,", 1, true) ~= nil, "primitive partagée Se.swap pour la machine ET le bras déplacé")
+check(rt:find("Bu.grown_successors(grown_ctx(), name)", 1, true) ~= nil and cap:find("function Capital.machine_names() return machine_catalog().names end", 1, true) ~= nil, "cible à emprise plus grande : Bu.grown_successors sur le catalogue des machines (Capital.machine_names)")
+check(rt:find("Bu.deferred_causes(plan)", 1, true) ~= nil, "causes d'ajournement comptées (place, emprise)")
+local fs = slurp("script/team/foreuse_swap.lua")
+check(fs:find("Se.swap(surface, f, d, item, { x = cx, y = cy, dir = edir, size = T.drill_electric.size })", 1, true) ~= nil and fs:find("local function place_back", 1, true) == nil,
+  "foreuse_swap.lua : swap_one passe par la primitive partagée (place_back extraite)")
+local se = slurp("script/team/swap_entity.lua")
+check(se:find("%f[%w_]global%f[^%w_]") == nil and se:find("State.disown(unit)", 1, true) ~= nil and se:find("raise_built = true", 1, true) ~= nil, "swap_entity.lua : sans `global`, désappropriation avant le retrait, pose avec raise_built")
+local lse, nse = longest(se)
+check(lse < 80, "fonctions de swap_entity.lua < 80 lignes (" .. nse .. ", " .. lse .. ")")
 
 ---------------------------------------------------------------------------------------------------
 section("§4 moteur script/team/box_upgrade_rt.lua sur un moteur minimal")
@@ -247,28 +347,48 @@ local logs = {}
 function log(text) logs[#logs + 1] = text end -- luacheck: ignore
 local function retro_logs() local out = {} for _, l in ipairs(logs) do if l:find("[FO-RETROFIT]", 1, true) then out[#out + 1] = l end end return out end
 
+-- lot RETROFIT-GABARITS : primitive partagée doublée (le vrai script/team/swap_entity.lua tient à State et au moteur)
+local swaps = {} -- { from = nom, to = nom, x, y } dans l'ordre
+local world, next_id = {}, 100
+local PROTO
+local function ent(name, x, y)
+  next_id = next_id + 1
+  local p = PROTO[name]
+  local e = { name = name, valid = true, unit_number = next_id, type = p.type, position = { x = x, y = y }, direction = 0, force = { name = "f1" },
+    bounding_box = { left_top = { x = x - p.w / 2, y = y - p.h / 2 }, right_bottom = { x = x + p.w / 2, y = y + p.h / 2 } } }
+  world[#world + 1] = e
+  return e
+end
+local FakeSe = {
+  MOVING = {},
+  swap = function(surface, f, old, to, place)
+    swaps[#swaps + 1] = { from = old.name, to = to, x = place.x, y = place.y, check = place.check }
+    old.valid = false
+    return ent(to, place.x, place.y)
+  end,
+  take = function() return { items = {} } end,
+  give = function() return {} end,
+}
+package.loaded["script.team.swap_entity"] = FakeSe
 local Bur = require("script.team.box_upgrade_rt")
 local Bx = require("shared.team.boxes")
 local R = require("shared.ai3.reglages")
 local MT, AT = Bx.TYPES.fonderie[1], R.RANG_REACH.type -- types lus aux données (jamais écrits ici)
 
 -- catalogue doublé : deux paliers de machine, deux de bras (vitesse au prototype), un bras long hors palier
-local PROTO = {
-  m1 = { type = MT, speed = 1, item = "it-m1", w = 2, h = 2 }, m2 = { type = MT, speed = 2, item = "it-m2", w = 2, h = 2 },
-  a1 = { type = AT, speed = 0.01, item = "it-a1", w = 1, h = 1, rang = true }, a2 = { type = AT, speed = 0.02, item = "it-a2", w = 1, h = 1, rang = true },
+PROTO = {
+  m1 = { type = MT, speed = 1, item = "it-m1", w = 2, h = 2, energy = "burner" }, m2 = { type = MT, speed = 2, item = "it-m2", w = 2, h = 2, energy = "burner" },
+  a1 = { type = AT, speed = 0.01, item = "it-a1", w = 1, h = 1, rang = true, reach = "0.00,-1.00>0.00,1.20" },
+  a2 = { type = AT, speed = 0.02, item = "it-a2", w = 1, h = 1, rang = true, reach = "0.00,-1.00>0.00,1.20" },
+  belt = { type = "B", speed = 1, item = "it-belt", w = 1, h = 1 },
 }
+local NAMES = { "a1", "a2", "m1", "m2" }
 local SUCC = { m1 = { "m2" }, a1 = { "a2" } }
 local stock = { ["it-m2"] = 2, ["it-a2"] = 10 }
 local replaced = {} -- ordre d'émission (noms des entités remplacées)
-local world, next_id = {}, 100
-local function ent(name, x, y)
-  next_id = next_id + 1
-  local e = { name = name, valid = true, unit_number = next_id, type = PROTO[name].type, position = { x = x, y = y }, direction = 0, force = { name = "f1" } }
-  world[#world + 1] = e
-  return e
-end
 local FakeCap = {
   mproto = function(n) return PROTO[n] end,
+  machine_names = function() return NAMES end,
   successors_of = function(n) return SUCC[n] or {} end,
   unlocked = function(_, item) return item ~= "it-locked" end,
   replace_entity = function(f, e, to)
@@ -282,7 +402,9 @@ local FakeCap = {
     return n
   end,
 }
-local FakeStock = { count = function(_, item) return stock[item] or 0 end }
+local FakeStock = { count = function(_, item) return stock[item] or 0 end,
+  remove = function(_, item, n) stock[item] = (stock[item] or 0) - n return n end,
+  insert = function(_, item, n) stock[item] = (stock[item] or 0) + n return n end }
 check(not Bur.bound(), "sans liaison, le moteur est inactif")
 Bur.bind(FakeCap, FakeStock)
 
@@ -293,10 +415,14 @@ local surface = {
   find_entities_filtered = function(q)
     local out = {}
     for _, e in ipairs(world) do
-      if e.valid and e.type == q.type and math.abs(e.position.x - q.position[1]) <= q.radius and math.abs(e.position.y - q.position[2]) <= q.radius then out[#out + 1] = e end
+      if q.area then -- (relevé d'occupation autour d'une cellule qui grandit : toute entité dont le centre est dans la zone)
+        local a, b = q.area[1], q.area[2]
+        if e.valid and e.position.x >= a[1] and e.position.x <= b[1] and e.position.y >= a[2] and e.position.y <= b[2] then out[#out + 1] = e end
+      elseif e.valid and e.type == q.type and math.abs(e.position.x - q.position[1]) <= q.radius and math.abs(e.position.y - q.position[2]) <= q.radius then out[#out + 1] = e end
     end
     return out
   end,
+  find_tiles_filtered = function() return {} end,
   can_fast_replace = function(a) return not blocked[a.position.x .. "," .. a.position.y] end,
   can_place_entity = function(a) assert(a.build_check_type == 1, "build_check_type manual") return false end,
   count_entities_filtered = function() return threat_n end,
@@ -378,6 +504,85 @@ PROTO.m3 = { type = MT, speed = 3, item = "it-locked", w = 2, h = 2 }
 SUCC.m2 = { "m3" }
 Bur.impulsion(f, surface, 9000)
 check(#replaced == 10 and #retro_logs() == 6, "successeur à recette non activée : pas un palier cible")
+
+
+---------------------------------------------------------------------------------------------------
+section("§5 lot RETROFIT-GABARITS : unité qui grandit (2×2 → 3×3) sur le moteur minimal")
+---------------------------------------------------------------------------------------------------
+-- cible à emprise plus grande : g3 (3×3, électrique, vitesse 3) succède à m2 (2×2, à combustion) faute de successeur de même emprise
+PROTO.g3 = { type = MT, speed = 3, item = "it-g3", w = 3, h = 3, energy = "electric" }
+NAMES = { "a1", "a2", "belt", "g3", "m1", "m2" }
+SUCC.m2 = {}
+stock["it-g3"] = 3
+for _, b in ipairs(f.team.boxes.list) do b.status = Bx.MAXED end
+local pieces5 = {}
+local function piece5(e) pieces5[#pieces5 + 1] = { name = e.name, x = e.position.x, y = e.position.y, built = true } return e end
+-- 3 machines m2 en x = 110, 120, 130 (y = 0 : tuiles 109..110 × -1..0) ; bras a2 au nord (entrée) et au sud (sortie) ; pour la 130, la
+-- sortie est collée au four (y = 1, dans le rectangle cible) et dépose en y = 3 : à déplacer sur la ligne d'interface (y = 2)
+local M5 = {}
+for i = 1, 3 do
+  local x = 100 + i * 10
+  local m = piece5(ent("m2", x, 0))
+  M5[i] = m
+  local ein = piece5(ent("a2", x, -2))
+  ein.drop_target, ein.drop_position, ein.pickup_position = m, { x = x, y = -1 }, { x = x, y = -3 }
+  local sy = (i == 3) and 1 or 2
+  local eout = piece5(ent("a2", x, sy))
+  eout.pickup_target, eout.pickup_position, eout.drop_position = m, { x = x, y = 0 }, { x = x, y = sy + 1 + ((i == 3) and 1 or 0) }
+end
+local belt = ent("belt", 121.5, 0.5) -- un tapis sur la colonne est de la cellule de la machine 120 (tuile 121, 0) : elle ne peut pas grandir
+f.team.boxes.list[#f.team.boxes.list + 1] = { kind = "fonderie", id = 5, status = "UPGRADE_REQUISE" }
+f.build.projects[5] = { state = "fini", ents = pieces5 }
+local n_logs = #retro_logs()
+-- impulsion 1 : la 110 grandit (3×3 posé au coin nord-ouest de sa cellule : centre (110.5, 0.5)), la 120 est ajournée « emprise »
+Bur.impulsion(f, surface, 10000)
+rl = retro_logs()
+check(#rl == n_logs + 1 and rl[#rl]:find("box fonderie 5 : tranche 1/2 (1 machines, 0 bras, 1 remplacees), ajournees 1 (emprise)", 1, true) ~= nil, "tranche 1 : une machine grandit, une ajournée (emprise) : " .. tostring(rl[#rl]))
+check(#swaps == 1 and swaps[1].from == "m2" and swaps[1].to == "g3" and swaps[1].x == 110.5 and swaps[1].y == 0.5 and swaps[1].check == 1,
+  "primitive partagée : m2 → g3 au centre de Bl.grown (110.5, 0.5), build_check_type manual")
+check(not M5[1].valid and stock["it-g3"] == 2 and stock["it-m2"] == 1, "ancienne retirée, kit débité, ancien objet rendu (" .. tostring(stock["it-m2"]) .. ")")
+check(pieces5[1].name == "g3" and pieces5[1].x == 110.5 and pieces5[1].y == 0.5, "pièce du plan renommée ET déplacée au nouveau centre")
+st = f.team.retrofit["fonderie:5"]
+check(st and st.deferred == 0 and st.deferred_emprise == 1 and pure(f.team.retrofit), "état : ajournée comptée en « emprise », données pures")
+-- impulsion 2 : la 130 grandit et son bras de sortie suit la ligne d'interface (y = 2) ; la 120 toujours ajournée
+Bur.impulsion(f, surface, 11000)
+rl = retro_logs()
+check(#rl == n_logs + 2 and rl[#rl]:find("tranche 2/2 (1 machines, 0 bras, 1 remplacees), ajournees 1 (emprise)", 1, true) ~= nil, "tranche 2 : la 130 grandit : " .. tostring(rl[#rl]))
+check(#swaps == 3 and swaps[2].to == "g3" and swaps[2].x == 130.5 and swaps[3].from == "a2" and swaps[3].to == "a2" and swaps[3].x == 130.5 and swaps[3].y == 2.5,
+  "bras de sortie déplacé sur la ligne d'interface (130.5, 2.5), même bras (portée courte)")
+check(pieces5[9].x == 130.5 and pieces5[9].y == 2.5 and pieces5[9].name == "a2", "pièce du plan du bras déplacée, nom du rang gardé")
+-- impulsion 3 : le tapis retiré, la 120 grandit ; puis MAXED
+belt.valid = false
+Bur.impulsion(f, surface, 12000)
+rl = retro_logs()
+check(#rl == n_logs + 3 and rl[#rl]:find("tranche 3/3 (1 machines, 0 bras, 1 remplacees) a", 1, true) ~= nil, "tapis retiré : la 120 grandit : " .. tostring(rl[#rl]))
+check(#swaps == 4 and swaps[4].x == 120.5 and stock["it-g3"] == 0, "4 remplacements à emprise différente en tout, kit épuisé")
+Bur.impulsion(f, surface, 13000)
+rl = retro_logs()
+check(#rl == n_logs + 4 and rl[#rl]:find("rien a monter (3 tranches, 3 unites remplacees)", 1, true) ~= nil, "MAXED après les trois : " .. tostring(rl[#rl]))
+
+-- mutant du moteur : can_place ignoré pour une unité qui grandit (la décision de fits court-circuitée, le rectangle cible gardé) : le
+-- tapis n'empêche plus rien ; (court-circuiter l'appel de fits lui-même est déjà refusé par grow_one : aucun rectangle cible, « emprise »)
+do
+  local mut = rt:gsub("u%.cause, u%.moves, u%.rect = fit%.cause, fit%.moves, fit%.rect\n  return fit%.ok",
+    function() return "u.cause, u.moves, u.rect = fit.cause, fit.moves, fit.rect\n  return true" end)
+  check(mut ~= rt, "mutant du moteur : retouche appliquée")
+  local BurM = assert(load(mut, "=rt_mutant"))()
+  BurM.bind(FakeCap, FakeStock)
+  local pieces6 = {}
+  local m6 = ent("m2", 210, 0)
+  pieces6[1] = { name = "m2", x = 210, y = 0, built = true }
+  ent("belt", 211.5, 0.5)
+  stock["it-g3"] = 1
+  local f6 = { key = "eq6", force = "f1", hq = { valid = true }, hq_pos = { x = 0, y = 0 },
+    team = { boxes = { list = { { kind = "fonderie", id = 6, status = "UPGRADE_REQUISE" } } } }, build = { projects = { [6] = { state = "fini", ents = pieces6 } } } }
+  local n_sw = #swaps
+  Bur.impulsion(f6, surface, 14000)
+  check(#swaps == n_sw and m6.valid and f6.team.retrofit["fonderie:6"].deferred_emprise == 1, "règle : la machine bloquée par le tapis est ajournée (emprise)")
+  f6.team.retrofit = nil
+  BurM.impulsion(f6, surface, 15000)
+  check(#swaps == n_sw + 1, "mutant « can_place ignoré » : la machine bloquée est remplacée quand même (vu : le vrai moteur l'ajourne)")
+end
 
 print(string.format("\n%d OK, %d ECHEC", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

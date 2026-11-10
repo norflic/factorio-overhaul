@@ -26,7 +26,12 @@
        l'émission : `waiting = { item, manque }` (la machine actuelle continue). `total` compte toutes les tranches, payables ou non.
   Bu.next(state, done) : avance d'une tranche, état en nombres { i, n, done } ; rend un NOUVEL état (déterministe, sans effet de bord).
   Déterminisme : tri par rôle puis id, `pairs` seulement pour ramasser des clés ensuite triées ; aucun temps ; aucune fonction stockée.
+  Lot RETROFIT-GABARITS (décision du DC du 10/11, fin du fichier) : unités dont le palier cible a une EMPRISE plus grande (fp_now, fp_target) :
+  Bu.grows, Bu.grown_successors (cibles que Cap.successors exclut), Bu.fit (la cellule réservée l'accueille : Bl.grow sur l'occupation
+  relevée, bras suivis par Bu.arm_move), ajournement à cause « emprise » (u.cause, compté par Bu.deferred_causes, dit par Bu.line).
 ]]
+
+local Bl = require("shared.team.box_layout")
 
 local Bu = {}
 
@@ -180,8 +185,9 @@ function Bu.counts(slice)
   return m, b, p
 end
 
---- Ligne de journal [FO-RETROFIT] d'une tranche (ou d'une attente : slice nil).
-function Bu.line(team, box, k, n, slice, n_deferred, waiting, done)
+--- Ligne de journal [FO-RETROFIT] d'une tranche (ou d'une attente : slice nil). n_deferred : ajournées faute de place ; n_emprise
+--- (facultatif) : ajournées parce que leur cellule réservée n'accueille pas la nouvelle emprise (lot RETROFIT-GABARITS).
+function Bu.line(team, box, k, n, slice, n_deferred, waiting, done, n_emprise)
   local body
   if slice then
     local m, b, p = Bu.counts(slice)
@@ -192,8 +198,132 @@ function Bu.line(team, box, k, n, slice, n_deferred, waiting, done)
   end
   local extra = ""
   if (n_deferred or 0) > 0 then extra = extra .. string.format(", ajournees %d (place)", n_deferred) end
+  if (n_emprise or 0) > 0 then extra = extra .. string.format(", ajournees %d (emprise)", n_emprise) end
   if waiting then extra = extra .. string.format(", en attente de %s x%d", tostring(waiting.item), waiting.manque or 0) end
   return string.format("[FO-RETROFIT] %s : box %s %s : %s%s", tostring(team), tostring(box.kind), tostring(box.id), body, extra)
 end
+
+---------------------------------------------------------------------------------------------------
+-- Lot RETROFIT-GABARITS (décision du DC : « rétrofit glissant à gabarits évolutifs : gérer les emprises distinctes (2×2 → 3×3) lors du
+-- passage aux fours électriques ou assembleurs supérieurs, par réservation d'espace ») : règles PURES de l'unité qui change d'EMPRISE.
+-- Une telle unité est traitée si et seulement si sa cellule réservée l'accueille (Bl.grow sur l'occupation relevée : tapis, poteaux,
+-- bras, autres machines ; shared/team/box_layout.lua) ; sinon elle est AJOURNÉE, cause « emprise » (jamais bloquante). Ses bras suivent
+-- la ligne d'interface de la cellule cible : déjà là s'ils ont été posés par le nouveau gabarit ; sinon déplacés dans la même tranche
+-- (Bu.arm_move), bras long si la portée l'exige ; un bras qui ne peut pas suivre ajourne l'unité.
+---------------------------------------------------------------------------------------------------
+
+--- L'unité change-t-elle d'emprise (palier cible plus grand que l'actuel sur un axe) ? fp_now, fp_target = { w, h } (tuiles).
+function Bu.grows(u)
+  local a, b = u and u.fp_now, u and u.fp_target
+  if not (a and b) then return false end
+  return (b.w or 0) > (a.w or 0) or (b.h or 0) > (a.h or 0)
+end
+
+--- Catégories de `small` toutes dans `big` (tables { [cat] = true }) ; vide ou nil : couvert.
+local function covers(big, small)
+  for k in pairs(small or {}) do if not (big or {})[k] then return false end end
+  return true
+end
+
+--- Successeurs à emprise PLUS GRANDE de `name` (ceux que Cap.successors exclut : le remplacement rapide refuse une autre emprise), triés
+--- (vitesse, puis nom) : même type, même portée, catégories couvertes, vitesse strictement supérieure, emprise ≥ par axe et > sur un axe,
+--- énergie identique ou passage au tout-électrique (le four électrique du DC) ; les niveaux > 1 des familles à niveaux restent au système
+--- des niveaux (ctx.parse, même règle que Cap.successors). ctx = { mproto(name) -> { type, w, h, speed, item, energy, cats, reach },
+--- machines = noms (ordre sans effet), parse(name) -> famille, niveau (facultatif) }.
+function Bu.grown_successors(ctx, name)
+  local p0 = ctx and ctx.mproto and ctx.mproto(name)
+  if not (p0 and (p0.speed or 0) > 0) then return {} end
+  local out = {}
+  for _, t in ipairs(ctx.machines or {}) do
+    local p1 = (t ~= name) and ctx.mproto(t) or nil
+    if p1 and p1.item and p1.type == p0.type and (p1.speed or 0) > p0.speed and p1.reach == p0.reach
+        and (p1.w or 0) >= (p0.w or 0) and (p1.h or 0) >= (p0.h or 0) and ((p1.w or 0) > (p0.w or 0) or (p1.h or 0) > (p0.h or 0))
+        and (p1.energy == p0.energy or p1.energy == "electric") and covers(p1.cats, p0.cats) then
+      local fam, n = nil, nil
+      if ctx.parse then fam, n = ctx.parse(t) end
+      if fam == nil or n == 1 then out[#out + 1] = t end
+    end
+  end
+  table.sort(out, function(a, b)
+    local sa, sb = ctx.mproto(a).speed, ctx.mproto(b).speed
+    if sa ~= sb then return sa < sb end
+    return a < b
+  end)
+  return out
+end
+
+--- Le bras long d'une liste de bras { { name, reach (tuiles, nombre) } } : le plus lent des bras de portée Bl.REACH_LONG (vitesse `speed`
+--- croissante, puis nom), ou nil. Rien n'est nommé ici : la liste vient des prototypes.
+function Bu.long_arm(arms)
+  local best
+  for _, a in ipairs(arms or {}) do
+    if a.name and (a.reach or 0) >= Bl.REACH_LONG then
+      if not best or (a.speed or 0) < (best.speed or 0) or ((a.speed or 0) == (best.speed or 0) and a.name < best.name) then best = a end
+    end
+  end
+  return best and best.name or nil
+end
+
+--- Déplacement d'un bras de l'unité quand la machine grandit de `cell` (emprise actuelle, tuiles) à `rect` (Bl.grown) : un bras HORS du
+--- rectangle cible reste (nil) ; un bras dedans est poussé sur la ligne d'interface du rectangle, dans son axe (le côté sud ou est, la
+--- croissance va au sud-est) : rend { x, y, long } si, de là, il atteint encore son autre cible `far` (tapis, { x, y }) à portée courte
+--- ou longue, sinon `false` (unité à ajourner). Pur : aucune occupation testée ici (Bu.fit s'en charge).
+function Bu.arm_move(arm, cell, rect)
+  local inside = arm.x >= rect.x and arm.x < rect.x + rect.w and arm.y >= rect.y and arm.y < rect.y + rect.h
+  if not inside then return nil end
+  local nx, ny = arm.x, arm.y
+  if arm.y >= cell.y + cell.h then ny = rect.y + rect.h          -- bras au sud de la machine : ligne d'interface sud
+  elseif arm.x >= cell.x + cell.w then nx = rect.x + rect.w      -- bras à l'est : ligne d'interface est
+  else return false end                                          -- bras dans l'ancienne emprise (relevé incohérent) : refus
+  local far = arm.far
+  if not far then return false end
+  local reach = math.max(math.abs(far.x - nx), math.abs(far.y - ny))
+  if reach < 1 or reach > Bl.REACH_LONG then return false end
+  return { x = nx, y = ny, long = reach >= Bl.REACH_LONG }
+end
+
+--- Une case est-elle libre pour un bras déplacé : hors de `occupied`, du rectangle cible et des autres cellules ?
+local function free_for_arm(p, rect, cells, i, occupied)
+  if occupied[Bl.key(p.x, p.y)] then return false end
+  if p.x >= rect.x and p.x < rect.x + rect.w and p.y >= rect.y and p.y < rect.y + rect.h then return false end
+  for j, c in ipairs(cells) do
+    if j ~= i and p.x >= c.x and p.x < c.x + c.w and p.y >= c.y and p.y < c.y + c.h then return false end
+  end
+  return true
+end
+
+--- DÉCISION D'EMPRISE d'une unité qui grandit : `cells` = emprises relevées (tuiles entières { x, y, w, h }) des machines de la box, `i`
+--- la machine, `new_size` = fp_target, `occupied` = { [Bl.key] = true } des cases prises (tapis, poteaux, bras d'autres unités, autres
+--- entités, tuiles infranchissables ; JAMAIS la machine ni ses propres bras : ils sont dans `arms`), `arms` = ses bras { { id, x, y,
+--- far = { x, y } } }. Rend { ok, rect, conflits (clés triées), moves = { [id] = { x, y, long } } (bras à déplacer, triés par id à
+--- l'émission), cause = "emprise" quand ok est faux }. Déterministe ; aucun moteur.
+function Bu.fit(cells, i, new_size, occupied, arms)
+  occupied = occupied or {}
+  local ok, conflits = Bl.grow(cells, i, new_size, occupied)
+  local rect = Bl.grown(cells[i], new_size)
+  local out = { ok = ok, rect = rect, conflits = conflits, moves = {} }
+  for _, a in ipairs(arms or {}) do
+    local mv = Bu.arm_move(a, cells[i], rect)
+    if mv == false or (mv and not free_for_arm(mv, rect, cells, i, occupied)) then
+      out.ok = false
+      out.conflits[#out.conflits + 1] = "bras " .. tostring(a.id)
+    elseif mv then
+      out.moves[a.id] = mv
+    end
+  end
+  if not out.ok then out.cause = "emprise" end
+  return out
+end
+
+--- Les causes d'ajournement d'un plan, comptées : { place = n, emprise = n }.
+function Bu.deferred_causes(plan)
+  local c = { place = 0, emprise = 0 }
+  for _, u in ipairs(plan and plan.deferred or {}) do
+    local k = u.cause == "emprise" and "emprise" or "place"
+    c[k] = c[k] + 1
+  end
+  return c
+end
+
 
 return Bu

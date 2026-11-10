@@ -15,6 +15,8 @@ local function check(name, cond, detail)
 end
 local function read(p) local h = assert(io.open(p, "rb")); local s = h:read("*a"); h:close(); return s end
 local SRC = read("script/team/foreuse_swap.lua")
+-- lot RETROFIT-GABARITS : le coeur de swap_one (retrait, pose, repose de l'ancienne place verifiee) est la primitive partagee
+local SE_SRC = read("script/team/swap_entity.lua")
 
 local function extract(text, head)
   local a = text:find(head, 1, true)
@@ -99,7 +101,7 @@ local function load_fn(text, head, env_extra)
   return fn()
 end
 
-local function suite(text)
+local function suite(text, se_text)
   local res = {}
   local function c(name, cond, detail) res[#res + 1] = { name, cond and true or false, detail } end
   local POLE = { name = "small-electric-pole", supply = 2.5, wire = 7.5 }
@@ -270,13 +272,17 @@ local function suite(text)
         tostring(o2.drills))
       c("H (2) : place prise : rien pose par-dessus, objet garde au stock", (Wy.stock["stone-furnace"] or 0) == 1 and #o2.sinks == 0, tostring(Wy.stock["stone-furnace"]))
     end
-    local place_back = load_fn(text, "local function place_back(f, surface, d_pos, dir, fuel, o, index)", { T = { DRILL = "burner-mining-drill", fuel = "coal" }, State = Statex })
-    c("H (2) : place_back extraite", place_back ~= nil)
-    if place_back then
+    -- lot RETROFIT-GABARITS : la repose de l'ancienne (place verifiee d'abord, F70) vit dans la primitive partagee script/team/swap_entity.lua
+    local se_env = setmetatable({ require = function(n) if n == "script.faction.state" then return Statex end return require(n) end }, { __index = _G })
+    local se_fn = load(se_text or SE_SRC, "=swap_entity", "t", se_env)
+    local Se = se_fn and se_fn() or nil
+    c("H (2) : primitive partagee Se.swap chargee (swap_one l'appelle)", Se ~= nil and Se.swap ~= nil and text:find("Se.swap(surface, f, d, item,", 1, true) ~= nil)
+    if Se and Se.swap then
       local Wz = world({ ["20,10"] = true })
-      local oz = { id = 5, drill_list = { { valid = false } } }
-      local back = place_back({ force = "player", id = 1 }, Wz.surface, { x = 20.5, y = 10.5 }, 0, 0, oz, 1)
-      c("H (2) : ancienne foreuse sur une place prise : pas reposee par-dessus", back == nil and (Wz.created or 0) == 0)
+      local sz = setmetatable({ find_entities_filtered = function() return {} end }, { __index = Wz.surface })
+      local old = { name = "burner-mining-drill", position = { x = 20.5, y = 10.5 }, direction = 0, unit_number = 77, valid = true, destroy = function() end }
+      local new, back = Se.swap(sz, { force = "player", id = 1 }, old, "electric-mining-drill", { x = 20.5, y = 10.5, dir = 0, size = 3 })
+      c("H (2) : ancienne foreuse sur une place prise : pas reposee par-dessus", new == nil and back == nil and (Wz.created or 0) == 0)
     end
     local compact = load_fn(text, "local function compact(o)", {})
     c("H : compact extraite", compact ~= nil)
@@ -387,8 +393,8 @@ local function suite(text)
   return res
 end
 
-local function run(text)
-  local okr, res = pcall(suite, text)
+local function run(text, se_text)
+  local okr, res = pcall(suite, text, se_text)
   if not okr then return { { "suite : " .. tostring(res), false } } end
   return res
 end
@@ -406,7 +412,8 @@ local MUT = {
   { "echange : sans desappropriation", "      if e.unit_number then State.disown(e.unit_number) end", "" },
   { "(2) repose sans verifier la place", "and surface.can_place_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })", "" },
   { "(2) case de la retiree non reprise", "        for i, x in ipairs(list) do if not x.valid then slot = i break end end", "" },
-  { "(2) ancienne reposee sans verifier la place", "  if not surface.can_place_entity({ name = T.DRILL, position = d_pos, direction = dir, force = f.force }) then return nil end", "" },
+  -- (lot RETROFIT-GABARITS : motif dans la primitive partagee script/team/swap_entity.lua, essaye apres foreuse_swap.lua)
+  { "(2) ancienne reposee sans verifier la place", "  if surface.can_place_entity({ name = name, position = pos, direction = dir, force = f.force }) then", "  if true then" },
   { "(4) fil vers le joueur garde", "        if n.valid and n ~= prev and not mine(n) then e.disconnect_neighbour(n) end", "" },
   { "(4) poteau d'une autre equipe accepte", "  if ow and ow.f == f.id then return true end", "  if ow then return true end" },
   { "(4) tuiles du plan jamais refaites", "  if c and c.sig == s then return c.set end", "  if c then return c.set end" },
@@ -424,10 +431,17 @@ for _, m in ipairs(MUT) do
   local pat = m[2]
   local a, z = SRC:find(pat, 1, true)
   if not a then pat = pat:gsub("\r\n", "\n"); a, z = SRC:find(pat, 1, true) end
-  if not a then
+  local sa, sz = nil, nil
+  if not a then sa, sz = SE_SRC:find(pat, 1, true) end -- (motif de la primitive partagee)
+  if not a and not sa then
     kept[#kept + 1] = m[1] .. " (motif introuvable)"
   else
-    local res = run(SRC:sub(1, a - 1) .. m[3]:gsub("\r\n", SRC:find("\r\n", 1, true) and "\r\n" or "\n") .. SRC:sub(z + 1))
+    local res
+    if a then
+      res = run(SRC:sub(1, a - 1) .. m[3]:gsub("\r\n", SRC:find("\r\n", 1, true) and "\r\n" or "\n") .. SRC:sub(z + 1))
+    else
+      res = run(SRC, SE_SRC:sub(1, sa - 1) .. m[3] .. SE_SRC:sub(sz + 1))
+    end
     local seen = false
     for _, r in ipairs(res) do if not r[2] then seen = true break end end
     if seen then refused = refused + 1 else kept[#kept + 1] = m[1] end

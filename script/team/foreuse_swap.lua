@@ -33,6 +33,7 @@ local Rt = require("shared.team.repli_thermique") -- partie C : repli thermique 
 local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
 local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, sans la boucle de plans complets
 local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : quota lu à la marge de kW, par bloc, kW prévus pour la centrale
+local Se = require("script.team.swap_entity") -- lot RETROFIT-GABARITS : le coeur de swap_one (retrait, pose, repose) extrait en primitive partagee
 
 local Swap = {}
 
@@ -236,19 +237,6 @@ local function slot_of(list, e)
   return nil
 end
 
---- Repose l'ancienne foreuse (l'electrique n'a pas pu etre posee). Revue du lead (7/11, (2)) : place verifiee d'abord (F70 : create_entity
---- pose par-dessus sans verifier) ; nil si elle ne se repose pas (l'appelant rend l'objet et le combustible au stock).
-local function place_back(f, surface, d_pos, dir, fuel, o, index)
-  if not surface.can_place_entity({ name = T.DRILL, position = d_pos, direction = dir, force = f.force }) then return nil end
-  local old = surface.create_entity({ name = T.DRILL, position = d_pos, direction = dir, force = f.force })
-  if old then
-    if fuel > 0 then old.get_fuel_inventory().insert({ name = T.fuel, count = fuel }) end
-    State.own(old, f.id, "drill", o.id)
-    o.drill_list[index] = old
-  end
-  return old
-end
-
 --- Remplace UNE foreuse. Rend vrai si l'electrique est posee. `prep` (facultatif, lot FOREUSES-THERMIQUES) : pose des poteaux, appelee
 --- APRES les gardes (ennemi, place reservee, couloir, melange) et AVANT de retirer l'ancienne foreuse ; faux : rien n'est remplace.
 local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
@@ -325,23 +313,16 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
     st0.why["plan perime"] = (st0.why["plan perime"] or 0) + 1
     return false
   end
-  State.disown(d.unit_number)
-  d.destroy()
-  -- L'ouvrier degage la place (arbres, rochers) comme a la pose de l'avant-poste.
-  local half = T.drill_electric.size / 2
-  for _, e in ipairs(surface.find_entities_filtered({ area = { { cx - half, cy - half }, { cx + half, cy + half } },
-      type = { "tree", "simple-entity" } })) do
-    if e.valid then e.destroy() end
-  end
-  local new
-  if surface.can_place_entity({ name = item, position = { x = cx, y = cy }, direction = edir, force = f.force }) then
-    -- raise_built : les niveaux et les modules (famille « drill ») enregistrent la foreuse, comme pour les pieces refaites (F40 : nil si
-    -- un gestionnaire la detruit).
-    new = surface.create_entity({ name = item, position = { x = cx, y = cy }, direction = edir, force = f.force, raise_built = true })
-    if new and not new.valid then new = nil end
-  end
+  -- Lot RETROFIT-GABARITS : le coeur (plus « possedee », retrait, place degagee (arbres, rochers), can_place puis pose avec raise_built
+  -- (F40), sinon repose de l'ancienne a l'identique, place verifiee d'abord (F70)) est la primitive partagee Se.swap, meme deroule qu'ici.
+  local new, back = Se.swap(surface, f, d, item, { x = cx, y = cy, dir = edir, size = T.drill_electric.size })
   if not new then
-    if not place_back(f, surface, pos, dir, fuel, o, idx) then
+    if back then
+      -- revue du lead (7/11, (2)) : l'ancienne reposee reprend son combustible, sa propriete et sa place dans la liste
+      if fuel > 0 then back.get_fuel_inventory().insert({ name = T.fuel, count = fuel }) end
+      State.own(back, f.id, "drill", o.id)
+      o.drill_list[idx] = back
+    else
       Stock.insert(f, T.DRILL, 1)
       if fuel > 0 then Stock.insert(f, T.fuel, fuel) end
     end
