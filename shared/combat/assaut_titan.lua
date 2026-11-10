@@ -123,14 +123,23 @@ function Ra.escorte(defenses)
   return n - cracheurs, cracheurs
 end
 
---- Composition : { { nom, nombre }, ... }, Kaiju(s) en tête, puis mordeurs puis cracheurs du palier d'escorte.
-function Ra.composition(age, defenses)
+--- Part des mordeurs d'escorte doublés d'ÉCORCHÉS (mordeurs mutants, KAIJUS-MUTANTS) dès que leur ère est ouverte.
+Ra.ECORCHES = 0.25
+
+--- Composition : { { nom, nombre }, ... }, Kaiju(s) en tête (archétype de la ROTATION par les données : T.kaiju_pour(ère, n), n = numéro de
+--- l'assaut, 1 par défaut), puis mordeurs puis cracheurs du palier d'escorte, puis les Écorchés (variante tournante) si leur ère est ouverte.
+function Ra.composition(age, defenses, n)
   local era = T.era(age)
-  local out = { { T.kaiju_name(era), Ra.kaijus(era) } }
+  n = math.max(1, math.floor(num(n) or 1))
+  local out = { { T.kaiju_name(era, T.kaiju_pour(era, n)), Ra.kaijus(era) } }
   local tier = Ra.palier_escorte(era)
   local m, c = Ra.escorte(defenses)
   if m > 0 then out[#out + 1] = { E.unit_name("biter", tier), m } end
   if c > 0 then out[#out + 1] = { E.unit_name("spitter", tier), c } end
+  if era >= T.ECORCHE.era_min and m > 0 then
+    local v = T.ECORCHE.variants[(n - 1) % #T.ECORCHE.variants + 1]
+    out[#out + 1] = { T.ecorche_name(v, era), math.ceil(m * Ra.ECORCHES) }
+  end
   return out
 end
 

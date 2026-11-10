@@ -38,14 +38,21 @@ import fo_post as P  # noqa: E402
 import feuilles_xp as FX  # noqa: E402
 
 LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-FINITIONS")
-SRC_DEFAUT = os.path.join(LOGS, "rendu")
+LOGS2 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_KAIJUS-MUTANTS")
+# plusieurs dossiers de sources (séparés par « ; ») : un titan est pris dans le premier qui a son sous-dossier (KAIJUS-MUTANTS, 10/11)
+SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
 DEST_DEFAUT = os.path.join(MOD, "graphics", "robots", "titans")
 PREFIXE = "__factorio-overhaul__/graphics/robots/titans/"
-COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_TITANS-FINITIONS/rendu, à GARDER)"
+COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
 # alliés à une image (traitement des géants) : stades rendus ; le Léviathan a de plus son drone d'escorte (une image, clé « drone »)
 ALLIES = (("sentinelle", ("1", "2", "3")), ("leviathan", ("1", "2", "3", "drone")))
-# alliés ANIMÉS : (nom, stades, diviseur de densité par couche, feuille la plus large)
-ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),)
+# alliés ANIMÉS : (nom, stades, diviseur de densité par couche, feuille la plus large) ; KAIJUS-MUTANTS : Ravageur (allié) et Écorchés
+# (ennemis : le « stade » est la VARIANTE, rôdeur / porteur / hurleur)
+ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
+          ("ravageur", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
+          ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
+# ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
+ENNEMIS = ("kaiju", "ecorcheur")
 ANIMS = (("course", 8), ("attaque", 4))
 DIRS = 8
 REDUC = 2
@@ -99,10 +106,19 @@ def foulee_de(module):
     return round(float(eval(m.group(1), {"__builtins__": {}})), 4)
 
 
+def dossier(src, sub):
+    """Le sous-dossier `sub` dans le premier des dossiers de sources (séparés par os.pathsep) qui le contient."""
+    for s in src.split(os.pathsep):
+        d = os.path.join(s, sub)
+        if os.path.isdir(d):
+            return d
+    raise SystemExit("MANQUE : " + sub + " dans " + src)
+
+
 def anime(S, src, poids, sub, base, cle, divs, max_px):
     """Feuilles d'un titan animé : npz de <src>/<sub>/<base>-<anim>-<image>-<dir>.npz -> hr-<cle>-<anim>-<couche>-<dir>.png (et sans hr-).
     divs : diviseur de densité par couche (hr = densité du rendu / div). Rend { course, attaque, icone }."""
-    d = os.path.join(src, sub)
+    d = dossier(src, sub)
     out = {}
     icone = None
     for anim, nb in ANIMS:
@@ -201,15 +217,18 @@ def main():
         os.remove(f)
     FX.PREFIXE = PREFIXE
     S = FX.Sortie(a.dest)
-    spr = {"kaiju": {}}
-    poids = {"kaiju": {"haute": 0.0, "normale": 0.0, "images": 0}}
+    spr = {}
+    poids = {}
+    for nom in ENNEMIS:
+        spr[nom] = {}
+        poids[nom] = {"haute": 0.0, "normale": 0.0, "images": 0}
     for nom, stades in ALLIES:
         spr[nom] = {}
         poids[nom] = {"haute": 0.0, "normale": 0.0, "images": 0}
         if a.sans_allies:
             continue
         for st in stades:
-            e = FX.geant(S, a.src, "%s-%s" % (nom, st), "%s-%s" % (nom, st))
+            e = FX.geant(S, dossier(a.src, "%s-%s" % (nom, st)).rsplit(os.sep, 1)[0], "%s-%s" % (nom, st), "%s-%s" % (nom, st))
             spr[nom][st] = e
             for c in [e["main"], e["ombre"]] + e["lueurs"]:
                 poids[nom]["haute"] += c["hr"]["width"] * c["hr"]["height"] / 1e6
@@ -223,8 +242,9 @@ def main():
         for st in stades:
             spr[nom][st] = anime(S, a.src, poids[nom], "%s-anime-%s" % (nom, st), "%s-%s" % (nom, st), "%s-%s" % (nom, st), divs, max_px)
     if not a.sans_kaiju:
-        spr["kaiju"] = {"K": 1.0, "foulee": foulee_de("kaiju"), "reduc": REDUC, "directions": DIRS}
-        spr["kaiju"].update(anime(S, a.src, poids["kaiju"], "kaiju", "kaiju", "kaiju", {"main": 1, "glow": 1, "shadow": 1}, MAX_PX))
+        for nom in ENNEMIS:
+            spr[nom] = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
+            spr[nom].update(anime(S, a.src, poids[nom], nom, nom, nom, {"main": 1, "glow": 1, "shadow": 1}, MAX_PX))
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("-- FICHIER GÉNÉRÉ par tools/render/pieces/titans/feuilles_titans.py (lot TITANS) : ne pas modifier à la main.\n")

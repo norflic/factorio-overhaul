@@ -37,8 +37,9 @@ import fo_scene as S  # noqa: E402
 import geo as G  # noqa: E402
 import titans_mat as TM  # noqa: E402
 
-ALLIES = ("juggernaut", "sentinelle", "leviathan")
-ANIMES = ("kaiju", "juggernaut")   # modules à SERIE (8 directions × images)
+ALLIES = ("juggernaut", "sentinelle", "leviathan", "ravageur")
+ANIMES = ("kaiju", "juggernaut", "ecorcheur", "ecorche", "ravageur")   # modules à SERIE (8 directions × images)
+SANS_STADE = ("kaiju", "ecorcheur")   # ennemis à un prototype par ère : une seule série, l'échelle vient du jeu (lot KAIJUS-MUTANTS)
 
 
 def groupes(prefix):
@@ -258,13 +259,13 @@ def anime(a):
     C.SKY_GLOSSY_FACTOR = TM.SKY_GLOSSY
     blanc = bool(getattr(MOD, "GLOW_BLANC", False))
     nb = se[a.anim]
-    kaiju = a.what == "kaiju"
+    kaiju = a.what in SANS_STADE
     stages = [None] if kaiju else [int(x) for x in a.stages.split(",") if x]
     dirs_all = [int(x) for x in a.dirs.split(",") if x] or list(range(8))
     images = [int(x) for x in a.images.split(",") if x] or list(range(nb))
     for stage in stages:
-        base = "kaiju" if kaiju else "%s-%d" % (a.what, stage)
-        d = os.path.join(a.out, "kaiju" if kaiju else "%s-anime-%d" % (a.what, stage))
+        base = a.what if kaiju else "%s-%d" % (a.what, stage)
+        d = os.path.join(a.out, a.what if kaiju else "%s-anime-%d" % (a.what, stage))
         os.makedirs(d, exist_ok=True)
         for i in images:
             nom_de = lambda k: os.path.join(d, "%s-%s-%02d-%02d.npz" % (base, a.anim, i, k))
@@ -302,7 +303,7 @@ def anime(a):
             S.setup_world(scene)
             sun = S.add_sun(scene)
             S.add_fill(scene)
-            ground = S.add_ground(scene, size=120.0 if kaiju else 400.0)
+            ground = S.add_ground(scene, size=float(se.get("sol", 120.0 if kaiju else 400.0)))
             world = scene.world
             rd = scene.render
             _rt = S.render_to
@@ -319,7 +320,9 @@ def anime(a):
                 finally:
                     sc.cycles.samples, sc.cycles.use_denoising = avant, den
             S.render_to = rt
-            tmp = os.path.join(d, "_tmp-%s-%02d" % (a.anim, i))
+            # dossier de travail PROPRE au processus (KAIJUS-MUTANTS : deux places de rendu sur la même série se partageaient « _tmp-<anim>-<image> »
+            # et l'une effaçait la passe ao de l'autre : vue ravageur-2-attaque-00-05 à ao vide)
+            tmp = os.path.join(d, "_tmp-%s-%02d-%d" % (a.anim, i, os.getpid()))
             os.makedirs(tmp, exist_ok=True)
             fn_lueur = (lambda mat: _lueur_de(mat, blanc) if (mat is not None and mat.get("fo_kind") == "emissive") else S._black_mat())
             m = int(round(0.8 * D))     # marge de la fenêtre du corps : liseré de contact (AO) et débordement de la lueur
@@ -369,7 +372,7 @@ def anime(a):
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
-    ap.add_argument("--what", required=True, choices=ALLIES + ("kaiju",))
+    ap.add_argument("--what", required=True, choices=tuple(sorted(set(ALLIES + ANIMES))))
     ap.add_argument("--out", required=True)
     ap.add_argument("--stages", default="1,2,3")
     ap.add_argument("--anim", default="course")
@@ -384,7 +387,7 @@ def main():
     ap.add_argument("--anime", action="store_true", help="série à 8 directions d'un allié animé (Juggernaut) ; le Kaiju l'est toujours")
     a = ap.parse_args(argv)
     a.out = os.path.abspath(a.out)
-    if a.what == "kaiju" or (a.anime and a.what in ANIMES):
+    if a.what in SANS_STADE or (a.anime and a.what in ANIMES):
         anime(a)
     else:
         allie(a)

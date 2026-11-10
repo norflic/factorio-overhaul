@@ -99,11 +99,21 @@ check(m + cr == Ra.ESCORTE.max, "§3 mille tourelles : escorte plafonnée")
 m, cr = Ra.escorte(20)
 check(m + cr == 30 and cr == 9, "§3 vingt tourelles : 30 assaillants dont 30 % de cracheurs")
 local compo = Ra.composition(10, 20)
-check(#compo == 3 and compo[2][1] == E.unit_name("biter", Ra.palier_escorte(T.era(10))) and compo[3][1] == E.unit_name("spitter", Ra.palier_escorte(T.era(10))),
+check(compo[2][1] == E.unit_name("biter", Ra.palier_escorte(T.era(10))) and compo[3][1] == E.unit_name("spitter", Ra.palier_escorte(T.era(10))),
   "§3 mordeurs puis cracheurs du palier d'escorte (noms par E.unit_name)")
-check(Ra.total(compo) == Ra.kaijus(T.era(10)) + 30, "§3 total = Kaijus + escorte")
+-- KAIJUS-MUTANTS : dès l'ère des Écorchés, une part Ra.ECORCHES des mordeurs est doublée d'Écorchés (variante tournante, nom par T.ecorche_name)
+local ec = T.era(10) >= T.ECORCHE.era_min
+check((#compo == 4) == ec and (not ec or (compo[4][1] == T.ecorche_name(T.ECORCHE.variants[1], T.era(10)) and compo[4][2] == math.ceil(21 * Ra.ECORCHES))),
+  "§3 Écorchés en queue de composition dès leur ère (part des mordeurs)")
+check(Ra.total(compo) == Ra.kaijus(T.era(10)) + 30 + (ec and math.ceil(21 * Ra.ECORCHES) or 0), "§3 total = Kaijus + escorte + Écorchés")
+check(#Ra.composition(1, 20) == 3, "§3 ère 1 : aucun Écorché (ère non ouverte)")
 local a1, a2 = Ra.composition(10, 20), Ra.composition(10, 20)
 check(a1[1][1] == a2[1][1] and a1[2][2] == a2[2][2] and a1[3][2] == a2[3][2], "§3 déterminisme de la composition")
+-- rotation des archétypes de Kaiju par le numéro de l'assaut (T.kaiju_pour) : 1er assaut cristallin, 2e Écorcheur dès son ère, puis retour
+check(Ra.composition(10, 20, 1)[1][1] == T.kaiju_name(T.era(10), T.KAIJUS[1]) and Ra.composition(10, 20, 2)[1][1] == T.kaiju_name(T.era(10), T.kaiju_pour(T.era(10), 2))
+  and Ra.composition(10, 20, 3)[1][1] == Ra.composition(10, 20, 1)[1][1], "§3 rotation des archétypes de Kaiju par le numéro de l'assaut")
+check(Ra.composition(1, 20, 2)[1][1] == T.kaiju_name(1, T.KAIJUS[1]), "§3 ère 1 : seul le cristallin est ouvert, quel que soit le numéro")
+check(Ra.composition(10, 20, 2)[4][1] == T.ecorche_name(T.ECORCHE.variants[2], T.era(10)), "§3 la variante d'Écorché tourne avec le numéro de l'assaut")
 -- données changées : la règle suit la configuration (plus d'époques par ère)
 do
   local ERA_SAVE, EPOCHS_SAVE = L.ERA_EPOCHS, L.EPOCHS
@@ -276,8 +286,12 @@ mutant("cible : égalité non déterministe (ordre d'entrée)", "or %(%(b%.defen
   function(M) return M.cible(bases, {}).id == M.cible({ bases[3], bases[1], bases[2] }, {}).id end)
 mutant("composition : escorte fixe (défenses ignorées)", "local n = math%.ceil%(%(num%(defenses%) or 0%) %* Ra%.ESCORTE%.par_tourelle%)", "local n = Ra.ESCORTE.min",
   function(M) local a, b = M.escorte(20); return a + b == 30 end)
-mutant("composition : Kaiju d'une ère fixe", "local out = { { T%.kaiju_name%(era%), Ra%.kaijus%(era%) } }", "local out = { { T.kaiju_name(1), Ra.kaijus(era) } }",
+mutant("composition : Kaiju d'une ère fixe", "local out = { { T%.kaiju_name%(era, T%.kaiju_pour%(era, n%)%), Ra%.kaijus%(era%) } }", "local out = { { T.kaiju_name(1, T.kaiju_pour(era, n)), Ra.kaijus(era) } }",
   function(M) return M.composition(L.EPOCHS, 1)[1][1] == T.kaiju_name(T.era(L.EPOCHS)) end)
+mutant("composition : rotation des archétypes ignorée", "T%.kaiju_pour%(era, n%)", "T.kaiju_pour(era, 1)",
+  function(M) return M.composition(10, 20, 2)[1][1] == T.kaiju_name(T.era(10), T.kaiju_pour(T.era(10), 2)) end)
+mutant("composition : Écorchés sans condition d'ère", "if era >= T%.ECORCHE%.era_min and m > 0 then", "if m > 0 then",
+  function(M) return #M.composition(1, 20) == 3 end)
 mutant("phases : repli ignoré (Kaiju mort)", "if kaijus == 0 then return \"repli\", nil end", "",
   function(M) local st = { phase = "marche", t0 = 0, t_phase = 0 }; return M.suivante(st, { tick = 10, vivants = 4, kaijus_vivants = 0 }) == "repli" end)
 mutant("phases : base jamais tombée", "if %(num%(obs%.defenses%) or 0%) == 0 then return \"fin\", \"tombee\" end", "",

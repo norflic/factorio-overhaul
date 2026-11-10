@@ -312,6 +312,17 @@ for _, pack in ipairs(packs) do
               end
             end
           end
+          if r.mitraille and pack.projectile then
+            -- KAIJUS-MUTANTS : la mitraille du Ravageur prend la lumière et la traînée de son pack (couleur r.lueur), comme les drones
+            local fumee = trainee(pack, pack.projectile.trainee)
+            for palier = 1, T.PALIERS do
+              local p = data.raw.projectile[T.PREFIX .. "mitraille-" .. palier]
+              if p then
+                p.light = lumiere(pack.projectile.lumiere)
+                p.smoke = { table.deepcopy(fumee) }
+              end
+            end
+          end
         end
       end
     end

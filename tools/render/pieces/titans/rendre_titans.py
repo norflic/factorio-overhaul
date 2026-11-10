@@ -54,7 +54,7 @@ def lancer(args, out, wait):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("what", choices=("juggernaut", "sentinelle", "leviathan", "kaiju"))
+    ap.add_argument("what", choices=("juggernaut", "sentinelle", "leviathan", "kaiju", "ecorcheur", "ecorche", "ravageur"))
     ap.add_argument("--stages", default="1,2,3")
     ap.add_argument("--anim", default="course")
     ap.add_argument("--images", default="")
@@ -68,7 +68,8 @@ def main():
     ap.add_argument("--anime", action="store_true", help="allié animé : 8 directions × images (Juggernaut)")
     a = ap.parse_args()
     t0 = time.time()
-    if a.anime and a.what != "kaiju":
+    SANS_STADE = ("kaiju", "ecorcheur")   # lot KAIJUS-MUTANTS : une série par ennemi
+    if a.anime and a.what not in SANS_STADE:
         args = ["--what", a.what, "--anime", "--stages", a.stages, "--anim", a.anim, "--images", a.images, "--dirs", a.dirs, "--out", a.out,
                 "--samples", str(a.samples or 32)]
         if a.glb:
@@ -76,7 +77,7 @@ def main():
         rc = lancer(args, a.out, a.wait)
         if rc:
             sys.exit(rc)
-    elif a.what != "kaiju":
+    elif a.what not in SANS_STADE:
         if not a.post_only:
             args = ["--what", a.what, "--stages", a.stages, "--out", a.out, "--samples", str(a.samples or 48), "--px", str(a.px)]
             if a.glb:
@@ -89,7 +90,7 @@ def main():
             s = XR.post("%s-%s" % (a.what, st), a.out, a.out, None)
             print("[FO-POST] %s-%s %s" % (a.what, st, sorted(s["layers"])), flush=True)
     else:
-        args = ["--what", "kaiju", "--anim", a.anim, "--images", a.images, "--dirs", a.dirs, "--out", a.out, "--samples", str(a.samples or 32)]
+        args = ["--what", a.what, "--anim", a.anim, "--images", a.images, "--dirs", a.dirs, "--out", a.out, "--samples", str(a.samples or 32)]
         if a.glb:
             args.append("--glb")
         rc = lancer(args, a.out, a.wait)

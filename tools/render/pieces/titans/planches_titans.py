@@ -33,6 +33,14 @@ package.path = os.getenv("FO_MOD") .. "/?.lua;" .. package.path
 local T = require("shared.robots.titans")
 t.__eres = {}
 for e = 1, T.ERAS do local k = T.kaiju(e); t.__eres[e] = { tint = { k.tint.r, k.tint.g, k.tint.b }, glow = k.glow, scale = k.scale } end
+t.__eres_ecorcheur = {}
+for e = T.ECORCHEUR.era_min, T.ERAS do local k = T.kaiju(e, T.ECORCHEUR); t.__eres_ecorcheur[e] = { tint = { k.tint.r, k.tint.g, k.tint.b }, glow = k.glow, scale = k.scale } end
+t.__ecorches = {}
+for i, v in ipairs(T.ECORCHE.variants) do
+  local l = { id = v.id, eres = {} }
+  for e = T.ECORCHE.era_min, T.ERAS do local m = T.ecorche(v, e); l.eres[e] = { tint = { m.tint.r, m.tint.g, m.tint.b }, glow = m.glow, scale = m.scale } end
+  t.__ecorches[i] = l
+end
 t.__drones = {}
 for st = 1, T.STAGES do
   local n = 0
@@ -148,6 +156,7 @@ def allie_anime_fin(spr, dest, nom, jour, nuit, f2):
 
 ALLIES = {
     "juggernaut": ("JUGGERNAUT, titan allié bipède ANIMÉ (âges 10 à 15)", 34, 150),
+    "ravageur": ("RAVAGEUR, méga-robot d'assaut allié ANIMÉ (âges 13 à 15)", 30, 140),
     "sentinelle": ("SENTINELLE, titan allié hexapode flottant (âges 11 à 15)", 38, 162),
     "leviathan": ("LÉVIATHAN, titan allié serpentin flottant (âges 12 à 15)", 44, 180),
 }
@@ -294,18 +303,26 @@ def compose(cell, K, ppt, tint, glow_a, fond_val=0.42, scale=1.0):
     return np.clip(img, 0, 1)
 
 
-def kaiju(spr, dest):
+ENNEMIS = {
+    "kaiju": ("KAIJU CRISTALLIN, titan ennemi", "__eres", "kaiju"),
+    "ecorcheur": ("ÉCORCHEUR, second titan ennemi (bras-canon, ponte des Écorchés dès l'ère III)", "__eres_ecorcheur", "ecorcheur"),
+}
+
+
+def kaiju(spr, dest, nom="kaiju"):
+    titre, cle_eres, fichier = ENNEMIS[nom]
     f = SC.police(26)
     f2 = SC.police(17)
-    # 1. les 5 ères (direction sud-est, image 0 de la course), échelle de l'ère, lueur teintée ; béhémoth à côté
-    cells, K = images_de(spr["kaiju"]["course"], 3)
+    # 1. les ères ouvertes (direction sud-est, image 0 de la course), échelle de l'ère, lueur teintée ; béhémoth à côté
+    cells, K = images_de(spr[nom]["course"], 3)
     rang = []
-    eres = spr["__eres"]
-    for era in range(len(eres)):
-        e = eres[era]
+    eres = spr[cle_eres]
+    cles = sorted(int(k) for k in eres) if isinstance(eres, dict) else list(range(1, len(eres) + 1))
+    for era in cles:
+        e = eres[str(era)] if isinstance(eres, dict) else eres[era - 1]
         a = compose(cells[0], K, 32, tuple(e["tint"]), e["glow"], scale=e["scale"])
         im = SC.to_im(a)
-        ImageDraw.Draw(im).text((8, 8), "ère %d : lueur %.2f, échelle %.2f" % (era + 1, e["glow"], e["scale"]), fill=(170, 240, 255), font=f2)
+        ImageDraw.Draw(im).text((8, 8), "ère %d : lueur %.2f, échelle %.2f" % (era, e["glow"], e["scale"]), fill=(170, 240, 255), font=f2)
         rang.append(im)
     beh = SC.behemoth(32)
     sc = SC.Scene(8, 8, 32, seed=5)
@@ -315,7 +332,7 @@ def kaiju(spr, dest):
     W1 = sum(i.width for i in rang) + 10 * (len(rang) - 1)
     H1 = max(i.height for i in rang)
     ligne1 = Image.new("RGB", (W1, H1 + 44), (20, 20, 24))
-    ImageDraw.Draw(ligne1).text((12, 8), "KAIJU CRISTALLIN, titan ennemi · zoom 1 du jeu (32 px/tuile) · une ère par âge de la partie (lueur = couleur de l'ère)", fill=(255, 225, 150), font=f)
+    ImageDraw.Draw(ligne1).text((12, 8), titre + " · zoom 1 du jeu (32 px/tuile) · une ère par âge de la partie (lueur = couleur de l'ère)", fill=(255, 225, 150), font=f)
     x = 0
     for i in rang:
         ligne1.paste(i, (x, 44 + H1 - i.height))
@@ -323,7 +340,7 @@ def kaiju(spr, dest):
     # 2. bande de course (direction est = 2) et bande d'attaque (direction sud = 4), 24 px/tuile pour tenir en largeur
     bandes = []
     for anim, direction, titre in (("course", 2, "run_animation : 8 images, direction est"), ("attaque", 4, "attaque : 4 images, direction sud")):
-        cells, K = images_de(spr["kaiju"][anim], direction)
+        cells, K = images_de(spr[nom][anim], direction)
         ims = [SC.to_im(compose(c, K, 20, (0.1, 0.92, 1.0), 0.6, fond_val=0.38)) for c in cells]
         W = sum(i.width for i in ims) + 6 * (len(ims) - 1)
         H = max(i.height for i in ims)
@@ -342,9 +359,62 @@ def kaiju(spr, dest):
     for b in bandes:
         out.paste(b, (0, y + 8))
         y += b.height + 8
-    p = os.path.join(dest, "planche-kaiju.png")
+    p = os.path.join(dest, "planche-%s.png" % fichier)
     out.save(p, optimize=True)
-    telephone(out, os.path.join(dest, "planche-kaiju-telephone.png"))
+    telephone(out, os.path.join(dest, "planche-%s-telephone.png" % fichier))
+    return p, out.size
+
+
+def mutants(spr, dest):
+    """Planche des Écorchés : une ligne par variante (rôdeur, porteur, hurleur) : les ères ouvertes à l'échelle du jeu (zoom 2 : 64 px/tuile,
+    ils sont petits) avec la lueur de l'ère, puis la bande de course (direction est) de la première variante."""
+    f = SC.police(26)
+    f2 = SC.police(17)
+    lignes = []
+    for i, v in enumerate(spr["__ecorches"]):
+        cells, K = images_de(spr["ecorche"][str(i + 1)]["course"], 3)
+        rang = []
+        for era in sorted(int(k) for k in v["eres"]):
+            e = v["eres"][str(era)]
+            im = SC.to_im(compose(cells[0], K, 64, tuple(e["tint"]), e["glow"], scale=e["scale"]))
+            ImageDraw.Draw(im).text((6, 6), "ère %d" % era, fill=(170, 240, 255), font=f2)
+            rang.append(im)
+        beh = SC.behemoth(64)
+        sc = SC.Scene(6, 6, 64, seed=5)
+        bim = SC.to_im(sc.rendu([{"pos": (3, 4.5), "layers": beh}]))
+        ImageDraw.Draw(bim).text((6, 6), "behemoth", fill=(245, 245, 245), font=f2)
+        rang.append(bim)
+        W = sum(x.width for x in rang) + 8 * (len(rang) - 1)
+        H = max(x.height for x in rang)
+        l = Image.new("RGB", (W, H + 36), (20, 20, 24))
+        ImageDraw.Draw(l).text((10, 6), "Écorché %s (zoom 2 du jeu, 64 px/tuile)" % v["id"], fill=(255, 225, 150), font=f2)
+        x = 0
+        for im in rang:
+            l.paste(im, (x, 36 + H - im.height))
+            x += im.width + 8
+        lignes.append(l)
+    cells, K = images_de(spr["ecorche"]["1"]["course"], 2)
+    ims = [SC.to_im(compose(c, K, 48, (0.1, 0.92, 1.0), 0.6, fond_val=0.38)) for c in cells]
+    W = sum(i.width for i in ims) + 6 * (len(ims) - 1)
+    H = max(i.height for i in ims)
+    b = Image.new("RGB", (W, H + 30), (20, 20, 24))
+    ImageDraw.Draw(b).text((8, 4), "run_animation du rôdeur : 8 images, direction est (48 px/tuile)", fill=(255, 225, 150), font=f2)
+    x = 0
+    for i in ims:
+        b.paste(i, (x, 30))
+        x += i.width + 6
+    lignes.append(b)
+    Wt = max(l.width for l in lignes)
+    Ht = 44 + sum(l.height + 8 for l in lignes)
+    out = Image.new("RGB", (Wt, Ht), (20, 20, 24))
+    ImageDraw.Draw(out).text((12, 8), "ÉCORCHÉS, mordeurs mutants pondus par l'Écorcheur · trois variantes · une ère par âge (lueur = couleur de l'ère)", fill=(255, 225, 150), font=f)
+    y = 44
+    for l in lignes:
+        out.paste(l, (0, y))
+        y += l.height + 8
+    p = os.path.join(dest, "planche-mutants.png")
+    out.save(p, optimize=True)
+    telephone(out, os.path.join(dest, "planche-mutants-telephone.png"))
     return p, out.size
 
 
@@ -353,7 +423,8 @@ def main():
     ap.add_argument("--dest", default=LOGS)
     ap.add_argument("--sans-kaiju", action="store_true")
     ap.add_argument("--sans-allies", action="store_true")
-    ap.add_argument("--allies", default="juggernaut,sentinelle,leviathan")
+    ap.add_argument("--allies", default="juggernaut,sentinelle,leviathan,ravageur")
+    ap.add_argument("--ennemis", default="kaiju,ecorcheur,mutants")
     a = ap.parse_args()
     os.makedirs(a.dest, exist_ok=True)
     spr = lua_table(os.path.join(SPRITES, "sprites.lua"))
@@ -361,7 +432,8 @@ def main():
         for nom in [x for x in a.allies.split(",") if x]:
             print(*allie(spr, a.dest, nom), flush=True)
     if not a.sans_kaiju:
-        print(*kaiju(spr, a.dest), flush=True)
+        for nom in [x for x in a.ennemis.split(",") if x]:
+            print(*(mutants(spr, a.dest) if nom == "mutants" else kaiju(spr, a.dest, nom)), flush=True)
 
 
 if __name__ == "__main__":

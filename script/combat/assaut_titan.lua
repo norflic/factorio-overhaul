@@ -202,7 +202,7 @@ local function demarrer(surface, cible, tick, preavis)
   st.last = tick
   st.recent[#st.recent + 1] = cible.id
   local age = cible.age
-  local compo = Ra.composition(age, cible.defenses)
+  local compo = Ra.composition(age, cible.defenses, st.n)
   local cur = { n = st.n, cible = { id = cible.id, key = cible.key, pos = cible.pos, force_name = cible.force.name }, compo = compo, pending = {},
     phase = "annonce", t0 = tick, t_phase = tick, preavis = preavis, points = {}, groups = {}, units = {}, kaijus = {}, spawned = 0, tags = {},
     next_relance = tick }
