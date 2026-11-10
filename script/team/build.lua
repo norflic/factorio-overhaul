@@ -3735,12 +3735,21 @@ end
 --- Mesuré le 29/10 (essai court 20261020, journal [FO-IA1D]) : la chaudière détruite d'une centrale n'était jamais reposée, son
 --- fantôme refusé « occupe » 11 min de suite, l'emprise ne portant plus que deux item-on-ground neutres au bord (les bras à combustion
 --- de la centrale y lâchent leur charbon, la cible ayant disparu) ; un cadavre seul ne bloque pas (expérience reseau-restes).
+--- Lot CC-DORMANT (F496) : les DÉBRIS SOLIDES neutres de l'épave de départ (types de prototype ci-dessous, force neutre, minables) posés
+--- DANS l'emprise sont retirés aussi. Mesuré (partie du DC, 0.6.88, graine 1732508881) : un débris de l'épave sur la tuile d'un poteau
+--- faisait refuser son fantôme « occupe » 14 fois (ni arbre ni rocher, donc jamais défriché) ; la bande -33 du gisement 100002 restait
+--- bloquée de 21 à 60 min, gardait le créneau du fer, et la bande de l'avant-poste 1 payée par 27 foreuses électriques dormantes ne
+--- partait pas (55 foreuses au coffre, 105 à 189 PNJ sans tâche). Les bancs ne posent pas l'épave : jamais vu avant le DC (cf. F490).
+Build.DEBRIS_TYPES = { "simple-entity-with-owner", "container" }
 local function clear_floor(surface, e)
   local a = footprint(e)
   local n = 0
   for _, d in ipairs(surface.find_entities_filtered({ area = { { a[1][1] - 0.6, a[1][2] - 0.6 }, { a[2][1] + 0.6, a[2][2] + 0.6 } },
     type = { "corpse", "item-entity" }, force = "neutral" })) do
     if d.valid then d.destroy() n = n + 1 end
+  end
+  for _, d in ipairs(surface.find_entities_filtered({ area = a, type = Build.DEBRIS_TYPES, force = "neutral" })) do
+    if d.valid and d.minable then d.destroy() n = n + 1 end
   end
   return n
 end
