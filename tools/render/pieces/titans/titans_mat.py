@@ -35,9 +35,10 @@ CREUX = (0.038, 0.042, 0.058)        # joints, mécanique interne, articulations
 ARETE = (0.78, 0.82, 0.90)           # métal nu des arêtes : vif, presque blanc
 CYAN = (0.098, 0.902, 1.000)         # #19E6FF : conduits
 TURQUOISE = (0.12, 0.86, 0.82)
-COEUR = (0.38, 0.96, 1.00)           # vortex : cyan vif (le centre blanchit par la croûte, pas par la force)
+COEUR = (0.14, 0.86, 1.00)           # vortex : cyan vif ; rouge bas : à force 3 la couche additive (RGB coupé à 1) reste CYAN, pas blanche
+SINGULARITE = (0.06, 0.72, 1.00)     # singularité de la Sentinelle (FINITIONS 10/11) : cyan profond, jamais blanc de jour
 CRISTAL = (0.16, 0.46, 1.00)         # émission des cristaux (bleu glacier saturé : la lueur additive ne doit pas blanchir)
-GLACE = (0.40, 0.60, 0.90)           # corps des cristaux (bleu glacier)
+GLACE = (0.26, 0.50, 0.88)           # corps des cristaux (bleu glacier profond : la lueur pâle des hautes ères ne le blanchit pas, FINITIONS)
 MAGENTA = (0.95, 0.22, 0.70)
 CHAIR = (0.40, 0.14, 0.25)           # chair du Kaiju biomécanique
 PEAU = (0.25, 0.15, 0.21)            # peau mauve du Kaiju, entre les plaques
@@ -144,21 +145,110 @@ def rim(m, strength, creux=0.35, blend=0.5):
     return m
 
 
+def facettes(m, cellules=2.6, stries=6.0, bosse=0.35, graine=0.0):
+    """Facettes et stries d'un cristal (FINITIONS 10/11) : Voronoi (cellules = facettes, relief `bosse`) et bandes ondulées le long de
+    l'axe z de l'objet (stries de croissance, relief faible) ; la couleur de base s'éclaircit sur les crêtes des stries (bleu glacier clair),
+    pour que le cristal reste lisible à 32 px/tuile (des faces, pas un aplat)."""
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    p = N["Principled BSDF"]
+    tc = N.new("ShaderNodeTexCoord")
+    vo = N.new("ShaderNodeTexVoronoi")
+    vo.feature = "F1"
+    vo.inputs["Scale"].default_value = cellules
+    if "W" in vo.inputs:
+        vo.voronoi_dimensions = "4D"
+        vo.inputs["W"].default_value = graine
+    L.new(tc.outputs["Object"], vo.inputs["Vector"])
+    wv = N.new("ShaderNodeTexWave")
+    wv.wave_type = "BANDS"
+    wv.bands_direction = "Z"
+    wv.inputs["Scale"].default_value = stries
+    wv.inputs["Distortion"].default_value = 1.2
+    wv.inputs["Detail"].default_value = 2.0
+    L.new(tc.outputs["Object"], wv.inputs["Vector"])
+    b1 = N.new("ShaderNodeBump")
+    b1.inputs["Strength"].default_value = bosse * 0.3
+    b1.inputs["Distance"].default_value = 0.05
+    L.new(wv.outputs["Fac"], b1.inputs["Height"])
+    b2 = N.new("ShaderNodeBump")
+    b2.inputs["Strength"].default_value = bosse
+    b2.inputs["Distance"].default_value = 0.2
+    L.new(vo.outputs["Distance"], b2.inputs["Height"])
+    L.new(b1.outputs["Normal"], b2.inputs["Normal"])
+    L.new(b2.outputs["Normal"], p.inputs["Normal"])
+    # couleur : base sur les creux des stries, bleu glacier clair sur leurs crêtes (45 % au plus)
+    base = tuple(p.inputs["Base Color"].default_value)[:3]
+    clair = tuple(min(1.0, c * 0.55 + 0.45) for c in base)
+    k = N.new("ShaderNodeMath")
+    k.operation = "MULTIPLY"
+    k.inputs[1].default_value = 0.45
+    L.new(wv.outputs["Fac"], k.inputs[0])
+    mix = N.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = "MIX"
+    mix.inputs[6].default_value = (base[0], base[1], base[2], 1.0)
+    mix.inputs[7].default_value = (clair[0], clair[1], clair[2], 1.0)
+    L.new(k.outputs[0], mix.inputs["Factor"])
+    L.new(mix.outputs[2], p.inputs["Base Color"])
+    return m
+
+
 def cristal(S, name):
-    """Cristal bleu glacier translucide : corps GLACE, transmission partielle (le sol se devine au travers), vernis, bord lumineux
-    CRISTAL (rim), croûte fine pour casser l'aplat ; éteint à 45 % de jour."""
-    m = S.mat_emissive(name, CRISTAL, strength=0.9, base=GLACE, main_scale=0.4, crust=(2.4, 0.3, 5))
+    """Cristal bleu glacier TRANSLUCIDE (FINITIONS 10/11, le DC : « translucides et texturés ») : corps GLACE, transmission 0,55 (le sol et les
+    pièces se devinent au travers), IOR du verre, vernis, facettes et stries (facettes()), bord lumineux CRISTAL (rim) ; 45 % de jour.
+    `fo_glow_part` : part gardée dans la passe de LUEUR (0,3) : à l'ère V du Kaiju la lueur, teintée par la couleur pâle de l'ère et presque
+    opaque (alpha 0,91), blanchissait les cristaux ; le corps translucide porte désormais la couleur, la lueur n'est qu'un liseré."""
+    m = S.mat_emissive(name, CRISTAL, strength=0.9, base=GLACE, main_scale=0.45, crust=(2.4, 0.3, 5))
     p = m.node_tree.nodes["Principled BSDF"]
-    p.inputs["Roughness"].default_value = 0.10
+    p.inputs["Roughness"].default_value = 0.06
     p.inputs["Metallic"].default_value = 0.0
     if "Transmission Weight" in p.inputs:
-        p.inputs["Transmission Weight"].default_value = 0.30
+        p.inputs["Transmission Weight"].default_value = 0.55
     if "IOR" in p.inputs:
-        p.inputs["IOR"].default_value = 1.6
+        p.inputs["IOR"].default_value = 1.45
     if "Coat Weight" in p.inputs:
         p.inputs["Coat Weight"].default_value = 1.0
         p.inputs["Coat Roughness"].default_value = 0.03
+    facettes(m, cellules=2.6, stries=6.0, bosse=0.35, graine=5.0)
     rim(m, 0.9, creux=0.3, blend=0.55)
+    m["fo_glow_part"] = 0.3
+    return m
+
+
+def singularite(S, name):
+    """Singularité de la Sentinelle (FINITIONS 10/11 : « presque blanche de jour » sur la planche du 10/11). Cyan PROFOND (rouge presque nul :
+    même à force 2,4 la couche additive reste cyan), 30 % de jour seulement ; profil d'ACCRÉTION piloté par l'angle de vue (Facing) : bord à
+    0,55, anneau brillant aux deux tiers, œil sombre au centre (0,2) ; croûte tourbillonnante plus serrée. La lueur de nuit garde toute la force
+    (couche lueur séparée)."""
+    m = S.mat_emissive(name, SINGULARITE, strength=2.4, base=(0.01, 0.10, 0.14), main_scale=0.3, crust=(2.0, 0.5, 7))
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    p = N["Principled BSDF"]
+    old = N.get("fo_emit_strength")
+    old.name = "fo_crust"
+    old.inputs[1].default_value = 1.0
+    ramp = N.new("ShaderNodeValToRGB")
+    cr = ramp.color_ramp
+    cr.elements[0].position = 0.0
+    cr.elements[0].color = (0.55, 0.55, 0.55, 1.0)
+    cr.elements[1].position = 1.0
+    cr.elements[1].color = (0.2, 0.2, 0.2, 1.0)
+    e = cr.elements.new(0.55)
+    e.color = (1.0, 1.0, 1.0, 1.0)
+    e = cr.elements.new(0.8)
+    e.color = (0.6, 0.6, 0.6, 1.0)
+    L.new(_facing(N, L, 0.5), ramp.inputs["Fac"])
+    m2 = N.new("ShaderNodeMath")
+    m2.operation = "MULTIPLY"
+    L.new(old.outputs[0], m2.inputs[0])
+    L.new(ramp.outputs["Color"], m2.inputs[1])
+    k = N.new("ShaderNodeMath")
+    k.operation = "MULTIPLY"
+    k.name = "fo_emit_strength"
+    k.inputs[1].default_value = 2.4
+    L.new(m2.outputs[0], k.inputs[0])
+    L.new(k.outputs[0], p.inputs["Emission Strength"])
     return m
 
 
@@ -182,13 +272,14 @@ def anneau_lum(S, name):
     p = m.node_tree.nodes["Principled BSDF"]
     p.inputs["Roughness"].default_value = 0.2
     rim(m, 1.3, creux=0.5, blend=0.45)
+    m["fo_glow_part"] = 0.7
     return translucide(m, 0.55)
 
 
 def matieres(S, prefix, gris=False):
     """Le jeu de matières d'un titan. `prefix` : « ju_ », « ka_ », « se_ », « le_ » (les groupes de lueur de batch_titans lisent les noms).
     Clés : blind, blind2 (argent iridescent), struct (creux sombres), canon (acier clair), anneau (tore cyan translucide), os (griffes,
-    acier pâle), peau, chair (Kaiju), conduit, turq, coeur, halo, cristal, accent (magenta)."""
+    acier pâle), peau, chair (Kaiju), conduit, turq, coeur, halo, cristal, accent (magenta), singularite (vortex de la Sentinelle, FINITIONS)."""
     def surf(name, col, **kw):
         if gris:
             return MT.surface(prefix + "g_" + name, (0.2, 0.2, 0.2), rough=0.6, met=0.1, usure=0.3, crasse=0.6, graine=kw.get("graine", 0))
@@ -224,6 +315,7 @@ def matieres(S, prefix, gris=False):
     M["conduit"] = S.mat_emissive(prefix + "conduit", CYAN, strength=2.6, base=(0.02, 0.30, 0.36), main_scale=0.45)
     M["turq"] = S.mat_emissive(prefix + "conduit_turq", TURQUOISE, strength=2.0, base=(0.02, 0.26, 0.26), main_scale=0.4)
     M["coeur"] = coeur(S, prefix + "coeur")
+    M["singularite"] = singularite(S, prefix + "singularite")
     M["halo"] = halo(S, prefix + "halo")
     M["cristal"] = cristal(S, prefix + "cristal")
     M["anneau"] = anneau_lum(S, prefix + "anneau")

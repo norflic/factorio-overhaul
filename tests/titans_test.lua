@@ -101,6 +101,26 @@ check(T.allie(T.LEVIATHAN, T.AGE_MIN).armes.drones and not T.allie(T.LEVIATHAN, 
 check(T.drones(1) == 2 and T.drones(3) == 2 and T.drones(4) == 3 and T.drones(T.PALIERS) == 3, "§1 Léviathan : 2 drones, 3 dès le palier 4")
 check(T.allie(T.LEVIATHAN, T.AGE_MIN).n_drones == 2 and T.allie(T.LEVIATHAN, T.AGE_MAX).n_drones == 3 and T.juggernaut(T.AGE_MIN).n_drones == nil, "§1 drones : seul le Léviathan en a")
 check(T.JUGGERNAUT.age < T.SENTINELLE.age and T.SENTINELLE.age < T.LEVIATHAN.age and T.LEVIATHAN.age <= T.AGE_MAX, "§1 âges des trois alliés croissants")
+-- FINITIONS (10/11) : Juggernaut animé (8 directions × images), règles pures de l'animation
+local JU = read("tools/render/pieces/titans/juggernaut.py")
+local function py_num(expr)
+  local f = load("return " .. expr:gsub("%s+$", ""), "=py", "t", {})
+  return f and f()
+end
+local SERIE = {}
+for k, v in JU:match("\nSERIE = {(.-)}"):gmatch('"(%a+)":%s*([%d%.]+)') do SERIE[k] = tonumber(v) end
+local FOULEE = py_num(JU:match("\nFOULEE = ([^#\n]+)"))
+check(type(T.JUGGERNAUT.anime) == "table" and T.JUGGERNAUT.anime.images.course == SERIE.course and T.JUGGERNAUT.anime.images.attaque == SERIE.attaque,
+  "§1 Juggernaut animé : images de course et d'attaque = SERIE du modèle (juggernaut.py)")
+check(FOULEE and math.abs(T.JUGGERNAUT.anime.foulee - FOULEE) < 1e-6, "§1 Juggernaut animé : foulée de la règle = FOULEE du modèle (" .. tostring(FOULEE) .. ")")
+check(T.JUGGERNAUT.anime.attaque_ticks > 0 and T.JUGGERNAUT.anime.attaque_ticks % 1 == 0, "§1 Juggernaut animé : durée de salve entière, positive")
+check(T.SENTINELLE.anime == nil and T.LEVIATHAN.anime == nil, "§1 seuls les archétypes à feuilles animées portent `anime`")
+check(T.direction8(0) == 0 and T.direction8(0.25) == 2 and T.direction8(0.5) == 4 and T.direction8(0.75) == 6, "§1 direction8 : nord, est, sud, ouest")
+check(T.direction8(0.07) == 1 and T.direction8(0.06) == 0 and T.direction8(0.99) == 0 and T.direction8(0.93) == 7 and T.direction8(nil) == 0, "§1 direction8 : secteur le plus proche, 1 revient à 0")
+check(T.vitesse_anim(0, 6.9, 8) == 0 and T.vitesse_anim(nil, 6.9, 8) == 0 and T.vitesse_anim(0.12, 0, 8) == 0, "§1 vitesse_anim : 0 à l'arrêt ou sans foulée")
+check(math.abs(T.vitesse_anim(0.12, 6.9, 8) - 0.12 * 8 / 6.9) < 1e-12 and T.vitesse_anim(-0.12, 6.9, 8) == T.vitesse_anim(0.12, 6.9, 8), "§1 vitesse_anim : vitesse × images / foulée, marche arrière comprise")
+check(T.anim_name(T.JUGGERNAUT, 2, "course", 3, "corps") == "fo-titan-juggernaut-2-course-3-corps", "§1 anim_name : préfixe, archétype, stade, animation, direction, couche")
+check(#T.COUCHES_ANIM == 3 and T.COUCHES_ANIM[1][1] == "ombre" and T.COUCHES_ANIM[2][1] == "corps" and T.COUCHES_ANIM[3][1] == "lueur", "§1 trois couches animées, l'ombre dessous")
 -- Kaiju
 prev = nil
 for e = 1, T.ERAS do
@@ -172,10 +192,29 @@ if okspr then
     local cles = {}
     for st = 1, T.STAGES do cles[#cles + 1] = tostring(st) end
     if r.drones then cles[#cles + 1] = "drone" end
+    local A = SPR[r.id]
+    check((A and A.anime == true) == (r.anime ~= nil), "§3 " .. r.id .. " : feuilles animées si et seulement si la règle dit `anime`")
     for _, st in ipairs(cles) do
-      local e = SPR[r.id] and SPR[r.id][st]
+      local e = A and A[st]
       check(e ~= nil, "§3 " .. r.id .. " : feuille du stade " .. st)
-      if e then
+      if e and e.course then
+        -- FINITIONS : stade animé (8 directions × images, un fichier par direction et par couche, densité propre à chaque couche)
+        check(A.directions == 8 and e.course.images == r.anime.images.course and e.attaque.images == r.anime.images.attaque and math.abs(A.foulee - r.anime.foulee) < 1e-6,
+          "§3 " .. r.id .. " " .. st .. " : 8 directions, images et foulée = règle")
+        for _, anim in ipairs({ "course", "attaque" }) do
+          local a = e[anim]
+          for _, nomc in ipairs({ "main", "glow", "shadow" }) do
+            local c = a.couches[nomc]
+            check(#c.hr == 8 and #c.lr == 8 and c.ll * c.lpf == a.images and c.dens > 0 and c.dens <= a.densite, "§3 " .. r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " : un fichier par direction, grille exacte, densité")
+            check(c.w * c.ll <= 4096 and c.h * c.lpf <= 4096, "§3 " .. r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " : feuille ≤ 4 096 px")
+            for k = 1, 8 do
+              verifie(r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " " .. k, c.hr[k], c.w * c.ll, c.h * c.lpf)
+              verifie(r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " " .. k, c.lr[k], c.lw * c.ll, c.lh * c.lpf)
+            end
+          end
+        end
+        check(e.icone and e.icone.size == 64, "§3 " .. r.id .. " " .. st .. " : icône")
+      elseif e then
         for _, c in ipairs({ e.main, e.ombre, e.lueurs[1] }) do
           verifie(r.id .. " " .. st, c.hr.filename, c.hr.width, c.hr.height)
           verifie(r.id .. " " .. st, c.lr.filename, c.lr.width, c.lr.height)
@@ -262,6 +301,15 @@ for _, p in ipairs({ "script/robots/titans.lua", "shared/td/waves.lua" }) do
   check(not src:find("%f[%w_]global%f[^%w_]"), "§5 " .. p .. " : global jamais nommé")
 end
 check(read("script/td/director.lua"):find("TD.compose(st.wave, RNG.float, Armee.age(game.forces[DEFENDER]))", 1, true) ~= nil, "§5 le directeur passe l'âge de la partie aux vagues")
+-- FINITIONS : les noms des animations de corps sont bâtis par la SEULE T.anim_name, côté prototypes (déclaration) comme côté script (dessin) ;
+-- le script choisit la direction par T.direction8 et la vitesse par T.vitesse_anim (jamais de trigonométrie, jamais de temps mesuré)
+do
+  local proto, scr = read("prototypes/titans.lua"), read("script/robots/titans.lua")
+  check(proto:find("T.anim_name(", 1, true) ~= nil and proto:find('type = "animation"', 1, true) ~= nil, "§5 prototypes : animations de corps déclarées par T.anim_name")
+  check(scr:find("T.anim_name(", 1, true) ~= nil and scr:find("rendering.draw_animation(", 1, true) ~= nil and scr:find("T.direction8(", 1, true) ~= nil and scr:find("T.vitesse_anim(", 1, true) ~= nil,
+    "§5 script : corps animé par rendering.draw_animation, direction et vitesse par la règle pure")
+  check(not scr:find("math%.atan") and not scr:find("math%.sin") and not scr:find("math%.cos"), "§5 script : aucune trigonométrie")
+end
 -- F-TITANS (banc content V0677) : une RotatedAnimation à `filenames` exige `slice` et `lines_per_file` (prototype-api.json : « Mandatory if
 -- filenames is defined » ; le schéma du harness les voit facultatifs : il ne l'attrape pas). Contrôle textuel sur TOUT prototypes/ : chaque
 -- table qui pose `filenames =` pose aussi `slice =` (ou en hérite : arsenal_special le complète), et la grille d'un fichier du Kaiju est exacte.
@@ -332,6 +380,9 @@ local function refuse(T2)
     assert(T2.drones(T2.PALIERS) > T2.drones(1), "drones qui s'ajoutent")
     assert(not T2.allie(T2.LEVIATHAN, T2.AGE_MIN).armes.canon and T2.allie(T2.LEVIATHAN, T2.AGE_MAX).armes.canon, "canon du Léviathan plus tard")
     assert(T2.allie(T2.SENTINELLE, T2.AGE_MIN).speed < T2.allie(T2.JUGGERNAUT, T2.AGE_MIN).speed, "la Sentinelle plus lente que le Juggernaut")
+    assert(T2.direction8(0.07) == 1 and T2.direction8(0.99) == 0, "direction8 au plus proche")
+    assert(math.abs(T2.vitesse_anim(0.12, 6.9, 8) - 0.12 * 8 / 6.9) < 1e-12, "vitesse d'animation par la foulée")
+    assert(T2.JUGGERNAUT.anime.images.course == SERIE.course and math.abs(T2.JUGGERNAUT.anime.foulee - FOULEE) < 1e-6, "animation = SERIE du modèle")
     local faux = { EPOCHS = 18, ERA_EPOCHS = 2, epochs = {} }
     for i = 1, 18 do faux.epochs[i] = { key = "e" .. i, color = { r = i / 18, g = 0.5, b = 1 - i / 18 } } end
     local T3 = charger(T2.__src, faux)
@@ -353,6 +404,10 @@ local MUTANTS = {
   { "drones figés à 2", "return d.base + (palier >= d.plus_palier and 1 or 0)", "return d.base" },
   { "canon du Léviathan dès le palier 1", '{ id = "canon", palier = 3 }', '{ id = "canon", palier = 1 }' },
   { "Sentinelle aussi rapide que le Juggernaut", 'dtype = "laser", speed = 0.10, effect = "titan", armes = T.ARMES_SENTINELLE', 'dtype = "laser", speed = 0.12, effect = "titan", armes = T.ARMES_SENTINELLE' },
+  { "direction8 sans arrondi au plus proche", "return math.floor(o * 8 + 0.5) % 8", "return math.floor(o * 8) % 8" },
+  { "vitesse d'animation sans la foulée", "return speed * images / foulee", "return speed * images" },
+  { "images de course écrites en dur fausses", "images = { course = 8, attaque = 4 }", "images = { course = 4, attaque = 4 }" },
+  { "foulée écrite en dur fausse", "foulee = 6.9, attaque_ticks = 30", "foulee = 4, attaque_ticks = 30" },
 }
 local T0 = charger(SRC, nil)
 T0.__src = SRC

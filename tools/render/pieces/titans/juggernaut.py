@@ -1,11 +1,17 @@
-"""JUGGERNAUT, titan ALLIÉ (lot TITANS, 9/11) : Jaeger lourd humanoïde, bipède DIGITIGRADE, canon rotatif à focalisation annulaire
-(bras droit, côté caméra), griffes d'énergie (bras gauche), cœur à vortex dans le dos sous un anneau magnétique flottant.
-Environ 36 tuiles de haut à l'écran (les géants font 45 à 50 : un Jaeger ramassé, plus large d'épaules).
+"""JUGGERNAUT, titan ALLIÉ (lot TITANS, 9/11 ; ANIMÉ au lot TITANS-FINITIONS, 10/11) : Jaeger lourd humanoïde, bipède DIGITIGRADE,
+canon rotatif à focalisation annulaire (bras droit), griffes d'énergie (bras gauche), cœur à vortex dans le dos sous un anneau
+magnétique flottant. Environ 36 tuiles de haut à l'écran (les géants font 45 à 50 : un Jaeger ramassé, plus large d'épaules).
 
 Modèle PARAMÉTRIQUE low-poly (le DC : « pas de rendu 8K ») : primitives du kit des géants (geo.py), un objet par matière (Lot).
-`build(S, lot, stage)` : stage 1, 2 ou 3 = paliers d'évolution 1-2, 3-4, 5-6 (shared/robots/titans.lua) : plaques de blindage,
-anneaux et pointes de cristal s'ajoutent, le canon grossit. Repère LOCAL : +x = face, +y = gauche, +z = haut ; PSI : lacet (le titan
-regarde vers le sud-est, son bras droit vers la caméra). UNE image pour toutes les directions (comme les géants).
+`build(S, lot, stage, u=None, attaque=None, dirs=False)` : stage 1, 2 ou 3 = paliers d'évolution 1-2, 3-4, 5-6 (shared/robots/titans.lua) :
+plaques de blindage, anneaux et pointes de cristal s'ajoutent, le canon grossit.
+- u = None et attaque = None : pose de REPOS, UNE image (lacet PSI : il regarde vers le sud-est), comme les géants (feuilles historiques) ;
+- u dans [0, 1[ : cycle de MARCHE (pas digitigrade : le pied recule au sol puis revient en l'air, genou résolu par IK à deux segments,
+  balancement du torse et des bras) ; attaque dans [0, 1[ : SALVE du canon (le bras se lève à l'horizontale, les anneaux de focalisation
+  glissent vers la bouche, le vortex grossit, éclair de bouche, recul) ; dirs = True : repère LOCAL sans lacet (+x = face), le rendu
+  tourne le modèle sur 8 directions (batch_titans.anime, comme le Kaiju).
+Repère LOCAL : +x = face, +y = gauche, +z = haut. FOULEE (tuiles par cycle) est lue par feuilles_titans et recopiée dans
+shared/robots/titans.lua (T.JUGGERNAUT.anime.foulee, vérifié par tests/titans_test.lua).
 """
 import math
 import os
@@ -27,11 +33,26 @@ KE = 1.15                    # échelle générale : 31 unités de modèle -> 36
 GRIS = os.environ.get("FO_GRIS", "") == "1"
 HAUTEUR = 32.4 * KE          # hauteur du modèle (pour la caméra et le recadrage)
 RAYON = 12.0 * KE            # rayon au sol englobant (ombre comprise : calculé par batch_titans)
+# Série animée (lue par batch_titans et feuilles_titans) : images par animation, densité du rendu (px par tuile ; 20 : le Juggernaut fait
+# 36 tuiles de haut, 8 directions × 12 images × 3 stades : à 24 comme le Kaiju les feuilles pèseraient 1,4 fois plus), rayon au sol et
+# hauteur englobants (cadre fixe pour toutes les images et directions, en tuiles), portée du liseré de contact.
+SERIE = {"course": 8, "attaque": 4, "densite": 20.0, "R": 16.0, "zmax": 38.5}
+AO = 0.6
+GLOW_BLANC = False           # allié : la lueur garde ses couleurs (cyan, magenta)
+AMP = 3.0                    # amplitude du pas (unités de modèle) : le pied va de +AMP à -AMP au sol
+LEVEE = 1.6                  # levée du pied en l'air
+FOULEE = 2 * 3.0 * 1.15      # tuiles par cycle = 2 × AMP × KE (distance_per_frame : FOULEE / images)
+ATTAQUE = ((0.55, 0.0, 0.0), (1.0, 0.6, 1.0), (0.75, 0.35, 0.45), (0.35, 0.1, 0.0))   # par image : charge, recul, éclair
 
 
 def XF(v):
     p = G.rot_z(v, PSI)
     return (p[0] * KE, p[1] * KE, max(0.0, p[2] * KE))
+
+
+def XF0(v):
+    """Sans lacet : repère local du modèle (+x = face) ; le rendu tourne le modèle par direction."""
+    return (v[0] * KE, v[1] * KE, max(0.0, v[2] * KE))
 
 
 # ------------------------------------------------------------------------------------------------ primitives angulaires
@@ -71,15 +92,47 @@ def rainure(c, axe, rayon, ep):
     return G.tour([(-ep, rayon), (ep, rayon)], 48, axe, c)
 
 
+# ------------------------------------------------------------------------------------------------ cinématique (marche)
+def pas(u, amp, levee, appui=0.6):
+    """Cycle d'un pied, u dans [0, 1[ : appui (le pied recule au sol de +amp à -amp), puis vol (il revient en l'air). Rend (avance, hauteur)."""
+    u = u % 1.0
+    if u < appui:
+        return amp * (1.0 - 2.0 * u / appui), 0.0
+    v = (u - appui) / (1.0 - appui)
+    s = v * v * (3.0 - 2.0 * v)
+    return amp * (2.0 * s - 1.0), levee * math.sin(math.pi * v) ** 0.8
+
+
+def ik2(a, c, l1, l2, pole):
+    """Genou d'une jambe à deux segments de a à c, plié du côté de `pole`."""
+    v = G.sub(c, a)
+    L = max(G.length(v), 1e-6)
+    u = G.mul(v, 1.0 / L)
+    L = min(L, (l1 + l2) * 0.995)
+    x = (l1 * l1 - l2 * l2 + L * L) / (2.0 * L)
+    h = math.sqrt(max(l1 * l1 - x * x, 0.0))
+    p = G.sub(pole, G.mul(u, G.dot(pole, u)))
+    p = G.norm(p)
+    return G.add(G.add(a, G.mul(u, x)), G.mul(p, h))
+
+
 # ------------------------------------------------------------------------------------------------ parties
-def jambe(lot, M, s, stage, r):
+def jambe(lot, M, s, stage, r, u=None, bob=0.0):
     """Jambe digitigrade du côté s (+1 gauche, -1 droite) : hanche, cuisse vers l'avant, tibia vers l'arrière, métatarse, 3 griffes.
-    Propulseurs (tuyères) au mollet ; conduits lumineux sur la cuisse."""
+    Propulseurs (tuyères) au mollet ; conduits lumineux sur la cuisse. u : phase du pied (None : repos)."""
     y = s * 4.3
-    H = (0.0, y, 17.0)
-    K = (3.7, y + s * 0.3, 11.4)
-    A = (-1.5, y + s * 0.5, 5.6)
-    T = (2.6, y + s * 0.7, 0.9)
+    H = (0.0, y, 17.0 + bob)
+    K0 = (3.7, y + s * 0.3, 11.4)
+    A0 = (-1.5, y + s * 0.5, 5.6)
+    T0 = (2.6, y + s * 0.7, 0.9)
+    if u is None:
+        K, A, T = K0, A0, T0
+    else:
+        dx, dz = pas(u, AMP, LEVEE)
+        T = (T0[0] + dx, T0[1], T0[2] + dz)
+        A = G.add(T, G.sub(A0, T0))                       # pied et métatarse rigides
+        l1, l2 = G.length(G.sub(K0, (0.0, y, 17.0))), G.length(G.sub(A0, K0))
+        K = ik2(H, A, l1, l2, (1.0, 0.0, 0.3))           # genou vers l'avant (digitigrade)
     # articulations : sphères de structure
     for p, rr in ((H, 1.6), (K, 1.3), (A, 1.05)):
         lot.put(M["struct"], G.sphere(p, rr, 10, 5))
@@ -184,19 +237,25 @@ def torse(lot, M, stage, r):
         lot.put(M["cristal"], rainure((-5.0, 0.0, 23.6), "x", 6.35, 0.06))
 
 
-def bras_canon(lot, M, stage, r):
-    """Bras droit (côté caméra) : épaule, bras, canon rotatif à 6 tubes, anneaux de focalisation flottants, vortex à la bouche."""
+def bras_canon(lot, M, stage, r, swing=0.0, charge=0.0, recul=0.0, eclair=0.0):
+    """Bras droit : épaule, bras, canon rotatif à 6 tubes, anneaux de focalisation flottants, vortex à la bouche.
+    swing : rotation du bras autour de l'épaule (axe y ; négatif = le bras se lève) ; attaque : charge (anneaux vers la bouche, vortex
+    plus gros), recul (le bras rentre le long de son axe), eclair (cône de lumière à la bouche)."""
     s = -1
     S_ = (0.6, s * 6.4, 25.4)
-    E = (1.4, s * 7.9, 20.8)
-    Mz = (7.2, s * 8.1, 19.2)
+    E0 = (1.4, s * 7.9, 20.8)
+    M0 = (7.2, s * 8.1, 19.2)
+    E = G.rot_y(E0, swing, S_)
+    Mz = G.rot_y(M0, swing, S_)
+    d = G.norm(G.sub(Mz, E))
+    if recul > 0:
+        E = G.add(E, G.mul(d, -recul))
+        Mz = G.add(Mz, G.mul(d, -recul))
     lot.put(M["struct"], G.sphere(S_, 1.25, 10, 5))
     lot.put(M["accent"], G.boite(G.add(S_, (0.9, s * 0.8, -0.3)), (0.35, 0.2, 0.2)))
     lot.put(M["blind"], hexseg(S_, E, 1.35, 1.05, 6, 0.2))
     lot.put(M["conduit"], hexseg(G.add(S_, (0.9, s * 0.9, -0.2)), G.add(E, (0.8, s * 0.6, 0.4)), 0.12, 0.12))
     lot.put(M["struct"], G.sphere(E, 1.05, 10, 5))
-    d = G.norm(G.sub(Mz, E))
-    L = G.length(G.sub(Mz, E))
     # culasse et bloc rotatif
     lot.put(M["canon"], hexseg(E, G.lerp(E, Mz, 0.38), 1.25, 1.35, 8))
     rc = 1.0 if stage < 3 else 1.2
@@ -207,10 +266,10 @@ def bras_canon(lot, M, stage, r):
         off = G.add(G.mul(fr[1], rc * 0.62 * math.cos(a)), G.mul(fr[2], rc * 0.62 * math.sin(a)))
         lot.put(M["canon"], G.tube([G.add(G.lerp(E, Mz, 0.36), off), G.add(Mz, off)], 0.3, 8))
     lot.put(M["struct"], G.tube([G.lerp(E, Mz, 0.36), G.add(Mz, G.mul(d, -0.3))], 0.42, 8))
-    # anneaux de focalisation flottants autour du fût (axe = direction du canon)
+    # anneaux de focalisation flottants autour du fût (axe = direction du canon) ; à la charge ils glissent vers la bouche
     n_an = 2 if stage == 1 else 3
     for k in range(n_an):
-        t = 0.62 + 0.17 * k
+        t = 0.62 + 0.17 * k + 0.14 * charge
         c = G.lerp(E, Mz, t)
         ra = rc + 0.9 + 0.35 * k
         ring = anneau((0.0, 0.0, 0.0), "z", ra, 0.45, 0.16)
@@ -219,9 +278,13 @@ def bras_canon(lot, M, stage, r):
         for q in range(4):
             a = G.TAU * (q + 0.5) / 4
             lot.put(M["struct"], G.oriente(G.boite((ra + 0.5, 0.0, 0.0), (0.5, 0.35, 0.3), rz=a), c, d))
-    # bouche : vortex de focalisation (cœur), couronne de cristal
-    lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, 0.82)], 16, "z", cap1=True), G.add(Mz, G.mul(d, 0.15)), d))
-    lot.put(M["halo"], G.sphere(G.add(Mz, G.mul(d, 0.4)), 1.5, 14, 7))
+    # bouche : vortex de focalisation (cœur), couronne de cristal ; la charge gonfle le vortex, l'éclair file devant
+    rv = 0.82 + 0.6 * charge
+    lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, rv)], 16, "z", cap1=True), G.add(Mz, G.mul(d, 0.15)), d))
+    lot.put(M["halo"], G.sphere(G.add(Mz, G.mul(d, 0.4)), 1.5 + 1.0 * charge, 14, 7))
+    if eclair > 0:
+        lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.1, 0.9), (3.2 * eclair, 0.5), (4.6 * eclair, 0.0)], 12, "z", cap0=True), G.add(Mz, G.mul(d, 0.3)), d))
+        lot.put(M["halo"], G.sphere(G.add(Mz, G.mul(d, 2.0 * eclair)), 1.2 + 0.8 * eclair, 12, 6))
     for q in range(6):
         a = G.TAU * q / 6
         off = G.add(G.mul(fr[1], 1.15 * math.cos(a)), G.mul(fr[2], 1.15 * math.sin(a)))
@@ -230,12 +293,12 @@ def bras_canon(lot, M, stage, r):
     lot.put(M["blind2"], R.pose(G.prisme([(-1.2, -0.7), (1.6, -0.7), (1.9, 0.0), (1.6, 0.7), (-1.2, 0.7)], 0.0, 0.7, 0.8), G.add(G.lerp(E, Mz, 0.3), (0.0, 0.0, 1.3)), (0, 0, 1), (1, 0, 0)))
 
 
-def bras_griffes(lot, M, stage, r):
-    """Bras gauche : bras, avant-bras blindé, main à 3 lames de cristal (griffes d'énergie) et conduit jusqu'au poignet."""
+def bras_griffes(lot, M, stage, r, swing=0.0):
+    """Bras gauche : bras, avant-bras blindé, main à 3 lames de cristal (griffes d'énergie) et conduit jusqu'au poignet. swing : voir bras_canon."""
     s = 1
     S_ = (0.6, s * 6.4, 25.4)
-    E = (1.0, s * 7.6, 20.9)
-    W = (3.6, s * 7.4, 17.2)
+    E = G.rot_y((1.0, s * 7.6, 20.9), swing, S_)
+    W = G.rot_y((3.6, s * 7.4, 17.2), swing, S_)
     lot.put(M["struct"], G.sphere(S_, 1.25, 10, 5))
     lot.put(M["blind"], hexseg(S_, E, 1.35, 1.05, 6, 0.2))
     lot.put(M["struct"], G.sphere(E, 1.0, 10, 5))
@@ -244,7 +307,7 @@ def bras_griffes(lot, M, stage, r):
     lot.put(M["struct"], G.sphere(W, 0.85, 10, 5))
     # garde de la main et lames
     lot.put(M["blind"], plaque(G.add(W, (0.5, s * 0.5, 0.2)), G.norm((0.4, s * 1.0, 0.2)), 1.8, 1.6, 0.3, up=(0, 0, 1)))
-    d0 = G.norm((0.75, 0.0, -0.75))
+    d0 = G.norm(G.rot_y((0.75, 0.0, -0.75), swing))
     n_l = 3 if stage < 3 else 4
     for k in range(n_l):
         q = (k - (n_l - 1) / 2.0) * 0.5
@@ -253,15 +316,34 @@ def bras_griffes(lot, M, stage, r):
         lot.put(M["cristal"], pointe(G.add(W, G.add(G.mul(dd, 1.1), (0.0, q, 0.0))), dd, 4.2 - 0.4 * abs(q) * 2, 0.34))
 
 
-def build(S, lot, stage=1):
-    """Construit le Juggernaut au stade `stage` (1 à 3). Rend des comptes pour render.json."""
+def build(S, lot, stage=1, u=None, attaque=None, dirs=False):
+    """Construit le Juggernaut au stade `stage` (1 à 3) : repos (u et attaque None), marche (u) ou salve (attaque). Rend des comptes pour render.json."""
     M = TM.matieres(S, "ju_", GRIS)
-    lot.xf = XF
+    xf = XF0 if dirs else XF
     r = G.Rnd(2000 + stage)
     R.raz()
+    if attaque is not None:
+        i = int(round(attaque * SERIE["attaque"])) % SERIE["attaque"]
+        charge, recul, eclair = ATTAQUE[i]
+        swing_c, swing_g = -0.27, -0.45                      # le canon se lève à l'horizontale, les griffes se tendent
+        phases, bob = (0.15, 0.45), 0.0                       # jambes campées, les deux pieds au sol (appui)
+    elif u is not None:
+        charge, recul, eclair = 0.0, 0.0, 0.0
+        swing_c, swing_g = 0.14 * math.sin(G.TAU * u), -0.14 * math.sin(G.TAU * u)
+        phases, bob = (u, u + 0.5), 0.3 * abs(math.sin(G.TAU * u))
+    else:
+        charge, recul, eclair = 0.0, 0.0, 0.0
+        swing_c, swing_g, phases, bob = 0.0, 0.0, (None, None), 0.0
+    lot.xf = (lambda v: xf((v[0], v[1], v[2] + bob))) if bob else xf
     torse(lot, M, stage, r)
-    for s in (-1, 1):
-        jambe(lot, M, s, stage, r)
-    bras_canon(lot, M, stage, r)
-    bras_griffes(lot, M, stage, r)
-    return {"stage": stage, "pieces": lot.n}
+    bras_canon(lot, M, stage, r, swing_c, charge, recul, eclair)
+    bras_griffes(lot, M, stage, r, swing_g)
+    lot.xf = xf
+    for s, ph in ((1, phases[0]), (-1, phases[1])):
+        jambe(lot, M, s, stage, r, ph, bob)
+    return {"stage": stage, "pieces": lot.n, "u": u, "attaque": attaque}
+
+
+def build_anime(S, lot, stage, u, attaque):
+    """Entrée commune des titans animés (batch_titans.anime) : stade, phase de course ou d'attaque, sans lacet (8 directions)."""
+    return build(S, lot, stage, u=u if attaque is None else None, attaque=attaque, dirs=True)

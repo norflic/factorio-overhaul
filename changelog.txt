@@ -5,6 +5,7 @@ Date: 2026-11-10
     - Hygiène électrique (F462) : un poteau d'un plan fini posé sur du minerai est cédé par le plan et retiré, ou remplacé hors gisement, dès qu'un poteau extérieur alimenté couvre ses consommateurs et que le réseau reste continu ; le minerai dessous redevient exploitable.
     - Mall dans les quatre directions (F461) : la série d'un ruban part vers le premier lot voisin libre (est, sud, ouest ou nord) et ses sections suivent ; les rangées du mall continuent au-delà de leur secteur et franchissent les rues de la ville par un souterrain par tapis, la rue restant libre.
     - Îlots à colonnes (F463) : les îlots de circuits, de moteurs et de circuits rouges réservent eux aussi l'emprise de l'âge suivant ; la colonne de liaison entre deux machines est sur la ligne d'interface, en bras longs, et chaque îlot garde trois machines pour tenir dans son lot ; ils changent d'ère sur place sans écraser tapis ni bras.
+    - Titans (F464) : le Juggernaut marche et tire en 8 directions (8 images de marche, 4 de salve par stade, à la vitesse du véhicule) ; la singularité de la Sentinelle reste cyan en plein jour ; les cristaux du Kaiju sont translucides et facettés à toutes les ères.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.77
 Date: 2026-11-10

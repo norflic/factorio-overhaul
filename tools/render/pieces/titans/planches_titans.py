@@ -1,10 +1,11 @@
 """PLANCHES DES TITANS (lot TITANS, 9/11) pour le DC (au téléphone) : rendu principal + lueur, et une bande de la run_animation.
 
-    PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/planches_titans.py [--dest fo-logs/2026-11-10_TITANS-RECAL]
+    PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/planches_titans.py [--dest fo-logs/2026-11-10_TITANS-FINITIONS]
 
 - planche-juggernaut.png, planche-sentinelle.png, planche-leviathan.png : les trois stades côte à côte à l'échelle du jeu (zoom 1, 32 px/tuile)
   sur le sol vanilla, à côté du vrai silo (9 × 9) et d'un vrai béhémoth (scene.py des géants), de jour puis de nuit (lueur seule) ; stade 3
-  en gros plan ; le Léviathan avec ses drones d'escorte posés comme en jeu (orbite de la règle).
+  en gros plan ; le Léviathan avec ses drones d'escorte posés comme en jeu (orbite de la règle). Juggernaut ANIMÉ (FINITIONS 10/11) : image 0 de la
+  course, direction sud-est, puis une bande des 8 images de course (direction est) et des 4 images de salve (direction sud) du stade 3.
 - planche-kaiju.png : le Kaiju (feuilles de jeu, direction sud-est) de jour avec sa lueur teintée par ère (5 ères), une bande des 8 images
   de course (direction est) et des 4 images d'attaque, à côté du béhémoth.
 """
@@ -22,7 +23,7 @@ MOD = os.path.dirname(os.path.dirname(RENDER))
 sys.path.insert(0, os.path.join(RENDER, "pieces", "experimentaux"))
 import scene as SC  # noqa: E402
 
-LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-RECAL")
+LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-FINITIONS")
 SPRITES = os.path.join(MOD, "graphics", "robots", "titans")
 
 
@@ -87,15 +88,66 @@ def couche(entry, kind, ppt=32):
             "shift": tuple(entry["shift"]), "kind": kind}
 
 
-def telephone(im, path, largeur=2000):
+def telephone(im, path, largeur=1600):
     """Copie réduite (au plus `largeur` px de large) pour le DC au téléphone."""
     k = min(1.0, largeur / float(im.width))
     r = im.resize((max(1, int(im.width * k)), max(1, int(im.height * k))), Image.LANCZOS) if k < 1 else im
     r.save(path, optimize=True)
 
 
+def couches_anime(e, anim, direction, image, ppt):
+    """Couches (format scene.py) d'une image d'un stade ANIMÉ : main, glow_0, shadow, chacune réduite de sa densité à `ppt`."""
+    cells, K = images_de(e[anim], direction)
+    cell = cells[image]
+    out = {}
+    for c, cle, kind in (("main", "main", "main"), ("glow", "glow_0", "glow"), ("shadow", "shadow", "shadow")):
+        cc = K["couches"][c]
+        k = ppt / cc.get("dens", K["densite"])
+        a = cell[c]
+        im = SC._reduit(Image.fromarray(np.round(np.clip(a, 0, 1) * 255).astype(np.uint8), "RGBA"), k) if abs(k - 1) > 1e-6 else a
+        out[cle] = {"img": im, "shift": (cc["sx"], cc["sy"]), "kind": kind}
+    return out
+
+
+def allie_anime_fin(spr, dest, nom, jour, nuit, f2):
+    """Fin de la planche d'un allié ANIMÉ : gros plan du stade 3 (image 0 de la course, sud-est, densité du rendu), bande des images de course
+    (direction est) et de salve (direction sud) du stade 3, à 20 px/tuile."""
+    e = spr[nom]["3"]
+    cells, K = images_de(e["course"], 3)
+    D = K["densite"]
+    gp = SC.to_im(compose(cells[0], K, D, (1.0, 1.0, 1.0), 1.0, fond_val=0.30))
+    ImageDraw.Draw(gp).text((12, 8), "stade 3, feuille HR %d px/tuile (corps + lueur), direction sud-est" % D, fill=(255, 225, 150), font=f2)
+    bandes = []
+    for anim, direction, titre in (("course", 2, "marche : %d images, direction est" % e["course"]["images"]), ("attaque", 4, "salve : %d images, direction sud" % e["attaque"]["images"])):
+        cells, K = images_de(e[anim], direction)
+        ims = [SC.to_im(compose(c, K, 20, (1.0, 1.0, 1.0), 1.0, fond_val=0.38)) for c in cells]
+        W = sum(i.width for i in ims) + 6 * (len(ims) - 1)
+        H = max(i.height for i in ims)
+        b = Image.new("RGB", (W, H + 30), (20, 20, 24))
+        ImageDraw.Draw(b).text((8, 4), titre, fill=(255, 225, 150), font=f2)
+        x = 0
+        for i in ims:
+            b.paste(i, (x, 30))
+            x += i.width + 6
+        bandes.append(b)
+    Wt = max([jour.width + gp.width + 10] + [b.width for b in bandes])
+    Ht = max(jour.height + nuit.height + 10, gp.height) + sum(b.height + 8 for b in bandes)
+    out = Image.new("RGB", (Wt, Ht), (20, 20, 24))
+    out.paste(jour, (0, 0))
+    out.paste(nuit, (0, jour.height + 10))
+    out.paste(gp, (jour.width + 10, 0))
+    y = max(jour.height + nuit.height + 10, gp.height)
+    for b in bandes:
+        out.paste(b, (0, y + 8))
+        y += b.height + 8
+    p = os.path.join(dest, "planche-%s.png" % nom)
+    out.save(p, optimize=True)
+    telephone(out, os.path.join(dest, "planche-%s-telephone.png" % nom))
+    return p, out.size
+
+
 ALLIES = {
-    "juggernaut": ("JUGGERNAUT, titan allié (âges 10 à 15)", 34, 150),
+    "juggernaut": ("JUGGERNAUT, titan allié bipède ANIMÉ (âges 10 à 15)", 34, 150),
     "sentinelle": ("SENTINELLE, titan allié hexapode flottant (âges 11 à 15)", 38, 162),
     "leviathan": ("LÉVIATHAN, titan allié serpentin flottant (âges 12 à 15)", 44, 180),
 }
@@ -112,13 +164,19 @@ def allie(spr, dest, nom):
     sol_y = 52
     ents = [{"pos": (9, sol_y), "layers": SC.vanilla("silo", ppt)}, {"pos": (22, sol_y + 1), "layers": SC.behemoth(ppt)}]
     geants = []
+    anime = spr[nom].get("anime") is True
     for i, st in enumerate(("1", "2", "3")):
         e = spr[nom][st]
-        layers = {"main": couche(e["main"], "main"), "shadow": couche(e["ombre"], "shadow")}
-        for k, g in enumerate(e["lueurs"]):
-            layers["glow_%d" % k] = couche(g, "glow")
+        if anime:
+            layers = couches_anime(e, "course", 3, 0, ppt)
+            ordre = ("main", "glow_0")
+        else:
+            layers = {"main": couche(e["main"], "main"), "shadow": couche(e["ombre"], "shadow")}
+            for k, g in enumerate(e["lueurs"]):
+                layers["glow_%d" % k] = couche(g, "glow")
+            ordre = ("main",) + tuple("glow_%d" % k for k in range(len(e["lueurs"])))
         pos = (44 + pas * i, sol_y)
-        geants.append({"pos": pos, "layers": layers, "ordre": ("main",) + tuple("glow_%d" % k for k in range(len(e["lueurs"])))})
+        geants.append({"pos": pos, "layers": layers, "ordre": ordre})
         if nom == "leviathan" and "drone" in spr[nom]:
             d = spr[nom]["drone"]
             n = spr["__drones"][st]
@@ -151,6 +209,8 @@ def allie(spr, dest, nom):
         d.text((int(18 * ppt), y), "Vanilla : behemoth-biter", fill=(245, 245, 245), font=f2)
         for i in range(3):
             d.text((int((36 + pas * i) * ppt), y), "stade %d (paliers %s)" % (i + 1, ("1-2", "3-4", "5-6")[i]), fill=(170, 240, 255), font=f2)
+    if anime:
+        return allie_anime_fin(spr, dest, nom, jour, nuit, f2)
     # gros plan du stade 3 (feuille HR telle quelle)
     e = spr[nom]["3"]
     gros = couche(e["main"], "main")["img"]
@@ -183,9 +243,9 @@ def allie(spr, dest, nom):
     return p, out.size
 
 
-def kaiju_images(spr, anim, direction):
-    """Images (main, glow, shadow) d'une direction : liste de (main, glow, shadow) en float RGBA, cellule entière."""
-    K = spr["kaiju"][anim]
+def images_de(K, direction):
+    """Images (main, glow, shadow) d'une direction d'une animation `K` (entrée `course` ou `attaque` de sprites.lua) : liste de cellules
+    {main, glow, shadow} en float RGBA (chaque couche à sa densité `dens`)."""
     out = []
     files = {}
     for c in ("main", "glow", "shadow"):
@@ -203,12 +263,11 @@ def kaiju_images(spr, anim, direction):
 
 def compose(cell, K, ppt, tint, glow_a, fond_val=0.42, scale=1.0):
     """Une image du Kaiju composée sur un fond : ombre à 50 %, corps, lueur additive teintée."""
-    D = K["densite"]
-    k = ppt / D * scale
-    def red(a, additif=False):
+    def red(a, c, additif=False):
+        k = ppt / K["couches"][c].get("dens", K["densite"]) * scale
         im = Image.fromarray(np.round(np.clip(a, 0, 1) * 255).astype(np.uint8), "RGBA")
         return SC._reduit(im, k) if abs(k - 1) > 1e-6 else a
-    m, g, s = red(cell["main"]), red(cell["glow"]), red(cell["shadow"])
+    m, g, s = red(cell["main"], "main"), red(cell["glow"], "glow"), red(cell["shadow"], "shadow")
     W = int(max(m.shape[1], s.shape[1]) * 1.12)
     H = int(max(m.shape[0], s.shape[0]) * 1.08)
     img = np.full((H, W, 3), fond_val, np.float32)
@@ -239,7 +298,7 @@ def kaiju(spr, dest):
     f = SC.police(26)
     f2 = SC.police(17)
     # 1. les 5 ères (direction sud-est, image 0 de la course), échelle de l'ère, lueur teintée ; béhémoth à côté
-    cells, K = kaiju_images(spr, "course", 3)
+    cells, K = images_de(spr["kaiju"]["course"], 3)
     rang = []
     eres = spr["__eres"]
     for era in range(len(eres)):
@@ -264,7 +323,7 @@ def kaiju(spr, dest):
     # 2. bande de course (direction est = 2) et bande d'attaque (direction sud = 4), 24 px/tuile pour tenir en largeur
     bandes = []
     for anim, direction, titre in (("course", 2, "run_animation : 8 images, direction est"), ("attaque", 4, "attaque : 4 images, direction sud")):
-        cells, K = kaiju_images(spr, anim, direction)
+        cells, K = images_de(spr["kaiju"][anim], direction)
         ims = [SC.to_im(compose(c, K, 20, (0.1, 0.92, 1.0), 0.6, fond_val=0.38)) for c in cells]
         W = sum(i.width for i in ims) + 6 * (len(ims) - 1)
         H = max(i.height for i in ims)
