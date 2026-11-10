@@ -12,7 +12,11 @@
        (première image) ; intensité croissante replié < préparation < prêt < tir ; faisceau parti de l'émetteur (une direction) ;
        tir à projectile non déplacé ; icône neuve + chiffres d'âge gardés ;
     §4 pulsation (feuilles.py) : PULSE triangulaire (monte puis descend), dans ]0, 1], maximum 1 ;
-    §5 mutants de prototypes/batiments_visuels.lua et de la table PULSE : chacun refusé.
+    §5 mutants de prototypes/batiments_visuels.lua et de la table PULSE : chacun refusé ;
+    §6 lot POLISSAGE-3 (10/11) : les quatre tourelles à MUNITIONS (Bastion I, tourelle lourde, canon, mortier) : bandes de la tête
+       tournante (4 bandes × 16 directions × images, PNG aux dimensions, MANIFEST), 64 directions sur CHAQUE couche de tête, une image
+       au repos (première colonne) et les images du tir, socle corps + ombre + lueur, intensité croissante, origine des projectiles
+       lue du modèle (bouche), le reste du gameplay identique à l'octet (rotation, déploiement, portée, munitions, douilles) ; mutants.
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -102,6 +106,34 @@ for _, cle in ipairs(ORDRE) do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §1 bis (POLISSAGE-3) : bandes des têtes tournantes
+---------------------------------------------------------------------------------------------------
+local MUNITIONS = { bastion1 = "fo-bastion-1", lourde = "fo-heavy-gun-turret", canon = "fo-cannon-turret", mortier = "fo-mortar-turret" }
+local ORDRE_MUN = { "bastion1", "lourde", "canon", "mortier" }
+local IMAGES_TIR = { bastion1 = 2, lourde = 2, canon = 1, mortier = 1 }
+for _, cle in ipairs(ORDRE_MUN) do
+  local u = BAT[cle]
+  check(u and u.main and u.shadow and u.glow and u.icone and u.boite and u.tete, "§1 bis " .. cle .. " : socle (corps, ombre, lueur), tête, icône, boîte")
+  check(u and u.directions == 64 and u.rangs and u.rangs * 4 == 64 and u.images == IMAGES_TIR[cle],
+    "§1 bis " .. cle .. " : 64 directions en 4 bandes, " .. IMAGES_TIR[cle] .. " image(s) de tir")
+  local b = u and u.bouche
+  check(b and b.distance > 0.4 and b.distance < 3 and b.centre[1] == 0 and b.centre[2] < -0.1 and b.centre[2] > -2,
+    "§1 bis " .. cle .. " : bouche du modèle (distance 0,4 à 3 tuiles, centre au-dessus du pied)")
+  for _, k in ipairs({ "main", "shadow", "glow" }) do
+    for _, res in ipairs({ "lr", "hr" }) do
+      local d = u and u.tete and u.tete[k] and u.tete[k][res]
+      check(d and #d.stripes == 4, "§1 bis " .. cle .. " tête " .. k .. " " .. res .. " : 4 bandes")
+      for _, f in ipairs(d and d.stripes or {}) do
+        local pth = f:gsub("^__factorio%-overhaul__/", "")
+        local w, h = png_size(pth)
+        check(w == d.width * u.images and h == d.height * u.rangs, "§1 bis " .. pth .. " : " .. u.images .. " × " .. u.rangs .. " images")
+        check(man:find(pth:match("([^/]+)$"), 1, true) ~= nil, "§1 bis MANIFEST cite " .. pth)
+      end
+    end
+  end
+end
+
+---------------------------------------------------------------------------------------------------
 -- data.raw de banc : champs de jeu des huit bâtiments (forme des prototypes livrés), images d'avant = marqueurs
 ---------------------------------------------------------------------------------------------------
 local function tete_vanilla() return { layers = { { filename = "__base__/x.png", width = 10, height = 10, direction_count = 64 } } } end
@@ -144,6 +176,45 @@ local function banc()
     raw["electric-turret"][name] = t
     raw.item[name] = { type = "item", name = name, icons = deepcopy(t.icons), stack_size = 50 }
   end
+  -- POLISSAGE-3 : tourelles à munitions (forme livrée : --dump-final ammo-turret/<nom>)
+  raw["ammo-turret"] = {}
+  local D = {
+    bastion1 = { hp = 700, c = 0.7, s = 1, rot = 0.015, prep = 0.08, ap = { ammo_category = "bullet", cooldown = 5, range = 20,
+      projectile_creation_distance = 1.39375, projectile_center = { 0, -0.0875 }, shell = true },
+      icons = { "__base__/graphics/icons/gun-turret.png", "__base__/graphics/icons/signal/signal_1.png" } },
+    lourde = { hp = 2000, c = 1.2, s = 1.5, rot = 0.015, prep = 0.08, ap = { ammo_category = "bullet", cooldown = 4, range = 24,
+      projectile_creation_distance = 2.090625, projectile_center = { 0, -0.13125 }, shell = true }, icon = "__base__/graphics/icons/gun-turret.png" },
+    canon = { hp = 2200, c = 1.2, s = 1.5, rot = 0.006, prep = 0.05, ap = { ammo_category = "cannon-shell", cooldown = 75, range = 32, min_range = 5,
+      projectile_creation_distance = 1.9, projectile_center = { 0, -0.9 }, turn_range = 1 },
+      icons = { "__base__/graphics/icons/gun-turret.png", "__base__/graphics/icons/tank.png" } },
+    mortier = { hp = 1600, c = 1.2, s = 1.5, rot = 0.004, prep = 0.04, prepare_range = 50, ap = { ammo_category = "fo-mortar", cooldown = 120, range = 46,
+      min_range = 14, projectile_creation_distance = 1.6, projectile_center = { 0, -0.6 }, turn_range = 1 },
+      icons = { "__base__/graphics/icons/artillery-turret.png", "__base__/graphics/icons/explosive-cannon-shell.png" } },
+  }
+  for cle, name in pairs(MUNITIONS) do
+    local d = D[cle]
+    local ap = { type = "projectile", ammo_category = d.ap.ammo_category, cooldown = d.ap.cooldown, range = d.ap.range, min_range = d.ap.min_range,
+      projectile_creation_distance = d.ap.projectile_creation_distance, projectile_center = d.ap.projectile_center, turn_range = d.ap.turn_range,
+      sound = { variations = { { filename = "__base__/sound/fight/heavy-gunshot-1.ogg", volume = 0.6 } } } }
+    if d.ap.shell then
+      ap.shell_particle = { name = "shell-particle", direction_deviation = 0.1, speed = 0.1, speed_deviation = 0.03, center = { -0.0625, 0 },
+        creation_distance = -1.925, starting_frame_speed = 0.2, starting_frame_speed_deviation = 0.1 }
+    end
+    local t = { type = "ammo-turret", name = name, max_health = d.hp, collision_box = { { -d.c, -d.c }, { d.c, d.c } },
+      selection_box = { { -d.s, -d.s }, { d.s, d.s } }, minable = { mining_time = 0.5, result = name }, flags = { "placeable-player", "player-creation" },
+      inventory_size = 2, automated_ammo_count = 10, rotation_speed = d.rot, preparing_speed = d.prep, folding_speed = d.prep,
+      prepare_range = d.prepare_range, call_for_help_radius = 40, alert_when_attacking = true,
+      base_picture = tete_vanilla(), folded_animation = tete_vanilla(), preparing_animation = tete_vanilla(), prepared_animation = tete_vanilla(),
+      attacking_animation = tete_vanilla(), folding_animation = tete_vanilla(), water_reflection = { pictures = {} }, attack_parameters = ap }
+    if d.icons then
+      t.icons = { { icon = d.icons[1], icon_size = 64, icon_mipmaps = 4, tint = { r = 0.8, g = 0.8, b = 0.9 } },
+        { icon = d.icons[2], icon_size = 64, icon_mipmaps = 4, scale = 0.3125, shift = { 8, 8 } } }
+    else
+      t.icon, t.icon_size, t.icon_mipmaps = d.icon, 64, 4
+    end
+    raw["ammo-turret"][name] = t
+    raw.item[name] = { type = "item", name = name, icons = deepcopy(t.icons), icon = t.icon, icon_size = t.icon_size, stack_size = 50 }
+  end
   return raw
 end
 
@@ -177,6 +248,7 @@ local ETATS = { "folded_animation", "preparing_animation", "prepared_animation",
 local function sans_origine(ap)
   local c = deepcopy(ap)
   c.source_offset, c.source_direction_count = nil, nil
+  c.projectile_center, c.projectile_creation_distance = nil, nil   -- POLISSAGE-3 : origine des projectiles (exacte : §6)
   local d = c.ammo_type and c.ammo_type.action and c.ammo_type.action.action_delivery
   if d then d.source_offset = nil end
   return c
@@ -238,11 +310,78 @@ local function juge(raw, avant)
   return m
 end
 
+---------------------------------------------------------------------------------------------------
+-- §6 (POLISSAGE-3) tourelles à munitions
+---------------------------------------------------------------------------------------------------
+local ETATS_MUN = { "folded_animation", "preparing_animation", "prepared_animation", "attacking_animation" }
+local COUCHES_TETE = { { "main" }, { "shadow", "draw_as_shadow" }, { "glow", "draw_as_glow" }, { "glow", "draw_as_light" } }
+
+local function sans_bouche(ap)
+  local c = deepcopy(ap)
+  c.projectile_center, c.projectile_creation_distance = nil, nil
+  return c
+end
+
+local function juge_munitions(raw, avant)
+  local m = {}
+  local function non(c, s) if not c then m[#m + 1] = s end end
+  if not raw then return { "habillage en erreur" } end
+  for cle, name in pairs(MUNITIONS) do
+    local e, e0, u = raw["ammo-turret"][name], avant["ammo-turret"][name], BAT[cle]
+    non(same(sans_bouche(e0.attack_parameters), sans_bouche(e.attack_parameters)), name .. " : attaque changée hors de l'origine des projectiles")
+    non(e.attack_parameters.projectile_creation_distance == u.bouche.distance
+      and same(e.attack_parameters.projectile_center, { u.bouche.centre[1], u.bouche.centre[2] }), name .. " : origine des projectiles = bouche du modèle")
+    local bp = e.base_picture and e.base_picture.layers
+    non(bp and #bp == 3 and bp[1].filename == u.main.lr.filename and bp[2].draw_as_shadow and bp[3].draw_as_glow, name .. " : socle = corps + ombre + lueur")
+    local ks = {}
+    for i, f in ipairs(ETATS_MUN) do
+      local L = e[f] and e[f].layers
+      non(L and #L == 4, name .. " : " .. f .. " = corps, ombre, lueur, lumière")
+      local n = f == "attacking_animation" and u.images or 1
+      for j, cc in ipairs(COUCHES_TETE) do
+        local l = L and L[j]
+        local src = u.tete[cc[1]]
+        for _, x in ipairs({ l or false, l and l.hr_version or false }) do
+          local r = x and (x == l and src.lr or src.hr)
+          non(x and x.direction_count == 64, name .. " : " .. f .. " couche " .. j .. " à 64 directions")
+          non(x and x.frame_count == n, name .. " : " .. f .. " couche " .. j .. " joue " .. n .. " image(s)")
+          non(x and x.stripes and #x.stripes == 4, name .. " : " .. f .. " couche " .. j .. " : 4 bandes")
+          for b, st in ipairs(x and x.stripes or {}) do
+            non(st.width_in_frames == n and st.height_in_frames == u.rangs and st.filename == r.stripes[b],
+              name .. " : " .. f .. " couche " .. j .. " bande " .. b .. " (" .. n .. " colonne(s) lue(s) sur " .. u.images .. ")")
+          end
+          non(x and (cc[2] == nil or x[cc[2]]), name .. " : " .. f .. " couche " .. j .. " " .. tostring(cc[2]))
+        end
+      end
+      local g = L and L[3]
+      ks[i] = g and g.tint and g.tint.r or -1
+    end
+    for i = 2, #ETATS_MUN do non(ks[i] > ks[i - 1], name .. " : intensité croissante " .. ETATS_MUN[i - 1] .. " < " .. ETATS_MUN[i]) end
+    non(e.water_reflection == nil, name .. " : reflet vanilla retiré")
+    for _, p in ipairs({ e, raw.item[name] }) do
+      local ic, ic0 = p.icons, (p == e and e0 or avant.item[name]).icons or {}
+      local ok = ic and ic[1].icon == u.icone.filename and #ic == math.max(1, #ic0)
+      for j = 2, #ic0 do ok = ok and ic[j] and ic[j].icon == ic0[j].icon end
+      non(ok, name .. " : icône neuve + calques d'aujourd'hui gardés")
+    end
+  end
+  return m
+end
+
+local function juge_tout(r, a)
+  local m = juge(r, a)
+  for _, x in ipairs(juge_munitions(r, a)) do m[#m + 1] = x end
+  return m
+end
+
 local raw, avant, err = habille(SOURCE or "")
 check(raw ~= nil, "habillage sans erreur : " .. tostring(err))
 local motifs = juge(raw, avant)
 for _, s in ipairs(motifs) do check(false, "§2-3 " .. s) end
 check(#motifs == 0, "§2-3 les huit bâtiments habillés, gameplay intact")
+local motifs6 = juge_munitions(raw, avant)
+for _, s in ipairs(motifs6) do check(false, "§6 " .. s) end
+check(#motifs6 == 0, "§6 les quatre tourelles à munitions habillées, gameplay intact hors origine des projectiles")
 
 ---------------------------------------------------------------------------------------------------
 -- §4 pulsation
@@ -270,7 +409,7 @@ local function mutant(nom, de, vers)
   if not SOURCE then return end
   local src = SOURCE:gsub(de:gsub("%p", "%%%0"), (vers:gsub("%%", "%%%%")), 1)
   local r, a = habille(src)
-  check(#juge(r, a) > 0, "§5 mutant refusé : " .. nom)
+  check(#juge_tout(r, a) > 0, "§5 mutant refusé : " .. nom)
 end
 mutant("faisceau gardé à 64 directions", "      ap.source_direction_count = 1\n", "")
 mutant("tir à projectile déplacé", 'if ap and ap.type == "beam" then', "if ap then")
@@ -281,6 +420,18 @@ mutant("emprise changée", "    e.drawing_box = boite(u)\n    local ap", "    e.
 mutant("lumière absente", "e[f] = { layers = { pulse(u, ETATS[f], false), pulse(u, ETATS[f], true) } }", "e[f] = { layers = { pulse(u, ETATS[f], false) } }")
 mutant("tête vanilla gardée", "    e.energy_glow_animation = nil\n", "")
 mutant("repli joue la bande", "folded_animation = { k = 0.35, images = 1 },", "folded_animation = { k = 0.35, images = 0 },")
+-- §6 (POLISSAGE-3) tourelles à munitions
+mutant("tête à 4 directions", "direction_count = u.directions, frame_count = n }", "direction_count = 4, frame_count = n }")
+mutant("tir à une image", "local n = etat.tir and u.images or 1", "local n = 1")
+mutant("repos lit toutes les colonnes", "bandes[i] = { filename = f, width_in_frames = n,", "bandes[i] = { filename = f, width_in_frames = u.images,")
+mutant("origine du tir non lue", "    ap.projectile_creation_distance = u.bouche.distance\n", "")
+mutant("ombre de tête absente", 'couche_tete(u, "main", etat, n), couche_tete(u, "shadow", etat, n), couche_tete(u, "glow", etat, n),',
+  'couche_tete(u, "main", etat, n), couche_tete(u, "glow", etat, n),')
+mutant("rotation changée", "    e.water_reflection = nil\n    e.drawing_box = boite(u)\n    local ap = e.attack_parameters\n",
+  "    e.water_reflection = nil\n    e.drawing_box = boite(u)\n    e.rotation_speed = 0.02\n    local ap = e.attack_parameters\n")
+mutant("lueur de tête plate", 'local k = kind == "light" and etat.k * 0.5 or etat.k', "local k = 1")
+mutant("socle sans lueur", '    if u.glow then socle[#socle + 1] = couche(u.glow, "glow") end\n', "")
+mutant("calques d'aujourd'hui perdus (munitions)", "for j = 2, #ancien do", "for j = 2, 1 do")
 -- PULSE
 for _, m in ipairs({ { "pulsation plate", "PULSE = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)" },
   { "pulsation montante seulement", "PULSE = (0.5, 0.62, 0.76, 0.9, 1.0, 1.0, 1.0, 1.0)" } }) do

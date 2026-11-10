@@ -31,7 +31,15 @@ BATIMENTS = {
     "bastion4": ("fo-bastion-4", "electric-turret", 2, "m_bastion4"),
     "tesla": ("fo-tesla-turret", "electric-turret", 2, "m_tesla"),
     "laser_lourd": ("fo-heavy-laser-turret", "electric-turret", 3, "m_laser_lourd"),
+    # lot POLISSAGE-3 (10/11) : tourelles à MUNITIONS (canon tournant) : ici le SOCLE seul (build) ; la TÊTE (module.tete, 64 directions,
+    # module.IMAGES images par direction) est rendue par batch_tetes.py (rendre_tetes.py)
+    "bastion1": ("fo-bastion-1", "ammo-turret", 2, "m_bastion1"),
+    "lourde": ("fo-heavy-gun-turret", "ammo-turret", 3, "m_lourde"),
+    "canon": ("fo-cannon-turret", "ammo-turret", 3, "m_canon"),
+    "mortier": ("fo-mortar-turret", "ammo-turret", 3, "m_mortier"),
 }
+TETES = ("bastion1", "lourde", "canon", "mortier")
+DIRECTIONS = 64
 MACHINES = {n: p for n, p in BATIMENTS.items()}
 PIECE = {"name": "bat", "margin_px": 40,
          # éclairage : ciel spéculaire des titans (argent iridescent), soleil et appoint un peu plus forts (premier rendu : blindage

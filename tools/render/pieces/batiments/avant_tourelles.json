@@ -619,6 +619,456 @@
      1.0
     ]
    }
+  ],
+  "bastion1": [
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     250,
+     124
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.59375,
+     0.078125
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "gun-turret/hr-gun-turret-base.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     150,
+     118
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.015625,
+     -0.03125
+    ],
+    "tint": [
+     0.78,
+     0.82,
+     0.92
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "gun-turret/hr-gun-turret-base-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     122,
+     102
+    ],
+    "scale": 0.5,
+    "shift": [
+     0,
+     -0.140625
+    ],
+    "tint": [
+     0.78,
+     0.82,
+     0.92
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     130,
+     126
+    ],
+    "scale": 0.5,
+    "shift": [
+     0,
+     -0.828125
+    ],
+    "tint": [
+     0.78,
+     0.82,
+     0.92
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     48,
+     62
+    ],
+    "scale": 0.5,
+    "shift": [
+     0,
+     -0.875
+    ],
+    "tint": [
+     0.78,
+     0.82,
+     0.92
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising-mask.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     48,
+     62
+    ],
+    "scale": 0.5,
+    "shift": [
+     0,
+     -0.875
+    ],
+    "tint": [
+     0.9,
+     0.675,
+     0.315
+    ]
+   }
+  ],
+  "lourde": [
+   {
+    "champ": "base_picture",
+    "fichier": "artillery-turret/hr-artillery-turret-base-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     277,
+     149
+    ],
+    "scale": 0.45,
+    "shift": [
+     0.50625,
+     1.06875
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     250,
+     124
+    ],
+    "scale": 0.75,
+    "shift": [
+     0.890625,
+     0.117188
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "artillery-turret/hr-artillery-turret-base.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     207,
+     199
+    ],
+    "scale": 0.45,
+    "shift": [
+     0,
+     0.61875
+    ],
+    "tint": [
+     0.78,
+     0.8,
+     0.86
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     130,
+     126
+    ],
+    "scale": 0.75,
+    "shift": [
+     0,
+     -1.24219
+    ],
+    "tint": [
+     0.8,
+     0.84,
+     0.95
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     48,
+     62
+    ],
+    "scale": 0.75,
+    "shift": [
+     0,
+     -1.3125
+    ],
+    "tint": [
+     0.8,
+     0.84,
+     0.95
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "gun-turret/hr-gun-turret-raising-mask.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     48,
+     62
+    ],
+    "scale": 0.75,
+    "shift": [
+     0,
+     -1.3125
+    ],
+    "tint": [
+     0.315,
+     0.585,
+     0.9
+    ]
+   }
+  ],
+  "canon": [
+   {
+    "champ": "folded_animation",
+    "fichier": "tank/hr-tank-turret-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     193,
+     134
+    ],
+    "scale": 0.5,
+    "shift": [
+     1.75781,
+     0.553125
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "gun-turret/hr-gun-turret-base.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     150,
+     118
+    ],
+    "scale": 0.75,
+    "shift": [
+     0.0234375,
+     -0.046875
+    ],
+    "tint": [
+     0.7,
+     0.72,
+     0.62
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "gun-turret/hr-gun-turret-base-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     122,
+     102
+    ],
+    "scale": 0.75,
+    "shift": [
+     0,
+     -0.210938
+    ],
+    "tint": [
+     0.7,
+     0.72,
+     0.62
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "tank/hr-tank-turret.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     179,
+     132
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0078125,
+     -0.728125
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "tank/hr-tank-turret-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     72,
+     66
+    ],
+    "scale": 0.5,
+    "shift": [
+     0,
+     -0.759375
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   }
+  ],
+  "mortier": [
+   {
+    "champ": "base_picture",
+    "fichier": "artillery-turret/hr-artillery-turret-base-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     277,
+     149
+    ],
+    "scale": 0.375,
+    "shift": [
+     0.421875,
+     0.890625
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "artillery-wagon/hr-artillery-wagon-cannon-barrel-shadow-1.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     906,
+     626
+    ],
+    "scale": 0.275,
+    "shift": [
+     0.936719,
+     1.36953
+    ],
+    "tint": [
+     1,
+     1,
+     1
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "artillery-turret/hr-artillery-turret-base.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     207,
+     199
+    ],
+    "scale": 0.375,
+    "shift": [
+     0,
+     0.515625
+    ],
+    "tint": [
+     0.55,
+     0.6,
+     0.42
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "artillery-wagon/hr-artillery-wagon-cannon-barrel-1.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     530,
+     384
+    ],
+    "scale": 0.275,
+    "shift": [
+     0,
+     -0.5125
+    ],
+    "tint": [
+     0.55,
+     0.6,
+     0.42
+    ]
+   }
   ]
- }
+ },
+ "source_munitions": "lot POLISSAGE-3 : tourelles à munitions telles que livrées à release-0.6.77 @ 90f19231 (0.6.80 en cours), lues par le banc data-stage (--dump-final ammo-turret/<nom>) : socle + tête repliée, direction 0, image 0 ; couches de lumière omises"
 }

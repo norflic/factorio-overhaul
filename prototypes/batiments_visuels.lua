@@ -6,6 +6,8 @@
 --   cuve d'électrolyse ignée (fo-reduction-cell, assembling-machine 4×4, prototypes/bauxite.lua) : image fixe, lueur du bain au travail.
 -- Feuilles : graphics/batiments/ (PNG hors de git, D-6 : tools/render/pieces/batiments/feuilles.py), décrites par le sprites.lua généré.
 --   lot POLISSAGE-2 (10/11) : cinq tourelles électriques (Bastion II à IV, tour à arc, tourelle laser lourde), section en fin de fichier.
+--   lot POLISSAGE-3 (10/11) : quatre tourelles à munitions (Bastion I, tourelle lourde, canon, mortier), tête tournante à 64 directions,
+--     section en fin de fichier.
 -- Chargé à la fin de prototypes/faction.lua (après le coffre, les bâtiments de la bauxite et tout l'arsenal de data.lua). Emprises, boîtes, recettes et statistiques
 -- INCHANGÉES : seules les images changent. Un bâtiment absent de sprites.lua garde son visuel provisoire.
 
@@ -176,6 +178,87 @@ for _, t in ipairs(TOURELLES) do
     end
     icones_tourelle(e)
     if data.raw.item[t.name] then icones_tourelle(data.raw.item[t.name]) end
+    habilles = habilles + 1
+  end
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot POLISSAGE-3 (10/11) : tourelles à MUNITIONS encore copiées de vanilla et teintées (Bastion I, tourelle lourde, canon, mortier),
+-- refaites : SOCLE fixe (corps, ombre, lueur des conduits) et TÊTE TOURNANTE à 64 directions lue dans des BANDES (« stripes » de
+-- u.rangs directions × u.images colonnes, une ligne par direction, comme la mitrailleuse vanilla) : les états au repos (replié,
+-- déploiement, prêt, repli) lisent la PREMIÈRE colonne (width_in_frames = 1), le tir toutes les images (u.images : 2 pour le Bastion I
+-- et la tourelle lourde, recul et éclair ; 1 pour le canon et le mortier, comme aujourd'hui). Couches de tête : corps, ombre, lueur
+-- (intensité par état, même échelle que POLISSAGE-2) et lumière de nuit. Origine des projectiles LUE DU MODÈLE 3D (u.bouche :
+-- tools/render/pieces/batiments/tourelle_tete.py) : projectile_creation_distance et projectile_center. Emprise, boîtes, santé, portée,
+-- dégâts, munitions, rotation, vitesses de déploiement, douilles : INCHANGÉS.
+---------------------------------------------------------------------------------------------------
+local TOURELLES_MUNITIONS = {
+  { cle = "bastion1", name = "fo-bastion-1" },
+  { cle = "lourde", name = "fo-heavy-gun-turret" },
+  { cle = "canon", name = "fo-cannon-turret" },
+  { cle = "mortier", name = "fo-mortar-turret" },
+}
+-- états de la tête : intensité de la lueur ; tir = toutes les images de la bande
+local ETATS_TETE = {
+  { champ = "folded_animation", k = 0.35 },
+  { champ = "preparing_animation", k = 0.6 },
+  { champ = "folding_animation", k = 0.6 },
+  { champ = "prepared_animation", k = 0.85 },
+  { champ = "attacking_animation", k = 1.0, tir = true },
+}
+
+--- Couche de tête (RotatedAnimation à bandes), n images jouées ; kind : main, shadow, glow, light (la lueur dessinée en lumière).
+local function couche_tete(u, kind, etat, n)
+  local src = u.tete[kind == "light" and "glow" or kind]
+  local function une(r, hr)
+    local bandes = {}
+    for i, f in ipairs(r.stripes) do bandes[i] = { filename = f, width_in_frames = n, height_in_frames = u.rangs } end
+    local t = { stripes = bandes, width = r.width, height = r.height, shift = { r.shift[1], r.shift[2] }, priority = "high",
+      direction_count = u.directions, frame_count = n }
+    if kind == "shadow" then
+      t.draw_as_shadow = true
+    elseif kind == "main" then
+      t.flags = { "linear-minification" }
+    else
+      local k = kind == "light" and etat.k * 0.5 or etat.k
+      t.blend_mode = "additive"
+      t.tint = { r = k, g = k, b = k, a = 1 }
+      if kind == "light" then t.draw_as_light = true else t.draw_as_glow = true end
+    end
+    if hr then t.scale = 0.5 end
+    return t
+  end
+  local s = une(src.lr, false)
+  s.hr_version = une(src.hr, true)
+  return s
+end
+
+--- Icônes : la nouvelle en premier calque, les calques suivants d'aujourd'hui (chiffre d'âge, pastille de rôle) gardés.
+local function icones_munitions(p, u)
+  local ancien = p.icons or {}
+  local ic = icones(u)
+  for j = 2, #ancien do ic[#ic + 1] = ancien[j] end
+  lib.set_icons(p, ic)
+end
+
+for _, t in ipairs(TOURELLES_MUNITIONS) do
+  local u, e = SPR[t.cle], data.raw["ammo-turret"][t.name]
+  if u and e and u.tete and u.bouche then
+    local socle = { couche(u.main, "main"), couche(u.shadow, "shadow") }
+    if u.glow then socle[#socle + 1] = couche(u.glow, "glow") end
+    e.base_picture = { layers = socle }
+    for _, etat in ipairs(ETATS_TETE) do
+      local n = etat.tir and u.images or 1
+      e[etat.champ] = { layers = { couche_tete(u, "main", etat, n), couche_tete(u, "shadow", etat, n), couche_tete(u, "glow", etat, n),
+        couche_tete(u, "light", etat, n) } }
+    end
+    e.water_reflection = nil
+    e.drawing_box = boite(u)
+    local ap = e.attack_parameters
+    ap.projectile_creation_distance = u.bouche.distance
+    ap.projectile_center = { u.bouche.centre[1], u.bouche.centre[2] }
+    icones_munitions(e, u)
+    if data.raw.item[t.name] then icones_munitions(data.raw.item[t.name], u) end
     habilles = habilles + 1
   end
 end

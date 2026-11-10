@@ -2,6 +2,108 @@
 -- Tailles en pixels, shift, boîtes et ancrages en tuiles ; hr = 64 px par tuile (scale 0,5), normale = 32.
 -- Images hors de git (D-6) : MANIFEST.json, « commande ».
 return {
+  bastion1 = {
+    boite = { { -1.1562, -1.625 }, { 1.6875, 1.0938 } },
+    bouche = {
+      centre = { 0.0, -0.4525 },
+      distance = 1.0
+    },
+    directions = 64,
+    glow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-bastion1-glow.png",
+        height = 94,
+        shift = { 0.0, 0.078125 },
+        width = 76
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/bastion1-glow.png",
+        height = 47,
+        shift = { 0.0, 0.078125 },
+        width = 38
+      }
+    },
+    icone = {
+      filename = "__factorio-overhaul__/graphics/batiments/bastion1-icone.png",
+      icon_mipmaps = 4,
+      icon_size = 64
+    },
+    images = 2,
+    main = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-bastion1-main.png",
+        height = 128,
+        shift = { 0.0, 0.0 },
+        width = 136
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/bastion1-main.png",
+        height = 64,
+        shift = { 0.0, 0.0 },
+        width = 68
+      }
+    },
+    map_color = { 0.361, 0.386, 0.453 },
+    rangs = 16,
+    shadow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-bastion1-shadow.png",
+        height = 108,
+        shift = { 0.0625, 0.0 },
+        width = 116
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/bastion1-shadow.png",
+        height = 54,
+        shift = { 0.0625, 0.0 },
+        width = 58
+      }
+    },
+    tete = {
+      glow = {
+        hr = {
+          height = 150,
+          shift = { 0.0, -0.453125 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-glow-4.png" },
+          width = 148
+        },
+        lr = {
+          height = 75,
+          shift = { 0.0, -0.453125 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/bastion1-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-glow-4.png" },
+          width = 74
+        }
+      },
+      main = {
+        hr = {
+          height = 150,
+          shift = { 0.0, -0.453125 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-main-4.png" },
+          width = 148
+        },
+        lr = {
+          height = 75,
+          shift = { 0.0, -0.453125 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/bastion1-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-main-4.png" },
+          width = 74
+        }
+      },
+      shadow = {
+        hr = {
+          height = 140,
+          shift = { 0.578125, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/hr-bastion1-tete-shadow-4.png" },
+          width = 142
+        },
+        lr = {
+          height = 70,
+          shift = { 0.578125, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/bastion1-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/bastion1-tete-shadow-4.png" },
+          width = 71
+        }
+      }
+    }
+  },
   bastion2 = {
     ancrages = {
       emetteur = {
@@ -227,6 +329,108 @@ return {
       }
     }
   },
+  canon = {
+    boite = { { -2.1562, -2.7812 }, { 2.9375, 2.1562 } },
+    bouche = {
+      centre = { 0.0, -0.5445 },
+      distance = 2.14
+    },
+    directions = 64,
+    glow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-canon-glow.png",
+        height = 138,
+        shift = { 0.0, 0.140625 },
+        width = 136
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/canon-glow.png",
+        height = 69,
+        shift = { 0.0, 0.140625 },
+        width = 68
+      }
+    },
+    icone = {
+      filename = "__factorio-overhaul__/graphics/batiments/canon-icone.png",
+      icon_mipmaps = 4,
+      icon_size = 64
+    },
+    images = 1,
+    main = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-canon-main.png",
+        height = 180,
+        shift = { 0.0, 0.0 },
+        width = 192
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/canon-main.png",
+        height = 90,
+        shift = { 0.0, 0.0 },
+        width = 96
+      }
+    },
+    map_color = { 0.376, 0.403, 0.473 },
+    rangs = 16,
+    shadow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-canon-shadow.png",
+        height = 160,
+        shift = { 0.078125, 0.0 },
+        width = 170
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/canon-shadow.png",
+        height = 80,
+        shift = { 0.078125, 0.0 },
+        width = 85
+      }
+    },
+    tete = {
+      glow = {
+        hr = {
+          height = 190,
+          shift = { 0.0, -0.578125 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-canon-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-glow-4.png" },
+          width = 184
+        },
+        lr = {
+          height = 95,
+          shift = { 0.0, -0.578125 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/canon-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/canon-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/canon-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/canon-tete-glow-4.png" },
+          width = 92
+        }
+      },
+      main = {
+        hr = {
+          height = 286,
+          shift = { 0.0, -0.546875 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-canon-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-main-4.png" },
+          width = 276
+        },
+        lr = {
+          height = 143,
+          shift = { 0.0, -0.546875 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/canon-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/canon-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/canon-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/canon-tete-main-4.png" },
+          width = 138
+        }
+      },
+      shadow = {
+        hr = {
+          height = 276,
+          shift = { 0.6875, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-canon-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/hr-canon-tete-shadow-4.png" },
+          width = 288
+        },
+        lr = {
+          height = 138,
+          shift = { 0.6875, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/canon-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/canon-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/canon-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/canon-tete-shadow-4.png" },
+          width = 144
+        }
+      }
+    }
+  },
   coffre = {
     boite = { { -0.6875, -0.7188 }, { 0.9062, 0.5625 } },
     glow = {
@@ -401,6 +605,210 @@ return {
         height = 80,
         shift = { 0.234375, 0.0 },
         width = 95
+      }
+    }
+  },
+  lourde = {
+    boite = { { -1.8438, -2.4688 }, { 2.5, 1.7188 } },
+    bouche = {
+      centre = { 0.0, -0.601 },
+      distance = 1.6
+    },
+    directions = 64,
+    glow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-lourde-glow.png",
+        height = 136,
+        shift = { 0.0, 0.15625 },
+        width = 136
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/lourde-glow.png",
+        height = 68,
+        shift = { 0.0, 0.15625 },
+        width = 68
+      }
+    },
+    icone = {
+      filename = "__factorio-overhaul__/graphics/batiments/lourde-icone.png",
+      icon_mipmaps = 4,
+      icon_size = 64
+    },
+    images = 2,
+    main = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-lourde-main.png",
+        height = 180,
+        shift = { 0.0, 0.0 },
+        width = 192
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/lourde-main.png",
+        height = 90,
+        shift = { 0.0, 0.0 },
+        width = 96
+      }
+    },
+    map_color = { 0.376, 0.402, 0.472 },
+    rangs = 16,
+    shadow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-lourde-shadow.png",
+        height = 160,
+        shift = { 0.078125, 0.0 },
+        width = 170
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/lourde-shadow.png",
+        height = 80,
+        shift = { 0.078125, 0.0 },
+        width = 85
+      }
+    },
+    tete = {
+      glow = {
+        hr = {
+          height = 238,
+          shift = { 0.0, -0.609375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-glow-4.png" },
+          width = 232
+        },
+        lr = {
+          height = 119,
+          shift = { 0.0, -0.609375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/lourde-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-glow-4.png" },
+          width = 116
+        }
+      },
+      main = {
+        hr = {
+          height = 238,
+          shift = { -0.015625, -0.609375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-main-4.png" },
+          width = 234
+        },
+        lr = {
+          height = 119,
+          shift = { -0.015625, -0.609375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/lourde-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-main-4.png" },
+          width = 117
+        }
+      },
+      shadow = {
+        hr = {
+          height = 220,
+          shift = { 0.765625, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/hr-lourde-tete-shadow-4.png" },
+          width = 222
+        },
+        lr = {
+          height = 110,
+          shift = { 0.765625, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/lourde-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/lourde-tete-shadow-4.png" },
+          width = 111
+        }
+      }
+    }
+  },
+  mortier = {
+    boite = { { -1.4375, -1.9375 }, { 2.2812, 1.375 } },
+    bouche = {
+      centre = { 0.0, -1.2503 },
+      distance = 0.5949
+    },
+    directions = 64,
+    glow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-mortier-glow.png",
+        height = 146,
+        shift = { -0.015625, 0.015625 },
+        width = 130
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/mortier-glow.png",
+        height = 73,
+        shift = { -0.015625, 0.015625 },
+        width = 65
+      }
+    },
+    icone = {
+      filename = "__factorio-overhaul__/graphics/batiments/mortier-icone.png",
+      icon_mipmaps = 4,
+      icon_size = 64
+    },
+    images = 1,
+    main = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-mortier-main.png",
+        height = 174,
+        shift = { 0.0, 0.015625 },
+        width = 184
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/mortier-main.png",
+        height = 87,
+        shift = { 0.0, 0.015625 },
+        width = 92
+      }
+    },
+    map_color = { 0.374, 0.401, 0.471 },
+    rangs = 16,
+    shadow = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/batiments/hr-mortier-shadow.png",
+        height = 156,
+        shift = { 0.0625, 0.0 },
+        width = 164
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/batiments/mortier-shadow.png",
+        height = 78,
+        shift = { 0.0625, 0.0 },
+        width = 82
+      }
+    },
+    tete = {
+      glow = {
+        hr = {
+          height = 112,
+          shift = { 0.0, -0.5 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-glow-4.png" },
+          width = 88
+        },
+        lr = {
+          height = 56,
+          shift = { 0.0, -0.5 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/mortier-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-glow-4.png" },
+          width = 44
+        }
+      },
+      main = {
+        hr = {
+          height = 150,
+          shift = { 0.0, -0.765625 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-main-4.png" },
+          width = 100
+        },
+        lr = {
+          height = 75,
+          shift = { 0.0, -0.765625 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/mortier-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-main-4.png" },
+          width = 50
+        }
+      },
+      shadow = {
+        hr = {
+          height = 100,
+          shift = { 0.984375, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/hr-mortier-tete-shadow-4.png" },
+          width = 166
+        },
+        lr = {
+          height = 50,
+          shift = { 0.984375, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/mortier-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/mortier-tete-shadow-4.png" },
+          width = 83
+        }
       }
     }
   },

@@ -2,7 +2,11 @@
 -- lueur pulsée, faisceau parti de l'émetteur : prototypes/batiments_visuels.lua) se chargent et TIRENT. Chacune, alimentée, a sa
 -- cible immobile (béhémoth inactif, 3 000 PV) à 9 tuiles au sud (au-delà de la portée minimale de 6 du Bastion IV) ; la mesure est leur propre damage_dealt (une voisine ne la fausse
 -- pas). Rangée espacée de 24 tuiles, une source invisible au centre de la zone (poteau de portée 64).
+-- Lot POLISSAGE-3 (10/11) : les quatre tourelles à MUNITIONS refaites (tête tournante à 64 directions lue en bandes, origine des
+-- projectiles lue du modèle) se chargent, TOURNENT vers leur cible et TIRENT : seconde rangée 45 tuiles plus au sud (hors de portée des
+-- électriques), munitions de leur catégorie lues au prototype, cible au-delà de la portée minimale (canon 5, mortier 14).
 local TOURELLES = { "fo-bastion-2", "fo-bastion-3", "fo-bastion-4", "fo-tesla-turret", "fo-heavy-laser-turret" }
+local MUNITIONS = { "fo-bastion-1", "fo-heavy-gun-turret", "fo-cannon-turret", "fo-mortar-turret" }
 
 return {
   setup = function(ctx)
@@ -28,6 +32,30 @@ return {
       st.rows[i] = { name = name, turret = t, target = u }
       ctx.check(t ~= nil and u ~= nil, name .. " : tourelle et cible posees")
     end
+    st.mun = {}
+    for i, name in ipairs(MUNITIONS) do
+      local x, y = z.x0 + 16 + 30 * (i - 1), z.y0 + 75
+      local t = game.entity_prototypes[name] and s.create_entity({ name = name, position = { x, y }, force = tir })
+      local mn = t and t.prototype.attack_parameters and t.prototype.attack_parameters.min_range or 0
+      local u = s.create_entity({ name = "behemoth-biter", position = { x + 4, y + math.max(9, mn + 4) }, force = cible })
+      if u then u.active = false end
+      local am = nil   -- première munition (ordre des noms) de la catégorie de la tourelle, lue aux prototypes
+      if t then
+        local cat = t.prototype.attack_parameters.ammo_categories and t.prototype.attack_parameters.ammo_categories[1]
+        local noms = {}
+        for n, it in pairs(game.item_prototypes) do
+          if it.type == "ammo" then
+            local at = it.get_ammo_type("turret") or it.get_ammo_type()
+            if at and at.category == cat then noms[#noms + 1] = n end
+          end
+        end
+        table.sort(noms)
+        am = noms[1]
+        if am then t.insert({ name = am, count = 20 }) end
+      end
+      st.mun[i] = { name = name, turret = t, target = u, ammo = am }
+      ctx.check(t ~= nil and u ~= nil and am ~= nil, name .. " : tourelle a munitions, cible et munition " .. tostring(am))
+    end
   end,
 
   verify = function(ctx)
@@ -35,6 +63,12 @@ return {
       local t = r.turret
       local dealt = t and t.valid and t.damage_dealt or 0
       ctx.check(dealt > 0, r.name .. " (tete d'une direction, faisceau de l'emetteur) : tire et blesse sa cible", string.format("%.0f degats", dealt))
+    end
+    for _, r in ipairs(ctx.state().mun or {}) do
+      local t = r.turret
+      local dealt = t and t.valid and t.damage_dealt or 0
+      ctx.check(dealt > 0, r.name .. " (tete tournante a 64 directions, origine des projectiles du modele) : tourne, tire et blesse sa cible",
+        string.format("%.0f degats, munition %s", dealt, tostring(r.ammo)))
     end
   end,
 }

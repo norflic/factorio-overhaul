@@ -5,6 +5,7 @@ sol, même échelle (zoom 2 = 64 px par tuile), jour et nuit. Python 3.9, Pillow
     py -3.9 tools/render/pieces/batiments/planche.py [--src graphics/batiments] --dest <planche.png> [--zoom 2]
 """
 import argparse
+import json
 import os
 
 import numpy as np
@@ -34,7 +35,12 @@ NOMS = {"coffre": ("Coffre d'équipe", "fo-team-chest", 1), "pylone": ("Pylône 
         "bastion3": ("Bastion III (arc, âge 3) : la couronne d'électrodes", "fo-bastion-3", 2),
         "bastion4": ("Bastion IV (plasma, âge 4) : le confinement", "fo-bastion-4", 2),
         "tesla": ("Tour à arc : la bobine Tesla", "fo-tesla-turret", 2),
-        "laser_lourd": ("Tourelle laser lourde : le dôme focal", "fo-heavy-laser-turret", 3)}
+        "laser_lourd": ("Tourelle laser lourde : le dôme focal", "fo-heavy-laser-turret", 3),
+        # lot POLISSAGE-3 (10/11) : tourelles à munitions, tête tournante (après : direction 0 comme l'avant, puis une bande de 8 directions)
+        "bastion1": ("Bastion I (cinétique, âge 1) : le rempart cinétique", "fo-bastion-1", 2),
+        "lourde": ("Tourelle lourde : la gatling de bastion", "fo-heavy-gun-turret", 3),
+        "canon": ("Tourelle-canon : le canon de siège", "fo-cannon-turret", 3),
+        "mortier": ("Mortier : l'obusier", "fo-mortar-turret", 3)}
 AVANT = os.path.join(HERE, "avant_tourelles.json")
 
 
@@ -88,7 +94,7 @@ def vanilla(cle):
     return out
 
 
-def feuilles(src, cle, kinds):
+def feuilles(src, cle, kinds, direction=0):
     import importlib.util
     spec = importlib.util.spec_from_file_location("spr_json", os.path.join(HERE, "feuilles.py"))
     import json
@@ -100,6 +106,13 @@ def feuilles(src, cle, kinds):
         h = tab[k]["hr"]
         p = os.path.join(MOD, h["filename"].replace("__factorio-overhaul__/", "").replace("/", os.sep))
         out.append((lire(p), (h["shift"][0] * 64, h["shift"][1] * 64), k))
+        t = tab.get("tete")
+        if t and k in t:
+            hh = t[k]["hr"]
+            b, r = divmod(direction, tab["rangs"])
+            pt = os.path.join(MOD, hh["stripes"][b].replace("__factorio-overhaul__/", "").replace("/", os.sep))
+            w, ht = hh["width"], hh["height"]
+            out.append((lire(pt, (0, r * ht, w, (r + 1) * ht)), (hh["shift"][0] * 64, hh["shift"][1] * 64), k))
     return out
 
 
@@ -157,7 +170,12 @@ def main():
                 cells.append((compose(avant_tourelle(cle), W, Hh, nuit, ppt), pre + "aujourd'hui (0.6.79)"))
             cells.append((compose(feuilles(a.src, cle, ("shadow", "main", "glow")), W, Hh, nuit, ppt), pre + "refait (titans : argent, cyan, magenta)"))
         rows.append(("%s · %s · %d×%d" % (nom, proto, side, side), cells))
-    Wt = max(sum(c[0].width for c in r[1]) + gap * 5 for r in rows)
+        tab = json.load(open(os.path.join(a.src, "sprites.json"), encoding="utf-8")).get(cle, {})
+        if "tete" in tab:
+            bande = [(compose(feuilles(a.src, cle, ("shadow", "main", "glow"), d), W, Hh, False, 32), "direction %d/64" % d)
+                     for d in range(0, 64, 8)]
+            rows.append(("%s · tête tournante : 8 des 64 directions (zoom 1)" % nom, bande))
+    Wt = max(sum(c[0].width for c in r[1]) + gap * (len(r[1]) + 1) for r in rows)
     Ht = 44 + sum(th + max(c[0].height for c in r[1]) + lab + gap for r in rows)
     sheet = Image.new("RGB", (Wt, Ht), (22, 22, 26))
     dr = ImageDraw.Draw(sheet)
