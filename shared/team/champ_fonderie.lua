@@ -104,27 +104,27 @@ function Fd.pole_col(spec)
   return spec.pole.reach
 end
 
---- Place de la fonderie d'un groupe : (entités, longueur, s_edge, nombre) ou nil. `free(u, v)`, `is_ore(u, v)` : lectures du
---- champ ; la fonderie recule (jusqu'à `shift` tuiles) pour trouver une place libre, d'abord hors du minerai.
-function Fd.place(spec, b, side, edge, flow, gap, shift, free, is_ore)
+--- Place de la fonderie d'un groupe : (entités, longueur, s_edge, nombre) ou nil. `free(u, v)`, `is_res(u, v)` : lectures du
+--- champ ; la fonderie recule (jusqu'à `shift` tuiles) pour trouver une place libre HORS DE TOUTE RESSOURCE (F500, directive du DC du
+--- 10/11, 22 h : aucun four sur une tuile de ressource ; `is_res` = le minerai visé ET les autres ressources ; plus de seconde passe
+--- qui acceptait le minerai) ; aucune place : nil (le groupe n'a pas de fonderie de ce côté).
+function Fd.place(spec, b, side, edge, flow, gap, shift, free, is_res)
   local count = Fd.count(spec, flow)
-  for pass = 1, 2 do
-    for t = 0, shift do
-      local s_edge = edge + side * (gap + 1 + t)
-      local list, len = Fd.layout(spec, b, side, s_edge, count)
-      local ok = true
-      -- le tapis : du bord du champ jusqu'au bout de la fonderie
-      for u = edge + side, s_edge + side * (len - 1), side do if not free(u, b) then ok = false break end end
-      for _, e in ipairs(list) do
-        if not ok then break end
-        for u = e.u, e.u + e.size - 1 do
-          for v = e.v, e.v + e.size - 1 do
-            if not free(u, v) or (pass == 1 and is_ore(u, v)) then ok = false end
-          end
+  for t = 0, shift do
+    local s_edge = edge + side * (gap + 1 + t)
+    local list, len = Fd.layout(spec, b, side, s_edge, count)
+    local ok = true
+    -- le tapis : du bord du champ jusqu'au bout de la fonderie
+    for u = edge + side, s_edge + side * (len - 1), side do if not free(u, b) then ok = false break end end
+    for _, e in ipairs(list) do
+      if not ok then break end
+      for u = e.u, e.u + e.size - 1 do
+        for v = e.v, e.v + e.size - 1 do
+          if not free(u, v) or is_res(u, v) then ok = false end
         end
       end
-      if ok then return list, len, s_edge, count end
     end
+    if ok then return list, len, s_edge, count end
   end
   return nil
 end
