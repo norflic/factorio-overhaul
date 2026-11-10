@@ -48,6 +48,7 @@ local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées
 local DefStock = require("script.team.defense_stock") -- lot DEFENSE-STOCK : tourelles du coffre posées en groupes
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
+local Elec = require("script.team.electrique") -- lot CC-MAIN : pas de pioche sur ce que les foreuses électriques du coffre extraient
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local Src = require("script.team.sources") -- lot MINAGE-MAIN : ce qui dort dans les coffres de SORTIE (fonderies), tournée « fetch »
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
@@ -753,7 +754,8 @@ function Worker.program(f, task, surface, tick)
     -- à la main quand un coffre en a (retour du DC du 31/10 : minage de charbon seul de la 3e à la 7e heure, coffres garnis).
     do
       local ok, why = Mi.hand_verdict({ stock = Stock.count(f, task.resource), count = task.count, fuel = task.resource == T.fuel,
-        survie = task.survie, crisis = task.crisis, short = task.short })
+        survie = task.survie, crisis = task.crisis, short = task.short,
+        electrique = Elec.hand_blocked(f, tick, task.resource) }) -- lot CC-MAIN : même exclusion que les paires thermiques
       if not ok then
         f.stats.main_refus = f.stats.main_refus or {}
         local last = f.stats.main_refus[task.resource]
@@ -762,7 +764,7 @@ function Worker.program(f, task, surface, tick)
           log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d en coffre pour %d demande(s), tache %s, a %.1f min",
             f.key or "?", tostring(task.resource), why, Stock.count(f, task.resource), task.count or 0, tostring(task.key), tick / 3600))
         end
-        task.fail = task.fail or "main:stock"
+        task.fail = task.fail or ("main:" .. why) -- (« main:stock » comme avant ; « main:electrique » : lot CC-MAIN)
         return nil
       end
       -- Lot CHARBON-MAIN (retour du DC du 3/11 : « des milliers de charbons réunis dans les coffres [des foreuses] et ils minent à la main

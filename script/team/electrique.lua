@@ -299,6 +299,45 @@ function Elec.allowed(f, tick, kind)
   return (E.thermal(inputs(v, kind, false)))
 end
 
+--- Lot CC-MAIN : l'objet `item` sort-il d'une ressource que la foreuse électrique sait extraire (catégorie de la ressource parmi celles de la
+--- foreuse, lues aux prototypes) ? Le bois des arbres, un fluide d'une autre catégorie : non. Mémorisé par objet dans une table de module
+--- (jamais dans `global` ; une somme booléenne : l'ordre de `pairs` ne compte pas).
+local DRILLABLE = {}
+local function drillable(item)
+  local c = DRILLABLE[item]
+  if c ~= nil then return c end
+  c = false
+  local ok, drill = pcall(function() return game.entity_prototypes[T.DRILL_ELECTRIC] end)
+  local cats = ok and drill and proto_get(drill, "resource_categories") or nil
+  local ok2, list = pcall(function() return game.get_filtered_entity_prototypes({ { filter = "type", type = "resource" } }) end)
+  if cats and ok2 and list then
+    for _, r in pairs(list) do
+      if cats[proto_get(r, "resource_category") or ""] then
+        local mp = proto_get(r, "mineable_properties")
+        for _, p in ipairs(mp and mp.products or {}) do
+          if p.name == item and p.type ~= "fluid" then c = true end
+        end
+      end
+    end
+  end
+  DRILLABLE[item] = c
+  return c
+end
+
+--- Lot CC-MAIN (mandat du DC, 10/11 22 h 20 : plus de minage au sol dès que les foreuses électriques sont là) : cause (chaîne) qui interdit
+--- la pioche sur `item`, ou nil. MÊME exclusion mutuelle que la thermique (Dt.thermal_allowed : hors phase early, des foreuses électriques
+--- dorment au coffre), appliquée aux seules ressources que la foreuse électrique extrait (jamais le bois des arbres). Verdict périmé ou
+--- règle éteinte : nil (comportement d'avant). Lu par la garde unique du minage à la main (Mi.hand_verdict : worker, fond).
+function Elec.hand_blocked(f, tick, item)
+  local st = f and f.elec
+  local v = st and st.v
+  if not (v and v.on and tick - (v.tick or -math.huge) <= Elec.TTL) then return nil end
+  local dt_ok, dt_why = Dt.thermal_allowed({ phase = v.phase, elec_drill_stock = v.elec_drill_stock })
+  if dt_ok then return nil end
+  if not drillable(item) then return nil end
+  return dt_why
+end
+
 --- Journal : foreuses thermiques perdues non refaites (n) et secours thermiques annulés (back) par la reconstruction.
 function Elec.note_rebuild(f, tick, n, back)
   local st = state_of(f)
