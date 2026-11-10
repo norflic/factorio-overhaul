@@ -1,4 +1,32 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.77
+Date: 2026-11-10
+  Features:
+    - Modules : les 30 icônes des modules sont redessinées (holographiques, cyan = vitesse, ambre = productivité, émeraude = efficacité, palier lisible à 64, 32 et 16 px).
+    - Armes par âge : lignée Bastion à quatre modes d'attaque (cinétique, laser, arc en chaîne, plasma), fusil à rail, lanceur de singularités, projecteur de champ, frappe orbitale verrouillée derrière l'âge 4.
+    - Titans : le Juggernaut (allié, trois stades) et le Kaiju cristallin (ennemi des vagues de boss) rendus depuis des modèles 3D paramétriques ; évolution des points de vie, du blindage et des armes par âge.
+    - Stock dormant (F435) : une bande dont 30 % au moins des foreuses et des fours dorment déjà au coffre part sans attendre que la plaque manque (on pose ce qu'on a, on complète ensuite) ; les bandes en avance s'ouvrent à tout champ ainsi payé.
+    - Auto-financement (F436) : un agrandissement thermique dont seule la plaque manque au QG prend ses plaques dans les fours de l'avant-poste et fabrique les paires sur place.
+    - Mall (F442) : les machines qui dorment au coffre au-delà d'une réserve de 20 % paient une section de rangée de plus, sans attendre le débit.
+    - Scans (F444) : audit périodique de la base par impulsions de 5 minutes, découpé en 20 tranches et décalé par équipe ; premier audit électrique en lecture seule (poteaux sur gisement, poteaux redondants candidats), journal [FO-HYGIENE].
+    - Arbre de décision (F446) : phases early / mid / late lues aux données ; hors amorçage, des foreuses électriques qui dorment au coffre interdisent toute foreuse thermique ; règle du meilleur choix disponible avec repli et marquage rétrofit.
+    - Scans (F447) : impulsions toutes les 3 minutes et réveils événementiels (recherche finie, palier de stock, coupure d'énergie, famine) sur des voies disjointes par équipe ; journal [FO-SCAN].
+    - Boxes (F448) : gisements, fonderies, mall et énergie modélisés en boxes avec statut MAXED ; une box MAXED est ignorée par les scans jusqu'à épuisement ou déblocage de recherche ; journal [FO-BOX].
+    - Solveur de recettes (F449) : arbre de production par objet et débit, machines par recette et besoins du bus, mémoïsé ; classement des intermédiaires pivots.
+    - Gabarits (F450) : empreinte réservée pour la machine de l'âge cible, bras sur la ligne d'interface finale, décision « upgrade ou ajourne » sans bloquer la box (règle pure, branchement à suivre).
+    - Bus d'intermédiaires (F451) : en phase late (stocks du mall constitués), les intermédiaires pivots déduits des recettes ont leurs rangées demandées en priorité et leurs liaisons de bus passent devant ; mesuré : en phase mid ils coûtaient six bandes sur huit ; artisanat local en repli tant que la ligne n'est pas servie.
+    - Convoyeurs (F452) : la montée de palier visite enfin troncs du bus, sorties de méga-fonderie, liaisons et bandes, dans cet ordre, et s'anticipe à chaque recherche finie ; aucun tapis retiré sans le kit au stock.
+    - Mall (F453) : gabarit en ruban (deux rangées face à face, corridor de deux convoyeurs, coffres extérieurs) et pavage : un bloc de plus se colle au précédent dans le lot avec un gap d'une tuile au lieu d'un lot par bloc.
+  Bugfixes:
+    - Famine du fer (F434) : la famine forcée de la plaque clé lit aussi le besoin évalué (noyau) ; elle ne se referme plus à 27 min pendant que la bande du champ attend 887 plaques en réserve (graine 1618033988).
+    - Chantier gelé (F437) : une bande de champ ne compte « commencée » pour la famine de la plaque clé qu'à sa première entité bâtie ; une bande dégelée qui ne bâtit rien ne gèle plus l'extension thermique.
+    - Pose perdue (F438) : la fabrication sur place lance ses recettes l'une après l'autre, file vide entre deux ; les foreuses auto-financées sont bien fabriquées avant la pose.
+    - Courant des bandes (F439) : le journal « bande sans courant » distingue un réseau non joint d'une centrale qui ne produit pas (détruite, à sec, en chantier).
+    - Centrale (F440) : les pièces déposées au QG vont d'abord aux projets rouverts pour reconstruction (tapis de charbon de la centrale détruits par une attaque), puis aux réserves ; plus de chaudière nourrie à la main pendant 26 minutes.
+    - Champ (F441) : une bande de plus de 400 entités laisse son réseau de charbon à un projet lié ; la bande se paie seule.
+    - PNJ (F443) : en famine de la plaque clé, un PNJ dont la file de fabrication est pleine part miner au lieu de rester au QG à refuser toutes les tâches.
+    - Charbon (F445) : la centrale ne prend plus au QG le charbon réservé aux tournées des brûleurs ; plus de brûleurs à sec pendant que la centrale accapare le coffre.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.74
 Date: 2026-11-09
   Features:
@@ -6,26 +34,6 @@ Date: 2026-11-09
     - Gisements : la taille réelle du gisement compte dans la valeur des sites et dans le choix du champ de la bande (jamais contre le danger).
     - Mall : les rangées s'allongent quand la matière est en surplus.
   Bugfixes:
-    - Famine du fer (F434) : la famine forcée de la plaque clé lit aussi le besoin évalué (noyau) ; elle ne se referme plus à 27 min pendant que la bande du champ attend 887 plaques en réserve (graine 1618033988).
-    - Stock dormant (F435) : une bande dont 30 % au moins des foreuses et des fours dorment déjà au coffre part sans attendre que la plaque manque (on pose ce qu'on a, on complète ensuite) ; les bandes en avance s'ouvrent à tout champ ainsi payé.
-    - Auto-financement (F436) : un agrandissement thermique dont seule la plaque manque au QG prend ses plaques dans les fours de l'avant-poste et fabrique les paires sur place.
-    - Chantier gelé (F437) : une bande de champ ne compte « commencée » pour la famine de la plaque clé qu'à sa première entité bâtie ; une bande dégelée qui ne bâtit rien ne gèle plus l'extension thermique.
-    - Pose perdue (F438) : la fabrication sur place lance ses recettes l'une après l'autre, file vide entre deux ; les foreuses auto-financées sont bien fabriquées avant la pose.
-    - Courant des bandes (F439) : le journal « bande sans courant » distingue un réseau non joint d'une centrale qui ne produit pas (détruite, à sec, en chantier).
-    - Centrale (F440) : les pièces déposées au QG vont d'abord aux projets rouverts pour reconstruction (tapis de charbon de la centrale détruits par une attaque), puis aux réserves ; plus de chaudière nourrie à la main pendant 26 minutes.
-    - Champ (F441) : une bande de plus de 400 entités laisse son réseau de charbon à un projet lié ; la bande se paie seule.
-    - Mall (F442) : les machines qui dorment au coffre au-delà d'une réserve de 20 % paient une section de rangée de plus, sans attendre le débit.
-    - PNJ (F443) : en famine de la plaque clé, un PNJ dont la file de fabrication est pleine part miner au lieu de rester au QG à refuser toutes les tâches.
-    - Scans (F444) : audit périodique de la base par impulsions de 5 minutes, découpé en 20 tranches et décalé par équipe ; premier audit électrique en lecture seule (poteaux sur gisement, poteaux redondants candidats), journal [FO-HYGIENE].
-    - Charbon (F445) : la centrale ne prend plus au QG le charbon réservé aux tournées des brûleurs ; plus de brûleurs à sec pendant que la centrale accapare le coffre.
-    - Arbre de décision (F446) : phases early / mid / late lues aux données ; hors amorçage, des foreuses électriques qui dorment au coffre interdisent toute foreuse thermique ; règle du meilleur choix disponible avec repli et marquage rétrofit.
-    - Scans (F447) : impulsions toutes les 3 minutes et réveils événementiels (recherche finie, palier de stock, coupure d'énergie, famine) sur des voies disjointes par équipe ; journal [FO-SCAN].
-    - Boxes (F448) : gisements, fonderies, mall et énergie modélisés en boxes avec statut MAXED ; une box MAXED est ignorée par les scans jusqu'à épuisement ou déblocage de recherche ; journal [FO-BOX].
-    - Solveur de recettes (F449) : arbre de production par objet et débit, machines par recette et besoins du bus, mémoïsé ; classement des intermédiaires pivots.
-    - Gabarits (F450) : empreinte réservée pour la machine de l'âge cible, bras sur la ligne d'interface finale, décision « upgrade ou ajourne » sans bloquer la box (règle pure, branchement à suivre).
-    - Bus d'intermédiaires (F451) : dès la phase mid, les intermédiaires pivots déduits des recettes ont leurs rangées demandées en priorité et leurs liaisons de bus passent devant ; artisanat local en repli tant que la ligne n'est pas servie.
-    - Convoyeurs (F452) : la montée de palier visite enfin troncs du bus, sorties de méga-fonderie, liaisons et bandes, dans cet ordre, et s'anticipe à chaque recherche finie ; aucun tapis retiré sans le kit au stock.
-    - Mall (F453) : gabarit en ruban (deux rangées face à face, corridor de deux convoyeurs, coffres extérieurs) et pavage : un bloc de plus se colle au précédent dans le lot avec un gap d'une tuile au lieu d'un lot par bloc.
     - Fer en famine : l'avant-poste de la plaque clé n'est plus marqué plein par une migration qui n'a pas commencé, et s'agrandit avant sa tourelle (sauf site meurtrier).
     - Charbon : les tuiles du réseau de charbon d'une bande sont réservées dès la création du cadre ; remplissage urgent des quais de combustible.
 ---------------------------------------------------------------------------------------------------
