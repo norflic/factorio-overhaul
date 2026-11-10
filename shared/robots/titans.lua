@@ -2,7 +2,8 @@
   Lot TITANS (9/11) : les TITANS, données et règles PURES (Lua pur, testé par tests/titans_test.lua ; aucune API du jeu).
   Directive du DC : « Méga-robots titanesques et Kaijus évolutifs ; évolution dynamique : nouvelles armes, masse et plaques de blindage
   selon l'Âge atteint ». Deux archétypes :
-  - le JUGGERNAUT, titan ALLIÉ : entrée nouvelle de la famille des géants expérimentaux (shared/robots/experimentaux.lua : `spider-vehicle`
+  - les titans ALLIÉS (T.ALLIES) : le JUGGERNAUT (bipède, âge 10), la SENTINELLE hexapode (âge 11 : singularité = zone + ralentissement) et le
+    LÉVIATHAN serpentin (âge 12 : salve de drones d'escorte) : entrées nouvelles de la famille des géants expérimentaux (shared/robots/experimentaux.lua : `spider-vehicle`
     sans arme, corps en UNE image posée par `rendering`, pattes sans image, chaîne 10 segments au Dock puis assemblage à l'usine de son
     âge). Il ÉVOLUE par PALIER d'âge, de T.AGE_MIN (premier âge des géants, Ech.AGE_ZONE_MIN) au dernier âge du jeu (L.EPOCHS) : un
     prototype par palier (PV, plaques = résistances, masse = vitesse) ; le script le remplace au changement d'âge de sa force ;
@@ -98,7 +99,7 @@ function T.masse(palier) return 1 + T.MASSE_PART * (palier - 1) end
 function T.vitesse(v0, palier) return v0 * (1 - T.LENTEUR_PART * (palier - 1)) end
 
 ---------------------------------------------------------------------------------------------------
--- JUGGERNAUT (allié)
+-- TITANS ALLIÉS : Juggernaut, Sentinelle, Léviathan (même modèle : spider-vehicle sans arme, corps par `rendering`, effets par script)
 ---------------------------------------------------------------------------------------------------
 --- Armes du Juggernaut : chacune se débloque à un palier (cumulatives, ordre fixe).
 --- griffes : dégâts de zone courte autour du titan ; canon : rayon de focalisation annulaire sur la cible (coup = salve de son âge) ;
@@ -109,11 +110,27 @@ T.ARMES = {
   { id = "salve", palier = 4 },
   { id = "resonance", palier = 6 },
 }
+--- Armes de la Sentinelle : singularite : rayon de singularité (l'attraction n'existe pas en 1.1 : dégâts de zone + RALENTISSEMENT par
+--- autocollant) ; puis canon annulaire, salve de zone, résonance.
+T.ARMES_SENTINELLE = {
+  { id = "singularite", palier = 1 },
+  { id = "canon", palier = 2 },
+  { id = "salve", palier = 4 },
+  { id = "resonance", palier = 6 },
+}
+--- Armes du Léviathan : drones : salve de drones d'escorte (projectiles existants teintés, un par drone) ; puis canon (le vortex frontal),
+--- salve de zone, résonance.
+T.ARMES_LEVIATHAN = {
+  { id = "drones", palier = 1 },
+  { id = "canon", palier = 3 },
+  { id = "salve", palier = 5 },
+  { id = "resonance", palier = 6 },
+}
 
---- Armes débloquées au palier `palier` : { [id] = vrai }, et la liste ordonnée.
-function T.armes(palier)
+--- Armes débloquées au palier `palier` dans la liste `liste` (défaut : celles du Juggernaut) : { [id] = vrai }, et la liste ordonnée.
+function T.armes(palier, liste)
   local set, list = {}, {}
-  for _, a in ipairs(T.ARMES) do
+  for _, a in ipairs(liste or T.ARMES) do
     if palier >= a.palier then
       set[a.id] = true
       list[#list + 1] = a.id
@@ -124,49 +141,103 @@ end
 
 T.JUGGERNAUT = {
   id = "juggernaut", age = 10, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-dock", ref = "trowel", mu = 60000,
-  time = 60, range = 42, cooldown = 120, dtype = "laser", speed = 0.12, effect = "titan",
+  time = 60, range = 42, cooldown = 120, dtype = "laser", speed = 0.12, effect = "titan", armes = T.ARMES,
   griffes = { radius = 7, cooldown = 60, part = 0.5, edge = 0.6 },
+  bouche = { 6.5, -19.0 },                               -- bouche du canon (tuiles depuis le pied ; lu sur le rendu : bras droit, côté caméra)
   segment = { ingredients = { { "processing-unit", 40 }, { "fo-guidance-core", 20 }, { "fo-servo-motor", 20 }, { "fo-controller", 10 },
     { "battery", 60 }, { "steel-plate", 100 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
 }
-T.JUGGERNAUT.name = T.PREFIX .. T.JUGGERNAUT.id
-T.JUGGERNAUT.segment_item = T.PREFIX .. "segment-" .. T.JUGGERNAUT.id
-T.JUGGERNAUT.segment_recipe = T.PREFIX .. "make-segment-" .. T.JUGGERNAUT.id
-T.JUGGERNAUT.recipe = T.PREFIX .. "make-" .. T.JUGGERNAUT.id
-T.JUGGERNAUT.tech = T.PREFIX .. T.JUGGERNAUT.id
-T.JUGGERNAUT.ingredients = { { T.JUGGERNAUT.segment_item, T.SEGMENTS } }
-
---- Nom du prototype du Juggernaut au palier `palier`.
-function T.juggernaut_name(palier) return T.JUGGERNAUT.name .. "-" .. clamp(palier, 1, T.PALIERS) end
-
---- Le palier d'un nom de prototype de Juggernaut (nil sinon).
-function T.juggernaut_palier(name)
-  if type(name) ~= "string" then return nil end
-  local head = T.JUGGERNAUT.name .. "-"
-  if name:sub(1, #head) ~= head then return nil end
-  local p = tonumber(name:sub(#head + 1))
-  if p == nil or p < 1 or p > T.PALIERS or p ~= math.floor(p) then return nil end
-  return p
+--- Sentinelle hexapode (âge 11, après le Finback) : plus lente, singularité (zone + ralentissement) ; le canon annulaire est à gauche.
+T.SENTINELLE = {
+  id = "sentinelle", age = 11, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-finback", ref = "finback", mu = 80000,
+  time = 60, range = 40, cooldown = 120, dtype = "laser", speed = 0.10, effect = "titan", armes = T.ARMES_SENTINELLE,
+  singularite = { radius = 9, cooldown = 90, part = 0.35, edge = 0.5, slow = 0.5, slow_ticks = 120 },
+  bouche = { -8.0, -17.0 },
+  segment = { ingredients = { { "fo-titanium-plate", 80 }, { "processing-unit", 40 }, { "fo-guidance-core", 20 }, { "fo-graphics-card", 10 },
+    { "battery", 60 }, { "steel-plate", 80 } }, time = 30 },
+  lueur = { r = 0.10, g = 0.92, b = 1.00 },
+}
+--- Léviathan serpentin (âge 12, après le Lévite) : le plus rapide (il flotte), salve de drones d'escorte ; le vortex frontal sert de canon.
+T.LEVIATHAN = {
+  id = "leviathan", age = 12, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-levite", ref = "levite", mu = 140000,
+  time = 60, range = 46, cooldown = 120, dtype = "laser", speed = 0.14, effect = "titan", armes = T.ARMES_LEVIATHAN,
+  drones = { base = 2, plus_palier = 4, orbit = 7, cooldown = 90, part = 0.6, radius = 4, speed = 0.3 },
+  bouche = { 14.0, -10.0 },
+  segment = { ingredients = { { "fo-superconducting-coil", 80 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 30 },
+    { "fo-titanium-plate", 60 }, { "fo-graphics-card", 10 } }, time = 30 },
+  lueur = { r = 0.10, g = 0.92, b = 1.00 },
+}
+T.ALLIES = { T.JUGGERNAUT, T.SENTINELLE, T.LEVIATHAN }
+for _, r in ipairs(T.ALLIES) do
+  r.name = T.PREFIX .. r.id
+  r.segment_item = T.PREFIX .. "segment-" .. r.id
+  r.segment_recipe = T.PREFIX .. "make-segment-" .. r.id
+  r.recipe = T.PREFIX .. "make-" .. r.id
+  r.tech = T.PREFIX .. r.id
+  r.ingredients = { { r.segment_item, T.SEGMENTS } }
 end
 
---- Le Juggernaut à un âge : palier, stade d'images, nom, PV (E2 de son âge nominal), plaques (E1 + palier), vitesse (masse),
---- salve, zone, cratère, cadence de zone (règle des géants), armes. Même forme qu'un géant de Xp.GEANTS pour G.cible et G.salve.
-function T.juggernaut(age)
-  local r = T.JUGGERNAUT
+--- L'allié d'un id (nil sinon).
+function T.allie_of_id(id)
+  for _, r in ipairs(T.ALLIES) do
+    if r.id == id then return r end
+  end
+  return nil
+end
+
+--- Nom du prototype d'un allié au palier `palier`.
+function T.allie_name(r, palier) return r.name .. "-" .. clamp(palier, 1, T.PALIERS) end
+
+--- L'allié et le palier d'un nom de prototype (nil sinon).
+function T.allie_palier(name)
+  if type(name) ~= "string" then return nil end
+  for _, r in ipairs(T.ALLIES) do
+    local head = r.name .. "-"
+    if name:sub(1, #head) == head then
+      local p = tonumber(name:sub(#head + 1))
+      if p ~= nil and p >= 1 and p <= T.PALIERS and p == math.floor(p) then return r, p end
+      return nil
+    end
+  end
+  return nil
+end
+
+--- Drones d'escorte du Léviathan au palier `palier` : base, un de plus dès plus_palier.
+function T.drones(palier)
+  local d = T.LEVIATHAN.drones
+  return d.base + (palier >= d.plus_palier and 1 or 0)
+end
+
+--- Un allié à un âge : palier, stade d'images, nom, PV (E2 de son âge nominal), plaques (E1 + palier), vitesse (masse), salve, zone,
+--- cratère, cadence de zone (règle des géants), armes. Même forme qu'un géant de Xp.GEANTS pour G.cible et G.salve.
+function T.allie(r, age)
   local palier = T.palier(age)
   local a = T.age_of_palier(palier)
-  local armes, liste = T.armes(palier)
+  local armes, liste = T.armes(palier, r.armes)
   local out = {
-    id = r.id, age = a, palier = palier, stage = T.stage(palier), name = T.juggernaut_name(palier), dtype = r.dtype,
+    id = r.id, age = a, palier = palier, stage = T.stage(palier), name = T.allie_name(r, palier), dtype = r.dtype,
     hp = Ech.pv(a), resistances = T.plaques(a, palier), speed = T.vitesse(r.speed, palier), masse = T.masse(palier),
     range = r.range, salve = Ech.salve(a, r.dtype), zone = Ech.rayon(a), cratere = Ech.cratere(a),
     zone_cooldown = math.max(r.cooldown, Ech.CADENCE_ZONE), cooldown = r.cooldown, armes = armes, liste_armes = liste,
-    griffes = r.griffes,
+    griffes = r.griffes, singularite = r.singularite, drones = r.drones, bouche = r.bouche,
   }
+  if r.drones then out.n_drones = T.drones(palier) end
   if armes.resonance then out.cooldown = math.max(1, math.floor(r.cooldown / 2)) end
   return out
 end
+
+--- Le Juggernaut (raccourcis historiques, mêmes résultats que T.allie).
+function T.juggernaut_name(palier) return T.allie_name(T.JUGGERNAUT, palier) end
+
+--- Le palier d'un nom de prototype de Juggernaut (nil sinon).
+function T.juggernaut_palier(name)
+  local r, p = T.allie_palier(name)
+  if r == T.JUGGERNAUT then return p end
+  return nil
+end
+
+function T.juggernaut(age) return T.allie(T.JUGGERNAUT, age) end
 
 ---------------------------------------------------------------------------------------------------
 -- KAIJU (ennemi)
