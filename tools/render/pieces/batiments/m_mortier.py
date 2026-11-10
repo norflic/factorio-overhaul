@@ -4,6 +4,7 @@ sombre, frette argent, bouche évasée), deux freins de recul sous le tube, vise
 d'aujourd'hui)."""
 import math
 
+import marques as MQ
 import socle_tourelle as St
 import tourelle_tete as T
 
@@ -13,9 +14,10 @@ ELEV = math.radians(55.0)
 
 
 def build(S, k, M):
-    z = St.socle(k, 1.25, 0.34)
+    z = St.socle(k, 1.25, 0.34, forme=MQ.marque("mortier")["forme"])
+    lis = "lisere" if "lisere" in k.M else "turq"
     k.rev("struct", 0.0, 0.0, [(z, 0.72), (z + 0.04, 0.7)], 48)
-    k.tore("turq", 0.0, 0.0, z + 0.02, 0.72, 0.012, 72, 6)
+    k.tore(lis, 0.0, 0.0, z + 0.02, 0.72, 0.016, 72, 6)
     return {}
 
 
@@ -23,7 +25,8 @@ def tete(k, M, image):
     zt = T.couronne(k, ZT, 0.66)
     k.rev("blind", 0.0, 0.0, [(zt, 0.58), (zt + 0.08, 0.56), (zt + 0.1, 0.5)], 40)
     zt += 0.1
-    k.b("accent", (0.0, -0.5, zt + 0.02), (0.5, 0.012, 0.022))
+    k.b("lisere" if "lisere" in k.M else "accent", (0.0, -0.5, zt + 0.02), (0.5, 0.012, 0.022))
+    T.toit(k, MQ.marque("mortier")["toit"], 0.0, -0.3, zt + 0.012, 0.36)
     # flasques et tourillons
     zp = zt + 0.38
     py = 0.05
@@ -45,7 +48,7 @@ def tete(k, M, image):
     k.axe("struct", p(-0.3), p(-0.04), 0.2, 20)
     k.axe("canon", p(-0.04), p(0.82), 0.15, 20)
     k.axe("blind2", p(0.26), p(0.4), 0.17, 20)
-    k.axe("accent", p(0.41), p(0.43), 0.165, 20)
+    k.axe("lisere" if "lisere" in k.M else "accent", p(0.41), p(0.43), 0.17, 20)
     k.axe("canon", p(0.82), p(0.95), 0.185, 20)
     k.axe("struct", p(0.94), p(0.952), 0.12, 16)
     for sx in (-1, 1):

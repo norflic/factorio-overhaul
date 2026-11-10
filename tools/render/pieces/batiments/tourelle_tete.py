@@ -29,6 +29,28 @@ def fut_x(k, mat, y, z, prof, segs=16):
     k.put(mat, G.tour(prof, segs, "x", (0.0, y, z)))
 
 
+def toit(k, motif, x, y, z, s):
+    """Motif de FONCTION peint sur le toit d'une tête (lot VISUELS-DISTINCTS, marques.py « toit ») : matière « lisere » (couche lueur),
+    centré en (x, y) au niveau z, taille s (tuiles). chevron : V pointé vers la bouche ; barres : trois barres transverses ; cible :
+    anneau et point ; croix : X."""
+    m = "lisere" if "lisere" in k.M else "accent"
+    e = 0.014
+    if motif == "chevron":
+        for sx in (-1, 1):
+            k.b(m, (x + sx * s * 0.22, y + s * 0.05, z), (s * 0.55, s * 0.13, e), rz=sx * math.radians(-40.0))
+    elif motif == "barres":
+        for i in (-1, 0, 1):
+            k.b(m, (x, y + i * s * 0.3, z), (s * 0.85, s * 0.12, e))
+    elif motif == "cible":
+        k.tore(m, x, y, z, s * 0.42, s * 0.06, 40, 6)
+        k.cyl(m, x, y, z - e / 2, z + e / 2, s * 0.13, 16)
+    elif motif == "croix":
+        for a in (45.0, -45.0):
+            k.b(m, (x, y, z), (s * 0.95, s * 0.13, e), rz=math.radians(a))
+    else:
+        raise ValueError("motif de toit inconnu : %s" % motif)
+
+
 def couronne(k, zt, r):
     """Couronne d'orientation (tourne avec la tête) : collier sombre, bague argent, liseré cyan. Rend le dessus de la bague."""
     k.rev("struct", 0.0, 0.0, [(zt, r * 1.02), (zt + 0.03, r * 1.02)], 40)

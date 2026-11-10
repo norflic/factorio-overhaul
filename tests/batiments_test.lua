@@ -16,7 +16,9 @@
     §6 lot POLISSAGE-3 (10/11) : les quatre tourelles à MUNITIONS (Bastion I, tourelle lourde, canon, mortier) : bandes de la tête
        tournante (4 bandes × 16 directions × images, PNG aux dimensions, MANIFEST), 64 directions sur CHAQUE couche de tête, une image
        au repos (première colonne) et les images du tir, socle corps + ombre + lueur, intensité croissante, origine des projectiles
-       lue du modèle (bouche), le reste du gameplay identique à l'octet (rotation, déploiement, portée, munitions, douilles) ; mutants.
+       lue du modèle (bouche), le reste du gameplay identique à l'octet (rotation, déploiement, portée, munitions, douilles) ; mutants ;
+    §7 lot VISUELS-DISTINCTS (10/11) : marques des quatre tourelles à munitions (socle, liseré de fonction, motif de toit) distinctes deux
+       à deux et PROUVÉES sur les feuilles (teinte de lueur mesurée, IoU des silhouettes de socle) ; mutants.
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -438,6 +440,109 @@ for _, m in ipairs({ { "pulsation plate", "PULSE = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0
   local src = FEUILLES and FEUILLES:gsub("\nPULSE = %([^)]*%)", "\n" .. m[2], 1)
   check(not pulse_ok(pulse_de(src)), "§5 mutant refusé : " .. m[1])
 end
+
+---------------------------------------------------------------------------------------------------
+-- §7 (VISUELS-DISTINCTS, 10/11) : marques des tourelles à munitions. Chacune a son socle (forme), son liseré de fonction (couleur) et
+-- son motif de toit, deux à deux distincts (tools/render/pieces/batiments/marques.py) ; les feuilles le PROUVENT : sprites.lua porte la
+-- marque recopiée de la table (feuilles à jour) et ses MESURES (teinte de la lueur du socle proche de la couleur déclarée et saturée ;
+-- silhouettes de socle de recouvrement IoU <= 0,85) ; aucune autre construction n'est marquée.
+---------------------------------------------------------------------------------------------------
+local MARQUES_SRC = read("tools/render/pieces/batiments/marques.py")
+local function marques_de(src)
+  local t = {}
+  if not src then return t end
+  for nom, forme, r, g, b, toit in src:gmatch('"(%w+)": {"forme": "(%w+)", "lisere": %(([%d.]+), ([%d.]+), ([%d.]+)%), "toit": "(%w+)"') do
+    t[nom] = { forme = forme, lisere = { tonumber(r), tonumber(g), tonumber(b) }, toit = toit }
+  end
+  return t
+end
+local function teinte(c)
+  local r, g, b = c[1], c[2], c[3]
+  local mx, mn = math.max(r, g, b), math.min(r, g, b)
+  local d = mx - mn
+  if d <= 1e-9 then return 0 end
+  local h
+  if mx == r then h = ((g - b) / d) % 6 elseif mx == g then h = (b - r) / d + 2 else h = (r - g) / d + 4 end
+  return 60 * h
+end
+local function ecart(h1, h2)
+  local d = math.abs(h1 - h2) % 360
+  return math.min(d, 360 - d)
+end
+local NOMS_MUNITIONS = {}
+for nom in pairs(MUNITIONS) do NOMS_MUNITIONS[#NOMS_MUNITIONS + 1] = nom end
+table.sort(NOMS_MUNITIONS)
+local SANS_MARQUE = { "bastion2", "bastion3", "bastion4", "tesla", "laser_lourd", "coffre", "pylone", "cuve" }
+local function juge_marques(M, B)
+  local refus = {}
+  local function non(t) refus[#refus + 1] = t end
+  local n = NOMS_MUNITIONS
+  for _, k in ipairs(n) do
+    if not M[k] then non(k .. " sans marque dans marques.py") end
+  end
+  for i = 1, #n do
+    for j = i + 1, #n do
+      local a, b = M[n[i]], M[n[j]]
+      if a and b then
+        if a.forme == b.forme then non("socle partagé " .. n[i] .. "/" .. n[j]) end
+        if a.toit == b.toit then non("motif de toit partagé " .. n[i] .. "/" .. n[j]) end
+        if ecart(teinte(a.lisere), teinte(b.lisere)) < 45 then non("liserés de teintes trop proches " .. n[i] .. "/" .. n[j]) end
+      end
+      local ma = B[n[i]] and B[n[i]].marque
+      local io = ma and ma.mesure and ma.mesure.iou and ma.mesure.iou[n[j]]
+      if not io or io > 0.85 then non("silhouettes de socle confondues ou non mesurées " .. n[i] .. "/" .. n[j] .. " : " .. tostring(io)) end
+    end
+  end
+  for _, k in ipairs(n) do
+    local sm, m = B[k] and B[k].marque, M[k]
+    if not sm then
+      non(k .. " : feuille sans marque (feuilles.py non relancé)")
+    elseif m then
+      local d = 0
+      for c = 1, 3 do d = math.max(d, math.abs((sm.lisere[c] or -1) - m.lisere[c])) end
+      if sm.forme ~= m.forme or sm.toit ~= m.toit or d > 1e-3 then non(k .. " : feuilles périmées (marque différente de marques.py)") end
+      if not sm.mesure or ecart(sm.mesure.teinte, teinte(m.lisere)) > 30 or sm.mesure.saturation < 0.35 then
+        non(k .. " : liseré non rendu (teinte mesurée " .. tostring(sm.mesure and sm.mesure.teinte) .. " pour " .. string.format("%.0f", teinte(m.lisere)) .. ")")
+      end
+    end
+  end
+  for _, k in ipairs(SANS_MARQUE) do
+    if M[k] or (B[k] and B[k].marque) then non(k .. " marqué : seules les tourelles à munitions portent une marque") end
+  end
+  return refus
+end
+local M0 = marques_de(MARQUES_SRC)
+check(MARQUES_SRC and #NOMS_MUNITIONS == 4, "§7 marques.py lisible, quatre tourelles à munitions")
+local r0 = juge_marques(M0, BAT or {})
+check(#r0 == 0, "§7 marques distinctes et rendues : " .. table.concat(r0, " ; "))
+if BAT then
+  for _, k in ipairs(NOMS_MUNITIONS) do
+    local m = BAT[k] and BAT[k].marque
+    if m and m.mesure then
+      local io = {}
+      for _, o in ipairs(NOMS_MUNITIONS) do if m.mesure.iou[o] then io[#io + 1] = o .. " " .. m.mesure.iou[o] end end
+      print(string.format("[BATIMENTS] §7 %s : socle %s, toit %s, liseré déclaré %.0f°, mesuré %.1f° (saturation %.2f), IoU %s", k, m.forme, m.toit,
+        teinte(m.lisere), m.mesure.teinte, m.mesure.saturation, table.concat(io, ", ")))
+    end
+  end
+end
+local function mut_src(nom, f)
+  check(#juge_marques(marques_de(f(MARQUES_SRC or "")), BAT or {}) > 0, "§7 mutant refusé : " .. nom)
+end
+local function mut_bat(nom, f)
+  local B = deepcopy(BAT or {})
+  local ok = pcall(f, B)
+  check(ok and #juge_marques(M0, B) > 0, "§7 mutant refusé : " .. nom)
+end
+mut_src("liseré constant", function(s) return (s:gsub('"lisere": %b()', '"lisere": (0.098, 0.902, 1.000)')) end)
+mut_src("socle partagé", function(s) return (s:gsub('"forme": "%w+"', '"forme": "octo"')) end)
+mut_src("toit partagé", function(s) return (s:gsub('"toit": "%w+"', '"toit": "chevron"')) end)
+mut_src("tourelle sans marque", function(s) return (s:gsub('\n    "mortier": [^\n]*', "", 1)) end)
+mut_bat("liseré non rendu", function(B) B.lourde.marque.mesure.teinte = 190 end)
+mut_bat("silhouettes confondues", function(B) B.canon.marque.mesure.iou.mortier = 1 end)
+mut_bat("tourelle électrique marquée", function(B) B.bastion2.marque = deepcopy(B.bastion1.marque) end)
+mut_bat("feuilles périmées", function(B) B.mortier.marque.forme = "rond" end)
+mut_bat("lueur grise", function(B) B.canon.marque.mesure.saturation = 0.05 end)
 
 print(string.format("[BATIMENTS] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 if fail > 0 then os.exit(1) end

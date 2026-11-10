@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.81
+Date: 2026-11-10
+  Graphics:
+    - Tourelles à munitions (F480) : chacune a son socle (Bastion I carré, lourde hexagonale à contreforts, canon rond sur rails, mortier en croix à vérins), un liseré de sa couleur de fonction (cyan, ambre, magenta, vert-jaune) et un motif sur le toit de la tête : identifiables d'un coup d'œil vues de haut.
+    - Écorchés (F480) : rôdeur pâle et fin, porteur sombre et massif, hurleur à collerette lumineuse ; chaque variante a sa propre lueur, aussi sur la carte.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.80
 Date: 2026-11-10
   Features:

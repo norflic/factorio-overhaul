@@ -2,6 +2,7 @@
 (parenté avec les Bastion II à IV refaits par F476), sellette sombre à bague turquoise ; TÊTE TOURNANTE (64 directions, tourelle_tete.py)
 : mantelet hexagonal argent biseauté, deux canons jumelés à manchons de refroidissement, coffre à bandes sur le flanc droit, capteur de
 cristal, conduits cyan sur le toit, liseré magenta à l'arrière. Image 1 (tir) : canons reculés, éclair cyan aux bouches."""
+import marques as MQ
 import socle_tourelle as St
 import tourelle_tete as T
 
@@ -10,9 +11,10 @@ ZT = 0.38          # dessus de la sellette : pied de la tête
 
 
 def build(S, k, M):
-    z = St.socle(k, 0.86, 0.3)
+    z = St.socle(k, 0.86, 0.3, forme=MQ.marque("bastion1")["forme"])
+    lis = "lisere" if "lisere" in k.M else "turq"
     k.rev("struct", 0.0, 0.0, [(z, 0.5), (z + 0.04, 0.48)], 40)
-    k.tore("turq", 0.0, 0.0, z + 0.02, 0.5, 0.01, 64, 6)
+    k.tore(lis, 0.0, 0.0, z + 0.02, 0.5, 0.014, 64, 6)
     return {}
 
 
@@ -25,7 +27,8 @@ def tete(k, M, image):
     # conduits du toit, liseré arrière, capteur
     for sx in (-1, 1):
         k.axe("conduit", (sx * 0.17, -0.2, zt + 0.312), (sx * 0.13, 0.12, zt + 0.312), 0.012, 6)
-    k.b("accent", (0.0, -0.302, zt + 0.16), (0.3, 0.012, 0.022))
+    k.b("lisere" if "lisere" in k.M else "accent", (0.0, -0.302, zt + 0.16), (0.3, 0.012, 0.022))
+    T.toit(k, MQ.marque("bastion1")["toit"], 0.0, -0.02, zt + 0.32, 0.3)
     k.sph("cristal", (0.13, -0.13, zt + 0.36), 0.055, 12, 6)
     k.sph("conduit", (0.13, -0.13, zt + 0.36), 0.022, 8, 4)
     # berceau et coffre à bandes

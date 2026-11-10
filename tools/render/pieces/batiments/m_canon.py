@@ -2,6 +2,7 @@
 TÊTE TOURNANTE (64 directions) : tourelle blindée basse à pans inclinés (argent), nuque à l'arrière, mantelet, long tube à manchon
 d'évacuation et frein de bouche, conduit cyan le long du tube, trappe et viseur de cristal, liserés magenta. Une image (comme le canon
 d'aujourd'hui)."""
+import marques as MQ
 import socle_tourelle as St
 import tourelle_tete as T
 
@@ -10,9 +11,10 @@ ZT = 0.46
 
 
 def build(S, k, M):
-    z = St.socle(k, 1.3, 0.38)
+    z = St.socle(k, 1.3, 0.38, forme=MQ.marque("canon")["forme"])
+    lis = "lisere" if "lisere" in k.M else "turq"
     k.rev("struct", 0.0, 0.0, [(z, 0.8), (z + 0.04, 0.78)], 48)
-    k.tore("turq", 0.0, 0.0, z + 0.02, 0.8, 0.012, 72, 6)
+    k.tore(lis, 0.0, 0.0, z + 0.02, 0.8, 0.016, 72, 6)
     return {}
 
 
@@ -22,12 +24,12 @@ def tete(k, M, image):
     k.poly("blind", pts, zt, zt + 0.32, 0.8)
     k.poly("blind2", [(x * 0.74, y * 0.74 - 0.06) for x, y in pts], zt + 0.32, zt + 0.37, 0.9)
     k.caisson("blind2", 0.0, -0.86, zt + 0.04, 0.86, 0.26, 0.24, 0.04)
-    k.b("accent", (0.0, -0.995, zt + 0.16), (0.6, 0.012, 0.024))
+    k.b("lisere" if "lisere" in k.M else "accent", (0.0, -0.995, zt + 0.16), (0.6, 0.012, 0.024))
     for sx in (-1, 1):
         k.axe("conduit", (sx * 0.44, -0.6, zt + 0.375), (sx * 0.3, 0.2, zt + 0.375), 0.013, 6)
     # trappe et viseur
     k.cyl("struct", 0.22, -0.28, zt + 0.37, zt + 0.43, 0.13, 20)
-    k.tore("turq", 0.22, -0.28, zt + 0.43, 0.13, 0.01, 32, 6)
+    T.toit(k, MQ.marque("canon")["toit"], 0.22, -0.28, zt + 0.44, 0.34)
     k.sph("cristal", (-0.3, 0.02, zt + 0.44), 0.08, 14, 7)
     k.sph("conduit", (-0.3, 0.02, zt + 0.44), 0.03, 8, 4)
     # mantelet et tube (le long de +y)

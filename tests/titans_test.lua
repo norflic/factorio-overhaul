@@ -190,12 +190,13 @@ do
     for _, v in ipairs(T.ECORCHE.variants) do
       local m = T.ecorche(v, e)
       local v2, e2 = T.ecorche_of_name(m.name)
-      if v2 ~= v or e2 ~= e or m.tint.r ~= T.era_color(e).r then ok = false end
+      local tv = T.ecorche_tint(v, e)   -- VISUELS-DISTINCTS : couleur de la variante mêlée à celle de l'ère
+      if v2 ~= v or e2 ~= e or m.tint.r ~= tv.r or m.tint.g ~= tv.g or m.tint.b ~= tv.b then ok = false end
       local cv = T.ecorche_curve(v, e)
       if not (cv[1][1] < cv[2][1] and cv[1][2] == 0 and cv[3][2] > 0) then ok = false end
       if e > T.ECORCHE.era_min and not (cv[1][1] > T.ecorche_curve(v, e - 1)[1][1]) then ok = false end
     end
-    check(ok, "§1 Écorchés ère " .. e .. " : noms reconnus, lueur de l'ère, courbes des nids croissantes avec l'ère")
+    check(ok, "§1 Écorchés ère " .. e .. " : noms reconnus, lueur de la variante mêlée à l'ère, courbes des nids croissantes avec l'ère")
   end
   check(T.ecorche_curve(po, 3)[1][1] > T.ecorche_curve(ro, 3)[1][1] and T.ecorche_curve(ro, 3)[1][1] < T.kaiju_curve(1)[1][1], "§1 nids : le porteur après le rôdeur, les Écorchés avant tout Kaiju")
   check(T.ecorche_of_name("fo-titan-ecorche-rodeur-0") == nil and T.ecorche_of_name("fo-titan-ecorche-x-2") == nil and T.ecorche_of_name("fo-titan-kaiju-2") == nil, "§1 Écorchés : noms étrangers refusés")
@@ -587,6 +588,62 @@ for _, m in ipairs(MUTANTS) do
   local ref, err = true, "chargement"
   if okload then ref, err = refuse(T2) end
   check(ref, "§7 mutant refusé : " .. nom .. (ref and "" or " (accepté : " .. tostring(err) .. ")"))
+end
+
+---------------------------------------------------------------------------------------------------
+-- §8 (VISUELS-DISTINCTS, 10/11) : Écorchés lisibles de loin. Chaque variante a sa lueur propre (données), deux à deux éloignées, et sa
+-- teinte en jeu reste distincte à chaque ère ; les feuilles le PROUVENT : luminance moyenne mesurée de la course (feuilles_titans.py,
+-- sprites.lua ecorche.mesure) rôdeur > hurleur > porteur, écarts >= 0,06.
+---------------------------------------------------------------------------------------------------
+local function dist(a, b) return math.sqrt((a.r - b.r) ^ 2 + (a.g - b.g) ^ 2 + (a.b - b.b) ^ 2) end
+local function juge_ecorches(TT, MES)
+  local refus = {}
+  local function non(t) refus[#refus + 1] = t end
+  local V = TT.ECORCHE.variants
+  for i = 1, #V do
+    for j = i + 1, #V do
+      local a, b = V[i].lueur, V[j].lueur
+      if not a or not b then non("variante sans lueur propre")
+      elseif dist(a, b) < 0.5 then non("lueurs trop proches " .. V[i].id .. "/" .. V[j].id) end
+      for era = TT.ECORCHE.era_min, TT.ERAS do
+        if dist(TT.ecorche(V[i], era).tint, TT.ecorche(V[j], era).tint) < 0.35 then
+          non("teintes en jeu trop proches à l'ère " .. era .. " : " .. V[i].id .. "/" .. V[j].id)
+        end
+      end
+    end
+  end
+  local l = {}
+  for i, v in ipairs(V) do l[v.id] = MES and MES[tostring(i)] and MES[tostring(i)].luminance end
+  if not (l.rodeur and l.porteur and l.hurleur) then non("luminances non mesurées (feuilles_titans.py non relancé)")
+  elseif l.rodeur - l.hurleur < 0.06 or l.hurleur - l.porteur < 0.06 then
+    non(string.format("luminances trop proches ou dans le mauvais ordre : rôdeur %.3f, hurleur %.3f, porteur %.3f", l.rodeur, l.hurleur, l.porteur))
+  end
+  return refus
+end
+local MES = SPR and SPR.ecorche and SPR.ecorche.mesure
+local r8 = juge_ecorches(T, MES)
+check(#r8 == 0, "§8 Écorchés lisibles de loin : " .. table.concat(r8, " ; "))
+if MES then
+  for i, v in ipairs(T.ECORCHE.variants) do
+    local m = MES[tostring(i)]
+    if m then print(string.format("[TITANS] §8 %s : luminance %.3f, couleur moyenne (%.2f, %.2f, %.2f)", v.id, m.luminance, m.rgb[1], m.rgb[2], m.rgb[3])) end
+  end
+end
+local function mut8(nom, de, vers)
+  check(SRC:find(de, 1, true) ~= nil, "§8 mutant « " .. nom .. " » : le texte d'origine est là")
+  local src2 = SRC:gsub(de:gsub("%p", "%%%0"), (vers:gsub("%%", "%%%%")), 1)
+  local okload, T2 = pcall(charger, src2, nil)
+  check(not okload or #juge_ecorches(T2, MES) > 0, "§8 mutant refusé : " .. nom)
+end
+mut8("lueur du porteur copiée du rôdeur", "lueur = { r = 1.00, g = 0.50, b = 0.08 }", "lueur = { r = 0.70, g = 0.97, b = 1.00 }")
+mut8("teinte de l'ère seule (part de la variante nulle)", "part_variante = 0.75,", "part_variante = 0,")
+mut8("teinte d'avant (couleur de l'ère)", "tint = T.ecorche_tint(v, era),", "tint = T.era_color(era),")
+for _, m in ipairs({ { "luminances confondues", function(M) M["1"].luminance = M["3"].luminance end },
+  { "porteur clair", function(M) M["2"].luminance = 0.9 end }, { "mesures absentes", function(M) M["1"] = nil end } }) do
+  local M2 = {}
+  for k, v in pairs(MES or {}) do M2[k] = { luminance = v.luminance, rgb = v.rgb } end
+  local ok = pcall(m[2], M2)
+  check(ok and #juge_ecorches(T, M2) > 0, "§8 mutant refusé : " .. m[1])
 end
 
 print(string.format("[TITANS] %d OK, %d ECHEC(S)", pass, fail))
