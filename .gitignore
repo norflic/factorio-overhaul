@@ -49,3 +49,6 @@ graphics/robots/experimentaux/*.png
 graphics/robots/titans/*.png
 # Feuilles de jeu de la tourelle laser (lot F1-C, même règle) : tools/render/pieces/levels/laser_e/feuilles.py
 graphics/levels/laser/*.png
+# Lot POLISSAGE-FX (10/11) : feuilles procédurales des effets et feuilles rendues des bâtiments (D-6)
+graphics/effets/*.png
+graphics/batiments/*.png
