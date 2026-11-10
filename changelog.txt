@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.90
+Date: 2026-11-10
+  Bugfixes:
+    - Débogage (F498) : cocher « Rendu de debug » ouvre aussi la vue des zones (boxes, chantiers prévus, liaisons) du joueur qui l'active, et le décocher la ferme ; avant, ce réglage ne montrait que l'état des PNJ et la vue n'avait que Ctrl + Maj + B.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.89
 Date: 2026-11-10
   Bugfixes:

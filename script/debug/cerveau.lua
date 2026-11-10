@@ -270,6 +270,17 @@ Events.on(defines.events.on_lua_shortcut, function(e)
   if player then Cv.toggle(player) end
 end)
 
+-- F498 (CC-OVERLAY, partie du DC sur la 0.6.89) : le réglage de débogage de la partie (fo-debug-render) n'ouvrait QUE les étiquettes des PNJ ;
+-- la vue des zones (boxes, chantiers prévus, liaisons) n'avait que le raccourci : le DC l'a activé à 58,5 min sans rien voir. Le basculer
+-- ouvre (vrai) ou ferme (faux) la vue pour le joueur qui l'a basculé ; un changement fait par script (pas de joueur) ne touche aucune vue.
+Cv.SETTING = "fo-debug-render"
+Events.on(defines.events.on_runtime_mod_setting_changed, function(e)
+  if e.setting ~= Cv.SETTING or not e.player_index then return end
+  local player = game.get_player(e.player_index)
+  if not player then return end
+  if settings.global[Cv.SETTING].value then Cv.open(player) else Cv.close(player) end
+end)
+
 Events.on(Cv.INPUT, function(e)
   local player = game.get_player(e.player_index)
   if player then Cv.toggle(player) end

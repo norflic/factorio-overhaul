@@ -27,7 +27,7 @@ local function section(name) print("== " .. name) end
 log = function() end
 local ES = { working = 1, no_power = 2, low_power = 3, no_fuel = 4, no_ingredients = 5, full_output = 6, waiting_for_space_in_destination = 7, normal = 8 }
 defines = { entity_status = ES, events = { on_lua_shortcut = 101, on_gui_click = 102, on_gui_selection_state_changed = 103, on_gui_closed = 104,
-  on_player_left_game = 105, on_player_removed = 106, on_selected_entity_changed = 107 } }
+  on_player_left_game = 105, on_player_removed = 106, on_selected_entity_changed = 107, on_runtime_mod_setting_changed = 108 } }
 local nth, evs, cmds, remotes = {}, {}, {}, {}
 package.loaded["script.core.events"] = {
   on = function(id, fn) evs[id] = evs[id] or {} table.insert(evs[id], fn) end,
@@ -707,6 +707,32 @@ do
   print("  pire cas : environ " .. cnt .. " instructions par redessin, " .. #R.calls .. " objets de rendu")
   Cv.close(P1)
   check(P1.gui.screen["fo_dbg_pnj_frame"] == nil, "fermeture de la vue : panneau du PNJ detruit")
+end
+
+section("7. F498 : le reglage de debogage de la partie ouvre et ferme la vue des zones du joueur qui le bascule")
+do
+  local GS = { ["fo-debug-render"] = { value = false } }
+  settings.global = GS
+  local function fire(ev) for _, fn in ipairs(evs[defines.events.on_runtime_mod_setting_changed] or {}) do fn(ev) end end
+  check(evs[defines.events.on_runtime_mod_setting_changed] ~= nil, "la vue est abonnee au changement de reglage")
+  if Cv.is_open(1) then Cv.close(P1) end
+  GS["fo-debug-render"].value = true
+  fire({ setting = "fo-debug-render", setting_type = "runtime", player_index = 1 })
+  check(Cv.is_open(1), "reglage vrai par le joueur 1 : sa vue est ouverte")
+  local vv = STORE["debug_cerveau"].v.viewers[1]
+  check(vv ~= nil and vv.render ~= nil, "la vue ouverte a son etat de rendu")
+  fire({ setting = "fo-debug-render", setting_type = "runtime", player_index = 1 })
+  check(Cv.is_open(1), "un second passage a vrai ne referme pas la vue")
+  GS["fo-debug-render"].value = false
+  fire({ setting = "fo-war-mall-tronc", setting_type = "runtime", player_index = 1 })
+  check(Cv.is_open(1), "un autre reglage ne touche pas la vue")
+  fire({ setting = "fo-debug-render", setting_type = "runtime" })
+  check(Cv.is_open(1), "un changement par script (sans joueur) ne touche pas la vue")
+  fire({ setting = "fo-debug-render", setting_type = "runtime", player_index = 1 })
+  check(not Cv.is_open(1), "reglage faux par le joueur 1 : sa vue est fermee")
+  GS["fo-debug-render"].value = true
+  fire({ setting = "fo-debug-render", setting_type = "runtime", player_index = 99 })
+  check(not Cv.is_open(1), "un joueur inconnu ne fait rien")
 end
 
 print(string.format("[DEBUG-CERVEAU-VUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
