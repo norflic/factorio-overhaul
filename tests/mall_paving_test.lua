@@ -8,7 +8,9 @@
     §3 compact : largeur totale = somme + gaps, emprise en travers, déterminisme (deux appels, même liste permutée ≠), axe y ;
     §4 check : refus d'un chevauchement, d'une cellule hors emprise, d'une machine sans bras d'entrée ou de sortie ;
     §5 pave_origin : collé à l'est, puis au sud, débords des têtes, lot plein (le bloc 11 × 14 à têtes 17 ne se double pas dans 24) ;
-    §6 câblage (source de build.lua) : crochets présents, aucun `pairs` nouveau, fonctions courtes ;
+    §6 câblage (source de build.lua) : crochets présents, aucun `pairs` nouveau, fonctions courtes ; §6 bis (lot MALL-RUE) : sources du
+       câblage de la série (build.lua, plan.lua, industrie.lua, modules.lua), puis les crochets Build.Pave.serie / try_serie / cross extraits
+       de build.lua et joués hors jeu sur un gabarit ruban réel (lot suivant, souterrain, port servi sans tête, arrêt « lot occupe », journal) ;
     §7 MUTANTS du module (substitution du source) : gap ignoré, chevauchement non détecté, sortie manquante acceptée, offset décalé,
        poteau dans la machine, pavage sans débords ;
     §8 serie (lot MALL-RUE) : section suivante de l'autre côté de la rue, souterrain d'un bord de lot à l'autre (écart = rue + 1 dans la
@@ -214,6 +216,133 @@ for _, fn in ipairs({ "function Build.Pave.owner(", "function Build.Pave.box(", 
 end
 check(not SRC:find("game%."), "le module est pur (aucune API du jeu)")
 check(not SRC:find('"assembling%-machine') and not SRC:find('"small%-electric%-pole') and not SRC:find('"iron%-chest') and not SRC:find('"transport%-belt'), "aucun nom d'objet en dur")
+
+---------------------------------------------------------------------------------------------------
+print("== §6 bis cablage de la serie (lot MALL-RUE) : sources, puis les crochets de build.lua joues hors jeu")
+---------------------------------------------------------------------------------------------------
+check(B:find("GEN = { bloc = true, patron = true, ruban = true }", 1, true), "build.lua : le ruban pave un lot comme un bloc")
+check(B:find("Build.Pave.try_serie(f, surface, g, c, fopts, kind_states,", 1, true), "place_module : la serie est essayee quand le lot est plein")
+check(B:find("if place.fed and place.fed[port.ent] then", 1, true), "plan_feed : aucune tete sur le port servi par le souterrain")
+check(B:find("Build.Pave.cross(f, p, main, reserve_tiles)", 1, true), "plan_project : les pieces du franchissement entrent dans le projet")
+check(B:find("part = part, type = e.type }", 1, true), "inst_entities : le type (entree/sortie) d'un souterrain suit l'entite")
+check(B:find('type = "input", role = "serie-souterrain"', 1, true) and B:find('type = "output", role = "serie-souterrain"', 1, true), "cross : entree et sortie du souterrain typees")
+do
+  local ps, pe = B:find("Build.Pave = {", 1, true), B:find("\nlocal function candidates(", 1, true)
+  check(B:find("Build.Trav.underground(f, belt)", 1, true) and ps and pe and not B:sub(ps, pe):find("underground%-belt") and not B:sub(ps, pe):find("transport%-belt"),
+    "serie : souterrain du palier debloque (portee lue aux donnees), aucun nom de tapis ni de souterrain en dur dans Build.Pave")
+end
+check(B:find('"serie arretee : lot occupe (', 1, true), "serie : arret propre quand le lot suivant est pris")
+local PL = read("shared/team/plan.lua")
+check(PL:find("function P.port_room(inst, fan, skip)", 1, true) and PL:find("P.port_room(inst0, opts.fan, opts.fed)", 1, true), "plan.lua : P.fit ne reserve pas de tete pour un port servi (opts.fed)")
+local IND = read("script/ai3/industrie.lua")
+check(IND:find("function Ind.ruban_wanted(st, cands, width)", 1, true) and IND:find("Mp.compact(blocks, Mp.GAP).w > Pt.LOT", 1, true), "industrie.lua : le ruban quand la demande (Mp.compact) depasse le lot")
+check(IND:find('(ruban and "ruban" or "bloc")', 1, true) and IND:find('if not g and gen == "ruban" then gen = "bloc"', 1, true), "industrie.lua : gabarit ruban, repli sur le bloc")
+check(IND:find("local BLOC_GEN = { bloc = true, ruban = true }", 1, true), "industrie.lua : le ruban est un bloc pour la collecte et les barres")
+local MOD = read("shared/team/modules.lua")
+check(MOD:find('"patron", "bloc", "ruban" }', 1, true) and MOD:find("function G.ruban(machine, recettes, kit, barre)", 1, true), "modules.lua : generateur ruban")
+for _, fn in ipairs({ "function Build.Pave.serie(", "function Build.Pave.try_serie(", "function Build.Pave.cross(", "function Build.Pave.last(", "function Build.Pave.rank(", "local function place_module(" }) do
+  local s = B:find(fn, 1, true)
+  local e = s and B:find("\nend\n", s, true)
+  local n = 0
+  if s and e then for _ in B:sub(s, e):gmatch("\n") do n = n + 1 end end
+  check(s and e and n < 80, fn .. " : " .. tostring(n) .. " lignes (< 80)")
+end
+for _, fn in ipairs({ "function Build.Pave.serie(", "function Build.Pave.cross(", "function Build.Pave.last(", "function Build.Pave.rank(", "function Build.Pave.say(", "function Build.Pave.belt_of(" }) do
+  local s = B:find(fn, 1, true)
+  local e = s and B:find("\nend\n", s, true)
+  check(s and e and not B:sub(s, e):find("[^i]pairs%("), fn .. " : aucun pairs")
+end
+-- les crochets de build.lua, extraits et joues sur un gabarit ruban reel : la section suivante de l'autre cote de la rue
+do
+  local s0 = B:find("Build.Pave = {", 1, true)
+  local e0 = B:find("\nlocal function candidates(", s0, true)
+  local M = require("shared.team.modules")
+  local P = require("shared.team.plan")
+  local Pm = require("shared.team.patrons")
+  local LOGS = {}
+  local env = setmetatable({ log = function(t) LOGS[#LOGS + 1] = t end }, { __index = _G })
+  local Build = { Trav = { underground = function() return { name = "souterrain-t", maxd = 5 } end } }
+  local function sorted_keys(t) local ks = {} for k in pairs(t) do ks[#ks + 1] = k end table.sort(ks) return ks end
+  local chunk = assert(load("local M, P, sorted_keys, Build = ...\n" .. B:sub(s0, e0), "=build.lua(Pave)", "t", env))
+  chunk(M, P, sorted_keys, Build)
+  check(Build.Pave and Build.Pave.serie and Build.Pave.try_serie and Build.Pave.cross, "crochets Build.Pave charges hors jeu")
+  local cat = "cat-serie"
+  Pm.declare(M, "machine-serie", { kind = "assembler", w = 3, h = 3, speed = 1, categories = { cat } })
+  local function rec(name, ins) local l = {} for i, v in ipairs(ins) do l[i] = { name = v, amount = 1 } end return { name = name, category = cat, energy = 20, ingredients = l, products = { { name = name .. "-o", amount = 1 } } } end
+  local KIT = { bras = "inserter", bras_long = "long-handed-inserter", tapis = "transport-belt", coffre = "wooden-chest" }
+  local g = assert(Pm.ruban(M, "machine-serie", { rec("s1", { "a", "b", "c" }), rec("s2", { "a", "c" }), rec("s3", { "b" }), rec("s4", { "c" }), rec("s5", { "a" }) }, KIT, 4))
+  -- treillis : lat = (12, 12) -> lot 0:0 en x = 0..23, rue 24..27, lot 1:0 en 28..51 ; section 1 (projet 1) posee en (4, 3), corps 4..14
+  local function world()
+    local b = { lat = { ox = 12, oy = 12 }, occ = {}, projects = {}, lots = {
+      ["0:0"] = { i = 0, j = 0, state = "libre", used = 1 }, ["1:0"] = { i = 1, j = 0, state = "libre" }, ["2:0"] = { i = 2, j = 0, state = "gisement", used = 7 } } }
+    b.projects[1] = { id = 1, spec = { gen = "ruban" }, parts = { { kind = "module", lot = "0:0", key = g.key, ox = 4, oy = 3, w = g.w, h = g.h, k = 0 } },
+      ents = { { name = "transport-belt", x = 4.5, y = 10.5, dir = 2 } } }
+    return { key = "equipe-t", build = b }, b
+  end
+  local f, b = world()
+  local c = { k = "0:0", l = b.lots["0:0"] }
+  local sr, why = Build.Pave.serie(f, b, c, g, { libre = true })
+  check(sr ~= nil, "serie : rendue (" .. tostring(why) .. ")")
+  check(sr and sr.k2 == "1:0" and sr.within.x0 == 29 and sr.within.y0 == 3 and sr.within.x1 == 40, "serie : lot suivant 1:0, corps epingle en x = 29 (a 1 de la rue), meme ligne")
+  local t1 = sr and sr.trav.res.traversees[1]
+  check(t1 and t1.entree.x == 23 and t1.sortie.x == 28 and t1.entree.y == 3 + g.ruban.belts[1] and #t1.rallonge == 8 and t1.rallonge[1].x == 15, "serie : entree au bord du lot (23), sortie au bord du suivant (28), sur la ligne du convoyeur A, rallonge 15..22")
+  check(sr and sr.trav.ug.name == "souterrain-t" and sr.trav.belt == "transport-belt" and sr.owner == 1, "serie : souterrain du palier, tapis du gabarit, lot au nom du ruban 1")
+  -- lot suivant occupe par autre chose : arret propre
+  local f2, b2 = world(); b2.lots["1:0"].used = 42
+  local sn, nwhy = Build.Pave.serie(f2, b2, { k = "0:0", l = b2.lots["0:0"] }, g, { libre = true })
+  check(sn == nil and nwhy:find("serie arretee : lot occupe", 1, true) and nwhy:find("projet 42", 1, true), "lot suivant pris par un autre projet : « serie arretee : lot occupe » (" .. tostring(nwhy) .. ")")
+  local f3, b3 = world(); b3.lots["1:0"].state = "gisement"
+  check(select(2, Build.Pave.serie(f3, b3, { k = "0:0", l = b3.lots["0:0"] }, g, { libre = true })):find("lot occupe", 1, true), "lot suivant gisement : arret propre")
+  -- portee insuffisante, aucun souterrain
+  Build.Trav.underground = function() return { name = "court", maxd = 4 } end
+  check(select(2, Build.Pave.serie(f, b, c, g, { libre = true })):find("portee insuffisante", 1, true), "souterrain trop court pour la rue : refus ecrit")
+  Build.Trav.underground = function() return nil end
+  check(select(2, Build.Pave.serie(f, b, c, g, { libre = true })):find("aucun souterrain", 1, true), "aucun souterrain debloque : refus ecrit")
+  Build.Trav.underground = function() return { name = "souterrain-t", maxd = 5 } end
+  -- un bloc ordinaire ne fait pas de serie
+  check(select(2, Build.Pave.serie(f, b, c, { gen = "bloc" }, { libre = true })):find("sans corridor", 1, true), "un bloc sans corridor : pas de serie")
+  -- try_serie : placement dans le lot suivant, port servi sans tete, passage controle
+  local free = function() return true end
+  local fopts = { free = free, margin = 1, toward = { x = 0, y = 0 } }
+  local scan = function() return { free = free } end
+  local pl, pwhy = Build.Pave.try_serie(f, nil, g, c, fopts, { libre = true }, scan)
+  check(pl ~= nil, "try_serie : placement rendu (" .. tostring(pwhy) .. ")")
+  check(pl and pl.ox == 29 and pl.oy == 3 and pl.lot == "1:0" and pl.k == 0 and pl.pave == 1 and pl.lot_from == "0:0", "try_serie : section en (29, 3) dans le lot 1:0, au nom du ruban 1")
+  check(pl and pl.fed and pl.fed[g.ruban.port] == true and pl.serie and pl.serie.res, "try_serie : le port du convoyeur A est servi (aucune tete), la traversee suit le placement")
+  -- sans `fed`, la tete du port ouest tomberait sur la rue : P.fit refuse ; avec, il accepte
+  local inst0 = M.instantiate(g, 0, 0, 0)
+  check(#P.port_room(inst0, nil, { [g.ruban.port] = true }) < #P.port_room(inst0, nil), "P.port_room : aucune tuile de tete pour le port servi")
+  check(P.fit(g, sr.rect2, { free = free, margin = 1, within = sr.within }) == nil, "P.fit sans fed : la tete ouest (sur la rue) fait refuser la place epinglee")
+  local fit = P.fit(g, sr.rect2, { free = free, margin = 1, within = sr.within, fed = { [g.ruban.port] = true } })
+  check(fit and fit.ox == 29 and fit.oy == 3, "P.fit avec fed : la place epinglee est acceptee")
+  local f4, b4 = world(); b4.occ[P.tkey(23, 10)] = 9
+  local po, owhy = Build.Pave.try_serie(f4, nil, g, { k = "0:0", l = b4.lots["0:0"] }, fopts, { libre = true }, scan)
+  check(po == nil and owhy:find("passage du corridor occupe en (23, 10)", 1, true), "try_serie : l'entree du souterrain deja reservee : refus ecrit")
+  -- cross : les pieces du franchissement dans le projet de la section 2, journal
+  local p2 = { id = 2, spec = { gen = "ruban" }, parts = { { kind = "module", lot = "1:0", key = g.key, ox = 29, oy = 3, w = g.w, h = g.h, k = 0 } },
+    ents = { { name = "transport-belt", x = 29.5, y = 10.5, dir = 2 } } }
+  b.projects[2] = p2
+  b.lots["1:0"].used = 1
+  local got
+  local okc, cwhy = Build.Pave.cross(f, p2, pl, function(_, _, list) got = list return true end)
+  check(okc == true and got and #got == 10, "cross : 8 tapis de rallonge + entree + sortie (" .. tostring(cwhy) .. ", " .. tostring(got and #got) .. ")")
+  local ins, outs, belts_n = nil, nil, 0
+  for _, e in ipairs(got or {}) do
+    if e.type == "input" then ins = e elseif e.type == "output" then outs = e elseif e.name == "transport-belt" then belts_n = belts_n + 1 end
+  end
+  check(ins and ins.name == "souterrain-t" and ins.x == 23.5 and ins.y == 10.5 and ins.dir == 2 and ins.part == 1, "cross : entree du souterrain en (23, 10), vers l'est, partie 1")
+  check(outs and outs.x == 28.5 and outs.y == 10.5 and outs.dir == 2, "cross : sortie du souterrain en (28, 10), vers l'est")
+  check(belts_n == 8 and got[1].x == 15.5 and got[1].dir == 2, "cross : la rallonge part de la fin du corridor (15) vers l'est")
+  check(p2.parts[1].serie and p2.parts[1].serie.voies == 1 and p2.parts[1].serie.lot_from == "0:0", "cross : la partie garde la traversee (1 voie, depuis le lot 0:0)")
+  check(LOGS[#LOGS] and LOGS[#LOGS]:find("[FO-MALL] equipe-t : serie : section 2 posee de l'autre cote de la rue (lot 1:0), corridor en souterrain (1 voies)", 1, true),
+    "journal : « serie : section 2 posee de l'autre cote de la rue (lot 1:0), corridor en souterrain (1 voies) » (" .. tostring(LOGS[#LOGS]) .. ")")
+  check(Build.Pave.cross(f, p2, pl, function() return false end) == false, "cross : place prise : refus")
+  -- la section 3 : le lot 1:0 (au nom du ruban) est candidat, plein : serie depuis 1:0 vers 2:0, qui est un gisement : arret
+  local s3, w3 = Build.Pave.serie(f, b, { k = "1:0", l = b.lots["1:0"] }, g, { libre = true })
+  check(s3 == nil and w3:find("serie arretee : lot occupe (2:0 : gisement, projet 7)", 1, true), "section 3 : le lot 2:0 est un gisement : « serie arretee : lot occupe » (" .. tostring(w3) .. ")")
+  -- depuis le lot 0:0, le lot 1:0 est deja pave par la section 2 : pas de doublon
+  check(select(2, Build.Pave.serie(f, b, c, g, { libre = true })):find("deja pave", 1, true), "depuis le lot 0:0 : le lot 1:0 est deja pave, aucune seconde section")
+end
 
 ---------------------------------------------------------------------------------------------------
 print("== §7 mutants du module")

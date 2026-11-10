@@ -620,6 +620,58 @@ local function battery(Pm, verbose, tag)
     local gh, wh = Pm.bloc(M, FASTM, heavy, KIT, 0)
     chk(gh == nil and wh and wh:find("voie 1 :", 1, true) and wh:find("7.50/s", 1, true), "bloc : six machines sur une voie de 7,5/s refusées (" .. tostring(wh) .. ")")
 
+    -- §7 bis le RUBAN (lot MALL-RUE) : le bloc sur la géométrie de Mp.pattern, corridor A vers l'est (2 voies, port ouest), B vers l'ouest (1 entrée, port est)
+    do
+      local rr = { brec("q1", { "a", "b", "c" }), brec("q2", { "a", "c" }), brec("q3", { "b" }), brec("q4", { "c" }), brec("q5", { "a" }) }
+      local gq, wq = Pm.ruban(M, MN, rr, KIT, 4)
+      chk(gq ~= nil, "ruban rendu (" .. tostring(wq) .. ")")
+      if gq then
+        local errs = M.check(gq)
+        chk(#errs == 0, "ruban : contrôle vide (" .. tostring(errs[1]) .. ")")
+        chk(gq.w == 11 and gq.h == 14 and gq.gen == "ruban" and gq.no_rotate == true and gq.level_arg == 1 and #gq.args == 4, "ruban : 11 × 14 (la hauteur du bloc), gen ruban, non orientable, args du bloc")
+        chk(type(gq.ruban) == "table" and gq.ruban.belts[1] == 7 and gq.ruban.fam == "ruban-" .. MN, "ruban : g.ruban = ligne du convoyeur A (7), famille")
+        local pa, pb
+        for _, pt in ipairs(gq.ports) do
+          if pt.kind == "tapis" then
+            local e = gq.entities[pt.ent]
+            if e.dir == 2 then pa = { e = e, p = pt } else pb = { e = e, p = pt } end
+          end
+        end
+        chk(pa and pa.e.x == 0.5 and pa.e.y == 7.5 and pa.p.ent == gq.ruban.port, "ruban : convoyeur A entré à l'ouest (0, 7), vers l'est : le port servi par le souterrain")
+        chk(pb and pb.e.x == 10.5 and pb.e.y == 6.5 and pb.e.dir == 6 and pb.p.lanes[1] == pb.p.lanes[2], "ruban : convoyeur B entré à l'est (10, 6), vers l'ouest, une seule entrée sur ses deux voies")
+        chk(pa and pa.p.lanes[1] == nm("a") and pa.p.lanes[2] == nm("c") and pb.p.lanes[1] == nm("b"), "ruban : A porte les deux entrées les plus demandées (a, c), B la troisième (b)")
+        local c = count_by(gq)
+        chk(c.machine == 5 and c.chest == 5 and c.belt == 22 and port_count(gq, "quai", "out") == 5, "ruban : 5 machines, 5 coffres, 2 tapis de 11, 5 quais de sortie")
+        for _, r in ipairs(rr) do chk(near(gq.nominal[r.products[1].name], 0.05, 1e-12), "ruban : débit de " .. r.products[1].name) end
+        local gq2 = M.regenerate(gq)
+        chk(gq2 and M.serialize(gq) == M.serialize(gq2), "ruban : regenerate identique")
+        chk(M.rotate(gq, 1) == nil, "ruban : la rotation est refusée (la série va vers l'est)")
+        -- la géométrie est celle de Mp.pattern : machines et convoyeurs aux mêmes lignes
+        local Mp = require("shared.team.mall_paving")
+        local pat = Mp.pattern({ asm = { w = 3, h = 3 }, belts = 2, n = 3 })
+        local ok_rows = true
+        for _, e in ipairs(gq.entities) do
+          if e.name == MN then
+            local found = false
+            for _, cl in ipairs(pat.cells) do if cl.kind == "asm" and cl.dx == e.x - 1.5 and cl.dy == e.y - 1.5 then found = true end end
+            if not found then ok_rows = false end
+          end
+        end
+        chk(ok_rows and pat.w == gq.w and pat.h == gq.h, "ruban : chaque machine est sur une cellule « asm » de Mp.pattern, même emprise")
+      end
+      local g4, w4 = Pm.ruban(M, MN, { brec("x1", { "a", "b", "c" }), brec("x2", { "d" }) }, KIT, 0)
+      chk(g4 == nil and w4 and w4:find("4 entrées distinctes pour le ruban", 1, true), "ruban : 4 entrées refusées (le bloc reste le gabarit)")
+      local g2, w2 = Pm.ruban(M, MN, { brec("y1", { "a", "b" }) }, KIT, 0)
+      chk(g2 and #M.check(g2) == 0 and port_count(g2, "tapis", "in") == 2, "ruban à 2 entrées : A = a, B = b, contrôle vide (" .. tostring(w2) .. ")")
+      local g1, w1 = Pm.ruban(M, MN, { brec("z1", { "a" }) }, KIT, 0)
+      chk(g1 and #M.check(g1) == 0 and port_count(g1, "tapis", "in") == 1 and count_by(g1).belt == 3, "ruban à 1 entrée : A seul, pas de convoyeur de retour (" .. tostring(w1) .. ")")
+      local nine = {}
+      for i = 1, 9 do nine[i] = brec("n" .. i, { names[(i - 1) % 3 + 1] }) end
+      local g9, w9 = Pm.ruban(M, MN, nine, KIT, 0)
+      chk(g9 == nil and w9 and w9:find("9 recettes, 8 machines au plus par section", 1, true), "ruban : une section tient dans un lot (9 recettes refusées)")
+      chk(M.GEN.ruban ~= nil and M.GEN.ruban(MN, rr, KIT, 4) ~= nil, "ruban : générateur « ruban » de M.GEN")
+    end
+
     -- regroupement
     local objs = {
       { name = "o1", solides = { "a", "b", "c" }, machine = "m" }, { name = "o2", solides = { "a", "d" }, machine = "m" },

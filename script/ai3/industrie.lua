@@ -9,7 +9,8 @@
     2. DÉCISION     : Ml.want / Ml.sources (demande), Id.decide (shared/ai3/industrie.lua) : machine, besoin en machines, RANGÉE
                       (≥ une demi-machine : la capitalisation la pose, ses méthodes passent par A.method_for et le patron) ou BLOC DE
                       MALL partagé (sous une demi-machine, plusieurs objets sur 4 voies communes), un emplacement à part (Em.mall).
-    3. ACTION       : Auto.submit d'un module « bloc » (ou « patron » d'une machine pour un objet à plus de 4 entrées) : le plan
+    3. ACTION       : Auto.submit d'un module « bloc » (ou « patron » d'une machine pour un objet à plus de 4 entrées ; lot MALL-RUE :
+                      « ruban » quand la demande dépasse un lot, Ind.ruban_wanted : sections en série, la rue franchie en souterrain) : le plan
                       directeur le pose (Build.request), les PNJ le bâtissent, ils le garnissent depuis le coffre du QG (quais).
     4. EFFET        : les coffres de sortie du bloc sont inscrits à la collecte des PNJ (p.outs) et leur BARRE est posée à la cible
                       (Id.barre, F95) : la machine s'arrête seule quand l'avance est faite ; Ml.set_running (capitalisation) passe
@@ -43,12 +44,14 @@ local Profiler = require("script.core.profiler")
 local PileRt = require("script.team.pile")
 local Events = require("script.core.events")
 local MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : rangée du mall, avant le module isolé (docs/MALL.md §3)
+local Mp = require("shared.team.mall_paving") -- lot MALL-RUE : la demande du mall dépasse-t-elle un lot ? (Mp.compact, règle pure) : le gabarit RUBAN
 local Bi = require("shared.team.bus_intermediaires") -- lot BUS-INTERMEDIAIRES : lignes d'intermédiaires pivots (graphe des recettes), repli à la main
 local T = require("shared.team.config") -- (matières que le bus fournit : produits des avant-postes et combustible, lus aux données)
 
 local Ind = {}
 
 Ind.RETRY_TICKS = 10 * 3600  -- un bloc refusé par le plan directeur n'est pas redemandé avant 10 minutes de jeu
+local BLOC_GEN = { bloc = true, ruban = true } -- lot MALL-RUE : le ruban (sections en série, la rue franchie en souterrain) est un bloc pour tout le reste (mêmes args)
 Ind.COLLECT_AT = 5           -- objets dans un coffre de sortie du mall qui envoient un PNJ le vider (Build.COLLECT_AT : 200)
 
 -- Lot RECIPE-SOLVER (codé en parallèle) : `Solver.new(book, bus)`, `Solver.hubs(s, demands, k)` -> { { item, rate, machines } }. `require` gardé :
@@ -155,7 +158,7 @@ local function quota_bars(f, b, surface)
         p.quota_bar = mark
         local gen = p.spec and p.spec.gen
         local args = (p.spec and p.spec.args) or {}
-        local own = (gen == "patron" and args[6]) or (gen == "bloc" and args[4]) or nil
+        local own = (gen == "patron" and args[6]) or (BLOC_GEN[gen] and args[4]) or nil
         for i, o in ipairs(p.outs or {}) do
           local cases = quota_cases(p, i)
           if cases then
@@ -186,7 +189,7 @@ function Ind.sweep(f, tick)
   for _, pid in ipairs(b.order or {}) do
     local p = b.projects[pid]
     local gen = p and p.spec and p.spec.gen
-    if gen == "patron" or gen == "bloc" then
+    if gen == "patron" or BLOC_GEN[gen] then
       local again = p.ind_bar ~= (p.finished or 0)
       if again and p.state ~= "attente" and p.state ~= "plan" and p.state ~= "reserve" and #(p.ents or {}) > 0 then
         for _, e in ipairs(patron_chests(p)) do
@@ -243,8 +246,10 @@ local function nominal_sum(g)
   return s
 end
 
---- Prépare le module d'une décision : { gen, args, items, product, rate, g, why_not }.
-local function prepare(f, lec, book, view, dec, kind)
+--- Prépare le module d'une décision : { gen, args, items, product, rate, g, why_not }. `ruban` (lot MALL-RUE) : le bloc prend le gabarit
+--- RUBAN (shared/team/patrons.lua §6 bis : corridor continué de section en section, la rue franchie en souterrain) ; refusé (4 entrées
+--- distinctes, cadence) : le bloc d'avant, comme si de rien n'était.
+local function prepare(f, lec, book, view, dec, kind, ruban)
   local stock = view.stock or {}
   local usable = function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end
   local kit, why = A.patron_kit(lec, usable)
@@ -277,13 +282,14 @@ local function prepare(f, lec, book, view, dec, kind)
   A.declare(k2.decl)
   local args, gen
   if kind == "bloc" then
-    gen, args = "bloc", { dec.machine, recs, k2, barre }
+    gen, args = (ruban and "ruban" or "bloc"), { dec.machine, recs, k2, barre }
   else
     -- lot RB-3 : le kit d'une unité reste dans la machine (sortie « unite » : ni bras ni coffre de sortie)
     gen, args = "patron", { dec.machine, recs[1], dec.unite and "unite" or "coffre", 1, k2, barre }
   end
   local pole = A.choose_pole(book, stock, Harvest.reachable(f))
   local g, why2 = A.template(gen, args, pole, A.choose_arms(book, stock)) -- lot RECHERCHE-BRAS : bras obtenables
+  if not g and gen == "ruban" then gen = "bloc"; g, why2 = A.template(gen, args, pole, A.choose_arms(book, stock)) end -- (lot MALL-RUE : repli sur le bloc)
   if not g then return nil, "gabarit refuse : " .. tostring(why2) end
   return { gen = gen, args = args, items = items, product = items[1], g = g, pole = g.pole, arms = g.arms, barre = barre }
 end
@@ -410,6 +416,26 @@ local function intermediaires(f, ml, cs, book, tick)
   ml.bi = { tick = tick, phase = phase, lines = lines, hubs = Bi.hub_rates(lines), states = states, fallback = fallback, sig = sig }
 end
 
+--- Lot MALL-RUE (décision du DC : « l'expansion industrielle et la continuité logistique priment sur la grille théorique ») : la demande du
+--- mall dépasse-t-elle ce qu'un lot tient ? Les blocs vivants (st.blocs, hors morts) et les blocs décidés (cands), côte à côte avec leurs
+--- têtes d'alimentation (Mp.compact, gap Mp.GAP), plus larges que P.LOT → vrai : le gabarit RUBAN (P.ruban), dont le corridor continue de
+--- section en section, la rue franchie par un souterrain (Build.Pave, script/team/build.lua). Un ruban déjà vivant → vrai (continuité).
+--- Largeur d'un bloc : celle de P.bloc / P.ruban (ceil(m / 2) colonnes de la machine lue, + P.TETE de chaque côté). Pur, déterministe.
+function Ind.ruban_wanted(st, cands, width)
+  local blocks = {}
+  local function add(items, machine)
+    local k = math.ceil(#items / 2)
+    local mw = width[machine] or 3
+    blocks[#blocks + 1] = { w = k * mw + (k - 1) + 2 * Pt.TETE, h = 1 }
+  end
+  for _, b in ipairs(st.blocs) do
+    if b.gen == "ruban" and not b.dead then return true end
+    if b.kind == "bloc" and not b.dead then add(b.items, b.machine or (cands[1] and cands[1].dec.machine)) end
+  end
+  for _, c in ipairs(cands) do if c.kind == "bloc" then add(c.dec.items, c.dec.machine) end end
+  return #blocks >= 2 and Mp.compact(blocks, Mp.GAP).w > Pt.LOT
+end
+
 --- Banc : remplace le solveur (doublure) ; rend l'ancien.
 function Ind.set_solver(S)
   local old = Ind.SOLVER
@@ -512,6 +538,7 @@ function Ind.think(f, cs, res, view, book, tick)
       end
     end
     local cands = Id.order(out) -- lot RB-FLUIDE : la cellule d'un kit d'unité passe devant les blocs
+    local ruban = Ind.ruban_wanted(st, cands, width) -- lot MALL-RUE : la demande dépasse un lot : les blocs prennent le gabarit ruban
     if MallRt.ouvert(f) then cands = MallRt.ordonne(cands) end -- lot MALL : tapis et bras d'abord
     cands = Bi.order_cands(cands, ml.bi and ml.bi.hubs) -- lot BUS-INTERMEDIAIRES : les intermédiaires pivots devant les objets finis
     for _, c in ipairs(cands) do
@@ -519,7 +546,7 @@ function Ind.think(f, cs, res, view, book, tick)
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item
       local allowed, pwhy = PileRt.porte_any(f, "capital", c.items)
       local mod, why
-      if allowed then mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule") end
+      if allowed then mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule", ruban) end
       -- lot MALL (tranche 2, docs/MALL.md §3) : l'état S vrai, ces objets vont dans une rangée du mall (allongée) et plus dans un module isolé.
       -- Refus du mall (rangées pleines, entrée hors voies) : le module isolé d'avant, cause écrite ; attente (matériel) : pas de module isolé
       local mall_ok, mall_why, mall_wait
@@ -558,7 +585,7 @@ function Ind.think(f, cs, res, view, book, tick)
             why = "MALL " .. kind .. " " .. label }, tick, nil)
           if id then
             st.blocs[#st.blocs + 1] = { id = id, items = mod.items, kind = kind, tick = tick, state = "attente", gen = mod.gen,
-              barre = mod.barre }
+              barre = mod.barre, machine = dec.machine } -- (machine : lot MALL-RUE, largeur des blocs vivants pour Ind.ruban_wanted)
             st.n = st.n + 1
             st.said[label] = nil
             -- la réserve du mall : le coffre de sortie se vide vers le QG sous cette cible seulement (script/team/build.lua, out_wanted)
@@ -597,7 +624,7 @@ Events.on_load(function()
       for _, pid in ipairs(b and b.order or {}) do
         local spec = b.projects[pid] and b.projects[pid].spec
         local gen = spec and spec.gen
-        if gen == "patron" or gen == "bloc" then
+        if gen == "patron" or BLOC_GEN[gen] then
           local kit = (spec.args or {})[gen == "patron" and 5 or 3]
           if type(kit) == "table" then A.declare(kit.decl) end
         end
