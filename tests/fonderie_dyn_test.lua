@@ -48,7 +48,7 @@ do
     for _, sortie in ipairs({ "centre", "exterieur" }) do
       local g0 = M.GEN.smelter(furnace, ORE, 1, sortie)
       local nmax = g0.extensions[1].max
-      local side = M.spec(furnace).w
+      local side = (g0.cell and g0.cell.h) or M.spec(furnace).w -- lot RETROFIT-GABARITS : pas d'une rangée = cellule réservée (3 pour le four en acier)
       for n = 1, math.min(nmax, 12) do
         local g = M.GEN.smelter(furnace, ORE, n, sortie)
         local rows = Li.rows_of(g.entities, side, 0, four_piece)

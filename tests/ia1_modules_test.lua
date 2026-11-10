@@ -168,14 +168,25 @@ do
   local errs = M.check(g)
   check(any_match(errs, "chevauchement"), "mutant : assembleurs 4×4 au pas du 3×3 refusés (" .. first(errs) .. ")")
 end
--- mutant : four de niveau 13 (4×4) dans la colonne du niveau 7 (3×3)
+-- mutant : four de niveau 13 (4×4) dans la cellule RÉSERVÉE de 3×3 du four en acier (lot RETROFIT-GABARITS : la cellule de
+-- fonderie-fer-acier est réservée au niveau 7, 3×3 ; un 4×4 déborde sur le bras d'entrée)
 do
-  local g = deep(by["fonderie-fer-acier-n7"])
+  local g = deep(by["fonderie-fer-acier"])
   for _, e in ipairs(g.entities) do
-    if e.name == L.name(L.by_key.furnace, 7) then e.name = L.name(L.by_key.furnace, 13); e.x, e.y = e.x + 0.5, e.y + 0.5; break end
+    if e.name == "steel-furnace" then e.name = L.name(L.by_key.furnace, 13); e.x, e.y = e.x + 1, e.y + 1; break end
   end
   local errs = M.check(g)
-  check(any_match(errs, "chevauchement") or any_match(errs, "rien"), "mutant : un four 4×4 glissé dans une colonne de 3×3 refusé (" .. first(errs) .. ")")
+  check(any_match(errs, "chevauchement") or any_match(errs, "rien"), "mutant : un four 4×4 glissé dans une cellule de 3×3 refusé (" .. first(errs) .. ")")
+end
+-- lot RETROFIT-GABARITS : le four de niveau 7 (3×3) du four en acier (2×2) TIENT dans sa cellule réservée : renommé et glissé au
+-- coin nord-ouest de la cellule (Bl.grown), seul le débit déclaré diffère (aucun chevauchement, aucun bras dans le vide)
+do
+  local g = deep(by["fonderie-fer-acier"])
+  for _, e in ipairs(g.entities) do
+    if e.name == "steel-furnace" then e.name = L.name(L.by_key.furnace, 7); e.x, e.y = e.x + 0.5, e.y + 0.5 end
+  end
+  local errs = M.check(g)
+  check(not any_match(errs, "chevauchement") and not any_match(errs, "rien"), "fours 3×3 dans les cellules réservées du four en acier : ni chevauchement ni bras dans le vide (" .. first(errs) .. ")")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -305,8 +316,14 @@ mutant("liaison affaiblie (bras rapide → bras simple)", "circuits-verts", func
 end, "débit de copper-cable")
 -- correction IA1-c (mineur 2) : un VRAI mutant de débit (l'ancien « bras de sortie trop lent » posait des bras à
 -- combustion, refusés pour une autre raison : voir « bras à combustion sur un convoyeur de sortie »)
-mutant("bras de sortie trop lent (bras rapides → bras simples)", "engrenages", function(g)
-  for _, e in ipairs(g.entities) do if e.name == "fast-inserter" and e.y == 5.5 then e.name = "inserter" end end
+-- lot RETROFIT-GABARITS : la sortie des engrenages (cellules réservées de 4×4) est en bras LONGS, deux par assembleur (y = 6,5) ;
+-- le mutant en retire un sur deux (le débit d'un seul ne suffit plus)
+mutant("bras de sortie trop lent (un bras long de sortie sur deux retiré)", "engrenages", function(g)
+  local keep = {}
+  for _, e in ipairs(g.entities) do
+    if not (e.name == M.LONG_ARMS[1] and e.y == 6.5 and (e.x - 0.5) % 5 == 1) then keep[#keep + 1] = e end
+  end
+  g.entities = keep
 end, "débit de iron-gear-wheel")
 mutant("voies mêlées (jonction remplacée par un tapis droit)", "packs-verts", function(g)
   for _, e in ipairs(g.entities) do
@@ -330,8 +347,8 @@ mutant("pompe de rive retirée", "centrale-vapeur-2", function(g)
   e.name = "wooden-chest"
 end, "pas une pompe de rive")
 mutant("eau non déclarée devant la pompe", "centrale-vapeur-2", function(g) g.water = {} end, "rive")
-mutant("bras à combustion sur un convoyeur de sortie", "engrenages", function(g)
-  local _, e = find(g, function(x) return x.name == "fast-inserter" and x.y == 5.5 end)
+mutant("bras à combustion sur un convoyeur de sortie", "fonderie-fer-pierre", function(g)
+  local _, e = find(g, function(x) return x.name == "inserter" and x.x == 1.5 end)
   e.name = "burner-inserter"
 end, "combustion")
 mutant("hors de la grille", "moteurs", function(g)
@@ -406,8 +423,6 @@ end
 section("Générateurs : jamais d'erreur Lua, (nil, raison) sur des paramètres refusés")
 do
   local cases = {
-    { "smelter", { L.name(L.by_key.furnace, 25), "iron-ore", 3 }, "bras" },
-    { "smelter", { L.name(L.by_key.furnace, 30), "iron-ore", 3 }, "bras" },
     { "smelter", { "pas-un-four", "iron-ore", 3 }, "inconnue" },
     { "smelter", { "steel-furnace", "uranium-ore", 3 }, "plaque" },
     { "smelter", { "steel-furnace", "iron-ore", 0 }, "nombre" },
@@ -424,6 +439,12 @@ do
     local ok, g, why = pcall(M.GEN[c[1]], table.unpack(c[2], 1, 3))
     check(ok and g == nil and type(why) == "string" and why:find(c[3], 1, true) ~= nil,
       "GEN." .. c[1] .. "(" .. tostring(c[2][1]) .. ", …) : refus sans erreur Lua (" .. tostring(ok and why or g) .. ")")
+  end
+  -- lot RETROFIT-GABARITS : les fours de niveau 25 et 30 (6 × 6, 1,88 plaque/s) passaient le débit d'un bras seul : jusqu'à une rangée
+  -- de bras par rangée de tuiles du four (le moins d'entités d'abord) : fonderie construite et contrôlée
+  for _, n in ipairs({ 25, 30 }) do
+    local g25 = M.GEN.smelter(L.name(L.by_key.furnace, n), "iron-ore", 1) -- (1 paire : la voie de minerai borne à 1)
+    check(g25 ~= nil and #M.check(g25) == 0, "GEN.smelter(four de niveau " .. n .. ") : plusieurs bras par four, contrôle vert")
   end
   -- filet : une erreur interne devient (nil, raison)
   local ok, g, why = pcall(M.GEN.row, "x", "x", "x", { machines = { { name = "assembling-machine-2", recipe = "iron-gear-wheel", rate = 1, top = { "iron-plate" }, out = true } } })
@@ -517,15 +538,14 @@ do
     check(#lv == 1 and lv[1].level == r.level, r.key .. " : bâtiments au niveau " .. r.level)
     check(L.footprint(lv[1].family, r.level) == M.spec(L.name(lv[1].family, r.level)).w, r.key .. " : emprise ACTUELLE du niveau " .. r.level)
   end
-  -- refus déclarés : le four de niveau 25 (6 × 6, 1,88 plaque/s) dépasse un bras rapide seul depuis un tapis
-  check(#era_refus == 2, "2 refus d'ère (fours de niveau 25), " .. #era_refus .. " trouvés")
-  for _, r in ipairs(era_refus) do check(r.level == 25 and r.from:find("^fonderie") ~= nil and r.reason:find("bras", 1, true) ~= nil, "refus : " .. r.from .. " au niveau " .. r.level .. " (" .. r.reason .. ")") end
+  -- lot RETROFIT-GABARITS : plus aucun refus d'ère (le four de niveau 25, 6 × 6, 1,88 plaque/s, est servi par plusieurs bras)
+  check(#era_refus == 0, "aucun refus d'ère, " .. #era_refus .. " trouvés (" .. tostring(era_refus[1] and era_refus[1].reason) .. ")")
   check(M.get_any("engrenages-n13") ~= nil and M.get_any("circuits-verts") ~= nil and M.get_any("pas-un-gabarit") == nil, "M.get_any : catalogue et variantes d'ère")
 end
 
 section("Amélioration niveau par niveau : sur place à emprise constante, remplacement au changement d'emprise")
 do
-  local caps = { ["fonderie-fer-acier"] = 25, ["fonderie-fer-acier-n7"] = 25 }
+  local caps = {} -- (lot RETROFIT-GABARITS : les fonderies vont jusqu'au niveau 30, plusieurs bras par four)
   for _, g0 in ipairs(cat) do
     local lv = M.leveled(g0)
     if #lv > 0 then
