@@ -48,7 +48,7 @@ end
 
 --- Lot GARDE-MULTI : les centrales finies et vivantes de l'équipe, dans l'ordre de la liste (b.plant d'abord, puis b.extra_plants dans
 --- l'ordre des demandes) : { { id, pieces, boilers } }.
-local function plants_of(f, surface)
+local function plants_of(f, surface, range)
   local b = f.build
   local ids, plants = {}, {}
   if not b then return plants end
@@ -62,6 +62,29 @@ local function plants_of(f, surface)
       local pieces, boilers = pieces_of(f, surface, pid)
       if pieces then plants[#plants + 1] = { id = pid, pieces = pieces, boilers = boilers } end
     end
+  end
+  -- Lot CC-BOX (décision du DC du 10/11, 21 h) : les fonderies finies (projet de champ hors charbon avec ses fours, comme
+  -- script/team/boxes_rt.lua) et les rangées du mall (un point par cellule finie) ont leur quota de tourelles (Guard.box_entries).
+  for _, pid in ipairs(b.order or {}) do
+    local p = b.projects[pid]
+    local c = p and p.state == "fini" and p.spec and p.spec.champ
+    if c and not c.coal then
+      local ps = {}
+      for _, e in ipairs(p.ents or {}) do if e.role == "champ-four" then ps[#ps + 1] = { x = e.x, y = e.y } end end
+      for _, en in ipairs(Guard.box_entries("fonderie", pid, ps, range)) do plants[#plants + 1] = en end
+    end
+  end
+  for _, r in ipairs(b.mall and b.mall.rows or {}) do
+    local ps = {}
+    for _, q in ipairs(r.projects or {}) do
+      local p = b.projects[q.id]
+      if p and p.state == "fini" and p.ents and #p.ents > 0 then
+        local sx, sy = 0, 0
+        for _, e in ipairs(p.ents) do sx, sy = sx + e.x, sy + e.y end
+        ps[#ps + 1] = { x = sx / #p.ents, y = sy / #p.ents }
+      end
+    end
+    for _, en in ipairs(Guard.box_entries("mall", r.j, ps, range)) do plants[#plants + 1] = en end
   end
   return plants
 end
@@ -98,10 +121,10 @@ end
 function GC.view(f, fortify_open, iron)
   local surface = f.hq and f.hq.valid and f.hq.surface or nil
   if not surface then return nil end
-  local plants = plants_of(f, surface)
-  if #plants == 0 then return nil end
   local range = range_of_turret()
   if not range then return nil end
+  local plants = plants_of(f, surface, range)
+  if #plants == 0 then return nil end
   local turrets = turrets_of(f)
   local b = f.build
   b.garde = b.garde or { poses = 0 }
@@ -113,13 +136,13 @@ function GC.view(f, fortify_open, iron)
   for _, pl in ipairs(plants) do
     pl.rest = ((g.rest or {})[pl.id] or 0) > tick -- pose sans résultat récente : on passe à une autre centrale (pas de famine)
     local h = Guard.guards(pl.pieces, turrets, range, T.turret_ammo_low)
-    local w = Guard.wanted(pl.boilers)
+    local w = pl.want or Guard.wanted(pl.boilers) -- (CC-BOX : quota d'une box)
     have, want, npieces, nboilers = have + h, want + w, npieces + #pl.pieces, nboilers + pl.boilers
     if not g.seen[pl.id] then
       g.seen[pl.id] = tick
       if not g.fini then g.fini = tick end
-      log(string.format("[FO-CENTRALE-GARDE] %s : centrale %d finie a %.1f min (%d pieces, %d chaudiere(s)) ; gardes voulues %d, armees a portee %d ; %d centrale(s) vue(s) ; fer au stock %s (plancher %d)",
-        f.key or "player", pl.id, tick / 3600, #pl.pieces, pl.boilers, w, h, #plants, tostring(iron or "?"), T.defend_iron_floor))
+      log(string.format("[FO-CENTRALE-GARDE] %s : centrale %s finie a %.1f min (%d pieces, %d chaudiere(s)) ; gardes voulues %d, armees a portee %d ; %d centrale(s) vue(s) ; fer au stock %s (plancher %d)",
+        f.key or "player", tostring(pl.id), tick / 3600, #pl.pieces, pl.boilers, w, h, #plants, tostring(iron or "?"), T.defend_iron_floor))
     end
   end
   if tick - (g.status or g.fini) >= STATUS_EVERY then

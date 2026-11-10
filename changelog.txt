@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.89
+Date: 2026-11-10
+  Bugfixes:
+    - Défense (F495) : chaque fonderie finie reçoit 4 tourelles et chaque rangée du mall 2, posées à sa fin par la garde de la centrale ; une box trop longue est couverte par morceaux sans dépasser son quota (partie du DC sur la 0.6.88 : fonderies et coffres sans aucune tourelle).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.88
 Date: 2026-11-10
   Bugfixes:

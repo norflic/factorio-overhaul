@@ -111,9 +111,9 @@ end
 
 --- Besoin d'une centrale : { wanted, have (armées), near (places occupées), missing, sites, center } ou nil sans pièce ou si infaisable.
 --- missing = wanted - near : une tourelle vide occupe sa place (elle est ravitaillée, pas remplacée).
-function G.need(pieces, boilers, turrets, range, low)
+function G.need(pieces, boilers, turrets, range, low, quota)
   if not G.feasible(pieces, range) then return nil end
-  local want = G.wanted(boilers)
+  local want = quota or G.wanted(boilers) -- (CC-BOX : `quota` = tourelles voulues d'une box, G.box_entries)
   local have = G.guards(pieces, turrets, range, low)
   local near = G.near(pieces, turrets, range)
   local missing = want - near
@@ -142,9 +142,9 @@ function G.plan(plants, turrets, range, low, cap)
   cap = cap or G.TEAM_MAX
   local rows, best = {}, nil
   for _, pl in ipairs(plants or {}) do
-    local need = G.need(pl.pieces, pl.boilers, turrets, range, low)
+    local need = G.need(pl.pieces, pl.boilers, turrets, range, low, pl.want)
     if need then
-      local row = { id = pl.id, need = need, pieces = pl.pieces }
+      local row = { id = pl.id, need = need, pieces = pl.pieces, box = pl.want ~= nil }
       rows[#rows + 1] = row
       -- la moins gardée : near/wanted le plus bas (produit en croix, pas de division), puis le moins de places occupées ; égalité : la première
       if need.missing > 0 and not pl.rest then -- (pl.rest : au repos après une pose à zéro, comptée mais non choisie)
@@ -157,6 +157,8 @@ function G.plan(plants, turrets, range, low, cap)
     end
   end
   if #rows == 0 then return nil end
+  -- CC-BOX : le plafond de l'équipe garde les centrales comme avant ; les quotas des boxes s'y ajoutent (jamais au-delà de leur quota)
+  for _, r in ipairs(rows) do if r.box then cap = cap + r.need.wanted end end
   local total = G.near_any(plants, turrets, range)
   local left = cap - total
   if left < 0 then left = 0 end
@@ -165,6 +167,60 @@ function G.plan(plants, turrets, range, low, cap)
     pick = { id = best.id, need = best.need, pieces = best.pieces, missing = math.min(best.need.missing, left) }
   end
   return { pick = pick, rows = rows, total = total, left = left }
+end
+
+--[[ Lot CC-BOX (décision du DC du 10/11, 21 h : « défense par box », après la partie 0.6.88 où fonderies et coffres sont restés sans
+  tourelle) : chaque box finie a son quota de tourelles, posé à sa fin (préventif), par la même garde que la centrale (une tâche
+  « fortify:plant » à la fois, la moins gardée d'abord). Fonderie : 4 (aux bords extérieurs) ; mall : 2 ; énergie : G.wanted, inchangé ;
+  gisement : T.defend_outpost_max (F489). Une box trop étendue pour qu'un seul point la couvre est coupée en morceaux le long de son axe
+  le plus long ; le quota est partagé entre les morceaux, jamais dépassé. ]]
+G.BOX_WANT = { fonderie = 4, mall = 2 }
+
+--- Coupe `pieces` en morceaux qu'un point de pose couvre (G.feasible), dans l'ordre le long de l'axe le plus long ; ordre stable.
+function G.split(pieces, range)
+  if not pieces or #pieces == 0 then return {} end
+  if G.feasible(pieces, range) then return { pieces } end
+  local x0, x1, y0, y1 = math.huge, -math.huge, math.huge, -math.huge
+  for _, p in ipairs(pieces) do
+    if p.x < x0 then x0 = p.x end
+    if p.x > x1 then x1 = p.x end
+    if p.y < y0 then y0 = p.y end
+    if p.y > y1 then y1 = p.y end
+  end
+  local horiz = (x1 - x0) >= (y1 - y0)
+  local s = {}
+  for i, p in ipairs(pieces) do s[i] = { x = p.x, y = p.y, i = i } end
+  table.sort(s, function(a, b)
+    local a1, a2, b1, b2 = a.x, a.y, b.x, b.y
+    if not horiz then a1, a2, b1, b2 = a.y, a.x, b.y, b.x end
+    if a1 ~= b1 then return a1 < b1 end
+    if a2 ~= b2 then return a2 < b2 end
+    return a.i < b.i
+  end)
+  local out, cur = {}, {}
+  for _, p in ipairs(s) do
+    cur[#cur + 1] = { x = p.x, y = p.y }
+    if #cur > 1 and not G.feasible(cur, range) then
+      cur[#cur] = nil
+      out[#out + 1] = cur
+      cur = { { x = p.x, y = p.y } }
+    end
+  end
+  if #cur > 0 then out[#out + 1] = cur end
+  return out
+end
+
+--- Entrées de garde d'une box (forme des centrales de G.plan) : { { id, pieces, boilers = 0, want } } ; {} pour un genre sans quota.
+function G.box_entries(kind, id, pieces, range)
+  local q = G.BOX_WANT[kind]
+  if not q then return {} end
+  local parts = G.split(pieces, range)
+  local n, out = #parts, {}
+  for i, ps in ipairs(parts) do
+    local w = math.floor(q / n) + ((i <= q % n) and 1 or 0)
+    if w > 0 then out[#out + 1] = { id = kind .. ":" .. tostring(id) .. ":" .. i, pieces = ps, boilers = 0, want = w } end
+  end
+  return out
 end
 
 return G
