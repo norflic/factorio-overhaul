@@ -36,7 +36,8 @@ RAYON = 12.0 * KE            # rayon au sol englobant (ombre comprise : calculé
 # Série animée (lue par batch_titans et feuilles_titans) : images par animation, densité du rendu (px par tuile ; 20 : le Juggernaut fait
 # 36 tuiles de haut, 8 directions × 12 images × 3 stades : à 24 comme le Kaiju les feuilles pèseraient 1,4 fois plus), rayon au sol et
 # hauteur englobants (cadre fixe pour toutes les images et directions, en tuiles), portée du liseré de contact.
-SERIE = {"course": 8, "attaque": 4, "densite": 20.0, "R": 16.0, "zmax": 38.5}
+# ART-16DIR (11/11) : 16 directions réelles ; densité 12,5 pour tenir 80 Mpx HR avec 16 directions (lueur à demi-densité, ombre au quart)
+SERIE = {"course": 8, "attaque": 4, "densite": 12.5, "R": 16.0, "zmax": 38.5, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False           # allié : la lueur garde ses couleurs (cyan, magenta)
 AMP = 3.0                    # amplitude du pas (unités de modèle) : le pied va de +AMP à -AMP au sol

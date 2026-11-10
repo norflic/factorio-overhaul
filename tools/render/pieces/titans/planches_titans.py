@@ -252,14 +252,17 @@ def allie(spr, dest, nom):
     return p, out.size
 
 
-def images_de(K, direction):
+def images_de(K, direction, seizieme=None):
     """Images (main, glow, shadow) d'une direction d'une animation `K` (entrée `course` ou `attaque` de sprites.lua) : liste de cellules
-    {main, glow, shadow} en float RGBA (chaque couche à sa densité `dens`)."""
+    {main, glow, shadow} en float RGBA (chaque couche à sa densité `dens`). `direction` en HUITIÈMES de tour (0 = nord, 2 = est, 3 = sud-est,
+    4 = sud) quel que soit le nombre de directions des feuilles (ART-16DIR : 8 ou 16) ; `seizieme` : direction exacte en seizièmes."""
     out = []
     files = {}
+    n = len(K["couches"]["main"]["hr"])
+    k = (seizieme * n // 16) if seizieme is not None else (direction * n // 8)
     for c in ("main", "glow", "shadow"):
         cc = K["couches"][c]
-        f = cc["hr"][direction].replace("__factorio-overhaul__/graphics/robots/titans/", "")
+        f = cc["hr"][k].replace("__factorio-overhaul__/graphics/robots/titans/", "")
         files[c] = (rgba(os.path.join(SPRITES, f)), cc)
     for i in range(K["images"]):
         cell = {}
@@ -418,6 +421,37 @@ def mutants(spr, dest):
     return p, out.size
 
 
+def rose(spr, dest, nom, stade="3"):
+    """ART-16DIR (11/11) : les 16 directions (ou 8) d'un allié animé, image 0 de la marche du stade `stade`, à 20 px/tuile, en grille 4 × 4
+    dans l'ordre du moteur (0 = nord, sens horaire), avec la direction de chaque vue. planche-<nom>-directions.png (et -telephone)."""
+    from PIL import ImageFont
+    try:
+        f2 = ImageFont.truetype("arial.ttf", 18)
+    except OSError:
+        f2 = ImageFont.load_default()
+    e = spr[nom][stade]
+    n = len(e["course"]["couches"]["main"]["hr"])
+    noms = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"]
+    ims = []
+    for k in range(n):
+        cells, K = images_de(e["course"], None, seizieme=k * 16 // n)
+        im = SC.to_im(compose(cells[0], K, 20, (1.0, 1.0, 1.0), 1.0, fond_val=0.38))
+        ImageDraw.Draw(im).text((8, 6), "%d / %d : %s" % (k, n, noms[k * 16 // n]), fill=(255, 225, 150), font=f2)
+        ims.append(im)
+    cw, ch = max(i.width for i in ims), max(i.height for i in ims)
+    col = 4
+    lig = (n + col - 1) // col
+    out = Image.new("RGB", (cw * col, ch * lig + 40), (20, 20, 24))
+    ImageDraw.Draw(out).text((10, 8), "%s, stade %s : %d directions de marche (image 0), ordre du moteur" % (nom.upper(), stade, n),
+                             fill=(255, 225, 150), font=f2)
+    for k, im in enumerate(ims):
+        out.paste(im, ((k % col) * cw + (cw - im.width) // 2, 40 + (k // col) * ch + (ch - im.height) // 2))
+    p = os.path.join(dest, "planche-%s-directions.png" % nom)
+    out.save(p, optimize=True)
+    telephone(out, os.path.join(dest, "planche-%s-directions-telephone.png" % nom))
+    return p, out.size
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dest", default=LOGS)
@@ -425,9 +459,12 @@ def main():
     ap.add_argument("--sans-allies", action="store_true")
     ap.add_argument("--allies", default="juggernaut,sentinelle,leviathan,ravageur")
     ap.add_argument("--ennemis", default="kaiju,ecorcheur,mutants")
+    ap.add_argument("--rose", default="", help="ART-16DIR : planche des directions de ces alliés (ex. juggernaut,sentinelle,ravageur)")
     a = ap.parse_args()
     os.makedirs(a.dest, exist_ok=True)
     spr = lua_table(os.path.join(SPRITES, "sprites.lua"))
+    for nom in [x for x in a.rose.split(",") if x]:
+        print(*rose(spr, a.dest, nom), flush=True)
     if not a.sans_allies:
         for nom in [x for x in a.allies.split(",") if x]:
             print(*allie(spr, a.dest, nom), flush=True)

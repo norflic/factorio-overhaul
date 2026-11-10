@@ -29,10 +29,14 @@ if XP not in sys.path:
 import mat as MT  # noqa: E402
 
 # ------------------------------------------------------------------------------------------------ palette (linéaire)
-ARGENT = (0.348, 0.391, 0.479)       # #9FA8B8 : blindage principal
-ARGENT2 = (0.262, 0.296, 0.372)      # plaques secondaires, un ton plus bas (#8B96AA)
+# ART-16DIR (11/11, charte du mandat de 10 h : « blindage sombre iridescent, anneaux de lévitation, cœurs et conduits à vortex cyan »,
+# plus de contraste) : l'argent passe au gris acier bleuté (environ #5D6476, deux crans plus sombre, jamais noir : il doit se détacher du sol
+# brun de Factorio), l'iridescence monte, conduits et anneaux brillent plus ; le cœur garde sa force (au-delà la couche additive blanchit).
+ARGENT = (0.110, 0.130, 0.180)      # #5D6476 : blindage principal, gris acier bleuté sombre (avant : #9FA8B8)
+ARGENT2 = (0.084, 0.100, 0.140)     # plaques secondaires, un ton plus bas (#515867 ; avant : #8B96AA)
 CREUX = (0.038, 0.042, 0.058)        # joints, mécanique interne, articulations : le SOMBRE des concepts
 ARETE = (0.78, 0.82, 0.90)           # métal nu des arêtes : vif, presque blanc
+ARETE_SOMBRE = (0.42, 0.46, 0.54)    # ART-16DIR : arêtes du blindage sombre (usure 0,55 -> 0,30 : le métal nu blanchissait les plaques)
 CYAN = (0.098, 0.902, 1.000)         # #19E6FF : conduits
 TURQUOISE = (0.12, 0.86, 0.82)
 COEUR = (0.14, 0.86, 1.00)           # vortex : cyan vif ; rouge bas : à force 3 la couche additive (RGB coupé à 1) reste CYAN, pas blanche
@@ -46,7 +50,7 @@ PEAU = (0.25, 0.15, 0.21)            # peau mauve du Kaiju, entre les plaques
 IRIS = ((0.40, 0.55, 1.00), (0.62, 0.42, 0.95), (1.00, 0.50, 0.80))
 # Éclairage : les métaux reflètent le ciel ; le ciel du calibrage (0,08) est trop sombre pour un argent iridescent : les seuls rayons
 # spéculaires voient un ciel SKY_GLOSSY fois plus fort (fo_scene.setup_world, SKY_GLOSSY_FACTOR ; sans effet sur le diffus ni l'ombre).
-SKY_GLOSSY = 6.0
+SKY_GLOSSY = 2.5                       # ART-16DIR : 6 -> 2,5 (le ciel blanchissait tout le blindage)
 
 
 def _facing(N, L, blend=0.4):
@@ -268,10 +272,10 @@ def halo(S, name):
 
 def anneau_lum(S, name):
     """Anneau de lévitation : tore cyan semi-transparent, lumineux (bord plus fort), 50 % de jour."""
-    m = S.mat_emissive(name, CYAN, strength=1.3, base=(0.06, 0.40, 0.46), main_scale=0.4)
+    m = S.mat_emissive(name, CYAN, strength=1.6, base=(0.06, 0.40, 0.46), main_scale=0.45)   # ART-16DIR : 1,3 -> 1,6
     p = m.node_tree.nodes["Principled BSDF"]
     p.inputs["Roughness"].default_value = 0.2
-    rim(m, 1.3, creux=0.5, blend=0.45)
+    rim(m, 1.6, creux=0.5, blend=0.45)
     m["fo_glow_part"] = 0.7
     return translucide(m, 0.55)
 
@@ -290,9 +294,9 @@ def matieres(S, prefix, gris=False):
     M = {}
     # blindage principal : plaques argent pâle, joints sombres NETS (les creux), arêtes vives presque blanches, peu de crasse
     M["blind"] = surf("blind", ARGENT, rough=0.26, met=0.70, tole=(1.6, 0.9), joint=0.12, joint_l=0.02, var=0.06, coulures=0.0,
-                      usure=0.55, nu=ARETE, crasse=0.45, crasse_col=CREUX, relief=0.8, graine=11)
+                      usure=0.30, nu=ARETE_SOMBRE, crasse=0.45, crasse_col=CREUX, relief=0.8, graine=11)
     M["blind2"] = surf("blind2", ARGENT2, rough=0.30, met=0.65, tole=(0.8, 0.5), joint=0.12, joint_l=0.024, var=0.08,
-                       usure=0.55, nu=ARETE, crasse=0.5, crasse_col=CREUX, relief=0.7, graine=12)
+                       usure=0.30, nu=ARETE_SOMBRE, crasse=0.5, crasse_col=CREUX, relief=0.7, graine=12)
     # structure (articulations, pistons, mécanique interne) : les CREUX sombres des concepts
     M["struct"] = surf("struct", CREUX, rough=0.48, met=0.6, usure=0.45, nu=(0.30, 0.34, 0.42), crasse=0.6,
                        crasse_col=(0.012, 0.013, 0.018), graine=13)
@@ -306,13 +310,13 @@ def matieres(S, prefix, gris=False):
     # griffes, dents, pointes d'os : acier pâle
     M["os"] = surf("os", (0.52, 0.52, 0.55), rough=0.32, met=0.6, usure=0.3, nu=ARETE, crasse=0.35, crasse_col=CREUX, graine=17)
     if not gris:
-        iridescence(M["blind"], part=0.45, blend=0.4)
-        iridescence(M["blind2"], part=0.5, blend=0.4)
+        iridescence(M["blind"], part=0.6, blend=0.4)      # ART-16DIR : 0,45 -> 0,6
+        iridescence(M["blind2"], part=0.65, blend=0.4)    # 0,5 -> 0,65
         iridescence(M["canon"], part=0.3, blend=0.45)
         iridescence(M["peau"], part=0.35, blend=0.5)
         iridescence(M["os"], part=0.2, blend=0.5)
     # émissifs (couche lueur) : conduits fins, cœur et halo, cristaux, anneaux, accents magenta
-    M["conduit"] = S.mat_emissive(prefix + "conduit", CYAN, strength=2.6, base=(0.02, 0.30, 0.36), main_scale=0.45)
+    M["conduit"] = S.mat_emissive(prefix + "conduit", CYAN, strength=3.1, base=(0.02, 0.30, 0.36), main_scale=0.5)   # ART-16DIR : 2,6 -> 3,1
     M["turq"] = S.mat_emissive(prefix + "conduit_turq", TURQUOISE, strength=2.0, base=(0.02, 0.26, 0.26), main_scale=0.4)
     M["coeur"] = coeur(S, prefix + "coeur")
     M["singularite"] = singularite(S, prefix + "singularite")

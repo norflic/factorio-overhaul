@@ -261,7 +261,8 @@ def anime(a):
     nb = se[a.anim]
     kaiju = a.what in SANS_STADE
     stages = [None] if kaiju else [int(x) for x in a.stages.split(",") if x]
-    dirs_all = [int(x) for x in a.dirs.split(",") if x] or list(range(8))
+    ndirs = int(se.get("dirs", 8))      # ART-16DIR (11/11) : 16 directions réelles pour Juggernaut, Sentinelle, Ravageur (SERIE["dirs"])
+    dirs_all = [int(x) for x in a.dirs.split(",") if x] or list(range(ndirs))
     images = [int(x) for x in a.images.split(",") if x] or list(range(nb))
     for stage in stages:
         base = a.what if kaiju else "%s-%d" % (a.what, stage)
@@ -327,7 +328,7 @@ def anime(a):
             fn_lueur = (lambda mat: _lueur_de(mat, blanc) if (mat is not None and mat.get("fo_kind") == "emissive") else S._black_mat())
             m = int(round(0.8 * D))     # marge de la fenêtre du corps : liseré de contact (AO) et débordement de la lueur
             for k in dirs:
-                cap = k * 45.0
+                cap = k * 360.0 / ndirs
                 yaw = math.atan2(math.cos(math.radians(cap)), math.sin(math.radians(cap)))
                 for o in objs:
                     o.rotation_euler = (0.0, 0.0, yaw)
