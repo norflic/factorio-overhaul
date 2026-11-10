@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.79
+Date: 2026-11-10
+  Features:
+    - Performance (F470) : les relevés de l'hygiène électrique et des balises ne parcourent plus toute la carte mais la zone de l'équipe (rectangles du plan élargis de la portée de fil) ; coût de l'hygiène divisé par quatre (0,019 → 0,005 ms/tick), décisions identiques.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.78
 Date: 2026-11-10
   Features:
