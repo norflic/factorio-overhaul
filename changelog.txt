@@ -9,6 +9,7 @@ Date: 2026-11-10
     - Balises (F454) : la lueur d'une balise prend la couleur des modules qu'elle contient (cyan vitesse, ambre productivité, émeraude efficacité).
     - Hygiène électrique (F456) : les poteaux feuilles sans consommateur sont retirés et rendus au coffre ; un poteau posé sur du minerai est remplacé par un poteau hors gisement vérifié relié et alimenté avant le retrait ; quatre retraits par impulsion au plus.
     - Mall en série (F457) : gabarit en ruban à deux corridors ; quand le lot est plein, la section suivante passe de l'autre côté de la rue et son corridor la franchit par un souterrain, la rue restant libre pour les PNJ.
+    - Gabarits évolutifs (F459) : les fonderies et rangées neuves réservent l'emprise de la machine de l'âge suivant, bras sur la ligne d'interface finale ; le rétrofit remplace une machine par un palier plus grand seulement si sa cellule l'accueille sans écraser tapis ni poteau, bras repositionnés dans la même tranche.
     - Stock dormant (F435) : une bande dont 30 % au moins des foreuses et des fours dorment déjà au coffre part sans attendre que la plaque manque (on pose ce qu'on a, on complète ensuite) ; les bandes en avance s'ouvrent à tout champ ainsi payé.
     - Auto-financement (F436) : un agrandissement thermique dont seule la plaque manque au QG prend ses plaques dans les fours de l'avant-poste et fabrique les paires sur place.
     - Mall (F442) : les machines qui dorment au coffre au-delà d'une réserve de 20 % paient une section de rangée de plus, sans attendre le débit.
