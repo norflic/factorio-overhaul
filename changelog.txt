@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.80
+Date: 2026-11-10
+  Graphics:
+    - Tourelles (F476) : Bastion II, III et IV, la tour à arc et la tourelle laser lourde ne sont plus des tourelles vanilla teintées : émetteurs rendus en 3D dans le style des titans (prisme de cristal, couronne d'électrodes, confinement de plasma, bobine Tesla, dôme focal), lueur qui pulse au repos et s'intensifie au tir, faisceau qui part de l'émetteur. Statistiques inchangées.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.79
 Date: 2026-11-10
   Features:
