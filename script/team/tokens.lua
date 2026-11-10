@@ -16,6 +16,9 @@ local State = require("script.faction.state")
 local Tokens = {}
 
 Tokens.COST_CLAIM = 20 -- une prise de tâche (programme d'étapes, recherche de minerai comprise) : estimé
+--- Lot CC-PLAN-FIGE (F512) : ordre de service des équipes d'une passe périodique (O.serve_order) : le premier servi tourne à chaque passe,
+--- et avec lui le gros jeton du tick (ci-dessous, une seule grosse opération pour tout le mod, au premier demandeur).
+Tokens.serve_order = O.serve_order
 
 local ledger = { tick = -1, used = {}, grant = nil, big = nil }
 

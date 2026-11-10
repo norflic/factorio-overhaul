@@ -5206,7 +5206,11 @@ local function teams()
 end
 
 Events.on_nth_tick(Build.PULSE, function(e)
-  for _, f in ipairs(teams()) do
+  -- lot CC-PLAN-FIGE (F512) : l'équipe servie la première tourne à chaque passe (le gros jeton du tick, celui d'un plan, va au premier
+  -- demandeur ; dans l'ordre fixe, les plans par tranches des factions le prenaient à chaque passe et ceux de votre équipe ne passaient plus)
+  local list = teams()
+  for _, i in ipairs(Tokens.serve_order(#list, e.tick, Build.PULSE)) do
+    local f = list[i]
     if f.hq and f.hq.valid then
       Profiler.start("build:pulse")
       pulse_team(f, e.tick)
