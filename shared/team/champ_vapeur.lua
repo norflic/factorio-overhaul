@@ -141,9 +141,7 @@ end
 --- treillis : le treillis grandit), "attendre" (autre raison : pause ordinaire du lot CHARBON-CENTRALE).
 function Cv.after_refusal(reason, can_grow)
   reason = tostring(reason or "")
-  -- lot CHARBON-UNIFIE (F460 bis, cause 2) : « pas de lot » (aucun lot du treillis ne porte le combustible) est aussi un gisement hors du
-  -- treillis : il fait grandir (6 refus « foreuses : pas de lot » de 15,9 à 31,4 min sur 123456789, le charbon n'entrait au treillis qu'à 47,5 min)
-  if can_grow and (reason:find("minerai", 1, true) or reason:find("hors du treillis", 1, true) or reason:find("pas de lot", 1, true)) then return "grandir" end
+  if can_grow and (reason:find("minerai", 1, true) or reason:find("hors du treillis", 1, true)) then return "grandir" end
   return "attendre"
 end
 

@@ -2809,25 +2809,12 @@ local function plan_alim(f, surface, p)
   p.parts, p.ents = {}, {}
   -- lot ENERGIE : gisement de charbon hors du treillis (12 refus « minerai » sur 31 demandes au 31/10) : le treillis GRANDIT, le prochain
   -- essai (pause du lot CHARBON-CENTRALE) trouve le gisement ; avant, rien ne le faisait grandir pour l'alimentation
-  -- Lot CHARBON-UNIFIE (F460 bis, cause 2) : « pas de lot » fait aussi grandir, et la croissance va VERS le gisement du combustible, d'un coup,
-  -- au plus Build.RADIUS_ORE (treillis_step, lot INDUSTRIE I3 : sonde des anneaux au-delà du rayon) ; l'ancien +1 anneau borné à RADIUS_MAX reste
-  -- la règle de repli. Le combustible est lu aux données : la ressource dont le PRODUIT est l'objet du coffre de la centrale.
-  local can = b.radius < Build.RADIUS_ORE and (not b.enc or Build.beyond_wall(b))
-  if Cv.after_refusal(last, can) == "grandir" then
-    local fuel_res
-    for _, k in ipairs(T.OUTPOST_ORDER) do
-      local sp = T.outposts[k]
-      if sp and sp.product == fuel then fuel_res = sp.resource end
-    end
-    local r0 = b.radius
-    if fuel_res and not deposit_toward(b, fuel_res) then treillis_step(f, surface, fuel_res, nil, nil, Build.RADIUS_ORE * P.PITCH) end
-    if b.radius <= r0 and Build.can_grow(b) then Build.grow(f, b.radius + 1) end
-    if b.radius > r0 then
-      p.cv_grew = true -- (relecture : ce refus-là ne compte pas vers la pause longue, Cc.refused)
-      b.stats.cv_grow = (b.stats.cv_grow or 0) + 1
-      if b.stats.cv_grow <= Build.LINE_LOGS then
-        log(Cv.line({ kind = "grandir", team = f.key or "player", tick = game.tick, project = p.id, why = last, radius = b.radius }))
-      end
+  if Cv.after_refusal(last, Build.can_grow(b)) == "grandir" then
+    Build.grow(f, b.radius + 1)
+    p.cv_grew = true -- (relecture : ce refus-là ne compte pas vers la pause longue, Cc.refused)
+    b.stats.cv_grow = (b.stats.cv_grow or 0) + 1
+    if b.stats.cv_grow <= Build.LINE_LOGS then
+      log(Cv.line({ kind = "grandir", team = f.key or "player", tick = game.tick, project = p.id, why = last, radius = b.radius }))
     end
   end
   return false, "foreuses : " .. last
