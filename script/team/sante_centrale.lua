@@ -23,6 +23,7 @@ local M = require("shared.team.modules")
 local T = require("shared.team.config")
 local Stock = require("script.team.stock")
 local S = require("shared.team.sante_centrale")
+local Rc = require("shared.team.reserve_charbon") -- lot CHARBON-UNIFIE : l'amorce prend la part VITALE du coffre du QG (servie avant les brûleurs)
 
 local Sante = {}
 
@@ -120,7 +121,9 @@ function Sante.observe(f, surface, p, tick)
   if Sante.off(f) then
     st.prime = nil
   elseif S.confirm(st, c.boilers.dry) then
-    local stock = Stock.count(f, T.fuel)
+    -- lot CHARBON-UNIFIE : la part vitale = l'amorce (S.PRIME par chaudière à sec), servie AVANT les tournées des brûleurs (F455 : la
+    -- réserve des brûleurs étendue à l'amorce laissait la centrale à sec toute la famine) ; même règle que le quai et le planificateur
+    local stock = Rc.vital(Stock.count(f, T.fuel), { vital = c.boilers.dry * S.PRIME })
     local pr, why = S.prime(st, c.boilers.dry, stock, tick)
     if pr then
       st.prime = { count = pr.count, boilers = pr.boilers, total = pr.total, x = first_dry.x, y = first_dry.y }
@@ -152,6 +155,12 @@ function Sante.observe(f, surface, p, tick)
     st.sig = sig
   end
   return res
+end
+
+--- Lot CHARBON-UNIFIE : charbon de l'amorce due de la centrale `p` (0 sans amorce) : la part « vital » du coffre du QG (Build.plant_fuel_need).
+function Sante.prime_need(f, p)
+  local st = mem(f).plants[p.id]
+  return st and st.prime and st.prime.total or 0
 end
 
 --- Tâche d'amorce d'une centrale (appelée par quai_tasks) : `anchor(x, y)` rend le point d'appui { x, y } près de la chaudière.

@@ -1,0 +1,83 @@
+--[[
+  Lot CHARBON-UNIFIE (directive « Mode Démon » du DC, 10/11, priorité 1 : « une fonction de réserve unique et atomique pour le charbon
+  garantissant la priorité vitale absolue : centrale électrique > ravitaillement des brûleurs > usines secondaires »).
+
+  Avant le lot, TROIS lecteurs du coffre du QG se servaient chacun selon sa règle : le planificateur retirait du stock virtuel le déficit
+  des brûleurs (shared/team/planner.lua), le quai de la centrale lisait le stock moins ce même déficit (quai_tasks), l'amorce à la main
+  lisait le stock brut (script/team/sante_centrale.lua). Deux coupes successives ont montré les deux falaises (RD_LOG F445, F455) :
+  la centrale qui remplit son coffre pour 20 minutes (cible Cc.FILL_S, priorité 91) vide le coffre du QG pendant que 46 brûleurs sont à
+  sec (banc V0676-D) ; la réserve des brûleurs étendue à l'amorce interdit à la centrale de se rallumer pendant toute la famine
+  (V0677-FINAL-A : kW moyen 98 au lieu de 1 150, 1 bande finie au lieu de 8).
+
+  Règle PURE (aucune API Factorio, aucun nom d'objet : le combustible est T.fuel chez l'appelant, l'avant-poste « de combustible » est
+  celui dont le PRODUIT est le combustible, Rc.is_fuel_outpost) : le stock est découpé en PARTS, dans un ordre fixe, chaque part
+  bornée par son besoin ; ce qui reste est LIBRE (projets, fabrication).
+    1. vital    : l'amorce des chaudières à sec + le coffre de la centrale jusqu'à son SEUIL D'AVANCE (Cc.refill : low, 4 min de pleine
+                  charge) : le courant de toute la base ; jamais retenu par les brûleurs.
+    2. bruleurs : les tournées (déficit Σ(fill − fuel) des fours de l'équipe et des brûleurs des avant-postes qui ne produisent pas le
+                  combustible) + un TAMPON consommation × horizon (Rc.buffer : la tournée suivante trouve de quoi partir, F455 (2)).
+    3. confort  : le coffre de la centrale du seuil jusqu'à sa CIBLE (20 min) : il attend que les brûleurs soient servis.
+    4. libre    : le reste (objets d'un nouvel avant-poste, fabrication).
+  Tous les lecteurs appellent Rc.parts sur le même stock et prennent LEUR part : la centrale vital + confort, l'amorce vital, le
+  planificateur libre. Déterministe (ordre fixe Rc.ORDER, entiers), jamais négatif.
+]]
+local Rc = {}
+
+Rc.ORDER = { "vital", "bruleurs", "confort" } -- ordre de service (fixe : pas de `pairs`)
+Rc.HORIZON_S = 120 -- secondes de consommation des brûleurs gardées au coffre au-delà du déficit instantané (une tournée)
+Rc.LOGS = 30       -- lignes [FO-CHARBON] au plus par équipe
+
+local function whole(n) n = tonumber(n) or 0 if n < 0 then return 0 end return math.floor(n + 1e-9) end
+
+--- Parts du stock `stock` selon les besoins `need` = { vital, bruleurs, confort } (manquants = 0). Rend { vital, bruleurs, confort, libre,
+--- stock } : chaque part = min(reste, besoin) dans l'ordre Rc.ORDER ; libre = le reste. Entiers, jamais négatifs.
+function Rc.parts(stock, need)
+  need = need or {}
+  local rest = whole(stock)
+  local out = { stock = rest }
+  for _, k in ipairs(Rc.ORDER) do
+    local n = whole(need[k])
+    local take = n < rest and n or rest
+    out[k] = take
+    rest = rest - take
+  end
+  out.libre = rest
+  return out
+end
+
+--- Besoin d'une centrale nourrie à la main : `n` charbon à son coffre, `low` seuil d'avance et `target` cible (Cc.refill), `prime` charbon
+--- de l'amorce des chaudières à sec (0 sans amorce due). Rend { vital, confort }.
+function Rc.need_centrale(n, low, target, prime)
+  n, low, target = whole(n), whole(low), whole(target)
+  local vital = (low > n and low - n or 0) + whole(prime)
+  local base = n > low and n or low
+  local confort = target > base and target - base or 0
+  return { vital = vital, confort = confort }
+end
+
+--- Tampon des brûleurs : `rate` charbon/s consommé par les brûleurs servis en tournée, sur `horizon` secondes (Rc.HORIZON_S). Entier.
+function Rc.buffer(rate, horizon)
+  rate = tonumber(rate) or 0
+  if rate <= 0 then return 0 end
+  return math.ceil(rate * (horizon or Rc.HORIZON_S) - 1e-9)
+end
+
+--- Un avant-poste est « de combustible » quand son PRODUIT est le combustible (données, pas un nom de gisement).
+function Rc.is_fuel_outpost(spec, fuel)
+  return spec ~= nil and fuel ~= nil and spec.product == fuel
+end
+
+--- Ce que la centrale peut prendre (vital + confort), ce que l'amorce peut prendre (vital), ce qui reste à la fabrication (libre).
+function Rc.centrale(stock, need) local p = Rc.parts(stock, need) return p.vital + p.confort end
+function Rc.vital(stock, need) return Rc.parts(stock, need).vital end
+function Rc.libre(stock, need) return Rc.parts(stock, need).libre end
+
+--- Ligne de journal [FO-CHARBON] (une par changement d'état chez l'appelant).
+function Rc.line(who, minute, p, need)
+  need = need or {}
+  return string.format("[FO-CHARBON] %s : coffre du QG %d charbon(s) a %.1f min : vital %d/%d, bruleurs %d/%d, confort %d/%d, libre %d",
+    tostring(who), p.stock or 0, minute or 0, p.vital or 0, whole(need.vital), p.bruleurs or 0, whole(need.bruleurs),
+    p.confort or 0, whole(need.confort), p.libre or 0)
+end
+
+return Rc

@@ -49,6 +49,7 @@ local DefStock = require("script.team.defense_stock") -- lot DEFENSE-STOCK : tou
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
+local Rc = require("shared.team.reserve_charbon") -- lot CHARBON-UNIFIE : avant-poste de combustible lu aux données (produit = combustible)
 local Src = require("script.team.sources") -- lot MINAGE-MAIN : ce qui dort dans les coffres de SORTIE (fonderies), tournée « fetch »
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Fp = require("shared.team.fabrication_place") -- lot POSE-PERDUE : fabrication sur place, une recette à la fois, file vide entre deux
@@ -630,7 +631,7 @@ function Worker.program(f, task, surface, tick)
     -- Lot CHARBON-MAIN : un avant-poste de combustible à sec dont les sorties ne couvrent pas le ravitaillement reçoit le complément du coffre
     -- (avant : jamais, il ne repartait plus une fois à sec avec des coffres vides ; règle coupée : le comportement de 0.6.41).
     local carry = need
-    if o.kind == "coal" then carry = 0 end
+    if Rc.is_fuel_outpost(T.outposts[o.kind], T.fuel) then carry = 0 end -- (lot CHARBON-UNIFIE : plus de nom de gisement en dur)
     if Sorties.on(f) then carry = Sorties.carry_fuel(f, o, need) end
     if carry > 0 then steps[#steps + 1] = { "take", { { T.fuel, carry } } } end
     steps[#steps + 1] = { "goto", access(o, f), 3 }
