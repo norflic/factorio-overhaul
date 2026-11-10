@@ -481,4 +481,8 @@ commands.add_command("fo-waves", { "fo-td.command-help" }, function(cmd)
   end
 end)
 
+-- Lot ASSAUTS-TITANESQUES (10/11) : assauts de boss coordonnés sur les bases des factions (script/combat/assaut_titan.lua), chargé ici
+-- avec le combat (control.lua ne change pas : il ne contient que des require).
+require("script.combat.assaut_titan")
+
 return Director

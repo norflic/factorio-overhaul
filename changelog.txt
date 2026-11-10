@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.79
+Date: 2026-11-10
+  Features:
+    - Assauts titanesques (F466) : un Kaiju de l'ère de la partie mène une escorte dimensionnée aux défenses de la base la mieux défendue (factions et votre équipe, en rotation) ; annonce, rassemblement, marche, assaut, repli si le titan tombe ; cadence qui monte avec l'évolution et l'âge.
+    - Barrière énergétique de périmètre (F467) : borne électrique d'une tuile de l'âge 4 ; tout ennemi qui franchit son champ est foudroyé et ralenti ; sans courant, la barrière s'éteint. Rendu 3D de la borne.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.78
 Date: 2026-11-10
   Features:

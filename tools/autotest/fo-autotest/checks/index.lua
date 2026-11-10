@@ -6,4 +6,5 @@ return {
   "levels_machines", -- lot V3-T2 : emprise croissante de toutes les familles (machines, laser, centre)
   "levels_points", -- lot V3-T2 (corrections) : points de jeu servis, fabrication à travers le remplacement rapide
   "equilibre", -- lot EQUILIBRE : 12 paliers, 6 familles, × 1,15 par niveau, laser 30 au-delà de 24 tuiles
+  "assauts", -- lot ASSAUTS-TITANESQUES : barrière de périmètre (alimentée foudroie, sans courant témoin), assaut de boss forcé (Kaiju, phases)
 }

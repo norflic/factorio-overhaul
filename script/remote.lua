@@ -16,6 +16,7 @@ local War = require("script.faction.war")
 local Military = require("script.faction.military")
 local F = require("shared.faction.config")
 local State = require("script.faction.state")
+local Assaut = require("script.combat.assaut_titan") -- lot ASSAUTS-TITANESQUES : état et départ forcé (bancs)
 local Director = require("script.td.director") -- require interdit dans un gestionnaire d'événement
 local Team = require("script.team.team")
 local Levels = require("script.levels.levels")
@@ -104,6 +105,11 @@ remote.add_interface("factorio-overhaul", {
     return Bench.spawn_at(s, game.forces.player.get_spawn_position(s), game.forces.player, nil, n or 20, "wander", radius or 32)
   end,
   -- Mode défense de tours : "on" [délai en secondes] | "off" | "next" | "status" -> état
+  -- Lot ASSAUTS-TITANESQUES : "now" [{ preavis (ticks), cible = { x, y }, age, defenses }] lance un assaut de boss (bancs) ; sinon l'état.
+  assaut = function(action, opts)
+    if action == "now" then return Assaut.force_now(opts) end
+    return Assaut.state()
+  end,
   waves = function(action, delay_s)
     if action == "on" then Director.start(delay_s and math.floor(delay_s * 60) or nil)
     elseif action == "off" then Director.stop()

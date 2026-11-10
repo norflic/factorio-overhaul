@@ -135,6 +135,7 @@ for k, v in pairs(L.item_value) do VALEURS[k] = v end
 local VANILLA = {
   ["gun-turret"] = 50, ["laser-turret"] = 700, ["advanced-circuit"] = 25, ["rocket-launcher"] = 60,
   ["energy-shield-equipment"] = 300, ["explosives"] = 6, ["copper-cable"] = 0.5,
+  ["fo-armored-wall"] = 120, -- lot ASSAUTS-TITANESQUES : mur blindé (mur renforcé 1 : pierre + 2 acier + 5 béton ; + 4 tungstène)
 }
 for k, v in pairs(VANILLA) do VALEURS[k] = VALEURS[k] or v end
 local okv, motifs_couts = pcall(verifier_couts, A.ages, VALEURS)
@@ -238,6 +239,48 @@ do -- locale manquante (FR seulement)
   local ENm = copie(EN)
   ENm["technology-description." .. A.cataclysm.tech.name] = ""
   check(#verifier_locale(cles, FR, ENm) > 0, "mutant : locale EN vide refusée")
+end
+
+---------------------------------------------------------------------------------------------------
+-- 5. Lot ASSAUTS-TITANESQUES (10/11) : la BARRIÈRE ÉNERGÉTIQUE DE PÉRIMÈTRE (A.perimetre) : arme de fin de partie de l'âge 4,
+--    mode propre hors de la lignée (« barriere »), tourelle électrique à portée COURTE avec un champ (dégâts + ralentissement),
+--    verrouillée derrière la dernière technologie de l'âge 4, plus chère qu'elle en recherche, locale FR et EN complète.
+---------------------------------------------------------------------------------------------------
+local P = A.perimetre
+check(type(P) == "table" and P.age == 4 and P.mode == "barriere", "barrière : âge 4, mode « barriere »")
+local mode_libre = true
+for _, t in ipairs(A.ages) do if t.mode == P.mode then mode_libre = false end end
+check(mode_libre and P.role ~= nil, "barrière : mode hors de la lignée Bastion, rôle déclaré (" .. tostring(P.role) .. ")")
+check(P.copy_type == "electric-turret" and P.range <= 5 and P.field and P.field.radius > 0 and P.field.damage > 0 and P.field.slow < 1,
+  "barrière : tourelle électrique à portée courte, champ à dégâts et ralentissement")
+check(P.buffer and P.input and P.drain and P.energy, "barrière : énergie (tampon, entrée, drain, par décharge) : sans courant, éteinte par le moteur")
+local lock4 = false
+for _, pre in ipairs(P.tech.prerequisites) do if pre == A.ages[4].tech.name then lock4 = true end end
+check(lock4, "barrière : verrouillée derrière " .. A.ages[4].tech.name)
+check(P.tech.count > A.ages[4].tech.count and #P.tech.packs >= #A.ages[4].tech.packs, "barrière : recherche plus chère que l'âge 4")
+local okp, vp = pcall(valeur_recette, P.ingredients, VALEURS)
+-- une borne se pose en LIGNE (une tuile) : chaque borne coûte plus qu'une tourelle de l'âge 1, la recherche porte le prix de fin de partie
+check(okp and vp > valeur_recette(A.ages[1].ingredients, VALEURS), "barrière : une borne plus chère qu'une tourelle de l'âge 1 (" .. tostring(okp and math.floor(vp) or vp) .. " MU)")
+local cles_p = { "entity-name." .. P.name, "entity-description." .. P.name, "technology-name." .. P.tech.name, "technology-description." .. P.tech.name }
+local mlp = verifier_locale(cles_p, FR, EN)
+check(#mlp == 0, "barrière : 4 clés de locale en FR et EN", table.concat(mlp, " ; "))
+do -- mutants
+  local mut = copie(P)
+  mut.range = 30
+  check(not (mut.range <= 5), "mutant : barrière à longue portée refusée")
+  mut = copie(P)
+  mut.tech.prerequisites = { "military-4" }
+  local l = false
+  for _, pre in ipairs(mut.tech.prerequisites) do if pre == A.ages[4].tech.name then l = true end end
+  check(not l, "mutant : barrière sans le verrou de l'âge 4 refusée")
+  mut = copie(P)
+  mut.mode = A.ages[2].mode
+  local libre = true
+  for _, t in ipairs(A.ages) do if t.mode == mut.mode then libre = false end end
+  check(not libre, "mutant : mode de la barrière pris à la lignée refusé")
+  local FRm = copie(FR)
+  FRm["entity-description." .. P.name] = nil
+  check(#verifier_locale(cles_p, FRm, EN) > 0, "mutant : locale FR de la barrière manquante refusée")
 end
 
 print(string.format("[ARMES-AGES] BILAN : %d OK, %d ECHEC(S)", ok, ko))
