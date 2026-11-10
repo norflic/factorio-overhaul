@@ -192,11 +192,34 @@ function A.choose_pole(book, stock, harvest)
     if (stock[name] or 0) >= A.POLE_BATCH then return true end
     if not book:handcraftable(name) then return false end
     local plan = book:plan({ { name, A.POLE_BATCH } }, stock)
-    for _, k in ipairs(sorted_keys(plan.raw)) do
-      if book:natural(k) and not (harvest and harvest[k]) then return false end
-    end
-    return true
+    return A.only_made(book, plan.raw, harvest) -- lot CC-BOIS : même lecture que l'achat du bloc (A.short_of), décision inchangée
   end)
+end
+
+--- Lot CC-BOIS (F504) : une matière NATURELLE (aucune recette ne la produit : le bois, la pierre) que l'équipe peut RÉCOLTER (`harvest`,
+--- lot KIT : { [matière] = rayon } lu au cerveau) n'est pas un manque : l'ouvrier la coupe ou la mine. Lecture UNIQUE du poteau
+--- (A.choose_pole) et de l'achat d'un bloc du mall (script/ai3/industrie.lua, afford_list) : avant, le petit poteau était choisi
+--- « parce que le bois se récolte », puis le bloc qui le porte était refusé « faute de bois au stock hors besoin » (partie 0.6.89 du DC,
+--- Ambre : tous ses blocs du mall en attente de 30 à 82 min, 5 007 fer au coffre). Rend la liste TRIÉE { { objet, n } } des manques
+--- bruts (`raw` = plan.raw de Book:plan) qui bloquent vraiment : les matières fabriquées, et les naturelles hors de portée.
+function A.harvested(book, k, harvest)
+  return book:natural(k) and harvest ~= nil and harvest[k] ~= nil and harvest[k] ~= false
+end
+function A.short_of(book, raw, harvest)
+  local out = {}
+  for _, k in ipairs(sorted_keys(raw)) do
+    if (raw[k] or 0) > 0 and not A.harvested(book, k, harvest) then out[#out + 1] = { k, raw[k] } end
+  end
+  return out
+end
+
+--- Le manque du poteau ne compte que ses matières NATURELLES (A.choose_pole d'avant : plaques, câbles et bâtons ne bloquent pas, la
+--- fonderie et la main les fournissent) : vrai quand tout ce qui reste de `A.short_of` est une matière fabriquée.
+function A.only_made(book, raw, harvest)
+  for _, it in ipairs(A.short_of(book, raw, harvest)) do
+    if book:natural(it[1]) then return false end
+  end
+  return true
 end
 
 --- Lot RECHERCHE-BRAS : les bras des gabarits d'une équipe = ceux qu'elle sait avoir : au coffre en nombre suffisant (A.ARM_STOCK), ou
