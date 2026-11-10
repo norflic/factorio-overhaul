@@ -18,6 +18,7 @@ local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 local R = require("shared.ai3.reglages") -- lot TOURELLES : rôles des types du moteur (bâtiments à protéger)
 local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels emplacements prendre (règle pure)
+local Perimetre = require("shared.team.perimetre_tourelles") -- lot CC-TOURELLES (F489) : tourelles d'avant-poste au bord du gisement, jamais sur le minerai (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : une tourelle ne se pose pas sur une tuile réservée (règle pure)
 local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règle pure)
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
@@ -559,6 +560,33 @@ local TURRET = "gun-turret"
 Outposts.ASSET_RADIUS_OUT = 24 -- lot TOURELLES : tuiles autour d'un avant-poste où les bâtiments de l'équipe sont à protéger
 Outposts.ASSET_RADIUS_HQ = 40  -- ... autour du QG
 Outposts.POSE_LOGS = 40        -- lignes de journal [FO-TOUR-POSE] au plus par équipe
+Outposts.PERIM_STEP = 2        -- lot CC-TOURELLES (F489) : pas des rayons vers le bord du gisement (tuiles)
+
+--- Lot CC-TOURELLES (F489, règle du DC) : l'emprise d'une tourelle en (x, y) recouvre-t-elle du minerai ? (entités de type « resource »)
+local function ore_test(surface)
+  local tp = game.entity_prototypes[TURRET]
+  local hw, hh = (tp and tp.tile_width or 2) / 2, (tp and tp.tile_height or 2) / 2
+  return function(x, y)
+    return surface.count_entities_filtered({ area = { { x - hw, y - hh }, { x + hw, y + hh } }, type = "resource", limit = 1 }) > 0
+  end
+end
+
+--- Lot CC-TOURELLES (F489) : emplacements d'un AVANT-POSTE au bord extérieur de son gisement (shared/team/perimetre_tourelles.lua), un par
+--- emplacement d'avant, à moins de ASSET_RADIUS_OUT + portée de la tourelle du centre ; et le test « sur le minerai » pour refuser une
+--- position finale. Rend nil, nil si aucun rayon ne trouve de bord à portée (gisement plus grand que la portée : emplacements d'avant).
+function Outposts.perimeter(f, surface, outpost)
+  local ore = ore_test(surface)
+  local reach = Outposts.ASSET_RADIUS_OUT + Outposts.turret_range()
+  local sites, lost = Perimetre.sites(TURRET_OFFSETS, outpost.pos.x, outpost.pos.y, ore, Outposts.PERIM_STEP, reach)
+  f.stats = f.stats or {}
+  f.stats.perim_logs = (f.stats.perim_logs or 0) + 1
+  if f.stats.perim_logs <= Outposts.POSE_LOGS then
+    log(string.format("[FO-TOUR-PERIMETRE] %s avant-poste %s en (%.0f, %.0f) : %d emplacement(s) au bord du gisement, %d direction(s) sans bord a moins de %d tuiles%s",
+      f.key or "?", tostring(outpost.id), outpost.pos.x, outpost.pos.y, #sites, lost, reach, #sites == 0 and " : emplacements d'avant" or ""))
+  end
+  if #sites == 0 then return nil, nil end
+  return sites, ore
+end
 
 --- Lot TOURELLES : bâtiments de l'équipe autour du centre, { {x, y, w} } (w = aire de l'emprise × facteur du rôle).
 local function assets_around(f, surface, center, radius)
@@ -588,14 +616,23 @@ local function pose_order(f, surface, outpost, count)
     if slots then return slots end
   end
   local raw = {}
-  for _, o in ipairs(TURRET_OFFSETS) do
-    local pos = surface.find_non_colliding_position(TURRET, { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
-    if pos then raw[#raw + 1] = { x = pos.x, y = pos.y } end
+  local perim, ore = nil, nil
+  if outpost.id ~= nil then perim, ore = Outposts.perimeter(f, surface, outpost) end -- lot CC-TOURELLES (F489) : avant-poste, au bord du gisement
+  if perim then
+    for _, q in ipairs(perim) do
+      local pos = surface.find_non_colliding_position(TURRET, q, 4, 1)
+      if pos and not ore(pos.x, pos.y) then raw[#raw + 1] = { x = pos.x, y = pos.y } end
+    end
+  else
+    for _, o in ipairs(TURRET_OFFSETS) do
+      local pos = surface.find_non_colliding_position(TURRET, { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
+      if pos then raw[#raw + 1] = { x = pos.x, y = pos.y } end
+    end
   end
   local cands = Pose.dedup(raw)
   local proto = game.entity_prototypes[TURRET]
   local range = proto and proto.turret_range or 0
-  if range <= 0 or #cands == 0 then return cands end
+  if range <= 0 or #cands == 0 then return cands, perim, ore end
   local center = outpost.pos
   local is_hq = outpost.id == nil
   local radius = is_hq and Outposts.ASSET_RADIUS_HQ or Outposts.ASSET_RADIUS_OUT
@@ -620,7 +657,7 @@ local function pose_order(f, surface, outpost, count)
     log(string.format("[FO-TOUR-POSE] %s %s en (%.0f, %.0f) : %d tourelle(s) voulue(s), %d emplacement(s), %d batiment(s), aire protegee %d -> %d sur %d",
       f.key or "?", is_hq and "QG" or ("avant-poste " .. tostring(outpost.id)), center.x, center.y, count, #cands, #assets, before, cov, tot))
   end
-  return out
+  return out, perim, ore
 end
 
 
@@ -628,11 +665,17 @@ end
 function Outposts.fortify(f, surface, outpost, count, carrier)
   -- lot CENTRALE-GARDE : même pose que fortify_at (emplacements = les huit points autour du poste), chargeurs perforants d'abord
   -- lot TOURELLES : mêmes emplacements qu'avant, pris dans l'ordre qui protège le plus de bâtiments de l'équipe
-  local sites = pose_order(f, surface, outpost, count)
+  local sites, perim, ore = pose_order(f, surface, outpost, count)
   -- repli d'avant le lot : les huit points d'origine, résolus APRÈS chaque pose (deux points qui se replient sur la même place avant
-  -- toute pose ne font pas perdre une tourelle)
-  for _, o in ipairs(TURRET_OFFSETS) do sites[#sites + 1] = { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] } end
-  return Outposts.fortify_at(f, surface, outpost.id, sites, count, carrier, nil, { "piercing-rounds-magazine", T.turret_ammo })
+  -- toute pose ne font pas perdre une tourelle). Lot CC-TOURELLES (F489) : pour un avant-poste qui a un bord de gisement à portée, le
+  -- repli est ce bord, et toute position finale sur le minerai est refusée (accept).
+  if perim then
+    for _, q in ipairs(perim) do sites[#sites + 1] = { x = q.x, y = q.y } end
+  else
+    for _, o in ipairs(TURRET_OFFSETS) do sites[#sites + 1] = { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] } end
+  end
+  local accept = ore and function(q) return not ore(q.x, q.y) end or nil
+  return Outposts.fortify_at(f, surface, outpost.id, sites, count, carrier, accept, { "piercing-rounds-magazine", T.turret_ammo })
 end
 
 --- Lot CENTRALE-GARDE : pose jusqu'à `count` tourelles aux emplacements `sites` ({ x, y }, dans l'ordre), pleines de munitions, pour le

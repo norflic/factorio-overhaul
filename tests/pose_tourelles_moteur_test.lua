@@ -25,6 +25,8 @@ local function world(buildings, refuse)
   local placed = {}
   local surface = {}
   surface.find_non_colliding_position = function(_, c) return { x = c.x, y = c.y } end
+  -- lot CC-TOURELLES (F489) : la pose d'un avant-poste lit le minerai sous l'emprise (vrai moteur : toujours présent) ; aucun minerai ici
+  surface.count_entities_filtered = function(q) return 0 end
   surface.find_entities_filtered = function(q)
     local out = {}
     if q.name then for _, p in ipairs(placed) do out[#out + 1] = p end return out end
@@ -186,6 +188,31 @@ do
     end
   end
   print(string.format("[TOURELLES-MOTEUR] mutants du crochet hq_slots refusés : %d sur %d", killed, #mutants))
+end
+
+-- 14 et 15. Lot CC-TOURELLES (F489, règle du DC) : un avant-poste SUR un gisement pose ses tourelles au bord, jamais sur le minerai ;
+--    gisement plus grand que la portée : repli sur les emplacements d'avant (aucune pose perdue, journal [FO-TOUR-PERIMETRE]).
+local function ore_world(h)
+  local s, placed = world({ building(0, 0, "mining-drill", 3, 1) })
+  local function touches(a) return a[1][1] <= h and a[2][1] >= -h and a[1][2] <= h and a[2][2] >= -h end
+  s.count_entities_filtered = function(q) if q.type == "resource" and q.area and touches(q.area) then return 1 end return 0 end
+  return s, placed, function(x, y) return touches({ { x - 1, y - 1 }, { x + 1, y + 1 } }) end
+end
+do
+  _G.game.entity_prototypes["gun-turret"] = { turret_range = 18, tile_width = 2, tile_height = 2 }
+  local s, placed, on_ore = ore_world(10)
+  local n = Outposts.fortify(fac(), s, { id = 1, pos = { x = 0, y = 0 } }, 4, carrier(5))
+  local off = n == 4
+  for _, e in ipairs(placed) do if on_ore(e.position.x, e.position.y) then off = false end end
+  check(off, "gisement de 21 tuiles sous l'avant-poste : 4 tourelles posées, aucune sur le minerai (" .. n .. ")")
+  local s0, placed0 = world({ building(0, 0, "mining-drill", 3, 1) })
+  Outposts.fortify(fac(), s0, { id = 1, pos = { x = 0, y = 0 } }, 1, carrier(5))
+  check(placed0[1] and placed0[1].position.x == 7 and placed0[1].position.y == 7, "sans minerai : (7,7) comme avant")
+end
+do
+  local s, placed = ore_world(500)
+  local n = Outposts.fortify(fac(), s, { id = 1, pos = { x = 0, y = 0 } }, 2, carrier(5))
+  check(n == 2, "gisement plus grand que la portée : repli d'avant, 2 tourelles posées (" .. n .. ")")
 end
 
 print(string.format("[TOURELLES-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))

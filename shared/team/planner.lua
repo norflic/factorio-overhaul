@@ -404,7 +404,7 @@ function P.plan(view, book)
       -- ou reçue, shared/team/garde_ap.lua) reçoit aussi ses tourelles : la règle d'avant (1 + foreuses / 8 = 3) laissait l'avant-poste de fer
       -- face à 1750 PV de vague avec 1724 PV de défense, puis à 2457 PV ; il tombait à 15 min, le fer ne revenait plus. N'agit pas sur
       -- `lacking` (agrandissement, tournées de fond : règles d'avant) ; ne retire rien à la défense.
-      local wt = math.max(o.want_t or 0, T.defend_turrets(o.drills))
+      local wt = math.min(T.defend_outpost_max, math.max(o.want_t or 0, T.defend_turrets(o.drills))) -- (F489 : plafond du DC par avant-poste)
       if lacking[o.id] or (o.turrets or 0) < wt then
         local ospec = T.outposts[o.kind]
         posts[#posts + 1] = { id = o.id, want = wt, have = o.turrets or 0, busy = o.has_fortify,

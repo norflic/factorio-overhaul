@@ -323,7 +323,10 @@ T.transport_min = 10
 -- de PNJ exposés sur les cartes hostiles (verif-guide 1618033988 : porteurs tués à 87-99 tuiles) : 2 gardés.
 T.transport_porters = 2
 T.transport_near = 64
-function T.defend_turrets(drills) return 1 + math.floor((drills or 0) / 8) end
+-- Lot CC-TOURELLES (F489, règle du DC, 10/11/2026 : « 4 à 6 tourelles par avant-poste au plus ») : plafond dur des tourelles d'un avant-poste,
+-- quelle que soit la règle qui les veut (foreuses, menace). Les autres postes (QG, centrale, front, îlots) ont leurs propres plafonds.
+T.defend_outpost_max = 6
+function T.defend_turrets(drills) return math.min(T.defend_outpost_max, 1 + math.floor((drills or 0) / 8)) end
 
 ---------------------------------------------------------------------------------------------------
 -- Recherche : niveaux payés en VRAIS packs de science, fabriqués par l'équipe.
