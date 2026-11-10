@@ -116,8 +116,9 @@ local function near(a, b) return math.abs(a - b) < 1e-9 end
 check(near(by["fonderie-fer-pierre"].nominal["iron-plate"], 16 / 3.2), "16 fours en pierre : 5 plaques/s")
 check(near(by["fonderie-fer-acier"].nominal["iron-plate"], 10 * 2 / 3.2), "10 fours en acier : 6,25 plaques/s")
 check(near(by["foreuses-fer"].nominal["iron-ore"], 12 * 0.5), "12 foreuses électriques : 6 minerais/s")
-check(near(by["circuits-verts"].nominal["electronic-circuit"], 3), "îlot C K C K C : 3 circuits/s (2 assembleurs 2, rapport 3:2)")
-check(near(by["circuits-rouges"].nominal["advanced-circuit"], 4 * 0.125), "4 assembleurs 2 de circuits rouges : 0,125/s chacun")
+-- lot ILOTS-COLONNES : les îlots à liaisons sont à cellules RÉSERVÉES (3 machines par lot, ports compris) : « C K C », « A C A », « P M G »
+check(near(by["circuits-verts"].nominal["electronic-circuit"], 1.5), "îlot C K C : 1,5 circuit/s (1 assembleur 2 de circuits, rapport 3:2 ; cellules réservées)")
+check(near(by["circuits-rouges"].nominal["advanced-circuit"], 2 * 0.125), "2 assembleurs 2 de circuits rouges : 0,125/s chacun (cellules réservées)")
 check(near(by["centrale-vapeur-2"].nominal["electricity-kw"], 3600), "2 chaudières, 4 machines : 3,6 MW")
 check(near(by["centrale-vapeur-2"].inputs["coal"], 2 * 1800 / 4000), "centrale : 0,45 charbon/s par chaudière")
 check(near(by["chevalets-4"].nominal["crude-oil"], 40), "4 chevalets à 100 % : 40 brut/s")
@@ -128,7 +129,7 @@ check(near(by["petrole-plastique"].nominal["plastic-bar"], 0.9), "pétrole sur p
 check(near(by["packs-rouges"].nominal["automation-science-pack"], 0.75), "5 assembleurs de packs rouges : 0,75/s")
 check(near(by["packs-verts"].nominal["logistic-science-pack"], 0.625), "5 assembleurs de packs verts : 0,625/s")
 check(near(by["avant-poste-fer"].nominal["iron-plate"], 1.5), "6 paires foreuse à combustion → four : 1,5 plaque/s (foreuse limitante)")
-check(near(by["moteurs"].nominal["engine-unit"], 0.15), "2 assembleurs de moteurs : 0,15/s")
+check(near(by["moteurs"].nominal["engine-unit"], 0.075), "1 assembleur de moteurs (P M G, cellules réservées) : 0,075/s")
 check(near(M.power_kw("assembling-machine-2"), 155), "assembleur 2 : 150 kW + ponction 5 kW")
 -- §6.4 : « colonne de 24 fours en pierre : 7,5 plaques/s » tient sur une voie de minerai ; « en acier : 15/s »
 -- n'y tient PAS (une voie de 7,5/s) : le contrôle doit le dire.
@@ -153,15 +154,16 @@ local a7 = M.spec(L.name(L.by_key.assembler, 7))
 check(near(a7.speed, 0.75 * (1 + 0.08 * 6)), "assembleur niveau 7 : vitesse 0,75 × 1,48")
 local d7 = M.spec(L.name(L.by_key.drill, 7))
 check(near(d7.drop[1], -0.5) and near(d7.drop[2], -2.35) and near(d7.radius, 2.99), "foreuse niveau 7 (4×4) : dépôt (−0,5 ; −2,35), rayon 2,99 (règle de shared/levels/points.lua)")
-check(by["circuits-verts-n7"].w == 24 and by["circuits-verts-n7"].entities[1] ~= nil, "îlot de circuits au niveau 7 : 24 de large (machines 4×4)")
+check(by["circuits-verts-n7"].w == 14 and by["circuits-verts-n7"].entities[1] ~= nil, "îlot de circuits au niveau 7 : 14 de large (3 machines 4×4 au pas de 5 ; lot ILOTS-COLONNES : repris sans réservation, la liaison dépasse les bras longs)")
 for _, key in ipairs({ "fonderie-fer-acier-n7", "foreuses-fer-n7", "circuits-verts-n7" }) do
   local lv = false
   for _, e in ipairs(by[key].entities) do if e.name:find("^fo%-lvl%-") then lv = true end end
   check(lv, key .. " : pose de vrais bâtiments à niveaux (fo-lvl-*)")
 end
--- mutant : bâtiments du niveau 7 posés au pas du niveau 1 (3 + 1) : chevauchement
+-- mutant : bâtiments du niveau 7 posés au pas du niveau 1 (3 + 1) : chevauchement (lot ILOTS-COLONNES : sur l'îlot à 2 paires repris
+-- sans réservation, au pas de 4 ; l'îlot par défaut, à cellules réservées, est fait pour les accueillir)
 do
-  local g = deep(by["circuits-verts"])
+  local g = M.GEN.circuits("assembling-machine-2", 2)
   for _, e in ipairs(g.entities) do
     if e.name == "assembling-machine-2" then e.name = L.name(L.by_key.assembler, 7); e.x, e.y = e.x + 0.5, e.y + 0.5 end
   end
@@ -311,8 +313,9 @@ mutant("tapis de sortie retourné", "engrenages", function(g)
   local _, p = idx_of_port(g, "out", "tapis")
   g.entities[p.ent].dir = M.W
 end, "face à face")
-mutant("liaison affaiblie (bras rapide → bras simple)", "circuits-verts", function(g)
-  for _, e in ipairs(g.entities) do if e.name == "fast-inserter" and (e.dir == M.W or e.dir == M.E) then e.name = "inserter" end end
+-- lot ILOTS-COLONNES : les liaisons sont en bras LONGS (3 pour 3 câbles/s) ; le mutant en retire un
+mutant("liaison affaiblie (un bras long de liaison retiré)", "circuits-verts", function(g)
+  for i, e in ipairs(g.entities) do if e.name == M.LONG_ARMS[1] and e.dir == M.W and e.x == 4.5 then table.remove(g.entities, i) break end end
 end, "débit de copper-cable")
 -- correction IA1-c (mineur 2) : un VRAI mutant de débit (l'ancien « bras de sortie trop lent » posait des bras à
 -- combustion, refusés pour une autre raison : voir « bras à combustion sur un convoyeur de sortie »)
@@ -453,6 +456,7 @@ do
 end
 
 section("Extensions : chaque n de 1 à max passe M.check, max + 1 non (catalogue et variantes d'ère)")
+local ISLANDS = { circuits = true, engines = true, advanced_circuits = true } -- lot ILOTS-COLONNES : bornés au lot ports compris, même pas
 local function ext_exact(g, label)
   local ex = g.extensions and g.extensions[1]
   if not ex then return end
@@ -464,6 +468,9 @@ local function ext_exact(g, label)
   end
   local over = M.regenerate(g, { [ex.arg] = ex.max + 1 })
   local over_errs = over and M.check(over) or { "refusé par le générateur" }
+  -- lot ILOTS-COLONNES : au-delà de la borne (le lot, ports compris) un îlot à cellules réservées est repris SANS réservation : autre pas,
+  -- pas une extension du même gabarit : compté refusé (les rangées du lot RETROFIT-GABARITS gardent leurs bornes d'avant : hors de ce compte)
+  if over and #over_errs == 0 and ISLANDS[g.gen] and g.cell ~= nil and over.cell == nil then over_errs = { "réservation perdue (repris sans réservation)" } end
   check(#bad == 0, label .. " : " .. ex.param .. " de 1 à " .. ex.max .. " valides (" .. (bad[1] or "") .. ")")
   check(#over_errs > 0, label .. " : " .. ex.param .. " = " .. (ex.max + 1) .. " refusé (" .. first(over_errs) .. ")")
   check(M.extend(g, ex.max + 1) == nil, label .. " : M.extend refuse " .. ex.param .. " = " .. (ex.max + 1))
@@ -513,7 +520,8 @@ do
       for i = 1, #args do a[i] = args[i] end
       a[arg] = n
       local h = M.GEN[gen](table.unpack(a, 1, #args))
-      local ok = h ~= nil and #M.check(h) == 0
+      -- lot ILOTS-COLONNES : pour un îlot, une taille reprise sans réservation (cellule perdue) n'est pas une extension du même gabarit
+      local ok = h ~= nil and #M.check(h) == 0 and (not ISLANDS[gen] or ((h.cell and h.cell.w) == (g.cell and g.cell.w)))
       if ok and not first_bad then exact = n elseif not ok and not first_bad then first_bad = n end
     end
     total = total + 1
@@ -585,7 +593,9 @@ do
   end
   -- sur place : un niveau de plus va plus vite (gain > 1) tant que les voies le permettent
   local p = M.upgrade_plan(by["circuits-verts"], 2)
-  check(p.mode == "sur-place" and p.gain > 1.05 and p.g.nominal["electronic-circuit"] > by["circuits-verts"].nominal["electronic-circuit"], string.format("circuits niveau 1 → 2 : sur place, gain %.3f", p.gain or 0))
+  -- lot ILOTS-COLONNES : les liaisons en bras longs (3 par colonne, les lignes de la machine) tiennent 3,45 câbles/s : le gain sur place est
+  -- borné par elles (1,035 au niveau 2 ; aucun bras long plus rapide aux données)
+  check(p.mode == "sur-place" and p.gain > 1.0 and p.g.nominal["electronic-circuit"] > by["circuits-verts"].nominal["electronic-circuit"], string.format("circuits niveau 1 → 2 : sur place, gain %.3f (borné par les bras longs de liaison)", p.gain or 0))
   local p7 = M.upgrade_plan(by["circuits-verts"], 7)
   check(p7.mode == "remplacer" and p7.g.key == "circuits-verts-n7" and p7.ratio > 1, string.format("circuits niveau 1 → 7 : remplacer par circuits-verts-n7 (rapport %.3f)", p7.ratio or 0))
   local pn = M.upgrade_plan(by["centrale-vapeur-2"], 5)
