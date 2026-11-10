@@ -548,15 +548,17 @@ function Worker.prime_tile(f, surface, center, item, tick)
   local res = surface.find_entities_filtered({ position = center, radius = Worker.PRIME_RADIUS, name = names, limit = 256 })
   Tp.sort(res, center, dist2)
   local types = Harvest.free_types(item, f)
+  local covered = 0
   for i = 1, math.min(#res, 64) do
     local p = res[i].position
-    local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = types, invert = true, limit = 1 })
-    if busy == 0 and not Harvest.foreign_resource(surface, p, item, f) and not tile_claimed(f, p, tick) then
+    -- (même garde que l'état « mine » : un bâtiment sur la tuile la rend non minable ; ruines, corps, objets au sol, PNJ ne comptent pas)
+    if covering(surface, res[i], types) == nil and not Harvest.foreign_resource(surface, p, item, f) and not tile_claimed(f, p, tick) then
       claim_tile(f, p, tick)
       return { x = p.x, y = p.y }
     end
+    covered = covered + 1
   end
-  return nil
+  return nil, #res, covered
 end
 
 --- Construit le programme d'une tâche au moment où un ouvrier la prend. Renvoie steps ou nil (impossible).
@@ -658,7 +660,15 @@ function Worker.program(f, task, surface, tick)
     -- (shared/team/reserve_charbon.lua, Rc.prime_on_site) : une tuile libre de son gisement, près de lui.
     local fuel_spec = T.outposts[o.kind]
     local prime = Rsv.prime_on_site({ fuel = Rsv.is_fuel_outpost(fuel_spec, T.fuel), carry = carry, stock = Stock.count(f, T.fuel), drills = o.drills })
-    local tile = prime > 0 and Worker.prime_tile(f, surface, access(o, f), T.fuel, tick) or nil
+    local tile, found, covered
+    if prime > 0 then tile, found, covered = Worker.prime_tile(f, surface, access(o, f), T.fuel, tick) end
+    if prime > 0 and not tile then
+      f.stats.prime_logs = (f.stats.prime_logs or 0) + 1
+      if f.stats.prime_logs <= Rsv.LOGS then
+        log(string.format("[FO-CHARBON-AMORCE] %s : avant-poste %s : amorce de %d %s IMPOSSIBLE sur place : %d tuile(s) du gisement a %d tuiles, %d couverte(s) ou prise(s) a %.1f min",
+          f.key or "?", tostring(o.id), prime, tostring(T.fuel), found or 0, Worker.PRIME_RADIUS, covered or 0, tick / 3600))
+      end
+    end
     if tile then
       task.target = tile -- (l'état « mine » vise task.target, puis rend la tuile réservée)
       steps[#steps + 1] = { "goto", tile, 1.5 }

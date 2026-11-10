@@ -189,7 +189,7 @@ do
   local wk = slurp("script/team/worker.lua")
   check(wk:find("local prime = Rsv.prime_on_site({ fuel = Rsv.is_fuel_outpost(fuel_spec, T.fuel), carry = carry, stock = Stock.count(f, T.fuel), drills = o.drills })", 1, true) ~= nil
     and wk:find('steps[#steps + 1] = { "mine", T.fuel, prime }', 1, true) ~= nil and wk:find("task.target = tile", 1, true) ~= nil
-    and wk:find("function Worker.prime_tile(f, surface, center, item, tick)", 1, true) ~= nil,
+    and wk:find("function Worker.prime_tile(f, surface, center, item, tick)", 1, true) ~= nil and wk:find("if covering(surface, res[i], types) == nil", 1, true) ~= nil,
     "worker.lua : la tournee du producteur mine son amorce sur place (Rc.prime_on_site, tuile libre de son gisement, cible de l'etat mine)")
   check(wk:find("[FO-CHARBON-AMORCE]", 1, true) ~= nil, "worker.lua : journal [FO-CHARBON-AMORCE]")
 
