@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.78
+Date: 2026-11-10
+  Bugfixes:
+    - Charbon (F460) : une seule règle de réserve du coffre du QG pour tous ses lecteurs : la centrale prend d'abord son amorce et son seuil d'avance, les tournées des brûleurs ensuite (avec le tampon d'une tournée), le remplissage de confort de la centrale après elles, le reste va aux projets ; le planificateur ne réserve que les tournées. L'avant-poste de combustible est reconnu par son produit, plus par le nom du gisement.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.77
 Date: 2026-11-10
   Features:
