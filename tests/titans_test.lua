@@ -1,8 +1,9 @@
 --[[
   Lot TITANS (9/11) : banc hors jeu des titans (shared/robots/titans.lua). Lua 5.2, depuis la racine du mod :
       lua5.2 tests/titans_test.lua
-    §1 règle pure : paliers et ères lus dans shared/levels/config.lua et shared/robots/echelle.lua (bornes, monotonie) ; Juggernaut :
-       PV = E2 de l'âge nominal, plaques qui montent, masse qui ralentit, armes cumulatives ; Kaiju : PV × hp_mult, échelle, arme par
+    §1 règle pure : paliers et ères lus dans shared/levels/config.lua et shared/robots/echelle.lua (bornes, monotonie) ; alliés (Juggernaut,
+       Sentinelle, Léviathan) : PV = E2 de l'âge nominal, plaques qui montent, masse qui ralentit, armes cumulatives propres à chacun, noms
+       de palier reconnus, drones du Léviathan (2 puis 3), singularité qui ralentit ; Kaiju : PV × hp_mult, échelle, arme par
        ère, lueur = couleur de l'ère ; vagues : premier Kaiju à la vague 20, un de plus toutes les 20 ; courbes des nids croissantes ;
     §2 DONNÉES CHANGÉES : la même règle sur une config à 18 époques et 2 époques par ère donne 9 ères et 9 paliers (rien en dur) ;
     §3 feuilles (D-6) : sprites.lua, chaque PNG présent, dimensions de l'en-tête PNG = sprites.lua, aucune feuille du Kaiju au-delà de
@@ -75,6 +76,31 @@ check(a1.armes.griffes and not a1.armes.canon and not a1.armes.salve, "§1 palie
 check(a6.armes.griffes and a6.armes.canon and a6.armes.salve and a6.armes.resonance, "§1 dernier palier : toutes les armes")
 check(a6.cooldown * 2 <= a1.cooldown, "§1 résonance : cadence doublée")
 check(T.juggernaut_palier("fo-titan-juggernaut-0") == nil and T.juggernaut_palier("fo-titan-juggernaut-x") == nil and T.juggernaut_palier("fo-xp-cairn") == nil, "§1 noms étrangers refusés")
+-- les trois alliés : même règle d'échelle, armes propres, noms de palier
+check(#T.ALLIES == 3 and T.ALLIES[1] == T.JUGGERNAUT and T.ALLIES[2] == T.SENTINELLE and T.ALLIES[3] == T.LEVIATHAN, "§1 trois archétypes alliés, Juggernaut en tête")
+for _, r in ipairs(T.ALLIES) do
+  check(T.allie_of_id(r.id) == r and r.name == T.PREFIX .. r.id and r.tech == r.name and r.ingredients[1][1] == r.segment_item and r.ingredients[1][2] == T.SEGMENTS, "§1 " .. r.id .. " : noms, technologie, 10 segments")
+  local prev2
+  for a = T.AGE_MIN, T.AGE_MAX do
+    local j = T.allie(r, a)
+    check(j.hp == Ech.pv(a) and j.salve == Ech.salve(a, r.dtype) and j.stage == T.stage(j.palier), "§1 " .. r.id .. " âge " .. a .. " : PV E2, salve E3, stade")
+    local rr, p = T.allie_palier(j.name)
+    check(rr == r and p == j.palier, "§1 " .. r.id .. " âge " .. a .. " : nom du palier reconnu")
+    check(j.bouche and #j.bouche == 2, "§1 " .. r.id .. " âge " .. a .. " : bouche du canon donnée par la règle")
+    if prev2 then check(j.hp > prev2.hp and j.speed < prev2.speed and #j.liste_armes >= #prev2.liste_armes, "§1 " .. r.id .. " âge " .. a .. " : plus de PV, plus lent, pas moins d'armes") end
+    prev2 = j
+  end
+  local j1, j6 = T.allie(r, T.AGE_MIN), T.allie(r, T.AGE_MAX)
+  check(#j1.liste_armes == 1 and j1.liste_armes[1] == r.armes[1].id and r.armes[1].palier == 1, "§1 " .. r.id .. " : une seule arme au palier 1, la sienne")
+  check(j6.armes.canon and j6.armes.salve and j6.armes.resonance and j6.cooldown * 2 <= j1.cooldown, "§1 " .. r.id .. " : canon, salve et résonance au dernier palier")
+  check(T.allie_palier(r.name .. "-0") == nil and T.allie_palier(r.name .. "-7") == nil and T.allie_palier(r.name) == nil, "§1 " .. r.id .. " : paliers hors bornes refusés")
+end
+check(T.allie(T.SENTINELLE, T.AGE_MIN).armes.singularite and not T.allie(T.SENTINELLE, T.AGE_MIN).armes.canon, "§1 Sentinelle : la singularité d'abord, le canon au palier 2")
+check(T.SENTINELLE.singularite.slow < 1 and T.SENTINELLE.singularite.slow > 0 and T.SENTINELLE.singularite.slow_ticks > 0, "§1 Sentinelle : la singularité ralentit (0 < slow < 1)")
+check(T.allie(T.LEVIATHAN, T.AGE_MIN).armes.drones and not T.allie(T.LEVIATHAN, T.AGE_MIN).armes.canon and T.allie(T.LEVIATHAN, T.AGE_MIN + 2).armes.canon, "§1 Léviathan : les drones d'abord, le canon au palier 3")
+check(T.drones(1) == 2 and T.drones(3) == 2 and T.drones(4) == 3 and T.drones(T.PALIERS) == 3, "§1 Léviathan : 2 drones, 3 dès le palier 4")
+check(T.allie(T.LEVIATHAN, T.AGE_MIN).n_drones == 2 and T.allie(T.LEVIATHAN, T.AGE_MAX).n_drones == 3 and T.juggernaut(T.AGE_MIN).n_drones == nil, "§1 drones : seul le Léviathan en a")
+check(T.JUGGERNAUT.age < T.SENTINELLE.age and T.SENTINELLE.age < T.LEVIATHAN.age and T.LEVIATHAN.age <= T.AGE_MAX, "§1 âges des trois alliés croissants")
 -- Kaiju
 prev = nil
 for e = 1, T.ERAS do
@@ -142,15 +168,20 @@ if okspr then
     check(pw == w and ph == h, "§3 " .. what .. " : PNG présent, " .. tostring(pw) .. " × " .. tostring(ph) .. " = sprites.lua (" .. w .. " × " .. h .. ")")
     check(MAN[p:match("([^/]+)$")] == true, "§3 MANIFEST cite " .. p:match("([^/]+)$"))
   end
-  for st = 1, T.STAGES do
-    local e = SPR.juggernaut[tostring(st)]
-    check(e ~= nil, "§3 Juggernaut : feuille du stade " .. st)
-    if e then
-      for _, c in ipairs({ e.main, e.ombre, e.lueurs[1] }) do
-        verifie("juggernaut " .. st, c.hr.filename, c.hr.width, c.hr.height)
-        verifie("juggernaut " .. st, c.lr.filename, c.lr.width, c.lr.height)
+  for _, r in ipairs(T.ALLIES) do
+    local cles = {}
+    for st = 1, T.STAGES do cles[#cles + 1] = tostring(st) end
+    if r.drones then cles[#cles + 1] = "drone" end
+    for _, st in ipairs(cles) do
+      local e = SPR[r.id] and SPR[r.id][st]
+      check(e ~= nil, "§3 " .. r.id .. " : feuille du stade " .. st)
+      if e then
+        for _, c in ipairs({ e.main, e.ombre, e.lueurs[1] }) do
+          verifie(r.id .. " " .. st, c.hr.filename, c.hr.width, c.hr.height)
+          verifie(r.id .. " " .. st, c.lr.filename, c.lr.width, c.lr.height)
+        end
+        check(#e.lueurs >= 1 and e.icone and e.icone.size == 64, "§3 " .. r.id .. " " .. st .. " : lueur fondue et icône")
       end
-      check(#e.lueurs >= 1 and e.icone and e.icone.size == 64, "§3 Juggernaut " .. st .. " : lueur fondue et icône")
     end
   end
   local K = SPR.kaiju
@@ -188,11 +219,14 @@ local function cfg(p)
   return t
 end
 local FR, EN = cfg("locale/fr/titans.cfg"), cfg("locale/en/titans.cfg")
-local keys = { "entity-name." .. T.JUGGERNAUT.name, "entity-description." .. T.JUGGERNAUT.name, "item-description." .. T.JUGGERNAUT.name,
-  "item-name." .. T.JUGGERNAUT.segment_item, "item-description." .. T.JUGGERNAUT.segment_item, "technology-name." .. T.JUGGERNAUT.tech,
-  "technology-description." .. T.JUGGERNAUT.tech, "entity-name." .. T.PREFIX .. "canon", "entity-name." .. T.PREFIX .. "griffe",
+local keys = { "entity-name." .. T.PREFIX .. "canon", "entity-name." .. T.PREFIX .. "griffe", "entity-name." .. T.PREFIX .. "singularite",
+  "entity-name." .. T.PREFIX .. "singularite-eclair", "entity-name." .. T.PREFIX .. "drone-tir",
   "entity-name." .. T.PREFIX .. "impulsion", "entity-description." .. T.PREFIX .. T.KAIJU.id, "fo-titan.plafond", "fo-titan.evolue" }
-for p = 1, T.PALIERS do keys[#keys + 1] = "entity-name." .. T.juggernaut_name(p) end
+for _, r in ipairs(T.ALLIES) do
+  for _, k in ipairs({ "entity-name." .. r.name, "entity-description." .. r.name, "item-description." .. r.name, "item-name." .. r.segment_item,
+    "item-description." .. r.segment_item, "technology-name." .. r.tech, "technology-description." .. r.tech }) do keys[#keys + 1] = k end
+  for p = 1, T.PALIERS do keys[#keys + 1] = "entity-name." .. T.allie_name(r, p) end
+end
 for e = 1, T.ERAS do keys[#keys + 1] = "entity-name." .. T.kaiju_name(e) end
 for _, k in ipairs(keys) do check(FR[k] ~= nil and EN[k] ~= nil and FR[k] ~= "" and EN[k] ~= "", "§4 clé en FR et EN : " .. k) end
 local same = true
@@ -294,6 +328,10 @@ local function refuse(T2)
     assert(T2.kaiju(2).hp == Ech.pv(T2.age_of_era(2)) * T2.KAIJU.hp_mult, "pv du kaiju")
     assert(j1.hp == Ech.pv(T2.AGE_MIN), "pv du juggernaut")
     assert(T2.era_color(2).r == L.epochs[2 * L.ERA_EPOCHS].color.r, "couleur d'ère")
+    assert(T2.SENTINELLE.singularite.slow < 1, "singularité qui ralentit")
+    assert(T2.drones(T2.PALIERS) > T2.drones(1), "drones qui s'ajoutent")
+    assert(not T2.allie(T2.LEVIATHAN, T2.AGE_MIN).armes.canon and T2.allie(T2.LEVIATHAN, T2.AGE_MAX).armes.canon, "canon du Léviathan plus tard")
+    assert(T2.allie(T2.SENTINELLE, T2.AGE_MIN).speed < T2.allie(T2.JUGGERNAUT, T2.AGE_MIN).speed, "la Sentinelle plus lente que le Juggernaut")
     local faux = { EPOCHS = 18, ERA_EPOCHS = 2, epochs = {} }
     for i = 1, 18 do faux.epochs[i] = { key = "e" .. i, color = { r = i / 18, g = 0.5, b = 1 - i / 18 } } end
     local T3 = charger(T2.__src, faux)
@@ -311,6 +349,10 @@ local MUTANTS = {
   { "ères écrites en dur", "T.ERAS = math.ceil(L.EPOCHS / L.ERA_EPOCHS)", "T.ERAS = 5" },
   { "paliers écrits en dur", "T.PALIERS = T.AGE_MAX - T.AGE_MIN + 1", "T.PALIERS = 6" },
   { "couleur du premier âge de l'ère", "local e = L.epochs[T.age_of_era(era)]", "local e = L.epochs[era]" },
+  { "singularité sans ralentissement", "slow = 0.5, slow_ticks = 120", "slow = 1, slow_ticks = 120" },
+  { "drones figés à 2", "return d.base + (palier >= d.plus_palier and 1 or 0)", "return d.base" },
+  { "canon du Léviathan dès le palier 1", '{ id = "canon", palier = 3 }', '{ id = "canon", palier = 1 }' },
+  { "Sentinelle aussi rapide que le Juggernaut", 'dtype = "laser", speed = 0.10, effect = "titan", armes = T.ARMES_SENTINELLE', 'dtype = "laser", speed = 0.12, effect = "titan", armes = T.ARMES_SENTINELLE' },
 }
 local T0 = charger(SRC, nil)
 T0.__src = SRC

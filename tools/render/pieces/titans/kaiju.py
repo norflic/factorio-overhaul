@@ -23,6 +23,7 @@ import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
 from juggernaut import hexseg, pointe, plaque, anneau, rainure  # noqa: E402
 
+PREFIX = "ka_"
 GRIS = os.environ.get("FO_GRIS", "") == "1"
 # Série (lue par batch_titans et feuilles_titans) : images par animation, densité du rendu (px par tuile), rayon au sol et hauteur
 # englobants (cadre fixe pour toutes les images et directions), portée du liseré de contact.
@@ -142,9 +143,10 @@ def patte(lot, M, hanche, pied0, u, avant, s):
     l1, l2 = 3.1, 3.0
     pole = G.norm((0.9 if avant else -0.9, s * 1.2, 0.35))
     genou = ik2(hanche, pied, l1, l2, pole)
-    lot.put(M["struct"], G.sphere(hanche, 0.95, 10, 5))
+    lot.put(M["chair"], G.sphere(hanche, 0.95, 10, 5))
+    lot.put(M["accent"], G.boite(G.add(hanche, (0.0, s * 0.85, 0.35)), (0.22, 0.14, 0.14)))
     lot.put(M["peau"], hexseg(hanche, genou, 1.05, 0.7, 7, 0.2))
-    lot.put(M["struct"], G.sphere(genou, 0.62, 8, 4))
+    lot.put(M["chair"], G.sphere(genou, 0.62, 8, 4))
     lot.put(M["peau"], hexseg(genou, pied, 0.62, 0.42, 7, 0.1))
     lot.put(M["blind2"], plaque(G.add(G.lerp(hanche, genou, 0.45), (0.0, s * 0.9, 0.45)), G.norm((0.0, s * 0.9, 0.6)), 1.1, 1.8, 0.2,
                                 up=G.norm(G.sub(genou, hanche))))
@@ -164,7 +166,7 @@ def tete(lot, M, base, ouverture, charge):
     def P(x, y, z):
         return (bx + x * math.cos(pitch) - z * math.sin(pitch), by + y, bz + x * math.sin(pitch) + z * math.cos(pitch))
     # cou
-    lot.put(M["peau"], G.loft([ellipse((bx - 1.6, by, bz - 0.3), 1.25, 1.1, 10), ellipse((bx - 0.2, by, bz), 1.1, 1.0, 10)], False, False))
+    lot.put(M["chair"], G.loft([ellipse((bx - 1.6, by, bz - 0.3), 1.25, 1.1, 10), ellipse((bx - 0.2, by, bz), 1.1, 1.0, 10)], False, False))
     def sect(x, w, h, zc):
         return [P(x, -w, zc - h * 0.6), P(x, -w * 0.75, zc + h * 0.7), P(x, 0.0, zc + h), P(x, w * 0.75, zc + h * 0.7), P(x, w, zc - h * 0.6),
                 P(x, w * 0.5, zc - h * 0.75), P(x, -w * 0.5, zc - h * 0.75)]
@@ -188,6 +190,7 @@ def tete(lot, M, base, ouverture, charge):
     # gueule-canon : vortex au fond de la gueule, grossit et s'avance avec la charge
     rv = 0.45 + 0.5 * charge
     lot.put(M["coeur"], G.sphere(P(1.6 + 0.6 * charge, 0.0, -0.3 - 0.3 * ouverture), rv, 12, 6))
+    lot.put(M["halo"], G.sphere(P(1.8 + 0.7 * charge, 0.0, -0.3 - 0.3 * ouverture), rv * 1.9, 12, 6))
     lot.put(M["turq"], G.tour([(0.0, 0.0), (0.04, 0.5 + 0.3 * charge)], 12, "x", P(2.2 + 0.8 * charge, 0.0, -0.3 - 0.35 * ouverture), cap1=True))
     # yeux, cornes de cristal, crête
     for s in (-1, 1):

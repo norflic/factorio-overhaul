@@ -1,9 +1,10 @@
 """PLANCHES DES TITANS (lot TITANS, 9/11) pour le DC (au téléphone) : rendu principal + lueur, et une bande de la run_animation.
 
-    PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/planches_titans.py [--dest fo-logs/2026-11-09_TITANS]
+    PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/planches_titans.py [--dest fo-logs/2026-11-10_TITANS-RECAL]
 
-- planche-juggernaut.png : les trois stades côte à côte à l'échelle du jeu (zoom 1, 32 px/tuile) sur le sol vanilla, à côté du vrai
-  silo (9 × 9) et d'un vrai béhémoth (scene.py des géants), de jour puis de nuit (lueur seule) ; stade 3 en gros plan.
+- planche-juggernaut.png, planche-sentinelle.png, planche-leviathan.png : les trois stades côte à côte à l'échelle du jeu (zoom 1, 32 px/tuile)
+  sur le sol vanilla, à côté du vrai silo (9 × 9) et d'un vrai béhémoth (scene.py des géants), de jour puis de nuit (lueur seule) ; stade 3
+  en gros plan ; le Léviathan avec ses drones d'escorte posés comme en jeu (orbite de la règle).
 - planche-kaiju.png : le Kaiju (feuilles de jeu, direction sud-est) de jour avec sa lueur teintée par ère (5 ères), une bande des 8 images
   de course (direction est) et des 4 images d'attaque, à côté du béhémoth.
 """
@@ -21,7 +22,7 @@ MOD = os.path.dirname(os.path.dirname(RENDER))
 sys.path.insert(0, os.path.join(RENDER, "pieces", "experimentaux"))
 import scene as SC  # noqa: E402
 
-LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-09_TITANS")
+LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-RECAL")
 SPRITES = os.path.join(MOD, "graphics", "robots", "titans")
 
 
@@ -31,6 +32,13 @@ package.path = os.getenv("FO_MOD") .. "/?.lua;" .. package.path
 local T = require("shared.robots.titans")
 t.__eres = {}
 for e = 1, T.ERAS do local k = T.kaiju(e); t.__eres[e] = { tint = { k.tint.r, k.tint.g, k.tint.b }, glow = k.glow, scale = k.scale } end
+t.__drones = {}
+for st = 1, T.STAGES do
+  local n = 0
+  for p = 1, T.PALIERS do if T.stage(p) == st then n = math.max(n, T.drones(p)) end end
+  t.__drones[tostring(st)] = n
+end
+t.__orbit = T.LEVIATHAN.drones.orbit
 local function esc(s) return '"' .. s:gsub('[%c"]', function(c) return string.format("%su%04x", string.char(92), c:byte()) end) .. '"' end
 local function w(v)
   if type(v) == "table" then
@@ -86,19 +94,42 @@ def telephone(im, path, largeur=2000):
     r.save(path, optimize=True)
 
 
-def juggernaut(spr, dest):
+ALLIES = {
+    "juggernaut": ("JUGGERNAUT, titan allié (âges 10 à 15)", 34, 150),
+    "sentinelle": ("SENTINELLE, titan allié hexapode flottant (âges 11 à 15)", 38, 162),
+    "leviathan": ("LÉVIATHAN, titan allié serpentin flottant (âges 12 à 15)", 44, 180),
+}
+# orbite des drones du Léviathan telle que le script la pose (script/robots/titans.lua : CERCLE, DRONE_HAUT, règle T.LEVIATHAN.drones)
+CERCLE = [(1.0, 0.0), (0.866, 0.5), (0.5, 0.866), (0.0, 1.0), (-0.5, 0.866), (-0.866, 0.5), (-1.0, 0.0), (-0.866, -0.5), (-0.5, -0.866),
+          (0.0, -1.0), (0.5, -0.866), (0.866, -0.5)]
+
+
+def allie(spr, dest, nom):
+    titre, pas, W_t = ALLIES[nom]
     ppt = 32
-    W_t, H_t = 150, 64
+    H_t = 64
     sc = SC.Scene(W_t, H_t, ppt, seed=11)
     sol_y = 52
     ents = [{"pos": (9, sol_y), "layers": SC.vanilla("silo", ppt)}, {"pos": (22, sol_y + 1), "layers": SC.behemoth(ppt)}]
     geants = []
     for i, st in enumerate(("1", "2", "3")):
-        e = spr["juggernaut"][st]
+        e = spr[nom][st]
         layers = {"main": couche(e["main"], "main"), "shadow": couche(e["ombre"], "shadow")}
         for k, g in enumerate(e["lueurs"]):
             layers["glow_%d" % k] = couche(g, "glow")
-        geants.append({"pos": (44 + 34 * i, sol_y), "layers": layers, "ordre": ("main",) + tuple("glow_%d" % k for k in range(len(e["lueurs"])))})
+        pos = (44 + pas * i, sol_y)
+        geants.append({"pos": pos, "layers": layers, "ordre": ("main",) + tuple("glow_%d" % k for k in range(len(e["lueurs"])))})
+        if nom == "leviathan" and "drone" in spr[nom]:
+            d = spr[nom]["drone"]
+            n = spr["__drones"][st]
+            orbit = spr["__orbit"]
+            for k in range(n):
+                c = CERCLE[(3 * i + 12 * k // n) % 12]
+                off = (c[0] * orbit, c[1] * orbit * 0.6 - 6.0)
+                dl = {"main": couche(d["main"], "main")}
+                for q, g in enumerate(d["lueurs"]):
+                    dl["glow_%d" % q] = couche(g, "glow")
+                geants.append({"pos": (pos[0] + off[0], pos[1] + off[1]), "layers": dl, "ordre": ("main",) + tuple("glow_%d" % q for q in range(len(d["lueurs"])))})
     jour = SC.to_im(sc.rendu(ents, geants))
     # nuit : sol assombri, lueur seule par-dessus (approximation de la carte des lumières)
     nuit_img = sc.rendu(ents, geants) * 0.22
@@ -112,16 +143,16 @@ def juggernaut(spr, dest):
     nuit = SC.to_im(nuit_img)
     f = SC.police(26)
     f2 = SC.police(17)
-    for im, titre in ((jour, "JOUR"), (nuit, "NUIT (lueur seule)")):
+    for im, moment in ((jour, "JOUR"), (nuit, "NUIT (lueur seule)")):
         d = ImageDraw.Draw(im)
-        d.text((16, 12), "JUGGERNAUT, titan allié (âges 10 à 15) · zoom 1 du jeu (32 px/tuile) · " + titre, fill=(255, 225, 150), font=f)
+        d.text((16, 12), titre + " · zoom 1 du jeu (32 px/tuile) · " + moment, fill=(255, 225, 150), font=f)
         y = int((sol_y + 5) * ppt)
         d.text((int(3 * ppt), y), "Vanilla : rocket-silo 9×9", fill=(245, 245, 245), font=f2)
         d.text((int(18 * ppt), y), "Vanilla : behemoth-biter", fill=(245, 245, 245), font=f2)
         for i in range(3):
-            d.text((int((36 + 34 * i) * ppt), y), "stade %d (paliers %s)" % (i + 1, ("1-2", "3-4", "5-6")[i]), fill=(170, 240, 255), font=f2)
+            d.text((int((36 + pas * i) * ppt), y), "stade %d (paliers %s)" % (i + 1, ("1-2", "3-4", "5-6")[i]), fill=(170, 240, 255), font=f2)
     # gros plan du stade 3 (feuille HR telle quelle)
-    e = spr["juggernaut"]["3"]
+    e = spr[nom]["3"]
     gros = couche(e["main"], "main")["img"]
     lu = couche(e["lueurs"][0], "glow")["img"]
     H, W = gros.shape[:2]
@@ -146,9 +177,9 @@ def juggernaut(spr, dest):
     out.paste(jour, (0, 0))
     out.paste(nuit, (0, jour.height + 10))
     out.paste(gp, (jour.width + 10, 0))
-    p = os.path.join(dest, "planche-juggernaut.png")
+    p = os.path.join(dest, "planche-%s.png" % nom)
     out.save(p, optimize=True)
-    telephone(out, os.path.join(dest, "planche-juggernaut-telephone.png"))
+    telephone(out, os.path.join(dest, "planche-%s-telephone.png" % nom))
     return p, out.size
 
 
@@ -262,12 +293,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dest", default=LOGS)
     ap.add_argument("--sans-kaiju", action="store_true")
-    ap.add_argument("--sans-juggernaut", action="store_true")
+    ap.add_argument("--sans-allies", action="store_true")
+    ap.add_argument("--allies", default="juggernaut,sentinelle,leviathan")
     a = ap.parse_args()
     os.makedirs(a.dest, exist_ok=True)
     spr = lua_table(os.path.join(SPRITES, "sprites.lua"))
-    if not a.sans_juggernaut:
-        print(*juggernaut(spr, a.dest), flush=True)
+    if not a.sans_allies:
+        for nom in [x for x in a.allies.split(",") if x]:
+            print(*allie(spr, a.dest, nom), flush=True)
     if not a.sans_kaiju:
         print(*kaiju(spr, a.dest), flush=True)
 
