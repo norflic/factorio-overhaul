@@ -21,6 +21,14 @@
 
   Tests : tests/hygiene_regle_test.lua (règles et mutants : couvrant non alimenté accepté, projet non fini retiré, remplaçant hors
   portée, budget ignoré). Aucun réglage, aucun nom d'objet, aucun `pairs` dont l'ordre compte.
+
+  Lot HYGIENE-PLANS-FINIS (directive du DC du 10/11, priorité 3) : une PIÈCE D'UN PLAN FINI posée SUR GISEMENT (elle gêne l'extraction)
+  n'est plus refusée d'office : Hr.plan_cedable(p) la CÈDE (le plan la reconnaît cédée : e.dropped, le réseau vivant ne la repose pas)
+  quand un poteau EXTÉRIEUR (hors gisement, même réseau, alimenté) couvre tous les consommateurs qu'elle alimentait (couverture) ET que le
+  réseau reste continu : une feuille (≤ 1 fil : jamais un point d'articulation) part telle quelle, « feuille » ; sinon, « remplacant » :
+  la voie du remplaçant (Hr.sur_gisement_plan : relie tous les voisins, couvre tout) et la pièce du plan suit le remplaçant hors gisement.
+  Refus : projet non fini, pièce déjà cédée, pas sur gisement (une pièce d'un plan fini hors gisement reste au plan), couverture
+  extérieure manquante (un consommateur ne serait plus couvert que par un poteau lui-même sur gisement, ou par rien), couvrant non alimenté.
 ]]
 
 local St = require("shared.team.scan_tranches")
@@ -57,6 +65,26 @@ function Hr.feuille_retirable(p)
   if (p.consommateurs or 0) > 0 and not p.couvrant_alimente then return false, "couvrant non alimente" end
   if fils == 0 then return true, "isole" end
   return true, "feuille"
+end
+
+--- Lot HYGIENE-PLANS-FINIS : p = { piece_plan = bool (pièce bâtie d'un plan FINI), projet_fini = bool, sur_gisement = bool,
+--- deja_cedee = bool, fils = n, consommateurs = n, consommateurs_propres = n (alimentés par lui et par AUCUN poteau extérieur : hors
+--- gisement, même réseau), couvrant_alimente = bool, box_maxed, chaine_foreuses, pose_par_joueur }.
+--- Rend (vrai, « feuille » | « remplacant ») ou (faux, cause). Les causes structurelles d'abord, puis la couverture extérieure.
+function Hr.plan_cedable(p)
+  if p.box_maxed then return false, "box MAXED" end
+  if p.projet_fini == false or not p.piece_plan then return false, "projet non fini" end
+  if p.chaine_foreuses then return false, "chaine des foreuses" end
+  if p.pose_par_joueur then return false, "pose par un joueur" end
+  if p.deja_cedee then return false, "piece deja cedee" end
+  if not p.sur_gisement then return false, "piece du plan" end
+  local fils = p.fils or 0
+  if fils <= 1 then
+    if (p.consommateurs_propres or 0) > 0 then return false, "couverture exterieure manquante" end
+    if (p.consommateurs or 0) > 0 and not p.couvrant_alimente then return false, "couvrant non alimente" end
+    return true, "feuille"
+  end
+  return true, "remplacant"
 end
 
 --- Le candidat `c` = { dx, dy } est-il à portée de fil `portee_fil` de TOUS les voisins { dx, dy } ?

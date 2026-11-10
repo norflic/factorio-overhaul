@@ -7,6 +7,13 @@
     §3 Hr.budget : 4 retraits par impulsion, reste ;
     §4 mutants : couvrant non alimenté accepté, projet non fini retiré, remplaçant hors portée accepté, budget ignoré : chacun refusé
        par les MÊMES détecteurs que les règles.
+  Lot HYGIENE-PLANS-FINIS (DC 10/11, priorité 3) :
+    §5 Hr.plan_cedable : pièce d'un plan fini sur gisement cédée « feuille » (≤ 1 fil, couverture par un poteau extérieur, couvrant
+       alimenté) ou « remplacant » (≥ 2 fils : la voie du remplaçant garde la topologie) ; refus : projet non fini, pièce déjà cédée, hors
+       gisement, couverture extérieure manquante, couvrant non alimenté, box MAXED, chaîne des foreuses, posée par un joueur ;
+    §6 mutants : poteau extérieur absent (couverture partielle acceptée), réseau coupé (2 fils cédés comme une feuille), plan non fini
+       cédé, pièce déjà cédée recédée, poteau hors gisement cédé, couvrant non alimenté accepté, source sans la garde du gisement : chacun
+       refusé par le MÊME détecteur.
   Usage : lua5.2 tests/hygiene_regle_test.lua   (depuis la racine du mod ; moins d'une seconde)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -183,6 +190,99 @@ check(#bad == 1 and bad[1] == "couverture perdue acceptee", "mutant m3 bis (couv
 local function m4(n, cfg) return true, math.max(0, cfg.max_retraits - n) end
 bad = budget_contrat(m4)
 check(#bad == 2 and bad[1] == "budget epuise accepte", "mutant m4 (budget ignoré) détecté : " .. table.concat(bad, ", "))
+
+---------------------------------------------------------------------------------------------------
+section("§5 Hr.plan_cedable (lot HYGIENE-PLANS-FINIS)")
+---------------------------------------------------------------------------------------------------
+--- Une règle de cession `rule` tient-elle ses engagements ? Rend la liste des manquements (règle et mutants : le MÊME détecteur).
+local base_plan = { piece_plan = true, projet_fini = true, sur_gisement = true, deja_cedee = false, fils = 1, consommateurs = 2,
+  consommateurs_propres = 0, couvrant_alimente = true }
+local function plan_with(over) local q = {} for k, v in pairs(base_plan) do q[k] = v end for k, v in pairs(over) do q[k] = v end return q end
+local function cedable_contrat(rule)
+  local bad = {}
+  local ok, mode = rule(base_plan)
+  if not (ok and mode == "feuille") then bad[#bad + 1] = "feuille saine refusee" end
+  ok, mode = rule(plan_with({ fils = 2 }))
+  if not (ok and mode == "remplacant") then bad[#bad + 1] = "deux fils : pas la voie du remplacant" end
+  if select(2, rule(plan_with({ fils = 2 }))) == "feuille" or select(2, rule(plan_with({ fils = 3 }))) == "feuille" then bad[#bad + 1] = "reseau coupe (2 fils cedes comme une feuille)" end
+  ok, mode = rule(plan_with({ consommateurs_propres = 1 }))
+  if ok then bad[#bad + 1] = "couverture exterieure manquante acceptee" end
+  ok, mode = rule(plan_with({ projet_fini = false }))
+  if ok then bad[#bad + 1] = "plan non fini cede" end
+  ok, mode = rule(plan_with({ deja_cedee = true }))
+  if ok then bad[#bad + 1] = "piece deja cedee recedee" end
+  ok, mode = rule(plan_with({ sur_gisement = false }))
+  if ok then bad[#bad + 1] = "poteau hors gisement cede" end
+  ok, mode = rule(plan_with({ couvrant_alimente = false }))
+  if ok then bad[#bad + 1] = "couvrant non alimente accepte" end
+  return bad
+end
+local pc_ok, pc_why = Hr.plan_cedable(base_plan)
+check(pc_ok and pc_why == "feuille", "pièce d'un plan fini, feuille sur gisement, couverte par un poteau extérieur alimenté : cédée (" .. tostring(pc_why) .. ")")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 0, consommateurs = 0 }))
+check(pc_ok and pc_why == "feuille", "pièce isolée sans consommateur : cédée telle quelle")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 1, consommateurs = 0, couvrant_alimente = false }))
+check(pc_ok and pc_why == "feuille", "aucun consommateur : le couvrant n'a pas à être alimenté")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 2 }))
+check(pc_ok and pc_why == "remplacant", "deux fils : jamais retirée telle quelle, la voie du remplaçant (topologie conservée) (" .. tostring(pc_why) .. ")")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 2, consommateurs_propres = 3 }))
+check(pc_ok and pc_why == "remplacant", "deux fils et consommateurs propres : le remplaçant devra les couvrir (règle §2)")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ consommateurs_propres = 1 }))
+check(not pc_ok and pc_why == "couverture exterieure manquante", "un consommateur couvert par aucun poteau extérieur : refus (" .. tostring(pc_why) .. ")")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ couvrant_alimente = false }))
+check(not pc_ok and pc_why == "couvrant non alimente", "couvrant non alimenté : refus")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ projet_fini = false, piece_plan = false }))
+check(not pc_ok and pc_why == "projet non fini", "projet non fini : refus")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ piece_plan = false }))
+check(not pc_ok and pc_why == "projet non fini", "pas une pièce d'un plan fini : refus (la règle ne vaut que pour elles)")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ deja_cedee = true }))
+check(not pc_ok and pc_why == "piece deja cedee", "pièce déjà cédée : refus")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ sur_gisement = false }))
+check(not pc_ok and pc_why == "piece du plan", "pièce d'un plan fini HORS gisement : reste au plan (" .. tostring(pc_why) .. ")")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ box_maxed = true }))
+check(not pc_ok and pc_why == "box MAXED", "box MAXED : refus")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ chaine_foreuses = true }))
+check(not pc_ok and pc_why == "chaine des foreuses", "chaîne des foreuses : refus")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ pose_par_joueur = true }))
+check(not pc_ok and pc_why == "pose par un joueur", "posée par un joueur : refus")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ deja_cedee = true, sur_gisement = false, projet_fini = false }))
+check(not pc_ok and pc_why == "projet non fini", "priorité des causes : la structurelle d'abord (" .. tostring(pc_why) .. ")")
+check(#cedable_contrat(Hr.plan_cedable) == 0, "contrat de la cession tenu : " .. table.concat(cedable_contrat(Hr.plan_cedable), ", "))
+-- la feuille ordinaire refuse toujours la pièce d'un plan fini : la cession passe par Hr.plan_cedable seulement
+check(select(2, Hr.feuille_retirable({ fils = 0, piece_plan = true })) == "piece du plan", "Hr.feuille_retirable refuse toujours la pièce du plan (une seule porte : plan_cedable)")
+
+---------------------------------------------------------------------------------------------------
+section("§6 mutants de la cession")
+---------------------------------------------------------------------------------------------------
+local function mut(over_fn) return function(p) local q = {} for k, v in pairs(p) do q[k] = v end over_fn(q) return Hr.plan_cedable(q) end end
+-- (m5) poteau extérieur absent : la couverture extérieure n'est plus exigée
+bad = cedable_contrat(mut(function(q) q.consommateurs_propres = 0 end))
+check(#bad == 1 and bad[1] == "couverture exterieure manquante acceptee", "mutant m5 (couverture partielle acceptée) détecté : " .. table.concat(bad, ", "))
+-- (m6) réseau coupé : deux fils traités comme une feuille
+bad = cedable_contrat(mut(function(q) if (q.fils or 0) > 1 then q.fils = 1 end end))
+check(#bad == 2 and bad[1] == "deux fils : pas la voie du remplacant" and bad[2] == "reseau coupe (2 fils cedes comme une feuille)", "mutant m6 (réseau coupé) détecté : " .. table.concat(bad, ", "))
+-- (m7) plan non fini cédé
+bad = cedable_contrat(mut(function(q) q.projet_fini = true end))
+check(#bad == 1 and bad[1] == "plan non fini cede", "mutant m7 (plan non fini cédé) détecté : " .. table.concat(bad, ", "))
+-- (m8) pièce déjà cédée recédée
+bad = cedable_contrat(mut(function(q) q.deja_cedee = false end))
+check(#bad == 1 and bad[1] == "piece deja cedee recedee", "mutant m8 (pièce déjà cédée recédée) détecté : " .. table.concat(bad, ", "))
+-- (m9) poteau hors gisement cédé
+bad = cedable_contrat(mut(function(q) q.sur_gisement = true end))
+check(#bad == 1 and bad[1] == "poteau hors gisement cede", "mutant m9 (poteau hors gisement cédé) détecté : " .. table.concat(bad, ", "))
+-- (m10) couvrant non alimenté accepté
+bad = cedable_contrat(mut(function(q) q.couvrant_alimente = true end))
+check(#bad == 1 and bad[1] == "couvrant non alimente accepte", "mutant m10 (couvrant non alimenté accepté) détecté : " .. table.concat(bad, ", "))
+-- (m11) mutant de SOURCE : la garde « sur gisement » retirée du fichier
+do
+  local src = assert(io.open("shared/team/hygiene_regle.lua", "rb")):read("*a")
+  local mutated = src:gsub('if not p%.sur_gisement then return false, "piece du plan" end', "")
+  check(mutated ~= src, "mutant m11 : la garde existe dans la source")
+  local chunk = assert(load(mutated, "=hygiene_regle_m11"))
+  local Hm = chunk()
+  bad = cedable_contrat(Hm.plan_cedable)
+  check(#bad == 1 and bad[1] == "poteau hors gisement cede", "mutant m11 (source sans la garde du gisement) détecté : " .. table.concat(bad, ", "))
+end
 
 print(string.format("hygiene_regle_test : %d OK, %d ECHEC", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

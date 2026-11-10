@@ -287,7 +287,7 @@ local function lost_poles(f, surface, b)
     local q = b.projects[pid]
     if q and not q.abandoned and (q.poles_reopened or 0) < Rv.POLE_REOPEN_MAX and (q.state == "fini" or q.state == "chantier" or q.state == "raccordement") then
       for _, e in ipairs(q.ents) do
-        if e.built and is_pole(e.name) and not real_of(surface, e, f.force, "electric-pole") then
+        if e.built and not e.dropped and is_pole(e.name) and not real_of(surface, e, f.force, "electric-pole") then -- lot HYGIENE-PLANS-FINIS : cédée = pas perdue
           out[#out + 1] = { e = e, q = q }
           if #out >= Rv.CAND_MAX then return out end
         end

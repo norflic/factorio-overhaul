@@ -1847,6 +1847,33 @@ end
 --- opts.keep = { x0, y0, x1, y1 } (tuiles) : l'ANCIENNE emprise d'un remplacement sur place ; il n'est refusé que s'il COUPE un couloir que
 --- l'ancienne laissait ouvert (B1, 2e relecture : la 3×3 électrique déborde toujours d'une colonne ET d'une rangée de la 2×2, donc sur un
 --- couloir de 2 de large toute foreuse à combustion posée dessus était refusée à jamais) ; opts.blocked(x, y) : tuiles des bâtiments voisins.
+--- Lot HYGIENE-PLANS-FINIS (DC 10/11) : l'UNIQUE écrivain de la cession d'une pièce POSÉE d'un plan fini à l'hygiène électrique
+--- (script/team/hygiene.lua). Sans `new` : la pièce est cédée (e.dropped, p.dropped + 1 : all_built, le relevé de reconstruction, le réseau
+--- vivant et la reconstruction rapide ne la reposent plus) et ses tuiles sont rendues à b.occ (le minerai dessous redevient planifiable).
+--- Avec `new` = { x, y } : la pièce SUIT son remplaçant hors gisement (le plan garde son poteau : perdu, il serait reposé là) ; ses anciennes
+--- tuiles sont rendues, les nouvelles prises si elles sont libres. Rend faux (rien d'écrit) si la pièce est déjà cédée ou n'est pas bâtie.
+function Build.cede_piece(f, p, e, cause, new)
+  local b = f and f.build
+  if not (b and b.occ and p and e and e.built and not e.dropped) then return false end
+  for _, t in ipairs(P.tiles_of(e)) do
+    local tk = P.tkey(t[1], t[2])
+    if b.occ[tk] == p.id then b.occ[tk] = nil end
+  end
+  if new then
+    e.x, e.y = new.x, new.y
+    e.ghosted, e.fails, e.npc_blocks = nil, 0, 0
+    for _, t in ipairs(P.tiles_of(e)) do
+      local tk = P.tkey(t[1], t[2])
+      if b.occ[tk] == nil then b.occ[tk] = p.id end
+    end
+    e.cede = cause
+  else
+    e.dropped, e.cede = true, cause
+    p.dropped = (p.dropped or 0) + 1
+  end
+  return true
+end
+
 function Build.reserved_entity(f, name, pos, dir, opts)
   local b = f and f.build
   if not (f and pos) then return false end
