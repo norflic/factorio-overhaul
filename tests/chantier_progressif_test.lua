@@ -91,8 +91,7 @@ local MUTANTS = {
   { "réserve non bornée au besoin", "local have = math.min(math.floor(tonumber(stock[it]) or 0), n)", "local have = math.floor(tonumber(stock[it]) or 0)" },
   { "kit vide accepté", "return #short == 0 and total > 0, {", "return #short == 0, {" },
   { "projet rouvert accepté", 'if p.reopened and p.reopened ~= 0 then return false, "rouvert" end', "" },
-  { "tout projet accepté (pas seulement une bande)", 'if not c then return false, "pas une bande" end
-  if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end', 'c = c or {}' },
+  { "tout projet accepté (pas seulement une bande)", 'if not c then return false, "pas une bande" end', 'c = c or {}' },
   { "état ignoré", 'if not (p and p.state == "reserve") then return false, "etat" end', 'if not p then return false, "etat" end' },
   { "un seul objet sous le plancher toléré", "return #short == 0 and total > 0, {", "return #short <= 1 and total > 0, {" },
   { "réseau du charbon accepté", 'if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end', "" },
