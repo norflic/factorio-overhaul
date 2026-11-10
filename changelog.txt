@@ -1,7 +1,7 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.81
 Date: 2026-11-10
-  Optimisations:
+  Optimizations:
     - Performance (F479) : un plan de bande qui attend que son tronc de charbon se libère n'est plus refait à chaque passe (un essai toutes les 10 s, même fin d'attente) ; le relevé du réseau électrique ne parcourt plus que la zone de l'équipe. Plan des projets 3 fois moins cher, relevé du réseau 4 fois moins cher, mêmes décisions au banc.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.80
