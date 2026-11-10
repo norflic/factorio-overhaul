@@ -12,11 +12,21 @@
   Cp.floor : arrondi au-dessus, un objet demandé une ou deux fois est attendu en entier). Le reste est pris au coffre à la prise du PNJ
   (Build.take_reserved), suivi par refresh_missing, fabriqué par le cerveau comme avant ; un lot dont aucun objet n'est là ne vaut pas un voyage
   (Rr.batch_ready). Déterminisme : clés triées, entiers, aucun hasard, aucun temps mesuré.
+
+  Lot CC-PETROLE (F492, playtest 0.6.87 du DC, graine 3592985581) : l'EXTENSION d'un champ de puits (spec.ext d'un site de fluide)
+  gardait le tout-ou-rien. Mesure : site de brut du joueur fini à 62,9 min avec 2 chevalets sur 15 puits ; extension (projet 37,
+  11 chevalets, 89 tuyaux, 13 poteaux, 113 entités) en « reserve:materiaux » de 62,9 à 93,7 min, 0 entité bâtie ; tuyaux et poteaux
+  réunis à 72,9 min, chevalets fabriqués un à un (acier rare : 1 remis à 76,3 min, 1 kit à 81,9 min). Chaque chevalet au coffre
+  dormait pendant que 13 puits restaient libres. Règle (Cp.ready_lead) : l'extension part dès que ses objets de TÊTE (rôle
+  « extracteur » du plan, lu par build.lua : aucun nom) sont réservés à Cp.LEAD_MIN au moins et chaque autre objet (collecteur,
+  embranchements, poteaux) au plancher commun Cp.floor ; chaque chevalet suivant se pose à son arrivée. Une rangée de modules
+  (spec.rangee) garde le tout-ou-rien : une copie de module ne produit qu'entière.
 ]]
 
 local Cp = {}
 
 Cp.SHARE = 2 / 3 -- part du besoin de chaque objet réservée au coffre pour partir (azure p4 : 131/149 tapis = 88 % -> part à 30 min au lieu de 64)
+Cp.LEAD_MIN = 1  -- objets de tête (extracteurs d'un champ de puits) réservés au moins pour partir : chacun produit dès qu'il est posé
 
 local function sorted_keys(t)
   local keys = {}
@@ -49,6 +59,28 @@ function Cp.ready(need, stock)
   return #short == 0 and total > 0, { pieces = pieces, total = total, short = short }
 end
 
+--- Lot CC-PETROLE : la réserve `stock` couvre-t-elle `need` pour une extension de champ de puits ? Les objets de `lead`
+--- ({ [objet] = true } : rôle « extracteur » du plan) au plancher min(Cp.LEAD_MIN, demandé) ; chaque autre objet au plancher Cp.floor.
+--- Sans aucun objet de tête demandé, ce n'est pas un champ de puits : refus (le tout-ou-rien reste). Rend ok, détail (comme Cp.ready).
+function Cp.ready_lead(need, stock, lead)
+  local pieces, total, short, leads = 0, 0, {}, 0
+  stock, lead = stock or {}, lead or {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local n = math.floor(tonumber(need[it]) or 0)
+    if n > 0 then
+      local have = math.min(math.floor(tonumber(stock[it]) or 0), n)
+      pieces, total = pieces + have, total + n
+      local fl = Cp.floor(n)
+      if lead[it] then
+        leads = leads + 1
+        fl = math.min(Cp.LEAD_MIN, n)
+      end
+      if have < fl then short[#short + 1] = { it, fl - have } end
+    end
+  end
+  return #short == 0 and leads > 0, { pieces = pieces, total = total, short = short, lead = true }
+end
+
 --- Un projet `p` (vue : state, reopened, spec.champ, stock, need) peut-il partir en chantier progressif ? Seulement la BANDE elle-même,
 --- neuve (spec.champ posé par le plan directeur du champ, sans `coal` ni `link` : un réseau du charbon, lié ou non, garde le tout-ou-rien :
 --- son kit est surtout du combustible et sa pose partielle déroute la migration, mesure EXPANSION-C, graine 271828182 : le réseau lié de la
@@ -57,6 +89,8 @@ end
 function Cp.go(p)
   if not (p and p.state == "reserve") then return false, "etat" end
   if p.reopened and p.reopened ~= 0 then return false, "rouvert" end
+  local s = p.spec
+  if s and s.ext == true and not s.rangee then return Cp.ready_lead(p.need or {}, p.stock or {}, p.lead or {}) end -- lot CC-PETROLE
   local c = p.spec and p.spec.champ
   if not c then return false, "pas une bande" end
   if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end

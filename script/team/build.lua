@@ -3450,6 +3450,20 @@ local function reserve(f, p)
   return #missing == 0, need -- (need : lu par le chantier progressif, lot EXPANSION-LOINTAINE)
 end
 
+--- Lot CC-PETROLE : objets de TÊTE d'une extension de champ de puits (rôle « extracteur » de son plan, pas encore bâtis), lus par
+--- Build.Cp.go : l'extension part dès qu'un chevalet est réservé, les suivants se posent à leur arrivée. nil hors extension.
+local function lead_items(p)
+  if not (p.spec and p.spec.ext) then return nil end
+  local out
+  for _, e in ipairs(p.ents) do
+    if e.role == "extracteur" and e.item and not e.built then
+      out = out or {}
+      out[e.item] = true
+    end
+  end
+  return out
+end
+
 --- Lot INTEG-RECONSTRUCTION (D6) : les objets qui MANQUENT au coffre pour les pièces à refaire d'un projet ROUVERT qui n'est plus en
 --- « reserve » (fantômes, chantier : le relevé en rouvre par passes de 40, Rv et une nouvelle destruction aussi). `reserve` n'est lu qu'en état
 --- « reserve » : sans cela p.missing restait périmé, le cerveau ne fabriquait rien (A.emit) et le PNJ abandonnait « stock » en boucle. Ne retire
@@ -4807,7 +4821,7 @@ local function advance(f, surface, p, tick)
     -- au coffre à la prise du PNJ (Build.take_reserved), suivi par refresh_missing (p.progressif), fabriqué par le cerveau comme en réserve.
     local prog, pd = false, nil
     if not full then
-      prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, spec = p.spec, need = need, stock = p.stock })
+      prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, spec = p.spec, need = need, stock = p.stock, lead = lead_items(p) })
     end
     if full or prog then
       -- lot MIGRATION-CHAMP : matières réunies, la partie de champ à remplacer est retirée par script/team/migration_champ.lua (qui pose
@@ -4818,8 +4832,9 @@ local function advance(f, surface, p, tick)
       end
       if prog and not p.progressif then
         p.progressif = true
-        log(string.format("[FO-CHANTIER-PROGRESSIF] %s : projet %d (bande %s) part en chantier sans toute sa matiere a %.1f min : %s", f.key or "player",
-          p.id, tostring(p.spec.champ and p.spec.champ.pr), tick / 3600, Build.Cp.describe(pd)))
+        log(string.format("[FO-CHANTIER-PROGRESSIF] %s : projet %d (%s) part en chantier sans toute sa matiere a %.1f min : %s", f.key or "player",
+          p.id, p.spec.ext and "extension de champ de puits" or ("bande " .. tostring(p.spec.champ and p.spec.champ.pr)), tick / 3600,
+          Build.Cp.describe(pd))) -- (lot CC-PETROLE : une extension de champ de puits part aussi ainsi)
       end
       -- lot PETROLE : un site étendu (spec.lazy_clear) ne défriche pas tout d'abord : ses fantômes se posent, et les
       -- arbres sont coupés pendant le chantier, entité par entité (moteur réel, petrole-site : 58 arbres sur un site

@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.88
+Date: 2026-11-10
+  Bugfixes:
+    - Pétrole (F492) : l'extension d'un champ de puits part dès qu'un chevalet est réservé, au lieu d'attendre tous ses chevalets ; les suivants se posent à leur arrivée (playtest 0.6.87 : 2 puits sur 15 équipés, extension jamais commencée en 30 min).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.87
 Date: 2026-11-10
   Graphics:
