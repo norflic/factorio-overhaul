@@ -3733,11 +3733,13 @@ end
 --- blocage du projet. Rend vrai si TOUTES les tourelles de l'emprise ont été déplacées. Journal [FO-AXE], une ligne par tourelle.
 local function move_turrets_off(f, surface, p, e)
   if not (f.turrets and f.build) then return false end
-  local found = surface.find_entities_filtered({ area = footprint(e) })
+  -- lot TOURELLE-BANDE : seules les entités SOLIDES de l'emprise comptent (couche « object-layer », comme le relevé des obstacles) : le
+  -- minerai du gisement sous une bande n'est pas un obstacle, et il ne doit être ni téléporté ni repris au coffre
+  local found = surface.find_entities_filtered({ area = footprint(e), collision_mask = "object-layer" })
   local list = {}
   for _, x in ipairs(found) do
     local mine = x.unit_number ~= nil and f.turrets[x.unit_number] ~= nil
-    list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree" }
+    list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree", solid = true }
   end
   if not Blocage.own_blockers(list, f.force, T.turret) then return false end
   local cors = Build.corridors(f)
@@ -4901,17 +4903,18 @@ local function free_own_turrets(f, surface, p)
   local n, n_back, n_moved = 0, 0, 0
   for _, e in ipairs(p.ents) do
     if not e.built then
-      local found, list = surface.find_entities_filtered({ area = footprint(e) }), {}
+      -- lot TOURELLE-BANDE : entités SOLIDES seulement (couche « object-layer ») : le minerai sous une bande n'est pas un obstacle
+      local found, list = surface.find_entities_filtered({ area = footprint(e), collision_mask = "object-layer" }), {}
       -- seules les tourelles ENREGISTRÉES de l'équipe (posées par les avant-postes) comptent : jamais celle qu'un joueur a posée
       for _, x in ipairs(found) do
         local mine = x.unit_number ~= nil and f.turrets ~= nil and f.turrets[x.unit_number] ~= nil
-        list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree" }
+        list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree", solid = true }
       end
       -- lot TOURELLES-HORS-AXE : d'abord déplacée à côté (move_turrets_off) ; récupérée au coffre seulement si aucune place
       if Blocage.own_blockers(list, f.force, T.turret) and move_turrets_off(f, surface, p, e) then
         n, n_moved = n + #list, n_moved + #list
       elseif Blocage.own_blockers(list, f.force, T.turret) then
-        found = surface.find_entities_filtered({ area = footprint(e) }) -- relu : une tourelle déjà déplacée n'est plus sur l'emprise
+        found = surface.find_entities_filtered({ area = footprint(e), collision_mask = "object-layer" }) -- relu : une tourelle déjà déplacée n'est plus sur l'emprise
         for _, x in ipairs(found) do
           if x.valid then
             -- Lot INTEG-DEFENSE 4.1 : la tourelle (et ses chargeurs) RETOURNE au coffre de l'équipe (la détruire perdait ~40 de fer, 10 de
