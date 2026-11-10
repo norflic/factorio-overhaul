@@ -4,6 +4,7 @@ tambour de munitions sur le flanc gauche et goulotte, conduits cyan, capteur de 
 d'un douzième de tour, éclair cyan à la bouche."""
 import math
 
+import marques as MQ
 import socle_tourelle as St
 import tourelle_tete as T
 
@@ -12,9 +13,10 @@ ZT = 0.46
 
 
 def build(S, k, M):
-    z = St.socle(k, 1.3, 0.38)
+    z = St.socle(k, 1.3, 0.38, forme=MQ.marque("lourde")["forme"])
+    lis = "lisere" if "lisere" in k.M else "turq"
     k.rev("struct", 0.0, 0.0, [(z, 0.74), (z + 0.04, 0.72)], 48)
-    k.tore("turq", 0.0, 0.0, z + 0.02, 0.74, 0.012, 72, 6)
+    k.tore(lis, 0.0, 0.0, z + 0.02, 0.74, 0.016, 72, 6)
     return {}
 
 
@@ -24,7 +26,8 @@ def tete(k, M, image):
     for sx in (-1, 1):
         k.poly("blind2", [(sx * 0.46, -0.58), (sx * 0.56, -0.5), (sx * 0.56, 0.12), (sx * 0.46, 0.22)], zt + 0.02, zt + 0.34, 0.9)
         k.axe("conduit", (sx * 0.5, -0.5, zt + 0.35), (sx * 0.5, 0.14, zt + 0.35), 0.013, 6)
-    k.b("accent", (0.0, -0.612, zt + 0.22), (0.5, 0.012, 0.024))
+    k.b("lisere" if "lisere" in k.M else "accent", (0.0, -0.612, zt + 0.22), (0.5, 0.012, 0.024))
+    T.toit(k, MQ.marque("lourde")["toit"], 0.12, -0.3, zt + 0.405, 0.42)
     k.sph("cristal", (0.24, -0.34, zt + 0.46), 0.07, 14, 7)
     k.sph("conduit", (0.24, -0.34, zt + 0.46), 0.028, 8, 4)
     k.cyl("struct", -0.18, -0.4, zt + 0.4, zt + 0.44, 0.1, 16)

@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.82
+Date: 2026-11-10
+  Optimizations:
+    - Performance (F479) : un plan de bande qui attend que son tronc de charbon se libère n'est plus refait à chaque passe (un essai toutes les 10 s, même fin d'attente) ; le relevé du réseau électrique ne parcourt plus que la zone de l'équipe. Plan des projets 3 fois moins cher, relevé du réseau 4 fois moins cher, mêmes décisions au banc.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.81
+Date: 2026-11-10
+  Graphics:
+    - Tourelles à munitions (F480) : chacune a son socle (Bastion I carré, lourde hexagonale à contreforts, canon rond sur rails, mortier en croix à vérins), un liseré de sa couleur de fonction (cyan, ambre, magenta, vert-jaune) et un motif sur le toit de la tête : identifiables d'un coup d'œil vues de haut.
+    - Écorchés (F480) : rôdeur pâle et fin, porteur sombre et massif, hurleur à collerette lumineuse ; chaque variante a sa propre lueur, aussi sur la carte.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.80
 Date: 2026-11-10
   Features:

@@ -97,6 +97,8 @@ def main():
         scene = bpy.context.scene
         M = TM.matieres(S, "bt_" + name + "_")
         M.update(noir=M["struct"], acier=M["canon"], acier_clair=M["os"], riv=M["os"], grille=M["struct"])
+        import marques as MQ
+        MQ.matiere(S, M, "bt_" + name + "_", name)      # lot VISUELS-DISTINCTS : liseré et motif de toit de fonction
         jeux, anc = [], None
         for img in range(nimg):
             lot = G.Lot(S, "tete_%s_%d" % (name, img))

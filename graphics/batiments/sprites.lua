@@ -12,15 +12,15 @@ return {
     glow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-bastion1-glow.png",
-        height = 94,
-        shift = { 0.0, 0.078125 },
-        width = 76
+        height = 110,
+        shift = { 0.0, -0.046875 },
+        width = 100
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/bastion1-glow.png",
-        height = 47,
-        shift = { 0.0, 0.078125 },
-        width = 38
+        height = 55,
+        shift = { 0.0, -0.046875 },
+        width = 50
       }
     },
     icone = {
@@ -43,20 +43,35 @@ return {
         width = 68
       }
     },
-    map_color = { 0.361, 0.386, 0.453 },
+    map_color = { 0.347, 0.479, 0.53 },
+    marque = {
+      fonction = "cinetique",
+      forme = "carre",
+      lisere = { 0.098, 0.902, 1.0 },
+      mesure = {
+        iou = {
+          canon = 0.457,
+          lourde = 0.552,
+          mortier = 0.66
+        },
+        saturation = 0.629,
+        teinte = 181.6
+      },
+      toit = "chevron"
+    },
     rangs = 16,
     shadow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-bastion1-shadow.png",
         height = 108,
-        shift = { 0.0625, 0.0 },
-        width = 116
+        shift = { 0.046875, 0.0 },
+        width = 114
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/bastion1-shadow.png",
         height = 54,
-        shift = { 0.0625, 0.0 },
-        width = 58
+        shift = { 0.046875, 0.0 },
+        width = 57
       }
     },
     tete = {
@@ -339,15 +354,15 @@ return {
     glow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-canon-glow.png",
-        height = 138,
-        shift = { 0.0, 0.140625 },
-        width = 136
+        height = 170,
+        shift = { 0.0, -0.078125 },
+        width = 172
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/canon-glow.png",
-        height = 69,
-        shift = { 0.0, 0.140625 },
-        width = 68
+        height = 85,
+        shift = { 0.0, -0.078125 },
+        width = 86
       }
     },
     icone = {
@@ -359,31 +374,46 @@ return {
     main = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-canon-main.png",
-        height = 180,
+        height = 188,
         shift = { 0.0, 0.0 },
-        width = 192
+        width = 200
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/canon-main.png",
-        height = 90,
+        height = 94,
         shift = { 0.0, 0.0 },
-        width = 96
+        width = 100
       }
     },
-    map_color = { 0.376, 0.403, 0.473 },
+    map_color = { 0.483, 0.383, 0.534 },
+    marque = {
+      fonction = "perforant",
+      forme = "rond",
+      lisere = { 1.0, 0.14, 0.7 },
+      mesure = {
+        iou = {
+          bastion1 = 0.457,
+          lourde = 0.823,
+          mortier = 0.442
+        },
+        saturation = 0.544,
+        teinte = 305.1
+      },
+      toit = "cible"
+    },
     rangs = 16,
     shadow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-canon-shadow.png",
-        height = 160,
-        shift = { 0.078125, 0.0 },
-        width = 170
+        height = 172,
+        shift = { 0.046875, 0.0 },
+        width = 182
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/canon-shadow.png",
-        height = 80,
-        shift = { 0.078125, 0.0 },
-        width = 85
+        height = 86,
+        shift = { 0.046875, 0.0 },
+        width = 91
       }
     },
     tete = {
@@ -618,15 +648,15 @@ return {
     glow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-lourde-glow.png",
-        height = 136,
-        shift = { 0.0, 0.15625 },
-        width = 136
+        height = 156,
+        shift = { 0.0, -0.03125 },
+        width = 160
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/lourde-glow.png",
-        height = 68,
-        shift = { 0.0, 0.15625 },
-        width = 68
+        height = 78,
+        shift = { 0.0, -0.03125 },
+        width = 80
       }
     },
     icone = {
@@ -638,31 +668,46 @@ return {
     main = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-lourde-main.png",
-        height = 180,
-        shift = { 0.0, 0.0 },
-        width = 192
+        height = 172,
+        shift = { 0.0, 0.03125 },
+        width = 196
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/lourde-main.png",
-        height = 90,
-        shift = { 0.0, 0.0 },
-        width = 96
+        height = 86,
+        shift = { 0.0, 0.03125 },
+        width = 98
       }
     },
-    map_color = { 0.376, 0.402, 0.472 },
+    map_color = { 0.477, 0.437, 0.398 },
+    marque = {
+      fonction = "rafale",
+      forme = "hexa",
+      lisere = { 1.0, 0.42, 0.03 },
+      mesure = {
+        iou = {
+          bastion1 = 0.552,
+          canon = 0.823,
+          mortier = 0.481
+        },
+        saturation = 0.795,
+        teinte = 41.5
+      },
+      toit = "barres"
+    },
     rangs = 16,
     shadow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-lourde-shadow.png",
-        height = 160,
-        shift = { 0.078125, 0.0 },
-        width = 170
+        height = 156,
+        shift = { 0.0625, 0.03125 },
+        width = 180
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/lourde-shadow.png",
-        height = 80,
-        shift = { 0.078125, 0.0 },
-        width = 85
+        height = 78,
+        shift = { 0.0625, 0.03125 },
+        width = 90
       }
     },
     tete = {
@@ -711,7 +756,7 @@ return {
     }
   },
   mortier = {
-    boite = { { -1.4375, -1.9375 }, { 2.2812, 1.375 } },
+    boite = { { -1.4062, -1.9375 }, { 2.2812, 1.375 } },
     bouche = {
       centre = { 0.0, -1.2503 },
       distance = 0.5949
@@ -720,15 +765,15 @@ return {
     glow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-mortier-glow.png",
-        height = 146,
-        shift = { -0.015625, 0.015625 },
-        width = 130
+        height = 162,
+        shift = { 0.0, -0.015625 },
+        width = 164
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/mortier-glow.png",
-        height = 73,
-        shift = { -0.015625, 0.015625 },
-        width = 65
+        height = 81,
+        shift = { 0.0, -0.015625 },
+        width = 82
       }
     },
     icone = {
@@ -740,31 +785,46 @@ return {
     main = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-mortier-main.png",
-        height = 174,
-        shift = { 0.0, 0.015625 },
-        width = 184
+        height = 176,
+        shift = { 0.0, 0.0 },
+        width = 180
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/mortier-main.png",
-        height = 87,
-        shift = { 0.0, 0.015625 },
-        width = 92
+        height = 88,
+        shift = { 0.0, 0.0 },
+        width = 90
       }
     },
-    map_color = { 0.374, 0.401, 0.471 },
+    map_color = { 0.402, 0.439, 0.383 },
+    marque = {
+      fonction = "indirect",
+      forme = "etoile",
+      lisere = { 0.6, 1.0, 0.1 },
+      mesure = {
+        iou = {
+          bastion1 = 0.66,
+          canon = 0.442,
+          lourde = 0.481
+        },
+        saturation = 0.627,
+        teinte = 72.0
+      },
+      toit = "croix"
+    },
     rangs = 16,
     shadow = {
       hr = {
         filename = "__factorio-overhaul__/graphics/batiments/hr-mortier-shadow.png",
-        height = 156,
-        shift = { 0.0625, 0.0 },
-        width = 164
+        height = 168,
+        shift = { 0.03125, 0.0 },
+        width = 168
       },
       lr = {
         filename = "__factorio-overhaul__/graphics/batiments/mortier-shadow.png",
-        height = 78,
-        shift = { 0.0625, 0.0 },
-        width = 82
+        height = 84,
+        shift = { 0.03125, 0.0 },
+        width = 84
       }
     },
     tete = {

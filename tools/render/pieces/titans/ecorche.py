@@ -31,10 +31,17 @@ GLOW_BLANC = True
 AMP = 0.75
 FOULEE = 2 * 0.75
 # variante : (longueur du corps, hauteur au garrot, largeur, longueur de patte, cristaux (nombre, longueur), masse de la tête)
+# Lot VISUELS-DISTINCTS (10/11) : les trois variantes se confondaient de loin (même chair mauve, même gabarit) ; chacune a désormais sa
+# CHAIR et sa PEAU (couleurs de surface, ci-dessous) et son trait de silhouette : rôdeur FIN et CLAIR (corps étroit, hautes pattes,
+# chair os pâle), porteur MASSIF et SOMBRE (large, plaques argent sur tout le dos), hurleur à COLLERETTE lumineuse (épines émissives
+# autour de la nuque). La LUEUR en jeu est la couleur de la variante (shared/robots/titans.lua T.ECORCHE.variants[i].lueur).
 VARIANTES = {
-    1: {"L": 2.6, "h": 1.5, "w": 0.55, "patte": 1.45, "cristaux": (3, 0.5), "tete": 0.75, "plaques": 0.0},
-    2: {"L": 2.9, "h": 1.25, "w": 0.85, "patte": 1.1, "cristaux": (7, 0.9), "tete": 0.85, "plaques": 1.0},
-    3: {"L": 2.7, "h": 1.4, "w": 0.65, "patte": 1.3, "cristaux": (4, 0.6), "tete": 1.25, "plaques": 0.4},
+    1: {"L": 2.6, "h": 1.55, "w": 0.42, "patte": 1.65, "cristaux": (3, 0.45), "tete": 0.7, "plaques": 0.0,
+        "chair": (0.78, 0.66, 0.68), "peau": (0.70, 0.64, 0.68), "collerette": 0},
+    2: {"L": 3.0, "h": 1.25, "w": 1.0, "patte": 1.05, "cristaux": (7, 0.9), "tete": 0.9, "plaques": 1.0,
+        "chair": (0.10, 0.035, 0.06), "peau": (0.07, 0.05, 0.065), "collerette": 0},
+    3: {"L": 2.7, "h": 1.4, "w": 0.65, "patte": 1.3, "cristaux": (4, 0.6), "tete": 1.25, "plaques": 0.4,
+        "chair": (0.40, 0.14, 0.25), "peau": (0.25, 0.15, 0.21), "collerette": 9},
 }
 
 
@@ -63,8 +70,10 @@ def corps(lot, M, V, u, bob, cri):
         if t > 0.3:
             for s in (-1, 1):
                 lot.put(M["peau"], plaque((p[0], p[1] + s * rw * 0.85, p[2] + rh * 0.3), G.norm((0.0, s * 0.9, 0.4)), 0.3, 0.42, 0.06, up=d, coins=0.6))
-            if V["plaques"] > 0 and i % 4 == 2:
-                lot.put(M["blind2"], plaque((p[0], p[1], p[2] + rh * 0.9), (0.0, 0.0, 1.0), rw * 1.6, 0.5, 0.08, up=d, coins=0.65))
+            if V["plaques"] > 0 and (V["plaques"] >= 1.0 or i % 4 == 2):   # porteur : une plaque à chaque anneau
+                # porteur : plaques SOMBRES (struct) à chaque anneau, la masse lue noire de loin ; hurleur : plaques argent d'avant
+                lot.put(M["struct" if V["plaques"] >= 1.0 else "blind2"], plaque((p[0], p[1], p[2] + rh * 0.9), (0.0, 0.0, 1.0), rw * 1.6, 0.5, 0.08,
+                                                                              up=d, coins=0.65))
     nc, lc = V["cristaux"]
     for k in range(nc):
         t = 0.3 + 0.55 * (k + 0.5) / nc
@@ -129,6 +138,15 @@ def tete(lot, M, V, base, ouverture, cri):
     for s in (-1, 1):
         lot.put(M["conduit"], G.boite(P(0.45, s * 0.4, 0.2), (0.08, 0.03, 0.05)))
         lot.put(M["os"], pointe(P(-0.1, s * 0.3, 0.3), G.norm((-0.7, s * 0.5, 0.6)), 0.4 * k, 0.05, 5))
+    if V.get("collerette"):
+        # collerette du hurleur : couronne d'épines émissives (couche lueur : teinte de la variante en jeu) autour de la nuque
+        nc = V["collerette"]
+        for q in range(nc):
+            a = -math.pi * 0.85 + 1.7 * math.pi * q / (nc - 1)
+            d = G.norm((-0.35, math.cos(a), math.sin(a) * 0.8 + 0.55))
+            lot.put(M["accent"], pointe(P(-0.25, math.cos(a) * 0.32, 0.12 + math.sin(a) * 0.22), d, 0.55 * k, 0.05, 4))
+        lot.put(M["accent"], G.tube([P(-0.25, math.cos(-math.pi * 0.85 + 1.7 * math.pi * q / 16.0) * 0.36,
+                                       0.12 + math.sin(-math.pi * 0.85 + 1.7 * math.pi * q / 16.0) * 0.25) for q in range(17)], 0.035, 5))
     if V["tete"] > 1.0:
         for q in range(3):
             lot.put(M["os"], pointe(P(-0.15 - 0.12 * q, 0.0, 0.36 - 0.03 * q), G.norm((-0.6, 0.0, 1.0)), 0.55 - 0.1 * q, 0.06, 5))
@@ -140,6 +158,14 @@ def build_anime(S, lot, stage, u, attaque):
     """Pose d'un Écorché de la variante `stage` (1 à 3) : u = phase de course ; attaque = phase d'attaque (0 à 1) ou None."""
     V = VARIANTES[int(stage) if stage else 1]
     M = TM.matieres(S, PREFIX, GRIS)
+    if not GRIS:
+        # chair et peau propres à la variante (VISUELS-DISTINCTS) : mêmes réglages que titans_mat, couleur de la variante
+        M["peau"] = TM.MT.surface(PREFIX + "peau", V["peau"], rough=0.52, met=0.20, tole=(0.45, 0.28), joint=0.25, joint_l=0.03, var=0.18,
+                                  usure=0.3, nu=tuple(min(1.0, c * 1.6 + 0.12) for c in V["peau"]), crasse=0.55,
+                                  crasse_col=(0.03, 0.012, 0.025), relief=0.8, graine=16)
+        M["chair"] = TM.MT.surface(PREFIX + "chair", V["chair"], rough=0.62, met=0.05, usure=0.15,
+                                   nu=tuple(min(1.0, c * 1.4 + 0.1) for c in V["chair"]), crasse=0.5, crasse_col=(0.06, 0.015, 0.04), graine=18)
+        TM.iridescence(M["peau"], part=0.35, blend=0.5)
     R.raz()
     L, h, w = V["L"], V["h"], V["w"]
     if attaque is not None:

@@ -40,10 +40,12 @@ import feuilles_xp as FX  # noqa: E402
 LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-FINITIONS")
 LOGS2 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_KAIJUS-MUTANTS")
 # plusieurs dossiers de sources (séparés par « ; ») : un titan est pris dans le premier qui a son sous-dossier (KAIJUS-MUTANTS, 10/11)
-SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
+LOGS3 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_VISUELS-DISTINCTS")
+# VISUELS-DISTINCTS (10/11) : les Écorchés re-rendus (chair, peau, silhouette et collerette par variante) sont pris en PREMIER
+SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS3, "rendu"), os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
 DEST_DEFAUT = os.path.join(MOD, "graphics", "robots", "titans")
 PREFIXE = "__factorio-overhaul__/graphics/robots/titans/"
-COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
+COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
 # alliés à une image (traitement des géants) : stades rendus ; le Léviathan a de plus son drone d'escorte (une image, clé « drone »)
 ALLIES = (("sentinelle", ("1", "2", "3")), ("leviathan", ("1", "2", "3", "drone")))
 # alliés ANIMÉS : (nom, stades, diviseur de densité par couche, feuille la plus large) ; KAIJUS-MUTANTS : Ravageur (allié) et Écorchés
@@ -204,6 +206,22 @@ def anime(S, src, poids, sub, base, cle, divs, max_px):
     return out
 
 
+def mesure_variantes(dest, entree, stades):
+    """VISUELS-DISTINCTS : couleur moyenne (pondérée par l'alpha) et LUMINANCE (Rec. 709) de la couche principale de la course de chaque
+    variante, toutes directions : lue par tests/titans_test.lua §8 (rôdeur clair, hurleur médian, porteur sombre, écarts mesurés)."""
+    out = {}
+    for st in stades:
+        acc, wsum = np.zeros(3), 0.0
+        for f in entree[st]["course"]["couches"]["main"]["hr"]:
+            a = np.asarray(Image.open(os.path.join(dest, os.path.basename(f))).convert("RGBA")).astype(np.float64) / 255.0
+            w = a[..., 3]
+            acc += (a[..., :3] * w[..., None]).sum((0, 1))
+            wsum += float(w.sum())
+        rgb = acc / max(1e-6, wsum)
+        out[st] = {"luminance": round(float(0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]), 4), "rgb": [round(float(x), 4) for x in rgb]}
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=SRC_DEFAUT)
@@ -241,6 +259,8 @@ def main():
             continue
         for st in stades:
             spr[nom][st] = anime(S, a.src, poids[nom], "%s-anime-%s" % (nom, st), "%s-%s" % (nom, st), "%s-%s" % (nom, st), divs, max_px)
+        if nom == "ecorche":
+            spr[nom]["mesure"] = mesure_variantes(a.dest, spr[nom], stades)
     if not a.sans_kaiju:
         for nom in ENNEMIS:
             spr[nom] = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}

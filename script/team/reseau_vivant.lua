@@ -20,6 +20,8 @@ local M = require("shared.team.modules")
 local S = require("shared.team.reseau_sante")
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : chemin le plus court des poteaux à reposer, second chemin
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
+local Ze = require("shared.team.zone_equipe") -- lot UPS-2 : intersection d'une tranche et de la zone de l'équipe (Ze.clip, Ze.area)
+local Zone = require("script.team.zone_equipe") -- lot UPS-2 : zone de l'équipe (rectangles fusionnés, F470)
 
 local Rv = {}
 
@@ -179,8 +181,24 @@ end
 local BAND_TYPES = { "generator" }
 for _, t in ipairs(ELEC_TYPES) do BAND_TYPES[#BAND_TYPES + 1] = t end
 
-local function job_new(box)
-  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, x = box.x0, gn = {}, gens = {}, cons = {}, bands = 0 }
+--- Lot UPS-2 : `rects` (facultatif) = zone de l'équipe (Zone.rects, copiée : nombres seulement, rangée dans l'état) ; une tranche ne cherche
+--- que ses intersections avec la zone (Ze.clip). Le nombre de tranches, l'ordre, le coût DÉCLARÉ au jeton (Rv.cout) et la fin du relevé
+--- sont inchangés : seul le travail du moteur baisse (les chunks vides de la boîte ne sont plus parcourus).
+local function job_new(box, rects)
+  local zr = nil
+  if rects then
+    zr = {}
+    for i, r in ipairs(rects) do zr[i] = { x0 = r.x0, y0 = r.y0, x1 = r.x1, y1 = r.y1 } end
+  end
+  return { y = box.y0, y_end = box.y1 + 1, x0 = box.x0, x1 = box.x1 + 1, x = box.x0, gn = {}, gens = {}, cons = {}, bands = 0, rects = zr }
+end
+
+--- Lot UPS-2 : zone de relevé de l'équipe `f`, ou nil (toute la tranche, comme avant). Jamais pour une force où un joueur humain est
+--- connecté : ses machines posées à la main, hors de tout plan, restent comptées (F470 ne le fait que pour les poteaux).
+function Rv.zone(f, surface, tick)
+  local force = game and game.forces and game.forces[f.force]
+  if not force or #force.connected_players > 0 then return nil end
+  return Zone.rects(f, surface, tick)
 end
 
 --- Une bande du relevé ; vrai quand la dernière est faite.
@@ -192,8 +210,7 @@ local function job_band(f, surface, j)
   local xa = j.x or j.x0
   local xb = math.min(xa + Rv.COLS, j.x1)
   local top, bottom, left, right = ya * 32, yb * 32, xa * 32, xb * 32
-  for _, e in ipairs(surface.find_entities_filtered({ area = { { left, top }, { right, bottom } }, force = f.force,
-    type = BAND_TYPES })) do
+  local function take(e)
     local p = e.position
     if p.y >= top and p.y < bottom and p.x >= left and p.x < right then
       local id = e.electric_network_id
@@ -203,6 +220,24 @@ local function job_band(f, surface, j)
       elseif not (id and j.gn[id]) and e.prototype.electric_energy_source_prototype then
         j.cons[#j.cons + 1] = e
       end
+    end
+  end
+  if j.rects then
+    -- lot UPS-2 : seulement les intersections de la tranche et de la zone ; une entité vue par deux intersections n'est prise qu'une fois
+    local seen = {}
+    for _, r in ipairs(Ze.clip(j.rects, { x0 = left, y0 = top, x1 = right, y1 = bottom })) do
+      for _, e in ipairs(surface.find_entities_filtered({ area = Ze.area(r), force = f.force, type = BAND_TYPES })) do
+        local u = e.unit_number
+        if not (u and seen[u]) then
+          if u then seen[u] = true end
+          take(e)
+        end
+      end
+    end
+  else
+    for _, e in ipairs(surface.find_entities_filtered({ area = { { left, top }, { right, bottom } }, force = f.force,
+      type = BAND_TYPES })) do
+      take(e)
     end
   end
   j.bands = j.bands + 1
@@ -506,7 +541,7 @@ function Rv.step(api, f, surface, tick)
       -- Pas fini à cette passe : la décision de la centrale est prise quand même (point 4), avec l'état du relevé précédent.
       local box = api.box and api.box(surface)
       if box then
-        sv.nr_job = job_new(box)
+        sv.nr_job = job_new(box, Rv.zone(f, surface, tick))
         nr = job_step(api, f, surface, sv, tick)
       else
         nr = net_read(f, surface, b)
@@ -589,7 +624,7 @@ function Rv.step(api, f, surface, tick)
     if not nr then
       local rbox = api.box and api.box(surface)
       if rbox then
-        sv.nr_job = job_new(rbox)
+        sv.nr_job = job_new(rbox, Rv.zone(f, surface, tick))
         sv.relier = why
         nr = job_step(api, f, surface, sv, tick)
         if not nr then return end

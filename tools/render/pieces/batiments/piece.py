@@ -65,6 +65,8 @@ def build(S, C, variant):
     M = TM.matieres(S, "bt_" + variant + "_")
     # alias des organes du kit (noir, acier, riv, grille) vers les matières des titans
     M.update(noir=M["struct"], acier=M["canon"], acier_clair=M["os"], riv=M["os"], grille=M["struct"])
+    import marques as MQ
+    MQ.matiere(S, M, "bt_" + variant + "_", variant)      # lot VISUELS-DISTINCTS : liseré de fonction des tourelles à munitions
     k = O.Kit(lot, M, seed=sum(ord(c) for c in variant))
     ANCRAGES.clear()
     anc = mod.build(S, k, M)

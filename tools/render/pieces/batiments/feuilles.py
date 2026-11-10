@@ -21,11 +21,11 @@ MOD = os.path.dirname(os.path.dirname(RENDER))
 LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 SRC_DEFAUT = os.path.join(LOGS, "2026-11-10_POLISSAGE-FX", "rendu")
 SRC_TOURELLES = os.path.join(LOGS, "2026-11-10_POLISSAGE-2", "rendu")
-SRC_TETES = os.path.join(LOGS, "2026-11-10_POLISSAGE-3", "rendu")
+SRC_TETES = os.path.join(LOGS, "2026-11-10_VISUELS-DISTINCTS", "rendu")   # VISUELS-DISTINCTS : socles et têtes marqués (POLISSAGE-3 avant)
 DEST_DEFAUT = os.path.join(MOD, "graphics", "batiments")
 PREFIXE_JEU = "__factorio-overhaul__/graphics/batiments/"
 COMMANDE = ("py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu "
-            "fo-logs/2026-11-10_POLISSAGE-2/rendu et fo-logs/2026-11-10_POLISSAGE-3/rendu, à GARDER)")
+            "fo-logs/2026-11-10_POLISSAGE-2/rendu et fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, à GARDER)")
 BATIMENTS = ("coffre", "pylone", "cuve", "bastion2", "bastion3", "bastion4", "tesla", "laser_lourd", "bastion1", "lourde", "canon", "mortier")
 # lot POLISSAGE-2 : tourelles électriques à tête non tournante ; leur lueur devient une bande de PULSE images (facteurs d'intensité
 # précalculés, onde triangulaire : aucune trigonométrie), lue par prototypes/batiments_visuels.lua (têtes : direction_count 1)
@@ -41,6 +41,9 @@ COUCHES = ("main", "shadow", "glow")
 _spec = importlib.util.spec_from_file_location("qg_feuilles", os.path.join(HERE, "..", "levels", "qg_e", "feuilles.py"))
 Q = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(Q)
+_spec_m = importlib.util.spec_from_file_location("bat_marques", os.path.join(HERE, "marques.py"))
+MQ = importlib.util.module_from_spec(_spec_m)
+_spec_m.loader.exec_module(MQ)
 
 
 def _ecrit(im, dest, f, fichiers):
@@ -146,6 +149,56 @@ def vue_tete(dest, c, k, direction, image=0):
     return im.crop((image * w, r * h, (image + 1) * w, (r + 1) * h)), t["shift"]
 
 
+def _teinte(rgb):
+    """Teinte (degrés) et saturation d'une couleur moyenne (HSV, sans trigonométrie)."""
+    r, g, b = rgb
+    mx, mn = max(rgb), min(rgb)
+    d = mx - mn
+    if d <= 1e-9:
+        return 0.0, 0.0
+    if mx == r:
+        h = ((g - b) / d) % 6.0
+    elif mx == g:
+        h = (b - r) / d + 2.0
+    else:
+        h = (r - g) / d + 4.0
+    return 60.0 * h, d / mx
+
+
+def _masque(dest, c, cle):
+    """Silhouette du socle (alpha > 0,5 de la couche principale hr) posée sur une toile commune centrée sur le pied (shift en tuiles)."""
+    a = np.asarray(Image.open(os.path.join(dest, "hr-%s-main.png" % cle)).convert("RGBA"))[..., 3] > 127
+    T = 400
+    m = np.zeros((T, T), dtype=bool)
+    sh = c["main"]["hr"]["shift"]
+    x0 = int(round(T / 2 + sh[0] * 64 - a.shape[1] / 2.0))
+    y0 = int(round(T / 2 + sh[1] * 64 - a.shape[0] / 2.0))
+    m[y0:y0 + a.shape[0], x0:x0 + a.shape[1]] = a
+    return m
+
+
+def marques(dest, tab):
+    """Lot VISUELS-DISTINCTS : table « marque » des tourelles à munitions (marques.py) et MESURES sur les feuilles produites : teinte de
+    la lueur du socle (moyenne pondérée par l'intensité), recouvrement (IoU) des silhouettes de socle deux à deux. Lu par
+    tests/batiments_test.lua §7 : une couleur déclarée mais non rendue, ou deux socles de même silhouette, sont refusés."""
+    noms = [n for n in TETES if n in tab and MQ.marque(n)]
+    masques = {n: _masque(dest, tab[n], n) for n in noms}
+    for n in noms:
+        g = np.asarray(Image.open(os.path.join(dest, "hr-%s-glow.png" % n)).convert("RGBA")).astype(np.float64) / 255.0
+        w = g[..., 3] * g[..., :3].max(axis=2)
+        rgb = tuple(float(x) for x in (g[..., :3] * w[..., None]).sum((0, 1)) / max(1e-6, w.sum()))
+        h, sat = _teinte(rgb)
+        m = MQ.marque(n)
+        iou = {}
+        for o in noms:
+            if o != n:
+                inter = np.logical_and(masques[n], masques[o]).sum()
+                uni = np.logical_or(masques[n], masques[o]).sum()
+                iou[o] = round(float(inter) / max(1, float(uni)), 3)
+        tab[n]["marque"] = {"forme": m["forme"], "lisere": [round(x, 3) for x in m["lisere"]], "toit": m["toit"], "fonction": m["fonction"],
+                            "mesure": {"teinte": round(h, 1), "saturation": round(sat, 3), "iou": iou}}
+
+
 def couleur_moyenne(dest, cle):
     a = np.asarray(Image.open(os.path.join(dest, "hr-%s-main.png" % cle)).convert("RGBA")).astype(np.float64)
     w = a[..., 3] / 255.0
@@ -230,6 +283,7 @@ def main():
         c["map_color"] = couleur_moyenne(a.dest, cle)
         c["icone"] = icone(a.dest, cle, fichiers, c)
         tab[cle] = c
+    marques(a.dest, tab)
     entete = ("-- FICHIER GÉNÉRÉ par tools/render/pieces/batiments/feuilles.py (lot POLISSAGE-FX) : ne pas modifier à la main.\n"
               "-- Tailles en pixels, shift, boîtes et ancrages en tuiles ; hr = 64 px par tuile (scale 0,5), normale = 32.\n"
               "-- Images hors de git (D-6) : MANIFEST.json, « commande ».\n")

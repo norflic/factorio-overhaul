@@ -1188,8 +1188,8 @@ local MUT = {
   { "m2 dernière ligne de chunks sautée", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "y_end = box.y1 + 1", "y_end = box.y1" } }, "p2" },
   { "m3 bande d'un chunk de large", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
-    { { "{ { left, top }, { right, bottom } }, force = f.force," .. string.char(10) .. "    type = BAND_TYPES",
-      "{ { left, top }, { left + 32, bottom } }, force = f.force," .. string.char(10) .. "    type = BAND_TYPES" } }, "p2" },
+    { { "{ { left, top }, { right, bottom } }, force = f.force," .. string.char(10) .. "      type = BAND_TYPES",
+      "{ { left, top }, { left + 32, bottom } }, force = f.force," .. string.char(10) .. "      type = BAND_TYPES" } }, "p2" }, -- (lot UPS-2 : branche sans zone, retrait de 6)
   -- lot LOURD (point 1 bis) : tranches en largeur
   { "m15 intervalle fermé en x [gauche, droite]", "script.team.reseau_vivant", "script/team/reseau_vivant.lua",
     { { "and p.x >= left and p.x < right then", "and p.x >= left and p.x <= right then" } }, "p2" },

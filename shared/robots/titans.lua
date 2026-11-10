@@ -409,18 +409,31 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Trois variantes : multiplicateurs sur le déchiqueteur du palier de l'ère (PV, morsure, vitesse, échelle de l'image), plaques du porteur
 --- (points de résistance de plus), cri du hurleur (zone au contact).
+--- Lot VISUELS-DISTINCTS (10/11) : chaque variante a sa LUEUR (`lueur`, couleur de la variante, lisible de loin et sur la carte) ;
+--- la teinte d'une variante à une ère mêle cette couleur (part `part_variante`) et la couleur de l'ère (T.ecorche_tint).
 T.ECORCHE = {
   id = "ecorche", era_min = 2, speed0 = 0.22, hp_mult = 2.5, morsure_mult = 1.5, pollution = 60, vision = 30,   -- 2,5 × les PV, 1,5 × la morsure du déchiqueteur du palier
-  glow0 = 0.4, glow_pas = 0.12, scale_pas = 0.05,
+  glow0 = 0.4, glow_pas = 0.12, scale_pas = 0.05, part_variante = 0.75,
   variants = {
-    { id = "rodeur", hp = 0.6, dmg = 0.8, speed = 1.35, scale = 0.9, plaques = 0, cooldown = 35 },
-    { id = "porteur", hp = 2.2, dmg = 1.0, speed = 0.8, scale = 1.15, plaques = 10, cooldown = 45 },
-    { id = "hurleur", hp = 1.0, dmg = 1.4, speed = 1.0, scale = 1.0, plaques = 0, cooldown = 60, cri_radius = 3 },
+    { id = "rodeur", hp = 0.6, dmg = 0.8, speed = 1.35, scale = 0.9, plaques = 0, cooldown = 35, lueur = { r = 0.70, g = 0.97, b = 1.00 } },
+    { id = "porteur", hp = 2.2, dmg = 1.0, speed = 0.8, scale = 1.15, plaques = 10, cooldown = 45, lueur = { r = 1.00, g = 0.50, b = 0.08 } },
+    { id = "hurleur", hp = 1.0, dmg = 1.4, speed = 1.0, scale = 1.0, plaques = 0, cooldown = 60, cri_radius = 3,
+      lueur = { r = 1.00, g = 0.16, b = 0.78 } },
   },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
 }
 
 function T.ecorche_name(v, era) return T.PREFIX .. T.ECORCHE.id .. "-" .. v.id .. "-" .. clamp(era, 1, T.ERAS) end
+
+--- Teinte (lueur en jeu, couleur de carte) d'une variante à une ère : part_variante × lueur de la variante + le reste × couleur de l'ère ;
+--- sans lueur propre : la couleur de l'ère seule (comportement d'avant).
+function T.ecorche_tint(v, era)
+  local e = T.era_color(era)
+  local c = v and v.lueur
+  if not c then return e end
+  local p = T.ECORCHE.part_variante
+  return { r = p * c.r + (1 - p) * e.r, g = p * c.g + (1 - p) * e.g, b = p * c.b + (1 - p) * e.b }
+end
 
 --- La variante d'un id (nil sinon) et son rang.
 function T.ecorche_variant(id)
@@ -461,7 +474,7 @@ function T.ecorche(v, era)
     id = k.id, variant = v.id, era = era, age = a, name = T.ecorche_name(v, era),
     hp = d.pv * k.hp_mult * v.hp, morsure = d.morsure * k.morsure_mult * v.dmg, cooldown = v.cooldown,
     speed = k.speed0 * v.speed, scale = v.scale * (1 + k.scale_pas * (era - 1)), resistances = res, cri_radius = v.cri_radius,
-    glow = math.min(1, k.glow0 + k.glow_pas * (era - 1)), tint = T.era_color(era), pollution = k.pollution * era, vision = k.vision,
+    glow = math.min(1, k.glow0 + k.glow_pas * (era - 1)), tint = T.ecorche_tint(v, era), pollution = k.pollution * era, vision = k.vision,
   }
 end
 
