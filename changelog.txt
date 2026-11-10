@@ -5,6 +5,7 @@ Date: 2026-11-10
     - Modules : les 30 icônes des modules sont redessinées (holographiques, cyan = vitesse, ambre = productivité, émeraude = efficacité, palier lisible à 64, 32 et 16 px).
     - Armes par âge : lignée Bastion à quatre modes d'attaque (cinétique, laser, arc en chaîne, plasma), fusil à rail, lanceur de singularités, projecteur de champ, frappe orbitale verrouillée derrière l'âge 4.
     - Titans : le Juggernaut (allié, trois stades) et le Kaiju cristallin (ennemi des vagues de boss) rendus depuis des modèles 3D paramétriques ; évolution des points de vie, du blindage et des armes par âge.
+    - Balises (F454) : la lueur d'une balise prend la couleur des modules qu'elle contient (cyan vitesse, ambre productivité, émeraude efficacité).
     - Stock dormant (F435) : une bande dont 30 % au moins des foreuses et des fours dorment déjà au coffre part sans attendre que la plaque manque (on pose ce qu'on a, on complète ensuite) ; les bandes en avance s'ouvrent à tout champ ainsi payé.
     - Auto-financement (F436) : un agrandissement thermique dont seule la plaque manque au QG prend ses plaques dans les fours de l'avant-poste et fabrique les paires sur place.
     - Mall (F442) : les machines qui dorment au coffre au-delà d'une réserve de 20 % paient une section de rangée de plus, sans attendre le débit.
