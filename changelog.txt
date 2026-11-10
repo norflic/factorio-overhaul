@@ -6,6 +6,7 @@ Date: 2026-11-10
     - Centrale (F491) : plus aucune chaudière ni machine à vapeur de plus tant que la demande mesurée reste sous 75 % de la capacité bâtie et en chantier ; les kW nominaux retenus par la capitalisation, l'avance sur les chantiers et le chantier en parallèle ne font plus grandir une centrale sous-employée (partie du DC sur la 0.6.87 : 16 200 kW de capacité pour 781 kW produits).
     - Défense (F488) : le cerveau lit de nouveau les tourelles et le charbon de chaque avant-poste ; depuis la 0.6.74 il les croyait sans tourelle et en posait une de plus sans fin, sans jamais agrandir l'avant-poste.
     - Défense (F489) : 6 tourelles au plus par avant-poste, posées au bord du gisement et jamais sur le minerai.
+    - Pétrole (F492) : l'extension d'un champ de puits part dès qu'un chevalet est réservé, au lieu d'attendre tous ses chevalets ; les suivants se posent à leur arrivée (playtest 0.6.87 : 2 puits sur 15 équipés, extension jamais commencée en 30 min).
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.87
 Date: 2026-11-10

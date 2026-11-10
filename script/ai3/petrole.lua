@@ -1754,7 +1754,8 @@ function Pet.wanted(f)
   local out, any = {}, false
   local function add(id)
     local br = id and Build.brief(f, id)
-    if not (br and br.state == "reserve") then return end
+    -- (lot CC-PETROLE : une extension partie sans toute sa matière garde ses manques voulus par la recherche)
+    if not (br and (br.state == "reserve" or br.progressif)) then return end
     for _, m in ipairs(br.missing or {}) do
       local r = force and force.recipes[m[1]]
       if r and not r.enabled then out[m[1]] = true; any = true end

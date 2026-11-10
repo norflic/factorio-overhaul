@@ -120,7 +120,7 @@ print(string.format("[CHANTIER-PROGRESSIF] mutants refusés : %d sur %d", refuse
 ---------------------------------------------------------------------------------------------------
 local B = read("script/team/build.lua")
 check(B:find('Build.Cp = require("shared.team.chantier_progressif")', 1, true), "build.lua charge la règle (champ de Build)")
-check(B:find("local full, need = reserve(f, p)", 1, true) and B:find("prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, spec = p.spec, need = need, stock = p.stock })", 1, true),
+check(B:find("local full, need = reserve(f, p)", 1, true) and B:find("prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, spec = p.spec, need = need, stock = p.stock", 1, true),
   "état reserve : la règle est consultée avec le besoin et la réserve du projet")
 check(B:find("if full or prog then", 1, true), "départ sur réserve complète OU plancher atteint")
 local _, nwrites = B:gsub("p%.progressif = true", "")
