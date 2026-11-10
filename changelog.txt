@@ -10,6 +10,7 @@ Date: 2026-11-10
   Bugfixes:
     - Charbon (F460) : une seule règle de réserve du coffre du QG pour tous ses lecteurs : la centrale prend d'abord son amorce et son seuil d'avance, les tournées des brûleurs ensuite (avec le tampon d'une tournée), le remplissage de confort de la centrale après elles, le reste va aux projets ; le planificateur ne réserve que les tournées. L'avant-poste de combustible est reconnu par son produit, plus par le nom du gisement.
     - Charbon (F460 bis) : l'avant-poste de combustible d'une centrale nourrie à la main garde ses foreuses thermiques à la reconstruction (ses foreuses électriques auraient besoin du courant que ce charbon produit) ; l'unique champ de charbon perdu est refait en deux minutes au lieu d'expirer.
+    - Charbon (F477) : l'avant-poste qui produit le combustible, à sec pendant que le coffre du QG manque, est ravitaillé avant les brûleurs qu'il nourrit ; si le coffre ne peut rien lui porter, la tournée mine sur place de quoi relancer ses foreuses.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.79
 Date: 2026-11-10
