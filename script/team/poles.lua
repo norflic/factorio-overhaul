@@ -28,6 +28,7 @@ local Events = require("script.core.events")
 local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
+local Elec = require("script.team.electrique") -- lot CC-MAIN : le fond ne propose pas la pioche que la garde du minage refuserait
 local Sur = require("shared.team.travail_sur") -- lot INDUSTRIE I2 : file sûre des PNJ sans tâche
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE : le réglage maître (fo-war-industrie)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : le fond ne propose pas ce que les coffres couvrent
@@ -393,7 +394,8 @@ function Poles.think(f, view, book, tick, plan)
   -- Lot MAIN-INVENTAIRE (relecture) : F.MINE_TARGETS (charbon 400 d'abord) est la vraie source du charbon à la main : une ressource que
   -- les coffres couvrent n'occupe plus les places du fond (sinon Worker.program la refuse et le cuivre attend son tour).
   for _, m in ipairs(Fond.MINE_TARGETS) do
-    if not Mi.hand_verdict({ stock = view.stock[m[1]] or 0, count = Fond.MINE_BATCH, fuel = m[1] == T.fuel }) then skip[m[1]] = true end
+    if not Mi.hand_verdict({ stock = view.stock[m[1]] or 0, count = Fond.MINE_BATCH, fuel = m[1] == T.fuel,
+      electrique = Elec.hand_blocked(f, tick, m[1]) }) then skip[m[1]] = true end
   end
   -- Lot STOCKAGE-VITAL (relecture revue-0659, (b)) : pas de minage de fond de ce que le dépôt refuserait (non vitale saturée, ou toute
   -- non vitale au-delà de T.stockage.stop_at : Stock.skip_fn) ; sinon le PNJ la mine et la garde dans son sac.

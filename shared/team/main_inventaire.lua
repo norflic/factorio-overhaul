@@ -29,11 +29,17 @@ Mi.SERVICE_KINDS = { smelt = true, smelters = true } -- tâches de fonte au QG (
 
 local function num(v) return type(v) == "number" and v or 0 end
 
---- a = { stock = objets en coffre, count = fournée de la tâche, fuel = bool, survie = bool, crisis = bool, short = manque mesuré par le demandeur }.
---- Rend ok (miner à la main), raison ("survie" | "crise" | "manque" | "stock").
+--- a = { stock = objets en coffre, count = fournée de la tâche, fuel = bool, survie = bool, crisis = bool, short = manque mesuré par le demandeur,
+--- electrique = cause (chaîne) de l'exclusion mutuelle de l'arbre de décision pour une ressource que la foreuse électrique sait extraire }.
+--- Rend ok (miner à la main), raison ("survie" | "crise" | "manque" | "stock" | "electrique").
+--- Lot CC-MAIN (mandat du DC, 10/11 22 h 20 : « dès que la première foreuse électrique est en place ou au stock, le minage au sol est radié ») :
+--- quand des foreuses électriques dorment au coffre hors phase early (Dt.thermal_allowed, la règle qui interdit déjà les paires thermiques),
+--- jamais de pioche sur ce qu'elles extraient, manque mesuré, survie et combustible compris : les PNJ libres posent le stock dormant.
+--- Seule une crise injectée par un banc passe.
 function Mi.hand_verdict(a)
-  if a.survie then return true, "survie" end
   if a.crisis then return true, "crise" end
+  if type(a.electrique) == "string" then return false, "electrique" end
+  if a.survie then return true, "survie" end
   if num(a.short) > 0 then return true, "manque" end
   local need
   if a.fuel then
