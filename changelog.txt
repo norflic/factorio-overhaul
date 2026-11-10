@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.78
+Date: 2026-11-10
+  Features:
+    - Îlots à colonnes (F463) : les îlots de circuits, de moteurs et de circuits rouges réservent eux aussi l'emprise de l'âge suivant ; la colonne de liaison entre deux machines est sur la ligne d'interface, en bras longs, et chaque îlot garde trois machines pour tenir dans son lot ; ils changent d'ère sur place sans écraser tapis ni bras.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.77
 Date: 2026-11-10
   Features:
