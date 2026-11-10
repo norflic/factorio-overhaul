@@ -4,9 +4,9 @@
 --   (2) un assaut de boss forcé par l'interface distante (préavis d'une seconde, cible « banc » loin de la zone de contenu) : le Kaiju de
 --       l'ère de la partie et son escorte apparaissent sur la force naturelle, la machine à phases passe annonce -> rassemblement -> marche,
 --       le journal [FO-ASSAUT] porte une ligne par phase.
+-- (arsenal.lua est du Lua pur sans require : lisible depuis ce mod ; la règle des assauts requiert les niveaux et les titans par des chemins
+--  relatifs au mod du jeu : ses noms sont lus par l'interface distante « assaut » : kaiju, era)
 local A = require("__factorio-overhaul__/shared/content/arsenal")
-local Ra = require("__factorio-overhaul__/shared/combat/assaut_titan")
-local T = require("__factorio-overhaul__/shared/robots/titans")
 
 local CIBLE = { x = 2600, y = 2600 } -- loin de la zone de contenu (x 300.., y 240..) : l'assaut ne touche pas les autres contrôles
 local DECLENCHE = 600                -- tick du départ forcé (après la mise en place de tous les greffons)
@@ -71,9 +71,9 @@ return {
     ctx.check(etat.n == 1 and (etat.phase == "marche" or etat.phase == "assaut" or etat.phase == "rassemblement" or etat.phase == "aucun"),
       "assaut : la machine a phases avance (" .. tostring(etat.phase) .. ")", etat.apparus .. " apparu(s), " .. etat.vivants .. " vivant(s)")
     ctx.check(etat.apparus > 0 or etat.phase == "aucun", "assaut : des assaillants sont apparus", etat.apparus)
-    local era = T.era(1) -- banc : les forces sont à l'âge 1 au plus (aucune guerre) ; le Kaiju de l'ère 1 est attendu
-    local kaijus = ctx.surface().count_entities_filtered({ name = T.kaiju_name(era), force = "enemy" })
-    ctx.check(kaijus >= 1 or etat.phase == "aucun", "assaut : le Kaiju de l'ere " .. era .. " est sur la carte (force naturelle)", kaijus)
+    local kaijus = etat.kaiju_name and ctx.surface().count_entities_filtered({ name = etat.kaiju_name, force = "enemy" }) or 0
+    ctx.check(etat.kaiju_name ~= nil and etat.era == 1, "assaut : Kaiju de l'ere de la partie (banc : ere 1, aucune guerre)", tostring(etat.kaiju_name) .. " ere " .. tostring(etat.era))
+    ctx.check(kaijus >= 1 or etat.phase == "aucun", "assaut : le Kaiju est sur la carte (force naturelle)", kaijus)
     ctx.check(etat.kaijus >= 1 or etat.phase == "aucun", "assaut : le Kaiju est inscrit a l'assaut", etat.kaijus)
   end,
 }

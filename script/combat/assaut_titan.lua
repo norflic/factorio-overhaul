@@ -192,6 +192,7 @@ local function fin(cur, tick, issue)
   for _, g in ipairs(cur.groups) do if g and g.valid then g.destroy() end end
   cur.units, cur.groups = {}, {}
   say({ "fo-assaut." .. issue, nom_base(cur.cible), cur.n })
+  st.kaiju_name, st.era = cur.compo[1][1], T.kaiju_era_of_name(cur.compo[1][1])
   st.cur = nil
 end
 
@@ -283,7 +284,8 @@ function M.state()
   local st = S()
   local cur = st.cur
   return { n = st.n, last = st.last, phase = cur and cur.phase or "aucun", cible = cur and cur.cible.id or nil, vivants = cur and #cur.units or 0,
-    kaijus = cur and #cur.kaijus or 0, apparus = cur and cur.spawned or 0 }
+    kaijus = cur and #cur.kaijus or 0, apparus = cur and cur.spawned or 0, kaiju_name = cur and cur.compo[1][1] or st.kaiju_name,
+    era = cur and T.kaiju_era_of_name(cur.compo[1][1]) or st.era }
 end
 
 --- Départ forcé (bancs, commandes) : opts = { preavis (ticks), cible = { x, y } (une position quelconque : base « banc » sans tourelles),
