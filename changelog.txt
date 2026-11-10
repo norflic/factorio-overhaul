@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.80
+Date: 2026-11-10
+  Features:
+    - Écorcheur (F471) : second titan ennemi, bipède charnel à bras-canon ; dès l'ère III il pond des Écorchés quand un ennemi est à portée ; vagues et assauts font tourner les deux Kaijus.
+    - Écorchés (F472) : mordeurs mutants en trois variantes (rôdeur rapide, porteur blindé, hurleur qui frappe en zone), pondus par l'Écorcheur, dans les nids tardifs et l'escorte des assauts.
+    - Ravageur (F473) : méga-robot d'assaut allié de l'âge 13, animé sur 8 directions ; rafale de gatling, lames de cristal, salve des géants.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.79
 Date: 2026-11-10
   Features:
@@ -7,9 +14,6 @@ Date: 2026-11-10
     - Performance (F470) : les relevés de l'hygiène électrique et des balises ne parcourent plus toute la carte mais la zone de l'équipe (rectangles du plan élargis de la portée de fil) ; coût de l'hygiène divisé par quatre (0,019 → 0,005 ms/tick), décisions identiques.
     - Effets (F468) : les tourelles Bastion II à IV, le fusil à rail, le lanceur de singularités, le projecteur de champ, la frappe orbitale et les titans ont leurs impacts teintés avec flash de lumière et étincelles, leurs ondes de choc, leurs flashs de bouche, leurs traînées et leurs vortex (orbe de plasma, roquette et champ de singularité) ; la singularité de la Sentinelle pulse au sol ; chaque couleur vient de la table de l'arme.
     - Bâtiments (F469) : le coffre d'équipe, le pylône haute tension et la cuve d'électrolyse ignée ont de vrais visuels rendus (argent iridescent, conduits cyan, accents magenta) à la place des copies vanilla teintées ; le pylône attache ses fils sur ses isolateurs.
-    - Écorcheur (F471) : second titan ennemi, bipède charnel à bras-canon ; dès l'ère III il pond des Écorchés quand un ennemi est à portée ; vagues et assauts font tourner les deux Kaijus.
-    - Écorchés (F472) : mordeurs mutants en trois variantes (rôdeur rapide, porteur blindé, hurleur qui frappe en zone), pondus par l'Écorcheur, dans les nids tardifs et l'escorte des assauts.
-    - Ravageur (F473) : méga-robot d'assaut allié de l'âge 13, animé sur 8 directions ; rafale de gatling, lames de cristal, salve des géants.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.78
 Date: 2026-11-10
