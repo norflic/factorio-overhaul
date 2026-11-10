@@ -4772,6 +4772,15 @@ local function advance(f, surface, p, tick)
       -- lot RAPATRIEMENT : la recherche du tracé continue à la pensée suivante (Rap.plan la garde en mémoire locale) ; rien n'est réservé avant la fin
       p.plan_after = tick + Build.Rapatriement.SLICE_WAIT
       p.state, p.reason = "attente", why
+      -- lot CC-PLEIN (F503) : une tranche n'est pas un plan fini : le projet CÈDE SON RANG (fin de b.order) aux projets demandés après lui.
+      -- Il gardait sa place : la tranche prend le plan de la passe (« un plan au plus par passe ») et le jeton du tick, la recherche dure des
+      -- milliers d'appels, et aucun projet derrière lui n'atteignait plus son plan (partie 0.6.89 du DC : 7 lignes en recherche dès 17 min,
+      -- 19 projets en « plan » sans un seul essai jusqu'à 82 min, dont la bande 51 de la migration du fer : avant-poste « plein par
+      -- migration », 243 PNJ sans tâche). Rien n'est réservé pendant la recherche : son rang ne sert qu'à l'ordre des essais de plan.
+      local order = {}
+      for _, x in ipairs(b.order) do if x ~= p.id then order[#order + 1] = x end end
+      order[#order + 1] = p.id
+      b.order = order
     elseif wait == "loin" then
       -- lot PD-CENTRALE : centrale lointaine, recherche de l'eau en cours (budget de la passe épuisé), rive écartée (ligne
       -- impossible) ou terrain de la ligne en génération : tout ce qui a été réservé est rendu, nouvel essai plus tard

@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.92
+Date: 2026-11-11
+  Bugfixes:
+    - Chantiers (F503) : une ligne de rapatriement qui cherche son tracé cède son rang après chaque tranche de recherche ; elle gardait le plan de chaque passe et 19 projets restaient en attente de plan jusqu'à 82 min, dont la bande de champ d'une migration du fer (partie du DC sur la 0.6.89 : gisement nu, avant-poste « plein », PNJ sans tâche).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10
   Bugfixes:
