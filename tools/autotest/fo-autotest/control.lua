@@ -39,6 +39,8 @@ KIT_EGAL["mesure-dc"] = true
 KIT_EGAL["mesure-dc-temoin"] = true
 KIT_EGAL["sortie-dc"] = true
 KIT_EGAL["sortie-dc-court"] = true
+-- Lot CC-GISEMENT (F490) : la partie du guide avec l'épave de freeplay (partie neuve du DC : kit réel des factions, comme etape1-guide).
+KIT_EGAL["etape1-guide-epave"] = true
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
 -- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions

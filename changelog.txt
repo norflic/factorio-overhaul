@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.88
+Date: 2026-11-10
+  Bugfixes:
+    - Gisements (F490) : les flammes de l'épave de départ ne font plus refuser les gisements voisins du QG comme « hostiles » ; votre équipe exploite le gisement le plus proche au lieu de tirer ses poteaux vers un gisement à 177 tuiles.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.87
 Date: 2026-11-10
   Graphics:

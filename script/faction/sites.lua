@@ -64,6 +64,11 @@ local MIN_DIST_PLAYER_SPAWN = 140
 -- Espacement entre deux avant-postes : distance réelle (session 3 : l'exclusion par chunks voisins de 96 × 96 tuiles
 -- interdisait d'exploiter un grand gisement à plusieurs), par RESSOURCE depuis le lot SITES (V.spacing).
 local ENEMY_CLEARANCE = 48
+-- Lot CC-GISEMENT (F490, partie du DC 0.6.87, graine 3592985581) : seuls les COMBATTANTS ennemis (nids, vers, unités) rendent un
+-- site hostile. Le test comptait TOUTE entité de la force « enemy » : les flammes de l'épave de freeplay (crash-site-fire-flame,
+-- créées sans force, donc « enemy » par défaut du moteur, type « fire », 5 à 30 s de vie) ont fait refuser au tick 180 les quatre
+-- sites de fer à 23-31 tuiles du coffre d'équipe, écartés 30 min ; l'équipe est partie au seul site restant, à 177 tuiles.
+local HOSTILE_TYPES = { "unit-spawner", "turret", "unit" }
 local CLAIM_SCAN_CHUNKS = 2
 
 local chunk_key = State.chunk_key
@@ -547,12 +552,15 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
       Profiler.stop("prospect:value")
       -- Moteur réel (session 3) : 27 ingénieurs tués par des vers près de leurs sites. Un site à portée
       -- d'ennemis (déchiqueteurs) est évité ; les ennemis éliminés, il redevient prospectable.
-      local hostile = surface.count_entities_filtered({ position = site, radius = ENEMY_CLEARANCE, force = "enemy", limit = 1 }) > 0
-      if hostile then
+      local foe = surface.find_entities_filtered({ position = site, radius = ENEMY_CLEARANCE, force = "enemy", type = HOSTILE_TYPES,
+        limit = 1 })[1]
+      if foe then
         Sites.mark_unreachable(site, tick)
         note_blocked(f, site, best, "hostile", tick + UNREACHABLE_TICKS)
         f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
-        refuse(f, tick, "hostile", best, site)
+        local fp = foe.position
+        refuse(f, tick, "hostile", best, site, string.format("(%s %s a %d tuiles)", foe.type, foe.name,
+          math.floor(math.sqrt((fp.x - site.x) ^ 2 + (fp.y - site.y) ^ 2))))
       else
         Profiler.start("prospect:deposit")
         site.deposit = Sites.deposit_of(f, surface, best, site) -- lot GEANT-D-ABORD : taille réelle du gisement (gain de valeur plafonné)
