@@ -7,6 +7,10 @@
 -- électriques), munitions de leur catégorie lues au prototype, cible au-delà de la portée minimale (canon 5, mortier 14).
 local TOURELLES = { "fo-bastion-2", "fo-bastion-3", "fo-bastion-4", "fo-tesla-turret", "fo-heavy-laser-turret" }
 local MUNITIONS = { "fo-bastion-1", "fo-heavy-gun-turret", "fo-cannon-turret", "fo-mortar-turret" }
+-- Lot MURS-ACIDE (10/11) : le pulvérisateur d'acide refait (socle à direction, tête tournante à 64 directions, origine du jet lue du
+-- modèle) : troisième rangée, tourné vers le sud (sa tête ne tourne que d'un tiers de tour autour du socle), fluide de son attaque lu au
+-- prototype et versé dans sa boîte à fluide, cible au sud au-delà de sa portée minimale.
+local FLUIDES = { "fo-acid-sprayer" }
 
 return {
   setup = function(ctx)
@@ -56,6 +60,20 @@ return {
       st.mun[i] = { name = name, turret = t, target = u, ammo = am }
       ctx.check(t ~= nil and u ~= nil and am ~= nil, name .. " : tourelle a munitions, cible et munition " .. tostring(am))
     end
+    st.fl = {}
+    for i, name in ipairs(FLUIDES) do
+      local x, y = z.x0 + 20 + 30 * (i - 1), z.y0 + 120
+      local p = game.entity_prototypes[name]
+      local t = p and s.create_entity({ name = name, position = { x, y }, direction = defines.direction.south, force = tir })
+      local ap = p and p.attack_parameters
+      local mn = ap and ap.min_range or 0
+      local u = s.create_entity({ name = "behemoth-biter", position = { x, y + math.max(9, mn + 5) }, force = cible })
+      if u then u.active = false end
+      local fl = ap and ap.fluids and ap.fluids[1] and ap.fluids[1].type
+      if t and fl then t.fluidbox[1] = { name = fl, amount = 100 } end
+      st.fl[i] = { name = name, turret = t, target = u, fluid = fl }
+      ctx.check(t ~= nil and u ~= nil and fl ~= nil, name .. " : tourelle a fluide, cible et fluide " .. tostring(fl))
+    end
   end,
 
   verify = function(ctx)
@@ -69,6 +87,12 @@ return {
       local dealt = t and t.valid and t.damage_dealt or 0
       ctx.check(dealt > 0, r.name .. " (tete tournante a 64 directions, origine des projectiles du modele) : tourne, tire et blesse sa cible",
         string.format("%.0f degats, munition %s", dealt, tostring(r.ammo)))
+    end
+    for _, r in ipairs(ctx.state().fl or {}) do
+      local t = r.turret
+      local dealt = t and t.valid and t.damage_dealt or 0
+      ctx.check(dealt > 0, r.name .. " (socle a direction, tete tournante a 64 directions, jet du modele) : tire et blesse sa cible",
+        string.format("%.0f degats, fluide %s", dealt, tostring(r.fluid)))
     end
   end,
 }

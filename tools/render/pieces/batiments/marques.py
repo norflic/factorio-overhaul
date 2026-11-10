@@ -16,12 +16,21 @@ MARQUES = {
     "lourde": {"forme": "hexa", "lisere": (1.000, 0.420, 0.030), "toit": "barres", "fonction": "rafale"},
     "canon": {"forme": "rond", "lisere": (1.000, 0.140, 0.700), "toit": "cible", "fonction": "perforant"},
     "mortier": {"forme": "etoile", "lisere": (0.600, 1.000, 0.100), "toit": "croix", "fonction": "indirect"},
+    # lot MURS-ACIDE (10/11) : pulvérisateur d'acide, socle rectangulaire 2×3 à citerne (m_acide.py), vert acide entre le vert-jaune du
+    # mortier (≈ 72°) et le cyan du Bastion I (≈ 182°)
+    "acide": {"forme": "citerne", "lisere": (0.120, 1.000, 0.330), "toit": "vague", "fonction": "corrosif"},
 }
+SUFFIXES = ("_n", "_e", "_s", "_w")      # variantes de direction d'un socle (acide_n…) : même marque que la tourelle
 
 
 def marque(nom):
     """La marque d'une tourelle (None pour un bâtiment sans marque : socle octogonal d'avant)."""
-    return MARQUES.get(nom)
+    if nom in MARQUES:
+        return MARQUES[nom]
+    for s in SUFFIXES:
+        if nom.endswith(s) and nom[:-len(s)] in MARQUES:
+            return MARQUES[nom[:-len(s)]]
+    return None
 
 
 def matiere(S, M, prefix, nom):

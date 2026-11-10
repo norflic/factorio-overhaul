@@ -263,4 +263,57 @@ for _, t in ipairs(TOURELLES_MUNITIONS) do
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot MURS-ACIDE (10/11) : pulvérisateur d'acide (fluid-turret 2×3), dernière tourelle de défense copiée de vanilla (lance-flammes
+-- teinté + usine chimique réduite). SOCLE À DIRECTION (turret_base_has_direction) : quatre images du même modèle tourné (plinthe
+-- rectangulaire, citerne arrière aux arrivées de tuyau du moteur, sellette avant) ; TÊTE TOURNANTE à 64 directions (bandes, mêmes
+-- couches et intensités que les tourelles à munitions), posée sur la sellette de chaque direction (u.pivots, tuiles). Origine du jet
+-- LUE DU MODÈLE : gun_center_shift = pivot + centre de la bouche, gun_barrel_length = distance de la bouche (comme POLISSAGE-3 pour les
+-- projectiles). Emprise, boîtes, santé, portée, fluides, connexions de tuyau, munition, vitesses : INCHANGÉS.
+---------------------------------------------------------------------------------------------------
+do
+  local ft = data.raw["fluid-turret"]
+  local u, e = SPR.acide, ft and ft["fo-acid-sprayer"]
+  if u and e and u.socles and u.tete and u.pivots and u.bouche then
+    local DIRS = { { "north", "n" }, { "east", "e" }, { "south", "s" }, { "west", "w" } }
+    local function decale(l, p)
+      l.shift = { l.shift[1] + p[1], l.shift[2] + p[2] }
+      l.hr_version.shift = { l.hr_version.shift[1] + p[1], l.hr_version.shift[2] + p[2] }
+      return l
+    end
+    e.base_picture = {}
+    for _, dd in ipairs(DIRS) do
+      local s = u.socles[dd[2]]
+      local L = { couche(s.main, "main"), couche(s.shadow, "shadow") }
+      if s.glow then L[#L + 1] = couche(s.glow, "glow") end
+      e.base_picture[dd[1]] = { layers = L }
+    end
+    for _, etat in ipairs(ETATS_TETE) do
+      local n = etat.tir and u.images or 1
+      local t4 = {}
+      for _, dd in ipairs(DIRS) do
+        local p = u.pivots[dd[1]]
+        t4[dd[1]] = { layers = { decale(couche_tete(u, "main", etat, n), p), decale(couche_tete(u, "shadow", etat, n), p),
+          decale(couche_tete(u, "glow", etat, n), p), decale(couche_tete(u, "light", etat, n), p) } }
+      end
+      e[etat.champ] = t4
+    end
+    e.ending_attack_animation = e.attacking_animation
+    e.water_reflection = nil
+    e.drawing_box = boite(u)
+    e.map_color = { r = u.map_color[1], g = u.map_color[2], b = u.map_color[3] }
+    e.friendly_map_color = e.map_color
+    local ap = e.attack_parameters
+    ap.gun_center_shift = {}
+    for _, dd in ipairs(DIRS) do
+      local p = u.pivots[dd[1]]
+      ap.gun_center_shift[dd[1]] = { p[1] + u.bouche.centre[1], p[2] + u.bouche.centre[2] }
+    end
+    ap.gun_barrel_length = u.bouche.distance
+    icones_munitions(e, u)
+    if data.raw.item[e.name] then icones_munitions(data.raw.item[e.name], u) end
+    habilles = habilles + 1
+  end
+end
+
 log("[FO-BATIMENTS] " .. habilles .. " bâtiment(s) habillé(s) par les feuilles de graphics/batiments")

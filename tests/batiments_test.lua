@@ -217,6 +217,29 @@ local function banc()
     raw["ammo-turret"][name] = t
     raw.item[name] = { type = "item", name = name, icons = deepcopy(t.icons), icon = t.icon, icon_size = t.icon_size, stack_size = 50 }
   end
+  -- MURS-ACIDE : pulvérisateur d'acide (forme livrée : copie du lance-flammes vanilla par prototypes/arsenal_special.lua)
+  raw["fluid-turret"] = {}
+  local function quatre() return { north = tete_vanilla(), east = tete_vanilla(), south = tete_vanilla(), west = tete_vanilla() } end
+  local fa = { type = "fluid-turret", name = "fo-acid-sprayer", max_health = 1500, collision_box = { { -0.7, -1.2 }, { 0.7, 1.2 } },
+    selection_box = { { -1, -1.5 }, { 1, 1.5 } }, minable = { mining_time = 0.5, result = "fo-acid-sprayer" },
+    flags = { "placeable-player", "player-creation" }, turret_base_has_direction = true, rotation_speed = 0.015, preparing_speed = 0.08,
+    folding_speed = 0.08, attacking_speed = 1, ending_attack_speed = 0.2, resistances = { { type = "acid", percent = 100 } },
+    fluid_box = { production_type = "input-output", secondary_draw_order = 0, render_layer = "lower-object", base_area = 1,
+      pipe_connections = { { position = { -1.5, 1.0 } }, { position = { 1.5, 1.0 } } } },
+    fluid_buffer_size = 100, fluid_buffer_input_flow = 250 / 60 / 5, activation_buffer_ratio = 0.25,
+    base_picture = quatre(), folded_animation = quatre(), preparing_animation = quatre(), prepared_animation = quatre(),
+    attacking_animation = quatre(), ending_attack_animation = quatre(), folding_animation = quatre(),
+    gun_animation_render_layer = "object", base_picture_render_layer = "lower-object-above-shadow", water_reflection = { pictures = {} },
+    icons = { { icon = "__base__/graphics/icons/flamethrower-turret.png", icon_size = 64, icon_mipmaps = 4 },
+      { icon = "__base__/graphics/icons/fluid/sulfuric-acid.png", icon_size = 64, icon_mipmaps = 4, scale = 0.3125, shift = { 8, 8 } } },
+    attack_parameters = { type = "stream", cooldown = 4, range = 26, min_range = 4, turn_range = 1 / 3, fire_penalty = 15,
+      fluids = { { type = "sulfuric-acid" } }, fluid_consumption = 0.25,
+      gun_center_shift = { north = { 0, -1.5063 }, east = { 0.5781, -1.0219 }, south = { 0, -0.725 }, west = { -0.375, -1.1469 } },
+      gun_barrel_length = 0.4,
+      ammo_type = { category = "fo-acid", action = { type = "direct", action_delivery = { type = "stream", stream = "fo-acid-spray-stream",
+        source_offset = { 0.15, -0.5 } } } } } }
+  raw["fluid-turret"]["fo-acid-sprayer"] = fa
+  raw.item["fo-acid-sprayer"] = { type = "item", name = "fo-acid-sprayer", icons = deepcopy(fa.icons), stack_size = 50 }
   return raw
 end
 
@@ -244,13 +267,14 @@ local IMAGES = { picture = true, pictures = true, animation = true, idle_animati
   integration_patch = true, map_color = true, friendly_map_color = true, drawing_box = true, water_reflection = true, icon = true,
   icons = true, icon_size = true, icon_mipmaps = true, connection_points = true, base_picture = true, folded_animation = true,
   preparing_animation = true, folding_animation = true, prepared_animation = true, attacking_animation = true,
-  energy_glow_animation = true, attack_parameters = true }
+  energy_glow_animation = true, attack_parameters = true, ending_attack_animation = true }
 local ETATS = { "folded_animation", "preparing_animation", "prepared_animation", "attacking_animation" }
 
 local function sans_origine(ap)
   local c = deepcopy(ap)
   c.source_offset, c.source_direction_count = nil, nil
   c.projectile_center, c.projectile_creation_distance = nil, nil   -- POLISSAGE-3 : origine des projectiles (exacte : §6)
+  c.gun_center_shift, c.gun_barrel_length = nil, nil               -- MURS-ACIDE : origine du jet (exacte : §8)
   local d = c.ammo_type and c.ammo_type.action and c.ammo_type.action.action_delivery
   if d then d.source_offset = nil end
   return c
@@ -370,9 +394,57 @@ local function juge_munitions(raw, avant)
   return m
 end
 
+---------------------------------------------------------------------------------------------------
+-- §8 (MURS-ACIDE, 10/11) : pulvérisateur d'acide. Socle À DIRECTION (quatre images corps + ombre + lueur), tête tournante à 64 directions
+-- sur chaque direction de socle et chaque état (fin de tir comprise), décalée du PIVOT de sa sellette, origine du jet = pivot + centre de la
+-- bouche du modèle, longueur = distance de la bouche ; le reste identique (juge §2).
+---------------------------------------------------------------------------------------------------
+local DIRS_ACIDE = { { "north", "n" }, { "east", "e" }, { "south", "s" }, { "west", "w" } }
+local ETATS_ACIDE = { "folded_animation", "preparing_animation", "prepared_animation", "attacking_animation", "ending_attack_animation" }
+local function juge_acide(raw, avant)
+  local m = {}
+  local function non(c, s) if not c then m[#m + 1] = s end end
+  if not raw then return { "habillage en erreur" } end
+  local e, u = raw["fluid-turret"]["fo-acid-sprayer"], BAT.acide
+  if not u then return { "acide absent de sprites.lua" } end
+  for _, dd in ipairs(DIRS_ACIDE) do
+    local bp = e.base_picture and e.base_picture[dd[1]] and e.base_picture[dd[1]].layers
+    local s = u.socles[dd[2]]
+    non(bp and #bp == 3 and bp[1].filename == s.main.lr.filename and bp[1].hr_version.filename == s.main.hr.filename and bp[2].draw_as_shadow
+      and bp[3].draw_as_glow, "acide : socle " .. dd[1] .. " = corps + ombre + lueur de sa direction")
+    local pv = u.pivots[dd[1]]
+    local gc = e.attack_parameters.gun_center_shift and e.attack_parameters.gun_center_shift[dd[1]]
+    non(gc and math.abs(gc[1] - (pv[1] + u.bouche.centre[1])) < 1e-9 and math.abs(gc[2] - (pv[2] + u.bouche.centre[2])) < 1e-9,
+      "acide : jet " .. dd[1] .. " parti de la bouche du modèle sur sa sellette")
+    for _, f in ipairs(ETATS_ACIDE) do
+      local L = e[f] and e[f][dd[1]] and e[f][dd[1]].layers
+      non(L and #L == 4, "acide : " .. f .. " " .. dd[1] .. " = corps, ombre, lueur, lumière")
+      for j, cc in ipairs(COUCHES_TETE) do
+        local l = L and L[j]
+        local src = u.tete[cc[1]]
+        for _, x in ipairs({ l or false, l and l.hr_version or false }) do
+          local r = x and (x == l and src.lr or src.hr)
+          non(x and x.direction_count == 64 and x.stripes and #x.stripes == 4, "acide : " .. f .. " " .. dd[1] .. " couche " .. j .. " à 64 directions")
+          non(x and x.shift and r and math.abs(x.shift[1] - (r.shift[1] + pv[1])) < 1e-9 and math.abs(x.shift[2] - (r.shift[2] + pv[2])) < 1e-9,
+            "acide : " .. f .. " " .. dd[1] .. " couche " .. j .. " posée sur la sellette (pivot)")
+          non(x and (cc[2] == nil or x[cc[2]]), "acide : " .. f .. " couche " .. j .. " " .. tostring(cc[2]))
+        end
+      end
+    end
+  end
+  non(math.abs(e.attack_parameters.gun_barrel_length - u.bouche.distance) < 1e-9, "acide : longueur du jet = distance de la bouche")
+  non(e.water_reflection == nil, "acide : reflet vanilla retiré")
+  for _, p in ipairs({ e, raw.item["fo-acid-sprayer"] }) do
+    local ic0 = (p == e and avant["fluid-turret"]["fo-acid-sprayer"] or avant.item["fo-acid-sprayer"]).icons
+    non(p.icons and p.icons[1].icon == u.icone.filename and #p.icons == #ic0 and p.icons[2].icon == ic0[2].icon, "acide : icône neuve + calque d'aujourd'hui")
+  end
+  return m
+end
+
 local function juge_tout(r, a)
   local m = juge(r, a)
   for _, x in ipairs(juge_munitions(r, a)) do m[#m + 1] = x end
+  for _, x in ipairs(juge_acide(r, a)) do m[#m + 1] = x end
   return m
 end
 
@@ -384,6 +456,9 @@ check(#motifs == 0, "§2-3 les huit bâtiments habillés, gameplay intact")
 local motifs6 = juge_munitions(raw, avant)
 for _, s in ipairs(motifs6) do check(false, "§6 " .. s) end
 check(#motifs6 == 0, "§6 les quatre tourelles à munitions habillées, gameplay intact hors origine des projectiles")
+local motifs8 = juge_acide(raw, avant)
+for _, s in ipairs(motifs8) do check(false, "§8 " .. s) end
+check(#motifs8 == 0, "§8 pulvérisateur d'acide habillé (socle à direction, tête à 64 directions), gameplay intact hors origine du jet")
 
 ---------------------------------------------------------------------------------------------------
 -- §4 pulsation
@@ -434,6 +509,14 @@ mutant("rotation changée", "    e.water_reflection = nil\n    e.drawing_box = b
 mutant("lueur de tête plate", 'local k = kind == "light" and etat.k * 0.5 or etat.k', "local k = 1")
 mutant("socle sans lueur", '    if u.glow then socle[#socle + 1] = couche(u.glow, "glow") end\n', "")
 mutant("calques d'aujourd'hui perdus (munitions)", "for j = 2, #ancien do", "for j = 2, 1 do")
+-- §8 (MURS-ACIDE) pulvérisateur d'acide
+mutant("socle d'une seule direction", "      e.base_picture[dd[1]] = { layers = L }", "      e.base_picture = { layers = L }")
+mutant("tête non posée sur la sellette", "      l.shift = { l.shift[1] + p[1], l.shift[2] + p[2] }\n", "")
+mutant("jet sans la sellette", "{ p[1] + u.bouche.centre[1], p[2] + u.bouche.centre[2] }", "{ u.bouche.centre[1], u.bouche.centre[2] }")
+mutant("longueur du jet non lue", "    ap.gun_barrel_length = u.bouche.distance\n", "")
+mutant("fin de tir vanilla gardée", "    e.ending_attack_animation = e.attacking_animation\n", "")
+mutant("tête du seul socle nord", "      e[etat.champ] = t4", "      e[etat.champ] = t4.north")
+mutant("fluide changé", "    e.friendly_map_color = e.map_color\n", "    e.friendly_map_color = e.map_color\n    e.fluid_buffer_size = 50\n")
 -- PULSE
 for _, m in ipairs({ { "pulsation plate", "PULSE = (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)" },
   { "pulsation montante seulement", "PULSE = (0.5, 0.62, 0.76, 0.9, 1.0, 1.0, 1.0, 1.0)" } }) do

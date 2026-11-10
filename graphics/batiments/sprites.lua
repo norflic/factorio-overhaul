@@ -2,6 +2,260 @@
 -- Tailles en pixels, shift, boîtes et ancrages en tuiles ; hr = 64 px par tuile (scale 0,5), normale = 32.
 -- Images hors de git (D-6) : MANIFEST.json, « commande ».
 return {
+  acide = {
+    boite = { { -1.7188, -1.625 }, { 1.8125, 1.625 } },
+    bouche = {
+      centre = { 0.0, -0.4243 },
+      distance = 0.75
+    },
+    directions = 64,
+    icone = {
+      filename = "__factorio-overhaul__/graphics/batiments/acide_s-icone.png",
+      icon_mipmaps = 4,
+      icon_size = 64
+    },
+    images = 1,
+    map_color = { 0.374, 0.472, 0.48 },
+    marque = {
+      fonction = "corrosif",
+      forme = "citerne",
+      lisere = { 0.12, 1.0, 0.33 },
+      mesure = {
+        saturation = 0.585,
+        teinte = 146.2
+      },
+      toit = "vague"
+    },
+    pivots = {
+      east = { 0.35, 0.0 },
+      north = { 0.0, -0.35 },
+      south = { 0.0, 0.35 },
+      west = { -0.35, 0.0 }
+    },
+    rangs = 16,
+    socles = {
+      e = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_e-glow.png",
+            height = 132,
+            shift = { 0.0, -0.21875 },
+            width = 188
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_e-glow.png",
+            height = 66,
+            shift = { 0.0, -0.21875 },
+            width = 94
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_e-main.png",
+            height = 168,
+            shift = { 0.0, -0.09375 },
+            width = 220
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_e-main.png",
+            height = 84,
+            shift = { 0.0, -0.09375 },
+            width = 110
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_e-shadow.png",
+            height = 132,
+            shift = { 0.046875, 0.0 },
+            width = 198
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_e-shadow.png",
+            height = 66,
+            shift = { 0.046875, 0.0 },
+            width = 99
+          }
+        }
+      },
+      n = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_n-glow.png",
+            height = 192,
+            shift = { 0.0, -0.0625 },
+            width = 128
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_n-glow.png",
+            height = 96,
+            shift = { 0.0, -0.0625 },
+            width = 64
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_n-main.png",
+            height = 208,
+            shift = { 0.0, 0.0 },
+            width = 168
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_n-main.png",
+            height = 104,
+            shift = { 0.0, 0.0 },
+            width = 84
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_n-shadow.png",
+            height = 192,
+            shift = { 0.296875, 0.0 },
+            width = 166
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_n-shadow.png",
+            height = 96,
+            shift = { 0.296875, 0.0 },
+            width = 83
+          }
+        }
+      },
+      s = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_s-glow.png",
+            height = 186,
+            shift = { 0.0, -0.078125 },
+            width = 128
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_s-glow.png",
+            height = 93,
+            shift = { 0.0, -0.078125 },
+            width = 64
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_s-main.png",
+            height = 208,
+            shift = { 0.0, 0.0 },
+            width = 168
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_s-main.png",
+            height = 104,
+            shift = { 0.0, 0.0 },
+            width = 84
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_s-shadow.png",
+            height = 192,
+            shift = { 0.296875, 0.0 },
+            width = 166
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_s-shadow.png",
+            height = 96,
+            shift = { 0.296875, 0.0 },
+            width = 83
+          }
+        }
+      },
+      w = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_w-glow.png",
+            height = 134,
+            shift = { -0.03125, -0.234375 },
+            width = 184
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_w-glow.png",
+            height = 67,
+            shift = { -0.03125, -0.234375 },
+            width = 92
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_w-main.png",
+            height = 168,
+            shift = { 0.0, -0.09375 },
+            width = 220
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_w-main.png",
+            height = 84,
+            shift = { 0.0, -0.09375 },
+            width = 110
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/batiments/hr-acide_w-shadow.png",
+            height = 132,
+            shift = { 0.15625, 0.0 },
+            width = 212
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/batiments/acide_w-shadow.png",
+            height = 66,
+            shift = { 0.15625, 0.0 },
+            width = 106
+          }
+        }
+      }
+    },
+    tete = {
+      glow = {
+        hr = {
+          height = 80,
+          shift = { -0.015625, -0.4375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-acide-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-glow-4.png" },
+          width = 82
+        },
+        lr = {
+          height = 40,
+          shift = { -0.015625, -0.4375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/acide-tete-glow-1.png", "__factorio-overhaul__/graphics/batiments/acide-tete-glow-2.png", "__factorio-overhaul__/graphics/batiments/acide-tete-glow-3.png", "__factorio-overhaul__/graphics/batiments/acide-tete-glow-4.png" },
+          width = 41
+        }
+      },
+      main = {
+        hr = {
+          height = 104,
+          shift = { 0.0, -0.4375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-acide-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-main-4.png" },
+          width = 100
+        },
+        lr = {
+          height = 52,
+          shift = { 0.0, -0.4375 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/acide-tete-main-1.png", "__factorio-overhaul__/graphics/batiments/acide-tete-main-2.png", "__factorio-overhaul__/graphics/batiments/acide-tete-main-3.png", "__factorio-overhaul__/graphics/batiments/acide-tete-main-4.png" },
+          width = 50
+        }
+      },
+      shadow = {
+        hr = {
+          height = 100,
+          shift = { 0.546875, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/hr-acide-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/hr-acide-tete-shadow-4.png" },
+          width = 106
+        },
+        lr = {
+          height = 50,
+          shift = { 0.546875, 0.0 },
+          stripes = { "__factorio-overhaul__/graphics/batiments/acide-tete-shadow-1.png", "__factorio-overhaul__/graphics/batiments/acide-tete-shadow-2.png", "__factorio-overhaul__/graphics/batiments/acide-tete-shadow-3.png", "__factorio-overhaul__/graphics/batiments/acide-tete-shadow-4.png" },
+          width = 53
+        }
+      }
+    }
+  },
   bastion1 = {
     boite = { { -1.1562, -1.625 }, { 1.6875, 1.0938 } },
     bouche = {

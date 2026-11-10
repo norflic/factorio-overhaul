@@ -44,6 +44,9 @@ def toit(k, motif, x, y, z, s):
     elif motif == "cible":
         k.tore(m, x, y, z, s * 0.42, s * 0.06, 40, 6)
         k.cyl(m, x, y, z - e / 2, z + e / 2, s * 0.13, 16)
+    elif motif == "vague":    # lot MURS-ACIDE : trois traits en zigzag (le jet), pulvérisateur d'acide
+        for i, sens in ((-1, 1), (0, -1), (1, 1)):
+            k.b(m, (x + i * s * 0.26, y, z), (s * 0.34, s * 0.11, e), rz=sens * math.radians(40.0))
     elif motif == "croix":
         for a in (45.0, -45.0):
             k.b(m, (x, y, z), (s * 0.95, s * 0.13, e), rz=math.radians(a))
