@@ -30,12 +30,16 @@ return {
     -- (2) Écorcheur de la première ère ouverte, loin de tout, sans ennemi : il reste et vit
     st.jeune = ec and s.create_entity({ name = ec.noms[first_era].name, position = { x0, y0 }, force = ennemi })
     if st.jeune then st.jeune.set_command({ type = defines.command.wander, radius = 3 }) end
-    -- (3) Écorcheur de l'ère de la ponte, avec un mur du joueur à 12 tuiles (ennemi à portée de la ponte)
+    -- (3) Écorcheur de l'ère de la ponte, avec un mur ennemi à 12 tuiles (cible à portée de la ponte). Le banc content met la force
+    -- naturelle en cessez-le-feu avec le joueur (content_test.lua) : la cible est une force propre au greffon, en GUERRE avec elle.
+    local cible = game.forces["fo-kaiju-cible"] or game.create_force("fo-kaiju-cible")
+    cible.set_cease_fire(ennemi, false)
+    ennemi.set_cease_fire(cible, false)
     local px, py = x0 + CIBLE_DX, y0 + 40
     st.parent = ec and s.create_entity({ name = ec.noms[ponte_era].name, position = { px, py }, force = ennemi })
     st.mur = {}
     for i = -2, 2 do
-      local w = s.create_entity({ name = "stone-wall", position = { px + 12, py + i }, force = game.forces.player })
+      local w = s.create_entity({ name = "stone-wall", position = { px + 12, py + i }, force = cible })
       if w then
         w.destructible = false -- la cible reste : la ponte ne dépend pas de la vitesse à laquelle le parent la détruit
         st.mur[#st.mur + 1] = w
@@ -100,7 +104,7 @@ return {
       nes = s.count_entities_filtered({ position = st.parent.position, radius = 40, name = noms_enfants, force = game.forces.enemy })
     end
     ctx.check(st.parent and st.parent.valid, "ecorcheur (ere de la ponte) : vivant", st.parent and st.parent.valid)
-    ctx.check(nes >= 2, "ponte : des Ecorches sont nes autour de l'Ecorcheur (mur du joueur a portee)", nes .. " ne(s), avant " .. tostring(st.avant))
+    ctx.check(nes >= 2, "ponte : des Ecorches sont nes autour de l'Ecorcheur (mur ennemi a portee)", nes .. " ne(s), avant " .. tostring(st.avant))
     ctx.check(etat and etat.ecorcheurs >= 1 and etat.enfants >= 2, "ponte : l'etat de l'interface compte le parent et ses enfants", etat and (etat.ecorcheurs .. "/" .. etat.enfants))
     ctx.check(etat and #etat.noms_ponte >= 1, "ponte : noms des Kaijus a ponte lus a la regle", etat and #etat.noms_ponte)
   end,
