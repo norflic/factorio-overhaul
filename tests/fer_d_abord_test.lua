@@ -50,6 +50,9 @@ local function body()
   check(Th.fuel_short(2 * hz - 1, 2) == true, "m19 sous l'horizon : manque")
   check(Th.fuel_short(0, 0) == false, "m20 sans consommation lue : pas de manque mesure")
   check(Th.fuel_short(nil, nil) == false, "m21 mesures absentes : pas de manque")
+  check(Th.fuel_starved(0, 2, 0) == false, "m21b affame : aucun brûleur a sec, pas affame")
+  check(Th.fuel_starved(0, 2, 1) == true, "m21c affame : stock nul et un brûleur a sec")
+  check(Th.fuel_starved(2 * hz, 2, 5) == false, "m21d affame : stock qui ponte l'horizon, pas affame")
   -- horloge
   local s, l = Th.iron_clock(nil, nil, true, 500)
   check(s == 500 and l == 500, "m22 premier refus : l'horloge part")
@@ -88,7 +91,7 @@ f:close()
 check(mig:find("Th.raw_holds({ tier = it.tier, wanted = it.wanted, iron_waiting = iron_waiting, fuel = is_fuel, fuel_short = short,", 1, true) ~= nil, "le gisement brut est retenu par Th.raw_holds")
 check(mig:find("if Th.iron_waits(it.tier, why) then -- lot FER-D-ABORD", 1, true) ~= nil, "le refus « plaques » d'un gisement de plaques leve le drapeau")
 check(mig:find("Th.iron_clock(ms.iron_since, ms.iron_last, true, tick)", 1, true) ~= nil, "l'horloge avance au refus « plaques »")
-check(mig:find("short = Th.fuel_short(free[spec.product] or 0, burn)", 1, true) ~= nil, "le manque de combustible est mesure au stock et a la consommation")
+check(mig:find("short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", 1, true) ~= nil, "le manque de combustible est mesure au stock, au plancher et aux brûleurs a sec")
 check(mig:find("if (it.tier or 0) == 0 then ms.iron_since, ms.iron_last, ms.iron_note = nil, nil, nil end", 1, true) ~= nil, "le depart d'une bande de fer remet l'horloge a zero")
 local a = mig:find("local iron_waiting = false", 1, true)
 local b = mig:find("Th.raw_holds({ tier", 1, true)
@@ -112,6 +115,12 @@ local function plancher_cas(McX)
   local g = McX.floor(0.35, {}, 4000)
   ok(math.abs(g - 0.35) < 1e-9, "p5 générateurs seuls : le plancher est leur consommation mesurée")
   ok(McX.floor(0.35, { { kw = 90, n = 10 } }, 4000) > 0.35 + 0.2, "p6 générateurs + brûleurs : les deux s'ajoutent")
+  -- 2e cycle (panel AVP-P du 1er : fer 72 495 contre 100 075) : en ouverture le stock est nul et le plancher à pleine cadence > 0, mais aucun brûleur
+  -- n'est à sec : pas d'affamement, la retenue tient ; dès qu'un brûleur vital est mesuré à sec, la bande de combustible part
+  ok(Th.fuel_starved(0, fl, 0) == false, "p7 ouverture : stock nul, aucun brûleur a sec : pas affame (retenue)")
+  ok(Th.fuel_starved(0, fl, 3) == true, "p8 stock nul et 3 brûleurs a sec : affame")
+  ok(Th.fuel_starved(1e6, fl, 3) == false, "p9 stock qui ponte l'horizon : pas affame malgre des brûleurs a sec")
+  ok(Th.fuel_starved(0, 0, 3) == false, "p10 sans plancher lu : pas affame")
   return bad
 end
 local function cablage(txt)
@@ -121,7 +130,8 @@ local function cablage(txt)
   local zone = (a and b and a < b) and txt:sub(a, b) or ""
   if not zone:find("burn = burn or fuel_floor(f, surface)", 1, true) then bad = bad + 1 end
   if zone:find("fuel_burn(f, surface)", 1, true) then bad = bad + 1 end
-  if not zone:find("short = Th.fuel_short(free[spec.product] or 0, burn)", 1, true) then bad = bad + 1 end
+  if not zone:find("short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", 1, true) then bad = bad + 1 end
+  if not zone:find("dry_n = dry_n or burners_dry(f)", 1, true) then bad = bad + 1 end
   if not zone:find("if is_fuel then", 1, true) then bad = bad + 1 end
   return bad
 end
@@ -146,6 +156,8 @@ local mutants = {
   { "horloge jamais reprise", "local live = since ~= nil and last ~= nil and tick - last <= cfg.iron_hold_gap", "local live = since ~= nil and last ~= nil" },
   { "horloge remise a chaque refus", "if live then return since, tick end", "if live then return tick, tick end" },
   { "horloge jamais eteinte", "if live then return since, last end", "if true then return since, last end" },
+  { "affame sans brûleur a sec", "return (dry or 0) > 0 and M.fuel_short(stock, floor, cfg)", "return M.fuel_short(stock, floor, cfg)" },
+  { "affame sans le stock", "return (dry or 0) > 0 and M.fuel_short(stock, floor, cfg)", "return (dry or 0) > 0" },
 }
 for _, m in ipairs(mutants) do
   local x, y = src:find(m[2], 1, true)
@@ -185,7 +197,8 @@ for _, m in ipairs({
 end
 for _, m in ipairs({
   { "retour aux seuls générateurs (le défaut)", "burn = burn or fuel_floor(f, surface)", "burn = burn or fuel_burn(f, surface)" },
-  { "manque jamais lu", "short = Th.fuel_short(free[spec.product] or 0, burn)", "short = false" },
+  { "manque jamais lu", "short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", "short = false" },
+  { "brûleurs à sec ignorés (le 1er cycle)", "short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", "short = Th.fuel_short(free[spec.product] or 0, burn)" },
   { "exemption du combustible retiree", "if is_fuel then", "if false then" },
 }) do
   local src2 = mig:gsub(string.char(13), "")
