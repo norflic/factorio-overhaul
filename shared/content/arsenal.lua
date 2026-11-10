@@ -324,6 +324,22 @@ A.cataclysm = {
     packs = PACKS.age4, count = 2500, time = 60 },
 }
 
+-- Lot ASSAUTS-TITANESQUES (10/11) : BARRIÈRE ÉNERGÉTIQUE DE PÉRIMÈTRE, arme de fin de partie de l'âge 4. Mécanique RÉELLE de 1.1 :
+-- une tourelle électrique 1×1 (emprise d'un mur : les ennemis contournent ou la mordent) à portée COURTE qui décharge un arc sur tout
+-- ennemi qui franchit son champ (dégâts électriques de zone + autocollant de ralentissement) ; sans courant, le moteur l'éteint. Une
+-- ligne de bornes espacées de `field.radius` × 2 au plus fait une barrière continue. Les PNJ la voient comme une tourelle électrique
+-- (type du moteur) ; role « perimetre » pour les cerveaux qui lisent ces données. Sprites : rendu Blender (tools/render/pieces/arsenal/
+-- barriere.py -> graphics/arsenal/barriere), tête vanilla réduite par-dessus. Équilibrage PROVISOIRE (le DC tranche).
+A.perimetre = {
+  name = "fo-perimeter-barrier", age = 4, mode = "barriere", copy_type = "electric-turret", copy = "laser-turret", role = "perimetre",
+  tint = { r = 0.75, g = 0.80, b = 0.90 }, glow = { r = 0.10, g = 0.90, b = 1.00 },
+  hp = 1800, range = 3.5, cooldown = 20, energy = "250kJ", buffer = "3MJ", input = "1.5MW", drain = "15kW",
+  field = { radius = 2.5, damage = 45, dtype = "electric", slow = 0.35, slow_ticks = 90 },
+  ingredients = { { "fo-armored-wall", 2 }, { "fo-superconducting-coil", 2 }, { "processing-unit", 2 }, { "fo-resonance-crystal", 4 } },
+  tech = { name = "fo-perimeter-barrier", icon_from = "stone-wall", prerequisites = { "fo-bastion-4", "fo-superconductors" },
+    packs = PACKS.age4, count = 1800, time = 60 },
+}
+
 --- Entrée de la lignée pour un âge (1 à 4), ou nil.
 function A.age_turret(age)
   for _, t in ipairs(A.ages) do if t.age == age then return t end end

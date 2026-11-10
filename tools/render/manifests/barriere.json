@@ -1,0 +1,301 @@
+{
+ "calib": {
+  "AO_COLOR": [
+   0.035,
+   0.03,
+   0.025
+  ],
+  "AO_DISTANCE": 0.38,
+  "AO_GAMMA": 2.0,
+  "AO_STRENGTH": 5.5,
+  "BIBLE_MEDIAN": {
+   "1": 50,
+   "2": 52,
+   "3": 58,
+   "4": 60,
+   "5": 42,
+   "6": 64,
+   "7": 55,
+   "8": 60,
+   "9": 56,
+   "10": 82,
+   "11": 100,
+   "12": 60,
+   "13": 92,
+   "14": 88,
+   "15": 108
+  },
+  "BIBLE_TOL": 10.0,
+  "BLENDER_VERSION": "5.2.2 LTS",
+  "CARRIER_RATIO_MAX": 1.3,
+  "CHEMINEE_HALO_W": 40.0,
+  "COS_T": 0.7071067811865476,
+  "ENGINE_SHADOW_FACTOR": 0.5,
+  "FILL_AZIMUTH_DEG": 180.0,
+  "FILL_ELEV_DEG": 90.0,
+  "FILL_STRENGTH": 1.5,
+  "FILTER_WIDTH_PX": 1.5,
+  "GROUND_ALBEDO": 0.15,
+  "GROUND_GLOSSY_ALBEDO": null,
+  "LIGHT_AREA_RANGE": [
+   0.8,
+   2.2
+  ],
+  "LIGHT_EMIT_GAIN": 2.0,
+  "LIGHT_HOLDOUT": false,
+  "LIGHT_MAX": 0.8,
+  "LIGHT_PEAK_RANGE": [
+   0.3,
+   0.55
+  ],
+  "LIGHT_RADIUS_TILES": [
+   1.2,
+   2.2
+  ],
+  "LIGHT_SCALE": 1.0,
+  "MAX_BOUNCES": 6,
+  "PHOTO_RANGES": {
+   "lap_over_std": [
+    0.69,
+    1.19
+   ],
+   "mean": [
+    0.178,
+    0.361
+   ],
+   "p05": [
+    0.0,
+    0.105
+   ],
+   "p50": [
+    0.092,
+    0.293
+   ],
+   "p95": [
+    0.657,
+    0.847
+   ],
+   "sat": [
+    0.17,
+    0.45
+   ],
+   "specks": [
+    0.0,
+    0.007
+   ],
+   "std": [
+    0.177,
+    0.243
+   ]
+  },
+  "PX_PER_UNIT_HR": 64.0,
+  "SAMPLES": 256,
+  "SEED": 20261021,
+  "SIN_T": 0.7071067811865476,
+  "SKY_COLOR": [
+   0.8,
+   0.86,
+   1.0
+  ],
+  "SKY_GLOSSY_FACTOR": null,
+  "SKY_STRENGTH": 0.08,
+  "STEEL_BASE": [
+   0.45,
+   0.43,
+   0.4
+  ],
+  "STEEL_METALLIC": 0.6,
+  "STEEL_ROUGH": 0.5,
+  "SUN_ANGLE_DEG": 0.0,
+  "SUN_AZIMUTH_DEG": 270.0,
+  "SUN_COLOR": [
+   1.0,
+   0.95,
+   0.86
+  ],
+  "SUN_ELEV_DEG": 48.0,
+  "SUN_STRENGTH": 1.9,
+  "THETA_DEG": 45.0,
+  "TILE_DEPTH_UNITS": 1.414213562373095,
+  "VANILLA_GROUND_LIGHT_RGB": [
+   1.0,
+   0.49,
+   0.05
+  ]
+ },
+ "icon": {
+  "barriere-icon.png": "01298377c8fee04b3bbd4583c8326881ea9b80cef281e479d6dba77696f982ed"
+ },
+ "piece": "barriere",
+ "piece_source": "tools/render/pieces/arsenal/barriere.py",
+ "seconds_total": 24.9,
+ "sprites_lua": "7a682682c15ab705a084c26af2a73271df5b03a7ca7bc92721daafa6c3c461ae",
+ "variants": [
+  {
+   "check_failures": [],
+   "checks": {
+    "bible_epochs": [
+     12
+    ],
+    "emissive_square_px": 25,
+    "light": {
+     "area_tiles2": 0.1621,
+     "east": 0.0,
+     "integral": 0.1064,
+     "north": 1.0781,
+     "peak": 1.0,
+     "south": 0.0,
+     "west": 0.0
+    },
+    "light_area_in_range": false,
+    "light_on_piece_frac": 0.9618,
+    "light_on_piece_max": 1.0,
+    "light_peak_in_range": false,
+    "light_pockets_px": 0,
+    "main_enclosed_mean_alpha": 0.0,
+    "main_enclosed_px": 0,
+    "main_thin_frac": 0.0015,
+    "main_thin_px": 6,
+    "photometry": {
+     "bible_p05_p50_p95": [
+      7.829,
+      66.2755,
+      230.6484
+     ],
+     "frac_gt_0_5": 0.2508,
+     "grad": 0.056,
+     "grain": 0.0355,
+     "lap_over_std": 0.4167,
+     "lap_rms": 0.1086,
+     "mean": 0.3691,
+     "n": 319,
+     "p05": 0.0751,
+     "p50": 0.2904,
+     "p95": 0.9442,
+     "sat": 0.116,
+     "specks": 0.0016,
+     "std": 0.2605
+    },
+    "photometry_out_of_range": [
+     "lap_over_std",
+     "mean",
+     "p95",
+     "sat",
+     "std"
+    ]
+   },
+   "dest": "arsenal/barriere",
+   "files": {
+    "barriere-borne-glow.png": "c876c59da43ea34cd7988e7e6f2a0fdd05a817a1fff293ed619c2c25464cfe76",
+    "barriere-borne-light.png": "bb02351186ad0926835ecaea6ef137dbeaef62d62dfb84c66a1a451b4fb0aae8",
+    "barriere-borne-main.png": "f21735e8b38ca0af276721247e425e49daf4ac26014104f65622c67945655c52",
+    "barriere-borne-shadow.png": "0228e97d523f70c62dfc64cc1d8dbb650477ae394f5fa99fdea2c82a907a4512",
+    "hr-barriere-borne-glow.png": "ab207b6dee2caa88a0b05cf820854940b3ac90f2265e29e4008ed0335e4aa504",
+    "hr-barriere-borne-light.png": "13ba6401080417d609081d6d8ba67c5ef325f348dc0899346b10d3eaa049daec",
+    "hr-barriere-borne-main.png": "c28965778b5aee1a114f1d0da5b4704a5f237d82c390aecb6307441c77c39efa",
+    "hr-barriere-borne-shadow.png": "94201a0c4700e8a24dbb6a0b978ffae782c831dac41bad00ad679a63b750d899"
+   },
+   "name": "barriere-borne",
+   "render": {
+    "blender": "5.2.2 LTS",
+    "blender_hash": "d13f752e3b9c",
+    "calib_overrides": [],
+    "canvas": [
+     272,
+     238
+    ],
+    "hidden": [],
+    "occluders": [],
+    "origin_px": [
+     93,
+     152
+    ],
+    "samples": 256,
+    "seconds": 24.7,
+    "seed": 20261021
+   },
+   "spec": {
+    "glow": {
+     "hr": {
+      "filename": "hr-barriere-borne-glow.png",
+      "height": 98,
+      "shift": [
+       0.0,
+       -0.453125
+      ],
+      "width": 56
+     },
+     "lr": {
+      "filename": "barriere-borne-glow.png",
+      "height": 49,
+      "shift": [
+       0.0,
+       -0.453125
+      ],
+      "width": 28
+     }
+    },
+    "light": {
+     "hr": {
+      "filename": "hr-barriere-borne-light.png",
+      "height": 68,
+      "shift": [
+       0.0,
+       -0.6875
+      ],
+      "width": 36
+     },
+     "lr": {
+      "filename": "barriere-borne-light.png",
+      "height": 34,
+      "shift": [
+       0.0,
+       -0.6875
+      ],
+      "width": 18
+     }
+    },
+    "main": {
+     "hr": {
+      "filename": "hr-barriere-borne-main.png",
+      "height": 108,
+      "shift": [
+       0.0,
+       -0.375
+      ],
+      "width": 84
+     },
+     "lr": {
+      "filename": "barriere-borne-main.png",
+      "height": 54,
+      "shift": [
+       0.0,
+       -0.375
+      ],
+      "width": 42
+     }
+    },
+    "shadow": {
+     "hr": {
+      "filename": "hr-barriere-borne-shadow.png",
+      "height": 40,
+      "shift": [
+       0.5625,
+       0.0
+      ],
+      "width": 128
+     },
+     "lr": {
+      "filename": "barriere-borne-shadow.png",
+      "height": 20,
+      "shift": [
+       0.5625,
+       0.0
+      ],
+      "width": 64
+     }
+    }
+   }
+  }
+ ]
+}

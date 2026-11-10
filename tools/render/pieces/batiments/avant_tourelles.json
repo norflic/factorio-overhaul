@@ -1,0 +1,624 @@
+{
+ "source": "état livré à release-0.6.77 @ 029494df (0.6.79), lu par le banc data-stage : socle + tête repliée, direction 0, image 0 ; couches de lumière omises",
+ "tourelles": {
+  "bastion2": [
+   {
+    "champ": "base_picture",
+    "fichier": "laser-turret/hr-laser-turret-base.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     138,
+     104
+    ],
+    "scale": 0.5,
+    "shift": [
+     -0.015625,
+     0.0625
+    ],
+    "tint": [
+     0.7,
+     0.95,
+     1.0
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "laser-turret/hr-laser-turret-base-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     132,
+     82
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.1875,
+     0.09375
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     130,
+     126
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.015625
+    ],
+    "tint": [
+     0.7,
+     0.95,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     182,
+     96
+    ],
+    "scale": 0.5,
+    "shift": [
+     1.46875,
+     0.078125
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.34375
+    ],
+    "tint": [
+     0.7,
+     0.95,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.34375
+    ],
+    "tint": [
+     0.315,
+     0.81,
+     0.9
+    ]
+   }
+  ],
+  "bastion3": [
+   {
+    "champ": "base_picture",
+    "fichier": "laser-turret/hr-laser-turret-base.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     138,
+     104
+    ],
+    "scale": 0.5,
+    "shift": [
+     -0.015625,
+     0.0625
+    ],
+    "tint": [
+     0.55,
+     0.8,
+     1.0
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "laser-turret/hr-laser-turret-base-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     132,
+     82
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.1875,
+     0.09375
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     130,
+     126
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.015625
+    ],
+    "tint": [
+     0.55,
+     0.8,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     182,
+     96
+    ],
+    "scale": 0.5,
+    "shift": [
+     1.46875,
+     0.078125
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.34375
+    ],
+    "tint": [
+     0.55,
+     0.8,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.34375
+    ],
+    "tint": [
+     0.405,
+     0.765,
+     0.9
+    ]
+   }
+  ],
+  "bastion4": [
+   {
+    "champ": "base_picture",
+    "fichier": "artillery-turret/hr-artillery-turret-base.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     207,
+     199
+    ],
+    "scale": 0.31,
+    "shift": [
+     -0.0,
+     0.42625
+    ],
+    "tint": [
+     0.8,
+     0.72,
+     0.86
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "artillery-turret/hr-artillery-turret-base-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     277,
+     149
+    ],
+    "scale": 0.31,
+    "shift": [
+     0.34875,
+     0.73625
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     130,
+     126
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.015625
+    ],
+    "tint": [
+     0.95,
+     0.7,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     182,
+     96
+    ],
+    "scale": 0.5,
+    "shift": [
+     1.46875,
+     0.078125
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.34375
+    ],
+    "tint": [
+     0.95,
+     0.7,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -1.34375
+    ],
+    "tint": [
+     0.9,
+     0.405,
+     0.855
+    ]
+   }
+  ],
+  "laser_lourd": [
+   {
+    "champ": "base_picture",
+    "fichier": "beacon/hr-beacon-bottom.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     212,
+     192
+    ],
+    "scale": 0.525,
+    "shift": [
+     0.01640625,
+     0.0328125
+    ],
+    "tint": [
+     0.85,
+     0.8,
+     0.95
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "beacon/hr-beacon-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     244,
+     176
+    ],
+    "scale": 0.525,
+    "shift": [
+     0.41015625,
+     0.01640625
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     130,
+     126
+    ],
+    "scale": 0.75,
+    "shift": [
+     0.0,
+     -1.5234375
+    ],
+    "tint": [
+     0.92,
+     0.82,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     182,
+     96
+    ],
+    "scale": 0.75,
+    "shift": [
+     2.203125,
+     0.1171875
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.75,
+    "shift": [
+     0.0,
+     -2.015625
+    ],
+    "tint": [
+     0.92,
+     0.82,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "laser-turret/hr-laser-turret-raising-mask.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     86,
+     80
+    ],
+    "scale": 0.75,
+    "shift": [
+     0.0,
+     -2.015625
+    ],
+    "tint": [
+     0.72,
+     0.315,
+     0.9
+    ]
+   }
+  ],
+  "tesla": [
+   {
+    "champ": "base_picture",
+    "fichier": "accumulator/hr-accumulator.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     130,
+     189
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -0.34375
+    ],
+    "tint": [
+     0.8,
+     0.88,
+     1.0
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "beacon/hr-beacon-top.png",
+    "genre": "main",
+    "rect": [
+     0,
+     0,
+     96,
+     140
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.00375,
+     -1.21375
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "accumulator/hr-accumulator-shadow.png",
+    "genre": "shadow",
+    "rect": [
+     0,
+     0,
+     234,
+     106
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.90625,
+     0.1875
+    ],
+    "tint": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   {
+    "champ": "base_picture",
+    "fichier": "accumulator/hr-accumulator-charge.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     178,
+     206
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -0.6875
+    ],
+    "tint": [
+     0.85,
+     0.95,
+     1.0
+    ]
+   },
+   {
+    "champ": "folded_animation",
+    "fichier": "accumulator/hr-accumulator-charge.png",
+    "genre": "glow",
+    "rect": [
+     0,
+     0,
+     178,
+     206
+    ],
+    "scale": 0.5,
+    "shift": [
+     0.0,
+     -0.6875
+    ],
+    "tint": [
+     0.7,
+     0.95,
+     1.0
+    ]
+   }
+  ]
+ }
+}

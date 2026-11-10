@@ -100,6 +100,22 @@ function Bl.interface(target, now)
   }
 end
 
+--- Lot ILOTS-COLONNES (directive du DC du 10/11, P4 : « cellule réservée pour les îlots industriels structurés en colonnes ») : COLONNE
+--- DE LIAISON entre deux cellules réservées voisines (chaque machine passe des objets à sa voisine par un bras posé dans la colonne qui
+--- sépare les cellules). La colonne est la ligne d'interface EST de la cellule (x = cell.w, hors de toute cellule : aucun agrandissement
+--- ne l'atteint, aucun bras à déplacer au rétrofit) ; de là, un bras doit atteindre la machine ACTUELLE de cette cellule (sa marge est
+--- + 1) et celle de la voisine (sa marge ouest + 1, même géométrie). Rend { x, to_west, to_east, reach (le plus grand des deux), long
+--- (reach ≥ REACH_LONG : bras long), impossible (reach > REACH_LONG : aucun bras n'y arrive, îlot non réservable), rows = hauteur de la
+--- machine actuelle (lignes de la colonne qui la touchent), row0 = sa marge nord }. Pur, jamais nil.
+function Bl.link(cell, now)
+  local a = Bl.anchor_of(cell, now)
+  local to_west = dim(cell, "w") - a.x - dim(now, "w") + 1
+  local to_east = a.x + 1
+  local reach = math.max(to_west, to_east)
+  return { x = dim(cell, "w"), to_west = to_west, to_east = to_east, reach = reach, long = reach >= Bl.REACH_LONG,
+    impossible = reach > Bl.REACH_LONG, rows = dim(now, "h"), row0 = a.y }
+end
+
 --- Rectangle { x, y, w, h } qu'occupera la machine agrandie à `new_size` depuis la cellule `cell` (machine actuelle) : le
 --- nouveau bâtiment contient l'ancien, débordement d'une différence impaire vers le sud-est (inverse exact de Bl.anchor).
 function Bl.grown(cell, new_size)

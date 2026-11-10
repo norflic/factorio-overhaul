@@ -47,6 +47,14 @@
   famine de la plaque clé (Famine.team_starved : le fer des poteaux). Journal, agrégé dans la ligne d'impulsion : « ; retire poteau feuille
   (x, y) ; remplace poteau sur gisement (x, y) -> (x', y') ; refus : <cause> N ». Critère de banc : [FO-RESEAU] sans « poteaux perdus »
   ni « consommateurs hors reseau » nouveaux après un retrait.
+
+  Lot HYGIENE-PLANS-FINIS (directive du DC du 10/11, priorité 3) : une pièce d'un plan FINI sur gisement n'est plus refusée d'office
+  (règle pure Hr.plan_cedable). Lectures au tick : la couverture est exigée d'un poteau EXTÉRIEUR (hors gisement, même réseau :
+  own_fed(…, ext = true)) ; la continuité du réseau tient par la feuille (≤ 1 fil) ou par la voie du remplaçant (relié à tous les voisins,
+  vérifié à la tranche suivante). La cession est écrite par UN SEUL écrivain, Build.cede_piece (script/team/build.lua) : feuille cédée ->
+  e.dropped, p.dropped + 1, tuiles rendues à b.occ (le minerai redevient exploitable, le réseau vivant et le relevé de reconstruction ne la
+  reposent plus) ; remplacée -> la pièce du plan SUIT le remplaçant hors gisement (mêmes lecteurs, le plan garde son poteau). Journal, une
+  ligne par acte : « [FO-HYGIENE] <équipe> : cede poteau du plan <id> en (x, y) a X.X min : feuille | remplacant -> (x', y') ».
 ]]
 
 local Events = require("script.core.events")
@@ -64,6 +72,7 @@ local Stock = require("script.team.stock") -- lot HYGIENE-ACTIVE : objet rendu a
 local Famine = require("script.team.famine_fer") -- lot HYGIENE-ACTIVE : jamais pendant une famine de la plaque clé
 local Gens = require("script.team.generateurs") -- lot HYGIENE-ACTIVE : réseaux alimentés (registre des génératrices)
 local Rv = require("script.team.reseau_vivant") -- lot HYGIENE-ACTIVE : Rv.foe_near (aucun remplaçant posé avec un ennemi près)
+local Zone = require("script.team.zone_equipe") -- lot UPS-HYGIENE : relevé dans la zone de l'équipe (rectangles du plan), plus sur toute la carte
 
 local Hy = {}
 
@@ -84,7 +93,7 @@ function Hy.reveil(f, stock, tick) return Sr.think(f, stock, tick) end
 
 local function new_pass(t0, why)
   return { t0 = t0, why = why or "periode", poles = {}, n = 0, sur = 0, red = 0, audited = 0, gone = 0, skipped = 0, cost = 0, dmax = 0,
-    r0 = nil, logged = false, retraits = 0, acts = { feuilles = {}, remplaces = {}, refus = {} }, plan = {} } -- lot HYGIENE-ACTIVE : actions
+    r0 = nil, logged = false, retraits = 0, acts = { feuilles = {}, remplaces = {}, refus = {}, cedes = {} }, plan = {}, plan_ref = {} } -- lot HYGIENE-ACTIVE : actions ; HYGIENE-PLANS-FINIS : cessions
 end
 
 --- Clé de tuile d'un poteau (position du centre ou du coin : la tuile entière), chaîne : l'état de passe reste en données pures.
@@ -105,33 +114,43 @@ end
 --- fini : jamais touché), « fini » (pièce bâtie d'un plan fini : le réseau vivant la reposerait comme poteau perdu). Un projet abandonné
 --- n'y est pas (ses poteaux sont des feuilles comme les autres). Données pures (chaînes).
 local function plan_poles(f)
-  local out = {}
+  local out, ref = {}, {}
   local b = f.build
-  if not (b and b.projects and b.order) then return out end
+  if not (b and b.projects and b.order) then return out, ref end
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
     if q and not q.abandoned and q.ents then
       local tag = (q.state == "fini") and "fini" or "chantier"
-      for _, e in ipairs(q.ents) do
-        if e.x and e.y and is_pole_name(e.name) then
+      for i, e in ipairs(q.ents) do
+        if e.x and e.y and is_pole_name(e.name) and not e.dropped then -- lot HYGIENE-PLANS-FINIS : une pièce cédée n'est plus du plan
           local k = tile_key(e.x, e.y)
-          if out[k] ~= "chantier" then out[k] = tag end
+          if out[k] ~= "chantier" then out[k], ref[k] = tag, { pid, i } end -- lot HYGIENE-PLANS-FINIS : (projet, rang) de la pièce, données pures
         end
       end
     end
   end
-  return out
+  return out, ref
+end
+
+--- Lot HYGIENE-PLANS-FINIS : la pièce du plan (projet, pièce) d'une référence { pid, i } relevée, si elle est toujours un poteau.
+local function piece_of(f, ref)
+  local b = f.build
+  local q = ref and b and b.projects and b.projects[ref[1]]
+  local pe = q and q.ents and q.ents[ref[2]]
+  if pe and is_pole_name(pe.name) then return q, pe end
+  return nil, nil
 end
 
 --- 1. Relevé des poteaux de la force (jeton des travaux lourds pris d'abord ; faux s'il est refusé : on réessaie à la tranche suivante).
 local function releve(f, surface, h, tick, slice)
   local box = BoiteChunks.get(surface)
-  if not Lourd.take(tick, who(f), nil, St.box_cost(box)) then return false end
+  local rects = Zone.rects(f, surface, tick) -- lot UPS-HYGIENE : rectangles du plan (nil : équipe sans plan ni QG, la boîte entière)
+  if not Lourd.take(tick, who(f), nil, Zone.cost(rects, box)) then return false end
   Profiler.fstart("hyg:releve")
   local q = { type = "electric-pole", force = f.force }
-  if box then q.area = { { box.x0 * 32, box.y0 * 32 }, { (box.x1 + 1) * 32, (box.y1 + 1) * 32 } } end
   local poles, dmax = {}, 0
-  for _, e in ipairs(surface.find_entities_filtered(q)) do
+  h.zone = rects and #rects or 0
+  for _, e in ipairs(Zone.find(surface, q, rects, box)) do
     if e.valid and e.unit_number then
       poles[#poles + 1] = { e.unit_number, e.position.x, e.position.y }
       local d = e.prototype.supply_area_distance or 0
@@ -140,7 +159,7 @@ local function releve(f, surface, h, tick, slice)
   end
   table.sort(poles, function(a, b) return a[1] < b[1] end)
   h.poles, h.n, h.dmax, h.r0, h.cost = poles, #poles, dmax, slice, h.cost + 1
-  h.plan = plan_poles(f) -- lot HYGIENE-ACTIVE
+  h.plan, h.plan_ref = plan_poles(f) -- lot HYGIENE-ACTIVE ; lot HYGIENE-PLANS-FINIS : références des pièces
   Profiler.fstop("hyg:releve")
   return true
 end
@@ -174,27 +193,39 @@ local function fed_by(surface, e, force, d)
 end
 
 --- Un AUTRE poteau de la même force et du même réseau que `e` alimente-t-il aussi `c` (son carré touche la boîte de `c`) ?
-local function other_pole_covers(surface, e, c, force, dmax)
+--- Lot HYGIENE-PLANS-FINIS : `ext` = seul un poteau EXTÉRIEUR (hors gisement) compte comme couvrant ; `ctx.ore` mémoïse « sur gisement »
+--- par unit_number le temps de la tranche (banc HYGPLANS-A2 : 0,020 ms/tick sans mémo, les mêmes poteaux couvrants relus à chaque consommateur).
+local function pole_on_ore(surface, p, ctx)
+  local memo = ctx and ctx.ore
+  if not memo then return on_ore(surface, p) end
+  local un = p.unit_number
+  local v = memo[un]
+  if v == nil then v = on_ore(surface, p) memo[un] = v end
+  return v
+end
+
+local function other_pole_covers(surface, e, c, force, dmax, ext, ctx)
   local bb = c.bounding_box
   local x0, y0, x1, y1 = bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y
   local net, un = e.electric_network_id, e.unit_number
   local r = dmax + math.max(x1 - x0, y1 - y0)
   for _, p in ipairs(surface.find_entities_filtered({ position = c.position, radius = r, type = "electric-pole", force = force })) do
     if p.unit_number ~= un and p.electric_network_id == net
-      and St.covers(p.position.x, p.position.y, p.prototype.supply_area_distance or 0, x0, y0, x1, y1) then return true end
+      and St.covers(p.position.x, p.position.y, p.prototype.supply_area_distance or 0, x0, y0, x1, y1)
+      and not (ext and pole_on_ore(surface, p, ctx)) then return true end
   end
   return false
 end
 
 --- Consommateurs du poteau `e` qu'il alimente SEUL (aucun autre poteau du même réseau ne les couvre) : liste (au plus `limit`) et le
 --- total des entités alimentées. Lot HYGIENE-ACTIVE : partagé par l'audit (limit 1 : il suffit d'en voir un) et par le plan de remplacement.
-local function own_fed(surface, f, h, e, limit)
+local function own_fed(surface, f, h, e, limit, ext, ctx)
   local d = e.prototype.supply_area_distance or 0
   local dmax = (h.dmax > d) and h.dmax or d
   local fed = fed_by(surface, e, f.force, d)
   local own = {}
   for _, c in ipairs(fed) do
-    if not other_pole_covers(surface, e, c, f.force, dmax) then
+    if not other_pole_covers(surface, e, c, f.force, dmax, ext, ctx) then
       own[#own + 1] = c
       if limit and #own >= limit then break end
     end
@@ -258,10 +289,22 @@ local function structure(f, h, e)
 end
 
 --- (a) Retrait d'une feuille : l'objet est rendu au coffre D'ABORD (coffre plein : rien n'est détruit), puis le poteau est détruit.
-local function retire_feuille(f, h, e, cause)
+--- Lot HYGIENE-PLANS-FINIS : `cession` = { q, pe } : la pièce du plan est cédée (Build.cede_piece, l'unique écrivain) entre le retour au
+--- coffre et la destruction ; une cession refusée (pièce déjà cédée) laisse le poteau en place.
+local function retire_feuille(f, h, e, cause, cession, tick)
   local item = item_of(e)
   if Stock.insert(f, item, 1) < 1 then refus(h, "coffre plein") return end
   local x, y = e.position.x, e.position.y
+  if cession then
+    local Build = package.loaded["script.team.build"]
+    if not (Build and Build.cede_piece and Build.cede_piece(f, cession[1], cession[2], "hygiene: feuille sur gisement")) then
+      Stock.remove(f, item, 1)
+      refus(h, "piece deja cedee")
+      return
+    end
+    h.acts.cedes[#h.acts.cedes + 1] = { x, y, cession[1].id }
+    log(string.format("[FO-HYGIENE] %s : cede poteau du plan %s en (%.1f, %.1f) a %.1f min : feuille", key_of(f), tostring(cession[1].id), x, y, (tick or 0) / 3600))
+  end
   e.destroy()
   h.retraits = h.retraits + 1
   h.acts.feuilles[#h.acts.feuilles + 1] = { x, y, cause }
@@ -331,7 +374,7 @@ end
 
 --- (b) Pose du remplaçant, payé au stock, relié à chaque ancien voisin ; la vérification et le retrait de l'ancien sont faits à la tranche
 --- suivante (finish_pending). Une seule pose en attente par équipe.
-local function pose_remplacant(surface, f, h, e, tick)
+local function pose_remplacant(surface, f, h, e, tick, ref)
   if f.team.hygiene_pending then refus(h, "remplacement en attente") return end
   local item = item_of(e)
   if Stock.count(f, item) < 1 then refus(h, "stock") return end
@@ -350,7 +393,7 @@ local function pose_remplacant(surface, f, h, e, tick)
   end
   h.retraits = h.retraits + 1
   f.team.hygiene_pending = { tick = tick, item = item, old = { e.unit_number, e.position.x, e.position.y },
-    new = { new.unit_number, plan.x, plan.y }, voisins = plan.voisins }
+    new = { new.unit_number, plan.x, plan.y }, voisins = plan.voisins, piece = ref } -- lot HYGIENE-PLANS-FINIS : { pid, i } ou nil
 end
 
 --- Le remplaçant `new` relie-t-il tous les anciens voisins (par unit_number ; un voisin disparu n'est plus exigé) ?
@@ -386,7 +429,19 @@ local function finish_pending(f, surface, h, tick)
     local own = own_fed(surface, f, h, old, 1)
     if #own > 0 then ok, why = false, "couverture perdue" end
   end
+  local q, pe
+  if ok and pd.piece then -- lot HYGIENE-PLANS-FINIS : la pièce du plan doit être retrouvée à sa place, non cédée
+    q, pe = piece_of(f, pd.piece)
+    if not (pe and not pe.dropped and math.abs(pe.x - pd.old[2]) < 0.5 and math.abs(pe.y - pd.old[3]) < 0.5) then ok, why = false, "piece introuvable" end
+  end
   if ok and Stock.insert(f, pd.item, 1) < 1 then ok, why = false, "coffre plein" end
+  if ok and pd.piece then
+    local Build = package.loaded["script.team.build"]
+    if not (Build and Build.cede_piece and Build.cede_piece(f, q, pe, "hygiene: remplacant hors gisement", { x = pd.new[2], y = pd.new[3] })) then
+      Stock.remove(f, pd.item, 1)
+      ok, why = false, "piece deja cedee"
+    end
+  end
   if not ok then
     new.destroy()
     Stock.insert(f, pd.item, 1)
@@ -395,6 +450,11 @@ local function finish_pending(f, surface, h, tick)
   end
   old.destroy()
   h.acts.remplaces[#h.acts.remplaces + 1] = { pd.old[2], pd.old[3], pd.new[2], pd.new[3] }
+  if pd.piece then
+    h.acts.cedes[#h.acts.cedes + 1] = { pd.old[2], pd.old[3], q.id, pd.new[2], pd.new[3] }
+    log(string.format("[FO-HYGIENE] %s : cede poteau du plan %s en (%.1f, %.1f) a %.1f min : remplacant -> (%.1f, %.1f)", key_of(f),
+      tostring(q.id), pd.old[2], pd.old[3], tick / 3600, pd.new[2], pd.new[3]))
+  end
 end
 
 local REMPLACABLE = { ["pas une feuille"] = true, ["consommateur propre"] = true, ["couvrant non alimente"] = true } -- causes propres aux feuilles
@@ -406,6 +466,24 @@ local function act(surface, f, h, e, info, ctx, tick, slice)
   local why = garde(f, h, ctx, tick)
   if why then refus(h, why) return end
   local st = structure(f, h, e)
+  if st.piece_plan then
+    -- lot HYGIENE-PLANS-FINIS : pièce d'un plan fini ; sur gisement seulement, couverture par un poteau EXTÉRIEUR, cession au plan
+    if not info.ore then refus(h, "piece du plan") return end
+    local ref = h.plan_ref and h.plan_ref[tile_key(e.position.x, e.position.y)]
+    local q, pe = piece_of(f, ref)
+    st.sur_gisement, st.deja_cedee, st.fils = true, (pe == nil) or pe.dropped == true, info.wires
+    if info.wires <= 1 then
+      local own_ext, fed = own_fed(surface, f, h, e, 1, true, ctx)
+      st.consommateurs, st.consommateurs_propres = fed, #own_ext
+      st.couvrant_alimente = fed == 0 or live_nets(ctx, f, surface)[e.electric_network_id or -1] == true
+    end
+    local ok, mode = Hr.plan_cedable(st)
+    if not ok then refus(h, mode) return end
+    if mode == "feuille" then retire_feuille(f, h, e, "plan fini sur gisement", { q, pe }, tick) return end
+    if slice >= Hy.CFG.slices - 1 then refus(h, "derniere tranche") return end
+    pose_remplacant(surface, f, h, e, tick, ref)
+    return
+  end
   if feuille then
     st.fils, st.consommateurs, st.consommateurs_propres = info.wires, info.fed, 0
     st.couvrant_alimente = info.fed == 0 or live_nets(ctx, f, surface)[e.electric_network_id or -1] == true
@@ -428,7 +506,7 @@ local function slice_step(f, surface, h, slice, tick)
   local a, b, skipped = St.share_capped(h.n, s, eff, Hy.CFG.max_per_slice)
   if b < a then return end
   Profiler.fstart("hyg:tranche")
-  local ctx = {} -- lot HYGIENE-ACTIVE : lectures partagées de la tranche (réseaux alimentés, famine, menace), jamais gardées
+  local ctx = { ore = {} } -- lot HYGIENE-ACTIVE : lectures partagées de la tranche (réseaux alimentés, famine, menace), jamais gardées ; HYGIENE-PLANS-FINIS : mémo « sur gisement »
   for i = a, b do
     local boxed = Boxes.skip_at(f, h.poles[i][2], h.poles[i][3]) -- lot BOXES : poteau d'une box MAXED : ni retrouvé ni audité, compté
     local e = (not boxed) and pole_at(surface, f.force, h.poles[i]) or nil
@@ -461,6 +539,11 @@ local function actions_text(h)
     for _, q in ipairs(a.remplaces) do l[#l + 1] = string.format("(%.1f, %.1f) -> (%.1f, %.1f)", q[1], q[2], q[3], q[4]) end
     out = out .. " ; remplace poteau sur gisement " .. table.concat(l, ", ")
   end
+  if a.cedes and #a.cedes > 0 then -- lot HYGIENE-PLANS-FINIS
+    local l = {}
+    for _, q in ipairs(a.cedes) do l[#l + 1] = string.format("%s (%.1f, %.1f)", tostring(q[3]), q[1], q[2]) end
+    out = out .. " ; cede poteau du plan " .. table.concat(l, ", ")
+  end
   local causes = {}
   for k in pairs(a.refus) do causes[#causes + 1] = k end
   if #causes > 0 then
@@ -480,6 +563,7 @@ local function report(f, h, why)
   if h.gone > 0 then extra = extra .. string.format(" ; %d disparus pendant la passe", h.gone) end
   if h.why and h.why ~= "periode" then extra = extra .. " ; reveil (" .. h.why .. ")" end -- lot SCAN-EVENEMENTS : la cause de la passe
   if (h.boxed or 0) > 0 then extra = extra .. string.format(" ; %d ignores (box MAXED)", h.boxed) end -- lot BOXES
+  if (h.zone or 0) > 0 then extra = extra .. string.format(" ; zone : %d rectangle(s)", h.zone) end -- lot UPS-HYGIENE
   extra = extra .. actions_text(h) -- lot HYGIENE-ACTIVE
   if why then extra = extra .. " ; " .. why end
   log(string.format("[FO-HYGIENE] %s : impulsion a %.1f min : %d poteaux releves, %d sur gisement, %d redondants candidats (feuilles sans consommateur propre) ; cout : %d tranches%s",
@@ -500,6 +584,7 @@ function Hy.step(f, surface, tick, slice)
     t.hygiene = h
   end
   if not h.acts then h.acts, h.plan, h.retraits = { feuilles = {}, remplaces = {}, refus = {} }, h.plan or {}, h.retraits or 0 end -- passe d'une sauvegarde d'avant le lot
+  if not h.acts.cedes then h.acts.cedes, h.plan_ref = {}, h.plan_ref or {} end -- lot HYGIENE-PLANS-FINIS : passe d'une sauvegarde d'avant le lot
   finish_pending(f, surface, h, tick) -- lot HYGIENE-ACTIVE : remplaçant posé à la tranche d'avant : vérification au tick, puis retrait
   if h.logged then return end
   if slice == 0 then Boxes.releve(f, surface, tick) end -- lot BOXES : relevé des boxes au début de l'impulsion (une ligne [FO-BOX])

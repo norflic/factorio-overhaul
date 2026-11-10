@@ -226,19 +226,21 @@ local function suite(P, quiet)
   check(A.choice and A.choice.kind == "agrandir" and A.choice.n == 5, "A : choix « agrandir 4 → 5 » (" .. tostring(A.choice and A.choice.label) .. ")")
   local byk = {}
   for _, o in ipairs(A.options or {}) do byk[o.kind] = o end
-  check(byk.agrandir and near(byk.agrandir.cost_mu, 117.5) and near(byk.agrandir.added_per_min, 90), "agrandir : +1 assembleur 2, +3 bras rapides, +5 tapis = 117,5 MU, +90/min")
+  -- lot RETROFIT-GABARITS (relevé par le lot ILOTS-COLONNES) : la rangée d'engrenages est à cellules réservées de 4 (sortie en deux bras
+  -- longs par assembleur, une colonne de plus) : agrandir 4 → 5 coûte 141,5 MU (117,5 avant), un module neuf 511 MU (439 avant)
+  check(byk.agrandir and near(byk.agrandir.cost_mu, 141.5) and near(byk.agrandir.added_per_min, 90), "agrandir : +1 assembleur 2 à cellule réservée (bras, bras longs, tapis) = 141,5 MU, +90/min")
   check(byk.ameliorer and near(byk.ameliorer.cost_mu, 4 * 19.5) and near(byk.ameliorer.added_per_min, 28.8), "améliorer : 4 × 19,5 MU, +8 % = +28,8/min")
-  check(byk.construire and near(byk.construire.cost_mu, 439) and near(byk.construire.score, 439 * 1.2 / 120), "construire : 439 MU, +20 % de pénalité, débit utile = déficit (120)")
+  check(byk.construire and near(byk.construire.cost_mu, 511) and near(byk.construire.score, 511 * 1.2 / 120), "construire : 511 MU, +20 % de pénalité, débit utile = déficit (120)")
   check(byk.remplacer == nil, "remplacer refusé : palier 7 au-dessus du plafond 6")
   for _, o in ipairs(A.options or {}) do
     check(near(o.roi_min, o.cost_mu / (o.added_per_min * 2)), o.kind .. " : T = coût ÷ (débit ajouté × 2 MU) = " .. string.format("%.3f", o.roi_min) .. " min")
   end
   check(B.verdict == "affame" and B.lacking == "iron-plate" and near(B.ratio, 0.4), "B : affamé (40 % du nominal), le fer manque")
-  check(B.upstream and B.upstream.item == "iron-plate" and near(B.upstream.deficit_per_min, 108), "B : amont = 108 plaques de fer/min de plus (180 voulues, 72 livrées)")
+  check(B.upstream and B.upstream.item == "iron-plate" and near(B.upstream.deficit_per_min, 54), "B : amont = 54 plaques de fer/min de plus (90 voulues, 36 livrées ; îlot C K C du lot ILOTS-COLONNES)")
   check(B.choice == nil and B.options == nil, "B : aucune option sur le module lui-même (on ne construit pas en aval)")
   local up_f
   for _, p in ipairs((B.upstream and B.upstream.plan) or {}) do if p.item == "iron-plate" then up_f = p end end
-  check(up_f and up_f.machines_ceil == 6, "B : plan amont du solveur : 108/min = 5,76 → 6 fours en pierre")
+  check(up_f and up_f.machines_ceil == 3, "B : plan amont du solveur : 54/min = 2,88 → 3 fours en pierre")
   check(C.verdict == "ok", "C : à l'aise (360/min pour 300 voulus)")
 
   section("Seuils, blocage, hystérésis")

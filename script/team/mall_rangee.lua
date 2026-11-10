@@ -16,6 +16,7 @@
 
 local Mr = require("shared.team.mall_rangee")
 local Mt = require("shared.team.mall_tronc") -- tranche 3 : le tronc et les prises
+local Sd = require("shared.team.serie_dirs") -- lot MALL-DIRECTIONS : noms des directions
 local Ma = require("shared.team.mall_allonge") -- allongement au-delà de la demande, au surplus de matière
 local Liq = require("shared.team.mall_liquidation") -- lot MALL-LIQUIDATION : le stock de machines qui dort paie une section de plus (réserve 20 %)
 local Cat = require("shared.team.motifs.catalogue")
@@ -118,7 +119,28 @@ Build.SITES.mall = function(f, surface, p, h)
   end
   local extra = nil
   if sp.bus and sp.lines then extra = Mt.section(sp.lines, row, sp.names) end
-  local sec = Mr.section(P, modele(), row, sp.from, sp.to, sp.names, st.rep, sp.head == true, extra)
+  -- lot MALL-DIRECTIONS : au-delà du secteur, les rues du treillis sont franchies par un souterrain par tapis (rien sur la rue) ; sans souterrain
+  -- débloqué, la section qui devrait franchir est refusée « obstacle:rue » (la rangée s'arrête, comme au bout du secteur)
+  local serie, swhy = Rt.serie_of(f, st, row, sp.to, sp.names.souterrain)
+  if not serie then return nil, "obstacle:rue (" .. tostring(swhy) .. ")" end
+  local franchit = 0
+  for _, t in ipairs(serie.trav) do if t.avant >= sp.from and t.avant <= sp.to then franchit = franchit + 1 end end
+  if franchit > 0 and not sp.names.souterrain then return nil, "obstacle:rue (souterrain non debloque)" end
+  -- au-delà du secteur, chaque cellule doit tomber dans un lot CONNU du treillis (b.lots) : jamais dans un chunk que personne n'a relevé
+  local cap = Rt.cap_secteur(st)
+  for i = math.max(sp.from, cap + 1), sp.to do
+    local a = (i - 1) * Mr.PERIODE + (serie.shift[i] or 0)
+    local wx, wy = Mr.to_world(a + 1.5, Mr.YA + 0.5, nil, st.rep.k, st.rep.ox, st.rep.oy, row.j)
+    local li, lj = P.lot_at(b.lat, floor(wx), floor(wy))
+    if not (li and b.lots and b.lots[P.lot_key(li, lj)]) then return nil, string.format("obstacle:treillis (cellule %d hors des lots connus en (%d, %d))", i, floor(wx), floor(wy)) end
+  end
+  local sec = Mr.section(P, modele(), row, sp.from, sp.to, sp.names, st.rep, sp.head == true, extra, serie)
+  if franchit > 0 then
+    local t1 = nil
+    for _, t in ipairs(serie.trav) do if t.avant >= sp.from and t.avant <= sp.to then t1 = t1 or t end end
+    say(f, st, game.tick, string.format("serie : section %d-%d de la rangee %d franchit %d rue(s) en souterrain (%s, 2 voies), direction %s : entree canonique %d, sortie %d (projet %d)",
+      sp.from, sp.to, row.j, franchit, tostring(sp.names.souterrain), Sd.NOM[st.sect.dir] or "?", t1.a_in, t1.a_out, p.id))
+  end
   local bx = Mr.box(sec.ents, size)
   local masks = h.read_masks(bx[1] - 2, bx[2] - 2, bx[3] + 3, bx[4] + 3)
   for _, e in ipairs(sec.ents) do
@@ -240,9 +262,44 @@ local function bus_eligible(d, plates)
   return true
 end
 
+--- Lot MALL-DIRECTIONS : plafond de cellules d'une rangée. Dans le secteur et son étendue lue (Mr.capacite + sect.ext) comme avant ; au-delà, la rangée
+--- continue et franchit les rues du treillis par un souterrain par tapis (Mr.rues, Mr.serie_cells, Build.SITES.mall) : il faut un souterrain débloqué
+--- (names.souterrain, sinon Rt.logistique). Rend (cells_max, cap_secteur, souterrain).
+function Rt.cap_secteur(st)
+  local _, cells_in = Mr.capacite(st.sect, st.rep.west, st.rep.north)
+  return min(cells_in + floor((st.sect.ext or 0) / Mr.PERIODE), Mr.MAX_CELLS)
+end
+function Rt.cells_max(f, st, names)
+  local cap = Rt.cap_secteur(st)
+  local ug = names and names.souterrain
+  if not ug then
+    local lg = Rt.logistique and Rt.logistique(f) or nil -- (bancs : la lecture des prototypes peut être doublée ou absente)
+    ug = lg and lg.souterrain or nil
+  end
+  if ug then return Mr.MAX_CELLS, cap, ug end
+  return cap, cap, nil
+end
+
+--- Lot MALL-DIRECTIONS : la série de la rangée `row` jusqu'à la cellule `to` (+ 1 de regard en avant : l'entrée d'un souterrain peut être la dernière tuile
+--- de la dernière cellule de cette section) : rues du treillis au-delà du secteur (cap_secteur × PERIODE), portée du souterrain lue au prototype.
+--- Rend (serie, rues) ou (nil, raison) ; serie.trav vide : rien à franchir.
+function Rt.serie_of(f, st, row, to, souterrain)
+  local b = f.build
+  if not (b.lat and st.rep and st.sect) then return { shift = {}, trav = {} }, {} end -- (banc sans treillis : rien à franchir)
+  local lots = { ox = b.lat.ox - P.HALF, oy = b.lat.oy - P.HALF, pitch = P.PITCH, lot = P.LOT }
+  local a_libre = Rt.cap_secteur(st) * Mr.PERIODE
+  local rues = Mr.rues(st.rep, lots, a_libre, (to + 1) * Mr.PERIODE + 8 * (1 + floor((to + 1) * Mr.PERIODE / P.LOT)))
+  if #rues == 0 then return { shift = {}, trav = {} }, rues end
+  local proto = souterrain and game.entity_prototypes[souterrain]
+  local reach = proto and proto.max_underground_distance or nil
+  local serie, why = Mr.serie_cells(to + 1, rues, reach)
+  if not serie then return nil, why end
+  return serie, rues
+end
+
 --- Noms du répartiteur et du souterrain à poser (le moins rapide dont la recette est débloquée) : { repartiteur, souterrain } ou nil. Lu aux prototypes.
 function Rt.logistique(f)
-  local force = game.forces[f.force]
+  local force = game.forces and game.forces[f.force]
   if not force then return nil end
   local out = {}
   for _, what in ipairs({ { "repartiteur", T.LOGISTIC_TYPES.splitter }, { "souterrain", T.LOGISTIC_TYPES.underground } }) do
@@ -320,8 +377,8 @@ function Rt.place_bus(f, demandes, names, tick, afford, why_text)
   table.sort(want)
   if #want > 2 then return nil, "tronc : plus de 2 plaques dans ce groupe" end
   -- une rangée alimentée par le tronc qui a ces plaques sur ses voies et de la place, sinon une neuve
-  local rows_max, cells_in = Mr.capacite(st.sect, st.rep.west, st.rep.north)
-  local cells_max = min(cells_in + floor((st.sect.ext or 0) / Mr.PERIODE), Mr.MAX_CELLS)
+  local rows_max = Mr.capacite(st.sect, st.rep.west, st.rep.north)
+  local cells_max = Rt.cells_max(f, st, nm) -- (lot MALL-DIRECTIONS : au-delà du secteur, les rues franchies en souterrain)
   local row, newrow
   for _, r in ipairs(st.rows) do
     if r.bus and not r.stop and #r.cells < cells_max and not (r.retry_at and r.retry_at > tick) then
@@ -449,8 +506,8 @@ function Rt.place(f, demandes, names, tick, afford, why_text, seule)
     if id or wait then return id, why, wait end
     -- pas de tronc possible (répartiteur non débloqué, lignes pleines) : la rangée à quais d'avant
   end
-  local rows_max, cells_in = Mr.capacite(st.sect, st.rep.west, st.rep.north)
-  local cells_max = min(cells_in + floor((st.sect.ext or 0) / Mr.PERIODE), Mr.MAX_CELLS)
+  local rows_max = Mr.capacite(st.sect, st.rep.west, st.rep.north)
+  local cells_max, _, souterrain = Rt.cells_max(f, st, names) -- (lot MALL-DIRECTIONS : au-delà du secteur, les rues franchies en souterrain)
   -- une rangée dont les voies acceptent TOUT, sinon une neuve
   local row, newrow
   for _, r in ipairs(st.rows) do
@@ -492,7 +549,7 @@ function Rt.place(f, demandes, names, tick, afford, why_text, seule)
     end
   end
   local id, why = Build.request(f, { site = "mall", domain = "production", why = why_text or "MALL rangee", mall = { row = row.j, from = from, to = to, head = from == 1, names = {
-    machine = names.machine, bras = names.bras, bras_long = names.bras_long, tapis = names.tapis, poteau = names.poteau, coffre = names.coffre }, decl = names.decl } })
+    machine = names.machine, bras = names.bras, bras_long = names.bras_long, tapis = names.tapis, poteau = names.poteau, coffre = names.coffre, souterrain = souterrain }, decl = names.decl } })
   if not id then
     for i = to, from, -1 do row.cells[i] = nil end
     return nil, why

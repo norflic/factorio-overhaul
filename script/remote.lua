@@ -16,6 +16,9 @@ local War = require("script.faction.war")
 local Military = require("script.faction.military")
 local F = require("shared.faction.config")
 local State = require("script.faction.state")
+local Assaut = require("script.combat.assaut_titan") -- lot ASSAUTS-TITANESQUES : état et départ forcé (bancs)
+local Kaijus = require("script.robots.kaijus") -- lot KAIJUS-MUTANTS : état de la ponte (bancs)
+local Titans = require("shared.robots.titans")
 local Director = require("script.td.director") -- require interdit dans un gestionnaire d'événement
 local Team = require("script.team.team")
 local Levels = require("script.levels.levels")
@@ -104,6 +107,37 @@ remote.add_interface("factorio-overhaul", {
     return Bench.spawn_at(s, game.forces.player.get_spawn_position(s), game.forces.player, nil, n or 20, "wander", radius or 32)
   end,
   -- Mode défense de tours : "on" [délai en secondes] | "off" | "next" | "status" -> état
+  -- Lot ASSAUTS-TITANESQUES : "now" [{ preavis (ticks), cible = { x, y }, age, defenses }] lance un assaut de boss (bancs) ; sinon l'état.
+  assaut = function(action, opts)
+    if action == "now" then return Assaut.force_now(opts) end
+    return Assaut.state()
+  end,
+  -- Lot KAIJUS-MUTANTS : noms des prototypes lus à la règle (bancs : aucun nom en dur côté greffon) et état de la ponte.
+  titans = function()
+    local out = { kaijus = {}, ecorches = {}, allies = {}, ponte = Kaijus.etat() }
+    for _, k in ipairs(Titans.KAIJUS) do
+      local l = { id = k.id, era_min = k.era_min, era_max = Titans.ERAS, noms = {} }
+      for era = k.era_min, Titans.ERAS do
+        local j = Titans.kaiju(era, k)
+        l.noms[era] = { name = j.name, arme = j.arme, ponte = j.ponte ~= nil }
+      end
+      out.kaijus[#out.kaijus + 1] = l
+    end
+    for _, v in ipairs(Titans.ECORCHE.variants) do
+      local l = { id = v.id, era_min = Titans.ECORCHE.era_min, era_max = Titans.ERAS, noms = {} }
+      for era = Titans.ECORCHE.era_min, Titans.ERAS do l.noms[era] = Titans.ecorche_name(v, era) end
+      out.ecorches[#out.ecorches + 1] = l
+    end
+    for _, r in ipairs(Titans.ALLIES) do
+      local l = { id = r.id, anime = r.anime ~= nil, noms = {}, animations = {} }
+      for p = 1, Titans.PALIERS do l.noms[p] = Titans.allie_name(r, p) end
+      if r.anime then
+        for st = 1, Titans.STAGES do l.animations[st] = Titans.anim_name(r, st, "course", 0, "corps") end
+      end
+      out.allies[#out.allies + 1] = l
+    end
+    return out
+  end,
   waves = function(action, delay_s)
     if action == "on" then Director.start(delay_s and math.floor(delay_s * 60) or nil)
     elseif action == "off" then Director.stop()

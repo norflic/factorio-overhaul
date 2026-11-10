@@ -537,6 +537,86 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot ASSAUTS-TITANESQUES (10/11) : BARRIÈRE ÉNERGÉTIQUE DE PÉRIMÈTRE (A.perimetre). Tourelle électrique 1×1 (emprise d'un mur) à portée
+-- courte : arc de champ (copie d'electric-beam teintée) sur l'ennemi qui franchit, dégâts électriques de ZONE autour de lui + autocollant de
+-- ralentissement ; sans courant le moteur l'éteint (energy_source électrique). Socle : rendu Blender (graphics/arsenal/barriere/sprites.lua,
+-- tools/render/pieces/arsenal/barriere.py, PNG hors git D-6 sauf sprites.lua) ; la tête tournante reste celle de la tourelle laser,
+-- réduite et teintée (le moteur tourne la tête ; le socle ne tourne pas).
+---------------------------------------------------------------------------------------------------
+do
+  local spec = A.perimetre
+  local F = spec.field
+  local SPR = require("__factorio-overhaul__/graphics/arsenal/barriere/sprites")
+  local v = SPR.variants["barriere-borne"]
+  assert(v, "arsenal_ages : sprites de la barrière absents (python -P tools/render/render.py tools/render/pieces/arsenal/barriere.py)")
+  local function couche(c, extra)
+    local l = { filename = c.lr.filename, width = c.lr.width, height = c.lr.height, shift = c.lr.shift, scale = 1,
+      hr_version = { filename = c.hr.filename, width = c.hr.width, height = c.hr.height, shift = c.hr.shift, scale = 0.5 } }
+    for k, x in pairs(extra or {}) do l[k] = x; l.hr_version[k] = x end
+    return l
+  end
+  local t = turret_base(spec)
+  t.collision_box = { { -0.29, -0.29 }, { 0.29, 0.29 } }
+  t.selection_box = { { -0.5, -0.5 }, { 0.5, 0.5 } }
+  t.base_picture = { layers = {
+    couche(v.shadow, { draw_as_shadow = true }),
+    couche(v.main),
+    couche(v.glow, { draw_as_glow = true, blend_mode = "additive" }),
+    couche(v.light, { draw_as_light = true, blend_mode = "additive" }),
+  } }
+  for _, f in ipairs({ "folded_animation", "preparing_animation", "prepared_animation", "attacking_animation", "ending_animation", "energy_glow_animation" }) do
+    if t[f] then
+      lib.scale_sprites(t[f], 0.45)
+      -- la tête est posée au sommet de la borne (sphère d'émission à 1,5 unité : 1,5 × 45,25 px HR = 1,06 tuile)
+      local function monte(x, seen)
+        if type(x) ~= "table" or seen[x] then return end
+        seen[x] = true
+        if x.filename and x.shift then x.shift = { x.shift[1], x.shift[2] - 1.0 } end
+        for _, y in pairs(x) do monte(y, seen) end
+      end
+      monte(t[f], {})
+    end
+  end
+  local sticker = lib.copy("sticker", "slowdown-sticker")
+  sticker.name = spec.name .. "-sticker"
+  sticker.localised_name = { "entity-name." .. spec.name }
+  sticker.duration_in_ticks = F.slow_ticks
+  sticker.target_movement_modifier = F.slow
+  out[#out + 1] = sticker
+  local arc = lib.copy("beam", "electric-beam")
+  arc.name = spec.name .. "-arc"
+  arc.localised_name = { "entity-name." .. spec.name }
+  arc.damage_interval = spec.cooldown
+  arc.action = { type = "direct", action_delivery = { type = "instant", target_effects = {
+    { type = "create-entity", entity_name = "explosion-hit" },
+    dmg(F.damage, F.dtype),
+    { type = "create-sticker", sticker = sticker.name },
+    area(F.radius, "enemy", { type = "instant", target_effects = { dmg(F.damage * 0.5, F.dtype), { type = "create-sticker", sticker = sticker.name } } }),
+  } } }
+  out[#out + 1] = arc
+  local ap = t.attack_parameters
+  ap.range = spec.range
+  ap.cooldown = spec.cooldown
+  ap.damage_modifier = 1
+  ap.ammo_type.category = "electric"
+  ap.ammo_type.energy_consumption = spec.energy
+  ap.source_direction_count = nil
+  ap.source_offset = { 0, -1.0 }
+  local d = ap.ammo_type.action.action_delivery
+  d.beam = arc.name
+  d.max_length = spec.range + 1
+  d.duration = spec.cooldown
+  d.source_offset = { 0, -1.0 }
+  t.prepare_range = spec.range + 2
+  energy_source(t, spec.buffer, spec.input, spec.drain)
+  finish_turret(t, spec)
+  -- l'icône : celle du rendu (lib.tier_icons de turret_base remplacée)
+  local icone = { { icon = SPR.icon.filename, icon_size = SPR.icon.icon_size, icon_mipmaps = SPR.icon.icon_mipmaps } }
+  lib.set_icons(t, icone)
+  lib.set_icons(out[#out - 1], icone) -- l'objet (finish_turret : tourelle, objet, recette)
+end
+
+---------------------------------------------------------------------------------------------------
 -- Technologies (une par entrée à `tech` complet ; le fusil à rail garde la sienne, session 4)
 ---------------------------------------------------------------------------------------------------
 local function technology(tech, tint, tier)
@@ -565,6 +645,7 @@ for _, spec in ipairs(A.hand_weapons) do
   if not spec.existing then technology(spec.tech, spec.tint, spec.age) end
 end
 technology(A.cataclysm.tech, A.cataclysm.tint, A.cataclysm.age)
+technology(A.perimetre.tech, A.perimetre.tint, A.perimetre.age) -- lot ASSAUTS-TITANESQUES
 
 data:extend(out)
 log("[FO-ARMES-AGES] " .. #out .. " prototype(s) : lignée Bastion (" .. #A.ages .. " âges), armes de poing, frappe orbitale")

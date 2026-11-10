@@ -16,6 +16,10 @@
        ligne « (emprise) ») et ses mutants (emprise ignorée, bras non repositionné) ; moteur : unité qui grandit (2×2 → 3×3) traitée par la
        primitive partagée (swap_entity doublé) quand sa cellule l'accueille, ajournée « emprise » quand un tapis la bloque, bras déplacé
        sur la ligne d'interface, pièce du plan renommée et déplacée ; mutant du moteur « can_place ignoré » (fits court-circuité).
+    §6 lot ILOTS-COLONNES (P4 du DC) : îlot à liaisons par colonne sur la règle pure : à cellules réservées (pas de 5, colonne de liaison sur
+       la ligne d'interface est), chaque machine grandit de 3×3 à 4×4 sans toucher les bras de liaison (ni déplacés, ni en conflit) ; au
+       pas d'avant (4, colonne de liaison dans la future emprise), la première est ajournée « emprise » (le bras de liaison de sa voisine
+       est sur sa case) et la seconde aussi (son bras de liaison est poussé sur la machine suivante).
   Usage : lua5.2 tests/box_upgrade_test.lua   (depuis la racine du mod ; moins d'une seconde)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -582,6 +586,65 @@ do
   f6.team.retrofit = nil
   BurM.impulsion(f6, surface, 15000)
   check(#swaps == n_sw + 1, "mutant « can_place ignoré » : la machine bloquée est remplacée quand même (vu : le vrai moteur l'ajourne)")
+end
+
+---------------------------------------------------------------------------------------------------
+section("§6 lot ILOTS-COLONNES : îlot à liaisons par colonne, cellules réservées contre pas d'avant")
+---------------------------------------------------------------------------------------------------
+do
+  local Bl = require("shared.team.box_layout")
+  local S4 = { w = 4, h = 4 }
+  -- îlot RÉSERVÉ : machines 3×3 en x = 0, 5, 10 (cellules de 4, colonne de liaison en x = 4 et x = 9) ; tapis d'entrée en y = -2, de
+  -- sortie en y = 5 ; bras d'entrée (y = -1), de sortie LONGS (y = 4, ligne d'interface sud) ; bras de liaison longs dans les colonnes,
+  -- lignes 0..2 : ceux de la colonne 4 appartiennent à la machine 2 (ils y déposent), ceux de la colonne 9 aussi (ils y prennent)
+  local cells = { { x = 0, y = 0, w = 3, h = 3 }, { x = 5, y = 0, w = 3, h = 3 }, { x = 10, y = 0, w = 3, h = 3 } }
+  local occ = {}
+  for x = 0, 13 do occ[Bl.key(x, -2)] = true occ[Bl.key(x, 5)] = true end
+  local arms_of = {}
+  for i, c in ipairs(cells) do
+    arms_of[i] = { { id = 100 * i + 1, x = c.x + 1, y = -1, far = { x = c.x + 1, y = -2 } }, { id = 100 * i + 2, x = c.x + 1, y = 4, far = { x = c.x + 1, y = 5 } } }
+  end
+  for r = 0, 2 do
+    arms_of[2][#arms_of[2] + 1] = { id = 210 + r, x = 4, y = r, far = { x = 2, y = r } }   -- colonne 4 : prend dans la machine 1
+    arms_of[2][#arms_of[2] + 1] = { id = 220 + r, x = 9, y = r, far = { x = 11, y = r } }  -- colonne 9 : dépose dans la machine 3
+  end
+  local function occupied_for(i)
+    local o = {}
+    for k in pairs(occ) do o[k] = true end
+    for j, list in ipairs(arms_of) do
+      if j ~= i then for _, a in ipairs(list) do o[Bl.key(a.x, a.y)] = true end end
+    end
+    return o
+  end
+  local all_ok, moved = true, 0
+  for i = 1, 3 do
+    local ft = Bu.fit(cells, i, S4, occupied_for(i), arms_of[i])
+    if not ft.ok then all_ok = false end
+    for _ in pairs(ft.moves) do moved = moved + 1 end
+  end
+  check(all_ok and moved == 0, "îlot réservé : les 3 machines grandissent vers 4×4, aucun bras de liaison déplacé ni en conflit (" .. moved .. " déplacé(s))")
+  -- îlot au PAS D'AVANT (4) : machines en x = 0, 4, 8, colonne de liaison en x = 3 et x = 7 (dans la future emprise de la machine à l'ouest)
+  local tight = { { x = 0, y = 0, w = 3, h = 3 }, { x = 4, y = 0, w = 3, h = 3 }, { x = 8, y = 0, w = 3, h = 3 } }
+  local t_arms = { {}, {}, {} }
+  for i, c in ipairs(tight) do
+    t_arms[i] = { { id = 100 * i + 1, x = c.x + 1, y = -1, far = { x = c.x + 1, y = -2 } }, { id = 100 * i + 2, x = c.x + 1, y = 3, far = { x = c.x + 1, y = 5 } } }
+  end
+  for r = 0, 2 do
+    t_arms[2][#t_arms[2] + 1] = { id = 210 + r, x = 3, y = r, far = { x = 2, y = r } }
+    t_arms[2][#t_arms[2] + 1] = { id = 220 + r, x = 7, y = r, far = { x = 9, y = r } }
+  end
+  local function t_occupied(i)
+    local o = {}
+    for k in pairs(occ) do o[k] = true end
+    for j, list in ipairs(t_arms) do
+      if j ~= i then for _, a in ipairs(list) do o[Bl.key(a.x, a.y)] = true end end
+    end
+    return o
+  end
+  local f1 = Bu.fit(tight, 1, S4, t_occupied(1), t_arms[1])
+  check(f1.ok == false and f1.cause == "emprise" and f1.conflits[1] == "3,0", "pas d'avant : la machine 1 est ajournée « emprise » (le bras de liaison de sa voisine est en (3, 0)) : " .. tostring(f1.conflits[1]))
+  local f2 = Bu.fit(tight, 2, S4, t_occupied(2), t_arms[2])
+  check(f2.ok == false and f2.cause == "emprise", "pas d'avant : la machine 2 est ajournée « emprise » (son bras de liaison est poussé sur la machine 3) : " .. tostring(f2.conflits[1]))
 end
 
 print(string.format("\n%d OK, %d ECHEC", ok_n, fail_n))

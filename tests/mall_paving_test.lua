@@ -193,7 +193,7 @@ print("== §6 cablage : script/team/build.lua")
 ---------------------------------------------------------------------------------------------------
 local B = read("script/team/build.lua")
 check(B:find('require("shared.team.mall_paving")', 1, true), "build.lua charge le module")
-check(B:find("Mp.pave_origin(", 1, true), "place_module epingle l'origine par Mp.pave_origin")
+check(B:find("Mp.pave_origin_dir(", 1, true), "place_module epingle l'origine par Mp.pave_origin_dir (lot MALL-DIRECTIONS : du cote ou la serie avance, Mp.pave_origin vers l'est)")
 check(B:find("function Build.Pave.owner(", 1, true) and B:find("Build.Pave.owner(b, l.used)", 1, true), "candidates : un lot pris par un bloc de mall reste candidat")
 check(B:find("Build.Pave.GEN[g.gen]", 1, true), "seul un bloc ou une cellule de mall pave un lot")
 check(B:find("fopts.within = {", 1, true), "P.fit n'essaie que la place collee (within)")

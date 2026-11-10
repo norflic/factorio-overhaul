@@ -2,12 +2,16 @@
 
     blender -b --factory-startup -noaudio -P batch_titans.py -- --what juggernaut --stages 1,2,3 --out DIR [--samples 48] [--px 40]
     blender -b --factory-startup -noaudio -P batch_titans.py -- --what kaiju --anim course --images 0,1,... --dirs 0..7 --out DIR [--samples 32]
+    blender -b --factory-startup -noaudio -P batch_titans.py -- --what juggernaut --anime --stages 1,2,3 --anim course|attaque [--images ..] [--dirs ..] --out DIR
 
 Alliés : Juggernaut, Sentinelle, Léviathan (1 direction, comme les géants : batch_blender.py ; --what <allié> --stages 1,2,3[,drone]) : passes main, lueur PAR GROUPE (conduits, cristal), ombre réduite ;
 sortie <out>/juggernaut-<stage>/{juggernaut-<stage>-main.npy, -shadow.npy, -glow_<g>.npy, render.json} (format de rendre.post).
-Kaiju (8 directions × images, comme serie_blender.py des souches) : le maillage d'une image est fait une fois, tourné 8 fois ;
-passes main (débruitée), ao, shadow, glow (émissifs en BLANC : la teinte d'ère vient du prototype) ;
-sortie <out>/kaiju/kaiju-<anim>-<image>-<dir>.npz (main, ao, ombre, glow, origine, densite). Reprenable : ce qui existe n'est pas refait.
+ANIMÉS (Kaiju ; Juggernaut depuis FINITIONS 10/11 : module avec SERIE, AO, GLOW_BLANC, build_anime) : 8 directions × images, comme
+serie_blender.py des souches : le maillage d'une image est fait une fois, tourné 8 fois ; passes main (débruitée) et ao sur la seule fenêtre
+du corps (bordure), ombre à demi-résolution (elle couvre dix fois le corps), lueur (émissifs en BLANC si GLOW_BLANC : la teinte d'ère vient du
+prototype ; sinon leurs couleurs ; `fo_glow_part` : part de la force gardée dans la passe de lueur) ;
+sortie <out>/kaiju/kaiju-<anim>-<image>-<dir>.npz ou <out>/<allié>-anime-<stade>/<allié>-<stade>-<anim>-<image>-<dir>.npz
+(main, ao, ombre, glow, origine, densite). Reprenable : ce qui existe n'est pas refait.
 --glb : exporte la géométrie en .glb (tools/render/pieces/titans/export/).
 Déterminisme : graine fixe (fo_calib.SEED), Cycles CPU, 8 fils, échantillons fixes ; débruitage OIDN (comme les souches).
 """
@@ -33,12 +37,14 @@ import fo_scene as S  # noqa: E402
 import geo as G  # noqa: E402
 import titans_mat as TM  # noqa: E402
 
-ALLIES = ("juggernaut", "sentinelle", "leviathan")
+ALLIES = ("juggernaut", "sentinelle", "leviathan", "ravageur")
+ANIMES = ("kaiju", "juggernaut", "ecorcheur", "ecorche", "ravageur")   # modules à SERIE (8 directions × images)
+SANS_STADE = ("kaiju", "ecorcheur")   # ennemis à un prototype par ère : une seule série, l'échelle vient du jeu (lot KAIJUS-MUTANTS)
 
 
 def groupes(prefix):
     """Groupes de lueur d'un allié (fondus en une couche par feuilles_xp.geant) : conduits + cœurs + halos + anneaux + accents ; cristal."""
-    return {"conduits": tuple(prefix + x for x in ("conduit", "coeur", "halo", "anneau", "accent")), "cristal": (prefix + "cristal",)}
+    return {"conduits": tuple(prefix + x for x in ("conduit", "coeur", "halo", "anneau", "accent", "singularite")), "cristal": (prefix + "cristal",)}
 EXPORT = os.path.join(HERE, "export")
 
 
@@ -84,15 +90,27 @@ def scene_neuve():
 _BLANCS = {}
 
 
-def _blanc_de(mat):
-    """Copie d'un émissif dont la couleur d'émission est BLANCHE (même force) : passe de lueur teintable par le prototype."""
-    b = _BLANCS.get(mat.name)
+def _lueur_de(mat, blanc):
+    """Copie d'un émissif pour la passe de LUEUR : force × fo_glow_part (1 par défaut ; cristaux 0,4, anneaux 0,7 : FINITIONS 10/11) ;
+    `blanc` : couleur d'émission BLANCHE (passe teintable par le prototype : Kaiju)."""
+    part = float(mat.get("fo_glow_part", 1.0))
+    if not blanc and part == 1.0:
+        return mat
+    key = mat.name + ("_blanc" if blanc else "_part")
+    b = _BLANCS.get(key)
     if b is None:
         b = mat.copy()
-        b.name = mat.name + "_blanc"
-        b.node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = (1.0, 1.0, 1.0, 1.0)
-        _BLANCS[mat.name] = b
+        b.name = key
+        if blanc:
+            b.node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = (1.0, 1.0, 1.0, 1.0)
+        if part != 1.0:
+            S._set_emit_strength(b, float(mat["fo_emit_strength"]) * part)
+        _BLANCS[key] = b
     return b
+
+
+def _blanc_de(mat):
+    return _lueur_de(mat, True)
 
 
 def passe_lueur(scene, objs, sun, ground, world, path, samples, fn):
@@ -197,7 +215,7 @@ def allie(a):
         for g, noms in groupes(MOD.PREFIX).items():
             def fn(mat, noms=noms):
                 if mat is not None and mat.get("fo_kind") == "emissive" and any(mat.name.startswith(x) for x in noms):
-                    return mat
+                    return _lueur_de(mat, False)
                 return S._black_mat()
             p = os.path.join(d, "%s-glow_%s.png" % (name, g))
             t2 = time.time()
@@ -231,106 +249,130 @@ def allie(a):
         print("[FO-TITAN] %s %dx%d %d sommets, %d pieces, build %.1fs, total %.1fs" % (name, W, H, nverts, n_pieces, t_build, time.time() - t0), flush=True)
 
 
-# ------------------------------------------------------------------------------------------------ Kaiju
-def kaiju(a):
-    import kaiju as KA
-    se = KA.SERIE
+# ------------------------------------------------------------------------------------------------ animés : Kaiju, Juggernaut
+def anime(a):
+    MOD = __import__(a.what)
+    se = MOD.SERIE
     D = float(se["densite"])
     C.PX_PER_UNIT_HR = D
-    C.AO_DISTANCE = KA.AO
+    C.AO_DISTANCE = MOD.AO
     C.SKY_GLOSSY_FACTOR = TM.SKY_GLOSSY
+    blanc = bool(getattr(MOD, "GLOW_BLANC", False))
     nb = se[a.anim]
-    d = os.path.join(a.out, "kaiju")
-    os.makedirs(d, exist_ok=True)
+    kaiju = a.what in SANS_STADE
+    stages = [None] if kaiju else [int(x) for x in a.stages.split(",") if x]
     dirs_all = [int(x) for x in a.dirs.split(",") if x] or list(range(8))
     images = [int(x) for x in a.images.split(",") if x] or list(range(nb))
-    for i in images:
-        nom_de = lambda k: os.path.join(d, "kaiju-%s-%02d-%02d.npz" % (a.anim, i, k))
-        dirs = [k for k in dirs_all if not os.path.exists(nom_de(k))]
-        if not dirs:
-            print("[FO-TITAN] kaiju %s %d : rien a faire" % (a.anim, i), flush=True)
-            continue
-        t0 = time.time()
-        scene = scene_neuve()
-        lot = G.Lot(S, "ka_")
-        u = i / float(nb)
-        KA.build(S, lot, u) if a.anim == "course" else KA.build(S, lot, 0.0, attaque=u)
-        n_pieces = lot.n
-        objs = lot.flush()
-        TM.sans_ombre(objs)
-        bpy.context.view_layer.update()
-        if a.glb and i == 0 and a.anim == "course":
-            export_glb("kaiju")
-        nverts = sum(len(o.data.vertices) for o in objs)
-        t_mesh = time.time() - t0
-        R_, zmax = se["R"], se["zmax"]
-        ox = int(math.ceil(R_ * D)) + 8
-        oy = int(math.ceil((R_ * C.COS_T + zmax * C.SIN_T) * D)) + 8
-        W = ox + int(math.ceil((R_ + zmax * 0.95) * D)) + 8
-        H = oy + int(math.ceil((R_ * C.COS_T) * D)) + 8
-        W += W % 2
-        H += H % 2
-        S.setup_render(scene, W, H, samples=a.samples)
-        cy = scene.cycles
-        cy.use_denoising = True
-        cy.denoiser = "OPENIMAGEDENOISE"
-        cy.denoising_input_passes = "RGB_ALBEDO_NORMAL"
-        cy.denoising_prefilter = "ACCURATE"
-        S.setup_camera(scene, W, H, center_px=(ox, oy))
-        S.setup_world(scene)
-        sun = S.add_sun(scene)
-        S.add_fill(scene)
-        ground = S.add_ground(scene, size=120.0)
-        world = scene.world
-        _rt = S.render_to
-        parts = {"ao": 4, "shadow": 8}
-
-        def rt(sc, path):
-            ech = parts.get(os.path.basename(path)[:-4].rsplit("-", 1)[-1])
-            avant, den = sc.cycles.samples, sc.cycles.use_denoising
-            if ech:
-                sc.cycles.samples = ech
-                sc.cycles.use_denoising = False
-            try:
-                return _rt(sc, path)
-            finally:
-                sc.cycles.samples, sc.cycles.use_denoising = avant, den
-        S.render_to = rt
-        tmp = os.path.join(d, "_tmp-%s-%02d" % (a.anim, i))
-        os.makedirs(tmp, exist_ok=True)
-        def blanc(mat):
-            if mat is not None and mat.get("fo_kind") == "emissive":
-                return _blanc_de(mat)
-            return S._black_mat()
-        for k in dirs:
-            cap = k * 45.0
-            yaw = math.atan2(math.cos(math.radians(cap)), math.sin(math.radians(cap)))
-            for o in objs:
-                o.rotation_euler = (0.0, 0.0, yaw)
+    for stage in stages:
+        base = a.what if kaiju else "%s-%d" % (a.what, stage)
+        d = os.path.join(a.out, a.what if kaiju else "%s-anime-%d" % (a.what, stage))
+        os.makedirs(d, exist_ok=True)
+        for i in images:
+            nom_de = lambda k: os.path.join(d, "%s-%s-%02d-%02d.npz" % (base, a.anim, i, k))
+            dirs = [k for k in dirs_all if not os.path.exists(nom_de(k))]
+            if not dirs:
+                print("[FO-TITAN] %s %s %d : rien a faire" % (base, a.anim, i), flush=True)
+                continue
+            t0 = time.time()
+            scene = scene_neuve()
+            lot = G.Lot(S, "%s_" % MOD.PREFIX[:2])
+            u = i / float(nb)
+            MOD.build_anime(S, lot, stage, u if a.anim == "course" else 0.0, None if a.anim == "course" else u)
+            n_pieces = lot.n
+            objs = lot.flush()
+            TM.sans_ombre(objs)
             bpy.context.view_layer.update()
-            res = S.render_passes(scene, tmp, "f", ["main", "ao", "shadow"], sun, ground)
-            main = lire_png(res["main"])
-            ao = lire_png(res["ao"])
-            ombre = lire_png(res["shadow"])[..., 3]
-            pg = os.path.join(tmp, "f-glow.png")
-            passe_lueur(scene, objs, sun, ground, world, pg, a.lueur_spp, blanc)
-            glow = lire_png(pg)
-            np.savez_compressed(nom_de(k), main=np.round(np.clip(main, 0, 1) * 255).astype(np.uint8), ao=np.round(np.clip(ao, 0, 1) * 255).astype(np.uint8),
-                                ombre=np.round(np.clip(ombre, 0, 1) * 255).astype(np.uint8), glow=np.round(np.clip(glow, 0, 1) * 255).astype(np.uint8),
-                                origine=np.array([ox, oy]), densite=np.array([D]))
-            print("[FO-TITAN] kaiju %s %d dir %d %.1fs" % (a.anim, i, k, time.time() - t0), flush=True)
-        S.render_to = _rt
-        for f in os.listdir(tmp):
-            os.remove(os.path.join(tmp, f))
-        os.rmdir(tmp)
-        print("[FO-TITAN] kaiju %s %d : %d dir, %dx%d, %d sommets, %d pieces, maillage %.0fs, total %.0fs" % (
-            a.anim, i, len(dirs), W, H, nverts, n_pieces, t_mesh, time.time() - t0), flush=True)
+            if a.glb and i == 0 and a.anim == "course" and (stage is None or stage == stages[-1]):
+                export_glb(a.what)
+            nverts = sum(len(o.data.vertices) for o in objs)
+            t_mesh = time.time() - t0
+            R_, zmax = se["R"], se["zmax"]
+            ox = int(math.ceil(R_ * D)) + 8
+            oy = int(math.ceil((R_ * C.COS_T + zmax * C.SIN_T) * D)) + 8
+            W = ox + int(math.ceil((R_ + zmax * 0.95) * D)) + 8
+            H = oy + int(math.ceil((R_ * C.COS_T) * D)) + 8
+            W += W % 2
+            H += H % 2
+            S.setup_render(scene, W, H, samples=a.samples)
+            cy = scene.cycles
+            cy.use_denoising = True
+            cy.denoiser = "OPENIMAGEDENOISE"
+            cy.denoising_input_passes = "RGB_ALBEDO_NORMAL"
+            cy.denoising_prefilter = "ACCURATE"
+            S.setup_camera(scene, W, H, center_px=(ox, oy))
+            S.setup_world(scene)
+            sun = S.add_sun(scene)
+            S.add_fill(scene)
+            ground = S.add_ground(scene, size=float(se.get("sol", 120.0 if kaiju else 400.0)))
+            world = scene.world
+            rd = scene.render
+            _rt = S.render_to
+            parts = {"ao": 4, "shadow": 8}
+
+            def rt(sc, path):
+                ech = parts.get(os.path.basename(path)[:-4].rsplit("-", 1)[-1])
+                avant, den = sc.cycles.samples, sc.cycles.use_denoising
+                if ech:
+                    sc.cycles.samples = ech
+                    sc.cycles.use_denoising = False
+                try:
+                    return _rt(sc, path)
+                finally:
+                    sc.cycles.samples, sc.cycles.use_denoising = avant, den
+            S.render_to = rt
+            # dossier de travail PROPRE au processus (KAIJUS-MUTANTS : deux places de rendu sur la même série se partageaient « _tmp-<anim>-<image> »
+            # et l'une effaçait la passe ao de l'autre : vue ravageur-2-attaque-00-05 à ao vide)
+            tmp = os.path.join(d, "_tmp-%s-%02d-%d" % (a.anim, i, os.getpid()))
+            os.makedirs(tmp, exist_ok=True)
+            fn_lueur = (lambda mat: _lueur_de(mat, blanc) if (mat is not None and mat.get("fo_kind") == "emissive") else S._black_mat())
+            m = int(round(0.8 * D))     # marge de la fenêtre du corps : liseré de contact (AO) et débordement de la lueur
+            for k in dirs:
+                cap = k * 45.0
+                yaw = math.atan2(math.cos(math.radians(cap)), math.sin(math.radians(cap)))
+                for o in objs:
+                    o.rotation_euler = (0.0, 0.0, yaw)
+                bpy.context.view_layer.update()
+                # fenêtre du corps (bordure) pour main, ao et lueur : le reste du cadre est vide, l'ombre seule le remplit
+                _, corps = projected_bounds(objs)
+                rd.use_border = True
+                rd.use_crop_to_border = False
+                rd.border_min_x = max(0.0, (ox + corps[0] - m) / float(W))
+                rd.border_max_x = min(1.0, (ox + corps[2] + m) / float(W))
+                rd.border_min_y = max(0.0, 1.0 - (oy + corps[3] + m) / float(H))
+                rd.border_max_y = min(1.0, 1.0 - (oy + corps[1] - m) / float(H))
+                res = S.render_passes(scene, tmp, "f", ["main", "ao"], sun, ground)
+                main = lire_png(res["main"])
+                ao = lire_png(res["ao"])
+                pg = os.path.join(tmp, "f-glow.png")
+                passe_lueur(scene, objs, sun, ground, world, pg, a.lueur_spp, fn_lueur)
+                glow = lire_png(pg)
+                # ombre : tout le cadre, demi-résolution, ré-agrandie
+                rd.use_border = False
+                rd.resolution_percentage = 50
+                res = S.render_passes(scene, tmp, "f", ["shadow"], sun, ground)
+                rd.resolution_percentage = 100
+                om = lire_png(res["shadow"])[..., 3]
+                om = np.repeat(np.repeat(om, 2, axis=0), 2, axis=1)[:H, :W]
+                if om.shape != (H, W):
+                    full = np.zeros((H, W), om.dtype)
+                    full[:om.shape[0], :om.shape[1]] = om
+                    om = full
+                np.savez_compressed(nom_de(k), main=np.round(np.clip(main, 0, 1) * 255).astype(np.uint8), ao=np.round(np.clip(ao, 0, 1) * 255).astype(np.uint8),
+                                    ombre=np.round(np.clip(om, 0, 1) * 255).astype(np.uint8), glow=np.round(np.clip(glow, 0, 1) * 255).astype(np.uint8),
+                                    origine=np.array([ox, oy]), densite=np.array([D]))
+                print("[FO-TITAN] %s %s %d dir %d %.1fs" % (base, a.anim, i, k, time.time() - t0), flush=True)
+            S.render_to = _rt
+            for f in os.listdir(tmp):
+                os.remove(os.path.join(tmp, f))
+            os.rmdir(tmp)
+            print("[FO-TITAN] %s %s %d : %d dir, %dx%d, %d sommets, %d pieces, maillage %.0fs, total %.0fs" % (
+                base, a.anim, i, len(dirs), W, H, nverts, n_pieces, t_mesh, time.time() - t0), flush=True)
 
 
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
-    ap.add_argument("--what", required=True, choices=ALLIES + ("kaiju",))
+    ap.add_argument("--what", required=True, choices=tuple(sorted(set(ALLIES + ANIMES))))
     ap.add_argument("--out", required=True)
     ap.add_argument("--stages", default="1,2,3")
     ap.add_argument("--anim", default="course")
@@ -342,12 +384,13 @@ def main():
     ap.add_argument("--ombre-spp", type=int, default=16)
     ap.add_argument("--lueur-spp", type=int, default=16)
     ap.add_argument("--glb", action="store_true")
+    ap.add_argument("--anime", action="store_true", help="série à 8 directions d'un allié animé (Juggernaut) ; le Kaiju l'est toujours")
     a = ap.parse_args(argv)
     a.out = os.path.abspath(a.out)
-    if a.what in ALLIES:
-        allie(a)
+    if a.what in SANS_STADE or (a.anime and a.what in ANIMES):
+        anime(a)
     else:
-        kaiju(a)
+        allie(a)
 
 
 main()

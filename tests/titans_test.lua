@@ -13,6 +13,10 @@
        script déclarés par un prototype ; aucune couleur translucide littérale (prémultiplication, gi1) ;
     §6 vagues : TD.compose sans âge inchangé (aucun Kaiju), avec âge : Kaiju de l'ère de l'âge, déterministe ;
     §7 mutants : chaque règle a un mutant, tous refusés.
+    KAIJUS-MUTANTS (10/11) : §1 Ravageur (4e allié, animé : SERIE et FOULEE de ravageur.py, mitraille puis lames), Écorcheur (2e Kaiju : era_min,
+       tir, PONTE : nombre et variantes), Écorchés (trois variantes : PV, vitesse, plaques, noms reconnus, courbes des nids), rotation des
+       archétypes (T.kaiju_pour) ; §3 feuilles de l'Écorcheur, des Écorchés (variantes) et du Ravageur ; §6 vagues à deux archétypes ;
+       §7 douze mutants de plus.
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -77,7 +81,7 @@ check(a6.armes.griffes and a6.armes.canon and a6.armes.salve and a6.armes.resona
 check(a6.cooldown * 2 <= a1.cooldown, "§1 résonance : cadence doublée")
 check(T.juggernaut_palier("fo-titan-juggernaut-0") == nil and T.juggernaut_palier("fo-titan-juggernaut-x") == nil and T.juggernaut_palier("fo-xp-cairn") == nil, "§1 noms étrangers refusés")
 -- les trois alliés : même règle d'échelle, armes propres, noms de palier
-check(#T.ALLIES == 3 and T.ALLIES[1] == T.JUGGERNAUT and T.ALLIES[2] == T.SENTINELLE and T.ALLIES[3] == T.LEVIATHAN, "§1 trois archétypes alliés, Juggernaut en tête")
+check(#T.ALLIES == 4 and T.ALLIES[1] == T.JUGGERNAUT and T.ALLIES[2] == T.SENTINELLE and T.ALLIES[3] == T.LEVIATHAN and T.ALLIES[4] == T.RAVAGEUR, "§1 quatre archétypes alliés, Juggernaut en tête, Ravageur en queue")
 for _, r in ipairs(T.ALLIES) do
   check(T.allie_of_id(r.id) == r and r.name == T.PREFIX .. r.id and r.tech == r.name and r.ingredients[1][1] == r.segment_item and r.ingredients[1][2] == T.SEGMENTS, "§1 " .. r.id .. " : noms, technologie, 10 segments")
   local prev2
@@ -92,7 +96,7 @@ for _, r in ipairs(T.ALLIES) do
   end
   local j1, j6 = T.allie(r, T.AGE_MIN), T.allie(r, T.AGE_MAX)
   check(#j1.liste_armes == 1 and j1.liste_armes[1] == r.armes[1].id and r.armes[1].palier == 1, "§1 " .. r.id .. " : une seule arme au palier 1, la sienne")
-  check(j6.armes.canon and j6.armes.salve and j6.armes.resonance and j6.cooldown * 2 <= j1.cooldown, "§1 " .. r.id .. " : canon, salve et résonance au dernier palier")
+  check((j6.armes.canon or j6.armes.mitraille) and j6.armes.salve and j6.armes.resonance and j6.cooldown * 2 <= j1.cooldown, "§1 " .. r.id .. " : canon (ou mitraille), salve et résonance au dernier palier")
   check(T.allie_palier(r.name .. "-0") == nil and T.allie_palier(r.name .. "-7") == nil and T.allie_palier(r.name) == nil, "§1 " .. r.id .. " : paliers hors bornes refusés")
 end
 check(T.allie(T.SENTINELLE, T.AGE_MIN).armes.singularite and not T.allie(T.SENTINELLE, T.AGE_MIN).armes.canon, "§1 Sentinelle : la singularité d'abord, le canon au palier 2")
@@ -100,7 +104,39 @@ check(T.SENTINELLE.singularite.slow < 1 and T.SENTINELLE.singularite.slow > 0 an
 check(T.allie(T.LEVIATHAN, T.AGE_MIN).armes.drones and not T.allie(T.LEVIATHAN, T.AGE_MIN).armes.canon and T.allie(T.LEVIATHAN, T.AGE_MIN + 2).armes.canon, "§1 Léviathan : les drones d'abord, le canon au palier 3")
 check(T.drones(1) == 2 and T.drones(3) == 2 and T.drones(4) == 3 and T.drones(T.PALIERS) == 3, "§1 Léviathan : 2 drones, 3 dès le palier 4")
 check(T.allie(T.LEVIATHAN, T.AGE_MIN).n_drones == 2 and T.allie(T.LEVIATHAN, T.AGE_MAX).n_drones == 3 and T.juggernaut(T.AGE_MIN).n_drones == nil, "§1 drones : seul le Léviathan en a")
-check(T.JUGGERNAUT.age < T.SENTINELLE.age and T.SENTINELLE.age < T.LEVIATHAN.age and T.LEVIATHAN.age <= T.AGE_MAX, "§1 âges des trois alliés croissants")
+check(T.JUGGERNAUT.age < T.SENTINELLE.age and T.SENTINELLE.age < T.LEVIATHAN.age and T.LEVIATHAN.age < T.RAVAGEUR.age and T.RAVAGEUR.age <= T.AGE_MAX, "§1 âges des quatre alliés croissants")
+-- FINITIONS (10/11) : Juggernaut animé (8 directions × images), règles pures de l'animation
+local JU = read("tools/render/pieces/titans/juggernaut.py")
+local function py_num(expr)
+  local f = load("return " .. expr:gsub("%s+$", ""), "=py", "t", {})
+  return f and f()
+end
+local SERIE = {}
+for k, v in JU:match("\nSERIE = {(.-)}"):gmatch('"(%a+)":%s*([%d%.]+)') do SERIE[k] = tonumber(v) end
+local FOULEE = py_num(JU:match("\nFOULEE = ([^#\n]+)"))
+check(type(T.JUGGERNAUT.anime) == "table" and T.JUGGERNAUT.anime.images.course == SERIE.course and T.JUGGERNAUT.anime.images.attaque == SERIE.attaque,
+  "§1 Juggernaut animé : images de course et d'attaque = SERIE du modèle (juggernaut.py)")
+check(FOULEE and math.abs(T.JUGGERNAUT.anime.foulee - FOULEE) < 1e-6, "§1 Juggernaut animé : foulée de la règle = FOULEE du modèle (" .. tostring(FOULEE) .. ")")
+check(T.JUGGERNAUT.anime.attaque_ticks > 0 and T.JUGGERNAUT.anime.attaque_ticks % 1 == 0, "§1 Juggernaut animé : durée de salve entière, positive")
+check(T.SENTINELLE.anime == nil and T.LEVIATHAN.anime == nil, "§1 seuls les archétypes à feuilles animées portent `anime`")
+-- KAIJUS-MUTANTS : le Ravageur est animé comme le Juggernaut (SERIE et FOULEE de ravageur.py)
+local RA = read("tools/render/pieces/titans/ravageur.py")
+local SERIE_RA = {}
+for k, v in RA:match("\nSERIE = {(.-)}"):gmatch('"(%a+)":%s*([%d%.]+)') do SERIE_RA[k] = tonumber(v) end
+local FOULEE_RA = py_num(RA:match("\nFOULEE = ([^#\n]+)"))
+check(type(T.RAVAGEUR.anime) == "table" and T.RAVAGEUR.anime.images.course == SERIE_RA.course and T.RAVAGEUR.anime.images.attaque == SERIE_RA.attaque,
+  "§1 Ravageur animé : images = SERIE du modèle (ravageur.py)")
+check(FOULEE_RA and math.abs(T.RAVAGEUR.anime.foulee - FOULEE_RA) < 1e-3, "§1 Ravageur animé : foulée de la règle = FOULEE du modèle (" .. tostring(FOULEE_RA) .. ")")
+local r1, r2, r6 = T.allie(T.RAVAGEUR, T.AGE_MIN), T.allie(T.RAVAGEUR, T.AGE_MIN + 1), T.allie(T.RAVAGEUR, T.AGE_MAX)
+check(r1.armes.mitraille and not r1.armes.lames and r2.armes.lames and not r1.armes.canon and r6.armes.salve, "§1 Ravageur : mitraille d'abord, lames au palier 2, jamais de canon annulaire, salve plus tard")
+check(r1.mitraille and r1.mitraille.n > 1 and r1.mitraille.part > 0 and r1.mitraille.part <= 1 and r1.lames and r1.lames.radius > 0, "§1 Ravageur : rafale de plusieurs projectiles, part de salve bornée, lames à rayon")
+check(T.RAVAGEUR.speed < T.JUGGERNAUT.speed and T.allie(T.RAVAGEUR, T.AGE_MIN).cooldown < T.allie(T.JUGGERNAUT, T.AGE_MIN).cooldown, "§1 Ravageur : plus lent que le Juggernaut, cadence plus courte")
+check(T.direction8(0) == 0 and T.direction8(0.25) == 2 and T.direction8(0.5) == 4 and T.direction8(0.75) == 6, "§1 direction8 : nord, est, sud, ouest")
+check(T.direction8(0.07) == 1 and T.direction8(0.06) == 0 and T.direction8(0.99) == 0 and T.direction8(0.93) == 7 and T.direction8(nil) == 0, "§1 direction8 : secteur le plus proche, 1 revient à 0")
+check(T.vitesse_anim(0, 6.9, 8) == 0 and T.vitesse_anim(nil, 6.9, 8) == 0 and T.vitesse_anim(0.12, 0, 8) == 0, "§1 vitesse_anim : 0 à l'arrêt ou sans foulée")
+check(math.abs(T.vitesse_anim(0.12, 6.9, 8) - 0.12 * 8 / 6.9) < 1e-12 and T.vitesse_anim(-0.12, 6.9, 8) == T.vitesse_anim(0.12, 6.9, 8), "§1 vitesse_anim : vitesse × images / foulée, marche arrière comprise")
+check(T.anim_name(T.JUGGERNAUT, 2, "course", 3, "corps") == "fo-titan-juggernaut-2-course-3-corps", "§1 anim_name : préfixe, archétype, stade, animation, direction, couche")
+check(#T.COUCHES_ANIM == 3 and T.COUCHES_ANIM[1][1] == "ombre" and T.COUCHES_ANIM[2][1] == "corps" and T.COUCHES_ANIM[3][1] == "lueur", "§1 trois couches animées, l'ombre dessous")
 -- Kaiju
 prev = nil
 for e = 1, T.ERAS do
@@ -117,6 +153,73 @@ for e = 1, T.ERAS do
   prev = k
 end
 check(T.kaiju(1).arme == "morsure" and T.kaiju(2).arme == "griffes" and T.kaiju(3).arme == "impulsion" and T.kaiju(T.ERAS).arme == "impulsion", "§1 Kaiju : morsure, griffes, impulsion")
+-- KAIJUS-MUTANTS : archétypes de Kaiju, rotation par les données, Écorcheur, ponte, Écorchés
+check(#T.KAIJUS == 2 and T.KAIJUS[1] == T.KAIJU and T.KAIJUS[2] == T.ECORCHEUR and T.KAIJU.era_min == 1 and T.ECORCHEUR.era_min > 1, "§1 deux archétypes de Kaiju, le cristallin d'abord et dès l'ère 1, l'Écorcheur plus tard")
+check(T.kaiju_pour(1, 1) == T.KAIJU and T.kaiju_pour(1, 2) == T.KAIJU and T.kaiju_pour(T.ECORCHEUR.era_min, 1) == T.KAIJU and T.kaiju_pour(T.ECORCHEUR.era_min, 2) == T.ECORCHEUR
+  and T.kaiju_pour(T.ERAS, 3) == T.KAIJU and T.kaiju_pour(T.ERAS, nil) == T.KAIJU, "§1 rotation : seul le cristallin avant l'ère de l'Écorcheur, puis alternance par le numéro")
+check(#T.kaijus_ouverts(1) == 1 and #T.kaijus_ouverts(T.ERAS) == 2, "§1 archétypes ouverts par l'ère (era_min)")
+for e = 1, T.ERAS do
+  local ok = true
+  for _, kk in ipairs(T.KAIJUS) do
+    local j = T.kaiju(e, kk)
+    local k2, e2 = T.kaiju_of_name(j.name)
+    if k2 ~= kk or e2 ~= e or T.kaiju_era_of_name(j.name) ~= e or j.name ~= T.kaiju_name(e, kk) then ok = false end
+  end
+  check(ok, "§1 ère " .. e .. " : noms des deux archétypes reconnus (archétype et ère)")
+  local ec = T.kaiju(e, T.ECORCHEUR)
+  check(ec.hp < T.kaiju(e).hp and ec.speed > T.kaiju(e).speed, "§1 ère " .. e .. " : l'Écorcheur est plus léger et plus vif que le cristallin")
+end
+check(T.kaiju(1, T.ECORCHEUR).arme == "morsure" and T.kaiju(2, T.ECORCHEUR).arme == "tir" and T.kaiju(3, T.ECORCHEUR).arme == "ponte" and T.kaiju(T.ERAS, T.ECORCHEUR).armes.tir,
+  "§1 Écorcheur : morsure, tir (ère 2), ponte (ère 3), le tir reste")
+check(T.kaiju(2, T.ECORCHEUR).ponte == nil and type(T.kaiju(3, T.ECORCHEUR).ponte) == "table", "§1 Écorcheur : la ponte n'existe qu'à partir de son ère")
+local function total(l) local n = 0; for _, it in ipairs(l) do n = n + it[2] end; return n end
+check(total(T.ponte(3)) == T.ECORCHEUR.ponte.base and total(T.ponte(4)) == T.ECORCHEUR.ponte.base + T.ECORCHEUR.ponte.plus_era and total(T.ponte(T.ERAS)) > total(T.ponte(3)),
+  "§1 ponte : base à son ère, plus_era de plus par ère")
+check(#T.ponte(3) == math.min(T.ECORCHEUR.ponte.base, #T.ECORCHE.variants) and #T.ponte(5) == #T.ECORCHE.variants and T.ecorche_of_name(T.ponte(3)[1][1]) ~= nil,
+  "§1 ponte : les variantes tournent (noms d'Écorchés reconnus), une entrée par nom")
+check(#T.ECORCHE.variants == 3 and T.ECORCHE.era_min >= 1 and T.ECORCHE.era_min <= T.ERAS, "§1 trois variantes d'Écorchés, ère d'ouverture bornée")
+do
+  local ro, po, hu = T.ECORCHE.variants[1], T.ECORCHE.variants[2], T.ECORCHE.variants[3]
+  for e = T.ECORCHE.era_min, T.ERAS do
+    local a, b, c = T.ecorche(ro, e), T.ecorche(po, e), T.ecorche(hu, e)
+    local d = Ech.dechiqueteur(Ech.palier(T.age_of_era(e)))
+    check(a.hp == d.pv * T.ECORCHE.hp_mult * ro.hp and b.hp > a.hp and a.speed > b.speed and b.resistances[1].percent > a.resistances[1].percent,
+      "§1 Écorchés ère " .. e .. " : PV = déchiqueteur × multiplicateurs ; le porteur plus lourd et plus blindé, le rôdeur plus vif")
+    check(c.cri_radius and c.cri_radius > 0 and a.cri_radius == nil and c.morsure > a.morsure, "§1 Écorchés ère " .. e .. " : seul le hurleur crie (zone), et mord plus fort")
+    local ok = true
+    for _, v in ipairs(T.ECORCHE.variants) do
+      local m = T.ecorche(v, e)
+      local v2, e2 = T.ecorche_of_name(m.name)
+      if v2 ~= v or e2 ~= e or m.tint.r ~= T.era_color(e).r then ok = false end
+      local cv = T.ecorche_curve(v, e)
+      if not (cv[1][1] < cv[2][1] and cv[1][2] == 0 and cv[3][2] > 0) then ok = false end
+      if e > T.ECORCHE.era_min and not (cv[1][1] > T.ecorche_curve(v, e - 1)[1][1]) then ok = false end
+    end
+    check(ok, "§1 Écorchés ère " .. e .. " : noms reconnus, lueur de l'ère, courbes des nids croissantes avec l'ère")
+  end
+  check(T.ecorche_curve(po, 3)[1][1] > T.ecorche_curve(ro, 3)[1][1] and T.ecorche_curve(ro, 3)[1][1] < T.kaiju_curve(1)[1][1], "§1 nids : le porteur après le rôdeur, les Écorchés avant tout Kaiju")
+  check(T.ecorche_of_name("fo-titan-ecorche-rodeur-0") == nil and T.ecorche_of_name("fo-titan-ecorche-x-2") == nil and T.ecorche_of_name("fo-titan-kaiju-2") == nil, "§1 Écorchés : noms étrangers refusés")
+  check(T.kaiju_curve(2, T.ECORCHEUR)[1][1] > T.kaiju_curve(2, T.KAIJU)[1][1], "§1 nids : l'Écorcheur après le cristallin de la même ère")
+end
+-- règle du MOTEUR : les évolutions d'une courbe de nid sont STRICTEMENT croissantes, dans [0, 1], la dernière vaut 1 (sinon « Wrong
+-- SpawnPoints definition » au chargement : banc content KAIJUS du 10/11) ; toutes les courbes de ce fichier, toutes les ères
+local function courbe_ok(c)
+  if #c < 2 or c[#c][1] ~= 1.0 then return false end
+  for i, pt in ipairs(c) do
+    if pt[1] < 0 or pt[1] > 1 or pt[2] < 0 or (i > 1 and not (pt[1] > c[i - 1][1])) then return false end
+  end
+  return true
+end
+do
+  local bad = {}
+  for _, kk in ipairs(T.KAIJUS) do
+    for e = 1, T.ERAS do if not courbe_ok(T.kaiju_curve(e, kk)) then bad[#bad + 1] = kk.id .. "-" .. e end end
+  end
+  for _, v in ipairs(T.ECORCHE.variants) do
+    for e = T.ECORCHE.era_min, T.ERAS do if not courbe_ok(T.ecorche_curve(v, e)) then bad[#bad + 1] = v.id .. "-" .. e end end
+  end
+  check(#bad == 0, "§1 nids : toutes les courbes strictement croissantes, finies à 1 (" .. table.concat(bad, " ") .. ")")
+end
 check(T.kaiju_in_wave(19, 5) == 0 and T.kaiju_in_wave(21, 5) == 0 and T.kaiju_in_wave(20, 5) == 1 and T.kaiju_in_wave(35, 5) == 1 and T.kaiju_in_wave(40, 5) == 2 and T.kaiju_in_wave(60, 5) == 3,
   "§1 vagues : premier Kaiju à la vague 20 (vague de boss), un de plus toutes les 20")
 
@@ -140,6 +243,8 @@ do
   check(T2.ERAS == 9 and T2.PALIERS == 9 and T2.AGE_MAX == 18, "§2 config à 18 époques, 2 par ère : 9 ères, 9 paliers")
   check(T2.era(5) == 3 and T2.era(18) == 9 and T2.era_color(2).r == 4 / 18, "§2 ères et couleurs relues dans la config changée")
   check(T2.juggernaut(18).palier == 9 and T2.kaiju(9).age == 18, "§2 dernier palier et dernière ère suivent la config")
+  check(T2.kaiju(9, T2.ECORCHEUR).age == 18 and T2.kaiju_pour(9, 2) == T2.ECORCHEUR and #T2.ponte(9) == #T2.ECORCHE.variants and T2.ecorche(T2.ECORCHE.variants[1], 9).age == 18,
+    "§2 Écorcheur, rotation, ponte et Écorchés suivent la config changée")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -172,10 +277,29 @@ if okspr then
     local cles = {}
     for st = 1, T.STAGES do cles[#cles + 1] = tostring(st) end
     if r.drones then cles[#cles + 1] = "drone" end
+    local A = SPR[r.id]
+    check((A and A.anime == true) == (r.anime ~= nil), "§3 " .. r.id .. " : feuilles animées si et seulement si la règle dit `anime`")
     for _, st in ipairs(cles) do
-      local e = SPR[r.id] and SPR[r.id][st]
+      local e = A and A[st]
       check(e ~= nil, "§3 " .. r.id .. " : feuille du stade " .. st)
-      if e then
+      if e and e.course then
+        -- FINITIONS : stade animé (8 directions × images, un fichier par direction et par couche, densité propre à chaque couche)
+        check(A.directions == 8 and e.course.images == r.anime.images.course and e.attaque.images == r.anime.images.attaque and math.abs(A.foulee - r.anime.foulee) < 1e-6,
+          "§3 " .. r.id .. " " .. st .. " : 8 directions, images et foulée = règle")
+        for _, anim in ipairs({ "course", "attaque" }) do
+          local a = e[anim]
+          for _, nomc in ipairs({ "main", "glow", "shadow" }) do
+            local c = a.couches[nomc]
+            check(#c.hr == 8 and #c.lr == 8 and c.ll * c.lpf == a.images and c.dens > 0 and c.dens <= a.densite, "§3 " .. r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " : un fichier par direction, grille exacte, densité")
+            check(c.w * c.ll <= 4096 and c.h * c.lpf <= 4096, "§3 " .. r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " : feuille ≤ 4 096 px")
+            for k = 1, 8 do
+              verifie(r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " " .. k, c.hr[k], c.w * c.ll, c.h * c.lpf)
+              verifie(r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " " .. k, c.lr[k], c.lw * c.ll, c.lh * c.lpf)
+            end
+          end
+        end
+        check(e.icone and e.icone.size == 64, "§3 " .. r.id .. " " .. st .. " : icône")
+      elseif e then
         for _, c in ipairs({ e.main, e.ombre, e.lueurs[1] }) do
           verifie(r.id .. " " .. st, c.hr.filename, c.hr.width, c.hr.height)
           verifie(r.id .. " " .. st, c.lr.filename, c.lr.width, c.lr.height)
@@ -184,41 +308,68 @@ if okspr then
       end
     end
   end
-  local K = SPR.kaiju
-  check(K and K.directions == 8 and K.course and K.course.images == 8 and K.attaque and K.attaque.images == 4, "§3 Kaiju : 8 directions, course 8 images, attaque 4")
-  if K and K.course then
+  -- ennemis à une série (Kaiju cristallin, Écorcheur : KAIJUS-MUTANTS), puis les Écorchés (feuilles par variante, comme un allié animé)
+  local function serie(K, qui, maxpx)
     for _, anim in ipairs({ "course", "attaque" }) do
       local a = K[anim]
       for _, nomc in ipairs({ "main", "glow", "shadow" }) do
         local c = a.couches[nomc]
-        check(#c.hr == 8 and #c.lr == 8, "§3 Kaiju " .. anim .. " " .. nomc .. " : un fichier par direction")
-        check(c.ll * c.lpf >= a.images, "§3 Kaiju " .. anim .. " " .. nomc .. " : la grille tient toutes les images")
+        check(#c.hr == 8 and #c.lr == 8, "§3 " .. qui .. " " .. anim .. " " .. nomc .. " : un fichier par direction")
+        check(c.ll * c.lpf >= a.images, "§3 " .. qui .. " " .. anim .. " " .. nomc .. " : la grille tient toutes les images")
         for k = 1, 8 do
-          verifie("kaiju " .. anim .. " " .. nomc .. " " .. k, c.hr[k], c.w * c.ll, c.h * c.lpf)
-          verifie("kaiju " .. anim .. " " .. nomc .. " " .. k, c.lr[k], c.lw * c.ll, c.lh * c.lpf)
+          verifie(qui .. " " .. anim .. " " .. nomc .. " " .. k, c.hr[k], c.w * c.ll, c.h * c.lpf)
+          verifie(qui .. " " .. anim .. " " .. nomc .. " " .. k, c.lr[k], c.lw * c.ll, c.lh * c.lpf)
         end
-        check(c.w * c.ll <= 2048 and c.h * c.lpf <= 2048, "§3 Kaiju " .. anim .. " " .. nomc .. " : feuille ≤ 2 048 px")
+        check(c.w * c.ll <= maxpx and c.h * c.lpf <= maxpx, "§3 " .. qui .. " " .. anim .. " " .. nomc .. " : feuille ≤ " .. maxpx .. " px")
       end
     end
-    check(K.icone and K.icone.size == 64 and K.foulee > 0, "§3 Kaiju : icône et foulée")
+    check(K.icone and K.icone.size == 64, "§3 " .. qui .. " : icône")
+  end
+  for _, kk in ipairs(T.KAIJUS) do
+    local K = SPR[kk.id]
+    check(K and K.directions == 8 and K.course and K.course.images == 8 and K.attaque and K.attaque.images == 4, "§3 " .. kk.id .. " : 8 directions, course 8 images, attaque 4")
+    if K and K.course then
+      serie(K, kk.id, 2048)
+      local PY = read("tools/render/pieces/titans/" .. kk.id .. ".py")
+      local FO = py_num(PY:match("\nFOULEE = ([^#\n]+)"))
+      check(K.foulee > 0 and FO and math.abs(K.foulee - FO) < 1e-3, "§3 " .. kk.id .. " : foulée des feuilles = FOULEE du modèle")
+    end
+  end
+  local EC = SPR[T.ECORCHE.id]
+  check(EC and EC.anime == true and EC.directions == 8 and EC.foulee > 0, "§3 Écorchés : feuilles animées, 8 directions, foulée")
+  if EC and EC.anime then
+    for iv, v in ipairs(T.ECORCHE.variants) do
+      local e = EC[tostring(iv)]
+      check(e and e.course and e.attaque and e.course.images == 8 and e.attaque.images == 4, "§3 Écorché " .. v.id .. " : course 8 images, attaque 4")
+      if e and e.course then serie(e, "ecorche-" .. v.id, 2048) end
+    end
   end
 end
 
 ---------------------------------------------------------------------------------------------------
 -- §4 traductions
 ---------------------------------------------------------------------------------------------------
-local function cfg(p)
-  local t, sec = {}, ""
+-- KAIJUS-MUTANTS : le moteur REFUSE le mod si une section ([entity-name]…) apparaît deux fois dans UN fichier (« Duplicate key "entity-name"
+-- in property tree », banc content KAIJUS du 10/11) : chaque fichier est lu seul, ses sections comptées ; les clés des deux fichiers fusionnent.
+local function cfg(p, t)
+  t = t or {}
+  local sec, vues, doubles = "", {}, {}
   for line in read(p):gmatch("[^\r\n]+") do
     local s = line:match("^%[([%w%-_]+)%]$")
-    if s then sec = s else
+    if s then
+      if vues[s] then doubles[#doubles + 1] = s end
+      vues[s], sec = true, s
+    else
       local k, v = line:match("^([%w%-_]+)=(.*)$")
       if k then t[sec .. "." .. k] = v end
     end
   end
+  check(#doubles == 0, "§4 " .. p .. " : aucune section en double dans le fichier (" .. table.concat(doubles, ", ") .. ")")
   return t
 end
 local FR, EN = cfg("locale/fr/titans.cfg"), cfg("locale/en/titans.cfg")
+cfg("locale/fr/kaijus.cfg", FR)
+cfg("locale/en/kaijus.cfg", EN)
 local keys = { "entity-name." .. T.PREFIX .. "canon", "entity-name." .. T.PREFIX .. "griffe", "entity-name." .. T.PREFIX .. "singularite",
   "entity-name." .. T.PREFIX .. "singularite-eclair", "entity-name." .. T.PREFIX .. "drone-tir",
   "entity-name." .. T.PREFIX .. "impulsion", "entity-description." .. T.PREFIX .. T.KAIJU.id, "fo-titan.plafond", "fo-titan.evolue" }
@@ -227,7 +378,15 @@ for _, r in ipairs(T.ALLIES) do
     "item-description." .. r.segment_item, "technology-name." .. r.tech, "technology-description." .. r.tech }) do keys[#keys + 1] = k end
   for p = 1, T.PALIERS do keys[#keys + 1] = "entity-name." .. T.allie_name(r, p) end
 end
-for e = 1, T.ERAS do keys[#keys + 1] = "entity-name." .. T.kaiju_name(e) end
+for _, kk in ipairs(T.KAIJUS) do
+  keys[#keys + 1] = "entity-description." .. T.PREFIX .. kk.id
+  for e = kk.era_min, T.ERAS do keys[#keys + 1] = "entity-name." .. T.kaiju_name(e, kk) end
+end
+for _, v in ipairs(T.ECORCHE.variants) do
+  keys[#keys + 1] = "entity-description." .. T.PREFIX .. T.ECORCHE.id .. "-" .. v.id
+  for e = T.ECORCHE.era_min, T.ERAS do keys[#keys + 1] = "entity-name." .. T.ecorche_name(v, e) end
+end
+keys[#keys + 1] = "entity-name." .. T.PREFIX .. "mitraille"
 for _, k in ipairs(keys) do check(FR[k] ~= nil and EN[k] ~= nil and FR[k] ~= "" and EN[k] ~= "", "§4 clé en FR et EN : " .. k) end
 local same = true
 for k in pairs(FR) do if not EN[k] then same = false end end -- comparaison d'ensembles : l'ordre ne compte pas
@@ -262,6 +421,15 @@ for _, p in ipairs({ "script/robots/titans.lua", "shared/td/waves.lua" }) do
   check(not src:find("%f[%w_]global%f[^%w_]"), "§5 " .. p .. " : global jamais nommé")
 end
 check(read("script/td/director.lua"):find("TD.compose(st.wave, RNG.float, Armee.age(game.forces[DEFENDER]))", 1, true) ~= nil, "§5 le directeur passe l'âge de la partie aux vagues")
+-- FINITIONS : les noms des animations de corps sont bâtis par la SEULE T.anim_name, côté prototypes (déclaration) comme côté script (dessin) ;
+-- le script choisit la direction par T.direction8 et la vitesse par T.vitesse_anim (jamais de trigonométrie, jamais de temps mesuré)
+do
+  local proto, scr = read("prototypes/titans.lua"), read("script/robots/titans.lua")
+  check(proto:find("T.anim_name(", 1, true) ~= nil and proto:find('type = "animation"', 1, true) ~= nil, "§5 prototypes : animations de corps déclarées par T.anim_name")
+  check(scr:find("T.anim_name(", 1, true) ~= nil and scr:find("rendering.draw_animation(", 1, true) ~= nil and scr:find("T.direction8(", 1, true) ~= nil and scr:find("T.vitesse_anim(", 1, true) ~= nil,
+    "§5 script : corps animé par rendering.draw_animation, direction et vitesse par la règle pure")
+  check(not scr:find("math%.atan") and not scr:find("math%.sin") and not scr:find("math%.cos"), "§5 script : aucune trigonométrie")
+end
 -- F-TITANS (banc content V0677) : une RotatedAnimation à `filenames` exige `slice` et `lines_per_file` (prototype-api.json : « Mandatory if
 -- filenames is defined » ; le schéma du harness les voit facultatifs : il ne l'attrape pas). Contrôle textuel sur TOUT prototypes/ : chaque
 -- table qui pose `filenames =` pose aussi `slice =` (ou en hérite : arsenal_special le complète), et la grille d'un fichier du Kaiju est exacte.
@@ -314,6 +482,16 @@ for _, age in ipairs({ 1, 7, 12, 15 }) do
 end
 local a, b = TD.compose(25, lcg(3), 11), TD.compose(25, lcg(3), 11)
 check(#a == #b and a[1][1] == b[1][1] and a[2][1] == b[2][1] and a[2][2] == b[2][2], "§6 composition déterministe avec l'âge")
+-- KAIJUS-MUTANTS : à deux Kaijus (vague 40) et une ère où l'Écorcheur est ouvert, les deux archétypes mènent la vague ; à l'ère 1, deux cristallins
+do
+  local age_ec = T.age_of_era(T.ECORCHEUR.era_min)
+  local l40 = TD.compose(40, lcg(7), age_ec)
+  local noms = {}
+  for _, it in ipairs(l40) do if T.kaiju_era_of_name(it[1]) then noms[#noms + 1] = it[1] end end
+  check(#noms == 2 and noms[1] == T.kaiju_name(T.ECORCHEUR.era_min, T.KAIJU) and noms[2] == T.kaiju_name(T.ECORCHEUR.era_min, T.ECORCHEUR), "§6 vague 40 à l'ère de l'Écorcheur : un cristallin puis un Écorcheur")
+  local l40b = TD.compose(40, lcg(7), 1)
+  check(kaijus(l40b) == 2 and l40b[1][1] == T.kaiju_name(1) and l40b[1][2] == 2, "§6 vague 40 à l'ère 1 : deux cristallins (seul archétype ouvert)")
+end
 
 ---------------------------------------------------------------------------------------------------
 -- §7 mutants
@@ -332,6 +510,27 @@ local function refuse(T2)
     assert(T2.drones(T2.PALIERS) > T2.drones(1), "drones qui s'ajoutent")
     assert(not T2.allie(T2.LEVIATHAN, T2.AGE_MIN).armes.canon and T2.allie(T2.LEVIATHAN, T2.AGE_MAX).armes.canon, "canon du Léviathan plus tard")
     assert(T2.allie(T2.SENTINELLE, T2.AGE_MIN).speed < T2.allie(T2.JUGGERNAUT, T2.AGE_MIN).speed, "la Sentinelle plus lente que le Juggernaut")
+    assert(T2.direction8(0.07) == 1 and T2.direction8(0.99) == 0, "direction8 au plus proche")
+    assert(math.abs(T2.vitesse_anim(0.12, 6.9, 8) - 0.12 * 8 / 6.9) < 1e-12, "vitesse d'animation par la foulée")
+    assert(T2.JUGGERNAUT.anime.images.course == SERIE.course and math.abs(T2.JUGGERNAUT.anime.foulee - FOULEE) < 1e-6, "animation = SERIE du modèle")
+    -- KAIJUS-MUTANTS
+    assert(T2.kaiju_pour(1, 2) == T2.KAIJU and T2.kaiju_pour(T2.ECORCHEUR.era_min, 2) == T2.ECORCHEUR, "rotation des archétypes")
+    assert(T2.ECORCHEUR.era_min > 1, "Écorcheur plus tard que l'ère 1")
+    local function tot(l) local n = 0; for _, it in ipairs(l) do n = n + it[2] end; return n end
+    assert(tot(T2.ponte(T2.ERAS)) > tot(T2.ponte(3)) and #T2.ponte(5) == #T2.ECORCHE.variants, "ponte qui grandit et tourne")
+    local ro, po = T2.ECORCHE.variants[1], T2.ECORCHE.variants[2]
+    assert(T2.ecorche(ro, 2).hp < T2.ecorche(po, 2).hp and T2.ecorche(ro, 2).speed > T2.ecorche(po, 2).speed, "Écorchés : rôdeur léger et vif")
+    assert(T2.ecorche(po, 2).resistances[1].percent > T2.ecorche(ro, 2).resistances[1].percent, "plaques du porteur")
+    assert(not T2.kaiju(1, T2.ECORCHEUR).armes.tir and T2.kaiju(2, T2.ECORCHEUR).armes.tir, "tir de l'Écorcheur à l'ère 2")
+    assert(T2.kaiju(2, T2.ECORCHEUR).hp < T2.kaiju(2).hp, "Écorcheur plus léger que le cristallin")
+    assert(T2.ecorche_curve(ro, 3)[1][1] > T2.ecorche_curve(ro, 2)[1][1], "courbe des Écorchés par l'ère")
+    assert(not T2.allie(T2.RAVAGEUR, T2.AGE_MIN).armes.lames and T2.allie(T2.RAVAGEUR, T2.AGE_MIN + 1).armes.lames, "lames au palier 2")
+    assert(T2.RAVAGEUR.mitraille.n > 1, "mitraille à plusieurs projectiles")
+    assert(T2.RAVAGEUR.anime.images.course == SERIE_RA.course and math.abs(T2.RAVAGEUR.anime.foulee - FOULEE_RA) < 1e-3, "animation du Ravageur = SERIE du modèle")
+    for _, kk in ipairs(T2.KAIJUS) do
+      local c = T2.kaiju_curve(T2.ERAS, kk)
+      assert(c[1][1] < c[2][1] and c[2][1] < c[3][1], "courbe de nid strictement croissante (" .. kk.id .. ")")
+    end
     local faux = { EPOCHS = 18, ERA_EPOCHS = 2, epochs = {} }
     for i = 1, 18 do faux.epochs[i] = { key = "e" .. i, color = { r = i / 18, g = 0.5, b = 1 - i / 18 } } end
     local T3 = charger(T2.__src, faux)
@@ -353,6 +552,27 @@ local MUTANTS = {
   { "drones figés à 2", "return d.base + (palier >= d.plus_palier and 1 or 0)", "return d.base" },
   { "canon du Léviathan dès le palier 1", '{ id = "canon", palier = 3 }', '{ id = "canon", palier = 1 }' },
   { "Sentinelle aussi rapide que le Juggernaut", 'dtype = "laser", speed = 0.10, effect = "titan", armes = T.ARMES_SENTINELLE', 'dtype = "laser", speed = 0.12, effect = "titan", armes = T.ARMES_SENTINELLE' },
+  { "direction8 sans arrondi au plus proche", "return math.floor(o * 8 + 0.5) % 8", "return math.floor(o * 8) % 8" },
+  { "vitesse d'animation sans la foulée", "return speed * images / foulee", "return speed * images" },
+  { "images de course écrites en dur fausses", "images = { course = 8, attaque = 4 }", "images = { course = 4, attaque = 4 }" },
+  { "foulée écrite en dur fausse", "foulee = 6.9, attaque_ticks = 30", "foulee = 4, attaque_ticks = 30" },
+  -- KAIJUS-MUTANTS
+  { "rotation des archétypes ignorée", "return l[(n - 1) % #l + 1]", "return l[1]" },
+  { "Écorcheur ouvert dès l'ère 1", 'id = "ecorcheur", era_min = 2,', 'id = "ecorcheur", era_min = 1,' },
+  { "ponte constante", "local n = k.ponte.base + k.ponte.plus_era * math.max(0, clamp(era, 1, T.ERAS) - e_ponte)", "local n = k.ponte.base" },
+  { "ponte d'une seule variante", "local v = T.ECORCHE.variants[(i - 1) % #T.ECORCHE.variants + 1]", "local v = T.ECORCHE.variants[1]" },
+  { "Écorché sans multiplicateur de PV", "hp = d.pv * k.hp_mult * v.hp,", "hp = d.pv * k.hp_mult," },
+  { "rôdeur pas plus vif", '{ id = "rodeur", hp = 0.6, dmg = 0.8, speed = 1.35,', '{ id = "rodeur", hp = 0.6, dmg = 0.8, speed = 0.8,' },
+  { "plaques du porteur ignorées", "percent = math.min(T.PLAQUE_MAX, r.percent + v.plaques)", "percent = math.min(T.PLAQUE_MAX, r.percent)" },
+  { "tir de l'Écorcheur dès l'ère 1", '{ id = "tir", era = 2 }', '{ id = "tir", era = 1 }' },
+  { "Écorcheur aux PV du cristallin", 'speed = 0.19, hp_mult = 2.2,', 'speed = 0.19, hp_mult = 3,' },
+  { "courbe des Écorchés sans l'ère", "T.ECORCHE_EVO_PAS * (era - T.ECORCHE.era_min)", "0" },
+  { "lames du Ravageur dès le palier 1", '{ id = "lames", palier = 2 }', '{ id = "lames", palier = 1 }' },
+  { "mitraille à un seul projectile", "mitraille = { n = 6,", "mitraille = { n = 1," },
+  { "courbe de nid d'avant (0,98 et 1 : l'Écorcheur de l'ère V donnait 0,97, 1, 1, refusé par le moteur)",
+    "local e0 = math.min(0.96, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(0.99, e0 + 0.03)",
+    "local e0 = math.min(0.98, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(1.0, e0 + 0.03)" },
+  { "images du Ravageur écrites en dur fausses", "anime = { images = { course = 8, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }", "anime = { images = { course = 6, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }" },
 }
 local T0 = charger(SRC, nil)
 T0.__src = SRC

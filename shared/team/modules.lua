@@ -863,18 +863,22 @@ end
 local function row_geometry(b, spec, ox, oy)
   local rs = M.reserve(spec.machines[1].name)
   local has2 = spec.lanes2 ~= nil
-  -- LIMITE PHYSIQUE : la colonne de liaison entre deux voisines (spec.links) longe la marge est d'une cellule réservée : ses bras
-  -- seraient tous LONGS (débit divisé par deux, aucune marche pour les niveaux suivants) ; un îlot à liaisons garde donc le gabarit
-  -- actuel (il passe l'ère par remplacement de module, M.upgrade_plan « remplacer ») ; de même un 2e tapis à bras longs (lanes2)
-  -- suppose l'entrée à portée courte : marge nord non nulle → gabarit actuel gardé. Noté dans g.notes (journal).
+  -- Lot ILOTS-COLONNES (P4 du DC) : la colonne de liaison entre deux voisines (spec.links) est la ligne d'interface EST de la cellule
+  -- (Bl.link : hors de toute cellule, rien à déplacer au rétrofit) ; ses bras sont LONGS dès qu'une marge sépare la machine actuelle
+  -- de la colonne (le débit demandé par links[].flow est servi par plusieurs bras, M.choose_inserters, dans les lignes de la machine),
+  -- et l'îlot est tenu dans le lot PORTS COMPRIS par son nombre de machines par défaut (default_count). LIMITES PHYSIQUES gardées :
+  -- une marge hors de portée d'un bras long (Bl.link.impossible) et un 2e tapis à bras longs (lanes2) derrière une marge nord
+  -- (l'entrée suppose la portée courte) : gabarit actuel gardé, noté dans g.notes (journal).
   local links = spec.links ~= nil and #spec.links > 0
-  if rs.target and (links or (has2 and rs.north > 0)) then
+  local lk = Bl.link(rs.cell, rs.now)
+  if rs.target and ((links and lk.impossible) or (has2 and rs.north > 0)) then
     b.g.notes[#b.g.notes + 1] = string.format("%s : cellules non réservées (%s)", tostring(b.g.key),
-      links and "liaisons par colonne" or "2e tapis à bras longs")
+      (links and lk.impossible) and "liaisons hors de portée d'un bras long" or "2e tapis à bras longs")
     rs = M.reserve(spec.machines[1].name, true)
+    lk = Bl.link(rs.cell, rs.now)
   end
   local s, mw = rs.cell.w, rs.now.w
-  local g = { rs = rs, s = s, mw = mw, nm = #spec.machines, has2 = has2, x0 = rs.west }
+  local g = { rs = rs, s = s, mw = mw, nm = #spec.machines, has2 = has2, x0 = rs.west, link = lk }
   -- lot RECHERCHE-BRAS : avec des bras lents (plusieurs par rangée), une tuile par rangée reste libre pour un poteau
   g.slots_n = M.current_arms and math.max(1, mw - 1) or mw
   -- machine seule (hors étage A d'un bloc à deux étages) : une colonne de plus à l'est, pour un poteau (correction
@@ -948,19 +952,20 @@ local function row_machine(b, key, g, i, m, x)
   return true
 end
 
---- Liaisons par la colonne entre deux voisines (bras long quand la marge est de la cellule l'exige) ; rend vrai, ou (nil, raison).
+--- Liaisons par la colonne entre deux voisines : colonne, portée (bras long dès qu'une marge l'exige) et lignes utiles lues à Bl.link
+--- (lot ILOTS-COLONNES) ; rend vrai, ou (nil, raison).
 local function row_links(b, key, spec, g, xs)
   local used = {}
   for _, l in ipairs(spec.links or {}) do
     if math.abs(l.from - l.to) ~= 1 then return fail("%s : liaison entre machines non voisines (%d → %d)", key, l.from, l.to) end
     local gap = math.min(l.from, l.to)
-    local gx = xs[gap] + g.s
+    local gx = xs[gap] + g.link.x
     local dir = l.from < l.to and W or E     -- prend du côté de la source
-    local k, n = side_pick(l.flow * M.arm_f, false, g.slots_n, g.rs.east)
+    local k, n = side_pick(l.flow * M.arm_f, false, g.slots_n, g.link.reach - 1)
     if not k then return fail("%s : liaison %d → %d impossible (%.2f/s)", key, l.from, l.to, l.flow) end
     used[gap] = used[gap] or 0
     for _ = 1, n do
-      if used[gap] >= g.mw then return fail("%s : colonne de liaison %d pleine", key, gap) end
+      if used[gap] >= g.link.rows then return fail("%s : colonne de liaison %d pleine", key, gap) end
       b:put(k, gx, g.y_m + used[gap], dir)
       used[gap] = used[gap] + 1
     end
@@ -1032,6 +1037,26 @@ end
 
 --- Bornes d'une rangée de k machines de côté s : largeur k·s + k − 1 ≤ M.MAX_SIDE.
 local function row_width_bound(s) return floor_eps((M.MAX_SIDE + 1) / (s + 1)) end
+
+--- Lot ILOTS-COLONNES : largeur de lot qu'une rangée de cellules de côté `s` peut prendre : le lot entier hors réservation (s = la machine :
+--- les bornes d'avant, octet pour octet) ; PORTS COMPRIS (M.PORT_ROOM, comme reserved_or_plain) dès qu'une cellule est réservée : un gabarit
+--- réservé plus large serait repris sans réservation, et l'extension d'un îlot posé doit garder son pas.
+local function lot_width(sp, s) return (s > sp.w) and (M.MAX_SIDE - M.PORT_ROOM) or M.MAX_SIDE end
+--- Borne des PAIRES d'un îlot « 2p + 1 machines » (largeur p·(2s + 2) + s).
+local function pairs_bound(sp, s) return floor_eps((lot_width(sp, s) - s) / (2 * s + 2)) end
+--- Borne des GROUPES d'un îlot « 3g machines » (largeur 3g·s + 3g − 1).
+local function groups_bound(sp, s) return floor_eps((lot_width(sp, s) + 1) / (3 * s + 3)) end
+--- Côté de la cellule que la machine RÉSERVERAIT, données seules (hors contexte M.reserving, hors M.reserved_any) : le nombre par défaut
+--- d'un îlot et sa clé en dépendent, et le gabarit repris sans réservation garde la clé du gabarit réservé (aucune collision de clés).
+local function target_side(name)
+  local pr, pa = M.reserving, M.reserved_any
+  M.reserving = true
+  local r = M.reserve(name)
+  M.reserving, M.reserved_any = pr, pa
+  return r and r.cell.w or (M.spec(name) or {}).w
+end
+--- Nombre par DÉFAUT (clé sans suffixe) : `want` borné par ce que la cellule réservée laisse dans le lot ; jamais moins de 1.
+local function default_count(bound, name, sp, want) return math.max(1, math.min(want, bound(sp, target_side(name)))) end
 
 function G.gears(n, machine)
   machine = machine or "assembling-machine-2"
@@ -1173,8 +1198,9 @@ end
 --- pairs = 1 : « C K C » (le second C ne tourne qu'à moitié). pairs ≥ 3 : câbles insuffisants (refusé par le contrôle).
 function G.circuits(machine, pairs)
   machine = machine or "assembling-machine-2"
-  pairs = pairs or 2
   local sp, why = machine_spec(machine, "assembler", "circuits"); if not sp then return nil, why end
+  local pdef = default_count(pairs_bound, machine, sp, 2) -- lot ILOTS-COLONNES : ce que le lot tient avec des cellules réservées
+  pairs = pairs or pdef
   local ok, why2 = count_ok(pairs, "circuits"); if not ok then return nil, why2 end
   local kc = sp.speed / R["copper-cable"].time            -- fabrications de câbles par seconde (2 câbles chacune)
   local kk = sp.speed / R["electronic-circuit"].time      -- circuits par seconde
@@ -1209,7 +1235,7 @@ function G.circuits(machine, pairs)
   local pattern = {}
   for j = 1, nm do pattern[j] = (j % 2 == 1) and "C" or "K" end
   local pat = table.concat(pattern, " ")
-  local key = "circuits-verts" .. (pairs ~= 2 and ("-" .. nm .. "m") or "") .. lvl_tag(sp)
+  local key = "circuits-verts" .. (pairs ~= pdef and ("-" .. nm .. "m") or "") .. lvl_tag(sp)
   local b, info = G.row(key, "Îlot de circuits verts (" .. pat .. ", " .. machine .. ")",
     "Green circuit island (" .. pat .. ", " .. machine .. ")", { machines = ms, links = links, lanes = { "iron-plate", "copper-plate" } })
   if not b then return nil, info end
@@ -1218,7 +1244,7 @@ function G.circuits(machine, pairs)
   b.g.gen, b.g.args, b.g.level_arg = "circuits", { machine, pairs }, 1
   -- bornes : câbles ((pairs + 1)·cab ≥ pairs·need) ; largeur (2p + 1)·s + 2p ; voie de fer, voie de cuivre, voie
   -- de sortie
-  set_ext(b.g, "pairs", 2, math.min(floor_eps(cab / (need - cab)), floor_eps((M.MAX_SIDE - sp.w) / (2 * sp.w + 2)),
+  set_ext(b.g, "pairs", 2, math.min(floor_eps(cab / (need - cab)), pairs_bound(sp, cell_w(machine)),
     floor_eps(M.LANE_RATE / kk), floor_eps(M.LANE_RATE / (need / 2))))
   return b:finish()
 end
@@ -1227,8 +1253,9 @@ end
 --- au contact des assembleurs de moteurs (M) ; acier et fer au tapis du haut.
 function G.engines(machine, pairs)
   machine = machine or "assembling-machine-2"
-  pairs = pairs or 2
   local sp, why = machine_spec(machine, "assembler", "moteurs"); if not sp then return nil, why end
+  local pdef = default_count(pairs_bound, machine, sp, 2) -- lot ILOTS-COLONNES
+  pairs = pairs or pdef
   local ok, why2 = count_ok(pairs, "moteurs"); if not ok then return nil, why2 end
   local ke = sp.speed / R["engine-unit"].time
   local nm = 2 * pairs + 1
@@ -1249,7 +1276,7 @@ function G.engines(machine, pairs)
     end
   end
   local pat = table.concat(pattern, " ")
-  local key = "moteurs" .. (pairs ~= 2 and ("-" .. nm .. "m") or "") .. lvl_tag(sp)
+  local key = "moteurs" .. (pairs ~= pdef and ("-" .. nm .. "m") or "") .. lvl_tag(sp)
   local b, info = G.row(key, "Moteurs (" .. pat .. ", " .. machine .. ")", "Engines (" .. pat:gsub("M", "E") .. ", " .. machine .. ")",
     { machines = ms, links = links, lanes = { "iron-plate", "steel-plate" } })
   if not b then return nil, info end
@@ -1258,7 +1285,7 @@ function G.engines(machine, pairs)
   b.g.gen, b.g.args, b.g.level_arg = "engines", { machine, pairs }, 1
   -- bornes : largeur (2p + 1)·s + 2p ; acier et moteurs : une voie chacun ; fer (tuyaux et engrenages : 4 par
   -- moteur) : une voie
-  set_ext(b.g, "pairs", 2, math.min(floor_eps((M.MAX_SIDE - sp.w) / (2 * sp.w + 2)), floor_eps(M.LANE_RATE / ke),
+  set_ext(b.g, "pairs", 2, math.min(pairs_bound(sp, cell_w(machine)), floor_eps(M.LANE_RATE / ke),
     floor_eps(M.LANE_RATE / (4 * ke))))
   return b:finish()
 end
@@ -1286,8 +1313,9 @@ end
 --- longs pour les câbles ; circuits verts et plastique pour les assembleurs de circuits rouges), câbles par contact.
 function G.advanced_circuits(machine, groups)
   machine = machine or "assembling-machine-2"
-  groups = groups or 2
   local sp, why = machine_spec(machine, "assembler", "circuits rouges"); if not sp then return nil, why end
+  local gdef = default_count(groups_bound, machine, sp, 2) -- lot ILOTS-COLONNES
+  groups = groups or gdef
   local ok, why2 = count_ok(groups, "circuits rouges"); if not ok then return nil, why2 end
   local ka = sp.speed / R["advanced-circuit"].time
   local kc = 4 * ka * 2 / 2                          -- 2 voisins × 4 câbles × ka, 2 câbles par fabrication
@@ -1301,7 +1329,7 @@ function G.advanced_circuits(machine, groups)
     links[#links + 1] = { from = base + 2, to = base + 3, item = "copper-cable", flow = 4 * ka }
   end
   local pat = string.rep("A C A", groups, " ")
-  local key = "circuits-rouges" .. (groups ~= 2 and ("-" .. (3 * groups) .. "m") or "") .. lvl_tag(sp)
+  local key = "circuits-rouges" .. (groups ~= gdef and ("-" .. (3 * groups) .. "m") or "") .. lvl_tag(sp)
   local b, info = G.row(key, "Circuits rouges (" .. pat .. ", " .. machine .. ")", "Red circuits (" .. pat .. ", " .. machine .. ")",
     { machines = ms, links = links, lanes = { "electronic-circuit", "plastic-bar" }, lanes2 = { "copper-plate", "copper-plate" } })
   if not b then return nil, info end
@@ -1310,7 +1338,7 @@ function G.advanced_circuits(machine, groups)
   b.g.gen, b.g.args, b.g.level_arg = "advanced_circuits", { machine, groups }, 1
   -- bornes : largeur 3g·s + 3g − 1 ; circuits verts et plastique (2 par fabrication, 2g assembleurs) : une voie
   -- chacun ; sortie : une voie
-  set_ext(b.g, "groups", 2, math.min(floor_eps((M.MAX_SIDE + 1) / (3 * sp.w + 3)), floor_eps(M.LANE_RATE / (4 * ka))))
+  set_ext(b.g, "groups", 2, math.min(groups_bound(sp, cell_w(machine)), floor_eps(M.LANE_RATE / (4 * ka))))
   return b:finish()
 end
 

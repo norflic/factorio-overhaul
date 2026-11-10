@@ -470,9 +470,12 @@ local P9 = pole(125.5, 60.5, "f4", 12)
 wire(P8, P9)
 machine("assembling-machine", 122.5, 60.5, 3, 3, "f4", 12)
 local f4 = team(4, "f4")
-f4.build = { order = { 2, 1 }, projects = {
+f4.build = { order = { 2, 1, 3 }, projects = {
   [1] = { state = "chantier", ents = { { name = "poteau-test", x = 90.5, y = 60.5 }, { name = "machine-test", x = 91.5, y = 60.5 } } },
-  [2] = { state = "fini", ents = { { name = "poteau-test", x = 100.5, y = 60.5 } } } } }
+  [2] = { state = "fini", ents = { { name = "poteau-test", x = 100.5, y = 60.5 } } },
+  -- lot UPS-HYGIENE : la ligne de poteaux est un projet du plan (abandonné : ses poteaux restent debout, aucune étiquette « plan ») ; le relevé
+  -- ne couvre plus que la zone du plan (rectangles ± portée de fil), plus toute la carte
+  [3] = { state = "fini", abandoned = true, ents = { { name = "poteau-test", x = 60.5, y = 60.5 }, { name = "poteau-test", x = 125.5, y = 60.5 } } } } }
 f4.swap = { pass = {}, pole_pos = { [P.tkey(110, 60)] = true } }
 stock0 = stock["poteau-test"]
 hb = run_pass(f4, T0 + 90000)

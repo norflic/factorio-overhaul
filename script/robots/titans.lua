@@ -27,6 +27,9 @@ local Xp = require("shared.robots.experimentaux")
 local K = require("script.robots.experimentaux_commun")
 local Armee = require("script.robots.armee")
 local G = require("script.robots.experimentaux_geants")
+local Rg = require("shared.tirs.regles")   -- Rg.decalage : image 0 d'une animation au tick voulu (image = floor(tick × vitesse + décalage) mod n)
+local Fx = require("shared.content.effets_armes")   -- POLISSAGE-FX : pulsation de la singularité (table précalculée, couleur de la règle du titan)
+require("script.robots.kaijus")   -- KAIJUS-MUTANTS : la ponte de l'Écorcheur (ennemi), abonnée ici (control.lua intact)
 
 local M = {}
 
@@ -44,6 +47,7 @@ local SINGULARITE = T.PREFIX .. "singularite"
 local SINGULARITE_ECLAIR = T.PREFIX .. "singularite-eclair"
 local DRONE_TIR = T.PREFIX .. "drone-tir-"
 local DRONE_SPRITE = T.PREFIX .. "leviathan-drone"
+local MITRAILLE = T.PREFIX .. "mitraille-"   -- KAIJUS-MUTANTS : projectiles de la rafale du Ravageur, un par palier
 -- Douze positions d'un cercle unité (pas de 30°), sans trigonométrie : les drones y avancent d'un cran par balayage.
 local CERCLE = {
   { 1.0, 0.0 }, { 0.866, 0.5 }, { 0.5, 0.866 }, { 0.0, 1.0 }, { -0.5, 0.866 }, { -0.866, 0.5 },
@@ -51,6 +55,10 @@ local CERCLE = {
 }
 local DRONE_HAUT = -6.0    -- les drones volent : décalage vers le haut de l'écran (tuiles)
 local RALENTIS = { unit = true, character = true, car = true, ["spider-vehicle"] = true }
+-- POLISSAGE-FX : vortex au sol et lumière pulsée de la singularité (recette Fx.MODES.titan.singularite, couleur r.lueur) ; la table de
+-- pulsation est précalculée (onde triangulaire, sans trigonométrie) et lue tous les SCAN ticks : aucun effet par tick.
+local PULSE_SPEC = Fx.MODES.titan.singularite
+local PULSE = Fx.pulsation(PULSE_SPEC.pulsation.n)
 
 local function rgba(r, g, b, a) return { r = r * a, g = g * a, b = b * a, a = a } end
 
@@ -123,14 +131,111 @@ local function drones_avancer(g, j)
   end
 end
 
+--- Corps ANIMÉ (FINITIONS 10/11 : Juggernaut, r.anime) : trois `rendering.draw_animation` (ombre, corps, lueur) sur l'animation de marche de
+--- la direction de l'entité ; `animer` les tient à jour à chaque balayage (direction, vitesse = celle du véhicule, salve). Les rendus meurent
+--- avec l'entité (remplacement de palier : `corps` les refait).
+local function corps_anime(g, r)
+  local e = g.e
+  local dir = T.direction8(e.orientation)
+  g.anim = { dir = dir, mode = "course", v = 0, ids = {} }
+  for _, c in ipairs(T.COUCHES_ANIM) do
+    g.anim.ids[#g.anim.ids + 1] = rendering.draw_animation({ animation = T.anim_name(r, g.stage, "course", dir, c[1]), target = e, surface = e.surface,
+      render_layer = c[2], animation_speed = 0, animation_offset = 0 })
+  end
+end
+
+--- Singularité de la Sentinelle à l'écran (POLISSAGE-FX) : vortex qui tourne au sol sous le titan et lumière portée, teintés de la
+--- couleur de la règle (r.lueur) ; `pulser` les fait respirer à chaque balayage. Les rendus meurent avec l'entité.
+local function singularite_dessiner(g, r)
+  g.sing = nil
+  if not r.singularite then return end
+  local e = g.e
+  local v, l = PULSE_SPEC.vortex, PULSE_SPEC.lumiere
+  local k = v.echelle / Fx.FEUILLE_TUILES
+  g.sing = {
+    k = k, taille = l.taille / Fx.LUMIERE_SPRITE_TUILES, intensite = l.intensite,
+    anim = rendering.draw_animation({ animation = Fx.VORTEX, target = e, surface = e.surface, render_layer = "lower-object",
+      tint = r.lueur, x_scale = k, y_scale = k * 0.7, animation_speed = 0.5 }),
+    lum = rendering.draw_light({ sprite = "utility/light_medium", target = e, surface = e.surface, color = r.lueur,
+      scale = l.taille / Fx.LUMIERE_SPRITE_TUILES, intensity = l.intensite, minimum_darkness = 0.15 }),
+  }
+end
+
+local function singularite_pulser(g, r, tick)
+  if r.singularite and not g.sing then singularite_dessiner(g, r) end
+  local sg = g.sing
+  if not sg then return end
+  local p = PULSE[Fx.pulse_index(tick, PULSE_SPEC.pulsation.periode, PULSE_SPEC.pulsation.n)]
+  if sg.lum and rendering.is_valid(sg.lum) then
+    rendering.set_intensity(sg.lum, sg.intensite * p)
+    rendering.set_scale(sg.lum, sg.taille * (0.8 + 0.2 * p))
+  end
+  if sg.anim and rendering.is_valid(sg.anim) then
+    rendering.set_x_scale(sg.anim, sg.k * (0.85 + 0.15 * p))
+    rendering.set_y_scale(sg.anim, sg.k * 0.7 * (0.85 + 0.15 * p))
+  end
+end
+
 local function corps(g)
   local e = g.e
   local s = e.surface
-  local st = T.PREFIX .. archetype(g).id .. "-" .. g.stage
-  rendering.draw_sprite({ sprite = st .. "-ombre", target = e, surface = s, render_layer = "lower-object" })
-  rendering.draw_sprite({ sprite = st .. "-corps", target = e, surface = s, render_layer = "air-object" })
-  rendering.draw_sprite({ sprite = st .. "-lueur-1", target = e, surface = s, render_layer = "air-object" })
-  drones_dessiner(g, T.allie(archetype(g), g.age))
+  local r = archetype(g)
+  singularite_dessiner(g, r)
+  if r.anime then
+    corps_anime(g, r)
+  else
+    local st = T.PREFIX .. r.id .. "-" .. g.stage
+    rendering.draw_sprite({ sprite = st .. "-ombre", target = e, surface = s, render_layer = "lower-object" })
+    rendering.draw_sprite({ sprite = st .. "-corps", target = e, surface = s, render_layer = "air-object" })
+    rendering.draw_sprite({ sprite = st .. "-lueur-1", target = e, surface = s, render_layer = "air-object" })
+  end
+  drones_dessiner(g, T.allie(r, g.age))
+end
+
+local function anim_set(g, r, anim)
+  for i, c in ipairs(T.COUCHES_ANIM) do
+    local id = g.anim.ids[i]
+    if id and rendering.is_valid(id) then rendering.set_animation(id, T.anim_name(r, g.stage, anim, g.anim.dir, c[1])) end
+  end
+end
+
+--- Salve à l'écran : l'animation d'attaque de la direction courante, image 0 à ce tick, ses images étalées sur attaque_ticks ; `animer` repasse en marche après.
+local function anim_attaque(g, r, tick)
+  if not (r.anime and g.anim) then return end
+  local n = r.anime.images.attaque
+  local v = n / r.anime.attaque_ticks
+  g.anim.mode, g.anim.fin, g.anim.v = "attaque", tick + r.anime.attaque_ticks, nil
+  anim_set(g, r, "attaque")
+  for _, id in ipairs(g.anim.ids) do
+    if rendering.is_valid(id) then
+      rendering.set_animation_speed(id, v)
+      rendering.set_animation_offset(id, Rg.decalage(tick, v, n))
+    end
+  end
+end
+
+--- À chaque balayage : direction de l'entité (8 secteurs), marche à la vitesse du véhicule (images par tick = vitesse × images / foulée ;
+--- 0 et image 0 à l'arrêt), retour en marche à la fin d'une salve.
+local function animer(g, r, tick)
+  if not (r.anime and g.anim) then return end
+  local e = g.e
+  local a = g.anim
+  if a.mode == "attaque" and tick < (a.fin or 0) then return end
+  local dir = T.direction8(e.orientation)
+  if a.mode ~= "course" or dir ~= a.dir then
+    a.mode, a.dir, a.v = "course", dir, nil
+    anim_set(g, r, "course")
+  end
+  local v = T.vitesse_anim(e.speed, r.anime.foulee, r.anime.images.course)
+  if v ~= a.v then
+    a.v = v
+    for _, id in ipairs(a.ids) do
+      if rendering.is_valid(id) then
+        rendering.set_animation_speed(id, v)
+        if v == 0 then rendering.set_animation_offset(id, 0) end
+      end
+    end
+  end
 end
 
 local function rendre(player, e, name)
@@ -259,6 +364,35 @@ local function singularite(g, j, tick)
   return n
 end
 
+--- Lames du Ravageur (KAIJUS-MUTANTS) : coup de zone courte des lames de cristal, même mécanique que les griffes (éclair des griffes).
+local function lames(g, j, tick)
+  local e = g.e
+  local total, n = K.blast(j, e.surface, e.force, e, { x = e.position.x, y = e.position.y }, j.lames.radius, j.salve * j.lames.part, j.dtype,
+    j.lames.edge)
+  if n > 0 then
+    e.surface.create_entity({ name = GRIFFE, position = e.position })
+    rendering.draw_circle({ color = rgba(0.3, 0.95, 1.0, 0.5), radius = j.lames.radius, width = 8, filled = false, target = e.position,
+      surface = e.surface, time_to_live = 20, draw_on_ground = true })
+    journal("%s lames #%d cibles %d degats %.0f tick %d", j.id, g.un, n, total, tick)
+  end
+  return n
+end
+
+--- Mitraille du Ravageur : rafale de j.mitraille.n projectiles (prototype par palier, dégâts de zone sur les ennemis) depuis la bouche du
+--- gatling vers la cible, étalés autour d'elle sur le cercle à 12 crans (sans trigonométrie) ; la salve à l'écran suit.
+local function mitraille(g, j, target, tick)
+  local e = g.e
+  local n = j.mitraille.n
+  local src = { e.position.x + j.bouche[1], e.position.y + j.bouche[2] }
+  for k = 1, n do
+    local c = CERCLE[math.floor((k - 1) * 12 / n) % 12 + 1]
+    local dest = { target.position.x + c[1] * j.mitraille.spread, target.position.y + c[2] * j.mitraille.spread }
+    e.surface.create_entity({ name = MITRAILLE .. j.palier, position = src, target = dest, source = e, force = e.force, speed = j.mitraille.speed })
+  end
+  anim_attaque(g, archetype(g), tick)
+  journal("%s mitraille #%d x%d cible #%s tick %d", j.id, g.un, n, tostring(target.unit_number), tick)
+end
+
 local function canon(g, j, target, tick)
   local e = g.e
   e.surface.create_entity({ name = CANON, position = e.position, source = e, source_offset = { j.bouche[1], j.bouche[2] },
@@ -266,6 +400,7 @@ local function canon(g, j, target, tick)
   rendering.draw_circle({ color = rgba(0.3, 0.95, 1.0, 0.6), radius = 2.0, width = 6, filled = false, target = target.position, surface = e.surface,
     time_to_live = 30, draw_on_ground = true })
   local d = K.hit(j, target, j.salve, j.dtype, e.force, e)
+  anim_attaque(g, archetype(g), tick)
   journal("%s canon #%d degats %.0f tick %d", j.id, g.un, d, tick)
 end
 
@@ -288,20 +423,28 @@ local function scan(ev)
   for _, g in ipairs(st.juggernauts) do
     if g.e.valid then
       keep[#keep + 1] = g
-      local j = T.allie(archetype(g), g.age)
+      local r = archetype(g)
+      local j = T.allie(r, g.age)
+      animer(g, r, ev.tick)
+      singularite_pulser(g, r, ev.tick)
       if j.n_drones then
         if not g.drones then drones_dessiner(g, j) end
         drones_avancer(g, j)
       end
       -- armes de contact à leur cadence, dès qu'un ennemi est dans la zone
       if ev.tick >= g.next_griffes then
-        if j.armes.griffes and griffes(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.griffes.cooldown end
+        if j.armes.griffes and griffes(g, j, ev.tick) > 0 then
+          g.next_griffes = ev.tick + j.griffes.cooldown
+          if not j.armes.canon then anim_attaque(g, r, ev.tick) end   -- palier 1 : les griffes sont la seule salve visible
+        end
         if j.armes.singularite and singularite(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.singularite.cooldown end
+        if j.armes.lames and lames(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.lames.cooldown end
       end
       if ev.tick >= g.next and not G.zone_active(g.un) then
         local t = G.cible(g.e, j, nil)
         if t then
           if j.armes.canon then canon(g, j, t, ev.tick) end
+          if j.armes.mitraille then mitraille(g, j, t, ev.tick) end
           if j.armes.drones then drones_tirer(g, j, t, ev.tick) end
           if j.armes.salve then G.salve(g.e, g.un, j, { x = t.position.x, y = t.position.y }, ev.tick, nil) end
           local s = K.stat(j.id)
