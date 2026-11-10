@@ -157,6 +157,9 @@ local function battery(Cv, C)
   check(Cv.after_refusal("foreuses : gisement : coal hors du treillis", true) == "grandir", "hors du treillis : il grandit")
   check(Cv.after_refusal("foreuses : minerai", false) == "attendre", "treillis au maximum : on attend")
   check(Cv.after_refusal("foreuses : trop loin", true) == "attendre", "trop loin : on attend (le relais a deja tranche)")
+  -- lot CHARBON-UNIFIE (F460 bis, cause 2) : aucun lot du treillis ne porte le combustible : il grandit aussi
+  check(Cv.after_refusal("foreuses : pas de lot", true) == "grandir", "pas de lot : le treillis grandit (vers le gisement)")
+  check(Cv.after_refusal("foreuses : pas de lot", false) == "attendre", "pas de lot, treillis au maximum : on attend")
   check(Cv.after_refusal(nil, true) == "attendre", "raison inconnue : on attend")
 
   section("7. Journal")
@@ -200,7 +203,10 @@ do
     and build:sub(i_relais, i_trace):find("if not tiles and not relay_legs", 1, true) == nil,
     "plan_drills : les essais de boite unique (Tdr.trace) ne servent pas au relais")
 end
-check(build:find("Cv.after_refusal(last, Build.can_grow(b)) == \"grandir\"", 1, true) ~= nil, "plan_alim : le treillis grandit sur un refus « minerai »")
+check(build:find("Cv.after_refusal(last, can) == \"grandir\"", 1, true) ~= nil and build:find("local can = b.radius < Build.RADIUS_ORE and (not b.enc or Build.beyond_wall(b))", 1, true) ~= nil,
+  "plan_alim : le treillis grandit sur un refus « minerai » ou « pas de lot », jusqu'au plafond des gisements (RADIUS_ORE)")
+check(build:find("treillis_step(f, surface, fuel_res, nil, nil, Build.RADIUS_ORE * P.PITCH)", 1, true) ~= nil and build:find("if sp and sp.product == fuel then fuel_res = sp.resource end", 1, true) ~= nil,
+  "plan_alim : croissance VERS le gisement du combustible (sonde INDUSTRIE I3), combustible lu aux donnees")
 check(build:find("if mode ~= \"relais\" then return false, \"trop loin\" end", 1, true) ~= nil, "plan_drills : au-dela du relais, « trop loin » reste")
 
 ---------------------------------------------------------------------------------------------------
@@ -220,6 +226,7 @@ local function mutant(label, edit)
   check(caught, "mutant refuse : " .. label)
 end
 mutant("champ minimal d'une chaudiere", function(Cm) Cm.MIN_FIELD = 1 end)
+mutant("pas de lot : on attend (F460 bis)", function(Cm) local old = Cm.after_refusal; Cm.after_refusal = function(r, c) if tostring(r):find("pas de lot", 1, true) then return "attendre" end return old(r, c) end end)
 mutant("champ non borne", function(Cm) Cm.MAX_FIELD = 100 end)
 mutant("refus du plan ignores", function(Cm) local old = Cm.boilers_for; Cm.boilers_for = function(b, _, l) return old(b, 0, l) end end)
 mutant("voie de tapis ignoree", function(Cm) local old = Cm.boilers_for; Cm.boilers_for = function(b, s) return old(b, s, nil) end end)
