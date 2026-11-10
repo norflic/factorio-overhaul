@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.92
+Date: 2026-11-11
+  Bugfixes:
+    - Mall (F504) : un bloc du mall n'attend plus le bois de ses petits poteaux quand l'équipe peut le récolter ; le choix du poteau et l'achat du bloc lisent la même règle (partie du DC sur la 0.6.89 : Ambre gardait 5 007 fer et une seule rangée de mall, tous ses blocs en attente de bois de 30 à 82 min).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10
   Bugfixes:

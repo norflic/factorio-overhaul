@@ -314,9 +314,9 @@ local function afford_list(f, book, view, list, tick, orders)
   end
   local plan = book:plan(list, free)
   local short = {}
-  for _, k in ipairs(sorted_keys(plan.raw)) do
-    if (plan.raw[k] or 0) > 0 then short[#short + 1] = k .. " " .. math.ceil(plan.raw[k]) end
-  end
+  -- Lot CC-BOIS (F504) : la matière naturelle que l'équipe récolte (le bois du petit poteau que A.choose_pole a retenu pour elle) ne bloque
+  -- plus l'achat : même lecture que le choix du poteau (A.short_of) ; le chantier du bloc la demande, l'ouvrier la coupe.
+  for _, it in ipairs(A.short_of(book, plan.raw, Harvest.reachable(f))) do short[#short + 1] = it[1] .. " " .. math.ceil(it[2]) end
   if #short > 0 then return false, "stock hors besoin insuffisant (manque " .. table.concat(short, ", ") .. ")" end
   return true
 end
