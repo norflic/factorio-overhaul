@@ -523,6 +523,7 @@ end
 --- Sans ces options, le score est celui d'avant.
 --- foreign (lot MELANGE, retour du DC du 3/11 : « les minerais de charbon prennent la place des minerais de fer sur les convoyeurs ») :
 --- { [tkey] = true } des tuiles d'une AUTRE ressource minable ; aucune position dont une zone de foreuse en touche une.
+P.ROT_ALL = { 0, 1, 2, 3 }
 function P.fit(g, rect, opts)
   opts = opts or {}
   local margin = opts.margin or 1
@@ -547,7 +548,8 @@ function P.fit(g, rect, opts)
     local a, b = y0 * (W + 1), (y0 + h) * (W + 1)
     return sat[b + x0 + w] - sat[a + x0 + w] - sat[b + x0] + sat[a + x0]
   end
-  for k = 0, 3 do
+  -- lot MALL-DIRECTIONS : opts.rot = liste des rotations (k) permises, dans l'ordre (nil : les quatre) ; la section d'une série garde l'orientation de la série
+  for _, k in ipairs(opts.rot or P.ROT_ALL) do
     local r = (k == 0) and g or (not g.no_rotate and M.rotate(g, k) or nil)
     if r and r.w <= P.LOT - 2 * margin and r.h <= P.LOT - 2 * margin then
       local res = opts.ore and M.resource_tiles(r) or nil

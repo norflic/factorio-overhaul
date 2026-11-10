@@ -720,7 +720,7 @@ end
 --- numéro du projet `pid` si c'est un bloc ou une cellule de mall (gen « bloc » ou « patron ») vivant, posé dans un lot du treillis :
 --- son lot en reçoit un autre, collé à lui (Build.Pave.pin, Mp.pave_origin), sinon nil.
 --- (Sous Build.Pave, sans locale nouvelle : le chunk principal de ce fichier est à la limite des 200 locales de Lua 5.2.)
-Build.Pave = { Mp = require("shared.team.mall_paving"), GEN = { bloc = true, patron = true, ruban = true } } -- (ruban : lot MALL-RUE)
+Build.Pave = { Mp = require("shared.team.mall_paving"), Sd = require("shared.team.serie_dirs"), GEN = { bloc = true, patron = true, ruban = true } } -- (ruban : lot MALL-RUE ; Sd : lot MALL-DIRECTIONS)
 function Build.Pave.owner(b, pid)
   local p = b.projects[pid]
   if p and not p.abandoned and p.spec and Build.Pave.GEN[p.spec.gen] and p.parts and p.parts[1] and p.parts[1].kind == "module" then return pid end
@@ -765,9 +765,11 @@ function Build.Pave.pin(b, c, g, rect, fopts)
     lead.x0, lead.y0 = math.min(lead.x0, t[1]), math.min(lead.y0, t[2])
     lead.x1, lead.y1 = math.max(lead.x1, t[1] + 1), math.max(lead.y1, t[2] + 1)
   end
-  local o, why = Mp.pave_origin(prev, { w = r.w, h = r.h, lead = lead }, rect, Mp.GAP, fopts.margin)
+  -- lot MALL-DIRECTIONS : la section d'un ruban se colle DU CÔTÉ où sa série avance (orientation du premier bloc du lot) ; les blocs comme avant
+  local o, why = Mp.pave_origin_dir(prev, { w = r.w, h = r.h, lead = lead }, rect, Mp.GAP, fopts.margin, g.gen == "ruban" and Build.Pave.Sd.dir_of(k) or nil)
   if not o then return nil, "pavage : " .. why end
   fopts.within = { x0 = o.x, y0 = o.y, x1 = o.x + r.w, y1 = o.y + r.h }
+  fopts.rot = { k } -- (lot MALL-DIRECTIONS : la même orientation que le premier bloc du lot, pas sa retournée de même emprise)
   return g
 end
 
@@ -793,14 +795,19 @@ function Build.Pave.belt_of(g)
   return nil
 end
 
---- Dernière section de ruban de la famille `fam` (« ruban-<machine> ») dans le lot `k` : son corps p.parts[1] ({ ox, oy, w, h, k, key }), le plus à
---- l'est, parmi les projets vivants ; nil sans section. Projets parcourus par numéro croissant (le plus à l'est gagne : l'ordre est sans effet).
+--- Dernière section de ruban de la famille `fam` (« ruban-<machine> ») dans le lot `k` : son corps p.parts[1] ({ ox, oy, w, h, k, key }), la plus
+--- AVANCÉE dans le sens de sa série (lot MALL-DIRECTIONS : Sd.along selon l'orientation pt.k ; vers l'est, la plus à l'est), parmi les projets
+--- vivants ; nil sans section. Projets parcourus par numéro croissant (la plus avancée gagne : l'ordre est sans effet).
 function Build.Pave.last(b, k, fam)
-  local best
+  local Sd = Build.Pave.Sd
+  local best, ba
   for _, pid in ipairs(sorted_keys(b.projects)) do
     local p = b.projects[pid]
     local pt = p and not p.abandoned and p.spec and p.spec.gen == "ruban" and p.parts and p.parts[1] or nil
-    if pt and pt.lot == k and pt.kind == "module" and type(pt.key) == "string" and pt.key:sub(1, #fam + 1) == fam .. "-" and (not best or pt.ox > best.ox) then best = pt end
+    if pt and pt.lot == k and pt.kind == "module" and type(pt.key) == "string" and pt.key:sub(1, #fam + 1) == fam .. "-" then
+      local a = Sd.along(pt.ox, pt.oy, Sd.dir_of(pt.k or 0))
+      if not best or a > ba then best, ba = pt, a end
+    end
   end
   return best
 end
@@ -819,17 +826,24 @@ end
 --- La section suivante de l'autre côté de la rue : { k2, l2, rect2, within, trav = { res (Mp.serie), ug = { name, maxd }, belt }, owner } ou nil, raison.
 --- « serie arretee : lot occupe » (gisement, centrale, autre module, hors du treillis) : la série s'arrête proprement, rien n'est démoli.
 function Build.Pave.serie(f, b, c, g, states)
-  local Mp = Build.Pave.Mp
+  local Mp, Sd = Build.Pave.Mp, Build.Pave.Sd
   if g.gen ~= "ruban" or type(g.ruban) ~= "table" then return nil, "serie : gabarit sans corridor" end
   local prev = Build.Pave.last(b, c.k, g.ruban.fam)
   if not prev then return nil, "serie : aucune section de ruban dans le lot " .. tostring(c.k) end
-  if (prev.k or 0) ~= 0 or prev.h ~= g.h then return nil, "serie : section precedente d'une autre forme" end
+  -- lot MALL-DIRECTIONS : la série suit l'orientation de la section précédente (prev.k : est, sud, ouest ou nord) ; les lignes du corridor
+  -- (décalages canoniques en y) suivent la rotation (Sd.cross) ; Mp.serie_dir pose la section suivante dans ce sens
+  local k = prev.k or 0
+  local gr = (k == 0) and g or M.rotate(g, k)
+  if not gr or prev.w ~= gr.w or prev.h ~= gr.h then return nil, "serie : section precedente d'une autre forme" end
+  local dir = Sd.dir_of(k)
   local belt = Build.Pave.belt_of(g)
   local ug = belt and Build.Trav.underground(f, belt) or nil
   if not ug then return nil, "serie : aucun souterrain debloque pour le tapis " .. tostring(belt) end
   local lots = { pitch = P.PITCH, lot = P.LOT, ox = b.lat.ox - P.HALF, oy = b.lat.oy - P.HALF }
-  local res, why = Mp.serie({ x = prev.ox, y = prev.oy, w = prev.w, h = prev.h, belts = g.ruban.belts },
-    { { w = prev.w, h = prev.h }, { w = g.w, h = g.h } }, "x", lots, Mp.GAP, { w = P.STREET, underground_reach = ug.maxd })
+  local belts = {}
+  for i, off in ipairs(g.ruban.belts) do belts[i] = Sd.cross(off, k, g.h) end
+  local res, why = Mp.serie_dir({ x = prev.ox, y = prev.oy, w = prev.w, h = prev.h, belts = belts },
+    { { w = prev.w, h = prev.h }, { w = gr.w, h = gr.h } }, dir, lots, Mp.GAP, { w = P.STREET, underground_reach = ug.maxd })
   if not res then return nil, "serie : " .. why end
   local s2 = res.sections[2]
   local k2 = P.lot_key(s2.lot.i, s2.lot.j)
@@ -842,7 +856,8 @@ function Build.Pave.serie(f, b, c, g, states)
   local x0, y0, x1, y1 = P.lot_rect(b.lat, l2.i, l2.j)
   local rect2 = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
   if Build.Pave.box(b, k2, rect2) then return nil, "serie : lot suivant deja pave (" .. k2 .. ")" end
-  return { k2 = k2, l2 = l2, rect2 = rect2, within = { x0 = s2.x, y0 = s2.y, x1 = s2.x + g.w, y1 = s2.y + g.h }, trav = { res = res, ug = ug, belt = belt }, owner = c.l.used }
+  return { k2 = k2, l2 = l2, rect2 = rect2, within = { x0 = s2.x, y0 = s2.y, x1 = s2.x + gr.w, y1 = s2.y + gr.h }, trav = { res = res, ug = ug, belt = belt },
+    owner = c.l.used, k = k, dir = dir }
 end
 
 --- Essai de la section de l'autre côté de la rue : relevé du lot suivant (`scan(c2, rect2)` -> masks), passage du corridor libre (rallonge, entrée,
@@ -864,10 +879,11 @@ function Build.Pave.try_serie(f, surface, g, c, fopts, states, scan)
   end
   local fo = {}
   for kk, v in pairs(fopts) do fo[kk] = v end -- (copie des options : l'ordre est sans effet)
-  fo.free, fo.within, fo.fed = masks.free, sr.within, { [g.ruban.port] = true }
+  fo.free, fo.within, fo.fed, fo.rot = masks.free, sr.within, { [g.ruban.port] = true }, { sr.k } -- (rot : l'orientation de la série, lot MALL-DIRECTIONS)
   local fit, fwhy = P.fit(g, sr.rect2, fo)
   if not fit then return nil, "serie : " .. tostring(fwhy) .. " dans le lot " .. sr.k2 end
-  return { g = g, k = 0, ox = fit.ox, oy = fit.oy, lot = sr.k2, inst = M.instantiate(g, 0, fit.ox, fit.oy), cover = fit.cover, masks = masks, fan = fo.fan,
+  local r = fit.k == 0 and g or M.rotate(g, fit.k)
+  return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = sr.k2, inst = M.instantiate(g, fit.k, fit.ox, fit.oy), cover = fit.cover, masks = masks, fan = fo.fan,
     pen = fit.pen, d = fit.d, pave = sr.owner, fed = fo.fed, serie = sr.trav, lot_from = c.k }
 end
 
@@ -886,9 +902,29 @@ function Build.Pave.cross(f, p, main, reserve)
   if not reserve(b, p, list) then return false, "serie : place du souterrain" end
   p.parts[1].serie = { lot_from = main.lot_from, voies = #tr.res.traversees, ug = tr.ug.name }
   local t1 = tr.res.traversees[1]
-  log(string.format("[FO-MALL] %s : serie : section %d posee de l'autre cote de la rue (lot %s), corridor en souterrain (%d voies) : projet %d, %s de (%d, %d) a (%d, %d), %d tapis de rallonge",
-    f.key or "player", Build.Pave.rank(b, main.pave), main.lot, #tr.res.traversees, p.id, tr.ug.name, t1.entree.x, t1.entree.y, t1.sortie.x, t1.sortie.y, #t1.rallonge))
+  log(string.format("[FO-MALL] %s : serie : section %d posee de l'autre cote de la rue (lot %s), corridor en souterrain (%d voies), direction %s : projet %d, %s de (%d, %d) a (%d, %d), %d tapis de rallonge",
+    f.key or "player", Build.Pave.rank(b, main.pave), main.lot, #tr.res.traversees, Build.Pave.Sd.NOM[tr.res.dir or 2] or "?", p.id, tr.ug.name, t1.entree.x, t1.entree.y, t1.sortie.x, t1.sortie.y, #t1.rallonge))
   return true
+end
+
+--- Lot MALL-DIRECTIONS : rotations à essayer pour la première section d'un ruban dans le lot `c` : vers le premier voisin libre du treillis
+--- (même état permis, ni pris par un autre projet, ni pavé, ni sorti, ni mauvais), le plus proche de `toward`, puis est, sud, ouest, nord.
+--- Rend la liste des k (les quatre, les voisins libres d'abord), les candidats et les refus (Sd.candidats).
+function Build.Pave.rotations(b, c, states, toward)
+  local Sd = Build.Pave.Sd
+  local function rect_of(i, j) return P.lot_rect(b.lat, i, j) end
+  local function occupation(i, j)
+    local l = b.lots[P.lot_key(i, j)]
+    if not l then return false, "hors du treillis" end
+    if l.used and l.used ~= c.l.used then return false, "projet " .. tostring(l.used) end
+    if not states[l.state] then return false, tostring(l.state) end
+    if l.out or (l.bad or 0) >= 2 then return false, "lot ecarte" end
+    local x0, y0, x1, y1 = rect_of(i, j)
+    if Build.Pave.box(b, P.lot_key(i, j), { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }) then return false, "lot pave" end
+    return true
+  end
+  local cands, refus = Sd.candidats({ i = c.l.i, j = c.l.j }, rect_of, occupation, { bus = toward })
+  return Sd.rotations(cands), cands, refus
 end
 
 local function candidates(b, states, toward, res)
@@ -1043,7 +1079,16 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     local gp, pwhy = g, nil
     if c.pave then gp, pwhy = Build.Pave.pin(b, c, g, rect, fopts) end
     local fit, why
-    if gp then fit, why = P.fit(gp, rect, fopts) else why = pwhy end
+    if gp and g.gen == "ruban" and not c.pave then
+      -- lot MALL-DIRECTIONS : la PREMIÈRE section d'un ruban prend l'orientation de sa série : vers le premier lot voisin libre (shared/team/serie_dirs.lua :
+      -- le plus proche du point de collecte, puis est, sud, ouest, nord) ; une rotation à la fois, la première qui tient gagne
+      for _, rk in ipairs(Build.Pave.rotations(b, c, kind_states, toward)) do
+        fopts.rot = { rk }
+        fit, why = P.fit(gp, rect, fopts)
+        if fit then break end
+      end
+      fopts.rot = nil
+    elseif gp then fit, why = P.fit(gp, rect, fopts) else why = pwhy end
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
       local inst = M.instantiate(r, 0, fit.ox, fit.oy)
