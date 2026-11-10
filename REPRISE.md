@@ -1,5 +1,7 @@
 # REPRISE : état du projet pour l'orchestrateur suivant
 
+> **10/11, 20 h 25 : 0.6.88 = chirurgie des 5 bloquants du playtest du DC (F488 à F493, RD_LOG). Prouvée par tests purs et mutants seulement : aucun banc moteur long sur la 0.6.88. Premier travail à reprendre : banc de 30 min sur la graine 3592985581 (scénario etape1-guide-epave) et panel des 4 graines.**
+
 > **10/11, 17 h 30 : CLÔTURE. Version jouée 0.6.87 (`5c70c774`), déployée dans le dossier du mod et poussée. Audit consolidé en tête de `RD_LOG.md` (section « AUDIT DE CLÔTURE »). Places de banc à 1 (le DC joue). Disque F: 128 Go libres.**
 
 > **10/11, 16 h 55 : VERSION 0.6.86 (`500e8104`, tag `v0.6.86`) DÉPLOYÉE dans le dossier du mod (checkout détaché) et POUSSÉE sur GitHub (`origin`, toutes les branches et les tags ; push par `git -c http.sslBackend=schannel`, le magasin openssl de Git refuse le certificat).**
