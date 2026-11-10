@@ -116,7 +116,7 @@ remote.add_interface("factorio-overhaul", {
   titans = function()
     local out = { kaijus = {}, ecorches = {}, allies = {}, ponte = Kaijus.etat() }
     for _, k in ipairs(Titans.KAIJUS) do
-      local l = { id = k.id, era_min = k.era_min, noms = {} }
+      local l = { id = k.id, era_min = k.era_min, era_max = Titans.ERAS, noms = {} }
       for era = k.era_min, Titans.ERAS do
         local j = Titans.kaiju(era, k)
         l.noms[era] = { name = j.name, arme = j.arme, ponte = j.ponte ~= nil }
@@ -124,7 +124,7 @@ remote.add_interface("factorio-overhaul", {
       out.kaijus[#out.kaijus + 1] = l
     end
     for _, v in ipairs(Titans.ECORCHE.variants) do
-      local l = { id = v.id, noms = {} }
+      local l = { id = v.id, era_min = Titans.ECORCHE.era_min, era_max = Titans.ERAS, noms = {} }
       for era = Titans.ECORCHE.era_min, Titans.ERAS do l.noms[era] = Titans.ecorche_name(v, era) end
       out.ecorches[#out.ecorches + 1] = l
     end

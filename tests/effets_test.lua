@@ -76,7 +76,7 @@ end
 
 local motifs1, packs = couverture(Fx, A, T)
 check(#motifs1 == 0, "§1 couverture et couleurs : " .. table.concat(motifs1, " ; "))
-check(#packs == 11, "§1 onze armes et titans habillés (" .. #packs .. ")")
+check(#packs == 12, "§1 douze armes et titans habillés, le Ravageur compris (KAIJUS-MUTANTS : la règle lit T.ALLIES) (" .. #packs .. ")")
 local age1 = Fx.pack(A.age_turret(1))
 check(age1 and age1.delegue == "tirs", "§1 âge 1 (cinétique) délégué au lot TIRS")
 check(read("prototypes/tirs.lua") ~= nil and (read("data.lua") or ""):find('require%("prototypes.tirs"%)') ~= nil, "§1 le lot TIRS est bien chargé (prototypes/tirs.lua)")

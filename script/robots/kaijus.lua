@@ -1,7 +1,7 @@
 --[[
   Lot KAIJUS-MUTANTS (10/11) : la PONTE de l'Écorcheur en jeu (règle pure : shared/robots/titans.lua, T.ECORCHEUR.ponte, T.ponte(era, k)).
   Un Écorcheur d'une ère où la ponte est ouverte (T.kaiju(era, k).ponte) met bas des ÉCORCHÉS quand un ennemi de sa force est à portée
-  (ponte.radius) : base + plus_era par ère au-delà de la première, variantes en rotation (T.ponte), au plus ponte.max_vivants enfants vivants
+  (ponte.radius : la plus proche entité ennemie qui a un propriétaire, bâtiment compris : find_nearest_enemy_entity_with_owner) : base + plus_era par ère au-delà de la première, variantes en rotation (T.ponte), au plus ponte.max_vivants enfants vivants
   par Écorcheur, une ponte toutes les ponte.cooldown ticks. Les enfants rejoignent le groupe d'unités du parent (assaut, vague) ou reçoivent
   l'ordre d'attaquer l'ennemi relevé.
   Balayage toutes les SCAN ticks : les Écorcheurs sont relevés par leurs noms (T.kaiju_name, lus aux données) sur chaque surface ; l'état
@@ -108,7 +108,7 @@ local function scan(ev)
         local k, era = T.kaiju_of_name(e.name)
         local j = k and T.kaiju(era, k)
         if j and j.ponte and ev.tick >= p.next and vivants(p) < k.ponte.max_vivants then
-          local ennemi = s.find_nearest_enemy({ position = e.position, max_distance = k.ponte.radius, force = e.force })
+          local ennemi = s.find_nearest_enemy_entity_with_owner({ position = e.position, max_distance = k.ponte.radius, force = e.force })
           if ennemi then
             pondre(p, j, ennemi, ev.tick)
             p.next = ev.tick + k.ponte.cooldown

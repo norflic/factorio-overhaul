@@ -3,8 +3,9 @@
 --       animations de corps du Ravageur (8 directions) existent (rendering.draw_animation les accepte) ;
 --   (2) un Écorcheur de la première ère et un de l'ère de la PONTE, trois Écorchés (une variante chacun) posés sur la force naturelle vivent
 --       et s'animent (vitesse de course non nulle, distance_per_frame) ;
---   (3) PONTE en moteur : l'Écorcheur de l'ère de la ponte, posé avec un mur du joueur à portée (ponte.radius), met bas des Écorchés dans les
---       600 ticks du balayage + cooldown : des Écorchés nouveaux sont comptés autour de lui et l'état « ponte » de l'interface les compte.
+--   (3) PONTE en moteur : l'Écorcheur de l'ère de la ponte, posé avec un mur INDESTRUCTIBLE du joueur à portée (ponte.radius), met bas des
+--       Écorchés au balayage suivant (600 ticks) : des Écorchés de son ère sont comptés autour de lui et l'état « ponte » de l'interface les compte.
+--   (les ères vont de era_min à era_max, données par l'interface : les listes de noms commencent à era_min, jamais de # sur elles)
 local CIBLE_DX = 60   -- la zone du greffon est à part (prepare_zone) : rien d'autre n'y vit
 
 return {
@@ -18,7 +19,7 @@ return {
     -- Écorcheur : archétype qui porte une ponte (lu : kaijus[i].noms[era].ponte)
     local ec, ponte_era, first_era
     for _, k in ipairs(T.kaijus) do
-      for era = k.era_min, #k.noms do
+      for era = k.era_min, k.era_max do
         local n = k.noms[era]
         if n and n.ponte and not ponte_era then ec, ponte_era, first_era = k, era, k.era_min end
       end
@@ -35,14 +36,16 @@ return {
     st.mur = {}
     for i = -2, 2 do
       local w = s.create_entity({ name = "stone-wall", position = { px + 12, py + i }, force = game.forces.player })
-      if w then st.mur[#st.mur + 1] = w end
+      if w then
+        w.destructible = false -- la cible reste : la ponte ne dépend pas de la vitesse à laquelle le parent la détruit
+        st.mur[#st.mur + 1] = w
+      end
     end
     if st.parent then st.parent.set_command({ type = defines.command.wander, radius = 2 }) end
     -- Écorchés : une variante chacun, de leur première ère, à part
     st.ecorches = {}
     for i, v in ipairs(T.ecorches) do
-      local era
-      for e, nom in pairs(v.noms) do if not era or e < era then era = e end end
+      local era = v.era_min
       local u = s.create_entity({ name = v.noms[era], position = { x0 + 10 * i, y0 + 80 }, force = ennemi })
       if u then u.set_command({ type = defines.command.wander, radius = 3 }) end
       st.ecorches[#st.ecorches + 1] = { v = v.id, e = u, name = v.noms[era] }
@@ -58,10 +61,10 @@ return {
     -- (1) prototypes
     local miss = {}
     for _, k in ipairs(T.kaijus) do
-      for era = k.era_min, #k.noms do if not p[k.noms[era].name] then miss[#miss + 1] = k.noms[era].name end end
+      for era = k.era_min, k.era_max do if not p[k.noms[era].name] then miss[#miss + 1] = k.noms[era].name end end
     end
     for _, v in ipairs(T.ecorches) do
-      for _, nom in pairs(v.noms) do if not p[nom] then miss[#miss + 1] = nom end end
+      for era = v.era_min, v.era_max do if not p[v.noms[era]] then miss[#miss + 1] = v.noms[era] end end
     end
     local rav
     for _, r in ipairs(T.allies) do
@@ -89,11 +92,12 @@ return {
     ctx.check(vivants == #st.ecorches and vivants == 3, "ecorches : les trois variantes vivent au bout du banc", vivants)
     -- (3) ponte
     local etat = ctx.call("titans").ponte
+    -- enfants : les Écorchés de l'ère de la ponte (les témoins vivants du (2) sont de la première ère des Écorchés : d'autres noms)
+    local noms_enfants = {}
+    for _, v in ipairs(T.ecorches) do noms_enfants[#noms_enfants + 1] = v.noms[st.ponte_era] end
     local nes = 0
-    if st.parent and st.parent.valid then
-      for _, e in ipairs(s.find_entities_filtered({ position = st.parent.position, radius = 40, force = game.forces.enemy })) do
-        if e.valid and e ~= st.parent and e.type == "unit" then nes = nes + 1 end
-      end
+    if st.parent and st.parent.valid and #noms_enfants > 0 then
+      nes = s.count_entities_filtered({ position = st.parent.position, radius = 40, name = noms_enfants, force = game.forces.enemy })
     end
     ctx.check(st.parent and st.parent.valid, "ecorcheur (ere de la ponte) : vivant", st.parent and st.parent.valid)
     ctx.check(nes >= 2, "ponte : des Ecorches sont nes autour de l'Ecorcheur (mur du joueur a portee)", nes .. " ne(s), avant " .. tostring(st.avant))
