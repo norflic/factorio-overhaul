@@ -49,13 +49,17 @@ function Cp.ready(need, stock)
   return #short == 0 and total > 0, { pieces = pieces, total = total, short = short }
 end
 
---- Un projet `p` (vue : state, reopened, spec.champ, stock, need) peut-il partir en chantier progressif ? Seulement une bande de champ
---- NEUVE (spec.champ posé par le plan directeur du champ) en état « reserve », jamais un projet rouvert (Rr.partial_go le couvre), et
---- seulement si la réserve atteint le plancher de chaque objet (Cp.ready). Rend ok, détail de Cp.ready (ou raison).
+--- Un projet `p` (vue : state, reopened, spec.champ, stock, need) peut-il partir en chantier progressif ? Seulement la BANDE elle-même,
+--- neuve (spec.champ posé par le plan directeur du champ, sans `coal` ni `link` : un réseau du charbon, lié ou non, garde le tout-ou-rien :
+--- son kit est surtout du combustible et sa pose partielle déroute la migration, mesure EXPANSION-C, graine 271828182 : le réseau lié de la
+--- bande 1 parti à 33 min, la bande de fer suivante jamais demandée, 25 804 plaques au lieu de 42 144), en état « reserve », jamais un
+--- projet rouvert (Rr.partial_go le couvre), et seulement si la réserve atteint le plancher de chaque objet (Cp.ready). Rend ok, détail.
 function Cp.go(p)
   if not (p and p.state == "reserve") then return false, "etat" end
   if p.reopened and p.reopened ~= 0 then return false, "rouvert" end
-  if not (p.spec and p.spec.champ) then return false, "pas une bande" end
+  local c = p.spec and p.spec.champ
+  if not c then return false, "pas une bande" end
+  if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end
   return Cp.ready(p.need or {}, p.stock or {})
 end
 

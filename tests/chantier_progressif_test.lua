@@ -64,6 +64,10 @@ local function suite(Cp)
   local g2, w2 = Cp.go(band(NEED, STOCK30, { reopened = 1 })) c(g2 == false and w2 == "rouvert", "projet rouvert : non (Rr.partial_go le couvre)")
   local g3, w3 = Cp.go({ state = "reserve", spec = { gen = "smelter" }, need = NEED, stock = STOCK30 }) c(g3 == false and w3 == "pas une bande", "module du capital : non")
   c(Cp.go(band(NEED, STOCK30, { reopened = 0 })) == true, "reopened = 0 vaut non rouvert")
+  local g4, w4 = Cp.go({ state = "reserve", spec = { champ = { oid = 1, pr = -30, coal = -1, link = 4 } }, need = NEED, stock = STOCK30 })
+  c(g4 == false and w4 == "reseau de charbon", "réseau du charbon lié à une bande : tout-ou-rien gardé (" .. tostring(w4) .. ")")
+  local g5, w5 = Cp.go({ state = "reserve", spec = { champ = { oid = 1, pr = -30, coal = 1 } }, need = NEED, stock = STOCK30 })
+  c(g5 == false and w5 == "reseau de charbon", "réseau du charbon autonome : tout-ou-rien gardé")
   c(Cp.go(nil) == false, "nil : non")
   -- texte
   local s = Cp.describe(d2)
@@ -90,6 +94,8 @@ local MUTANTS = {
   { "tout projet accepté (pas seulement une bande)", 'if not (p.spec and p.spec.champ) then return false, "pas une bande" end', "" },
   { "état ignoré", 'if not (p and p.state == "reserve") then return false, "etat" end', 'if not p then return false, "etat" end' },
   { "un seul objet sous le plancher toléré", "return #short == 0 and total > 0, {", "return #short <= 1 and total > 0, {" },
+  { "réseau du charbon accepté", 'if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end', "" },
+  { "réseau lié accepté (coal seul refusé)", 'if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end', 'if c.coal ~= nil and c.link == nil then return false, "reseau de charbon" end' },
 }
 local refused = 0
 for _, mu in ipairs(MUTANTS) do
