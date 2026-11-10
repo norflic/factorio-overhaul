@@ -419,18 +419,8 @@ function P.plan(view, book)
       local plan = (not pl.pause) and Guard.plan(pl.plants or { pl }, pl.turrets, pl.range, pl.low, pl.cap) or nil
       local pick = plan and plan.pick
       if pick then
-        local pp = { id = "plant", want = pick.need.near + pick.missing, have = pick.need.near, busy = pl.fortify,
+        posts[#posts + 1] = { id = "plant", want = pick.need.near + pick.missing, have = pick.need.near, busy = pl.fortify,
           sites = pick.need.sites, pos = pick.need.center, range = pl.range, pieces = pick.pieces, plant_id = pick.id }
-        -- Lot CHARBON-UNIFIE (F460 bis, cause 3) : une centrale SANS AUCUNE garde armée passe juste après les avant-postes de FER (« ressources
-        -- d'abord »), AVANT les autres avant-postes et le front. Servie dernière, elle n'a jamais reçu une tourelle en 90 min (« plant 0/2
-        -- fabrication » tout le banc, 74 tourelles à l'équipe) et l'ennemi l'a détruite à 64,9 min (banc CHARBON-A3 ; la référence : même état).
-        if (pick.need.near or 0) <= 0 then
-          local at = 2
-          for i = 2, #posts do if posts[i].iron then at = i + 1 end end
-          table.insert(posts, at, pp)
-        else
-          posts[#posts + 1] = pp
-        end
       end
     end
     -- Lot DEFENSE-FRONT : la cellule la plus attaquée (ou un groupe de laboratoires à couvrir) reçoit ses tourelles en plus, par lots,
