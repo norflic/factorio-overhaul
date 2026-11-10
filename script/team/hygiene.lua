@@ -57,16 +57,13 @@ local Profiler = require("script.core.profiler")
 local St = require("shared.team.scan_tranches")
 local Sr = require("script.team.scan_reveil") -- lot SCAN-EVENEMENTS : réveils (ordre des équipes, état f.team.scan)
 local Boxes = require("script.team.boxes_rt") -- lot BOXES (DC 9/11) : relevé des boxes à la tranche 0, poteaux d'une box MAXED sautés à l'audit
-<<<<<<< HEAD
 local Balises = require("script.team.balises_teinte") -- lot BALISES-TEINTE (DC 10/11) : lueur des balises d'après leurs modules, une tranche par appel
-=======
 local Hr = require("shared.team.hygiene_regle") -- lot HYGIENE-ACTIVE (DC 10/11) : règle pure du retrait
 local P = require("shared.team.plan") -- lot HYGIENE-ACTIVE : clé de tuile (f.swap.pole_pos, f.build.occ)
 local Stock = require("script.team.stock") -- lot HYGIENE-ACTIVE : objet rendu au coffre, remplaçant payé au stock
 local Famine = require("script.team.famine_fer") -- lot HYGIENE-ACTIVE : jamais pendant une famine de la plaque clé
 local Gens = require("script.team.generateurs") -- lot HYGIENE-ACTIVE : réseaux alimentés (registre des génératrices)
 local Rv = require("script.team.reseau_vivant") -- lot HYGIENE-ACTIVE : Rv.foe_near (aucun remplaçant posé avec un ennemi près)
->>>>>>> hygiene-active
 
 local Hy = {}
 
