@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.78
+Date: 2026-11-10
+  Features:
+    - Titans (F464) : le Juggernaut marche et tire en 8 directions (8 images de marche, 4 de salve par stade, à la vitesse du véhicule) ; la singularité de la Sentinelle reste cyan en plein jour ; les cristaux du Kaiju sont translucides et facettés à toutes les ères.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.77
 Date: 2026-11-10
   Features:

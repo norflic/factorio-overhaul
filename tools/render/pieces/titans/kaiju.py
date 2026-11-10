@@ -29,6 +29,7 @@ GRIS = os.environ.get("FO_GRIS", "") == "1"
 # englobants (cadre fixe pour toutes les images et directions), portée du liseré de contact.
 SERIE = {"course": 8, "attaque": 4, "densite": 24.0, "R": 12.6, "zmax": 9.2}
 AO = 0.6
+GLOW_BLANC = True         # la lueur est rendue BLANCHE : le prototype la teinte par ère (les alliés gardent leurs couleurs)
 FOULEE = 2.0 * 1.3        # distance parcourue par cycle (unités) : amplitude du pas × 2 (distance_per_frame du prototype)
 
 
@@ -232,3 +233,8 @@ def build(S, lot, u=0.0, attaque=None):
         charge = max(0.0, (a - 0.25) / 0.75)
         tete(lot, M, (7.0, 0.0, 5.6 - 1.2 * ouverture), ouverture, charge)
     return {"pieces": lot.n, "u": u, "attaque": attaque}
+
+
+def build_anime(S, lot, stage, u, attaque):
+    """Entrée commune des titans animés (batch_titans.anime) : le Kaiju n'a pas de stade (un prototype par ère : l'échelle vient du jeu)."""
+    return build(S, lot, u, attaque)

@@ -60,7 +60,7 @@ def corps(lot, M, stage):
     lot.put(M["turq"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc + 0.2, 0.08))
     lot.put(M["conduit"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc - 0.3, 0.06))
     # singularité : vortex (cœur) + halo large ; sous-disque sombre derrière
-    lot.put(M["coeur"], G.sphere(C, rc - 0.9, 20, 10))
+    lot.put(M["singularite"], G.sphere(C, rc - 0.9, 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
     lot.put(M["halo"], G.sphere(C, rc + 0.6, 20, 10))
     lot.put(M["struct"], G.tour([(-1.0, 0.0), (-0.9, rc - 0.2), (-0.4, rc + 0.3)], 24, "x", C, cap0=True))
     # carénage arrière : coque octogonale derrière la couronne, cheminées et conduits

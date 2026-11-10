@@ -148,6 +148,30 @@ T.JUGGERNAUT = {
     { "battery", 60 }, { "steel-plate", 100 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
 }
+--- Juggernaut ANIMÉ (FINITIONS 10/11) : corps en 8 directions × images (feuilles : tools/render/pieces/titans/juggernaut.py, SERIE ;
+--- foulee = FOULEE du modèle, tuiles par cycle de marche, vérifiée par tests/titans_test.lua) ; attaque_ticks : durée d'une salve à l'écran.
+T.JUGGERNAUT.anime = { images = { course = 8, attaque = 4 }, foulee = 6.9, attaque_ticks = 30 }
+--- Couches d'un corps animé (nom de couche, calque de rendu), dans l'ordre de dessin.
+T.COUCHES_ANIM = { { "ombre", "lower-object" }, { "corps", "air-object" }, { "lueur", "air-object" } }
+
+--- Direction (0 = nord, sens horaire, 8 secteurs) d'une orientation dans [0, 1[ : le secteur le plus proche, sans trigonométrie.
+function T.direction8(orientation)
+  local o = tonumber(orientation) or 0
+  return math.floor(o * 8 + 0.5) % 8
+end
+
+--- Vitesse d'animation (images par tick) d'une marche à `speed` tuiles par tick : la foulée (tuiles) défile en `images` images ; 0 à l'arrêt.
+function T.vitesse_anim(speed, foulee, images)
+  speed = math.abs(tonumber(speed) or 0)
+  if speed <= 0 or not (foulee and foulee > 0) then return 0 end
+  return speed * images / foulee
+end
+
+--- Nom d'une animation de corps d'un titan animé : <préfixe><archétype>-<stade>-<animation>-<direction>-<couche>.
+function T.anim_name(r, stage, anim, dir, couche)
+  return T.PREFIX .. r.id .. "-" .. stage .. "-" .. anim .. "-" .. dir .. "-" .. couche
+end
+
 --- Sentinelle hexapode (âge 11, après le Finback) : plus lente, singularité (zone + ralentissement) ; le canon annulaire est à gauche.
 T.SENTINELLE = {
   id = "sentinelle", age = 11, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-finback", ref = "finback", mu = 80000,

@@ -27,6 +27,7 @@ local Xp = require("shared.robots.experimentaux")
 local K = require("script.robots.experimentaux_commun")
 local Armee = require("script.robots.armee")
 local G = require("script.robots.experimentaux_geants")
+local Rg = require("shared.tirs.regles")   -- Rg.decalage : image 0 d'une animation au tick voulu (image = floor(tick × vitesse + décalage) mod n)
 
 local M = {}
 
@@ -123,14 +124,78 @@ local function drones_avancer(g, j)
   end
 end
 
+--- Corps ANIMÉ (FINITIONS 10/11 : Juggernaut, r.anime) : trois `rendering.draw_animation` (ombre, corps, lueur) sur l'animation de marche de
+--- la direction de l'entité ; `animer` les tient à jour à chaque balayage (direction, vitesse = celle du véhicule, salve). Les rendus meurent
+--- avec l'entité (remplacement de palier : `corps` les refait).
+local function corps_anime(g, r)
+  local e = g.e
+  local dir = T.direction8(e.orientation)
+  g.anim = { dir = dir, mode = "course", v = 0, ids = {} }
+  for _, c in ipairs(T.COUCHES_ANIM) do
+    g.anim.ids[#g.anim.ids + 1] = rendering.draw_animation({ animation = T.anim_name(r, g.stage, "course", dir, c[1]), target = e, surface = e.surface,
+      render_layer = c[2], animation_speed = 0, animation_offset = 0 })
+  end
+end
+
 local function corps(g)
   local e = g.e
   local s = e.surface
-  local st = T.PREFIX .. archetype(g).id .. "-" .. g.stage
-  rendering.draw_sprite({ sprite = st .. "-ombre", target = e, surface = s, render_layer = "lower-object" })
-  rendering.draw_sprite({ sprite = st .. "-corps", target = e, surface = s, render_layer = "air-object" })
-  rendering.draw_sprite({ sprite = st .. "-lueur-1", target = e, surface = s, render_layer = "air-object" })
-  drones_dessiner(g, T.allie(archetype(g), g.age))
+  local r = archetype(g)
+  if r.anime then
+    corps_anime(g, r)
+  else
+    local st = T.PREFIX .. r.id .. "-" .. g.stage
+    rendering.draw_sprite({ sprite = st .. "-ombre", target = e, surface = s, render_layer = "lower-object" })
+    rendering.draw_sprite({ sprite = st .. "-corps", target = e, surface = s, render_layer = "air-object" })
+    rendering.draw_sprite({ sprite = st .. "-lueur-1", target = e, surface = s, render_layer = "air-object" })
+  end
+  drones_dessiner(g, T.allie(r, g.age))
+end
+
+local function anim_set(g, r, anim)
+  for i, c in ipairs(T.COUCHES_ANIM) do
+    local id = g.anim.ids[i]
+    if id and rendering.is_valid(id) then rendering.set_animation(id, T.anim_name(r, g.stage, anim, g.anim.dir, c[1])) end
+  end
+end
+
+--- Salve à l'écran : l'animation d'attaque de la direction courante, image 0 à ce tick, ses images étalées sur attaque_ticks ; `animer` repasse en marche après.
+local function anim_attaque(g, r, tick)
+  if not (r.anime and g.anim) then return end
+  local n = r.anime.images.attaque
+  local v = n / r.anime.attaque_ticks
+  g.anim.mode, g.anim.fin, g.anim.v = "attaque", tick + r.anime.attaque_ticks, nil
+  anim_set(g, r, "attaque")
+  for _, id in ipairs(g.anim.ids) do
+    if rendering.is_valid(id) then
+      rendering.set_animation_speed(id, v)
+      rendering.set_animation_offset(id, Rg.decalage(tick, v, n))
+    end
+  end
+end
+
+--- À chaque balayage : direction de l'entité (8 secteurs), marche à la vitesse du véhicule (images par tick = vitesse × images / foulée ;
+--- 0 et image 0 à l'arrêt), retour en marche à la fin d'une salve.
+local function animer(g, r, tick)
+  if not (r.anime and g.anim) then return end
+  local e = g.e
+  local a = g.anim
+  if a.mode == "attaque" and tick < (a.fin or 0) then return end
+  local dir = T.direction8(e.orientation)
+  if a.mode ~= "course" or dir ~= a.dir then
+    a.mode, a.dir, a.v = "course", dir, nil
+    anim_set(g, r, "course")
+  end
+  local v = T.vitesse_anim(e.speed, r.anime.foulee, r.anime.images.course)
+  if v ~= a.v then
+    a.v = v
+    for _, id in ipairs(a.ids) do
+      if rendering.is_valid(id) then
+        rendering.set_animation_speed(id, v)
+        if v == 0 then rendering.set_animation_offset(id, 0) end
+      end
+    end
+  end
 end
 
 local function rendre(player, e, name)
@@ -266,6 +331,7 @@ local function canon(g, j, target, tick)
   rendering.draw_circle({ color = rgba(0.3, 0.95, 1.0, 0.6), radius = 2.0, width = 6, filled = false, target = target.position, surface = e.surface,
     time_to_live = 30, draw_on_ground = true })
   local d = K.hit(j, target, j.salve, j.dtype, e.force, e)
+  anim_attaque(g, archetype(g), tick)
   journal("%s canon #%d degats %.0f tick %d", j.id, g.un, d, tick)
 end
 
@@ -288,14 +354,19 @@ local function scan(ev)
   for _, g in ipairs(st.juggernauts) do
     if g.e.valid then
       keep[#keep + 1] = g
-      local j = T.allie(archetype(g), g.age)
+      local r = archetype(g)
+      local j = T.allie(r, g.age)
+      animer(g, r, ev.tick)
       if j.n_drones then
         if not g.drones then drones_dessiner(g, j) end
         drones_avancer(g, j)
       end
       -- armes de contact à leur cadence, dès qu'un ennemi est dans la zone
       if ev.tick >= g.next_griffes then
-        if j.armes.griffes and griffes(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.griffes.cooldown end
+        if j.armes.griffes and griffes(g, j, ev.tick) > 0 then
+          g.next_griffes = ev.tick + j.griffes.cooldown
+          if not j.armes.canon then anim_attaque(g, r, ev.tick) end   -- palier 1 : les griffes sont la seule salve visible
+        end
         if j.armes.singularite and singularite(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.singularite.cooldown end
       end
       if ev.tick >= g.next and not G.zone_active(g.un) then

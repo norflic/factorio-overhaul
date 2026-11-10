@@ -66,8 +66,46 @@ local function sprites_de(prefixe, s)
   out[#out + 1] = sprite(prefixe .. "-ombre", s.ombre, { ombre = true })
 end
 
+-- Corps ANIMÉ (FINITIONS 10/11 : Juggernaut) : une `animation` par stade, animation (course, attaque), direction (8) et couche (corps,
+-- lueur, ombre), dessinée par `rendering.draw_animation` (script/robots/titans.lua choisit la direction et la vitesse) ; un fichier par
+-- direction (grille ll × lpf = images, lecture continue), densité propre à chaque couche (`dens`, l'ombre à demi-densité).
+local function animations_de(r, stage, s)
+  local A = SPR[r.id]
+  for _, anim in ipairs({ "course", "attaque" }) do
+    local a = s[anim]
+    for dir = 0, A.directions - 1 do
+      for _, c in ipairs({ { "corps", a.couches.main, {} }, { "lueur", a.couches.glow, { draw_as_glow = true, blend_mode = "additive" } },
+        { "ombre", a.couches.shadow, { draw_as_shadow = true } } }) do
+        local cc, extra = c[2], c[3]
+        local function une(f, w, h, dens)
+          local t = { filename = f, width = w, height = h, frame_count = a.images, line_length = cc.ll, scale = 32 / dens, shift = { cc.sx, cc.sy }, priority = "medium" }
+          for k, v in pairs(extra) do t[k] = v end
+          return t
+        end
+        local t = une(cc.lr[dir + 1], cc.lw, cc.lh, cc.dens / A.reduc)
+        t.hr_version = une(cc.hr[dir + 1], cc.w, cc.h, cc.dens)
+        t.type = "animation"
+        t.name = T.anim_name(r, stage, anim, dir, c[1])
+        out[#out + 1] = t
+      end
+    end
+  end
+end
+
+--- Gabarit d'un stade (largeur et haut de l'image en tuiles, depuis la position au sol), feuille fixe ou animée.
+local function gabarit(s)
+  if s.course then
+    local c = s.course.couches.main
+    return c.w / c.dens, c.sy - c.h / c.dens / 2
+  end
+  return s.main.lr.width * s.main.lr.scale / 32, s.main.shift[2]
+end
+
 for _, r in ipairs(T.ALLIES) do
-  for stage = 1, T.STAGES do sprites_de(T.PREFIX .. r.id .. "-" .. stage, feuille(r.id, stage)) end
+  for stage = 1, T.STAGES do
+    local s = feuille(r.id, stage)
+    if s.course then animations_de(r, stage, s) else sprites_de(T.PREFIX .. r.id .. "-" .. stage, s) end
+  end
 end
 -- drone d'escorte du Léviathan (une image, sans ombre : il vole ; la lueur suit)
 sprites_de(T.PREFIX .. "leviathan-drone", feuille("leviathan", "drone"))
@@ -138,9 +176,9 @@ for ia, r in ipairs(T.ALLIES) do
   -- Un spider-vehicle par palier (évolution dynamique : le script remplace l'entité au changement d'âge)
   for palier = 1, T.PALIERS do
     local j = T.allie(r, T.age_of_palier(palier))
-    local s = feuille(r.id, j.stage)
-    local hw = math.max(2, math.floor(s.main.lr.width * s.main.lr.scale / 32 / 4))
-    local top = math.min(-2, math.floor(s.main.shift[2]))
+    local largeur, haut = gabarit(feuille(r.id, j.stage))
+    local hw = math.max(2, math.floor(largeur / 4))
+    local top = math.min(-2, math.floor(haut))
     out[#out + 1] = {
       type = "spider-vehicle", name = j.name,
       localised_name = { "entity-name." .. j.name }, localised_description = { "entity-description." .. r.name },
