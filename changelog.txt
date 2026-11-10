@@ -5,6 +5,7 @@ Date: 2026-11-10
     - Modules : les 30 icônes des modules sont redessinées (holographiques, cyan = vitesse, ambre = productivité, émeraude = efficacité, palier lisible à 64, 32 et 16 px).
     - Armes par âge : lignée Bastion à quatre modes d'attaque (cinétique, laser, arc en chaîne, plasma), fusil à rail, lanceur de singularités, projecteur de champ, frappe orbitale verrouillée derrière l'âge 4.
     - Titans : le Juggernaut (allié, trois stades) et le Kaiju cristallin (ennemi des vagues de boss) rendus depuis des modèles 3D paramétriques ; évolution des points de vie, du blindage et des armes par âge.
+    - Titans (F458) : matières recalibrées sur les concepts de référence (blindage argent iridescent, conduits et vortex cyan, cristaux bleu glacier) ; deux alliés de plus, la Sentinelle hexapode et le Léviathan serpentin avec ses drones.
     - Balises (F454) : la lueur d'une balise prend la couleur des modules qu'elle contient (cyan vitesse, ambre productivité, émeraude efficacité).
     - Hygiène électrique (F456) : les poteaux feuilles sans consommateur sont retirés et rendus au coffre ; un poteau posé sur du minerai est remplacé par un poteau hors gisement vérifié relié et alimenté avant le retrait ; quatre retraits par impulsion au plus.
     - Mall en série (F457) : gabarit en ruban à deux corridors ; quand le lot est plein, la section suivante passe de l'autre côté de la rue et son corridor la franchit par un souterrain, la rue restant libre pour les PNJ.
