@@ -9,6 +9,8 @@ Date: 2026-11-11
     - Minage (F511) : plus aucun PNJ ne pioche une ressource que les foreuses électriques savent extraire quand des foreuses électriques dorment au coffre (même règle que les paires thermiques) ; dans la partie du DC sur la 0.6.88, 14 PNJ piochaient le fer à côté de 50 foreuses au coffre.
   Bugfixes:
     - Gisements (F509) : le four ou le coffre d'une paire thermique n'est plus jamais posé sur une tuile de ressource ; seules les foreuses qui touchent le bord du gisement ont une paire (four sur le sol neutre), l'intérieur revient aux bandes électriques (règle du DC du 10/11).
+  Bugfixes:
+    - Chantiers (F503) : une ligne de rapatriement qui cherche son tracé cède son rang après chaque tranche de recherche ; elle gardait le plan de chaque passe et 19 projets restaient en attente de plan jusqu'à 82 min, dont la bande de champ d'une migration du fer (partie du DC sur la 0.6.89 : gisement nu, avant-poste « plein », PNJ sans tâche).
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10
