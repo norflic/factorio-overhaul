@@ -140,6 +140,14 @@ local function border_reach(dp)
   return math.max(dp and dp.tile_width or 2, dp and dp.tile_height or 2)
 end
 
+--- Lot CC-SANCTUAIRE-2 (F509) : rayon de lecture du gisement d'une pose de paires. Le site d'un avant-poste neuf est le barycentre d'un
+--- chunk de minerai : au cœur d'un gisement de plus de 28 tuiles de côté, aucun bord n'est à moins de Outposts.RADIUS.build et la
+--- construction ne poserait plus rien. La construction lit donc, comme l'agrandissement, le gisement du centre jusqu'au rayon
+--- d'agrandissement ; le chantier dégagé d'abord reste celui du rayon de construction (`radius`).
+local function read_radius(radius)
+  return math.max(radius, Paires.EXTEND_RADIUS)
+end
+
 --- Lot EXTENSION-FER : l'ouvrier dégage arbres et rochers du disque (`center`, `radius`) ou de la zone `area` (le bois revient à l'équipe).
 local function clear_trees(surface, carrier, center, radius, area)
   local found
@@ -183,10 +191,11 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
   -- emplacement n'est essayé qu'une fois et le nombre d'essais est plafonné.
   local dp = game.entity_prototypes[T.DRILL]
   if o then o.ext_dead = o.ext_dead or {} end
+  local rr = read_radius(radius)
   local pl = Paires.new({
-    resources = Paires.border_first(resource_tiles(surface, spec, center, radius, o ~= nil), border_reach(dp)), cap = Paires.MAX_ATTEMPTS,
+    resources = Paires.border_first(resource_tiles(surface, spec, center, rr, true), border_reach(dp)), cap = Paires.MAX_ATTEMPTS,
     w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
-    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil,
+    occupied = occupied_tiles(surface, center, rr), dead = o and o.ext_dead or nil,
     mined = o and mined_set(o) or nil }) -- lot PLAFOND-FOREUSES : couverture du gisement (verdict « couverture »)
   local drills, sinks = {}, {}
   local lacking = false
@@ -204,9 +213,8 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
     end
     local pos = pl.next()
     if not pos then break end
-    if o then
-      clear_trees(surface, carrier, nil, nil, { { pos.x - 4, pos.y - 4 }, { pos.x + 4, pos.y + 4 } })
-    end
+    -- lot CC-SANCTUAIRE-2 : la construction pose aussi au bord du gisement, hors du chantier dégagé : arbres et rochers de l'emplacement
+    clear_trees(surface, carrier, nil, nil, { { pos.x - 4, pos.y - 4 }, { pos.x + 4, pos.y + 4 } })
     local done = false
     -- lot MELANGE2 (revue du 3/11) : une foreuse dont les 2 × 2 tuiles minées portent une AUTRE ressource minable en déverserait dans son
     -- four (charbon dans un four de fer : four plein, foreuse figée pour toujours) : l'emplacement est refusé, comme les autres
@@ -284,10 +292,11 @@ function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius, o)
       build_check_type = defines.build_check_type.script_ghost, forced = true })
   end
   local dp = game.entity_prototypes[T.DRILL]
+  local rr = read_radius(radius) -- lot CC-SANCTUAIRE-2 : même lecture que place_pairs
   local pl = Paires.new({
-    resources = Paires.border_first(resource_tiles(surface, spec, center, radius, o ~= nil), border_reach(dp)), cap = Paires.MAX_ATTEMPTS,
+    resources = Paires.border_first(resource_tiles(surface, spec, center, rr, true), border_reach(dp)), cap = Paires.MAX_ATTEMPTS,
     w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
-    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil,
+    occupied = occupied_tiles(surface, center, rr), dead = o and o.ext_dead or nil,
     mined = o and mined_set(o) or nil })
   local out = {}
   -- lot PLAFOND-FOREUSES (relecture) : même arrêt que place_pairs, un gisement couvert à Paires.KAPPA n'a pas d'aperçu à poser

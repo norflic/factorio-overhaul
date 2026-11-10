@@ -439,5 +439,35 @@ do
   check(dry(o6) == 0 and (c6.items[T.fuel] or 0) == 0, "coffres propres pleins + stock sature : 10 bruleurs remplis, rien au sac")
 end
 
+---------------------------------------------------------------------------------------------------
+section("11. Lot CC-SANCTUAIRE-2 (F509) : avant-poste NEUF au cœur d'un grand gisement : paires au bord, aucun réceptacle sur le minerai")
+do
+  -- le site d'un avant-poste est le barycentre d'un chunk de minerai : au cœur d'un gisement de plus de 28 tuiles de côté, aucun bord n'est
+  -- à moins du rayon de construction (14). Sans lecture jusqu'au bord, la construction ne posait plus rien (« aucune paire », site perdu).
+  local function on_ore(s, list)
+    local n = 0
+    for _, e in ipairs(list) do
+      local bb = e.bounding_box
+      if s.count_entities_filtered({ area = { { bb.left_top.x, bb.left_top.y }, { bb.right_bottom.x, bb.right_bottom.y } }, type = "resource" }) > 0 then
+        n = n + 1
+      end
+    end
+    return n
+  end
+  for _, side in ipairs({ 16, 40, 60 }) do
+    local s, f = world(side), fac()
+    f.next_oid, f.outposts_count, f.orphans = 0, 0, {}
+    f.stats.outposts_built = 0
+    local o = Outposts.build(f, s, "iron", { x = 0, y = 0 }, carrier(40))
+    check(o ~= nil and o.drills == SPEC.drills, "gisement " .. side .. " x " .. side .. ", site au centre : " .. SPEC.drills .. " paires posées ("
+      .. tostring(o and o.drills) .. ")")
+    if o then
+      check(on_ore(s, o.sinks) == 0, "gisement " .. side .. " x " .. side .. " : aucun réceptacle sur le minerai (" .. on_ore(s, o.sinks) .. ")")
+      check(on_ore(s, o.drill_list) == #o.drill_list, "gisement " .. side .. " x " .. side .. " : toutes les foreuses minent (sur le minerai)")
+    end
+    check(overlaps(s) == 0, "gisement " .. side .. " x " .. side .. " : aucun recouvrement")
+  end
+end
+
 print(string.format("\n[EXTENSION-FER-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

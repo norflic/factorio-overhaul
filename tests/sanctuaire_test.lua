@@ -282,6 +282,10 @@ check(npos == 2, "la pose (place_pairs) et l'aperçu (preview_pairs) appellent s
 local nb = 0
 for _ in OUT:gmatch("resources = Paires%.border_first%(resource_tiles%(") do nb = nb + 1 end
 check(nb == 2, "la pose et l'aperçu parcourent le bord du gisement d'abord (" .. nb .. ")")
+local nr = 0
+for _ in OUT:gmatch("local rr = read_radius%(radius%)") do nr = nr + 1 end
+check(nr == 2 and OUT:find("return math%.max%(radius, Paires%.EXTEND_RADIUS%)") ~= nil,
+  "la construction lit le gisement jusqu'au rayon d'agrandissement (bord d'un grand gisement), pose et aperçu (" .. nr .. ")")
 
 section("7. mutants de la règle des réceptacles et du parcours bord d'abord")
 local PMUT = {
