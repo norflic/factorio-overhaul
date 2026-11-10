@@ -72,6 +72,7 @@ local Stock = require("script.team.stock") -- lot HYGIENE-ACTIVE : objet rendu a
 local Famine = require("script.team.famine_fer") -- lot HYGIENE-ACTIVE : jamais pendant une famine de la plaque clé
 local Gens = require("script.team.generateurs") -- lot HYGIENE-ACTIVE : réseaux alimentés (registre des génératrices)
 local Rv = require("script.team.reseau_vivant") -- lot HYGIENE-ACTIVE : Rv.foe_near (aucun remplaçant posé avec un ennemi près)
+local Zone = require("script.team.zone_equipe") -- lot UPS-HYGIENE : relevé dans la zone de l'équipe (rectangles du plan), plus sur toute la carte
 
 local Hy = {}
 
@@ -143,12 +144,13 @@ end
 --- 1. Relevé des poteaux de la force (jeton des travaux lourds pris d'abord ; faux s'il est refusé : on réessaie à la tranche suivante).
 local function releve(f, surface, h, tick, slice)
   local box = BoiteChunks.get(surface)
-  if not Lourd.take(tick, who(f), nil, St.box_cost(box)) then return false end
-  Profiler.start("hyg:releve")
+  local rects = Zone.rects(f, surface, tick) -- lot UPS-HYGIENE : rectangles du plan (nil : équipe sans plan ni QG, la boîte entière)
+  if not Lourd.take(tick, who(f), nil, Zone.cost(rects, box)) then return false end
+  Profiler.fstart("hyg:releve")
   local q = { type = "electric-pole", force = f.force }
-  if box then q.area = { { box.x0 * 32, box.y0 * 32 }, { (box.x1 + 1) * 32, (box.y1 + 1) * 32 } } end
   local poles, dmax = {}, 0
-  for _, e in ipairs(surface.find_entities_filtered(q)) do
+  h.zone = rects and #rects or 0
+  for _, e in ipairs(Zone.find(surface, q, rects, box)) do
     if e.valid and e.unit_number then
       poles[#poles + 1] = { e.unit_number, e.position.x, e.position.y }
       local d = e.prototype.supply_area_distance or 0
@@ -157,21 +159,17 @@ local function releve(f, surface, h, tick, slice)
   end
   table.sort(poles, function(a, b) return a[1] < b[1] end)
   h.poles, h.n, h.dmax, h.r0, h.cost = poles, #poles, dmax, slice, h.cost + 1
-  Profiler.start("hyg:r:plan_poles")
-  h.plan, h.plan_ref = plan_poles(f) -- lot HYGIENE-ACTIVE
-  Profiler.stop("hyg:r:plan_poles") -- lot HYGIENE-PLANS-FINIS : références des pièces
-  Profiler.stop("hyg:releve")
+  h.plan, h.plan_ref = plan_poles(f) -- lot HYGIENE-ACTIVE ; lot HYGIENE-PLANS-FINIS : références des pièces
+  Profiler.fstop("hyg:releve")
   return true
 end
 
 --- Le poteau relevé `p` = { unit_number, x, y }, s'il est encore là.
 local function pole_at(surface, force, p)
-  Profiler.start("hyg:t:pole_at")
   local found = surface.find_entities_filtered({ position = { p[2], p[3] }, radius = Hy.SEEK_R, type = "electric-pole", force = force })
   for i = 1, #found do
-    if found[i].unit_number == p[1] then Profiler.stop("hyg:t:pole_at") return found[i] end
+    if found[i].unit_number == p[1] then return found[i] end
   end
-  Profiler.stop("hyg:t:pole_at")
   return nil
 end
 
@@ -179,10 +177,7 @@ end
 local function on_ore(surface, e)
   local bb = e.bounding_box
   local x0, y0, x1, y1 = St.tile_box(bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y)
-  Profiler.start("hyg:t:on_ore")
-  local r = surface.count_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = "resource" }) > 0
-  Profiler.stop("hyg:t:on_ore")
-  return r
+  return surface.count_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = "resource" }) > 0
 end
 
 --- Entités ALIMENTÉES par le poteau `e` : source électrique au prototype, pas un poteau, même réseau, dans son carré d'alimentation.
@@ -191,11 +186,9 @@ local function fed_by(surface, e, force, d)
   local net = e.electric_network_id
   if not net then return out end
   local px, py = e.position.x, e.position.y
-  Profiler.start("hyg:t:fed_by")
   for _, c in ipairs(surface.find_entities_filtered({ area = { { px - d, py - d }, { px + d, py + d } }, force = force })) do
     if c.type ~= "electric-pole" and c.prototype.electric_energy_source_prototype and c.electric_network_id == net then out[#out + 1] = c end
   end
-  Profiler.stop("hyg:t:fed_by")
   return out
 end
 
@@ -216,13 +209,11 @@ local function other_pole_covers(surface, e, c, force, dmax, ext, ctx)
   local x0, y0, x1, y1 = bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y
   local net, un = e.electric_network_id, e.unit_number
   local r = dmax + math.max(x1 - x0, y1 - y0)
-  Profiler.start("hyg:t:covers")
   for _, p in ipairs(surface.find_entities_filtered({ position = c.position, radius = r, type = "electric-pole", force = force })) do
     if p.unit_number ~= un and p.electric_network_id == net
       and St.covers(p.position.x, p.position.y, p.prototype.supply_area_distance or 0, x0, y0, x1, y1)
-      and not (ext and pole_on_ore(surface, p, ctx)) then Profiler.stop("hyg:t:covers") return true end
+      and not (ext and pole_on_ore(surface, p, ctx)) then return true end
   end
-  Profiler.stop("hyg:t:covers")
   return false
 end
 
@@ -247,10 +238,8 @@ end
 local function audit(surface, f, h, e)
   local info = { ore = on_ore(surface, e), fed = 0, own = nil }
   if info.ore then h.sur = h.sur + 1 end
-  Profiler.start("hyg:t:neighbours")
   local nb = e.neighbours
   info.wires = (nb and nb.copper and #nb.copper) or 0
-  Profiler.stop("hyg:t:neighbours")
   if info.wires > 1 then return info end
   local own, fed = own_fed(surface, f, h, e, 1)
   info.fed, info.own = fed, #own
@@ -516,12 +505,10 @@ local function slice_step(f, surface, h, slice, tick)
   if eff <= 0 or s < 0 or s >= eff or h.n == 0 then return end
   local a, b, skipped = St.share_capped(h.n, s, eff, Hy.CFG.max_per_slice)
   if b < a then return end
-  Profiler.start("hyg:tranche")
+  Profiler.fstart("hyg:tranche")
   local ctx = { ore = {} } -- lot HYGIENE-ACTIVE : lectures partagées de la tranche (réseaux alimentés, famine, menace), jamais gardées ; HYGIENE-PLANS-FINIS : mémo « sur gisement »
   for i = a, b do
-    Profiler.start("hyg:t:skip_at")
-    local boxed = Boxes.skip_at(f, h.poles[i][2], h.poles[i][3]) -- lot BOXES
-    Profiler.stop("hyg:t:skip_at") -- poteau d'une box MAXED : ni retrouvé ni audité, compté
+    local boxed = Boxes.skip_at(f, h.poles[i][2], h.poles[i][3]) -- lot BOXES : poteau d'une box MAXED : ni retrouvé ni audité, compté
     local e = (not boxed) and pole_at(surface, f.force, h.poles[i]) or nil
     if e then
       local info = audit(surface, f, h, e)
@@ -534,7 +521,7 @@ local function slice_step(f, surface, h, slice, tick)
     end
   end
   h.skipped, h.cost = h.skipped + skipped, h.cost + 1
-  Profiler.stop("hyg:tranche")
+  Profiler.fstop("hyg:tranche")
 end
 
 --- Lot HYGIENE-ACTIVE : « ; retire poteau feuille (x, y) ; remplace poteau sur gisement (x, y) -> (x2, y2) ; refus : <cause> N »
@@ -576,6 +563,7 @@ local function report(f, h, why)
   if h.gone > 0 then extra = extra .. string.format(" ; %d disparus pendant la passe", h.gone) end
   if h.why and h.why ~= "periode" then extra = extra .. " ; reveil (" .. h.why .. ")" end -- lot SCAN-EVENEMENTS : la cause de la passe
   if (h.boxed or 0) > 0 then extra = extra .. string.format(" ; %d ignores (box MAXED)", h.boxed) end -- lot BOXES
+  if (h.zone or 0) > 0 then extra = extra .. string.format(" ; zone : %d rectangle(s)", h.zone) end -- lot UPS-HYGIENE
   extra = extra .. actions_text(h) -- lot HYGIENE-ACTIVE
   if why then extra = extra .. " ; " .. why end
   log(string.format("[FO-HYGIENE] %s : impulsion a %.1f min : %d poteaux releves, %d sur gisement, %d redondants candidats (feuilles sans consommateur propre) ; cout : %d tranches%s",
@@ -599,8 +587,8 @@ function Hy.step(f, surface, tick, slice)
   if not h.acts.cedes then h.acts.cedes, h.plan_ref = {}, h.plan_ref or {} end -- lot HYGIENE-PLANS-FINIS : passe d'une sauvegarde d'avant le lot
   finish_pending(f, surface, h, tick) -- lot HYGIENE-ACTIVE : remplaçant posé à la tranche d'avant : vérification au tick, puis retrait
   if h.logged then return end
-  if slice == 0 then Profiler.start("hyg:boxes") Boxes.releve(f, surface, tick) Profiler.stop("hyg:boxes") end -- lot BOXES : relevé des boxes au début de l'impulsion (une ligne [FO-BOX])
-  Profiler.start("hyg:balises") Balises.step(f, surface, tick, slice) Profiler.stop("hyg:balises") -- lot BALISES-TEINTE : relevé à la tranche 0, parts St.share ensuite, journal [FO-BALISES]
+  if slice == 0 then Boxes.releve(f, surface, tick) end -- lot BOXES : relevé des boxes au début de l'impulsion (une ligne [FO-BOX])
+  Balises.step(f, surface, tick, slice) -- lot BALISES-TEINTE : relevé à la tranche 0, parts St.share ensuite, journal [FO-BALISES]
   local last = (slice == Hy.CFG.slices - 1)
   if h.r0 == nil then
     if not releve(f, surface, h, tick, slice) then
