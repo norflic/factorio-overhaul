@@ -19,6 +19,13 @@ return {
     local tir, cible = game.create_force("fo-bar-tir"), game.create_force("fo-bar-cible")
     tir.set_cease_fire(cible, false)
     cible.set_cease_fire(tir, false)
+    -- seules les bornes peuvent toucher les mordeurs témoins : paix avec la force naturelle (nid et défenseurs du banc) et le joueur
+    for _, other in ipairs({ "enemy", "player" }) do
+      for _, f in ipairs({ tir, cible }) do
+        f.set_cease_fire(other, true)
+        game.forces[other].set_cease_fire(f, true)
+      end
+    end
     tir.technologies[P.tech.name].researched = true
     local st = ctx.state()
     st.rows = {}
