@@ -829,10 +829,11 @@ end
 -- 8. Cas de preuve partagé par le test hors jeu et le scénario `ia1-diag` (arène de modules d'IA1-c)
 ---------------------------------------------------------------------------------------------------
 --- Trois modules : A en manque de capacité (objectif 480 engrenages/min pour 360 de nominal), B affamé (fer livré à
---- 40 % du besoin), C témoin à l'aise (objectif 300/min). `feed` : part du besoin d'entrée livrée, par objet.
+--- 40 % du besoin ; objectif = son nominal, 90/min : l'îlot « C K C » à cellules réservées du lot ILOTS-COLONNES), C témoin à l'aise
+--- (objectif 300/min). `feed` : part du besoin d'entrée livrée, par objet.
 P.ARENA = {
   { id = "A", key = "engrenages", item = "iron-gear-wheel", demand_per_min = 480, feed = {} },
-  { id = "B", key = "circuits-verts", item = "electronic-circuit", demand_per_min = 180, feed = { ["iron-plate"] = 0.40 } },
+  { id = "B", key = "circuits-verts", item = "electronic-circuit", demand_per_min = 90, feed = { ["iron-plate"] = 0.40 } },
   { id = "C", key = "engrenages", item = "iron-gear-wheel", demand_per_min = 300, feed = {} },
 }
 P.ARENA_MAX_LEVEL = 6          -- plafond des bâtiments de l'arène (centre de niveau 3 : 2 × 3)
