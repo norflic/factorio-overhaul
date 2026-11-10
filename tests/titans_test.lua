@@ -201,6 +201,25 @@ do
   check(T.ecorche_of_name("fo-titan-ecorche-rodeur-0") == nil and T.ecorche_of_name("fo-titan-ecorche-x-2") == nil and T.ecorche_of_name("fo-titan-kaiju-2") == nil, "§1 Écorchés : noms étrangers refusés")
   check(T.kaiju_curve(2, T.ECORCHEUR)[1][1] > T.kaiju_curve(2, T.KAIJU)[1][1], "§1 nids : l'Écorcheur après le cristallin de la même ère")
 end
+-- règle du MOTEUR : les évolutions d'une courbe de nid sont STRICTEMENT croissantes, dans [0, 1], la dernière vaut 1 (sinon « Wrong
+-- SpawnPoints definition » au chargement : banc content KAIJUS du 10/11) ; toutes les courbes de ce fichier, toutes les ères
+local function courbe_ok(c)
+  if #c < 2 or c[#c][1] ~= 1.0 then return false end
+  for i, pt in ipairs(c) do
+    if pt[1] < 0 or pt[1] > 1 or pt[2] < 0 or (i > 1 and not (pt[1] > c[i - 1][1])) then return false end
+  end
+  return true
+end
+do
+  local bad = {}
+  for _, kk in ipairs(T.KAIJUS) do
+    for e = 1, T.ERAS do if not courbe_ok(T.kaiju_curve(e, kk)) then bad[#bad + 1] = kk.id .. "-" .. e end end
+  end
+  for _, v in ipairs(T.ECORCHE.variants) do
+    for e = T.ECORCHE.era_min, T.ERAS do if not courbe_ok(T.ecorche_curve(v, e)) then bad[#bad + 1] = v.id .. "-" .. e end end
+  end
+  check(#bad == 0, "§1 nids : toutes les courbes strictement croissantes, finies à 1 (" .. table.concat(bad, " ") .. ")")
+end
 check(T.kaiju_in_wave(19, 5) == 0 and T.kaiju_in_wave(21, 5) == 0 and T.kaiju_in_wave(20, 5) == 1 and T.kaiju_in_wave(35, 5) == 1 and T.kaiju_in_wave(40, 5) == 2 and T.kaiju_in_wave(60, 5) == 3,
   "§1 vagues : premier Kaiju à la vague 20 (vague de boss), un de plus toutes les 20")
 
@@ -508,6 +527,10 @@ local function refuse(T2)
     assert(not T2.allie(T2.RAVAGEUR, T2.AGE_MIN).armes.lames and T2.allie(T2.RAVAGEUR, T2.AGE_MIN + 1).armes.lames, "lames au palier 2")
     assert(T2.RAVAGEUR.mitraille.n > 1, "mitraille à plusieurs projectiles")
     assert(T2.RAVAGEUR.anime.images.course == SERIE_RA.course and math.abs(T2.RAVAGEUR.anime.foulee - FOULEE_RA) < 1e-3, "animation du Ravageur = SERIE du modèle")
+    for _, kk in ipairs(T2.KAIJUS) do
+      local c = T2.kaiju_curve(T2.ERAS, kk)
+      assert(c[1][1] < c[2][1] and c[2][1] < c[3][1], "courbe de nid strictement croissante (" .. kk.id .. ")")
+    end
     local faux = { EPOCHS = 18, ERA_EPOCHS = 2, epochs = {} }
     for i = 1, 18 do faux.epochs[i] = { key = "e" .. i, color = { r = i / 18, g = 0.5, b = 1 - i / 18 } } end
     local T3 = charger(T2.__src, faux)
@@ -546,6 +569,9 @@ local MUTANTS = {
   { "courbe des Écorchés sans l'ère", "T.ECORCHE_EVO_PAS * (era - T.ECORCHE.era_min)", "0" },
   { "lames du Ravageur dès le palier 1", '{ id = "lames", palier = 2 }', '{ id = "lames", palier = 1 }' },
   { "mitraille à un seul projectile", "mitraille = { n = 6,", "mitraille = { n = 1," },
+  { "courbe de nid d'avant (0,98 et 1 : l'Écorcheur de l'ère V donnait 0,97, 1, 1, refusé par le moteur)",
+    "local e0 = math.min(0.96, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(0.99, e0 + 0.03)",
+    "local e0 = math.min(0.98, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(1.0, e0 + 0.03)" },
   { "images du Ravageur écrites en dur fausses", "anime = { images = { course = 8, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }", "anime = { images = { course = 6, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }" },
 }
 local T0 = charger(SRC, nil)

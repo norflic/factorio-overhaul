@@ -494,8 +494,8 @@ T.ECORCHE_EVO_PAS = 0.05
 T.ECORCHE_POIDS = 0.03
 function T.ecorche_curve(v, era)
   local _, rang = T.ecorche_variant(v.id)
-  local e0 = math.min(0.96, T.ECORCHE_EVO0 + T.ECORCHE_EVO_PAS * (era - T.ECORCHE.era_min) + 0.02 * ((rang or 1) - 1))
-  return { { e0, 0.0 }, { math.min(1.0, e0 + 0.04), T.ECORCHE_POIDS }, { 1.0, T.ECORCHE_POIDS } }
+  local e0 = math.min(0.95, T.ECORCHE_EVO0 + T.ECORCHE_EVO_PAS * (era - T.ECORCHE.era_min) + 0.02 * ((rang or 1) - 1))
+  return { { e0, 0.0 }, { math.min(0.99, e0 + 0.04), T.ECORCHE_POIDS }, { 1.0, T.ECORCHE_POIDS } }
 end
 
 --- Vagues (mode défense de tours) : un Kaiju est le boss des vagues de boss à partir de KAIJU_FIRST_WAVE, un de plus toutes les
@@ -508,7 +508,9 @@ function T.kaiju_in_wave(wave, boss_every)
 end
 
 --- Nids (unit-spawner) : courbe d'apparition (évolution -> poids) du Kaiju d'une ère, très tardive et rare, plus tard pour une ère
---- plus haute ; un nid ne connaît pas l'âge : l'évolution en tient lieu.
+--- plus haute ; un nid ne connaît pas l'âge : l'évolution en tient lieu. Le moteur REFUSE une courbe dont les évolutions ne sont pas
+--- STRICTEMENT croissantes (« Wrong SpawnPoints definition », banc content KAIJUS du 10/11 : l'Écorcheur de l'ère V donnait 0,97, 1, 1) :
+--- e0 plafonné à 0,96 et le deuxième point à 0,99, le dernier à 1.
 T.KAIJU_EVO0 = 0.80
 T.KAIJU_EVO_PAS = 0.04
 T.KAIJU_POIDS = 0.012
@@ -517,8 +519,8 @@ function T.kaiju_curve(era, k)
   for i, kk in ipairs(T.KAIJUS) do
     if kk == (k or T.KAIJU) then rang = i end
   end
-  local e0 = math.min(0.98, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))
-  return { { e0, 0.0 }, { math.min(1.0, e0 + 0.03), T.KAIJU_POIDS }, { 1.0, T.KAIJU_POIDS } }
+  local e0 = math.min(0.96, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))
+  return { { e0, 0.0 }, { math.min(0.99, e0 + 0.03), T.KAIJU_POIDS }, { 1.0, T.KAIJU_POIDS } }
 end
 
 --- Usine et catégorie de fabrication (Ro.FACTORIES), comme Xp.category.
