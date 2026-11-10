@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.83
+Date: 2026-11-10
+  Features:
+    - Chantier progressif (F465) : une bande de champ part dès que les deux tiers de chaque objet de son kit sont au coffre ; le reste est pris au coffre au fil de la pose. Panel de quatre graines : +8,5 % de fer et cinq bandes finies de plus.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.82
 Date: 2026-11-10
   Optimizations:
