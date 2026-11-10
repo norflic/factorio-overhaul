@@ -139,6 +139,11 @@ log("[FO-LEVELS] recherche vanilla allégée (QX9) : " .. scaled .. " technologi
 -- recette ni technologie touchée.
 require("prototypes.explosions_mort")
 
+-- Lot POLISSAGE-FX (10/11) : effets de particules et lumières dynamiques des armes avancées (lignée Bastion, fusil à rail,
+-- singularités, projecteur de champ, frappe orbitale) et des titans ; APRÈS l'arsenal et les titans (tous les prototypes
+-- habillés existent). Couleurs lues dans les tables des armes (shared/content/effets_armes.lua). Aucune recette ni technologie.
+require("prototypes.effets_armes")
+
 -- Lot MOD-2 (D-15, Q-M2 a) : recettes par lots × 10 et × 100 au-delà de 60 fabrications par seconde. EN DERNIER :
 -- la liste des recettes doit être complète, et les limitations de productivité posées plus haut sont étendues aux lots.
 -- Aucune technologie n'est touchée (le calcul des époques ci-dessus lit leurs effets) : le script active les lots.

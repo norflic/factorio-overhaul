@@ -28,6 +28,7 @@ local K = require("script.robots.experimentaux_commun")
 local Armee = require("script.robots.armee")
 local G = require("script.robots.experimentaux_geants")
 local Rg = require("shared.tirs.regles")   -- Rg.decalage : image 0 d'une animation au tick voulu (image = floor(tick × vitesse + décalage) mod n)
+local Fx = require("shared.content.effets_armes")   -- POLISSAGE-FX : pulsation de la singularité (table précalculée, couleur de la règle du titan)
 
 local M = {}
 
@@ -52,6 +53,10 @@ local CERCLE = {
 }
 local DRONE_HAUT = -6.0    -- les drones volent : décalage vers le haut de l'écran (tuiles)
 local RALENTIS = { unit = true, character = true, car = true, ["spider-vehicle"] = true }
+-- POLISSAGE-FX : vortex au sol et lumière pulsée de la singularité (recette Fx.MODES.titan.singularite, couleur r.lueur) ; la table de
+-- pulsation est précalculée (onde triangulaire, sans trigonométrie) et lue tous les SCAN ticks : aucun effet par tick.
+local PULSE_SPEC = Fx.MODES.titan.singularite
+local PULSE = Fx.pulsation(PULSE_SPEC.pulsation.n)
 
 local function rgba(r, g, b, a) return { r = r * a, g = g * a, b = b * a, a = a } end
 
@@ -137,10 +142,43 @@ local function corps_anime(g, r)
   end
 end
 
+--- Singularité de la Sentinelle à l'écran (POLISSAGE-FX) : vortex qui tourne au sol sous le titan et lumière portée, teintés de la
+--- couleur de la règle (r.lueur) ; `pulser` les fait respirer à chaque balayage. Les rendus meurent avec l'entité.
+local function singularite_dessiner(g, r)
+  g.sing = nil
+  if not r.singularite then return end
+  local e = g.e
+  local v, l = PULSE_SPEC.vortex, PULSE_SPEC.lumiere
+  local k = v.echelle / Fx.FEUILLE_TUILES
+  g.sing = {
+    k = k, taille = l.taille / Fx.LUMIERE_SPRITE_TUILES, intensite = l.intensite,
+    anim = rendering.draw_animation({ animation = Fx.VORTEX, target = e, surface = e.surface, render_layer = "lower-object",
+      tint = r.lueur, x_scale = k, y_scale = k * 0.7, animation_speed = 0.5 }),
+    lum = rendering.draw_light({ sprite = "utility/light_medium", target = e, surface = e.surface, color = r.lueur,
+      scale = l.taille / Fx.LUMIERE_SPRITE_TUILES, intensity = l.intensite, minimum_darkness = 0.15 }),
+  }
+end
+
+local function singularite_pulser(g, r, tick)
+  if r.singularite and not g.sing then singularite_dessiner(g, r) end
+  local sg = g.sing
+  if not sg then return end
+  local p = PULSE[Fx.pulse_index(tick, PULSE_SPEC.pulsation.periode, PULSE_SPEC.pulsation.n)]
+  if sg.lum and rendering.is_valid(sg.lum) then
+    rendering.set_intensity(sg.lum, sg.intensite * p)
+    rendering.set_scale(sg.lum, sg.taille * (0.8 + 0.2 * p))
+  end
+  if sg.anim and rendering.is_valid(sg.anim) then
+    rendering.set_x_scale(sg.anim, sg.k * (0.85 + 0.15 * p))
+    rendering.set_y_scale(sg.anim, sg.k * 0.7 * (0.85 + 0.15 * p))
+  end
+end
+
 local function corps(g)
   local e = g.e
   local s = e.surface
   local r = archetype(g)
+  singularite_dessiner(g, r)
   if r.anime then
     corps_anime(g, r)
   else
@@ -357,6 +395,7 @@ local function scan(ev)
       local r = archetype(g)
       local j = T.allie(r, g.age)
       animer(g, r, ev.tick)
+      singularite_pulser(g, r, ev.tick)
       if j.n_drones then
         if not g.drones then drones_dessiner(g, j) end
         drones_avancer(g, j)

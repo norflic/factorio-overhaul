@@ -1,0 +1,132 @@
+{
+ "commande": "py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu, à GARDER)",
+ "fichiers": {
+  "coffre-glow.png": {
+   "hauteur": 32,
+   "largeur": 20,
+   "sha256": "b97cf2ea7dec54c635101dbb0bcba219d80c4c2514f24e869d9174ef786417a7",
+   "taille": 804
+  },
+  "coffre-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "e32e55a80eeec40deda9386118108f326d16436546e4bf5f3b324e00e1b98228",
+   "taille": 9567
+  },
+  "coffre-main.png": {
+   "hauteur": 41,
+   "largeur": 44,
+   "sha256": "5f80becda2667465ffb817ac6e9727f017c775a21c9c2295ab58777f84bb3f21",
+   "taille": 3205
+  },
+  "coffre-shadow.png": {
+   "hauteur": 23,
+   "largeur": 41,
+   "sha256": "15dad4c1ae60f08b583a87ee0b20c2865f3118a5bcc5cfc84fc51398772ee992",
+   "taille": 442
+  },
+  "cuve-glow.png": {
+   "hauteur": 126,
+   "largeur": 91,
+   "sha256": "f1cebcc1e7c830b7209356ed0f8c7ccd956db803c03c4430b30310e8a79a0643",
+   "taille": 5828
+  },
+  "cuve-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "c0582983a774dfd98f4840c19985113a32349fe08b3e6cdc678d75e3aca6fa79",
+   "taille": 11832
+  },
+  "cuve-main.png": {
+   "hauteur": 144,
+   "largeur": 121,
+   "sha256": "e07e392fbf94c03fdbbed9cfc97d192405e7bcb5ff83312a7d027cd401109dd5",
+   "taille": 31896
+  },
+  "cuve-shadow.png": {
+   "hauteur": 102,
+   "largeur": 151,
+   "sha256": "6e0aa5eb07d596092fa34d2976fef88a7193e565693e65bd5d8b83d019c0990a",
+   "taille": 3965
+  },
+  "hr-coffre-glow.png": {
+   "hauteur": 64,
+   "largeur": 40,
+   "sha256": "bfec51c52c4b9deb6d7cf1aa314a53606bf32122685edcf4ee49b4b18ee06366",
+   "taille": 1903
+  },
+  "hr-coffre-main.png": {
+   "hauteur": 82,
+   "largeur": 88,
+   "sha256": "3f81b4908938f74a20f68bcbebd07f6b508f73ea282b65ca7b23283a6f0fd8df",
+   "taille": 9284
+  },
+  "hr-coffre-shadow.png": {
+   "hauteur": 46,
+   "largeur": 82,
+   "sha256": "a23a61b8b8f5d412d77bf948174ca1d35530e0d72abda29006ca450499662172",
+   "taille": 1156
+  },
+  "hr-cuve-glow.png": {
+   "hauteur": 252,
+   "largeur": 182,
+   "sha256": "582a872f5fc52ee9908b736a9016232ed0fc9f502eeba1100f45b18ab6e754fd",
+   "taille": 10439
+  },
+  "hr-cuve-main.png": {
+   "hauteur": 288,
+   "largeur": 242,
+   "sha256": "7ebc370c8124522bc47f2c6f79ba9263a127835f8b172779fec30502050b8a10",
+   "taille": 107909
+  },
+  "hr-cuve-shadow.png": {
+   "hauteur": 204,
+   "largeur": 302,
+   "sha256": "b5e0a4903da1ecd73cc5ed32f735796b06a42ad1f3086910a3b767b5e8f8d811",
+   "taille": 12865
+  },
+  "hr-pylone-glow.png": {
+   "hauteur": 340,
+   "largeur": 156,
+   "sha256": "4609e5077b2c7d35f0e8ad1d19e21e49e12971e6f2eee0efbc92e6639b685d2e",
+   "taille": 16241
+  },
+  "hr-pylone-main.png": {
+   "hauteur": 352,
+   "largeur": 156,
+   "sha256": "3f2a2ebdff8cd2574ce9a9de7cc3eecce0e28ffd6398c1a88226b8d6713bb3c3",
+   "taille": 58554
+  },
+  "hr-pylone-shadow.png": {
+   "hauteur": 116,
+   "largeur": 440,
+   "sha256": "de654d240b6934b7fd61d2477b29797e30bad3ca66688ad853c1c9d067c971fa",
+   "taille": 18949
+  },
+  "pylone-glow.png": {
+   "hauteur": 170,
+   "largeur": 78,
+   "sha256": "5200468d51ddfaa4b0f247577e210ea4afb9bdd7018d791db56afaba5de64fc7",
+   "taille": 4615
+  },
+  "pylone-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "90ac07b6d3bf33a0284f997c844b9254e0b4b2c8de3747a2d17ae3c23c129250",
+   "taille": 6220
+  },
+  "pylone-main.png": {
+   "hauteur": 176,
+   "largeur": 78,
+   "sha256": "44633b220ed093c6e62a6d992733ee19fb492b83b06ce3b4c032a066f0caa6da",
+   "taille": 20250
+  },
+  "pylone-shadow.png": {
+   "hauteur": 58,
+   "largeur": 220,
+   "sha256": "00f093cb4681dc6eb2c0b93deeedb9d5ed30885af74ef49d7e3c73ee23acf7cc",
+   "taille": 7114
+  }
+ },
+ "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_POLISSAGE-FX\\rendu"
+}

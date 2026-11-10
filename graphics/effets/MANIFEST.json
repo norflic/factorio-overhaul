@@ -1,0 +1,29 @@
+{
+ "commande": "py -3.9 tools/render/pieces/effets/vortex.py   (depuis la racine du mod)",
+ "fichiers": {
+  "hr-onde.png": {
+   "hauteur": 256,
+   "largeur": 2048,
+   "sha256": "cc028906c741b257248668ec94fb6c3cdfcde57a1c1635ae1144457178fb908e",
+   "taille": 132642
+  },
+  "hr-vortex.png": {
+   "hauteur": 256,
+   "largeur": 2048,
+   "sha256": "fd1cb7a1e10d203df03df3755145cd051eef80c74fea2f298e10fc429b758e66",
+   "taille": 195179
+  },
+  "onde.png": {
+   "hauteur": 128,
+   "largeur": 1024,
+   "sha256": "c76c7bfe3112693c4a30a70d9c01142e053d5ba2e69056f881bffd8042e01218",
+   "taille": 44584
+  },
+  "vortex.png": {
+   "hauteur": 128,
+   "largeur": 1024,
+   "sha256": "2b62d15894e03e3e6cf6097eec44804c83fb165f6da2c37eddfee48d07c516b5",
+   "taille": 70806
+  }
+ }
+}

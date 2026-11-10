@@ -12,6 +12,8 @@ Date: 2026-11-10
     - Mall dans les quatre directions (F461) : la série d'un ruban part vers le premier lot voisin libre (est, sud, ouest ou nord) et ses sections suivent ; les rangées du mall continuent au-delà de leur secteur et franchissent les rues de la ville par un souterrain par tapis, la rue restant libre.
     - Îlots à colonnes (F463) : les îlots de circuits, de moteurs et de circuits rouges réservent eux aussi l'emprise de l'âge suivant ; la colonne de liaison entre deux machines est sur la ligne d'interface, en bras longs, et chaque îlot garde trois machines pour tenir dans son lot ; ils changent d'ère sur place sans écraser tapis ni bras.
     - Titans (F464) : le Juggernaut marche et tire en 8 directions (8 images de marche, 4 de salve par stade, à la vitesse du véhicule) ; la singularité de la Sentinelle reste cyan en plein jour ; les cristaux du Kaiju sont translucides et facettés à toutes les ères.
+    - Effets (F468) : les tourelles Bastion II à IV, le fusil à rail, le lanceur de singularités, le projecteur de champ, la frappe orbitale et les titans ont leurs impacts teintés avec flash de lumière et étincelles, leurs ondes de choc, leurs flashs de bouche, leurs traînées et leurs vortex (orbe de plasma, roquette et champ de singularité) ; la singularité de la Sentinelle pulse au sol ; chaque couleur vient de la table de l'arme.
+    - Bâtiments (F469) : le coffre d'équipe, le pylône haute tension et la cuve d'électrolyse ignée ont de vrais visuels rendus (argent iridescent, conduits cyan, accents magenta) à la place des copies vanilla teintées ; le pylône attache ses fils sur ses isolateurs.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.77
 Date: 2026-11-10
