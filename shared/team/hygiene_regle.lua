@@ -28,7 +28,10 @@
   réseau reste continu : une feuille (≤ 1 fil : jamais un point d'articulation) part telle quelle, « feuille » ; sinon, « remplacant » :
   la voie du remplaçant (Hr.sur_gisement_plan : relie tous les voisins, couvre tout) et la pièce du plan suit le remplaçant hors gisement.
   Refus : projet non fini, pièce déjà cédée, pas sur gisement (une pièce d'un plan fini hors gisement reste au plan), couverture
-  extérieure manquante (un consommateur ne serait plus couvert que par un poteau lui-même sur gisement, ou par rien), couvrant non alimenté.
+  extérieure manquante (un consommateur ne serait plus couvert que par un poteau lui-même sur gisement, ou par rien), couvrant non alimenté,
+  RELAIS SANS CONSOMMATEUR : une feuille qui n'alimente rien ne prouve rien sur sa portée ; c'est la pointe d'une LIGNE électrique vers une
+  bande (banc HYGPLANS-A : la ligne du projet 6 mangée pointe après pointe, une tranche après l'autre, 5 bandes finies au lieu de 8) ; seule
+  une feuille dont TOUS les consommateurs (au moins un) sont repris par un poteau extérieur est cédée.
 ]]
 
 local St = require("shared.team.scan_tranches")
@@ -80,8 +83,9 @@ function Hr.plan_cedable(p)
   if not p.sur_gisement then return false, "piece du plan" end
   local fils = p.fils or 0
   if fils <= 1 then
+    if (p.consommateurs or 0) == 0 then return false, "relais sans consommateur" end
     if (p.consommateurs_propres or 0) > 0 then return false, "couverture exterieure manquante" end
-    if (p.consommateurs or 0) > 0 and not p.couvrant_alimente then return false, "couvrant non alimente" end
+    if not p.couvrant_alimente then return false, "couvrant non alimente" end
     return true, "feuille"
   end
   return true, "remplacant"

@@ -12,8 +12,8 @@
        alimenté) ou « remplacant » (≥ 2 fils : la voie du remplaçant garde la topologie) ; refus : projet non fini, pièce déjà cédée, hors
        gisement, couverture extérieure manquante, couvrant non alimenté, box MAXED, chaîne des foreuses, posée par un joueur ;
     §6 mutants : poteau extérieur absent (couverture partielle acceptée), réseau coupé (2 fils cédés comme une feuille), plan non fini
-       cédé, pièce déjà cédée recédée, poteau hors gisement cédé, couvrant non alimenté accepté, source sans la garde du gisement : chacun
-       refusé par le MÊME détecteur.
+       cédé, pièce déjà cédée recédée, poteau hors gisement cédé, couvrant non alimenté accepté, source sans la garde du gisement, relais
+       sans consommateur cédé (la pointe d'une ligne, banc HYGPLANS-A) : chacun refusé par le MÊME détecteur.
   Usage : lua5.2 tests/hygiene_regle_test.lua   (depuis la racine du mod ; moins d'une seconde)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -215,14 +215,17 @@ local function cedable_contrat(rule)
   if ok then bad[#bad + 1] = "poteau hors gisement cede" end
   ok, mode = rule(plan_with({ couvrant_alimente = false }))
   if ok then bad[#bad + 1] = "couvrant non alimente accepte" end
+  if rule(plan_with({ consommateurs = 0, fils = 1 })) or rule(plan_with({ consommateurs = 0, fils = 0 })) then bad[#bad + 1] = "relais sans consommateur cede" end
   return bad
 end
 local pc_ok, pc_why = Hr.plan_cedable(base_plan)
 check(pc_ok and pc_why == "feuille", "pièce d'un plan fini, feuille sur gisement, couverte par un poteau extérieur alimenté : cédée (" .. tostring(pc_why) .. ")")
 pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 0, consommateurs = 0 }))
-check(pc_ok and pc_why == "feuille", "pièce isolée sans consommateur : cédée telle quelle")
-pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 1, consommateurs = 0, couvrant_alimente = false }))
-check(pc_ok and pc_why == "feuille", "aucun consommateur : le couvrant n'a pas à être alimenté")
+check(not pc_ok and pc_why == "relais sans consommateur", "pièce isolée sans consommateur : rien ne prouve sa portée, refus (" .. tostring(pc_why) .. ")")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 1, consommateurs = 0, couvrant_alimente = true }))
+check(not pc_ok and pc_why == "relais sans consommateur", "pointe d'une ligne (1 fil, aucun consommateur) : refus, la ligne n'est pas mangée (banc HYGPLANS-A)")
+pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 1, consommateurs = 1, consommateurs_propres = 0 }))
+check(pc_ok and pc_why == "feuille", "un consommateur repris par un poteau extérieur : cédée")
 pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 2 }))
 check(pc_ok and pc_why == "remplacant", "deux fils : jamais retirée telle quelle, la voie du remplaçant (topologie conservée) (" .. tostring(pc_why) .. ")")
 pc_ok, pc_why = Hr.plan_cedable(plan_with({ fils = 2, consommateurs_propres = 3 }))
@@ -282,6 +285,12 @@ do
   local Hm = chunk()
   bad = cedable_contrat(Hm.plan_cedable)
   check(#bad == 1 and bad[1] == "poteau hors gisement cede", "mutant m11 (source sans la garde du gisement) détecté : " .. table.concat(bad, ", "))
+  -- (m12) mutant de SOURCE : la garde du relais sans consommateur retirée (la pointe de la ligne du projet 6, banc HYGPLANS-A)
+  local mutated2 = src:gsub('if %(p%.consommateurs or 0%) == 0 then return false, "relais sans consommateur" end', "")
+  check(mutated2 ~= src, "mutant m12 : la garde existe dans la source")
+  local Hm2 = assert(load(mutated2, "=hygiene_regle_m12"))()
+  bad = cedable_contrat(Hm2.plan_cedable)
+  check(#bad == 1 and bad[1] == "relais sans consommateur cede", "mutant m12 (relais sans consommateur cédé) détecté : " .. table.concat(bad, ", "))
 end
 
 print(string.format("hygiene_regle_test : %d OK, %d ECHEC", ok_n, fail_n))
