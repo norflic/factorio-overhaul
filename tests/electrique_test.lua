@@ -46,6 +46,15 @@ local function suite(E)
       "1g : combustible, centrale saine : refusee")
     check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = false, healthy = false }) == false,
       "1h : autre minerai, centrale a l'arret : refusee (seul le combustible la relance)")
+    -- lot CHARBON-UNIFIE (F460 bis) : centrale saine mais nourrie A LA MAIN : le combustible reste thermique (ses electriques auraient besoin du courant de ce charbon)
+    local okh, whyh = E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = true, healthy = true, fuel_hand = true })
+    check(okh == true and whyh:find("a la main", 1, true) ~= nil, "1h bis : combustible, centrale saine nourrie a la main : permise, cause ecrite")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = false, healthy = true, fuel_hand = true }) == false,
+      "1h ter : autre minerai, centrale nourrie a la main : refusee (seul le combustible reste thermique)")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = true, healthy = true, fuel_hand = true, phase = "mid", elec_drill_stock = 3 }) == true,
+      "1h quater : des electriques dorment au coffre : le combustible d'une centrale a la main reste thermique quand meme (avant l'arbre)")
+    check(E.thermal({ el_live = 1, obtainable = true, plants = 1, poles = true, fuel = true, healthy = true, fuel_hand = false }) == false,
+      "1h quinquies : centrale automatisee (fuel_hand faux) : refusee comme avant (1g)")
     check(E.thermal({ el_live = 1, obtainable = true, plants = 3, poles = true }) == false, "1i : plusieurs centrales : refusee")
     check(E.thermal(nil) == true, "1j : rien de lu : permise")
     -- correctif d'interblocage (partie neuve 0.6.69, etape1-guide : bascule à 7,7 min, 0 électrique et 6 poteaux tout le long, foreuses
@@ -341,6 +350,9 @@ local mutants = {
   { "thermal : poteaux ignores", "if not s.poles then return true, \"aucun poteau obtenable\" end", "" },
   { "thermal : exception combustible supprimee", "if s.fuel and s.healthy == false then return true", "if false then return true" },
   { "thermal : exception pour tout minerai", "if s.fuel and s.healthy == false then return true", "if s.healthy == false then return true" },
+  { "thermal : exception combustible a la main supprimee (F460 bis)", "if s.fuel and s.fuel_hand then return true", "if false then return true" },
+  { "thermal : exception a la main pour tout minerai", "if s.fuel and s.fuel_hand then return true", "if s.fuel_hand then return true" },
+  { "thermal : exception a la main apres l'arbre de decision", "  if s.fuel and s.fuel_hand then return true, \"combustible d'une centrale nourrie a la main : thermique permise pour le combustible\" end\n", "" },
   { "thermal : sans electrique ni poteaux refusee (interblocage 0.6.69)", "  if live <= 0 and stock < cfg.poles_min then\n", "  if false then\n" },
   { "thermal : poteaux au stock ignores", "  if live <= 0 and stock < cfg.poles_min then\n", "  if live <= 0 then\n" },
   { "thermal : jamais de retour thermique", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if false then" },

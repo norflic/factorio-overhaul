@@ -88,6 +88,11 @@ function E.thermal(s, cfg)
     return true, string.format("retour thermique : aucune foreuse electrique ne tourne %.0f min apres la bascule", (num(s.since) or 0) / 3600)
   end
   if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
+  -- Lot CHARBON-UNIFIE (F460 bis, banc CHARBON-A3 graine 123456789) : l'avant-poste de COMBUSTIBLE d'une centrale nourrie A LA MAIN (son charbon
+  -- vient du coffre du QG, donc des tournées de cet avant-poste) reste thermique : ses foreuses électriques auraient besoin du courant que ce
+  -- charbon produit. À 49,7 min la reconstruction abandonnait les 17 foreuses thermiques de l'unique avant-poste de charbon perdu (« l'électrique
+  -- les remplace »), la ruine expirait à 74 min, le stock de charbon restait à 0 et la centrale à sec (45 brûleurs à sec de 60 à 90 min).
+  if s.fuel and s.fuel_hand then return true, "combustible d'une centrale nourrie a la main : thermique permise pour le combustible" end
   -- Arbre de décision (DC, 9/11) : hors early, des foreuses électriques qui DORMENT AU COFFRE interdisent toute thermique, même sur une
   -- ressource sans électrique (l'aberration visée) ; ni la famine (F434) ni l'effondrement (DEFENSE-AP) ne la rouvrent tant que le coffre en tient.
   local dt_ok, dt_why = Dt.thermal_allowed({ phase = s.phase, elec_drill_stock = s.elec_drill_stock, res_live = s.res_live })

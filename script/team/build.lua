@@ -70,6 +70,7 @@ local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pur
 local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors du treillis, ligne de poteaux
 
 local Build = {}
+Build.Rc = require("shared.team.reserve_charbon") -- lot CHARBON-UNIFIE : parts du charbon du coffre du QG (champ de Build : le bloc principal est à sa limite de locales)
 
 Build.RADIUS = 3              -- carré de lots évalué au départ (7 × 7)
 Build.RADIUS_MAX = 5
@@ -4473,14 +4474,34 @@ local function quai_tasks(f, p, surface, out)
   --- ses sorties, Sm.carry_fuel). Avant le lot, quai_tasks lisait le stock BRUT : à 36,3 min, 400 charbons au coffre et 46 brûleurs de fer
   --- à sec sur 60 (besoin 588), la centrale (prio 91, cible 1080) prenait les 400 ; les brûleurs sont restés à sec 45 min.
   --- (somme d'entiers : l'ordre de `pairs` n'y change rien ; locale de quai_tasks : le bloc principal de build.lua est à sa limite de locales)
+  --- Lot CHARBON-UNIFIE : déficit des tournées + tampon d'une tournée (Rc.buffer : consommation des brûleurs servis, lue aux données :
+  --- foreuse à combustible et puits à brûleur des avant-postes, fours de l'équipe) ; l'avant-poste de combustible = produit == combustible.
+  local Rc = Build.Rc
   local function burner_fuel_reserve()
-    local n = Outposts.coal_needed_for(Outposts.smelters(f))
+    local smelters = Outposts.smelters(f)
+    local n = Outposts.coal_needed_for(smelters)
     local fill = f.team and f.team.flux_fill
+    local drill_kw = (M.spec(T.DRILL) or {}).burner_kw or 0
+    local rate = #smelters * ((M.spec(T.SMELTER) or {}).burner_kw or 0) / M.COAL_J
     for _, o in pairs(f.outposts) do
       local spec = T.outposts[o.kind]
-      if not (spec and spec.product == T.fuel) then n = n + Outposts.coal_needed(o, fill) end
+      if not Rc.is_fuel_outpost(spec, T.fuel) then n = n + Outposts.coal_needed(o, fill) end
+      local sink = spec and M.spec(spec.sink)
+      rate = rate + (o.drills or 0) * (drill_kw + (sink and sink.burner_kw or 0)) / M.COAL_J
     end
-    return n
+    return n + Rc.buffer(rate)
+  end
+  -- journal [FO-CHARBON-PARTS] : une ligne par changement d'état des parts (vital ou confort de la centrale retenus, ou servis de nouveau)
+  local function rc_say(parts, need)
+    local b = f.build
+    local sig = (parts.vital < need.vital and "V" or "v") .. (parts.confort < need.confort and "C" or "c")
+    b.rc_sig = b.rc_sig or {}
+    if b.rc_sig[p.id] == sig then return end
+    local first = b.rc_sig[p.id] == nil
+    b.rc_sig[p.id] = sig
+    if first and sig == "vc" then return end -- tout servi d'emblée : rien à dire
+    b.rc_logs = (b.rc_logs or 0) + 1
+    if b.rc_logs <= Rc.LOGS then log(Rc.line(tostring(f.key or "player") .. " centrale " .. tostring(p.id), game.tick / 3600, parts, need)) end
   end
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
@@ -4505,8 +4526,22 @@ local function quai_tasks(f, p, surface, out)
     if chest and chest.force.name == f.force then
       local n = chest.get_item_count(q.item)
       local have = Stock.count(f, q.item)
-      -- lot BRULEURS-A-SEC (B4) : le combustible des tournées des brûleurs n'est pas à la centrale ni au quai de combustible d'un champ
-      if q.item == T.fuel then have = Cc.free_fuel(have, burner_fuel_reserve()) end
+      -- lot CHARBON-UNIFIE (après BRULEURS-A-SEC B4 et BRULEURS-60 F455) : la centrale prend sa part VITALE (amorce due + seuil d'avance)
+      -- avant les tournées des brûleurs, et sa part de CONFORT (jusqu'à la cible) après elles ; le quai de combustible d'un champ prend le libre
+      if q.item == T.fuel then
+        local burners = burner_fuel_reserve()
+        if rate then
+          local inv0 = chest.get_inventory(defines.inventory.chest)
+          local r0 = Cc.refill(n, rate, nil, inv0 and (n + inv0.get_insertable_count(q.item)) or nil)
+          local need = Rc.need_centrale(n, r0.low, r0.target, Sante.prime_need(f, p))
+          need.bruleurs = burners
+          local parts = Rc.parts(have, need)
+          have = parts.vital + parts.confort
+          rc_say(parts, need)
+        else
+          have = Rc.libre(have, { bruleurs = burners })
+        end
+      end
       if rate then
         local inv = chest.get_inventory(defines.inventory.chest)
         -- lot TV-VAPEUR (V36) : le tampon de vapeur bas déclenche aussi le remplissage (Build.Vg nul dans les doublures des bancs hors jeu)

@@ -40,6 +40,7 @@ local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tour
 local Fx = require("shared.team.flux") -- lot FLUX : minerai équivalent (coffre + plaques + sorties), règle pure
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
+local Rc = require("shared.team.reserve_charbon") -- lot CHARBON-UNIFIE : l'avant-poste « de combustible » est celui dont le produit est le combustible
 
 local F = {}
 
@@ -109,7 +110,7 @@ end
 --- Objets d'un agrandissement ou d'un petit avant-poste de `pairs` paires (combustible compris, comme le cerveau).
 function F.pair_items(kind, pairs)
   local spec = T.outposts[kind]
-  local fuel = kind == "coal" and 2 * pairs or T.fuel_per_burner * pairs * (spec.sink == "stone-furnace" and 2 or 1)
+  local fuel = Rc.is_fuel_outpost(spec, T.fuel) and 2 * pairs or T.fuel_per_burner * pairs * (spec.sink == "stone-furnace" and 2 or 1)
   return { { T.DRILL, pairs }, { spec.sink, pairs }, { T.fuel, fuel } }
 end
 

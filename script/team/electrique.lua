@@ -18,6 +18,7 @@ local T = require("shared.team.config")
 local E = require("shared.team.electrique")
 local Dt = require("shared.team.decision_tree") -- arbre de décision Early / Mid / Late (DC, 9/11) : phase et électriques qui dorment au coffre
 local Stock = require("script.team.stock")
+local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-UNIFIE : centrale nourrie à la main (Cc.automated, la règle de build.lua plant_automated)
 
 local Elec = {}
 
@@ -102,6 +103,7 @@ local function inputs(v, kind, craft)
   local rr = (kind and not craft and v.res) and v.res[kind] or nil
   return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
     fuel = craft or (spec ~= nil and spec.product == T.fuel), el_live = v.el_live, poles_stock = v.poles_stock, since = v.since,
+    fuel_hand = v.fuel_hand, -- lot CHARBON-UNIFIE : une centrale finie est nourrie à la main (coffre du QG)
     res_live = res_live, phase = v.phase, elec_drill_stock = v.elec_drill_stock, -- arbre de décision (Dt.thermal_allowed)
     res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was }
 end
@@ -155,6 +157,26 @@ local function phase_of(f, st, tick, v)
 end
 
 --- (a) Entrées du verdict, relues à chaque pensée d'équipe (stock, livre de recettes, centrale). Une ligne quand le verdict change.
+--- Lot CHARBON-UNIFIE : une centrale FINIE de l'équipe est-elle nourrie à la main (son combustible vient du coffre du QG, pas de ses propres
+--- foreuses) ? Même règle que plant_automated de script/team/build.lua (Cc.automated sur les parties du projet et l'état de son projet
+--- d'alimentation). Lu par E.thermal (fuel_hand) : l'avant-poste du combustible reste thermique tant qu'elle l'est.
+local function hand_fed(f)
+  local b = f.build
+  if not (b and b.projects and b.order) then return false end
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.state == "fini" and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then
+      local kinds = {}
+      for _, pt in ipairs(p.parts) do kinds[#kinds + 1] = pt and pt.kind or "?" end
+      local st = b.charbon and b.charbon[p.id]
+      local alim = st and st.alim and b.projects[st.alim] or nil
+      if not Cc.automated(kinds, alim and alim.state or nil) then return true end
+    end
+  end
+  return false
+end
+Elec.hand_fed = hand_fed
+
 function Elec.think(f, book, tick)
   if not f then return end
   local st = state_of(f)
@@ -209,6 +231,7 @@ function Elec.think(f, book, tick)
   local v = { tick = tick, on = Elec.on(), res = res, obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
     poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw,
     el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
+    fuel_hand = hand_fed(f), -- lot CHARBON-UNIFIE
     since = st.switch_tick and (tick - st.switch_tick) or nil }
   phase_of(f, st, tick, v) -- arbre de décision : v.phase, v.elec_drill_stock
   st.v = v

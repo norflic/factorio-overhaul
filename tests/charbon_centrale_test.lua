@@ -143,6 +143,7 @@ local W = { logs = {}, stock = 0, chests = {}, tick = 0, requests = {} }
 local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200, QUAI_CHEST = "iron-chest", -- 0.6.67 : quai_tasks cherche Build.QUAI_CHEST
   Rempl = { adjust = function(_, _, _, _, _, _, _, _, r) return r end } } -- lot REMPLISSAGE : doublure neutre (stock juste)
 Build.Quotas = require("script.team.quotas_glue") -- lot VIDEO L4 : quai_tasks et out_tasks lisent les quotas (sans quota : ancienne règle)
+Build.Rc = require("shared.team.reserve_charbon") -- lot CHARBON-UNIFIE : parts du charbon (quai_tasks lit Build.Rc)
 Build.request = function(f, spec)
   local b = f.build
   local id = b.next_id
@@ -160,7 +161,7 @@ local env = {
   T = require("shared.team.config"),
   Outposts = { smelters = function() return {} end, coal_needed_for = function() return W.smelter_need or 0 end,
     coal_needed = function(o) return o.need or 0 end },
-  Sante = { tasks = function() end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
+  Sante = { tasks = function() end, prime_need = function() return W.prime or 0 end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua) ; CHARBON-UNIFIE : amorce due
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,
   defines = { inventory = { chest = 1 } },
@@ -170,6 +171,15 @@ env.game = setmetatable({}, { __index = function(_, k) if k == "tick" then retur
 local chunk = assert(load(chunk_src .. "\nreturn { quai_tasks = quai_tasks, charbon_step = charbon_step, plant_automated = plant_automated, plant_burn_kw = plant_burn_kw }",
   "charbon_build", "t", setmetatable(env, { __index = _G })))
 local X = chunk()
+
+-- lot CHARBON-UNIFIE : le journal porte aussi des lignes [FO-CHARBON] (parts) : les attentes comptent les lignes [FO-CHARBON-CENTRALE]
+local function tagged(tag)
+  local list = {}
+  for _, s in ipairs(W.logs) do if s:find(tag, 1, true) then list[#list + 1] = s end end
+  return list
+end
+local function cc_logs() return #tagged("[FO-CHARBON-CENTRALE]") end
+local function cc_log(i) return tagged("[FO-CHARBON-CENTRALE]")[i] or "" end
 
 local function chest_at(n, cap)
   return { force = { name = "f1" },
@@ -209,18 +219,19 @@ do
     "coffre a 100 (sous 108) : tache URGENTE de portage, AVANT le vide (avant le lot : 100 >= 60, rien)")
   check(out[1] and out[1].items[1][1] == "coal" and out[1].items[1][2] == 440, "porter jusqu'a la cible 540 (440)")
   check(out[1] and out[1].key == "ia1d:1:q:1" and out[1].ia1d.mode == "fill", "meme cle et meme mode que le remplissage d'avant")
-  check(#W.logs == 1 and W.logs[1]:find("[FO-CHARBON-CENTRALE]", 1, true) and W.logs[1]:find("URGENTE", 1, true), "journal : une ligne")
+  check(cc_logs() == 1 and cc_log(1):find("URGENTE", 1, true), "journal : une ligne")
   X.quai_tasks(f, plant, surface, {})
-  check(#W.logs == 1, "meme episode : pas de deuxieme ligne")
+  check(cc_logs() == 1, "meme episode : pas de deuxieme ligne")
   W.chests[1] = 500
   X.quai_tasks(f, plant, surface, {})
   W.chests[1] = 90
   X.quai_tasks(f, plant, surface, {})
-  check(#W.logs == 2, "nouvel episode apres un remplissage : nouvelle ligne")
+  check(cc_logs() == 2, "nouvel episode apres un remplissage : nouvelle ligne")
   W.stock = 0
   out = {}
   X.quai_tasks(f, plant, surface, out)
-  check(#out == 0 and #W.logs == 3 and W.logs[3]:find("SANS charbon", 1, true), "coffre du QG vide : pas de tache, la cause au journal")
+  check(#out == 0 and cc_logs() == 3 and cc_log(3):find("SANS charbon", 1, true), "coffre du QG vide : pas de tache, la cause au journal")
+  check(#tagged("[FO-CHARBON-PARTS]") == 1 and tagged("[FO-CHARBON-PARTS]")[1]:find("vital 0/18", 1, true) ~= nil, "lot CHARBON-UNIFIE : coffre vide : la part vitale manque, une ligne [FO-CHARBON]")
   -- un module qui n'est pas une centrale garde la règle d'avant
   local mod = { id = 7, spec = { gen = "smelter" }, state = "fini", prio = 55, ents = {}, parts = {}, outs = {}, quais = { { x = 1.5, y = 1.5, item = "iron-ore" } } }
   W.stock, W.chests[1] = 1000, 100
@@ -245,8 +256,12 @@ do
   W.stock, W.chests[1] = 400, 0
   local out = {}
   X.quai_tasks(f, plant, surface, out)
-  check(#out == 0, "400 au coffre, 588 reserves aux bruleurs du fer : aucune tache de portage pour la centrale")
-  check(#W.logs == 1 and W.logs[1]:find("SANS charbon libre", 1, true) ~= nil, "journal : coffre du QG sans charbon libre (hors la reserve)")
+  -- lot CHARBON-UNIFIE : la centrale prend d'abord sa part VITALE (seuil d'avance 108 - 0), les bruleurs gardent le reste (292 sur 588),
+  -- le confort (jusqu'a 540) attend : avant le lot, rien pour la centrale (« SANS charbon libre ») ; avant BRULEURS-A-SEC, les 400
+  check(#out == 1 and out[1].kind == "carry" and out[1].items[1][2] == 108, "400 au coffre, 588 reserves aux bruleurs du fer : la centrale prend sa part vitale (108), pas plus")
+  local rc = tagged("[FO-CHARBON-PARTS]")
+  check(#rc == 1 and rc[1]:find("vital 108/108", 1, true) ~= nil and rc[1]:find("bruleurs 292/588", 1, true) ~= nil and rc[1]:find("confort 0/432", 1, true) ~= nil,
+    "journal [FO-CHARBON] : vital servi, bruleurs 292 sur 588, confort retenu")
   W.stock = 1000
   out = {}
   X.quai_tasks(f, plant, surface, out)

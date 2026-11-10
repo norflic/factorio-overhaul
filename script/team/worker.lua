@@ -49,6 +49,7 @@ local DefStock = require("script.team.defense_stock") -- lot DEFENSE-STOCK : tou
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
+local Rsv = require("shared.team.reserve_charbon") -- lot CHARBON-UNIFIE : avant-poste de combustible lu aux données (produit = combustible)
 local Src = require("script.team.sources") -- lot MINAGE-MAIN : ce qui dort dans les coffres de SORTIE (fonderies), tournée « fetch »
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 local Fp = require("shared.team.fabrication_place") -- lot POSE-PERDUE : fabrication sur place, une recette à la fois, file vide entre deux
@@ -538,6 +539,28 @@ local function ia1d_program(task)
   return nil
 end
 
+--- Lot CHARBON-TOURNEE (F477) : tuile LIBRE (ni foreuse ni réceptacle dessus, pas d'autre ressource) du gisement de `item` la plus proche
+--- de `center` (l'accès d'un avant-poste), dans Worker.PRIME_RADIUS ; réservée comme une tuile de minage. Rend une position ou nil.
+Worker.PRIME_RADIUS = 32 -- tuiles autour de l'accès de l'avant-poste (son gisement)
+function Worker.prime_tile(f, surface, center, item, tick)
+  local names = Harvest.names_for(f, item)
+  if #names == 0 or not center then return nil end
+  local res = surface.find_entities_filtered({ position = center, radius = Worker.PRIME_RADIUS, name = names, limit = 256 })
+  Tp.sort(res, center, dist2)
+  local types = Harvest.free_types(item, f)
+  local covered = 0
+  for i = 1, math.min(#res, 64) do
+    local p = res[i].position
+    -- (même garde que l'état « mine » : un bâtiment sur la tuile la rend non minable ; ruines, corps, objets au sol, PNJ ne comptent pas)
+    if covering(surface, res[i], types) == nil and not Harvest.foreign_resource(surface, p, item, f) and not tile_claimed(f, p, tick) then
+      claim_tile(f, p, tick)
+      return { x = p.x, y = p.y }
+    end
+    covered = covered + 1
+  end
+  return nil, #res, covered
+end
+
 --- Construit le programme d'une tâche au moment où un ouvrier la prend. Renvoie steps ou nil (impossible).
 function Worker.program(f, task, surface, tick)
   local k = task.kind
@@ -630,9 +653,32 @@ function Worker.program(f, task, surface, tick)
     -- Lot CHARBON-MAIN : un avant-poste de combustible à sec dont les sorties ne couvrent pas le ravitaillement reçoit le complément du coffre
     -- (avant : jamais, il ne repartait plus une fois à sec avec des coffres vides ; règle coupée : le comportement de 0.6.41).
     local carry = need
-    if o.kind == "coal" then carry = 0 end
+    if Rsv.is_fuel_outpost(T.outposts[o.kind], T.fuel) then carry = 0 end -- (lot CHARBON-UNIFIE : plus de nom de gisement en dur)
     if Sorties.on(f) then carry = Sorties.carry_fuel(f, o, need) end
     if carry > 0 then steps[#steps + 1] = { "take", { { T.fuel, carry } } } end
+    -- Lot CHARBON-TOURNEE (F477) : le producteur de combustible que le coffre du QG ne peut pas amorcer mine son amorce sur place
+    -- (shared/team/reserve_charbon.lua, Rc.prime_on_site) : une tuile libre de son gisement, près de lui.
+    local fuel_spec = T.outposts[o.kind]
+    local prime = Rsv.prime_on_site({ fuel = Rsv.is_fuel_outpost(fuel_spec, T.fuel), carry = carry, stock = Stock.count(f, T.fuel), drills = o.drills })
+    local tile, found, covered
+    if prime > 0 then tile, found, covered = Worker.prime_tile(f, surface, access(o, f), T.fuel, tick) end
+    if prime > 0 and not tile then
+      f.stats.prime_logs = (f.stats.prime_logs or 0) + 1
+      if f.stats.prime_logs <= Rsv.LOGS then
+        log(string.format("[FO-CHARBON-AMORCE] %s : avant-poste %s : amorce de %d %s IMPOSSIBLE sur place : %d tuile(s) du gisement a %d tuiles, %d couverte(s) ou prise(s) a %.1f min",
+          f.key or "?", tostring(o.id), prime, tostring(T.fuel), found or 0, Worker.PRIME_RADIUS, covered or 0, tick / 3600))
+      end
+    end
+    if tile then
+      task.target = tile -- (l'état « mine » vise task.target, puis rend la tuile réservée)
+      steps[#steps + 1] = { "goto", tile, 1.5 }
+      steps[#steps + 1] = { "mine", T.fuel, prime }
+      f.stats.prime_logs = (f.stats.prime_logs or 0) + 1
+      if f.stats.prime_logs <= Rsv.LOGS then
+        log(string.format("[FO-CHARBON-AMORCE] %s : avant-poste %s : %d %s a miner sur place en (%.1f, %.1f) (voulu au depart %d, coffre du QG %d, %d foreuse(s)) a %.1f min",
+          f.key or "?", tostring(o.id), prime, tostring(T.fuel), tile.x, tile.y, carry, Stock.count(f, T.fuel), o.drills or 0, tick / 3600))
+      end
+    end
     steps[#steps + 1] = { "goto", access(o, f), 3 }
     steps[#steps + 1] = { "act", "service" }
     steps[#steps + 1] = { "home" }
