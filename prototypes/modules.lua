@@ -10,9 +10,23 @@ local L = require("shared.levels.config")
 -- Lot MOD-V : icônes propres des 30 modules et de leurs 30 technologies (forme = type, couleurs = âge qui débloque le
 -- palier, chiffre romain gravé), générées par tools/render/pieces/modules/icones.py ; teintes de balise assorties.
 local ICONES = require("__factorio-overhaul__/graphics/modules/icons")
+-- Lot BALISES-TEINTE (DC, 10/11) : la couche LUMINEUSE des balises (beacon_tint.secondary : masques lumineux des emplacements,
+-- lampe additive du corps, mélangée entre modules par le moteur, module_tint_mode = "mix") prend le code couleur de la FAMILLE
+-- du module (cyan vitesse, ambre productivité, émeraude efficacité) ; la couche opaque (primary : boîte de l'emplacement) garde la
+-- couleur de l'ÂGE (D-17). Table partagée avec script/team/balises_teinte.lua (lumière posée d'après le contenu réel).
+local Mt = require("shared.content.modules_teintes")
 local DIR_ICONES = "__factorio-overhaul__/graphics/modules/"
 
 --- Pose l'icône générée de l'objet ou de la technologie `name` (sans couche ni teinte : une seule image par prototype).
+--- Teinte de balise d'un module de la famille `family` (M.ORDER : speed, productivity, effectivity) : primary = âge (icons.lua),
+--- secondary = couleur de la famille (shared/content/modules_teintes.lua).
+local function teinte_balise(ic, family)
+  local t = table.deepcopy(ic.beacon_tint)
+  local c = Mt.couleur(family)
+  if c then t.secondary = { r = c.r, g = c.g, b = c.b, a = 1 } end
+  return t
+end
+
 local function poser_icone(proto, spec)
   proto.icons = nil
   proto.icon = DIR_ICONES .. spec.fichier
@@ -33,7 +47,7 @@ for _, family in ipairs(M.ORDER) do
       item.localised_description = { "", { "item-description." .. spec.vanilla[1] }, "\n", { "fo-mm.module-desc-" .. family } }
       local ic = ICONES.objets[spec.vanilla[k]]
       poser_icone(item, ic)
-      item.beacon_tint = table.deepcopy(ic.beacon_tint)
+      item.beacon_tint = teinte_balise(ic, family)
     end
     local tech = data.raw.technology[spec.vanilla[k]]
     if tech then poser_icone(tech, ICONES.technos[spec.vanilla[k]]) end
@@ -56,7 +70,7 @@ for _, family in ipairs(M.ORDER) do
     local ic = ICONES.objets[name]
     poser_icone(item, ic)
     item.localised_description = { "", { "item-description." .. spec.vanilla[1] }, "\n", { "fo-mm.module-desc-" .. family } }
-    item.beacon_tint = table.deepcopy(ic.beacon_tint)
+    item.beacon_tint = teinte_balise(ic, family)
     -- limitation (productivité) : complétée en data-final-fixes, une fois toutes les recettes connues
     out[#out + 1] = item
 

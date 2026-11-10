@@ -41,6 +41,7 @@ local Profiler = require("script.core.profiler")
 local St = require("shared.team.scan_tranches")
 local Sr = require("script.team.scan_reveil") -- lot SCAN-EVENEMENTS : réveils (ordre des équipes, état f.team.scan)
 local Boxes = require("script.team.boxes_rt") -- lot BOXES (DC 9/11) : relevé des boxes à la tranche 0, poteaux d'une box MAXED sautés à l'audit
+local Balises = require("script.team.balises_teinte") -- lot BALISES-TEINTE (DC 10/11) : lueur des balises d'après leurs modules, une tranche par appel
 
 local Hy = {}
 
@@ -191,6 +192,7 @@ function Hy.step(f, surface, tick, slice)
   end
   if h.logged then return end
   if slice == 0 then Boxes.releve(f, surface, tick) end -- lot BOXES : relevé des boxes au début de l'impulsion (une ligne [FO-BOX])
+  Balises.step(f, surface, tick, slice) -- lot BALISES-TEINTE : relevé à la tranche 0, parts St.share ensuite, journal [FO-BALISES]
   local last = (slice == Hy.CFG.slices - 1)
   if h.r0 == nil then
     if not releve(f, surface, h, tick, slice) then
