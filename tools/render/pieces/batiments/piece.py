@@ -37,8 +37,16 @@ BATIMENTS = {
     "lourde": ("fo-heavy-gun-turret", "ammo-turret", 3, "m_lourde"),
     "canon": ("fo-cannon-turret", "ammo-turret", 3, "m_canon"),
     "mortier": ("fo-mortar-turret", "ammo-turret", 3, "m_mortier"),
+    # lot MURS-ACIDE (10/11) : pulvérisateur d'acide (fluid-turret 2×3, socle À DIRECTION : quatre variantes du même modèle tourné,
+    # m_acide.DIRECTIONNEL) ; « acide » seul = la TÊTE tournante (batch_tetes.py)
+    "acide": ("fo-acid-sprayer", "fluid-turret", 3, "m_acide"),
+    "acide_n": ("fo-acid-sprayer", "fluid-turret", 3, "m_acide"),
+    "acide_e": ("fo-acid-sprayer", "fluid-turret", 3, "m_acide"),
+    "acide_s": ("fo-acid-sprayer", "fluid-turret", 3, "m_acide"),
+    "acide_w": ("fo-acid-sprayer", "fluid-turret", 3, "m_acide"),
 }
-TETES = ("bastion1", "lourde", "canon", "mortier")
+TETES = ("bastion1", "lourde", "canon", "mortier", "acide")
+SOCLES_ACIDE = ("acide_n", "acide_e", "acide_s", "acide_w")
 DIRECTIONS = 64
 MACHINES = {n: p for n, p in BATIMENTS.items()}
 PIECE = {"name": "bat", "margin_px": 40,
@@ -69,7 +77,7 @@ def build(S, C, variant):
     MQ.matiere(S, M, "bt_" + variant + "_", variant)      # lot VISUELS-DISTINCTS : liseré de fonction des tourelles à munitions
     k = O.Kit(lot, M, seed=sum(ord(c) for c in variant))
     ANCRAGES.clear()
-    anc = mod.build(S, k, M)
+    anc = mod.build(S, k, M, variant) if getattr(mod, "DIRECTIONNEL", False) else mod.build(S, k, M)
     if anc:
         ANCRAGES.update(anc)
     n = lot.n

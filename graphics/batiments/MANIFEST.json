@@ -1,6 +1,156 @@
 {
- "commande": "py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu fo-logs/2026-11-10_POLISSAGE-2/rendu et fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, à GARDER)",
+ "commande": "py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu fo-logs/2026-11-10_POLISSAGE-2/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu et fo-logs/2026-11-10_MURS-ACIDE/rendu, à GARDER)",
  "fichiers": {
+  "acide-tete-glow-1.png": {
+   "hauteur": 640,
+   "largeur": 41,
+   "sha256": "c424c600324370962585da373183cadd35aecc62534846d5c58e08026e0ce1c8",
+   "taille": 22083
+  },
+  "acide-tete-glow-2.png": {
+   "hauteur": 640,
+   "largeur": 41,
+   "sha256": "fc2400f8e6330e8695f31f53efd94fa6a1b3278cd8b599c73737ceeee6374f4a",
+   "taille": 20208
+  },
+  "acide-tete-glow-3.png": {
+   "hauteur": 640,
+   "largeur": 41,
+   "sha256": "16a3ac168ee9b0cb2712b5e99a615acdf36945411a84e16b0e70654ca935aa8c",
+   "taille": 20134
+  },
+  "acide-tete-glow-4.png": {
+   "hauteur": 640,
+   "largeur": 41,
+   "sha256": "fc95a5aa049593b0641596c4d7993b0be883c8ba1b0d5f8ae510aed5b0c57f57",
+   "taille": 22143
+  },
+  "acide-tete-main-1.png": {
+   "hauteur": 832,
+   "largeur": 50,
+   "sha256": "a85be1cda369144195ed98814367d24de1122b9ebb81e90a6f8f5fcf963098e5",
+   "taille": 44165
+  },
+  "acide-tete-main-2.png": {
+   "hauteur": 832,
+   "largeur": 50,
+   "sha256": "5b4aa9f1055f5f6c3358b42704f10e5040415a400fbac326743b84f107045d8d",
+   "taille": 47086
+  },
+  "acide-tete-main-3.png": {
+   "hauteur": 832,
+   "largeur": 50,
+   "sha256": "985e90b1b8ea00a0edd7d1e021a1486a44dfa47aaa19463ee61ad15c33efafd8",
+   "taille": 46548
+  },
+  "acide-tete-main-4.png": {
+   "hauteur": 832,
+   "largeur": 50,
+   "sha256": "4fc43fa6cdc7965581698b547b234e9cb22d4427296f8403b32252aa225b921e",
+   "taille": 44529
+  },
+  "acide-tete-shadow-1.png": {
+   "hauteur": 800,
+   "largeur": 53,
+   "sha256": "8f8045119a8d05fe618626f395ba04713a1342e89e2a5f0bf05701d22f17cf76",
+   "taille": 16589
+  },
+  "acide-tete-shadow-2.png": {
+   "hauteur": 800,
+   "largeur": 53,
+   "sha256": "da23bc9db61c14548473a54a8bce3917188e93612b20528d179e90c1e6e13ad7",
+   "taille": 16351
+  },
+  "acide-tete-shadow-3.png": {
+   "hauteur": 800,
+   "largeur": 53,
+   "sha256": "25d19bc05a249d40e4199c7027a55c64cf425fd17d5ec465e0e364d841b0a58e",
+   "taille": 16966
+  },
+  "acide-tete-shadow-4.png": {
+   "hauteur": 800,
+   "largeur": 53,
+   "sha256": "94b8ae7711078d849155ad30bc319584891a95b4fe3b61271c6527da95d4fdc7",
+   "taille": 16991
+  },
+  "acide_e-glow.png": {
+   "hauteur": 66,
+   "largeur": 94,
+   "sha256": "a80409cbaadf52b8c4a731d9ad249f2e8fae7b34c05fe7f4fac272675f63c856",
+   "taille": 6071
+  },
+  "acide_e-main.png": {
+   "hauteur": 84,
+   "largeur": 110,
+   "sha256": "277728922673797a4b20fc4924f80e5509051f403a022dfb67e536c49c220f91",
+   "taille": 16079
+  },
+  "acide_e-shadow.png": {
+   "hauteur": 66,
+   "largeur": 99,
+   "sha256": "da8e79aed95176cde9545c6e2a1716568b017be4cce9b16e6f7f2634c567640a",
+   "taille": 905
+  },
+  "acide_n-glow.png": {
+   "hauteur": 96,
+   "largeur": 64,
+   "sha256": "73a3a947abb23963d0a235b10163f59eee979e26a6366fd1f2b0458424efd638",
+   "taille": 5234
+  },
+  "acide_n-main.png": {
+   "hauteur": 104,
+   "largeur": 84,
+   "sha256": "6809425a8c1391494a0f87660e7a83042e48b82b7d729efc917362e9663a2278",
+   "taille": 15432
+  },
+  "acide_n-shadow.png": {
+   "hauteur": 96,
+   "largeur": 83,
+   "sha256": "e99bb63d2b51245a450b33d1ca3f7fe6509b25f7bf5c3dc30e93add093cfd0a5",
+   "taille": 1172
+  },
+  "acide_s-glow.png": {
+   "hauteur": 93,
+   "largeur": 64,
+   "sha256": "18d5fbc79458f0d849ac588d2e9c798c15be7c4ee0c05dfcc76390df29329462",
+   "taille": 5611
+  },
+  "acide_s-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "e7c861229bc6d11446bcf68e1cfe6f1b364ed30d0d5867f1f13be2f5c52842ff",
+   "taille": 10399
+  },
+  "acide_s-main.png": {
+   "hauteur": 104,
+   "largeur": 84,
+   "sha256": "731c47dd19ad229f8c1a259dfac9fbc902d310780f3c94f6befad723408dd821",
+   "taille": 15672
+  },
+  "acide_s-shadow.png": {
+   "hauteur": 96,
+   "largeur": 83,
+   "sha256": "f5ceabda381e15e6f476ac8235236b035a8419f97f27514729dcecbc8fcc77fa",
+   "taille": 1189
+  },
+  "acide_w-glow.png": {
+   "hauteur": 67,
+   "largeur": 92,
+   "sha256": "2bd044cc0f345d83fda670e4d304296bdc1500489f3b5908f050d3fa6761d8a2",
+   "taille": 5942
+  },
+  "acide_w-main.png": {
+   "hauteur": 84,
+   "largeur": 110,
+   "sha256": "f624cc1724d41d39ba1830a67605bb1f478f311a216dac5c66945f1cf6153ac8",
+   "taille": 15949
+  },
+  "acide_w-shadow.png": {
+   "hauteur": 66,
+   "largeur": 106,
+   "sha256": "daaeb1f3be0099e4364ec272e010a6fee367c1cb4fca9059eb133bdd6c454ea9",
+   "taille": 1306
+  },
   "bastion1-glow.png": {
    "hauteur": 55,
    "largeur": 50,
@@ -330,6 +480,150 @@
    "largeur": 151,
    "sha256": "6e0aa5eb07d596092fa34d2976fef88a7193e565693e65bd5d8b83d019c0990a",
    "taille": 3965
+  },
+  "hr-acide-tete-glow-1.png": {
+   "hauteur": 1280,
+   "largeur": 82,
+   "sha256": "92a1141a11149f3d31156188640a7ef61013b99a6039d0bccc37dfea67b74721",
+   "taille": 58741
+  },
+  "hr-acide-tete-glow-2.png": {
+   "hauteur": 1280,
+   "largeur": 82,
+   "sha256": "445bb5b83faff8ef64f7b13f53c0825f4b3d03aaa322c3b02eb9de0a81aef228",
+   "taille": 49085
+  },
+  "hr-acide-tete-glow-3.png": {
+   "hauteur": 1280,
+   "largeur": 82,
+   "sha256": "d1525f8c6f64e078ab1f41eab1c95b9d5f1c00f5616118a38ddd903faabf0011",
+   "taille": 49157
+  },
+  "hr-acide-tete-glow-4.png": {
+   "hauteur": 1280,
+   "largeur": 82,
+   "sha256": "b2435c990747e1317ad017763be6b55e932c2dee8cde9007b794c534b1fbb459",
+   "taille": 58658
+  },
+  "hr-acide-tete-main-1.png": {
+   "hauteur": 1664,
+   "largeur": 100,
+   "sha256": "2f844a07b1c4514c2335d6496a5dd765987fa2592363189295b724d37ec52bc3",
+   "taille": 134786
+  },
+  "hr-acide-tete-main-2.png": {
+   "hauteur": 1664,
+   "largeur": 100,
+   "sha256": "12cbd9faef48e10c462be7b625dbd8e949a28d16c5903b9c95ed5a0f05998987",
+   "taille": 141082
+  },
+  "hr-acide-tete-main-3.png": {
+   "hauteur": 1664,
+   "largeur": 100,
+   "sha256": "fd94c17b1dfcacc48d96b12cb6d12a790572ac5cf6f5a7954bd43cb9eba9d47c",
+   "taille": 139393
+  },
+  "hr-acide-tete-main-4.png": {
+   "hauteur": 1664,
+   "largeur": 100,
+   "sha256": "b3d0a31f46671533664e8881de4516da281c536707e7470df2f2288ae3836c1b",
+   "taille": 136335
+  },
+  "hr-acide-tete-shadow-1.png": {
+   "hauteur": 1600,
+   "largeur": 106,
+   "sha256": "e1129245049ee5d02d571afa5320fde809966a1047aef8d457824a1e25675b7d",
+   "taille": 25249
+  },
+  "hr-acide-tete-shadow-2.png": {
+   "hauteur": 1600,
+   "largeur": 106,
+   "sha256": "fce38b8c49eabf5b97d3cba79fe0187016d970b5e81aa176b66a4a2b567f9b18",
+   "taille": 25365
+  },
+  "hr-acide-tete-shadow-3.png": {
+   "hauteur": 1600,
+   "largeur": 106,
+   "sha256": "96c84caf58b6c09f08065970136c0eb72e0750dfaeada561ae29aa959f0dd2d6",
+   "taille": 25633
+  },
+  "hr-acide-tete-shadow-4.png": {
+   "hauteur": 1600,
+   "largeur": 106,
+   "sha256": "f73de4f685be0b8a83a749eeeefd1fa52d47980068058c0d1b0ab876901caa75",
+   "taille": 26197
+  },
+  "hr-acide_e-glow.png": {
+   "hauteur": 132,
+   "largeur": 188,
+   "sha256": "aaa56c36168acbca6ccf11c6148ae9dfe874ef14f781efcc888dad393c1f9227",
+   "taille": 15675
+  },
+  "hr-acide_e-main.png": {
+   "hauteur": 168,
+   "largeur": 220,
+   "sha256": "c229ee43021fea2a32780c830518ffab1f173c89dfcbc99ee173314f26597a5c",
+   "taille": 53021
+  },
+  "hr-acide_e-shadow.png": {
+   "hauteur": 132,
+   "largeur": 198,
+   "sha256": "0a94d93035991e364367c947dac990c626aa02245c3e97dc8a44d85f4dd891bc",
+   "taille": 2079
+  },
+  "hr-acide_n-glow.png": {
+   "hauteur": 192,
+   "largeur": 128,
+   "sha256": "22461ad74ee490f7fbdb87d97a3df9e6a83153a16926535139bc810da1650f83",
+   "taille": 12972
+  },
+  "hr-acide_n-main.png": {
+   "hauteur": 208,
+   "largeur": 168,
+   "sha256": "c6da98969f042843e68f5880601d3a74e0b9f2418b780944cd2bbd1853f1914a",
+   "taille": 50034
+  },
+  "hr-acide_n-shadow.png": {
+   "hauteur": 192,
+   "largeur": 166,
+   "sha256": "e5e349a7b82301b92d43f956d78c2ac612be6fefdac78da9135fe525a3605e53",
+   "taille": 3112
+  },
+  "hr-acide_s-glow.png": {
+   "hauteur": 186,
+   "largeur": 128,
+   "sha256": "458a7ebb59856d0af2475b60b6bc8610508be20831f2e99c5ffeb76759aa53b4",
+   "taille": 15138
+  },
+  "hr-acide_s-main.png": {
+   "hauteur": 208,
+   "largeur": 168,
+   "sha256": "32680ada410560e81f7d2d0f2248e8d0700bf1ed6f857537998e87dce7e20062",
+   "taille": 51399
+  },
+  "hr-acide_s-shadow.png": {
+   "hauteur": 192,
+   "largeur": 166,
+   "sha256": "e334a233a834ef2ce640cb7afd0fa0c4ea5df1a1c200b741003b800d3c288d10",
+   "taille": 3119
+  },
+  "hr-acide_w-glow.png": {
+   "hauteur": 134,
+   "largeur": 184,
+   "sha256": "462fdb013c1c755b875ff73745fe5f6ee4b7c89b1168c9fbcb64afe9024d1583",
+   "taille": 15553
+  },
+  "hr-acide_w-main.png": {
+   "hauteur": 168,
+   "largeur": 220,
+   "sha256": "843d22299ec8ba503b400d395b97bd550db59acd11d90145f6acffd98092189f",
+   "taille": 53085
+  },
+  "hr-acide_w-shadow.png": {
+   "hauteur": 132,
+   "largeur": 212,
+   "sha256": "8e84d064b546786fdfeb6392f5ce447b8b4e9f9d842692e59ea2a21f0871dc2b",
+   "taille": 3936
   },
   "hr-bastion1-glow.png": {
    "hauteur": 110,
@@ -1143,6 +1437,7 @@
   }
  },
  "sources": [
+  "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_MURS-ACIDE\\rendu",
   "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_POLISSAGE-2\\rendu",
   "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_POLISSAGE-FX\\rendu",
   "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_VISUELS-DISTINCTS\\rendu"

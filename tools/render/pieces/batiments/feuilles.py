@@ -22,11 +22,16 @@ LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 SRC_DEFAUT = os.path.join(LOGS, "2026-11-10_POLISSAGE-FX", "rendu")
 SRC_TOURELLES = os.path.join(LOGS, "2026-11-10_POLISSAGE-2", "rendu")
 SRC_TETES = os.path.join(LOGS, "2026-11-10_VISUELS-DISTINCTS", "rendu")   # VISUELS-DISTINCTS : socles et têtes marqués (POLISSAGE-3 avant)
+SRC_ACIDE = os.path.join(LOGS, "2026-11-10_MURS-ACIDE", "rendu")          # MURS-ACIDE : pulvérisateur (4 socles, tête)
 DEST_DEFAUT = os.path.join(MOD, "graphics", "batiments")
 PREFIXE_JEU = "__factorio-overhaul__/graphics/batiments/"
 COMMANDE = ("py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu "
-            "fo-logs/2026-11-10_POLISSAGE-2/rendu et fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, à GARDER)")
-BATIMENTS = ("coffre", "pylone", "cuve", "bastion2", "bastion3", "bastion4", "tesla", "laser_lourd", "bastion1", "lourde", "canon", "mortier")
+            "fo-logs/2026-11-10_POLISSAGE-2/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu et fo-logs/2026-11-10_MURS-ACIDE/rendu, à GARDER)")
+BATIMENTS = ("coffre", "pylone", "cuve", "bastion2", "bastion3", "bastion4", "tesla", "laser_lourd", "bastion1", "lourde", "canon", "mortier",
+             "acide")
+# lot MURS-ACIDE : pulvérisateur d'acide (fluid-turret 2×3), socle À DIRECTION (rendus acide_n, acide_e, acide_s, acide_w : m_acide.py) et
+# tête tournante « acide » (64 directions) posée sur la sellette, à PIVOT tuiles vers l'avant (PIVOT lu dans m_acide.py)
+DIRS_ACIDE = (("north", "n"), ("east", "e"), ("south", "s"), ("west", "w"))
 # lot POLISSAGE-2 : tourelles électriques à tête non tournante ; leur lueur devient une bande de PULSE images (facteurs d'intensité
 # précalculés, onde triangulaire : aucune trigonométrie), lue par prototypes/batiments_visuels.lua (têtes : direction_count 1)
 TOURELLES = ("bastion2", "bastion3", "bastion4", "tesla", "laser_lourd")
@@ -36,6 +41,7 @@ PULSE = (0.5, 0.62, 0.76, 0.9, 1.0, 0.9, 0.76, 0.62)
 TETES = ("bastion1", "lourde", "canon", "mortier")
 DIR_ICONE = 8      # direction de la tête dans l'icône (nord-est)
 SOURCES = {b: (SRC_TETES if b in TETES else (SRC_TOURELLES if b in TOURELLES else SRC_DEFAUT)) for b in BATIMENTS}
+SOURCES["acide"] = SRC_ACIDE
 COUCHES = ("main", "shadow", "glow")
 
 _spec = importlib.util.spec_from_file_location("qg_feuilles", os.path.join(HERE, "..", "levels", "qg_e", "feuilles.py"))
@@ -244,6 +250,59 @@ def icone(dest, cle, fichiers, c=None):
     return {"filename": PREFIXE_JEU + f, "icon_size": 64, "icon_mipmaps": 4}
 
 
+def pivot_acide():
+    """PIVOT de m_acide.py (tuiles vers l'avant), lu par motif : m_acide importe le kit Blender (geo), absent hors de Blender."""
+    import re
+    s = open(os.path.join(HERE, "m_acide.py"), encoding="utf-8").read()
+    m = re.search(r"^PIVOT = ([0-9.]+)", s, re.M)
+    if not m:
+        raise SystemExit("[FO-FEUILLES-BATIMENTS] m_acide.py sans PIVOT")
+    return float(m.group(1))
+
+
+def acide(src, dest, fichiers):
+    """Pulvérisateur d'acide : quatre socles (une couche principale, ombre, lueur chacun), tête tournante, pivots de la tête par
+    direction (tuiles, relatifs au centre de l'emprise), boîte de dessin commune, couleur de carte, icône (socle sud, tête nord-est),
+    marque (marques.py « acide ») et teinte mesurée de la lueur du socle nord."""
+    p = pivot_acide()
+    c = {"socles": {}, "pivots": {"north": [0.0, -p], "east": [p, 0.0], "south": [0.0, p], "west": [-p, 0.0]}}
+    for _, d in DIRS_ACIDE:
+        c["socles"][d] = couches(src, dest, "acide_" + d, fichiers)
+    t = tete(src, dest, "acide", fichiers)
+    c["images"], c["rangs"], c["directions"], c["bouche"] = t.pop("images"), t.pop("rangs"), t.pop("directions"), t.pop("bouche")
+    c["tete"] = t
+    rs = []
+    for _, d in DIRS_ACIDE:
+        rs += [rect(v) for k, v in c["socles"][d].items() if k in COUCHES]
+    for dir_, _ in DIRS_ACIDE:
+        pv = c["pivots"][dir_]
+        for v in t.values():
+            r = rect(v)
+            rs.append((r[0] + pv[0], r[1] + pv[1], r[2] + pv[0], r[3] + pv[1]))
+    c["boite"] = [[round(min(r[0] for r in rs), 4), round(min(r[1] for r in rs), 4)],
+                  [round(max(r[2] for r in rs), 4), round(max(r[3] for r in rs), 4)]]
+    c["map_color"] = couleur_moyenne(dest, "acide_n")
+    pv = c["pivots"]["south"]
+    tmp = {"main": c["socles"]["s"]["main"], "rangs": c["rangs"],
+           "tete": {k: {"hr": dict(v["hr"], shift=[v["hr"]["shift"][0] + pv[0], v["hr"]["shift"][1] + pv[1]])} for k, v in t.items()}}
+    c["icone"] = icone(dest, "acide_s", fichiers, tmp)
+    m = MQ.marque("acide")
+    g = np.asarray(Image.open(os.path.join(dest, "hr-acide_n-glow.png")).convert("RGBA")).astype(np.float64) / 255.0
+    w = g[..., 3] * g[..., :3].max(axis=2)
+    rgb = tuple(float(x) for x in (g[..., :3] * w[..., None]).sum((0, 1)) / max(1e-6, w.sum()))
+    h, sat = _teinte(rgb)
+    c["marque"] = {"forme": m["forme"], "lisere": [round(x, 3) for x in m["lisere"]], "toit": m["toit"], "fonction": m["fonction"],
+                   "mesure": {"teinte": round(h, 1), "saturation": round(sat, 3)}}
+    mpx = 0.0
+    for _, d in DIRS_ACIDE:
+        for k in ("main", "glow"):
+            if k in c["socles"][d]:
+                mpx += c["socles"][d][k]["hr"]["width"] * c["socles"][d][k]["hr"]["height"] / 1e6
+    for k in ("main", "glow"):
+        mpx += t[k]["hr"]["width"] * t[k]["hr"]["height"] * c["images"] * c["directions"] / 1e6
+    return c, mpx
+
+
 def rect(c):
     h = c["hr"]
     w, ht = h["width"] / 64.0, h["height"] / 64.0
@@ -263,6 +322,10 @@ def main():
     fichiers, tab, mpx = [], {}, 0.0
     for cle in [b for b in a.batiments.split(",") if b]:
         src = a.src or SOURCES[cle]
+        if cle == "acide":
+            tab[cle], m = acide(src, a.dest, fichiers)
+            mpx += m
+            continue
         c = couches(src, a.dest, cle, fichiers)
         if cle in TOURELLES:
             c["pulse"] = pulse(src, a.dest, cle, c, fichiers)
