@@ -320,7 +320,9 @@ def anime(a):
                 finally:
                     sc.cycles.samples, sc.cycles.use_denoising = avant, den
             S.render_to = rt
-            tmp = os.path.join(d, "_tmp-%s-%02d" % (a.anim, i))
+            # dossier de travail PROPRE au processus (KAIJUS-MUTANTS : deux places de rendu sur la même série se partageaient « _tmp-<anim>-<image> »
+            # et l'une effaçait la passe ao de l'autre : vue ravageur-2-attaque-00-05 à ao vide)
+            tmp = os.path.join(d, "_tmp-%s-%02d-%d" % (a.anim, i, os.getpid()))
             os.makedirs(tmp, exist_ok=True)
             fn_lueur = (lambda mat: _lueur_de(mat, blanc) if (mat is not None and mat.get("fo_kind") == "emissive") else S._black_mat())
             m = int(round(0.8 * D))     # marge de la fenêtre du corps : liseré de contact (AO) et débordement de la lueur

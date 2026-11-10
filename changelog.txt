@@ -4,6 +4,9 @@ Date: 2026-11-10
   Features:
     - Assauts titanesques (F466) : un Kaiju de l'ère de la partie mène une escorte dimensionnée aux défenses de la base la mieux défendue (factions et votre équipe, en rotation) ; annonce, rassemblement, marche, assaut, repli si le titan tombe ; cadence qui monte avec l'évolution et l'âge.
     - Barrière énergétique de périmètre (F467) : borne électrique d'une tuile de l'âge 4 ; tout ennemi qui franchit son champ est foudroyé et ralenti ; sans courant, la barrière s'éteint. Rendu 3D de la borne.
+    - Écorcheur (F471) : second titan ennemi, bipède charnel à bras-canon ; dès l'ère III il pond des Écorchés quand un ennemi est à portée ; vagues et assauts font tourner les deux Kaijus.
+    - Écorchés (F472) : mordeurs mutants en trois variantes (rôdeur rapide, porteur blindé, hurleur qui frappe en zone), pondus par l'Écorcheur, dans les nids tardifs et l'escorte des assauts.
+    - Ravageur (F473) : méga-robot d'assaut allié de l'âge 13, animé sur 8 directions ; rafale de gatling, lames de cristal, salve des géants.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.78
 Date: 2026-11-10
