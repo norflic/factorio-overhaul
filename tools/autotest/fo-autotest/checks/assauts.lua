@@ -29,12 +29,13 @@ return {
     tir.technologies[P.tech.name].researched = true
     local st = ctx.state()
     st.rows = {}
+    -- le poteau du banc alimente 64 tuiles autour de lui (fo-autotest-power-pole) : le témoin SANS courant est à 98 tuiles à l'est
     for i, powered in ipairs({ true, false }) do
-      local y = z.y0 + 20 + (i - 1) * 40
-      local b = s.create_entity({ name = P.name, position = { z.x0 + 20, y }, force = tir })
-      if powered then ctx.power(z.x0 + 20, y + 6, tir) end
+      local x, y = z.x0 + (powered and 20 or 118), z.y0 + 20
+      local b = s.create_entity({ name = P.name, position = { x, y }, force = tir })
+      if powered then ctx.power(x, y + 6, tir) end
       -- le mordeur est posé DANS le champ (à 1,5 tuile) : il franchit la ligne
-      local u = s.create_entity({ name = "small-biter", position = { z.x0 + 21.5, y }, force = cible })
+      local u = s.create_entity({ name = "small-biter", position = { x + 1.5, y }, force = cible })
       if u then u.set_command({ type = defines.command.wander, radius = 1 }) end
       st.rows[i] = { barrier = b, biter = u, health = u and u.health, powered = powered }
       ctx.check(b ~= nil and u ~= nil, "borne " .. (powered and "alimentee" or "sans courant") .. " et son mordeur poses")
