@@ -50,12 +50,13 @@ PREFIXE = "__factorio-overhaul__/graphics/robots/titans/"
 COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
 # alliés à une image (traitement des géants) : stades rendus ; le Léviathan a de plus son drone d'escorte (une image, clé « drone »)
 ALLIES = (("leviathan", ("drone",)),)   # TITANS-8DIR : Sentinelle et Léviathan sont animés ; seul le drone d'escorte reste une image
+# LEVIATHAN-SEG (11/11) : le Léviathan est ARTICULÉ (tête, segments, queue) : ses feuilles sont faites par feuilles_leviathan.py
+# (graphics/robots/titans/leviathan/) ; il n'a plus de feuille d'un seul tenant ici, seul son drone d'escorte reste.
 # alliés ANIMÉS : (nom, stades, diviseur de densité par couche, feuille la plus large) ; KAIJUS-MUTANTS : Ravageur (allié) et Écorchés
 # (ennemis : le « stade » est la VARIANTE, rôdeur / porteur / hurleur)
 ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
           ("ravageur", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
           ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
-          ("leviathan", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
 ENNEMIS = ("kaiju", "ecorcheur")

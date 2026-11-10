@@ -181,6 +181,20 @@ function T.anim_name(r, stage, anim, dir, couche)
   return T.PREFIX .. r.id .. "-" .. stage .. "-" .. anim .. "-" .. dir .. "-" .. couche
 end
 
+--- LEVIATHAN-SEG (11/11) : direction (0 = nord, sens horaire) d'une orientation dans [0, 1[ parmi `n` directions (8 ou 16) : le secteur
+--- le plus proche, sans trigonométrie ; un titan dont la règle ne dit pas `directions` en a 8.
+function T.direction(orientation, n)
+  local o = tonumber(orientation) or 0
+  n = n or 8
+  return math.floor(o * n + 0.5) % n
+end
+
+--- Nom d'une pièce d'un titan segmenté (segment de corps, queue), image fixe par direction :
+--- <préfixe><archétype>-<pièce>-<stade>-<direction>-<couche>.
+function T.piece_name(r, piece, stage, dir, couche)
+  return T.PREFIX .. r.id .. "-" .. piece .. "-" .. stage .. "-" .. dir .. "-" .. couche
+end
+
 --- Sentinelle hexapode (âge 11, après le Finback) : plus lente, singularité (zone + ralentissement) ; le canon annulaire est à gauche.
 T.SENTINELLE = {
   id = "sentinelle", age = 11, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-finback", ref = "finback", mu = 80000,
@@ -202,8 +216,16 @@ T.LEVIATHAN = {
   segment = { ingredients = { { "fo-superconducting-coil", 80 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 30 },
     { "fo-titanium-plate", 60 }, { "fo-graphics-card", 10 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
-  -- TITANS-8DIR : corps animé (onde le long du corps ; salve : les anneaux s'ouvrent, les drones sortent de la gueule), FOULEE de leviathan.py
-  anime = { images = { course = 8, attaque = 4 }, foulee = 9.0, attaque_ticks = 30 },
+  -- LEVIATHAN-SEG (mandat du DC, 11/11) : corps ARTICULÉ. L'entité porte la TÊTE seule, animée en 16 directions (marche : la couronne de
+  -- crocs respire, le vortex pulse ; salve : les anneaux s'ouvrent, les drones sortent de la gueule ; SERIE et FOULEE de leviathan.py) ;
+  -- les SEGMENTS (n) et la QUEUE sont des images fixes par direction posées par `rendering` qui suivent la trajectoire de la tête
+  -- (shared/robots/serpent.lua) : le premier segment à `premier` tuiles de la tête, puis tous les `espacement`, la queue `queue` derrière
+  -- le dernier ; historique échantillonné tous les `pas` tuiles ; mise à jour toutes les `periode` ticks ; ondulation verticale `onde`
+  -- (tuiles). Longueurs = celles des pièces du modèle (leviathan.py, PIECES).
+  anime = { images = { course = 4, attaque = 4 }, foulee = 4.5, attaque_ticks = 30, directions = 16 },
+  -- tol : tolérance (tuiles) de l'ordre de dessin (la pièce la plus au sud par-dessus) avant de le refaire.
+  segmente = { n = 4, premier = 6.0, espacement = 5.0, queue = 5.0, pas = 0.5, periode = 5, directions = 16, onde = 0.12, tol = 1.0,
+    pieces = { "segment", "queue" } },
 }
 --- Armes du Ravageur (KAIJUS-MUTANTS) : mitraille : rafale du gatling (T.RAVAGEUR.mitraille.n projectiles par coup, dégâts = part de la salve
 --- répartie) ; lames : coup de zone courte des lames de cristal ; puis salve de zone, résonance.

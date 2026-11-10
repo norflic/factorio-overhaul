@@ -66,6 +66,7 @@ def main():
     ap.add_argument("--glb", action="store_true")
     ap.add_argument("--post-only", action="store_true")
     ap.add_argument("--anime", action="store_true", help="allié animé : 8 directions × images (Juggernaut)")
+    ap.add_argument("--piece", default="", help="LEVIATHAN-SEG : pièce fixe d'un titan articulé (segment, queue) : --anime --anim pose --piece segment")
     a = ap.parse_args()
     t0 = time.time()
     SANS_STADE = ("kaiju", "ecorcheur")   # lot KAIJUS-MUTANTS : une série par ennemi
@@ -74,6 +75,8 @@ def main():
                 "--samples", str(a.samples or 32)]
         if a.glb:
             args.append("--glb")
+        if a.piece:
+            args += ["--piece", a.piece]
         rc = lancer(args, a.out, a.wait)
         if rc:
             sys.exit(rc)
