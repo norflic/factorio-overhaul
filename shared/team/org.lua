@@ -274,6 +274,19 @@ function O.share_tokens(total, demands, turn)
   return out
 end
 
+--- Lot CC-PLAN-FIGE (F512) : ordre de service des `n` équipes d'une passe qui revient toutes les `period` ticks (build.lua : Build.PULSE).
+--- L'équipe servie la première tourne à CHAQUE passe : indices 1..n à partir de floor(tick / period) % n + 1. Le gros jeton du tick
+--- (Tokens.take : une opération plus chère que la part d'une équipe, une seule pour tout le mod) revient au premier demandeur ; servies
+--- dans un ordre fixe (factions, puis votre équipe), les factions le prenaient à chaque passe pendant leurs plans par tranches et les plans
+--- de la dernière équipe servie ne passaient plus (partie 0.6.89 du DC : bande 51 du fer en « plan » de 29,7 à 82 min).
+function O.serve_order(n, tick, period)
+  local out = {}
+  if not n or n <= 0 then return out end
+  local start = math.floor((tick or 0) / math.max(1, period or 1)) % n
+  for i = 0, n - 1 do out[#out + 1] = (start + i) % n + 1 end
+  return out
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Orientation
 ---------------------------------------------------------------------------------------------------
