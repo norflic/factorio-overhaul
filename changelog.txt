@@ -3,12 +3,12 @@ Version: 0.6.91
 Date: 2026-11-10
   Bugfixes:
     - Fonderies (F500) : la fonderie d'une bande de champ n'est plus jamais posée sur une tuile de ressource, ni sur son propre minerai ni sur un gisement voisin ; elle recule sur le sol neutre, sinon elle n'est pas posée de ce côté (partie du DC sur la 0.6.89 : la fonderie du cuivre couvrait le fer voisin).
+    - Chantiers (F496) : les débris de l'épave de départ posés sur l'emprise d'une pièce sont retirés avant la pose ; un débris sur la tuile d'un poteau bloquait une bande de champ 40 min et le créneau du fer, et les foreuses électriques restaient au coffre.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.90
 Date: 2026-11-10
   Bugfixes:
     - Débogage (F498) : cocher « Rendu de debug » ouvre aussi la vue des zones (boxes, chantiers prévus, liaisons) du joueur qui l'active, et le décocher la ferme ; avant, ce réglage ne montrait que l'état des PNJ et la vue n'avait que Ctrl + Maj + B.
-    - Chantiers (F496) : les débris de l'épave de départ posés sur l'emprise d'une pièce sont retirés avant la pose ; un débris sur la tuile d'un poteau bloquait une bande de champ 40 min et le créneau du fer, et les foreuses électriques restaient au coffre.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.89
 Date: 2026-11-10
