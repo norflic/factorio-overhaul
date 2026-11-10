@@ -5769,6 +5769,9 @@ function Build.burn_rate(f, tick)
         if e.built and not e.dropped then
           local sp = M.spec(e.name)
           if sp and sp.kind == "furnace" and sp.burner_kw then kw = kw + sp.burner_kw end
+          -- lot CHARBON-CAPACITE (F485) : les foreuses à brûleur des bandes du plan (champ thermique) brûlent le charbon des tournées
+          -- du QG ; le bilan ne les comptait pas : 80 brûleurs de fer à sec sur 123456789 sans qu'un avant-poste de charbon soit demandé
+          if sp and sp.kind == "drill" and sp.burner_kw then kw = kw + sp.burner_kw end
           if hand and sp and sp.water and sp.burner_kw then kw = kw + sp.burner_kw end
         end
       end
