@@ -26,6 +26,8 @@
     P.new(spec)                    -> parcours (planner) : next(), occupy(keys), fail(pos), report()
     P.verdict(v)                   -> { full, fail, why }
     P.mode(c)                      -> "extend" | "build" | "rebuild" | nil (libellé d'un projet d'avant-poste)
+    P.sink_site(drop, drill, sw, sh, fits, ore) -> place du réceptacle (four, coffre) d'une paire, jamais sur une ressource, ou nil
+    P.border_first(list, reach)    -> même liste, tuiles à `reach` tuiles au plus du bord du gisement d'abord (ordre gardé)
 
   Déterminisme : aucune décision selon l'ordre de pairs, aucune mesure de temps, aucun hasard.
 ]]
@@ -328,6 +330,75 @@ function P.verdict(v)
   if v.lacking then return { full = false, fail = false, why = "objets" } end
   if v.capped then return { full = false, fail = true, why = "essais" } end
   return { full = false, fail = false, why = "rien" }
+end
+
+--- Lot CC-SANCTUAIRE-2 (F509, règle du DC du 10/11, répétée : aucun four ni coffre sur une tuile de ressource ; sur le minerai, seulement
+--- les foreuses, les tapis d'évacuation et les poteaux). Place du RÉCEPTACLE d'une paire (four ou coffre de sortie) qui couvre le point de
+--- dépôt `drop` de la foreuse posée en `drill` : sw × sh = taille du réceptacle (tuiles, lue au prototype par l'appelant) ; un réceptacle
+--- de côté pair a son centre sur un coin de tuile (candidats autour du point de dépôt, le plus loin de la foreuse d'abord, comme avant),
+--- un réceptacle d'une tuile a son centre au milieu de la tuile du point de dépôt. `fits(c)` : place libre (moteur) ; `ore(x0, y0, w, h)` :
+--- l'emprise (coin haut-gauche, tuiles) porte-t-elle une ressource. Une paire au bord du gisement verse ainsi dans un réceptacle posé sur le
+--- sol neutre ; une foreuse intérieure n'a pas de réceptacle : l'emplacement est refusé (le pavage intérieur revient aux bandes électriques).
+--- Rend { x, y } ou nil.
+function P.sink_site(drop, drill, sw, sh, fits, ore)
+  sw, sh = sw or 1, sh or 1
+  local function off_ore(c) return not ore(c.x - sw / 2, c.y - sh / 2, sw, sh) end
+  if sw == 1 and sh == 1 then
+    local c = { x = math.floor(drop.x) + 0.5, y = math.floor(drop.y) + 0.5 }
+    if off_ore(c) and fits(c) then return c end
+    return nil
+  end
+  local best, best_d
+  for dx = 0, 1 do
+    for dy = 0, 1 do
+      local c = { x = math.floor(drop.x) + dx, y = math.floor(drop.y) + dy }
+      if math.abs(c.x - drop.x) <= sw / 2 and math.abs(c.y - drop.y) <= sh / 2 and off_ore(c) and fits(c) then
+        local d = (c.x - drill.x) ^ 2 + (c.y - drill.y) ^ 2
+        if not best_d or d > best_d then best, best_d = c, d end
+      end
+    end
+  end
+  return best
+end
+
+--- Lot CC-SANCTUAIRE-2 (F509) : un réceptacle ne se pose plus que sur le sol neutre, donc seules les foreuses proches du BORD du gisement
+--- ont une paire. Le parcours essaie d'abord ces tuiles-là (les intérieures ensuite : elles échoueront et seront mémorisées), sans quoi
+--- les essais d'un appel (P.MAX_ATTEMPTS) partiraient tous dans l'intérieur d'un grand gisement. `list` = tuiles de minerai { x, y }
+--- (centres de tuile) déjà triées ; `reach` = distance (Chebyshev, tuiles) au plus jusqu'à une tuile sans minerai de la liste, lue aux
+--- prototypes par l'appelant (côté de la foreuse + côté du réceptacle). Partition STABLE : l'ordre de chaque groupe est celui de `list`.
+--- Une tuile au bord du rayon lu peut passer pour « bord » (le minerai au-delà n'est pas dans la liste) : elle échoue au test du moteur.
+function P.border_first(list, reach)
+  local ore, dist, queue = {}, {}, {}
+  for _, r in ipairs(list) do ore[P.key(math.floor(r.x), math.floor(r.y))] = true end
+  for _, r in ipairs(list) do
+    local tx, ty = math.floor(r.x), math.floor(r.y)
+    local k = P.key(tx, ty)
+    if dist[k] == nil then
+      local edge = false
+      for dy = -1, 1 do for dx = -1, 1 do if not ore[P.key(tx + dx, ty + dy)] then edge = true end end end
+      if edge then dist[k] = 1; queue[#queue + 1] = { tx, ty } end
+    end
+  end
+  local head = 1
+  while head <= #queue do
+    local t = queue[head]; head = head + 1
+    local d = dist[P.key(t[1], t[2])]
+    if d < reach then
+      for dy = -1, 1 do
+        for dx = -1, 1 do
+          local k = P.key(t[1] + dx, t[2] + dy)
+          if ore[k] and dist[k] == nil then dist[k] = d + 1; queue[#queue + 1] = { t[1] + dx, t[2] + dy } end
+        end
+      end
+    end
+  end
+  local near, far = {}, {}
+  for _, r in ipairs(list) do
+    local d = dist[P.key(math.floor(r.x), math.floor(r.y))]
+    if d then near[#near + 1] = r else far[#far + 1] = r end -- d <= reach : la propagation s'arrête à reach
+  end
+  for _, r in ipairs(far) do near[#near + 1] = r end
+  return near
 end
 
 --- Libellé d'un projet d'avant-poste (lot EXTENSION-FER, point C). c = { tasks = { { kind, lost }... } des tâches ouvertes du
