@@ -99,6 +99,11 @@ function E.thermal(s, cfg)
     return true, string.format("extraction effondree (%d foreuse(s) actives pour un pic recent de %d) et aucune extension ne progresse : thermique permise jusqu'au retour du debit",
       floor(num(s.res_active) or 0), floor(num(s.res_peak) or 0))
   end
+  -- Lot CHARBON-EXTENSION (F486) : les foreuses électriques du combustible nourrissent la CENTRALE par tapis, pas le coffre des brûleurs ;
+  -- des brûleurs vitaux mesurés à sec (s.burners_dry, Elec.think) gardent la thermique du COMBUSTIBLE seul (panel CAP-P-D, 46-68 min).
+  if s.fuel and (num(s.burners_dry) or 0) > 0 then
+    return true, string.format("%d bruleur(s) vitaux a sec : la thermique du combustible reste permise", floor(num(s.burners_dry)))
+  end
   return false, string.format("electrique possible (%d centrale(s) finie(s), %d electrique(s) qui tournent) : thermique refusee",
     floor(num(s.plants) or 0), floor(live))
 end

@@ -18,6 +18,22 @@ local T = require("shared.team.config")
 local E = require("shared.team.electrique")
 local Dt = require("shared.team.decision_tree") -- arbre de décision Early / Mid / Late (DC, 9/11) : phase et électriques qui dorment au coffre
 local Stock = require("script.team.stock")
+local Outposts = require("script.faction.outposts") -- lot CHARBON-EXTENSION (F486) : brûleurs à sec par avant-poste (Outposts.status)
+local Fx = require("shared.team.flux")
+local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs) -- types vitaux (même lecture que le journal [FO-FLUX])
+
+--- Brûleurs à sec des avant-postes VITAUX de l'équipe (ids triés, lecture seule).
+local function vital_dry(f, tick)
+  local ids = {}
+  for id in pairs(f.outposts or {}) do ids[#ids + 1] = id end
+  table.sort(ids, function(x, y) return tostring(x) < tostring(y) end)
+  local dry = 0
+  for _, id in ipairs(ids) do
+    local o = f.outposts[id]
+    if o and VITAL[o.kind] then dry = dry + ((Outposts.status(o, tick) or {}).dry or 0) end
+  end
+  return dry
+end
 
 local Elec = {}
 
@@ -103,6 +119,7 @@ local function inputs(v, kind, craft)
   return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
     fuel = craft or (spec ~= nil and spec.product == T.fuel), el_live = v.el_live, poles_stock = v.poles_stock, since = v.since,
     res_live = res_live, phase = v.phase, elec_drill_stock = v.elec_drill_stock, -- arbre de décision (Dt.thermal_allowed)
+    burners_dry = v.burners_dry, -- lot CHARBON-EXTENSION (F486) : brûleurs des avant-postes vitaux à sec
     res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was }
 end
 Elec.inputs = inputs
@@ -211,6 +228,7 @@ function Elec.think(f, book, tick)
     el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
     since = st.switch_tick and (tick - st.switch_tick) or nil }
   phase_of(f, st, tick, v) -- arbre de décision : v.phase, v.elec_drill_stock
+  v.burners_dry = vital_dry(f, tick) -- lot CHARBON-EXTENSION (F486)
   st.v = v
   -- bascule datée (retour au thermique après E.CFG.revert sans électrique) : posée au premier refus, effacée quand une cause MATÉRIELLE
   -- rend la thermique (centrale, objet, poteaux) ; gardée pendant le retour pour cause de 0 électrique (la règle se réarme quand une tourne)
