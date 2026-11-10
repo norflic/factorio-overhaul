@@ -1,5 +1,7 @@
 # REPRISE : état du projet pour l'orchestrateur suivant
 
+> **10/11, 17 h 30 : CLÔTURE. Version jouée 0.6.87 (`5c70c774`), déployée dans le dossier du mod et poussée. Audit consolidé en tête de `RD_LOG.md` (section « AUDIT DE CLÔTURE »). Places de banc à 1 (le DC joue). Disque F: 128 Go libres.**
+
 > **10/11, 16 h 55 : VERSION 0.6.86 (`500e8104`, tag `v0.6.86`) DÉPLOYÉE dans le dossier du mod (checkout détaché) et POUSSÉE sur GitHub (`origin`, toutes les branches et les tags ; push par `git -c http.sslBackend=schannel`, le magasin openssl de Git refuse le certificat).**
 > - **Branche de travail** : `release-0.6.77` (porte les versions 0.6.77 à 0.6.86). `main` n'a pas bougé. Le dossier du mod est en HEAD détachée sur le tag déployé ; feuilles hors git (≈ 4 300 PNG, titans 399 Mo) copiées par `cp -r .claude/worktrees/release-0677/graphics/. graphics/`.
 > - **Validation d'un lot d'IA** : PANEL de 4 graines, 90 min, carte max (123456789, 1618033988, 271828182, 314159265), somme du fer livré et des bandes finies (mémoire `panel-graines`). Une graine seule est chaotique. Référence 0.6.86 : 104 002 fer / 45 bandes (A 18 213/7, B 22 495/11, C 51 239/22, D 12 055/5).
