@@ -39,6 +39,14 @@ local function battery(Cd)
   check(#Cd.dead(ow, nil) == 2 and #Cd.dead({}, { [1] = true }) == 0, "aucun projet vivant : tous libérés ; aucun cadre : rien")
   check(Cd.cuts_trunk("conflit", true) == true and Cd.cuts_trunk("conflit", false) == false and Cd.cuts_trunk("ecarter", true) == false and Cd.cuts_trunk("garder", true) == false,
     "seul un conflit sur une pièce du réseau du charbon coupe le tronc")
+  -- lot UPS-2 : prochain essai d'un plan qui attend son tronc (banc V0679-A : 1 781 plans en 5 min de jeu)
+  check(Cd.next_try(1000, 1000, 18000, 600) == 1600, "attente commencée : prochain essai 600 ticks plus tard")
+  check(Cd.next_try(18700, 1000, 18000, 600) == 19000, "fin d'attente proche : l'essai tombe au tick exact de la fin (t0 + attente)")
+  check(Cd.next_try(19000, 1000, 18000, 600) == 19000, "au tick de la fin : essai à ce tick, jamais repoussé")
+  check(Cd.next_try(25000, 1000, 18000, 600) == 25000, "attente dépassée : essai tout de suite (jamais dans le passé)")
+  local n, tk = 0, 1000
+  while tk < 19000 and n < 1000 do tk = Cd.next_try(tk, 1000, 18000, 600); n = n + 1 end -- (borne : un mutant « sans poll » ne boucle pas)
+  check(n == 30 and tk == 19000, "5 min d'attente : 30 essais au plus, le dernier à la fin exacte")
 end
 
 local Cd0 = dofile("shared/team/champ_dedupe.lua")
@@ -53,7 +61,13 @@ check(src:find("TRONC COUPE", 1, true) ~= nil and src:find("Champ.CFG.cut_wait",
   "tronc coupé : journal et attente bornée (jamais une impasse)")
 local i = src:find("if cut > 0 then", 1, true)
 local blk = i and src:sub(i, i + 2200) or ""
-check(blk:find("if waiting then return nil", 1, true) ~= nil, "l'attente rend « attendre » (3e valeur vraie), pas un refus définitif")
+check(blk:find("if waiting then", 1, true) ~= nil and blk:find("return nil, string.format(\"champ: reseau du charbon coupe", 1, true) ~= nil and blk:find("or \"?\"), true", 1, true) ~= nil,
+  "l'attente rend « attendre » (3e valeur vraie), pas un refus définitif")
+check(blk:find("p.plan_after = Cd.next_try(game.tick, t0, Champ.CFG.cut_wait, Champ.CFG.cut_poll)", 1, true) ~= nil and src:find("cut_poll = 600,", 1, true) ~= nil,
+  "lot UPS-2 : pendant l'attente du tronc, le prochain essai est daté (Cd.next_try), plus un plan à chaque passe")
+local bsrc0 = read("script/team/build.lua")
+local ia = bsrc0:find('if p.state == "attente" then', 1, true)
+check(ia ~= nil and bsrc0:sub(ia, ia + 200):find("tick >= (p.plan_after or 0)", 1, true) ~= nil, "build.lua : l'état « attente » lit p.plan_after (la date posée par le site)")
 
 check(src:find("Cd.reserve(b.occ, bd.deferred_tiles, o.id, P.tkey)", 1, true) ~= nil and src:find("Cd.clear(f.build.occ, o.id)", 1, true) ~= nil
   and src:find("not Cd.own(q, o.id)", 1, true) ~= nil and src:find("deferred_tiles = deferred_tiles", 1, true) ~= nil,
@@ -95,6 +109,12 @@ mutant("cadre sans projet vivant jamais libéré (tuiles perdues)", "if not (ali
 mutant("cadre libéré même avec un projet vivant", "if not (alive and alive[oid]) then out[#out + 1] = oid end", "out[#out + 1] = oid")
 mutant("tout conflit coupe le tronc", "return verdict == \"conflit\" and role_coal == true", "return verdict == \"conflit\"")
 mutant("aucun conflit ne coupe le tronc", "return verdict == \"conflit\" and role_coal == true", "return false")
+-- lot UPS-2 : prochain essai d'un plan qui attend son tronc
+mutant("essai repoussé après la fin de l'attente (borne ignorée)", "if nx > stop then nx = stop end", "")
+mutant("essai à chaque passe (poll ignoré)", "local nx = tick + poll", "local nx = tick")
+mutant("essai daté du début de l'attente (dans le passé)", "if nx < tick then nx = tick end", "")
+mutant("fin de l'attente décalée d'un poll", "local stop = t0 + wait", "local stop = t0 + wait + poll")
+mutant("essai daté de t0 + poll (oublie le tick courant)", "local nx = tick + poll", "local nx = t0 + poll")
 
 print(string.format("[CHAMP-DEDUPE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

@@ -55,6 +55,7 @@ Champ.CFG = {
   coal_r = 192,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché (320 au lot3 : des tracés de centaines de
                     -- tuiles faisaient attendre les bandes ; le tracé est désormais plafonné, Co.ROUTE_MAX)
   cut_wait = 5 * 3600, -- lot COMBUSTIBLE-MIGRATION : attente au plus (ticks) d'un réseau du charbon dont le tronc est coupé par un autre projet, avant de l'accepter
+  cut_poll = 600,   -- lot UPS-2 : pendant cette attente, un essai de plan toutes les 10 s au lieu de chaque passe (Cd.next_try ; la fin de l'attente reste au même tick)
   coal_prio = 52,   -- priorité du projet « réseau du charbon » d'un côté du champ : celle des bandes (Mg.CFG.prio). À 80 (alimentation d'une
                     -- centrale, lot4-20261020), emerald était en retard dès 30 min (14 fours sur 59, 2 735 plaques qui dorment, 10 PNJ contre 18)
   -- (3/11, lot4 et lot5 : 6 projets séparés du réseau du charbon sur 24 jamais finis : bande refusée après la demande du réseau, matières jamais
@@ -897,7 +898,10 @@ Build.SITES.champ = function(f, surface, p, h)
       f.key or "player", p.id, tostring(cs.pr), cut, table.concat(hs2, ", "),
       waiting and string.format("le reseau attend (au plus %.0f min depuis %.1f min)", Champ.CFG.cut_wait / 3600, t0 / 3600) or "attente finie : reseau accepte tel quel", game.tick / 3600))
     end
-    if waiting then return nil, string.format("champ: reseau du charbon coupe (%d piece(s) en conflit avec le projet %s)", cut, hs2[1] or "?"), true end
+    if waiting then
+      p.plan_after = Cd.next_try(game.tick, t0, Champ.CFG.cut_wait, Champ.CFG.cut_poll) -- lot UPS-2 : pas un plan complet à chaque passe pendant l'attente
+      return nil, string.format("champ: reseau du charbon coupe (%d piece(s) en conflit avec le projet %s)", cut, hs2[1] or "?"), true
+    end
   end
   -- raccord au réseau : un poteau alimenté à portée d'un poteau de la bande, sinon une chaîne de poteaux
   -- (lot FONDERIE) les poteaux du réseau du charbon (loin, vers le gisement de charbon) ne comptent pas : le raccord part de la bande
