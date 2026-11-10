@@ -5,6 +5,8 @@ Date: 2026-11-10
     - Écorcheur (F471) : second titan ennemi, bipède charnel à bras-canon ; dès l'ère III il pond des Écorchés quand un ennemi est à portée ; vagues et assauts font tourner les deux Kaijus.
     - Écorchés (F472) : mordeurs mutants en trois variantes (rôdeur rapide, porteur blindé, hurleur qui frappe en zone), pondus par l'Écorcheur, dans les nids tardifs et l'escorte des assauts.
     - Ravageur (F473) : méga-robot d'assaut allié de l'âge 13, animé sur 8 directions ; rafale de gatling, lames de cristal, salve des géants.
+  Graphics:
+    - Tourelles (F476) : Bastion II, III et IV, la tour à arc et la tourelle laser lourde ne sont plus des tourelles vanilla teintées : émetteurs rendus en 3D dans le style des titans (prisme de cristal, couronne d'électrodes, confinement de plasma, bobine Tesla, dôme focal), lueur qui pulse au repos et s'intensifie au tir, faisceau qui part de l'émetteur. Statistiques inchangées.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.79
 Date: 2026-11-10
