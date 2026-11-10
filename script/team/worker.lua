@@ -1091,6 +1091,17 @@ end
 
 --- Échec : on rapporte au QG ce qu'on porte, puis la tâche est rendue.
 local function abort(agent, f, tick, reason)
+  -- [FO-DIAG-FIN] SONDE (lot BANDE-FIN-TAPIS, a retirer) : objets d'une tache de chantier portes au moment de l'abandon
+  local dt = agent.task
+  if dt and dt.ia1d and dt.ia1d.mode == "build" and dt.took and agent.entity and agent.entity.valid and f.team then
+    f.team.diag_fin_ab = (f.team.diag_fin_ab or 0) + 1
+    if f.team.diag_fin_ab <= 80 then
+      local inv, parts = main_inv(agent), {}
+      for _, it in ipairs(dt.items or {}) do parts[#parts + 1] = it[1] .. " " .. inv.get_item_count(it[1]) .. "/" .. it[2] end
+      log(string.format("[FO-DIAG-FIN] %s t=%d min=%.1f abandon %s motif %s porte [%s]", tostring(f.key or "player"), tick, tick / 3600,
+        tostring(dt.key), tostring(reason), table.concat(parts, ", ")))
+    end
+  end
   if agent.task then agent.task.fail = reason end
   agent.failed = true
   agent.steps = { { "home" } }
