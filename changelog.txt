@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.91
+Date: 2026-11-10
+  Bugfixes:
+    - Fonderies (F500) : la fonderie d'une bande de champ n'est plus jamais posée sur une tuile de ressource, ni sur son propre minerai ni sur un gisement voisin ; elle recule sur le sol neutre, sinon elle n'est pas posée de ce côté (partie du DC sur la 0.6.89 : la fonderie du cuivre couvrait le fer voisin).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.90
 Date: 2026-11-10
   Bugfixes:

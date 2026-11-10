@@ -198,18 +198,18 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     if list and fits(fixed.s_edge, list) then return list, len, fixed.s_edge, fixed.count, info end
     return nil
   end
-  for pass = 1, 2 do
-    for t = 0, shift do
-      local s_edge = edge + side * (gap + 1 + t)
-      local list, len, info = Co.layout(spec, b, side, s_edge, count, mode)
-      local ok = list ~= nil and fits(s_edge, list)
-      if ok and pass == 1 then
-        for _, e in ipairs(list) do
-          for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do if is_ore(u, v) then ok = false end end end
-        end
+  -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
+  -- autres ressources) ; plus de seconde passe qui acceptait le minerai
+  for t = 0, shift do
+    local s_edge = edge + side * (gap + 1 + t)
+    local list, len, info = Co.layout(spec, b, side, s_edge, count, mode)
+    local ok = list ~= nil and fits(s_edge, list)
+    if ok then
+      for _, e in ipairs(list) do
+        for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do if is_ore(u, v) then ok = false end end end
       end
-      if ok then return list, len, s_edge, count, info end
     end
+    if ok then return list, len, s_edge, count, info end
   end
   return nil
 end

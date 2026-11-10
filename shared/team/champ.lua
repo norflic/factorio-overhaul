@@ -104,6 +104,10 @@ local function context(spec, axis)
   -- lot MELANGE : une tuile d'une autre ressource minable (jamais une tuile du minerai visé : celui-ci gagne s'il y est aussi)
   c.has_foreign = next(c.foreign) ~= nil
   c.is_foreign = function(u, v) local x, y = c.xy(u, v); local k = Ch.key(x, y); return c.foreign[k] == true and not c.ore[k] end
+  -- F500 (directive du DC du 10/11, 22 h) : toute ressource sous l'emprise d'une fonderie, le minerai visé comme celui d'un autre gisement
+  c.is_resource = function(u, v)
+    return c.is_ore(u, v) or c.is_foreign(u, v)
+  end
   c.free = function(u, v)
     local x, y = c.xy(u, v)
     local k = Ch.key(x, y)
@@ -611,7 +615,7 @@ local function plan_once(spec)
           elseif not (F and F.cols) or fixed then
             local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
             list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
-              c.is_ore, mode, fixed)
+              c.is_resource, mode, fixed)
             if not list and not no_smelter_at then
               -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
               local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
@@ -630,7 +634,7 @@ local function plan_once(spec)
             end
           end
         else
-          list, len, s_edge, count = Fd.place(spec, bd.b, side, edge, flow, Ch.CFG.gap, Ch.CFG.shift, c.free, c.is_ore)
+          list, len, s_edge, count = Fd.place(spec, bd.b, side, edge, flow, Ch.CFG.gap, Ch.CFG.shift, c.free, c.is_resource)
         end
         if list then
           for _, a in ipairs(g.n) do used[a .. "n"] = true end
