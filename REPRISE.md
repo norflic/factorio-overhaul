@@ -1,5 +1,7 @@
 # REPRISE : état du projet pour l'orchestrateur suivant
 
+> **10/11, 22 h : 0.6.90 = le réglage « Rendu de debug » ouvre la vue des zones (boxes, chantiers prévus en pointillé, liaisons) du joueur qui le coche (F498). Constats F499. OUVERT : F494 foreuses dormantes, hypothèse B5 (avant-poste plein pendant la migration de champ) en preuve par sonde (branche cc-dormant). Code couleur du DC pour la vue (vert au maximum, jaune en cours, bleu amélioration requise) non fait : la vue colore par état réel.**
+
 > **10/11, 21 h 15 : 0.6.89 = défense par box (F495 : fonderies 4 tourelles, rangées du mall 2, dans la garde de la centrale). OUVERT : F494, gisement du spawn sous-exploité avec 55 foreuses au coffre (chaîne dans RD_LOG, maillon à prouver : lignes de bande « impossibles » relancées sans fin, ou pièces perdues des bandes finies jamais reposées). Aucun banc moteur sur 0.6.88 ni 0.6.89.**
 
 > **10/11, 20 h 25 : 0.6.88 = chirurgie des 5 bloquants du playtest du DC (F488 à F493, RD_LOG). Prouvée par tests purs et mutants seulement : aucun banc moteur long sur la 0.6.88. Premier travail à reprendre : banc de 30 min sur la graine 3592985581 (scénario etape1-guide-epave) et panel des 4 graines.**
