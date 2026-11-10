@@ -167,6 +167,7 @@ function PA.watch(f, surface, tick)
   local pending_kw = 0 -- lot ELECTRIQUE (e) : kW nominaux des machines des chantiers ouverts (C.parallel_kw)
   local planned, boilers_alive, boiler_kw = 0, 0, nil -- lot ENERGIE : capacité prévue (vivante ou non), chaudières vivantes
   local reopened_alive, rebuilding = 0, 0 -- lot ENERGIE (relecture) : centrales déjà finies, rouvertes par la reconstruction
+  local reopened_power, new_kw = 0, 0 -- lot CC-ENERGIE (F491) : production des machines vivantes rouvertes ; kW nominaux des centrales NEUVES en chantier
   -- les projets de centrale : la première (b.plant) et celles demandées par la croissance (b.extra_plants)
   -- (revue globale 1 : un projet de croissance devenu LA centrale quand la première a été refusée ou annulée ne se compte qu'une fois)
   local ids, seen = {}, {}
@@ -207,7 +208,11 @@ function PA.watch(f, surface, tick)
             local sp = M.spec(e.name) or {}
             if sp.power_out then
               planned = planned + sp.power_out * 1000 / 60
-              if real_of(surface, e, f.force) then reopened_alive = reopened_alive + sp.power_out * 1000 / 60 end
+              local r = real_of(surface, e, f.force)
+              if r then
+                reopened_alive = reopened_alive + sp.power_out * 1000 / 60
+                reopened_power = reopened_power + (r.energy_generated_last_tick or 0)
+              end
             elseif sp.water and sp.burner_kw then
               boiler_kw = boiler_kw or sp.burner_kw
               if real_of(surface, e, f.force) then boilers_alive = boilers_alive + 1 end
@@ -223,7 +228,7 @@ function PA.watch(f, surface, tick)
           end
           -- chantier sans machine connue (plan pas encore posé) : capacité inconnue, aucun chantier en parallèle (C.parallel_kw)
           if pk > 0 and pending_kw then pending_kw = pending_kw + pk else pending_kw = nil end
-          if was_built then rebuilding = rebuilding + 1 end
+          if was_built then rebuilding = rebuilding + 1 else new_kw = new_kw + pk end
         end
       end
     end
@@ -264,10 +269,18 @@ function PA.watch(f, surface, tick)
     local q = b.projects[id]
     if q and q.state ~= "refuse" and not (q.state == "bloque" and not q.retry_at) then ns = ns + 1 end
   end
-  local nb, why = C.growth(g, { done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
+  -- lot CC-ENERGIE (F491) : demande MESURÉE sur la capacité bâtie vivante + celle des centrales neuves en chantier (C.grow_load)
+  local gate = C.grow_load(power + reopened_power, capacity + reopened_alive, new_kw * 1000 / 60)
+  local nb, why = C.growth(g, { load = gate, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
     anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw, pending_kw = pending_kw,
     lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
+  if why == C.LOAD_REASON and not g.load_held then
+    log(string.format("[FO-ENERGIE] %s : croissance RETENUE a %.1f min : demande mesuree %.0f kW sur %.0f kW batis vivants et %.0f kW en chantier (%.0f %%, seuil %.0f %%) ; declencheur ecarte : %s",
+      f.key or "player", tick / 3600, (power + reopened_power) * 60 / 1000, (capacity + reopened_alive) * 60 / 1000, new_kw, (gate or 0) * 100,
+      C.GROW_LOAD * 100, lost and "perte" or g.saturated and "saturation" or anticipate and "avance" or ((deficit_kw or 0) > 0) and ("deficit " .. string.format("%.0f", deficit_kw) .. " kW") or "?"))
+  end
+  g.load_held = (why == C.LOAD_REASON) or nil
   if nb and crisis then
     g.secours_n = (g.secours_n or 0) + 1
     log(string.format("[FO-ENERGIE] %s : UNITE DE SECOURS demandee a %.1f min (crise : %s ; capacite vivante %.0f sur %.0f J/tick prevus, saturee depuis %d relevés ; secours %d sur %d) : %d chaudiere(s), projet distinct, aucun champ en crise",

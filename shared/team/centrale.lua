@@ -93,6 +93,25 @@ end
 -- dépasse ce que les chantiers ouverts apporteront (n.pending_kw, kW nominaux de leurs machines). Sans n.pending_kw (appels d'avant) : un seul.
 C.MAX_PARALLEL = 2
 
+-- Lot CC-ENERGIE (F491, partie du DC sur la 0.6.87, graine 3592985581 : « 16 MW de capacité pour 650 kW » ; journal : player 16 200 kW de
+-- capacité pour 781 kW produits a 93 min, emerald 14 400 pour 3 297, amber 9 000 pour 114, chaque équipe 5 400 kW a 21 min pour 0 a 180 kW).
+-- Cause : les déclencheurs de croissance (déficit de kW retenus par la capitalisation, avance sur les chantiers, chantier en parallèle) se
+-- lisent en kW NOMINAUX de machines voulues, jamais rapportés a la demande MESURÉE : 8 610 kW retenus a 12,6 min ont fait demander deux
+-- centrales pendant que la centrale finie produisait 0 kW sur 1 800. Règle du DC : aucune chaudière ni machine a vapeur de plus tant que
+-- demande / capacité < C.GROW_LOAD. n.load (C.grow_load) : production mesurée des machines vivantes sur la capacité bâtie vivante + celle
+-- des centrales neuves en chantier ; nil quand aucune capacité n'existe (première centrale, perte totale : la demande ne se mesure pas).
+C.GROW_LOAD = 0.75
+C.LOAD_REASON = "demande mesuree sous 75 % de la capacite"
+
+--- Charge de la croissance (0 a 1+ ; nil sans capacité) : used_j = J/tick produits par les machines a vapeur vivantes (centrales finies et
+--- rouvertes), built_j = leur capacité vivante, pending_j = capacité nominale des centrales NEUVES en chantier (une reconstruction ne
+--- compte que ses machines vivantes : si elle n'aboutit pas, la perte se constate, Cv.lost).
+function C.grow_load(used_j, built_j, pending_j)
+  local cap = math.max(0, built_j or 0) + math.max(0, pending_j or 0)
+  if cap <= 0 then return nil end
+  return math.max(0, used_j or 0) / cap
+end
+
 --- kW de déficit que les chantiers ouverts ne couvrent pas, si un chantier de plus est permis ; nil sinon (aucun chantier ouvert, plafond de
 --- chantiers, déficit pas installé, capacité des chantiers inconnue ou suffisante).
 function C.parallel_kw(st, n)
@@ -112,6 +131,8 @@ function C.growth(st, n)
   -- centrale AVANT la saturation ; tous les garde-fous suivants (chantier ouvert, plafonds, pauses, repli) valent aussi pour elle
   local deficit = (n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS -- lot TV-ENERGIE : déficit de kW installé
   if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, "pas saturee" end
+  -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité
+  if n.load ~= nil and n.load < C.GROW_LOAD then return nil, C.LOAD_REASON end
   -- lot ENERGIE (relecture) : la reconstruction qui n'aboutit pas ne retient pas le champ de remplacement (« si on y arrive vraiment pas, on
   -- le fait ailleurs ») ; n.rebuilding : ceux de n.pending qui sont des centrales rouvertes
   if n.lost then
