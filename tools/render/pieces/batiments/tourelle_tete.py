@@ -55,8 +55,10 @@ def toit(k, motif, x, y, z, s):
 
 
 def couronne(k, zt, r):
-    """Couronne d'orientation (tourne avec la tête) : collier sombre, bague argent, liseré cyan. Rend le dessus de la bague."""
+    """Couronne d'orientation (tourne avec la tête) : collier sombre, bague argent, liseré de FONCTION (lot COURONNES, 10/11 : la matière
+    « lisere » de marques.py, la même couleur que le gradin et le motif du toit ; cyan « conduit » pour une tête sans marque). Rend le dessus
+    de la bague."""
     k.rev("struct", 0.0, 0.0, [(zt, r * 1.02), (zt + 0.03, r * 1.02)], 40)
     k.rev("blind2", 0.0, 0.0, [(zt + 0.03, r), (zt + 0.07, r), (zt + 0.09, r * 0.92)], 40)
-    k.tore("conduit", 0.0, 0.0, zt + 0.05, r * 1.005, 0.008, 64, 6)
+    k.tore("lisere" if "lisere" in k.M else "conduit", 0.0, 0.0, zt + 0.05, r * 1.005, 0.008, 64, 6)
     return zt + 0.09

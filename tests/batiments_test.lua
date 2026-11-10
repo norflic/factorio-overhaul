@@ -751,5 +751,36 @@ mutant_mur("hr vanilla gardée", "if hb and u.fichiers[hb] then", "if false then
 mutant_mur("pièce oubliée", '"corner_left_down", "t_up", "ending_right"', '"corner_left_down", "ending_right"')
 mutant_mur("santé changée", "      e.friendly_map_color = e.map_color\n      local ic", "      e.friendly_map_color = e.map_color\n      e.max_health = 1\n      local ic")
 
+-- §10 lot COURONNES (10/11) : la couronne d'orientation de chaque tête tournante (tourelle_tete.couronne, appelée par les cinq modèles à
+-- tête : bastion1, lourde, canon, mortier, acide) porte la couleur de FONCTION de marques.py (matière « lisere », la même que le gradin et le
+-- motif du toit), et non plus le cyan « conduit » commun ; une tête sans marque garde le cyan. Règle lue dans le texte du kit ; mutants.
+local TETE_SRC = read("tools/render/pieces/batiments/tourelle_tete.py")
+local function juge_couronne(tete, marques)
+  local bad = {}
+  if not tete or not marques then return { "kit illisible" } end
+  local NL = string.char(10)
+  local corps = tete:match(NL .. "def couronne%(k, zt, r%):(.-)" .. NL .. "def ") or tete:match(NL .. "def couronne%(k, zt, r%):(.*)$")
+  if not corps then return { "couronne absente" } end
+  if not corps:find('k.tore("lisere" if "lisere" in k.M else "conduit"', 1, true) then bad[#bad + 1] = "couronne sans couleur de fonction" end
+  if not marques:find('M["lisere"] = S.mat_emissive(prefix + "lisere"', 1, true) then bad[#bad + 1] = "matière lisere non posée" end
+  for _, m in ipairs({ "m_bastion1.py", "m_lourde.py", "m_canon.py", "m_mortier.py", "m_acide.py" }) do
+    local t = read("tools/render/pieces/batiments/" .. m)
+    if not (t and t:find("T.couronne(k, ZT,", 1, true)) then bad[#bad + 1] = m .. " sans couronne" end
+  end
+  return bad
+end
+local jc = juge_couronne(TETE_SRC, MARQUES_SRC)
+check(#jc == 0, "§10 couronne de fonction sur les cinq têtes : " .. table.concat(jc, ", "))
+local function mutant_couronne(nom, de, vers, dans_marques)
+  local src = dans_marques and MARQUES_SRC or TETE_SRC
+  check(src and src:find(de, 1, true) ~= nil, "§10 mutant « " .. nom .. " » : le texte d'origine est là")
+  if not src then return end
+  local m = src:gsub(de:gsub("%p", "%%%0"), (vers:gsub("%%", "%%%%")), 1)
+  local r = dans_marques and juge_couronne(TETE_SRC, m) or juge_couronne(m, MARQUES_SRC)
+  check(#r > 0, "§10 mutant refusé : " .. nom)
+end
+mutant_couronne("couronne cyan pour toutes", 'k.tore("lisere" if "lisere" in k.M else "conduit"', 'k.tore("conduit"')
+mutant_couronne("lisere jamais posée", 'M["lisere"] = S.mat_emissive(prefix + "lisere"', 'M["accent2"] = S.mat_emissive(prefix + "lisere"', true)
+
 print(string.format("[BATIMENTS] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 if fail > 0 then os.exit(1) end
