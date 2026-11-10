@@ -18,6 +18,7 @@ Date: 2026-11-09
     - PNJ (F443) : en famine de la plaque clé, un PNJ dont la file de fabrication est pleine part miner au lieu de rester au QG à refuser toutes les tâches.
     - Scans (F444) : audit périodique de la base par impulsions de 5 minutes, découpé en 20 tranches et décalé par équipe ; premier audit électrique en lecture seule (poteaux sur gisement, poteaux redondants candidats), journal [FO-HYGIENE].
     - Charbon (F445) : la centrale ne prend plus au QG le charbon réservé aux tournées des brûleurs ; plus de brûleurs à sec pendant que la centrale accapare le coffre.
+    - Charbon (F454) : l'amorce à la main d'une chaudière à sec ne prend plus au QG le charbon réservé aux tournées des brûleurs (même règle que F445) ; plus de 78 charbons versés dans une centrale pendant que 46 brûleurs sont à sec.
     - Arbre de décision (F446) : phases early / mid / late lues aux données ; hors amorçage, des foreuses électriques qui dorment au coffre interdisent toute foreuse thermique ; règle du meilleur choix disponible avec repli et marquage rétrofit.
     - Scans (F447) : impulsions toutes les 3 minutes et réveils événementiels (recherche finie, palier de stock, coupure d'énergie, famine) sur des voies disjointes par équipe ; journal [FO-SCAN].
     - Boxes (F448) : gisements, fonderies, mall et énergie modélisés en boxes avec statut MAXED ; une box MAXED est ignorée par les scans jusqu'à épuisement ou déblocage de recherche ; journal [FO-BOX].
