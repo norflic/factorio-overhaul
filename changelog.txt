@@ -3,6 +3,8 @@ Version: 0.6.92
 Date: 2026-11-11
   Graphics:
     - Icônes (F505) : la tôle magnétique, les billettes de fer, de cuivre et de tungstène et la plaque de titane ne copient plus la plaque d'acier teintée ; chacune a sa silhouette rendue en 3D : tôles feuilletées à liserés cyan, lingots moulés gris acier et cuivre orangé, barreau carré sombre fretté, plaques hexagonales polies.
+  Bugfixes:
+    - Champs (F515) : le cadre d'un champ retient dès sa création la place des colonnes de fours de toutes ses bandes futures ; une ligne de poteaux ou un autre chantier ne la prend plus, et une bande n'est plus refusée en entier pour une seule tuile prise.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10

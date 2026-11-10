@@ -47,6 +47,26 @@ local function battery(Cd)
   local n, tk = 0, 1000
   while tk < 19000 and n < 1000 do tk = Cd.next_try(tk, 1000, 18000, 600); n = n + 1 end -- (borne : un mutant « sans poll » ne boucle pas)
   check(n == 30 and tk == 19000, "5 min d'attente : 30 essais au plus, le dernier à la fin exacte")
+  -- lot CC-SAUT (F515) : tuiles du cadre figé retenues dès sa création (pièces hors ressource seulement)
+  local ore = function(x, y) return x >= 0 and x <= 9 and y >= 0 and y <= 9 end -- gisement 10 x 10
+  local ft = Cd.frame_tiles({
+    { kind = "foreuse", x = 1.5, y = 1.5, size = 3 },          -- foreuse sur le minerai : jamais retenue
+    { kind = "foreuse", x = 20.5, y = 20.5, size = 3 },        -- foreuse hors minerai : jamais retenue non plus (le champ la pose)
+    { kind = "tapis", x = 5.5, y = 5.5, size = 1 },            -- tapis de bande sur le minerai : libre pour les lignes de poteaux
+    { kind = "four", x = 14.0, y = 4.0, size = 2 },            -- four 2 x 2 hors minerai : tuiles 13..14 x 3..4
+    { kind = "coffre", x = 12.5, y = 7.5, size = 1 },          -- coffre hors minerai : tuile (12, 7)
+    { kind = "bras", x = 10.5, y = 9.5, w = 1, h = 3, size = 1 }, -- pièce 1 x 3 : tuiles (10, 8..10), aucune ne touche le minerai
+    { kind = "poteau", x = 10.0, y = 5.0, size = 2 },          -- 2 x 2 à cheval sur le bord : tuile (9, 4) de minerai, toute la pièce reste libre
+    { kind = "poteau", x = 0.0, y = 10.0, size = 2 },           -- 2 x 2 : 1re tuile (-1, 9) hors minerai, (0, 9) sur le minerai : libre aussi
+  }, ore)
+  local got = {}
+  for _, t in ipairs(ft) do got[#got + 1] = t[1] .. "," .. t[2] end
+  local s = table.concat(got, " ")
+  check(s == "13,3 13,4 14,3 14,4 12,7 10,8 10,9 10,10", "cadre figé : tuiles des pièces hors ressource seules, emprise exacte, dans l'ordre des pièces (vu : " .. s .. ")")
+  check(#Cd.frame_tiles({}, ore) == 0 and #Cd.frame_tiles(nil, ore) == 0, "cadre sans pièce : aucune tuile")
+  local occ3 = { ["13,3"] = 4 }
+  local nr = Cd.reserve(occ3, ft, 1, function(x, y) return x .. "," .. y end)
+  check(nr == 7 and occ3["13,3"] == 4 and occ3["12,7"] == "cadre:1" and Cd.own(occ3["10,10"], 1), "tuiles du cadre retenues sous son marqueur, celle d'un projet déjà planifié gardée par lui")
 end
 
 local Cd0 = dofile("shared/team/champ_dedupe.lua")
@@ -77,6 +97,17 @@ check(bsrc:find("Build.Cd.own(ow, p.spec.champ.oid)", 1, true) ~= nil, "build.lu
 check(src:find("function(_, _, owner) return Cd.own(owner, o.id) end", 1, true) ~= nil, "blocked_in : tuiles retenues par le cadre libres pour son avant-poste")
 check(src:find("Cd.dead(Cd.owners(b.occ), alive)", 1, true) ~= nil and src:find('q.state ~= "refuse"', 1, true) ~= nil, "Champ.report libère les cadres sans projet de champ vivant")
 check(src:find("[FO-CHAMP-VOIE]", 1, true) ~= nil and src:find("vlogs < 8", 1, true) ~= nil, "relevé de la voie de charbon par projet (borné à 8 lignes)")
+-- lot CC-SAUT (F515) : Champ.frame retient les tuiles hors ressource du cadre dès qu'il est figé (avant tout autre projet)
+local fi = src:find("function Champ.frame(f, surface, o)", 1, true)
+local fe = fi and src:find("\nfunction ", fi + 10, true) or nil
+local fblk = (fi and fe) and src:sub(fi, fe) or ""
+local wr = fblk:find("Cd.reserve(f.build.occ, Cd.frame_tiles(plan.ents, is_res), o.id, P.tkey)", 1, true)
+local pl = fblk:find("local plan, why = Ch.plan(spec)", 1, true)
+local rt = fblk:find("return plan.frame, prs, plan", 1, true)
+check(wr ~= nil and pl ~= nil and rt ~= nil and pl < wr and wr < rt, "Champ.frame : tuiles du cadre figé retenues après le plan, avant de rendre le cadre")
+check(fblk:find("for i = 1, #spec.ore - 1, 2 do res[Ch.key(spec.ore[i], spec.ore[i + 1])] = true end", 1, true) ~= nil and fblk:find("spec.foreign and spec.foreign[k]", 1, true) ~= nil,
+  "Champ.frame : le minerai visé ET les autres ressources restent libres (lignes de poteaux à travers le gisement)")
+check(fblk:find("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan", 1, true) ~= nil, "Champ.frame : la réservation se lit au journal")
 
 local function load_with(path, from, to)
   local s = read(path)
@@ -103,6 +134,13 @@ mutant("détenteur vide pris pour un doublon", "if not (e and h) then return fal
 mutant("la première tuile seule est lue", "for _, x in ipairs(held) do\n    if not M.same(e, x.ent) then return \"conflit\" end\n  end", "if not M.same(e, held[1].ent) then return \"conflit\" end")
 mutant("réservation écrasant les tuiles d'un projet", "if occ[k] == nil then occ[k] = M.marker(oid); n = n + 1 end", "occ[k] = M.marker(oid); n = n + 1")
 mutant("cadre d'un autre avant-poste pris pour le sien", 'return owner ~= nil and owner == M.marker(oid)', 'return owner ~= nil and type(owner) == "string"')
+-- lot CC-SAUT (F515)
+mutant("foreuses retenues au cadre (le champ se bloquerait lui-même)", 'if e.kind ~= "foreuse" then', 'if true then')
+mutant("pièces sur le minerai retenues (lignes de poteaux bloquées)", 'if not on_ore then for _, t in ipairs(tiles) do out[#out + 1] = t end end', 'for _, t in ipairs(tiles) do out[#out + 1] = t end')
+mutant("emprise réduite à une tuile", 'local w, h = e.w or e.size or 1, e.h or e.size or 1', 'local w, h = 1, 1')
+mutant("largeur et hauteur confondues", 'local x0, y0 = math.floor(e.x - w / 2 + 0.5), math.floor(e.y - h / 2 + 0.5)', 'local x0, y0 = math.floor(e.x - h / 2 + 0.5), math.floor(e.y - w / 2 + 0.5)')
+mutant("seule la première tuile testée sur le minerai", 'if is_ore(x, y) then on_ore = true end', 'if #tiles == 0 and is_ore(x, y) then on_ore = true end')
+mutant("aucune tuile retenue (cadre jamais réservé)", 'if not on_ore then for _, t in ipairs(tiles) do out[#out + 1] = t end end', '')
 mutant("cadre refait sans libérer", "if v == m then occ[k] = nil; n = n + 1 end", "")
 mutant("libération de tous les cadres", "if v == m then occ[k] = nil; n = n + 1 end", "if type(v) == \"string\" then occ[k] = nil; n = n + 1 end")
 mutant("cadre sans projet vivant jamais libéré (tuiles perdues)", "if not (alive and alive[oid]) then out[#out + 1] = oid end", "")

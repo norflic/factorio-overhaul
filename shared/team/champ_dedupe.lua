@@ -60,6 +60,32 @@ function M.reserve(occ, tiles, oid, key)
   return n
 end
 
+--- Lot CC-SAUT (F515, mandat du DC du 10/11, 22 h 20 : « un obstacle ponctuel n'annule jamais toute la rangée ») : tuiles du cadre à retenir dès qu'il est
+--- FIGÉ. Le cadre fixe la place de la colonne de fours de CHAQUE bande future (rejouée sans recherche, shared/team/champ_colonne.lua, Co.place `fixed`), mais
+--- seules les tuiles du réseau du charbon reporté étaient retenues (M.reserve) : un autre projet planifié entre-temps (référence 0.6.91, graine 314159265 :
+--- la ligne de poteaux du même avant-poste, projet 4, à 8,1 min) prenait la place figée, et la bande entière était refusée « bande vide : 17 foreuse(s)
+--- possibles, 2 groupe(s) sans place de fonderie ; 1re tuile prise (17, 77), relevee « reserve » » (puis une bande de 34 foreuses). Rend les tuiles des pièces
+--- HORS ressource du plan entier (colonnes, coffres, bras, poteaux et tapis hors du gisement), jamais celles des foreuses ni d'une pièce qui touche une
+--- ressource (les lignes de poteaux peuvent traverser le gisement). `ents` = { { kind, x, y, size, w, h } } (centre en tuiles, côtés) ; `is_ore(x, y)` vrai
+--- sur une tuile de ressource. Rend { { x, y }, ... } dans l'ordre des pièces (déterministe).
+function M.frame_tiles(ents, is_ore)
+  local out = {}
+  for _, e in ipairs(ents or {}) do
+    if e.kind ~= "foreuse" then
+      local w, h = e.w or e.size or 1, e.h or e.size or 1
+      local x0, y0 = math.floor(e.x - w / 2 + 0.5), math.floor(e.y - h / 2 + 0.5)
+      local tiles, on_ore = {}, false
+      for x = x0, x0 + w - 1 do
+        for y = y0, y0 + h - 1 do
+          if is_ore(x, y) then on_ore = true end
+          tiles[#tiles + 1] = { x, y }
+        end
+      end
+      if not on_ore then for _, t in ipairs(tiles) do out[#out + 1] = t end end
+    end
+  end
+  return out
+end
 --- Libère les tuiles retenues par le cadre de `oid` (cadre refait). Rend le nombre libéré. (L'ordre de passage est sans effet.)
 function M.clear(occ, oid)
   local n, m = 0, M.marker(oid)
