@@ -31,7 +31,7 @@ Date: 2026-11-10
     - Champ (F441) : une bande de plus de 400 entités laisse son réseau de charbon à un projet lié ; la bande se paie seule.
     - PNJ (F443) : en famine de la plaque clé, un PNJ dont la file de fabrication est pleine part miner au lieu de rester au QG à refuser toutes les tâches.
     - Charbon (F445) : la centrale ne prend plus au QG le charbon réservé aux tournées des brûleurs ; plus de brûleurs à sec pendant que la centrale accapare le coffre.
-    - Charbon (F455) : l'amorce à la main d'une chaudière à sec ne prend plus au QG le charbon réservé aux tournées des brûleurs (même règle que F445) ; plus de 78 charbons versés dans une centrale pendant que 46 brûleurs sont à sec.
+    - Charbon (F455, retiré après bancs) : l'amorce à la main de la centrale garde le stock brut de charbon ; la réserver aux brûleurs laissait la centrale à sec pendant toute la famine (puissance ÷ 10, bandes de champ non finies).
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.74
 Date: 2026-11-09

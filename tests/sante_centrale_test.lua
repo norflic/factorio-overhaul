@@ -171,8 +171,6 @@ _G.log = function(s) LOG[#LOG + 1] = s end
 _G.game = { tick = 0 }
 local COAL = {}
 package.loaded["script.team.stock"] = { count = function(f, item) return f.stock or 0 end }
--- lot BRULEURS-60 (F454) : la reserve des tournees des bruleurs (Outposts.fuel_reserve) arrive en donnee : f.fuel_reserve
-package.loaded["script.faction.outposts"] = { fuel_reserve = function(f) return f.fuel_reserve or 0 end }
 local Sante = dofile("script/team/sante_centrale.lua")
 local M = require("shared.team.modules")
 local T = require("shared.team.config")
@@ -566,45 +564,6 @@ mutant("avance qui ignore les chantiers", function(X)
 end)
 mutant("kW retenus par la capitalisation ignores", function(X) X.capi_kw = function() return 0 end end)
 mutant("kW retenus par la capitalisation jamais oublies", function(X) X.CAPI_TTL = math.huge end)
-
----------------------------------------------------------------------------------------------------
--- 2x. Lot BRULEURS-60 (F454) : l'amorce ne prend que le charbon LIBRE du coffre (hors la reserve des tournees des bruleurs, F445).
--- Banc V0676-O graine 123456789, 63,2 min : « amorce a la main, 2 chaudiere(s) a sec, 39 charbon(s) chacune (78 au total, stock 79) »
--- pendant que 46 bruleurs vitaux etaient a sec (reserve des tournees > 79) ; la tournee suivante vers l'avant-poste de charbon partait avec 1.
----------------------------------------------------------------------------------------------------
-section("2x. Amorce : charbon libre seulement (F454)")
-do
-  local LOG2 = {}
-  _G.log = function(s) LOG2[#LOG2 + 1] = s end
-  local function team(stock, reserve)
-    return { key = "player", force = "fo-azure", stock = stock, fuel_reserve = reserve, build = { order = {}, projects = {}, grow = {} } }
-  end
-  local function observe3(f, w, p, t0)
-    for i = 1, 3 do game.tick = t0 + 300 * i; Sante.observe(f, w.surface, p, game.tick) end
-    return f.build.sante.plants[17]
-  end
-  -- 79 au coffre, 100 reserves aux tournees des bruleurs : rien de libre, pas d'amorce (la ligne du banc, corrigee)
-  local f2, w2 = team(79, 100), world()
-  local p2 = plant(w2, { arms = false, belts = false })
-  local st2 = observe3(f2, w2, p2, 100000)
-  check(st2.prime == nil, "79 au coffre, 100 reserves aux bruleurs : aucune amorce decidee")
-  check(table.concat(LOG2, "\n"):find("stock de combustible insuffisant", 1, true) ~= nil, "journal : pas d'amorce (stock de combustible insuffisant)")
-  local out2 = {}
-  Sante.tasks(f2, p2, out2, function(x, y) return { x = x, y = y } end)
-  check(#out2 == 0, "aucune tache d'amorce : le charbon reste aux tournees des bruleurs")
-  -- 179 au coffre, 100 reserves : 79 libres -> 39 par chaudiere (78), la grandeur du banc
-  local f3, w3 = team(179, 100), world()
-  local st3 = observe3(f3, w3, plant(w3, { arms = false, belts = false }), 200000)
-  check(st3.prime ~= nil and st3.prime.total == 78 and st3.prime.count == 39, "179 au coffre, 100 reserves : 79 libres, amorce 2 x 39 = 78")
-  -- sans reserve : tout le coffre est libre (l'amorce de 0.6.76)
-  local f4, w4 = team(79, 0), world()
-  local st4 = observe3(f4, w4, plant(w4, { arms = false, belts = false }), 300000)
-  check(st4.prime ~= nil and st4.prime.total == 78, "sans reserve : 79 au coffre, amorce 78")
-  -- reserve plus grande que le coffre : jamais negatif, pas d'amorce
-  local f5, w5 = team(40, 1000), world()
-  local st5 = observe3(f5, w5, plant(w5, { arms = false, belts = false }), 400000)
-  check(st5.prime == nil, "reserve au-dela du coffre : aucune amorce (jamais negatif)")
-end
 
 print(string.format("[SANTE-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

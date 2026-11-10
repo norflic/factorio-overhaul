@@ -894,21 +894,6 @@ function Outposts.coal_needed(o, fill)
   return Outposts.coal_needed_for(Outposts.burners(o), fill)
 end
 
---- Lot BRULEURS-60 (F454) : combustible du coffre du QG RÉSERVÉ aux tournées des brûleurs : les fours de l'équipe, puis les brûleurs des
---- avant-postes dont le produit n'est pas le combustible (un avant-poste de combustible se sert sur ses sorties, Sm.carry_fuel). La MÊME
---- grandeur que `burner_fuel_reserve` de quai_tasks (script/team/build.lua, F445) et que la réserve des tournées de shared/team/planner.lua ;
---- lecteur : l'amorce à la main d'une centrale (script/team/sante_centrale.lua), qui lisait le stock BRUT (banc V0676-O, 63,2 min : 78 des
---- 79 charbons du coffre versés dans 2 chaudières pendant que 46 brûleurs vitaux étaient à sec). Somme d'entiers : l'ordre de `pairs` n'y change rien.
-function Outposts.fuel_reserve(f)
-  local n = Outposts.coal_needed_for(Outposts.smelters(f))
-  local fill = f.team and f.team.flux_fill
-  for _, o in pairs(f.outposts or {}) do
-    local spec = T.outposts[o.kind]
-    if not (spec and spec.product == T.fuel) then n = n + Outposts.coal_needed(o, fill) end
-  end
-  return n
-end
-
 --- Ramasse la production des réceptacles dans l'inventaire de l'ouvrier. Renvoie le nombre d'objets.
 --- Lot BLOCAGE-COMBUSTIBLE : `fuel_quota` = combustible pris dans les coffres propres MÊME si le stock refuse de le recevoir (Rv.onsite_quota) :
 --- il ne va pas au coffre du QG, il remplit les brûleurs de l'avant-poste sur place ; Sm.carry_fuel l'a déjà déduit de ce que la tournée porte.
