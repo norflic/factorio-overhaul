@@ -8,7 +8,11 @@
     §4 mutants : chevauchement de parts, trou entre parts, fenêtres sans décalage, tranche hors fenêtre : tous refusés par les mêmes
        détecteurs ;
     §5 script/team/hygiene.lua sur un moteur minimal (modules du dépôt doublés) : relevé, parts, compteurs (a) sur gisement et
-       (b) feuille sans consommateur propre, jeton refusé puis accordé, plafond par tranche, dispatch des rangs par on_tick.
+       (b) feuille sans consommateur propre, jeton refusé puis accordé, plafond par tranche, dispatch des rangs par on_tick ;
+    §5 bis (lot HYGIENE-ACTIVE, DC 10/11) : le moteur AGIT : feuille rendue au coffre puis détruite, poteau sur gisement remplacé en
+       deux tranches (pose, vérification au tick, retrait), relecture au tick (la seconde feuille d'une paire reste), refus par cause
+       (famine, menace du QG, budget, projet non fini, pièce du plan, chaîne des foreuses, posé par un joueur, couvrant non alimenté),
+       remplaçant non relié détruit et rendu, idempotence (seconde impulsion : rien à faire).
   Usage : lua5.2 tests/scan_tranches_test.lua   (depuis la racine du mod ; moins d'une seconde)
 ]]
 package.path = "./?.lua;" .. package.path
@@ -217,6 +221,18 @@ package.loaded["script.faction.state"] = {
 defines = { events = { on_tick = 1, on_research_finished = 2 } } -- luacheck: ignore
 local logs = {}
 function log(text) logs[#logs + 1] = text end -- luacheck: ignore
+-- lot HYGIENE-ACTIVE : coffre (comptes par objet), famine (drapeau), réseaux alimentés (ensemble), ennemis (aucun)
+local stock = { ["poteau-test"] = 2 }
+local famine = true
+local live = {}
+package.loaded["script.team.stock"] = {
+  count = function(_, item) return stock[item] or 0 end,
+  insert = function(_, item, n) stock[item] = (stock[item] or 0) + n return n end,
+  remove = function(_, item, n) local got = math.min(n, stock[item] or 0) stock[item] = (stock[item] or 0) - got return got end,
+}
+package.loaded["script.team.famine_fer"] = { team_starved = function() return famine end }
+package.loaded["script.team.generateurs"] = { TYPES = { "generator" }, networks = function() return live, 0 end }
+package.loaded["script.team.reseau_vivant"] = { foe_near = function() return nil end, POLE_ENEMY_R = 28 }
 
 local Hy = require("script.team.hygiene")
 local Sr = require("script.team.scan_reveil")
@@ -252,17 +268,49 @@ local surface = {
     for _, e in ipairs(ents) do if matches(e, q) then n = n + 1 end end
     return n
   end,
+  -- lot HYGIENE-ACTIVE : une place est libre si aucune entité (hors ressource) n'y a sa boîte ; la pose crée un poteau de la doublure
+  can_place_entity = function(q)
+    for _, e in ipairs(ents) do
+      if e.type ~= "resource" and e.bounding_box and overlap(e.bounding_box, q.position.x - 0.4, q.position.y - 0.4, q.position.x + 0.4, q.position.y + 0.4) then return false end
+    end
+    return true
+  end,
+  create_entity = function(q) return POLE(q.position.x, q.position.y, q.force, nil) end,
 }
 local next_un = 1
 local function box(x, y, w, h) return { left_top = { x = x - w / 2, y = y - h / 2 }, right_bottom = { x = x + w / 2, y = y + h / 2 } } end
+POLE = nil -- luacheck: ignore (référence tardive de la doublure : create_entity de la surface)
+local connect_ok = true -- lot HYGIENE-ACTIVE : faux : le fil du remplaçant ne se pose pas (remplacement raté)
+local function wire(a, b) a.neighbours.copper[#a.neighbours.copper + 1] = b; b.neighbours.copper[#b.neighbours.copper + 1] = a end
+local function unwire(e)
+  for _, o in ipairs(ents) do
+    if o.neighbours then
+      local keep = {}
+      for _, n in ipairs(o.neighbours.copper) do if n ~= e then keep[#keep + 1] = n end end
+      o.neighbours.copper = keep
+    end
+  end
+end
 local function pole(x, y, force, net, d)
-  local e = { type = "electric-pole", force = force, unit_number = next_un, valid = true, position = { x = x, y = y }, bounding_box = box(x, y, 0.3, 0.3),
-    prototype = { supply_area_distance = d or 2.5 }, electric_network_id = net, neighbours = { copper = {}, red = {}, green = {} } }
+  local e = { type = "electric-pole", name = "poteau-test", force = force, unit_number = next_un, valid = true, position = { x = x, y = y },
+    bounding_box = box(x, y, 0.3, 0.3), prototype = { supply_area_distance = d or 2.5, max_wire_distance = 7.5 }, electric_network_id = net,
+    neighbours = { copper = {}, red = {}, green = {} } }
+  e.destroy = function()
+    e.valid = false
+    unwire(e)
+    for i = #ents, 1, -1 do if ents[i] == e then table.remove(ents, i) end end
+  end
+  e.connect_neighbour = function(o)
+    if not connect_ok then return false end
+    wire(e, o)
+    e.electric_network_id = e.electric_network_id or o.electric_network_id
+    return true
+  end
   next_un = next_un + 1
   ents[#ents + 1] = e
   return e
 end
-local function wire(a, b) a.neighbours.copper[#a.neighbours.copper + 1] = b; b.neighbours.copper[#b.neighbours.copper + 1] = a end
+POLE = pole
 local function machine(kind, x, y, w, h, force, net)
   local e = { type = kind, force = force, unit_number = next_un, valid = true, position = { x = x, y = y }, bounding_box = box(x, y, w, h),
     prototype = { electric_energy_source_prototype = {} }, electric_network_id = net }
@@ -298,8 +346,9 @@ check(h.red == 2, "2 redondants candidats (A : machine aussi sous B ; D : isolé
 check(h.r0 == 0 and h.cost == 5, "relevé à la tranche 0 ; coût = 1 relevé + 4 tranches non vides (" .. tostring(h.cost) .. ")")
 check(jeton.costs[1] == 36, "coût déclaré au jeton = chunks de la boîte (6 × 6) : " .. tostring(jeton.costs[1]))
 check(#h.poles == 0 and h.logged, "liste rendue après le journal")
-check(#logs == 1 and logs[1] == "[FO-HYGIENE] 1 : impulsion a 20.0 min : 4 poteaux releves, 1 sur gisement, 2 redondants candidats (feuilles sans consommateur propre) ; cout : 5 tranches",
-  "ligne [FO-HYGIENE] attendue : " .. tostring(logs[1]))
+check(#logs == 1 and logs[1] == "[FO-HYGIENE] 1 : impulsion a 20.0 min : 4 poteaux releves, 1 sur gisement, 2 redondants candidats (feuilles sans consommateur propre) ; cout : 5 tranches ; refus : famine 3",
+  "ligne [FO-HYGIENE] attendue (famine : rien retiré, 3 refus : A, C sur gisement, D) : " .. tostring(logs[1]))
+check(#ents == 10 and stock["poteau-test"] == 2, "famine : aucune entité détruite, coffre inchangé")
 -- déterminisme : la même scène, rejouée, donne les mêmes compteurs
 local h1 = { n = h.n, sur = h.sur, red = h.red, cost = h.cost }
 for s = 0, 19 do Hy.step(f1, surface, T0 + 18000 + s, s) end
@@ -373,6 +422,126 @@ local function pure(t)
   return true
 end
 check(pure(fb.team.hygiene) and pure(f1.team.hygiene), "état f.team.hygiene en données pures")
+
+---------------------------------------------------------------------------------------------------
+section("§5 bis moteur : le démontage sécurisé (lot HYGIENE-ACTIVE)")
+---------------------------------------------------------------------------------------------------
+local P = require("shared.team.plan")
+local function run_pass(f, T) logs = {} for s = 0, 19 do Hy.step(f, surface, T + s, s) end return f.team.hygiene end
+local function alive(e) return e.valid and (function() for _, x in ipairs(ents) do if x == e then return true end end return false end)() end
+-- scène f1 remise : fil B-C rétabli, réseau 7 alimenté, plus de famine
+B.neighbours.copper, C.neighbours.copper = { A, C }, { B }
+famine, live = false, { [7] = true }
+package.loaded["script.team.generateurs"].networks = function() return live, 0 end
+local stock0 = stock["poteau-test"]
+local hb = run_pass(f1, T0 + 90000)
+check(not alive(A) and not alive(D), "A (feuille couverte par B, réseau alimenté) et D (isolé) retirés")
+check(alive(B), "B (deux fils) gardé")
+check(not alive(C), "C (sur gisement, voisin B, génératrice propre) retiré après remplacement")
+local Cn
+for _, e in ipairs(ents) do if e.type == "electric-pole" and e.force == "f1" and e.position.x == 20.5 and e.position.y == 9.5 then Cn = e end end
+check(Cn ~= nil, "remplaçant posé hors gisement en (20.5, 9.5) : le plus proche qui relie B et couvre la génératrice")
+check(Cn and #Cn.neighbours.copper == 1 and Cn.neighbours.copper[1] == B and Cn.electric_network_id == 7, "remplaçant relié à B, réseau 7")
+check(stock["poteau-test"] == stock0 + 2, "coffre : +1 (A) -1 (pose du remplacant) +1 (ancien C) +1 (D) = +2 (" .. tostring(stock["poteau-test"] - stock0) .. ")")
+check(hb.retraits == 3 and #hb.acts.feuilles == 2 and #hb.acts.remplaces == 1, "3 retraits : 2 feuilles, 1 remplacement")
+check(logs[1] and logs[1]:find(" ; retire poteau feuille (10.5, 10.5), (40.5, 40.5) ; remplace poteau sur gisement (20.5, 10.5) -> (20.5, 9.5)", 1, true) ~= nil
+  and not logs[1]:find("refus", 1, true), "journal : " .. tostring(logs[1]))
+check(f1.team.hygiene_pending == nil, "plus rien en attente")
+-- idempotence : la seconde impulsion ne trouve rien à faire (B et le remplaçant ont chacun un consommateur propre)
+hb = run_pass(f1, T0 + 108000)
+check(hb.n == 2 and hb.red == 0 and hb.retraits == 0 and not logs[1]:find("retire", 1, true) and not logs[1]:find("refus", 1, true),
+  "seconde impulsion : 2 poteaux, rien à retirer, aucun refus : " .. tostring(logs[1]))
+check(pure(f1.team.hygiene), "état en données pures après les actions")
+
+-- scène f4 : refus par cause et relecture AU TICK (paire P2-P3 : la première est retirée, la seconde garde alors un consommateur propre)
+game = { entity_prototypes = { ["poteau-test"] = { type = "electric-pole" } } } -- luacheck: ignore (plan des projets : type du nom)
+live[11] = true
+local P1 = pole(60.5, 60.5, "f4", 21)
+local P2 = pole(70.5, 60.5, "f4", 11)
+local P3 = pole(75.5, 60.5, "f4", 11)
+wire(P2, P3)
+machine("assembling-machine", 72.5, 60.5, 3, 3, "f4", 11)
+local P4 = pole(80.5, 60.5, "f4", 22); P4.last_user = {}
+local P5 = pole(90.5, 60.5, "f4", 23)
+local P6 = pole(100.5, 60.5, "f4", 24)
+local P7 = pole(110.5, 60.5, "f4", 25)
+local P8 = pole(120.5, 60.5, "f4", 12)
+local P9 = pole(125.5, 60.5, "f4", 12)
+wire(P8, P9)
+machine("assembling-machine", 122.5, 60.5, 3, 3, "f4", 12)
+local f4 = team(4, "f4")
+f4.build = { order = { 2, 1 }, projects = {
+  [1] = { state = "chantier", ents = { { name = "poteau-test", x = 90.5, y = 60.5 }, { name = "machine-test", x = 91.5, y = 60.5 } } },
+  [2] = { state = "fini", ents = { { name = "poteau-test", x = 100.5, y = 60.5 } } } } }
+f4.swap = { pass = {}, pole_pos = { [P.tkey(110, 60)] = true } }
+stock0 = stock["poteau-test"]
+hb = run_pass(f4, T0 + 90000)
+check(hb.n == 9 and hb.sur == 0, "9 poteaux relevés, aucun sur gisement")
+check(not alive(P1) and not alive(P2), "P1 (isolé) et P2 (feuille couverte par P3) retirés")
+check(alive(P3) and #P3.neighbours.copper == 0, "P3 relu AU TICK : P2 parti, la machine n'est plus que sous P3 : gardé")
+check(alive(P4) and alive(P5) and alive(P6) and alive(P7) and alive(P8) and alive(P9), "P4..P9 gardés")
+check(hb.plan["90:60"] == "chantier" and hb.plan["100:60"] == "fini" and hb.plan["91:60"] == nil, "plan des poteaux des projets : chantier, fini, la machine ignorée")
+check(logs[1]:find(" ; retire poteau feuille (60.5, 60.5), (70.5, 60.5) ; refus : chaine des foreuses 1, couvrant non alimente 2, piece du plan 1, pose par un joueur 1, projet non fini 1", 1, true) ~= nil,
+  "journal des refus par cause (triées) : " .. tostring(logs[1]))
+check(stock["poteau-test"] == stock0 + 2, "coffre : +2")
+-- chaîne des foreuses hors passe, projet abandonné : P7 et P5 deviennent des feuilles ordinaires
+f4.swap.pass = nil
+f4.build.projects[1].abandoned = true
+hb = run_pass(f4, T0 + 108000)
+check(not alive(P7) and not alive(P5) and alive(P6), "chaîne finie et projet abandonné : P7 et P5 retirés ; P6 (plan fini) gardé")
+
+-- scène f5 : budget (6 isolés, 4 retraits par impulsion)
+local f5 = team(5, "f5")
+local isoles = {}
+for i = 1, 6 do isoles[i] = pole(60.5 + 3 * i, 80.5, "f5", 30 + i) end -- (dans la boîte des chunks de la doublure : −64..128)
+hb = run_pass(f5, T0 + 90000)
+local left = 0
+for _, e in ipairs(isoles) do if alive(e) then left = left + 1 end end
+check(hb.retraits == 4 and left == 2 and hb.acts.refus["budget"] == 2, "budget : 4 retirés, 2 refus « budget » (" .. tostring(hb.retraits) .. ", " .. left .. ")")
+hb = run_pass(f5, T0 + 108000)
+left = 0
+for _, e in ipairs(isoles) do if alive(e) then left = left + 1 end end
+check(left == 0 and hb.retraits == 2, "impulsion suivante : les 2 derniers")
+
+-- scène f6 : menace du QG (hystérésis de votre équipe, puis menace de faction)
+local f6 = team(6, "f6")
+local M1 = pole(60.5, 90.5, "f6", 40)
+f6.team.hq_menace = { crise = true }
+hb = run_pass(f6, T0 + 90000)
+check(alive(M1) and hb.acts.refus["menace du QG"] == 1, "QG menacé (hq_menace.crise) : refus")
+f6.team.hq_menace.crise = false
+f6.threatened_until = T0 + 200000
+hb = run_pass(f6, T0 + 108000)
+check(alive(M1) and hb.acts.refus["menace du QG"] == 1, "faction menacée (threatened_until) : refus")
+f6.threatened_until = T0 + 108000
+hb = run_pass(f6, T0 + 126000)
+check(not alive(M1) and hb.retraits == 1, "menace levée : retiré")
+
+-- scène f7 : remplacement raté (le fil du remplaçant ne se pose pas) : remplaçant détruit et rendu, l'ancien reste
+live[13] = true
+local Q1 = pole(100.5, 100.5, "f7", 13)
+local Q2 = pole(95.5, 100.5, "f7", 13)
+wire(Q1, Q2)
+machine("generator", 103.5, 100.5, 3, 3, "f7", 13)
+machine("assembling-machine", 92.5, 100.5, 3, 3, "f7", 13) -- consommateur propre de Q2 : Q2 n'est pas une feuille à retirer
+ore(100, 100)
+local f7 = team(7, "f7")
+stock0 = stock["poteau-test"]
+connect_ok = false
+hb = run_pass(f7, T0 + 90000)
+connect_ok = true
+local n7 = 0
+for _, e in ipairs(ents) do if e.type == "electric-pole" and e.force == "f7" then n7 = n7 + 1 end end
+check(alive(Q1) and n7 == 2 and stock["poteau-test"] == stock0, "remplaçant non relié : détruit et rendu, l'ancien reste, coffre inchangé (" .. n7 .. ")")
+check(hb.acts.refus["voisin non relie"] == 1 and #hb.acts.remplaces == 0 and f7.team.hygiene_pending == nil, "refus « voisin non relie », rien en attente")
+-- sans poteau au coffre : rien n'est posé (cause « stock »)
+stock["poteau-test"] = 0
+hb = run_pass(f7, T0 + 108000)
+check(alive(Q1) and hb.acts.refus["stock"] == 1, "coffre sans poteau : refus « stock », rien posé")
+stock["poteau-test"] = 1
+hb = run_pass(f7, T0 + 126000)
+check(not alive(Q1) and #hb.acts.remplaces == 1 and stock["poteau-test"] == 1, "poteau au coffre : remplacé (payé puis l'ancien rendu : coffre inchangé)")
+famine, game = true, nil -- luacheck: ignore (les sections suivantes gardent la scène d'avant : aucune action)
 
 ---------------------------------------------------------------------------------------------------
 section("§6 réveils (lot SCAN-EVENEMENTS) : St.due / St.ack / St.wake, voies, prochain créneau, mutants")
