@@ -23,6 +23,8 @@ local M = require("shared.team.modules")
 local T = require("shared.team.config")
 local Stock = require("script.team.stock")
 local S = require("shared.team.sante_centrale")
+local Cc = require("shared.team.charbon_centrale") -- lot BRULEURS-60 (F454) : charbon LIBRE du coffre, hors la réserve des brûleurs (Cc.free_fuel, F445)
+local Outposts = require("script.faction.outposts") -- lot BRULEURS-60 (F454) : la réserve des tournées des brûleurs (Outposts.fuel_reserve)
 
 local Sante = {}
 
@@ -120,7 +122,10 @@ function Sante.observe(f, surface, p, tick)
   if Sante.off(f) then
     st.prime = nil
   elseif S.confirm(st, c.boilers.dry) then
-    local stock = Stock.count(f, T.fuel)
+    -- Lot BRULEURS-60 (F454) : charbon LIBRE seulement, hors la réserve des tournées des brûleurs (la grandeur que quai_tasks retire déjà
+    -- pour le coffre de la centrale, F445). Banc V0676-O graine 123456789, 63,2 min : « 39 charbon(s) chacune (78 au total, stock 79) »
+    -- pendant que 46 brûleurs vitaux étaient à sec ; la tournée suivante vers l'avant-poste de charbon partait avec 1 charbon.
+    local stock = Cc.free_fuel(Stock.count(f, T.fuel), Outposts.fuel_reserve(f))
     local pr, why = S.prime(st, c.boilers.dry, stock, tick)
     if pr then
       st.prime = { count = pr.count, boilers = pr.boilers, total = pr.total, x = first_dry.x, y = first_dry.y }
