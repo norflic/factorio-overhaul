@@ -20,10 +20,17 @@ RENDER = os.path.normpath(os.path.join(HERE, "..", ".."))
 MOD = os.path.dirname(os.path.dirname(RENDER))
 LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 SRC_DEFAUT = os.path.join(LOGS, "2026-11-10_POLISSAGE-FX", "rendu")
+SRC_TOURELLES = os.path.join(LOGS, "2026-11-10_POLISSAGE-2", "rendu")
 DEST_DEFAUT = os.path.join(MOD, "graphics", "batiments")
 PREFIXE_JEU = "__factorio-overhaul__/graphics/batiments/"
-COMMANDE = "py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu, à GARDER)"
-BATIMENTS = ("coffre", "pylone", "cuve")
+COMMANDE = ("py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu "
+            "et fo-logs/2026-11-10_POLISSAGE-2/rendu, à GARDER)")
+BATIMENTS = ("coffre", "pylone", "cuve", "bastion2", "bastion3", "bastion4", "tesla", "laser_lourd")
+# lot POLISSAGE-2 : tourelles électriques à tête non tournante ; leur lueur devient une bande de PULSE images (facteurs d'intensité
+# précalculés, onde triangulaire : aucune trigonométrie), lue par prototypes/batiments_visuels.lua (têtes : direction_count 1)
+TOURELLES = ("bastion2", "bastion3", "bastion4", "tesla", "laser_lourd")
+PULSE = (0.5, 0.62, 0.76, 0.9, 1.0, 0.9, 0.76, 0.62)
+SOURCES = {b: (SRC_TOURELLES if b in TOURELLES else SRC_DEFAUT) for b in BATIMENTS}
 COUCHES = ("main", "shadow", "glow")
 
 _spec = importlib.util.spec_from_file_location("qg_feuilles", os.path.join(HERE, "..", "levels", "qg_e", "feuilles.py"))
@@ -64,6 +71,28 @@ def couches(src, dest, cle, fichiers):
     if anc:
         out["ancrages"] = {n: {"fil": [round(v["fil"][0] / 64.0, 4), round(v["fil"][1] / 64.0, 4)],
                                "ombre": [round(v["ombre"][0] / 64.0, 4), round(v["ombre"][1] / 64.0, 4)]} for n, v in sorted(anc.items())}
+    return out
+
+
+def pulse(src, dest, cle, c, fichiers):
+    """Bande de len(PULSE) images de la lueur (hr et normale), intensité × facteur (alpha prémultiplié : la lueur additive baisse)."""
+    g = c.get("glow")
+    if not g:
+        raise SystemExit("[FO-FEUILLES-BATIMENTS] %s : tourelle sans lueur" % cle)
+    out = {}
+    for res in ("hr", "lr"):
+        p = os.path.join(dest, os.path.basename(g[res]["filename"]))
+        a = np.asarray(Image.open(p).convert("RGBA")).astype(np.float64)
+        imgs = []
+        for f in PULSE:
+            b = a.copy()
+            b[..., 3] = b[..., 3] * f
+            imgs.append(b)
+        strip = Image.fromarray(np.concatenate(imgs, 1).round().astype(np.uint8), "RGBA")
+        fn = ("hr-%s-pulse.png" if res == "hr" else "%s-pulse.png") % cle
+        _ecrit(strip, dest, fn, fichiers)
+        out[res] = {"filename": PREFIXE_JEU + fn, "width": a.shape[1], "height": a.shape[0], "shift": list(g[res]["shift"]),
+                    "frame_count": len(PULSE), "line_length": len(PULSE)}
     return out
 
 
@@ -109,7 +138,7 @@ def rect(c):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default=SRC_DEFAUT)
+    ap.add_argument("--src", default="", help="une seule source pour tous (défaut : SOURCES par bâtiment)")
     ap.add_argument("--dest", default=DEST_DEFAUT)
     ap.add_argument("--batiments", default=",".join(BATIMENTS))
     a = ap.parse_args()
@@ -119,7 +148,10 @@ def main():
             os.remove(os.path.join(a.dest, f))
     fichiers, tab, mpx = [], {}, 0.0
     for cle in [b for b in a.batiments.split(",") if b]:
-        c = couches(a.src, a.dest, cle, fichiers)
+        src = a.src or SOURCES[cle]
+        c = couches(src, a.dest, cle, fichiers)
+        if cle in TOURELLES:
+            c["pulse"] = pulse(src, a.dest, cle, c, fichiers)
         rs = [rect(v) for k, v in c.items() if k in ("main", "shadow", "glow")]
         c["boite"] = [[round(min(r[0] for r in rs), 4), round(min(r[1] for r in rs), 4)],
                       [round(max(r[2] for r in rs), 4), round(max(r[3] for r in rs), 4)]]
@@ -136,7 +168,7 @@ def main():
         f.write(entete + "return " + Q.lua(tab) + "\n")
     with open(os.path.join(a.dest, "sprites.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(tab, f, indent=1, sort_keys=True, ensure_ascii=False)
-    man = {"commande": COMMANDE, "sources": a.src, "fichiers": {}}
+    man = {"commande": COMMANDE, "sources": a.src or sorted(set(SOURCES.values())), "fichiers": {}}
     total = 0
     for fn in sorted(fichiers):
         p = os.path.join(a.dest, fn)
@@ -146,7 +178,8 @@ def main():
         man["fichiers"][fn] = {"sha256": Q.sha(p), "taille": n, "largeur": w, "hauteur": h}
     with open(os.path.join(a.dest, "MANIFEST.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(man, f, indent=1, sort_keys=True, ensure_ascii=False)
-    print("[FO-FEUILLES-BATIMENTS] %d fichiers PNG, %.2f Mo, %.2f Mpx HR (principale, lueur), sources %s" % (len(fichiers), total / 1e6, mpx, a.src))
+    print("[FO-FEUILLES-BATIMENTS] %d fichiers PNG, %.2f Mo, %.2f Mpx HR (principale, lueur), sources %s" % (len(fichiers), total / 1e6, mpx,
+          a.src or sorted(set(SOURCES.values()))))
 
 
 if __name__ == "__main__":

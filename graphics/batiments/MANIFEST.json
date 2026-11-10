@@ -1,6 +1,96 @@
 {
- "commande": "py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu, à GARDER)",
+ "commande": "py -3.9 tools/render/pieces/batiments/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_POLISSAGE-FX/rendu et fo-logs/2026-11-10_POLISSAGE-2/rendu, à GARDER)",
  "fichiers": {
+  "bastion2-glow.png": {
+   "hauteur": 70,
+   "largeur": 42,
+   "sha256": "4a4a0a82c51bcd83e7aa1c39efe4547580b60630508a23bbb0334673b8865a89",
+   "taille": 3159
+  },
+  "bastion2-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "da32f7d9a5b5914ad05c6888c53f6bb3eff25ec080f87feaf337f79d543ab28d",
+   "taille": 11558
+  },
+  "bastion2-main.png": {
+   "hauteur": 76,
+   "largeur": 68,
+   "sha256": "4ede98efcff46972fa488945d239b1c2e328347e07ad362a00164642664f1bac",
+   "taille": 10109
+  },
+  "bastion2-pulse.png": {
+   "hauteur": 70,
+   "largeur": 336,
+   "sha256": "c89f83b5f90ac5583558c793dc31df59e645650e4adad217dd0552952af3f6c1",
+   "taille": 11330
+  },
+  "bastion2-shadow.png": {
+   "hauteur": 54,
+   "largeur": 82,
+   "sha256": "75f109f072a60c09605d43e96a292c80f80e85a9e8e606397db1a5539c72b2b6",
+   "taille": 1722
+  },
+  "bastion3-glow.png": {
+   "hauteur": 78,
+   "largeur": 42,
+   "sha256": "1be2a546c962878acc84e76c9c9d12ff4680b76faebb27e75e8770be95f1daee",
+   "taille": 3506
+  },
+  "bastion3-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "05167d94887470dd44df4f56629dd8bdf4532db67912a38ff3d13abb5cd4a24c",
+   "taille": 9311
+  },
+  "bastion3-main.png": {
+   "hauteur": 88,
+   "largeur": 68,
+   "sha256": "d2a6dffc89370297a75586e2ad58aed2f6a9b387a48408eb99a18ef229f411f1",
+   "taille": 10570
+  },
+  "bastion3-pulse.png": {
+   "hauteur": 78,
+   "largeur": 336,
+   "sha256": "33c274afcfd045166d9af93179188f598225bf3de064485eb76784d769c6d9d3",
+   "taille": 13040
+  },
+  "bastion3-shadow.png": {
+   "hauteur": 54,
+   "largeur": 91,
+   "sha256": "8be0a96b890e7b6153d260cc2012fa91a474443b3a6151107913622360410329",
+   "taille": 2236
+  },
+  "bastion4-glow.png": {
+   "hauteur": 68,
+   "largeur": 38,
+   "sha256": "f5c7622a2fbbeee851e9ee4ad86136d8ca6d8798ebab1806a2b7b05d2f3d513a",
+   "taille": 2631
+  },
+  "bastion4-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "f840a45ef76eb19823df423537064313a62b4adba97fc00f230672afaa6e5d08",
+   "taille": 11345
+  },
+  "bastion4-main.png": {
+   "hauteur": 80,
+   "largeur": 72,
+   "sha256": "1589c704712abdf51b3e959a7c4aad8bd483688ff9e675c34c60d677e6bc0236",
+   "taille": 11493
+  },
+  "bastion4-pulse.png": {
+   "hauteur": 68,
+   "largeur": 304,
+   "sha256": "636405a4a90fa2588e65f4200c5a0820a899d8cfd9196183ad410b1f9f970b7a",
+   "taille": 9868
+  },
+  "bastion4-shadow.png": {
+   "hauteur": 58,
+   "largeur": 85,
+   "sha256": "ef01e5de2c3a5eda2cb7406ea7afa8b1b6f6f11682dd842d947036dec4fa865b",
+   "taille": 2078
+  },
   "coffre-glow.png": {
    "hauteur": 32,
    "largeur": 20,
@@ -49,6 +139,78 @@
    "sha256": "6e0aa5eb07d596092fa34d2976fef88a7193e565693e65bd5d8b83d019c0990a",
    "taille": 3965
   },
+  "hr-bastion2-glow.png": {
+   "hauteur": 140,
+   "largeur": 84,
+   "sha256": "8649283f544610f00f3a099e0f0f502ffb0f0fad0b65380ee9dd5c8b2af13480",
+   "taille": 13661
+  },
+  "hr-bastion2-main.png": {
+   "hauteur": 152,
+   "largeur": 136,
+   "sha256": "419af46d30f6a33770f4ea51620449a41282c9ecfef385df906a835feb36cc70",
+   "taille": 32981
+  },
+  "hr-bastion2-pulse.png": {
+   "hauteur": 140,
+   "largeur": 672,
+   "sha256": "665807cbf870c8f72c248749338a8e5772b764b971cf510fc70af128200393b5",
+   "taille": 46459
+  },
+  "hr-bastion2-shadow.png": {
+   "hauteur": 108,
+   "largeur": 164,
+   "sha256": "b3b10e56f1354fe23fae6244ca2698630b79d5e3834ffc7dcb7847d127e40266",
+   "taille": 4524
+  },
+  "hr-bastion3-glow.png": {
+   "hauteur": 156,
+   "largeur": 84,
+   "sha256": "2def6202a669b2ee324c4e8c23427053a29c65ad6bcf75597023af5c97158e81",
+   "taille": 14892
+  },
+  "hr-bastion3-main.png": {
+   "hauteur": 176,
+   "largeur": 136,
+   "sha256": "d5f55dab56ace653ef7a0689445c2cc68145dcdb51750623530ccd0bf4bf9381",
+   "taille": 34034
+  },
+  "hr-bastion3-pulse.png": {
+   "hauteur": 156,
+   "largeur": 672,
+   "sha256": "3e5f61004c014f6258c405ff28017078136d740ddb56e96369a1bf21028c35ff",
+   "taille": 50887
+  },
+  "hr-bastion3-shadow.png": {
+   "hauteur": 108,
+   "largeur": 182,
+   "sha256": "6b6bbaaeba9bd8d80e3f47510601a01c3e9ad8e2d080ee2169507c80c48f03c7",
+   "taille": 5761
+  },
+  "hr-bastion4-glow.png": {
+   "hauteur": 136,
+   "largeur": 76,
+   "sha256": "7c3ed09546566eb93dd8629903c540c0a4a92f95f203c7301ea36354d7a1675f",
+   "taille": 10070
+  },
+  "hr-bastion4-main.png": {
+   "hauteur": 160,
+   "largeur": 144,
+   "sha256": "b525747e82d2bb6116b7fc5001363b0d05e383acddc98a05de16dd63c5544f37",
+   "taille": 37249
+  },
+  "hr-bastion4-pulse.png": {
+   "hauteur": 136,
+   "largeur": 608,
+   "sha256": "4de981f7df72f9d69bd93be8128be37fbb56abee6d87832031ec6b4ba06a3769",
+   "taille": 34754
+  },
+  "hr-bastion4-shadow.png": {
+   "hauteur": 116,
+   "largeur": 170,
+   "sha256": "297b321bf45295c36c6631c5c361c6aee50c9731a46fdaeb729a1c18c1a5abe6",
+   "taille": 5976
+  },
   "hr-coffre-glow.png": {
    "hauteur": 64,
    "largeur": 40,
@@ -85,6 +247,30 @@
    "sha256": "b5e0a4903da1ecd73cc5ed32f735796b06a42ad1f3086910a3b767b5e8f8d811",
    "taille": 12865
   },
+  "hr-laser_lourd-glow.png": {
+   "hauteur": 172,
+   "largeur": 136,
+   "sha256": "750935dee1368632327aa037b10571e79d3a4a7e63c1c4a4ee54c1472de4c3b9",
+   "taille": 16584
+  },
+  "hr-laser_lourd-main.png": {
+   "hauteur": 184,
+   "largeur": 192,
+   "sha256": "a2e4026134e90ba4587187500f6ac517336516a7c8d3db00df72092110e6d7c3",
+   "taille": 59299
+  },
+  "hr-laser_lourd-pulse.png": {
+   "hauteur": 172,
+   "largeur": 1088,
+   "sha256": "212e0205a0d4487dd36e97d4376bbde87edfd56f87807ac83f23b15d94ac6a78",
+   "taille": 64281
+  },
+  "hr-laser_lourd-shadow.png": {
+   "hauteur": 160,
+   "largeur": 190,
+   "sha256": "94d3c0ec9a298f04bac094e7f0305dfc4e6c57ac3cdfb92952c093bf609afff3",
+   "taille": 4623
+  },
   "hr-pylone-glow.png": {
    "hauteur": 340,
    "largeur": 156,
@@ -102,6 +288,60 @@
    "largeur": 440,
    "sha256": "de654d240b6934b7fd61d2477b29797e30bad3ca66688ad853c1c9d067c971fa",
    "taille": 18949
+  },
+  "hr-tesla-glow.png": {
+   "hauteur": 156,
+   "largeur": 76,
+   "sha256": "d3aaa0cb07f97cdb5c7346df15e979de9e39e6b421d9d7530dc6fae659aa33f0",
+   "taille": 9807
+  },
+  "hr-tesla-main.png": {
+   "hauteur": 172,
+   "largeur": 136,
+   "sha256": "e31004eb90db5874e21223f775c36163322bb13890097898e1746495efa9adc6",
+   "taille": 34131
+  },
+  "hr-tesla-pulse.png": {
+   "hauteur": 156,
+   "largeur": 608,
+   "sha256": "eeaa10e78e3a16801796efcf875714b5302eaf4d70c75f37f2b851f7764e12d6",
+   "taille": 37481
+  },
+  "hr-tesla-shadow.png": {
+   "hauteur": 108,
+   "largeur": 194,
+   "sha256": "8498c7094e81f1f2feef01f2e157ac6043155cff3dcd98efd1a3e3b880f7a561",
+   "taille": 5007
+  },
+  "laser_lourd-glow.png": {
+   "hauteur": 86,
+   "largeur": 68,
+   "sha256": "25ff6d2f13bddc83fb13eb606f2af98cf0610755ca82a6cff66c8811d7404dae",
+   "taille": 5499
+  },
+  "laser_lourd-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "daf4d62648fabce75a50f0cd8e52f618c35852c71c28892ee3832c43fe87e02c",
+   "taille": 13633
+  },
+  "laser_lourd-main.png": {
+   "hauteur": 92,
+   "largeur": 96,
+   "sha256": "8a2cb20f74cffc9cd8c336c9d0ad3c861ac1293db9acb20433c7c11ead781cef",
+   "taille": 18283
+  },
+  "laser_lourd-pulse.png": {
+   "hauteur": 86,
+   "largeur": 544,
+   "sha256": "2d6195719481ac661d7c83ec7312dddc7f84fae483b427e430f975672b041871",
+   "taille": 20436
+  },
+  "laser_lourd-shadow.png": {
+   "hauteur": 80,
+   "largeur": 95,
+   "sha256": "964405ade82a6684a9ef3b5032f476966d754440e5dada6cc8d954dface5490d",
+   "taille": 1840
   },
   "pylone-glow.png": {
    "hauteur": 170,
@@ -126,7 +366,40 @@
    "largeur": 220,
    "sha256": "00f093cb4681dc6eb2c0b93deeedb9d5ed30885af74ef49d7e3c73ee23acf7cc",
    "taille": 7114
+  },
+  "tesla-glow.png": {
+   "hauteur": 78,
+   "largeur": 38,
+   "sha256": "babb2c5a3f52b1514b849e2d0971859733d85ee4e720a0706435bc1c1c289d1f",
+   "taille": 2973
+  },
+  "tesla-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "359e41fe8e26d3290076dfe374f7f42221b37803a420094bdd4bf18fe4ec4d38",
+   "taille": 9721
+  },
+  "tesla-main.png": {
+   "hauteur": 86,
+   "largeur": 68,
+   "sha256": "ac8036e69d44cd4db84c0ee7f570e3ccdda62ac328716a1899f982e2e9463274",
+   "taille": 10604
+  },
+  "tesla-pulse.png": {
+   "hauteur": 78,
+   "largeur": 304,
+   "sha256": "09be88e3384d863578170cb1ec4465256fe395aeaa34bd227654bca1ec1d02ae",
+   "taille": 11331
+  },
+  "tesla-shadow.png": {
+   "hauteur": 54,
+   "largeur": 97,
+   "sha256": "d4cd905484f546881427919bc05aa067415a812ea62e41ac32c9c07b13531b8e",
+   "taille": 1793
   }
  },
- "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_POLISSAGE-FX\\rendu"
+ "sources": [
+  "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_POLISSAGE-2\\rendu",
+  "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-10_POLISSAGE-FX\\rendu"
+ ]
 }

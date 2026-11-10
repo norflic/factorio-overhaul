@@ -24,6 +24,13 @@ BATIMENTS = {
     "coffre": ("fo-team-chest", "container", 1, "m_coffre"),
     "pylone": ("fo-ht-pylon", "electric-pole", 2, "m_pylone"),
     "cuve": ("fo-reduction-cell", "assembling-machine", 4, "m_cuve"),
+    # lot POLISSAGE-2 (10/11) : tourelles électriques encore copiées de vanilla et teintées, refaites en émetteurs à symétrie de
+    # révolution (UNE direction, tête non tournante : glow pulsé) ; ANCRAGES « emetteur » = origine du faisceau ou de l'orbe
+    "bastion2": ("fo-bastion-2", "electric-turret", 2, "m_bastion2"),
+    "bastion3": ("fo-bastion-3", "electric-turret", 2, "m_bastion3"),
+    "bastion4": ("fo-bastion-4", "electric-turret", 2, "m_bastion4"),
+    "tesla": ("fo-tesla-turret", "electric-turret", 2, "m_tesla"),
+    "laser_lourd": ("fo-heavy-laser-turret", "electric-turret", 3, "m_laser_lourd"),
 }
 MACHINES = {n: p for n, p in BATIMENTS.items()}
 PIECE = {"name": "bat", "margin_px": 40,
