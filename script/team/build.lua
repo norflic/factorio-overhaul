@@ -5460,37 +5460,6 @@ function Build.space_step(f, surface, tick)
   end
 end
 
---- [FO-DIAG-FIN] SONDE (lot BANDE-FIN-TAPIS, a retirer) : chantier a 90 % ou plus, une ligne toutes les 3 min par projet, 60 lignes par equipe.
-function Build.diag_fin(f, p, tick)
-  if tick < (p.diag_fin_next or 0) then return end
-  p.diag_fin_next = tick + 10800
-  local built = count_built(p)
-  local total = #p.ents
-  if total == 0 or built >= total or built * 10 < total * 9 then return end
-  f.build.diag_fin_n = (f.build.diag_fin_n or 0) + 1
-  if f.build.diag_fin_n > 60 then return end
-  local need = needs_of(p)
-  local free = free_stock(f)
-  local parts = {}
-  for _, it in ipairs(sorted_keys(need)) do
-    parts[#parts + 1] = string.format("%s need=%d stock=%d coffre=%d libre=%d", it, need[it], p.stock[it] or 0, Stock.count(f, it), free[it] or 0)
-  end
-  local miss = {}
-  for _, m in ipairs(p.missing or {}) do miss[#miss + 1] = m[1] .. "x" .. m[2] end
-  local bd = Board.get(f)
-  local pre = "ia1d:" .. p.id .. ":"
-  local live, taken, cd, cdmax = 0, 0, 0, 0
-  for _, key in ipairs(sorted_keys(bd.tasks)) do
-    if key:sub(1, #pre) == pre then live = live + 1; if bd.tasks[key].worker then taken = taken + 1 end end
-  end
-  for _, key in ipairs(sorted_keys(bd.cooldown)) do
-    if key:sub(1, #pre) == pre and tick < bd.cooldown[key] then cd = cd + 1; cdmax = math.max(cdmax, bd.cooldown[key] - tick) end
-  end
-  log(string.format("[FO-DIAG-FIN] %s t=%d min=%.1f projet %d (%s) %d/%d reopened=%s lg=%s missing=[%s] taches=%d prises=%d pause=%d (max %.1f min) | %s",
-    f.key or "player", tick, tick / 3600, p.id, tostring(p.state), built, total, tostring(p.reopened), tostring(p.spec and p.spec.lg ~= nil),
-    table.concat(miss, ","), live, taken, cd, cdmax / 3600, table.concat(parts, " ; ")))
-end
-
 --- Pensée d'équipe (script/team/team.lua, après l'organisation) : tâches au tableau, réévaluation des rues
 --- défrichées, mesures par minute. Sans plan directeur : rien.
 function Build.think(f, surface, tick)
@@ -5521,7 +5490,6 @@ function Build.think(f, surface, tick)
           if open then clear_tasks(f, p, tasks) end
         end
         batch_tasks(f, p, tasks, free_of)
-        if p.state == "chantier" then Build.diag_fin(f, p, tick) end -- [FO-DIAG-FIN] SONDE, A RETIRER
         Profiler.fstop("e2:batch")
       end
       -- lot CHARBON-CENTRALE (relecture) : une centrale ROUVERTE (pièce détruite : reserve, defrichage, fantomes, raccordement, bloque)
