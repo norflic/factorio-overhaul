@@ -191,8 +191,18 @@ local function fed_by(surface, e, force, d)
 end
 
 --- Un AUTRE poteau de la même force et du même réseau que `e` alimente-t-il aussi `c` (son carré touche la boîte de `c`) ?
---- Lot HYGIENE-PLANS-FINIS : `ext` = seul un poteau EXTÉRIEUR (hors gisement) compte comme couvrant.
-local function other_pole_covers(surface, e, c, force, dmax, ext)
+--- Lot HYGIENE-PLANS-FINIS : `ext` = seul un poteau EXTÉRIEUR (hors gisement) compte comme couvrant ; `ctx.ore` mémoïse « sur gisement »
+--- par unit_number le temps de la tranche (banc HYGPLANS-A2 : 0,020 ms/tick sans mémo, les mêmes poteaux couvrants relus à chaque consommateur).
+local function pole_on_ore(surface, p, ctx)
+  local memo = ctx and ctx.ore
+  if not memo then return on_ore(surface, p) end
+  local un = p.unit_number
+  local v = memo[un]
+  if v == nil then v = on_ore(surface, p) memo[un] = v end
+  return v
+end
+
+local function other_pole_covers(surface, e, c, force, dmax, ext, ctx)
   local bb = c.bounding_box
   local x0, y0, x1, y1 = bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y
   local net, un = e.electric_network_id, e.unit_number
@@ -200,20 +210,20 @@ local function other_pole_covers(surface, e, c, force, dmax, ext)
   for _, p in ipairs(surface.find_entities_filtered({ position = c.position, radius = r, type = "electric-pole", force = force })) do
     if p.unit_number ~= un and p.electric_network_id == net
       and St.covers(p.position.x, p.position.y, p.prototype.supply_area_distance or 0, x0, y0, x1, y1)
-      and not (ext and on_ore(surface, p)) then return true end
+      and not (ext and pole_on_ore(surface, p, ctx)) then return true end
   end
   return false
 end
 
 --- Consommateurs du poteau `e` qu'il alimente SEUL (aucun autre poteau du même réseau ne les couvre) : liste (au plus `limit`) et le
 --- total des entités alimentées. Lot HYGIENE-ACTIVE : partagé par l'audit (limit 1 : il suffit d'en voir un) et par le plan de remplacement.
-local function own_fed(surface, f, h, e, limit, ext)
+local function own_fed(surface, f, h, e, limit, ext, ctx)
   local d = e.prototype.supply_area_distance or 0
   local dmax = (h.dmax > d) and h.dmax or d
   local fed = fed_by(surface, e, f.force, d)
   local own = {}
   for _, c in ipairs(fed) do
-    if not other_pole_covers(surface, e, c, f.force, dmax, ext) then
+    if not other_pole_covers(surface, e, c, f.force, dmax, ext, ctx) then
       own[#own + 1] = c
       if limit and #own >= limit then break end
     end
@@ -461,7 +471,7 @@ local function act(surface, f, h, e, info, ctx, tick, slice)
     local q, pe = piece_of(f, ref)
     st.sur_gisement, st.deja_cedee, st.fils = true, (pe == nil) or pe.dropped == true, info.wires
     if info.wires <= 1 then
-      local own_ext, fed = own_fed(surface, f, h, e, 1, true)
+      local own_ext, fed = own_fed(surface, f, h, e, 1, true, ctx)
       st.consommateurs, st.consommateurs_propres = fed, #own_ext
       st.couvrant_alimente = fed == 0 or live_nets(ctx, f, surface)[e.electric_network_id or -1] == true
     end
@@ -494,7 +504,7 @@ local function slice_step(f, surface, h, slice, tick)
   local a, b, skipped = St.share_capped(h.n, s, eff, Hy.CFG.max_per_slice)
   if b < a then return end
   Profiler.fstart("hyg:tranche")
-  local ctx = {} -- lot HYGIENE-ACTIVE : lectures partagées de la tranche (réseaux alimentés, famine, menace), jamais gardées
+  local ctx = { ore = {} } -- lot HYGIENE-ACTIVE : lectures partagées de la tranche (réseaux alimentés, famine, menace), jamais gardées ; HYGIENE-PLANS-FINIS : mémo « sur gisement »
   for i = a, b do
     local boxed = Boxes.skip_at(f, h.poles[i][2], h.poles[i][3]) -- lot BOXES : poteau d'une box MAXED : ni retrouvé ni audité, compté
     local e = (not boxed) and pole_at(surface, f.force, h.poles[i]) or nil
