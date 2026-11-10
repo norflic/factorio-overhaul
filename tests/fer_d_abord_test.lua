@@ -96,6 +96,37 @@ local d = mig:find("if Th.iron_waits(it.tier", 1, true)
 check(a and b and d and a < b and b < d, "drapeau pose avant la boucle, lu en tete de boucle, ecrit apres Mg.start_ok")
 check(mig:find('why_hold == "expire"', 1, true) ~= nil and mig:find("retenue des bandes brutes levee apres", 1, true) ~= nil, "la levee de la retenue est ecrite au journal")
 check(mig:find('why_hold == "combustible"', 1, true) ~= nil and mig:find("le combustible manque", 1, true) ~= nil, "le combustible non retenu est ecrit au journal")
+print("== plancher du combustible de la retenue (F481, lot AVANT-POSTES-RAPIDES)")
+-- Cas mesuré (V0680-B, 1618033988, votre équipe) : avant-poste 2 (charbon) « bande brute neuve retenue » de 6,3 à 90 min ; brûleurs à sec 28 à 45 min,
+-- 26 à 75 min ; centrale à sec = générateurs à 0 objet/s. Le manque lisait les seuls générateurs : jamais « combustible », toujours retenu.
+local Mc = require("shared.team.migration_combustible")
+local function plancher_cas(McX)
+  local bad = 0
+  local function ok(c, m) if not c then bad = bad + 1; if not QUIET then print("  ECHEC : " .. m) end end end
+  local fl = McX.floor(0, { { kw = 150, n = 70 } }, 4000)   -- centrale à sec, 70 brûleurs de 150 kW, combustible de 4 MJ
+  ok(fl > 2.6 - 1e-6 and fl < 2.63, "p1 plancher = brûleurs à pleine cadence quand la centrale est à sec (" .. tostring(fl) .. ")")
+  ok(Th.fuel_short(0, fl) == true, "p2 stock nul sous le plancher des brûleurs : manque")
+  ok(Th.fuel_short(0, 0) == false, "p3 (rappel du défaut) générateurs seuls à 0 : aucun manque lu")
+  local h, w = Th.raw_holds({ tier = 1, wanted = false, iron_waiting = true, fuel = true, fuel_short = Th.fuel_short(0, fl), since = 0, now = 60 })
+  ok(h == false and w == "combustible", "p4 bande de combustible jamais retenue quand les brûleurs manquent")
+  local g = McX.floor(0.35, {}, 4000)
+  ok(math.abs(g - 0.35) < 1e-9, "p5 générateurs seuls : le plancher est leur consommation mesurée")
+  ok(McX.floor(0.35, { { kw = 90, n = 10 } }, 4000) > 0.35 + 0.2, "p6 générateurs + brûleurs : les deux s'ajoutent")
+  return bad
+end
+local function cablage(txt)
+  local bad = 0
+  local a = txt:find("local iron_waiting = false", 1, true)
+  local b = txt:find("Th.raw_holds({ tier", 1, true)
+  local zone = (a and b and a < b) and txt:sub(a, b) or ""
+  if not zone:find("burn = burn or fuel_floor(f, surface)", 1, true) then bad = bad + 1 end
+  if zone:find("fuel_burn(f, surface)", 1, true) then bad = bad + 1 end
+  if not zone:find("short = Th.fuel_short(free[spec.product] or 0, burn)", 1, true) then bad = bad + 1 end
+  if not zone:find("if is_fuel then", 1, true) then bad = bad + 1 end
+  return bad
+end
+check(plancher_cas(Mc) == 0, "le plancher de la retenue compte les brûleurs")
+check(cablage(mig) == 0, "la retenue FER-D-ABORD mesure le manque au plancher de l'équipe (fuel_floor), pas aux seuls générateurs")
 print("== mutants")
 local f2 = io.open("shared/team/thermique.lua", "rb")
 local src = f2:read("*a")
@@ -135,5 +166,37 @@ for _, m in ipairs(mutants) do
     end
   end
 end
+print("== mutants du plancher (F481)")
+local f3 = io.open("shared/team/migration_combustible.lua", "rb")
+local msrc = f3:read("*a")
+f3:close()
+QUIET = true
+for _, m in ipairs({
+  { "plancher sans les brûleurs", "total = total + math.max(0, b.kw or 0) * math.max(0, b.n or 0) / fuel_kj", "total = total" },
+  { "plancher sans les générateurs", "local total = math.max(0, gen or 0)", "local total = 0" },
+}) do
+  local x, y = msrc:find(m[2], 1, true)
+  if not x then QUIET = false check(false, "motif introuvable : " .. m[1]) QUIET = true
+  else
+    local McM = load(msrc:sub(1, x - 1) .. m[3] .. msrc:sub(y + 1), "=mutmc", "t")()
+    local n = plancher_cas(McM)
+    QUIET = false check(n > 0, "mutant detecte : " .. m[1]) QUIET = true
+  end
+end
+for _, m in ipairs({
+  { "retour aux seuls générateurs (le défaut)", "burn = burn or fuel_floor(f, surface)", "burn = burn or fuel_burn(f, surface)" },
+  { "manque jamais lu", "short = Th.fuel_short(free[spec.product] or 0, burn)", "short = false" },
+  { "exemption du combustible retiree", "if is_fuel then", "if false then" },
+}) do
+  local src2 = mig:gsub(string.char(13), "")
+  local a = src2:find("local iron_waiting = false", 1, true) or 1
+  local x, y = src2:find(m[2], a, true)
+  if not x then QUIET = false check(false, "motif introuvable : " .. m[1]) QUIET = true
+  else
+    local n = cablage(src2:sub(1, x - 1) .. m[3] .. src2:sub(y + 1))
+    QUIET = false check(n > 0, "mutant detecte : " .. m[1]) QUIET = true
+  end
+end
+QUIET = false
 print(string.format("[FER-D-ABORD] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

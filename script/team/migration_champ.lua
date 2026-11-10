@@ -1583,7 +1583,10 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       local is_fuel = spec.resource == T.fuel
       local short = false
       if is_fuel then
-        burn = burn or fuel_burn(f, surface)
+        -- lot AVANT-POSTES-RAPIDES (F481) : le manque se mesure au PLANCHER de l'équipe (générateurs + brûleurs, Mc.floor), comme la coupe et le
+        -- retour en arrière du lot COMBUSTIBLE-MIGRATION ; il lisait les seuls générateurs (fuel_burn) : centrale à sec = 0 brûlé = « pas de manque »,
+        -- et la bande de charbon restait retenue derrière le fer de 6 à 90 min pendant que les brûleurs de l'équipe s'éteignaient (V0680-B, -C)
+        burn = burn or fuel_floor(f, surface)
         short = Th.fuel_short(free[spec.product] or 0, burn)
       end
       local held, why_hold = Th.raw_holds({ tier = it.tier, wanted = it.wanted, iron_waiting = iron_waiting, fuel = is_fuel, fuel_short = short,
@@ -1597,7 +1600,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
           (tick - (ms.iron_since or tick)) / 3600, free[T.outposts.iron.product] or 0), true)
       elseif why_hold == "combustible" and ms.iron_note ~= "combustible" then
         ms.iron_note = "combustible"
-        say(f, ms, string.format("fer d'abord : avant-poste %d (%s) non retenu, le combustible manque (stock %d, %.2f/s brules)", o.id, o.kind,
+        say(f, ms, string.format("fer d'abord : avant-poste %d (%s) non retenu, le combustible manque (stock %d, plancher %.2f/s, generateurs et bruleurs)", o.id, o.kind,
           free[spec.product] or 0, burn or 0), true)
       end
     end
