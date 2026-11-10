@@ -3,10 +3,10 @@ par prototypes/titans.lua et prototypes/titans_kaiju.lua) et MANIFEST.json (comm
 
     PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py [--src DIR] [--dest DIR]      (depuis la racine du mod)
 
-Sources (à GARDER) : fo-logs/2026-11-09_TITANS/rendu/ : juggernaut-<stage>/ (main.png, glow_*.png, shadow.png, spec.json : post des géants) ;
+Sources (à GARDER) : fo-logs/2026-11-10_TITANS-RECAL/rendu/ : <allié>-<stage>/ (main.png, glow_*.png, shadow.png, spec.json : post des géants) ;
 kaiju/kaiju-<anim>-<image>-<dir>.npz (main, ao, ombre, glow, origine, densite ; batch_titans.py).
-- Juggernaut : même traitement que les géants (feuilles_xp.geant : corps haute 32 px/tuile, normale 16 ; lueurs fondues en UNE couche ;
-  ombre 16 / 8 ; icône 64), un corps par stade (1 à 3).
+- Alliés (Juggernaut, Sentinelle, Léviathan + son drone) : même traitement que les géants (feuilles_xp.geant : corps haute 32 px/tuile,
+  normale 16 ; lueurs fondues en UNE couche ; ombre 16 / 8 ; icône 64), un corps par stade (1 à 3 ; « drone » : une image).
 - Kaiju : par animation (course 8 images, attaque 4) et par couche (main, glow, shadow), UN fichier PAR DIRECTION (8), images en lecture
   continue (`line_length` colonnes, `lines_per_file` lignes : convention vanilla `filenames`), cellule = union des rognages de toutes les
   images et directions, alignée sur 2 ; hr- : densité du rendu (24 px/tuile) ; sans préfixe : la moitié (12). Aucune feuille au-delà de
@@ -34,12 +34,14 @@ import fo_calib as C  # noqa: E402
 import fo_post as P  # noqa: E402
 import feuilles_xp as FX  # noqa: E402
 
-LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-09_TITANS")
+LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-RECAL")
 SRC_DEFAUT = os.path.join(LOGS, "rendu")
 DEST_DEFAUT = os.path.join(MOD, "graphics", "robots", "titans")
 PREFIXE = "__factorio-overhaul__/graphics/robots/titans/"
-COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-09_TITANS/rendu, à GARDER)"
+COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_TITANS-RECAL/rendu, à GARDER)"
 STAGES = (1, 2, 3)
+# alliés (1 direction, traitement des géants) : stades rendus ; le Léviathan a de plus son drone d'escorte (une image, clé « drone »)
+ALLIES = (("juggernaut", ("1", "2", "3")), ("sentinelle", ("1", "2", "3")), ("leviathan", ("1", "2", "3", "drone")))
 ANIMS = (("course", 8), ("attaque", 4))
 DIRS = 8
 REDUC = 2
@@ -179,23 +181,27 @@ def main():
     ap.add_argument("--src", default=SRC_DEFAUT)
     ap.add_argument("--dest", default=DEST_DEFAUT)
     ap.add_argument("--sans-kaiju", action="store_true")
-    ap.add_argument("--sans-juggernaut", action="store_true")
+    ap.add_argument("--sans-allies", action="store_true")
     a = ap.parse_args()
     os.makedirs(a.dest, exist_ok=True)
     for f in glob.glob(os.path.join(a.dest, "*.png")):
         os.remove(f)
     FX.PREFIXE = PREFIXE
     S = FX.Sortie(a.dest)
-    spr = {"juggernaut": {}, "kaiju": {}}
-    poids = {"juggernaut": {"haute": 0.0, "normale": 0.0, "images": 0}, "kaiju": {"haute": 0.0, "normale": 0.0, "images": 0}}
-    if not a.sans_juggernaut:
-        for st in STAGES:
-            e = FX.geant(S, a.src, "juggernaut-%d" % st, "juggernaut-%d" % st)
-            spr["juggernaut"][st] = e
+    spr = {"kaiju": {}}
+    poids = {"kaiju": {"haute": 0.0, "normale": 0.0, "images": 0}}
+    for nom, stades in ALLIES:
+        spr[nom] = {}
+        poids[nom] = {"haute": 0.0, "normale": 0.0, "images": 0}
+        if a.sans_allies:
+            continue
+        for st in stades:
+            e = FX.geant(S, a.src, "%s-%s" % (nom, st), "%s-%s" % (nom, st))
+            spr[nom][st] = e
             for c in [e["main"], e["ombre"]] + e["lueurs"]:
-                poids["juggernaut"]["haute"] += c["hr"]["width"] * c["hr"]["height"] / 1e6
-                poids["juggernaut"]["normale"] += c["lr"]["width"] * c["lr"]["height"] / 1e6
-            poids["juggernaut"]["images"] += 1
+                poids[nom]["haute"] += c["hr"]["width"] * c["hr"]["height"] / 1e6
+                poids[nom]["normale"] += c["lr"]["width"] * c["lr"]["height"] / 1e6
+            poids[nom]["images"] += 1
     if not a.sans_kaiju:
         spr["kaiju"] = kaiju(S, a.src, poids)
     p = os.path.join(a.dest, "sprites.lua")

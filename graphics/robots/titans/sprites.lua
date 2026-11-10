@@ -11,18 +11,18 @@ return {
         {
           hr = {
             filename = "__factorio-overhaul__/graphics/robots/titans/hr-juggernaut-1-lueur.png",
-            height = 1085,
+            height = 1079,
             scale = 1.0,
-            width = 653,
+            width = 657,
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/robots/titans/juggernaut-1-lueur.png",
-            height = 542,
+            height = 540,
             scale = 2.0,
-            width = 326,
+            width = 328,
           },
           nom = "conduits+cristal",
-          shift = { 2.65, -10.95 },
+          shift = { 2.5875, -11.0375 },
         },
       },
       main = {
@@ -66,18 +66,18 @@ return {
         {
           hr = {
             filename = "__factorio-overhaul__/graphics/robots/titans/hr-juggernaut-2-lueur.png",
-            height = 1096,
+            height = 1102,
             scale = 1.0,
-            width = 651,
+            width = 657,
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/robots/titans/juggernaut-2-lueur.png",
-            height = 548,
+            height = 551,
             scale = 2.0,
-            width = 326,
+            width = 328,
           },
           nom = "conduits+cristal",
-          shift = { 2.675, -11.35 },
+          shift = { 2.5875, -11.4125 },
         },
       },
       main = {
@@ -100,15 +100,15 @@ return {
           filename = "__factorio-overhaul__/graphics/robots/titans/hr-juggernaut-2-ombre.png",
           height = 707,
           scale = 2.0,
-          width = 863,
+          width = 865,
         },
         lr = {
           filename = "__factorio-overhaul__/graphics/robots/titans/juggernaut-2-ombre.png",
           height = 354,
           scale = 4.0,
-          width = 431,
+          width = 432,
         },
-        shift = { 18.2375, -10.425 },
+        shift = { 18.3, -10.425 },
       },
       px_rendu = 32.0,
     },
@@ -123,16 +123,16 @@ return {
             filename = "__factorio-overhaul__/graphics/robots/titans/hr-juggernaut-3-lueur.png",
             height = 1224,
             scale = 1.0,
-            width = 740,
+            width = 742,
           },
           lr = {
             filename = "__factorio-overhaul__/graphics/robots/titans/juggernaut-3-lueur.png",
             height = 612,
             scale = 2.0,
-            width = 370,
+            width = 371,
           },
           nom = "conduits+cristal",
-          shift = { 1.6125, -13.15 },
+          shift = { 1.5875, -13.15 },
         },
       },
       main = {
@@ -261,5 +261,394 @@ return {
       size = 64,
     },
     reduc = 2,
+  },
+  leviathan = {
+    ["1"] = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-leviathan-1.png",
+        size = 64,
+      },
+      lueurs = {
+        {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-1-lueur.png",
+            height = 693,
+            scale = 1.0,
+            width = 942,
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-1-lueur.png",
+            height = 346,
+            scale = 2.0,
+            width = 471,
+          },
+          nom = "conduits+cristal",
+          shift = { 1.6625, -7.2 },
+        },
+      },
+      main = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-1.png",
+          height = 698,
+          scale = 1.0,
+          width = 942,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-1.png",
+          height = 349,
+          scale = 2.0,
+          width = 471,
+        },
+        shift = { 1.6625, -7.2875 },
+      },
+      ombre = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-1-ombre.png",
+          height = 547,
+          scale = 2.0,
+          width = 730,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-1-ombre.png",
+          height = 274,
+          scale = 4.0,
+          width = 365,
+        },
+        shift = { 8.775, -6.725 },
+      },
+      px_rendu = 32.0,
+    },
+    ["2"] = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-leviathan-2.png",
+        size = 64,
+      },
+      lueurs = {
+        {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-2-lueur.png",
+            height = 693,
+            scale = 1.0,
+            width = 942,
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-2-lueur.png",
+            height = 346,
+            scale = 2.0,
+            width = 471,
+          },
+          nom = "conduits+cristal",
+          shift = { 1.6625, -7.2 },
+        },
+      },
+      main = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-2.png",
+          height = 698,
+          scale = 1.0,
+          width = 942,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-2.png",
+          height = 349,
+          scale = 2.0,
+          width = 471,
+        },
+        shift = { 1.6625, -7.2875 },
+      },
+      ombre = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-2-ombre.png",
+          height = 547,
+          scale = 2.0,
+          width = 735,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-2-ombre.png",
+          height = 274,
+          scale = 4.0,
+          width = 368,
+        },
+        shift = { 8.925, -6.725 },
+      },
+      px_rendu = 32.0,
+    },
+    ["3"] = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-leviathan-3.png",
+        size = 64,
+      },
+      lueurs = {
+        {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-3-lueur.png",
+            height = 696,
+            scale = 1.0,
+            width = 950,
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-3-lueur.png",
+            height = 348,
+            scale = 2.0,
+            width = 475,
+          },
+          nom = "conduits+cristal",
+          shift = { 1.7875, -7.25 },
+        },
+      },
+      main = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-3.png",
+          height = 698,
+          scale = 1.0,
+          width = 950,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-3.png",
+          height = 349,
+          scale = 2.0,
+          width = 475,
+        },
+        shift = { 1.7875, -7.2875 },
+      },
+      ombre = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-3-ombre.png",
+          height = 547,
+          scale = 2.0,
+          width = 764,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-3-ombre.png",
+          height = 274,
+          scale = 4.0,
+          width = 382,
+        },
+        shift = { 9.825, -6.725 },
+      },
+      px_rendu = 32.0,
+    },
+    drone = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-leviathan-drone.png",
+        size = 64,
+      },
+      lueurs = {
+        {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-drone-lueur.png",
+            height = 71,
+            scale = 1.0,
+            width = 102,
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-drone-lueur.png",
+            height = 36,
+            scale = 2.0,
+            width = 51,
+          },
+          nom = "conduits+cristal",
+          shift = { 0.0375, -1.1875 },
+        },
+      },
+      main = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-drone.png",
+          height = 73,
+          scale = 1.0,
+          width = 106,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-drone.png",
+          height = 36,
+          scale = 2.0,
+          width = 53,
+        },
+        shift = { -0.0375, -1.2375 },
+      },
+      ombre = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-leviathan-drone-ombre.png",
+          height = 86,
+          scale = 2.0,
+          width = 109,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/leviathan-drone-ombre.png",
+          height = 43,
+          scale = 4.0,
+          width = 54,
+        },
+        shift = { 0.7, -0.725 },
+      },
+      px_rendu = 32.0,
+    },
+  },
+  sentinelle = {
+    ["1"] = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-sentinelle-1.png",
+        size = 64,
+      },
+      lueurs = {
+        {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-1-lueur.png",
+            height = 1120,
+            scale = 1.0,
+            width = 769,
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-1-lueur.png",
+            height = 560,
+            scale = 2.0,
+            width = 384,
+          },
+          nom = "conduits+cristal",
+          shift = { 1.6625, -11.075 },
+        },
+      },
+      main = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-1.png",
+          height = 1124,
+          scale = 1.0,
+          width = 771,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-1.png",
+          height = 562,
+          scale = 2.0,
+          width = 386,
+        },
+        shift = { 1.625, -11.1375 },
+      },
+      ombre = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-1-ombre.png",
+          height = 649,
+          scale = 2.0,
+          width = 862,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-1-ombre.png",
+          height = 324,
+          scale = 4.0,
+          width = 431,
+        },
+        shift = { 15.525, -9.8 },
+      },
+      px_rendu = 32.0,
+    },
+    ["2"] = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-sentinelle-2.png",
+        size = 64,
+      },
+      lueurs = {
+        {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-2-lueur.png",
+            height = 1122,
+            scale = 1.0,
+            width = 769,
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-2-lueur.png",
+            height = 561,
+            scale = 2.0,
+            width = 384,
+          },
+          nom = "conduits+cristal",
+          shift = { 1.6625, -11.1 },
+        },
+      },
+      main = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-2.png",
+          height = 1124,
+          scale = 1.0,
+          width = 771,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-2.png",
+          height = 562,
+          scale = 2.0,
+          width = 386,
+        },
+        shift = { 1.625, -11.1375 },
+      },
+      ombre = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-2-ombre.png",
+          height = 649,
+          scale = 2.0,
+          width = 862,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-2-ombre.png",
+          height = 324,
+          scale = 4.0,
+          width = 431,
+        },
+        shift = { 15.525, -9.8 },
+      },
+      px_rendu = 32.0,
+    },
+    ["3"] = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-sentinelle-3.png",
+        size = 64,
+      },
+      lueurs = {
+        {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-3-lueur.png",
+            height = 1121,
+            scale = 1.0,
+            width = 796,
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-3-lueur.png",
+            height = 560,
+            scale = 2.0,
+            width = 398,
+          },
+          nom = "conduits+cristal",
+          shift = { 1.7875, -11.0875 },
+        },
+      },
+      main = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-3.png",
+          height = 1125,
+          scale = 1.0,
+          width = 796,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-3.png",
+          height = 562,
+          scale = 2.0,
+          width = 398,
+        },
+        shift = { 1.7875, -11.15 },
+      },
+      ombre = {
+        hr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/hr-sentinelle-3-ombre.png",
+          height = 658,
+          scale = 2.0,
+          width = 868,
+        },
+        lr = {
+          filename = "__factorio-overhaul__/graphics/robots/titans/sentinelle-3-ombre.png",
+          height = 329,
+          scale = 4.0,
+          width = 434,
+        },
+        shift = { 15.475, -10.125 },
+      },
+      px_rendu = 32.0,
+    },
   },
 }
