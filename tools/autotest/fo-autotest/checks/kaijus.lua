@@ -86,7 +86,7 @@ return {
     -- (2) vivants et animés
     ctx.check(st.jeune and st.jeune.valid and st.jeune.health > 0, "ecorcheur (premiere ere) : vivant au bout du banc", st.jeune and st.jeune.valid)
     local ej = st.jeune and st.jeune.valid and st.jeune.prototype
-    ctx.check(ej and ej.running_speed > 0, "ecorcheur : unit qui court (vitesse de course non nulle)", ej and ej.running_speed)
+    ctx.check(ej and (ej.speed or 0) > 0, "ecorcheur : unit qui court (vitesse du prototype non nulle)", ej and ej.speed)
     local vivants = 0
     for _, it in ipairs(st.ecorches) do if it.e and it.e.valid then vivants = vivants + 1 end end
     ctx.check(vivants == #st.ecorches and vivants == 3, "ecorches : les trois variantes vivent au bout du banc", vivants)
