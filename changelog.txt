@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.88
+Date: 2026-11-10
+  Bugfixes:
+    - Défense (F488) : le cerveau lit de nouveau les tourelles et le charbon de chaque avant-poste ; depuis la 0.6.74 il les croyait sans tourelle et en posait une de plus sans fin, sans jamais agrandir l'avant-poste.
+    - Défense (F489) : 6 tourelles au plus par avant-poste, posées au bord du gisement et jamais sur le minerai.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.87
 Date: 2026-11-10
   Graphics:
