@@ -80,6 +80,24 @@ local function battery(Rc)
     check(Rc.is_fuel_outpost(T.outposts[k], T.fuel) == (T.outposts[k].product == T.fuel), "T.outposts." .. k .. " : verdict des donnees")
   end
 
+  section("1f. Producteur de combustible servi d'abord quand le coffre du QG manque (F477)")
+  check(Rc.short(0, { bruleurs = 1088 }) == true and Rc.short(1087, { bruleurs = 1088 }) == true, "coffre sous le besoin : manque")
+  check(Rc.short(1088, { bruleurs = 1088 }) == false and Rc.short(5000, { vital = 10, bruleurs = 20, confort = 30 }) == false, "coffre qui couvre : pas de manque")
+  check(Rc.short(59, { vital = 10, bruleurs = 20, confort = 30 }) == true, "toutes les parts comptent (10 + 20 + 30 = 60)")
+  check(Rc.short(0, {}) == false and Rc.short(0, nil) == false, "aucun besoin : pas de manque")
+  local go = { fuel = true, low = true, short = true, safe = true }
+  check(Rc.producer_prio(95, go) == Rc.PRODUCER_PRIO and Rc.PRODUCER_PRIO == 96, "producteur a sec, coffre qui manque : 96, devant les 95 des bruleurs")
+  check(Rc.producer_prio(70, go) == 96, "une tournee de sorties (70) du producteur a sec monte aussi")
+  check(Rc.producer_prio(95, { fuel = false, low = true, short = true, safe = true }) == 95, "un avant-poste qui ne produit pas le combustible : inchange")
+  check(Rc.producer_prio(95, { fuel = true, low = false, short = true, safe = true }) == 95, "producteur pas a sec : inchange")
+  check(Rc.producer_prio(95, { fuel = true, low = true, short = false, safe = true }) == 95, "coffre qui couvre tout le monde : inchange (l'ordre ne compte pas)")
+  check(Rc.producer_prio(95, { fuel = true, low = true, short = true, safe = false }) == 95, "producteur meurtrier ou dangereux : jamais d'urgence vers lui")
+  check(Rc.producer_prio(97, go) == 97, "une priorite deja plus haute n'est jamais abaissee")
+  check(Rc.producer_prio(95, nil) == 95, "sans contexte : inchange")
+  -- banc CHARBON-A4 (graine 123456789) a 56,3 min : avant-poste de charbon refait (8 bruleurs a sec, besoin 80), 66 bruleurs de fer (besoin 1 008),
+  -- coffre du QG 0 : sa tournee part avec 0 charbon ; avec la regle, elle part la premiere
+  check(Rc.producer_prio(95, { fuel = true, low = true, safe = true, short = Rc.short(0, { bruleurs = 1008 + 80 }) }) == 96, "A4 56,3 min : le producteur part le premier")
+
   section("1e. Journal")
   local line = Rc.line("player centrale 1", 36.3, Rc.parts(400, { vital = 108, bruleurs = 588, confort = 432 }), { vital = 108, bruleurs = 588, confort = 432 })
   check(line:find("[FO-CHARBON-PARTS] player centrale 1 : coffre du QG 400 charbon(s) a 36.3 min : vital 108/108, bruleurs 292/588, confort 0/432, libre 0", 1, true) ~= nil, "ligne [FO-CHARBON] : " .. line)
@@ -109,6 +127,39 @@ end
 
 battery(Rc0)
 
+section("2 bis. Le planificateur rejoue l'etat du banc CHARBON-A4 a 56,3 min (F477)")
+do
+  local Planner = require("shared.team.planner")
+  local Book = require("shared.team.book")
+  local Sc = require("shared.team.scale")
+  local Fx = require("shared.team.flux")
+  check(Fx.ENABLE.prio == false, "la regle de tournee du lot FLUX reste eteinte (le comportement du jeu) : la coupe ne passe pas par elle")
+  local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+  local fuel_kind, plate_kind
+  for _, k in ipairs(T.OUTPOST_ORDER) do
+    if Rc0.is_fuel_outpost(T.outposts[k], T.fuel) then fuel_kind = fuel_kind or k else plate_kind = plate_kind or k end
+  end
+  check(fuel_kind ~= nil and plate_kind ~= nil, "donnees : un avant-poste de combustible et un autre (" .. tostring(fuel_kind) .. ", " .. tostring(plate_kind) .. ")")
+  local function view(stock_fuel)
+    return { tech = 0, personality = "balanced", done = {}, deferred = {}, stock = { [T.fuel] = stock_fuel }, incoming = {},
+      outposts = {
+        { id = 1, kind = plate_kind, drills = 33, full = false, turrets = 0, coal_needed = 1008, fuel_low = true, output = 0, idle_ticks = 0, has_task = false, has_fortify = false, d2 = 100 },
+        { id = 2, kind = fuel_kind, drills = 8, full = false, turrets = 0, coal_needed = 80, fuel_low = true, output = 0, idle_ticks = 0, has_task = false, has_fortify = false, d2 = 10000 },
+      },
+      pending = {}, sites = {}, smelters = 0, smelters_pending = 0, smelter_task = false, smelter_output = 0, smelter_fuel_low = false,
+      smelter_coal = 0, turret_groups = {}, soldiers = 0, soldiers_max = 100, workers = 10, workers_max = 30, workers_idle = 0,
+      threatened = false, open = {}, workers_wanted = 30, recruit_cost = Sc.recruit_cost(8), recover_floor = 8, no_research = true }
+  end
+  local function service(plan, id) for _, t in ipairs(plan.tasks) do if t.kind == "service" and t.outpost == id then return t end end end
+  local p = Planner.plan(view(0), book)
+  local s1, s2 = service(p, 1), service(p, 2)
+  check(s1 ~= nil and s1.prio == 95, "bruleurs de fer a sec : 95 (" .. tostring(s1 and s1.prio) .. ")")
+  check(s2 ~= nil and s2.prio == Rc0.PRODUCER_PRIO, "producteur a sec, coffre du QG a 0 : 96, il part le premier (" .. tostring(s2 and s2.prio) .. ")")
+  p = Planner.plan(view(5000), book)
+  s2 = service(p, 2)
+  check(s2 ~= nil and s2.prio == 95, "coffre du QG qui couvre les deux (5 000) : 95, l'ordre d'avant (" .. tostring(s2 and s2.prio) .. ")")
+end
+
 section("3. Chaine statique")
 do
   local planner = slurp("shared/team/planner.lua")
@@ -120,6 +171,10 @@ do
   -- la part des tournees seule : 22 182 fer, 4 bandes (reference 21 835, 8) : le planificateur ne reserve que les tournees
   check(planner:find("local fuel_need = { bruleurs = view.smelter_coal or 0 }", 1, true) ~= nil and planner:find("plant_coal", 1, true) == nil and planner:find("Rc.buffer(", 1, true) == nil,
     "planner.lua : la reserve du planificateur = tournees seules (ni centrale ni tampon : mesure ISO-CHARBON-PLAN)")
+
+  check(planner:find("p = Rc.producer_prio(p, { fuel = fuel_spec, low = o.fuel_low, safe = not (o.unsafe or o.lethal),", 1, true) ~= nil
+    and planner:find("short = fuel_spec and Rc.short(view.stock[T.fuel] or 0, { bruleurs = fuel_need.bruleurs + (o.coal_needed or 0) })", 1, true) ~= nil,
+    "planner.lua : la priorite des tournees passe par Rc.producer_prio (F477), besoin des tournees complet + celui du producteur")
 
   local build = slurp("script/team/build.lua")
   check(build:find('Build.Rc = require("shared.team.reserve_charbon")', 1, true) ~= nil, "build.lua : lit la regle (champ de Build)")
@@ -175,6 +230,15 @@ mutant("confort compte depuis le coffre, pas depuis le seuil", function(s) retur
 mutant("tampon nul", function(s) return (s:gsub("return math.ceil%(rate %* %(horizon or Rc.HORIZON_S%) %- 1e%-9%)", "return 0")) end)
 mutant("avant-poste de combustible par le nom du gisement", function(s) return (s:gsub("return spec ~= nil and fuel ~= nil and spec.product == fuel", 'return spec ~= nil and spec.resource == "coal"')) end)
 mutant("part de la centrale sans le confort", function(s) return (s:gsub("return p.vital %+ p.confort", "return p.vital")) end)
+-- F477 : producteur de combustible servi d'abord
+mutant("producteur prioritaire meme quand le coffre couvre", function(s) return (s:gsub("if a.fuel and a.low and a.short and a.safe", "if a.fuel and a.low and a.safe")) end)
+mutant("producteur prioritaire meme pas a sec", function(s) return (s:gsub("if a.fuel and a.low and a.short and a.safe", "if a.fuel and a.short and a.safe")) end)
+mutant("urgence vers un producteur dangereux", function(s) return (s:gsub("if a.fuel and a.low and a.short and a.safe", "if a.fuel and a.low and a.short")) end)
+mutant("tout avant-poste a sec prioritaire", function(s) return (s:gsub("if a.fuel and a.low and a.short and a.safe", "if a.low and a.short and a.safe")) end)
+mutant("priorite plus haute abaissee", function(s) return (s:gsub(" and %(tonumber%(base%) or 0%) < Rc.PRODUCER_PRIO then", " then")) end)
+mutant("producteur au rang des bruleurs (95)", function(s) return (s:gsub("Rc.PRODUCER_PRIO = 96", "Rc.PRODUCER_PRIO = 95")) end)
+mutant("manque compte au sens large", function(s) return (s:gsub("return whole%(stock%) < sum", "return whole(stock) <= sum")) end)
+mutant("manque sans la somme des parts", function(s) return (s:gsub("for _, k in ipairs%(Rc.ORDER%) do sum = sum %+ whole%(need%[k%]%) end", "sum = whole(need.bruleurs)")) end)
 
 print(string.format("[RESERVE-CHARBON] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

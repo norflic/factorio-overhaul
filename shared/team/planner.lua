@@ -609,6 +609,8 @@ function P.plan(view, book)
   local fuel_need = { bruleurs = view.smelter_coal or 0 }
   for _, o in ipairs(view.outposts) do
     if not Rc.is_fuel_outpost(T.outposts[o.kind], T.fuel) then fuel_need.bruleurs = fuel_need.bruleurs + (o.coal_needed or 0) end
+  end
+  for _, o in ipairs(view.outposts) do
     if df and o.lethal and lacking[o.id] and (view.stock[T.outposts[o.kind].product] or 0) >= T.lethal_need then
       -- Lot IA1-b2 : avant-poste MEURTRIER (un PNJ tué en y allant, il y a moins de T.lethal_ticks) et non défendu :
       -- pas de tournée (on n'y retourne qu'avec ses tourelles), SAUF si sa ressource manque au coffre (moins de
@@ -625,6 +627,11 @@ function P.plan(view, book)
         local p = Fx.service_prio(base, o, VITAL[o.kind], have)
         -- (le danger de l'avant-poste, o.unsafe, n'est relevé que dans ces deux cas : script/team/team.lua)
         if view.sorties_on and (o.fuel_low or o.output >= T.collect_at) then p = Sm.fetch_prio(p, o, RAW, have) end
+        -- Lot CHARBON-TOURNEE (F477) : le producteur de combustible à sec part avant les brûleurs qu'il nourrit quand le coffre du QG manque
+        -- (sa propre part comptée en plus de celle des tournées : shared/team/reserve_charbon.lua, Rc.producer_prio).
+        local fuel_spec = Rc.is_fuel_outpost(T.outposts[o.kind], T.fuel)
+        p = Rc.producer_prio(p, { fuel = fuel_spec, low = o.fuel_low, safe = not (o.unsafe or o.lethal),
+          short = fuel_spec and Rc.short(view.stock[T.fuel] or 0, { bruleurs = fuel_need.bruleurs + (o.coal_needed or 0) }) })
         return p
       end
       if o.fuel_low then

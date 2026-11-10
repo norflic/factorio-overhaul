@@ -1,9 +1,4 @@
 ---------------------------------------------------------------------------------------------------
-Version: 0.6.78
-Date: 2026-11-10
-  Bugfixes:
-    - Charbon (F460) : une seule règle de réserve du coffre du QG pour tous ses lecteurs : la centrale prend d'abord son amorce et son seuil d'avance, les tournées des brûleurs ensuite (avec le tampon d'une tournée), le remplissage de confort de la centrale après elles, le reste va aux projets ; le planificateur ne réserve que les tournées. L'avant-poste de combustible est reconnu par son produit, plus par le nom du gisement.
-    - Charbon (F460 bis) : l'avant-poste de combustible d'une centrale nourrie à la main garde ses foreuses thermiques à la reconstruction (ses foreuses électriques auraient besoin du courant que ce charbon produit) ; l'unique champ de charbon perdu est refait en deux minutes au lieu d'expirer.
 Version: 0.6.80
 Date: 2026-11-10
   Features:
@@ -12,6 +7,9 @@ Date: 2026-11-10
     - Ravageur (F473) : méga-robot d'assaut allié de l'âge 13, animé sur 8 directions ; rafale de gatling, lames de cristal, salve des géants.
   Graphics:
     - Tourelles (F476) : Bastion II, III et IV, la tour à arc et la tourelle laser lourde ne sont plus des tourelles vanilla teintées : émetteurs rendus en 3D dans le style des titans (prisme de cristal, couronne d'électrodes, confinement de plasma, bobine Tesla, dôme focal), lueur qui pulse au repos et s'intensifie au tir, faisceau qui part de l'émetteur. Statistiques inchangées.
+  Bugfixes:
+    - Charbon (F460) : une seule règle de réserve du coffre du QG pour tous ses lecteurs : la centrale prend d'abord son amorce et son seuil d'avance, les tournées des brûleurs ensuite (avec le tampon d'une tournée), le remplissage de confort de la centrale après elles, le reste va aux projets ; le planificateur ne réserve que les tournées. L'avant-poste de combustible est reconnu par son produit, plus par le nom du gisement.
+    - Charbon (F460 bis) : l'avant-poste de combustible d'une centrale nourrie à la main garde ses foreuses thermiques à la reconstruction (ses foreuses électriques auraient besoin du courant que ce charbon produit) ; l'unique champ de charbon perdu est refait en deux minutes au lieu d'expirer.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.79
 Date: 2026-11-10

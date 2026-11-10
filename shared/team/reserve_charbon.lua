@@ -67,6 +67,27 @@ function Rc.is_fuel_outpost(spec, fuel)
   return spec ~= nil and fuel ~= nil and spec.product == fuel
 end
 
+--- Le coffre du QG MANQUE-t-il de combustible : `stock` sous la somme des besoins `need` (parts de Rc.ORDER) ?
+function Rc.short(stock, need)
+  need = need or {}
+  local sum = 0
+  for _, k in ipairs(Rc.ORDER) do sum = sum + whole(need[k]) end
+  return whole(stock) < sum
+end
+
+--- Lot CHARBON-TOURNEE (F477) : le PRODUCTEUR de combustible servi d'abord. Une tournée de ravitaillement porte au plus ce que le coffre du
+--- QG contient ; quand il manque, la première tournée partie prend tout. Le producteur (Rc.is_fuel_outpost) à sec passe alors à
+--- Rc.PRODUCER_PRIO, devant les brûleurs qu'il nourrit (une foreuse de combustible rend plusieurs fois ce qu'elle brûle) ; mesure (banc
+--- CHARBON-A4, graine 123456789) : de 56,3 à 65,7 min ses quatre tournées partent à 95 comme celles des 66 brûleurs de fer, trois sur quatre
+--- avec 0 charbon (coffre du QG 0), 49 brûleurs à sec à 60 min. a = { fuel = avant-poste de combustible, low = brûleurs bas (o.fuel_low),
+--- short = Rc.short du coffre, safe = ni meurtrier ni dangereux }. Rend la priorité (jamais abaissée).
+Rc.PRODUCER_PRIO = 96 -- = Fx.VITAL_PRIO (shared/team/flux.lua) : devant les ravitaillements (95), derrière la garde du QG menacé (96, à égalité)
+function Rc.producer_prio(base, a)
+  a = a or {}
+  if a.fuel and a.low and a.short and a.safe and (tonumber(base) or 0) < Rc.PRODUCER_PRIO then return Rc.PRODUCER_PRIO end
+  return base
+end
+
 --- Ce que la centrale peut prendre (vital + confort), ce que l'amorce peut prendre (vital), ce qui reste à la fabrication (libre).
 function Rc.centrale(stock, need) local p = Rc.parts(stock, need) return p.vital + p.confort end
 function Rc.vital(stock, need) return Rc.parts(stock, need).vital end
