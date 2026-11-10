@@ -276,4 +276,190 @@ function Mp.pave_origin(prev, need, rect, gap, margin)
     need.w, need.h, lead.x0, lead.x1, lead.y0, lead.y1, pb.x0, pb.y0, pb.x1, pb.y1)
 end
 
+---------------------------------------------------------------------------------------------------
+-- (f) Série au-delà du lot : la rue est franchie par un SOUTERRAIN (lot MALL-RUE ; décision du DC, carte blanche : « si une
+--     extension de mall dépasse le lot et rencontre une rue de la grille de ville, n'interromps pas la chaîne : enjambe la rue
+--     par des convoyeurs souterrains »)
+---------------------------------------------------------------------------------------------------
+--  Grille des lots : lots = { pitch, lot, ox, oy } ; le lot i le long de x occupe [ox + pitch × i, ox + pitch × i + lot), la rue
+--  les `pitch − lot` tuiles qui suivent (P.PITCH 28, P.LOT 24, P.STREET 4 ; ox = lat.ox − P.HALF). Rue : street = { w (défaut
+--  pitch − lot), underground_reach (portée du souterrain débloqué : écart maximal entre l'entrée et la sortie, la
+--  max_underground_distance du prototype, lue par script/team/traversee.lua) }.
+--  Franchissement : l'ENTRÉE sur la dernière tuile du lot, la SORTIE sur la première tuile du lot suivant (écart = w + 1, qui doit
+--  tenir dans la portée ; convention de shared/team/traversee.lua : 2 ≤ écart ≤ maxd) ; le corps de la section suivante à Mp.MARGE
+--  de la rue, derrière la sortie ; une RALLONGE de tapis relie la fin du corridor précédent à l'entrée ; un RACCORD de tapis comble
+--  le gap entre deux sections d'un même lot. Rien d'autre ne touche la rue : coffres et poteaux restent dans les lots.
+
+Mp.MARGE = 1 -- tuiles libres entre le corps d'une section et la rue (la marge de P.fit) ; la sortie du souterrain, elle, touche le bord
+
+--- Rue normalisée : { w, reach } ou erreur de contrat.
+local function street_of(lots, street)
+  local w = (type(street) == "table" and street.w) or (type(street) == "number" and street) or (lots.pitch - lots.lot)
+  local reach = type(street) == "table" and (street.underground_reach or street.reach) or nil
+  if not is_int(w) or w < 1 or w > lots.pitch - lots.lot then error(string.format("contrat : rue de %s tuiles hors de [1, %d]", tostring(w), lots.pitch - lots.lot), 3) end
+  return { w = w, reach = reach }
+end
+
+--- Grille normalisée ; erreur de contrat si pitch ≤ lot.
+local function lots_of(lots)
+  if type(lots) ~= "table" or not is_int(lots.pitch) or not is_int(lots.lot) or lots.lot < 1 or lots.pitch <= lots.lot then
+    error("contrat : lots = { pitch, lot } entiers, pitch > lot ≥ 1 attendus", 3)
+  end
+  return { pitch = lots.pitch, lot = lots.lot, ox = lots.ox or 0, oy = lots.oy or 0 }
+end
+
+--- Indice du lot qui porte la coordonnée `v` le long d'un axe d'origine `o` ; nil si `v` est sur la rue.
+local function lot_index(L, v, o)
+  local i = floor((v - o) / L.pitch)
+  if (v - o) - i * L.pitch >= L.lot then return nil end
+  return i
+end
+
+--- Indice du lot qui porte tout l'intervalle [a0, a1) ; nil si l'intervalle touche une rue ou deux lots.
+local function lot_of_span(L, a0, a1, o)
+  local i, j = lot_index(L, a0, o), lot_index(L, a1 - 1, o)
+  if i and j and i == j then return i end
+  return nil
+end
+
+--- Accès le long de l'axe (« a ») et en travers (« c ») d'un point ou d'une boîte.
+local function axes_of(axis)
+  if axis == "x" then return { a = "x", c = "y", w = "w", h = "h", oa = "ox", oc = "oy", dir = Mp.E } end
+  if axis == "y" then return { a = "y", c = "x", w = "h", h = "w", oa = "oy", oc = "ox", dir = Mp.S } end
+  error("contrat : axe « x » ou « y » attendu (" .. tostring(axis) .. ")", 3)
+end
+
+--- Point { x, y } depuis (a, c) selon l'axe.
+local function pt(A, a, c) if A.a == "x" then return { x = a, y = c } end return { x = c, y = a } end
+
+--- Tailles des n sections : `n` entier (toutes de la taille de origin) ou liste de { w, h }.
+local function sizes_of(origin, n)
+  local out = {}
+  if is_int(n) then
+    if n < 1 then error("contrat : n ≥ 1 attendu", 3) end
+    for i = 1, n do out[i] = { w = origin.w, h = origin.h } end
+  elseif type(n) == "table" and #n >= 1 then
+    for i, s in ipairs(n) do
+      if not (is_int(s.w) and is_int(s.h) and s.w > 0 and s.h > 0) then error(string.format("contrat : section %d sans { w, h } entiers > 0", i), 3) end
+      out[i] = { w = s.w, h = s.h }
+    end
+  else error("contrat : n = entier ou liste de { w, h } attendu", 3) end
+  return out
+end
+
+--- Les origines de `n` sections en série le long de `axis` depuis `origin` = { x, y, w, h, belts = { décalages en travers des
+--- convoyeurs du corridor } }, dans la grille `lots`, à `gap` tuiles l'une de l'autre, en franchissant les rues (`street`) par un
+--- souterrain par voie. Rend { sections = { { x, y, w, h, lot = { i, j } } }, traversees = { { entree = { x, y }, sortie = { x, y },
+--- voie = k, dir, ecart, rallonge = { { x, y } }, section = indice de la section servie } }, raccords = { { x, y, voie } }, axis, belts }
+--- ou nil, cause (portée insuffisante ou inconnue, section 1 sur une rue). Pur et déterministe.
+function Mp.serie(origin, n, axis, lots, gap, street)
+  gap = Mp.gap_of(gap)
+  local A, L = axes_of(axis), lots_of(lots)
+  local S = street_of(L, street)
+  if type(origin) ~= "table" or not is_int(origin.x) or not is_int(origin.y) then error("contrat : origin = { x, y, w, h } attendu", 2) end
+  local sizes = sizes_of(origin, n)
+  local belts = origin.belts or {}
+  local a0, c0 = origin[A.a], origin[A.c]
+  local oa, oc = L[A.oa], L[A.oc]
+  local i = lot_of_span(L, a0, a0 + sizes[1][A.w], oa)
+  local j = lot_of_span(L, c0, c0 + sizes[1][A.h], oc)
+  if not i or not j then return nil, string.format("section 1 sur une rue ou a cheval sur deux lots (%d, %d)", origin.x, origin.y) end
+  local function lot_pair(ia) if A.a == "x" then return { i = ia, j = j } end return { i = j, j = ia } end
+  local res = { sections = {}, traversees = {}, raccords = {}, axis = axis, belts = belts }
+  local function push(a, sz, ia)
+    local p = pt(A, a, c0)
+    res.sections[#res.sections + 1] = { x = p.x, y = p.y, w = sz.w, h = sz.h, lot = lot_pair(ia) }
+  end
+  push(a0, sizes[1], i)
+  local prev_end = a0 + sizes[1][A.w]
+  for k = 2, #sizes do
+    local sz = sizes[k]
+    local lot_end = oa + L.pitch * i + L.lot
+    local start = prev_end + gap
+    if start + sz[A.w] <= lot_end - Mp.MARGE then
+      -- même lot : collée, le gap comblé par un raccord sur chaque voie
+      for _, bk in ipairs(belts) do
+        for a = prev_end, start - 1 do local p = pt(A, a, c0 + bk); res.raccords[#res.raccords + 1] = { x = p.x, y = p.y, voie = bk } end
+      end
+      push(start, sz, i)
+    else
+      -- de l'autre côté de la rue : entrée sur la dernière tuile du lot, sortie sur la première du suivant
+      if prev_end > lot_end - 1 then return nil, string.format("section %d : aucune tuile du lot pour l'entree du souterrain", k - 1) end
+      local a_in, a_out = lot_end - 1, lot_end + S.w
+      local ecart = a_out - a_in
+      if not S.reach then return nil, string.format("portee inconnue : la rue de %d tuiles exige un souterrain d'ecart %d", S.w, ecart) end
+      if ecart > S.reach or ecart < 2 then return nil, string.format("portee insuffisante : souterrain d'ecart %d (rue de %d) pour une portee de %d", ecart, S.w, S.reach) end
+      i = i + 1
+      start = a_out + Mp.MARGE
+      for _, bk in ipairs(belts) do
+        local t = { entree = pt(A, a_in, c0 + bk), sortie = pt(A, a_out, c0 + bk), voie = bk, dir = A.dir, ecart = ecart, rallonge = {}, section = k }
+        for a = prev_end, a_in - 1 do t.rallonge[#t.rallonge + 1] = pt(A, a, c0 + bk) end
+        for a = a_out + 1, start - 1 do t.rallonge[#t.rallonge + 1] = pt(A, a, c0 + bk) end
+        res.traversees[#res.traversees + 1] = t
+      end
+      push(start, sz, i)
+    end
+    prev_end = start + sz[A.w]
+  end
+  return res
+end
+
+--- Une tuile (a, c) est-elle dans une section ? Rend l'indice ou nil.
+local function section_at(res, A, a, c)
+  for idx, s in ipairs(res.sections) do
+    if a >= s[A.a] and a < s[A.a] + s[A.w] and c >= s[A.c] and c < s[A.c] + s[A.h] then return idx end
+  end
+  return nil
+end
+
+--- Vérification pure d'une série (Mp.serie ou toute série du même format) dans la grille `lots` : aucune cellule de section ni
+--- raccord sur la rue, aucun chevauchement, chaque souterrain d'un bord de lot au bord du lot suivant dans la portée, et le
+--- corridor continu de bout en bout sur chaque voie (sections, raccords, rallonges, souterrains). Rend true ou false, raison.
+function Mp.check_serie(res, lots, street)
+  if type(res) ~= "table" or type(res.sections) ~= "table" or #res.sections == 0 then return false, "serie sans section" end
+  local A, L = axes_of(res.axis or "x"), lots_of(lots)
+  local S = street_of(L, street)
+  local oa, oc = L[A.oa], L[A.oc]
+  for idx, s in ipairs(res.sections) do
+    if not lot_of_span(L, s[A.a], s[A.a] + s[A.w], oa) or not lot_of_span(L, s[A.c], s[A.c] + s[A.h], oc) then
+      return false, string.format("section %d sur la rue en (%d, %d)", idx, s.x, s.y)
+    end
+    for jdx = 1, idx - 1 do
+      local o = res.sections[jdx]
+      if s.x < o.x + o.w and o.x < s.x + s.w and s.y < o.y + o.h and o.y < s.y + s.h then return false, string.format("sections %d et %d se chevauchent", jdx, idx) end
+    end
+  end
+  local cover = {} -- [voie] = { [a] = true } : tuiles du corridor hors sections
+  local function mark(bk, a) cover[bk] = cover[bk] or {}; cover[bk][a] = true end
+  for _, r in ipairs(res.raccords or {}) do
+    if not lot_index(L, r[A.a], oa) or not lot_index(L, r[A.c], oc) then return false, string.format("raccord sur la rue en (%d, %d)", r.x, r.y) end
+    if section_at(res, A, r[A.a], r[A.c]) then return false, string.format("raccord dans une section en (%d, %d)", r.x, r.y) end
+    mark(r.voie, r[A.a])
+  end
+  for ti, t in ipairs(res.traversees or {}) do
+    local ai, ao = t.entree[A.a], t.sortie[A.a]
+    if t.entree[A.c] ~= t.sortie[A.c] then return false, string.format("souterrain %d : entree et sortie sur deux voies", ti) end
+    local li = lot_index(L, ai, oa)
+    if not li or ai ~= oa + L.pitch * li + L.lot - 1 then return false, string.format("souterrain %d : entree hors du bord du lot (%d)", ti, ai) end
+    if ao ~= oa + L.pitch * (li + 1) then return false, string.format("souterrain %d : sortie hors du bord du lot suivant (%d)", ti, ao) end
+    if not S.reach or ao - ai > S.reach or ao - ai < 2 then return false, string.format("souterrain %d : ecart %d hors de la portee %s", ti, ao - ai, tostring(S.reach)) end
+    for _, r in ipairs(t.rallonge or {}) do
+      if not lot_index(L, r[A.a], oa) then return false, string.format("rallonge sur la rue en (%d, %d)", r.x, r.y) end
+      mark(t.voie, r[A.a])
+    end
+    for a = ai, ao do mark(t.voie, a) end
+  end
+  local first, last = res.sections[1], res.sections[#res.sections]
+  for _, bk in ipairs(res.belts or {}) do
+    local c = first[A.c] + bk
+    for a = first[A.a], last[A.a] + last[A.w] - 1 do
+      if not section_at(res, A, a, c) and not (cover[bk] and cover[bk][a]) then
+        local p = pt(A, a, c)
+        return false, string.format("corridor coupe en (%d, %d), voie %d", p.x, p.y, bk)
+      end
+    end
+  end
+  return true
+end
+
 return Mp

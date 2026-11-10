@@ -720,7 +720,7 @@ end
 --- numéro du projet `pid` si c'est un bloc ou une cellule de mall (gen « bloc » ou « patron ») vivant, posé dans un lot du treillis :
 --- son lot en reçoit un autre, collé à lui (Build.Pave.pin, Mp.pave_origin), sinon nil.
 --- (Sous Build.Pave, sans locale nouvelle : le chunk principal de ce fichier est à la limite des 200 locales de Lua 5.2.)
-Build.Pave = { Mp = require("shared.team.mall_paving"), GEN = { bloc = true, patron = true } }
+Build.Pave = { Mp = require("shared.team.mall_paving"), GEN = { bloc = true, patron = true, ruban = true } } -- (ruban : lot MALL-RUE)
 function Build.Pave.owner(b, pid)
   local p = b.projects[pid]
   if p and not p.abandoned and p.spec and Build.Pave.GEN[p.spec.gen] and p.parts and p.parts[1] and p.parts[1].kind == "module" then return pid end
@@ -769,6 +769,126 @@ function Build.Pave.pin(b, c, g, rect, fopts)
   if not o then return nil, "pavage : " .. why end
   fopts.within = { x0 = o.x, y0 = o.y, x1 = o.x + r.w, y1 = o.y + r.h }
   return g
+end
+
+--- Lot MALL-RUE (décision du DC, carte blanche : « si une extension de mall dépasse le lot et rencontre une rue de la grille de ville,
+--- n'interromps pas la chaîne : enjambe la rue par des convoyeurs souterrains ») : le lot courant ne tient pas la section suivante du
+--- RUBAN (gabarit « ruban », shared/team/patrons.lua §6 bis) : Mp.serie la pose de l'autre côté de la rue et le corridor la rejoint par
+--- un souterrain par voie (type souterrain du palier débloqué et sa portée lus aux données : Build.Trav.underground). Champs sous
+--- Build.Pave (le chunk principal est à la limite des 200 locales).
+Build.Pave.LOGS = 40 -- lignes [FO-MALL] de série au plus par équipe (hors pose)
+
+--- Journal borné de la série.
+function Build.Pave.say(f, b, text)
+  b.serie_logs = (b.serie_logs or 0) + 1
+  if b.serie_logs <= Build.Pave.LOGS then log(string.format("[FO-MALL] %s : %s", f.key or "player", text)) end
+end
+
+--- Nom du tapis d'un gabarit (sa première entité de sorte « belt », M.spec), ou nil.
+function Build.Pave.belt_of(g)
+  for _, e in ipairs(g.entities or {}) do
+    local sp = M.spec(e.name)
+    if sp and sp.kind == "belt" then return e.name end
+  end
+  return nil
+end
+
+--- Dernière section de ruban de la famille `fam` (« ruban-<machine> ») dans le lot `k` : son corps p.parts[1] ({ ox, oy, w, h, k, key }), le plus à
+--- l'est, parmi les projets vivants ; nil sans section. Projets parcourus par numéro croissant (le plus à l'est gagne : l'ordre est sans effet).
+function Build.Pave.last(b, k, fam)
+  local best
+  for _, pid in ipairs(sorted_keys(b.projects)) do
+    local p = b.projects[pid]
+    local pt = p and not p.abandoned and p.spec and p.spec.gen == "ruban" and p.parts and p.parts[1] or nil
+    if pt and pt.lot == k and pt.kind == "module" and type(pt.key) == "string" and pt.key:sub(1, #fam + 1) == fam .. "-" and (not best or pt.ox > best.ox) then best = pt end
+  end
+  return best
+end
+
+--- Numéro de la section d'un ruban (projets vivants « ruban » dont le lot est au nom de `owner`, celui-ci compris).
+function Build.Pave.rank(b, owner)
+  local n = 0
+  for _, pid in ipairs(sorted_keys(b.projects)) do
+    local p = b.projects[pid]
+    local pt = p and not p.abandoned and p.spec and p.spec.gen == "ruban" and p.parts and p.parts[1] or nil
+    if pt and b.lots[pt.lot] and b.lots[pt.lot].used == owner then n = n + 1 end
+  end
+  return n
+end
+
+--- La section suivante de l'autre côté de la rue : { k2, l2, rect2, within, trav = { res (Mp.serie), ug = { name, maxd }, belt }, owner } ou nil, raison.
+--- « serie arretee : lot occupe » (gisement, centrale, autre module, hors du treillis) : la série s'arrête proprement, rien n'est démoli.
+function Build.Pave.serie(f, b, c, g, states)
+  local Mp = Build.Pave.Mp
+  if g.gen ~= "ruban" or type(g.ruban) ~= "table" then return nil, "serie : gabarit sans corridor" end
+  local prev = Build.Pave.last(b, c.k, g.ruban.fam)
+  if not prev then return nil, "serie : aucune section de ruban dans le lot " .. tostring(c.k) end
+  if (prev.k or 0) ~= 0 or prev.h ~= g.h then return nil, "serie : section precedente d'une autre forme" end
+  local belt = Build.Pave.belt_of(g)
+  local ug = belt and Build.Trav.underground(f, belt) or nil
+  if not ug then return nil, "serie : aucun souterrain debloque pour le tapis " .. tostring(belt) end
+  local lots = { pitch = P.PITCH, lot = P.LOT, ox = b.lat.ox - P.HALF, oy = b.lat.oy - P.HALF }
+  local res, why = Mp.serie({ x = prev.ox, y = prev.oy, w = prev.w, h = prev.h, belts = g.ruban.belts },
+    { { w = prev.w, h = prev.h }, { w = g.w, h = g.h } }, "x", lots, Mp.GAP, { w = P.STREET, underground_reach = ug.maxd })
+  if not res then return nil, "serie : " .. why end
+  local s2 = res.sections[2]
+  local k2 = P.lot_key(s2.lot.i, s2.lot.j)
+  if k2 == c.k then return nil, "serie : la section tient encore dans le lot (refus du placement)" end
+  local l2 = b.lots[k2]
+  if not l2 then return nil, "serie arretee : lot occupe (" .. k2 .. " hors du treillis)" end
+  if (l2.used and l2.used ~= c.l.used) or not states[l2.state] or l2.out or (l2.bad or 0) >= 2 then
+    return nil, string.format("serie arretee : lot occupe (%s : %s%s)", k2, tostring(l2.state), l2.used and (", projet " .. tostring(l2.used)) or "")
+  end
+  local x0, y0, x1, y1 = P.lot_rect(b.lat, l2.i, l2.j)
+  local rect2 = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+  if Build.Pave.box(b, k2, rect2) then return nil, "serie : lot suivant deja pave (" .. k2 .. ")" end
+  return { k2 = k2, l2 = l2, rect2 = rect2, within = { x0 = s2.x, y0 = s2.y, x1 = s2.x + g.w, y1 = s2.y + g.h }, trav = { res = res, ug = ug, belt = belt }, owner = c.l.used }
+end
+
+--- Essai de la section de l'autre côté de la rue : relevé du lot suivant (`scan(c2, rect2)` -> masks), passage du corridor libre (rallonge, entrée,
+--- sortie : ni réservé, ni bâti), P.fit épinglé (within) sans tête sur le port servi par le souterrain (fed). Rend le placement (la forme de
+--- place_module : lot = le lot suivant, pave = le ruban propriétaire, fed, serie) ou nil, raison.
+function Build.Pave.try_serie(f, surface, g, c, fopts, states, scan)
+  local b = f.build
+  local sr, why = Build.Pave.serie(f, b, c, g, states)
+  if not sr then return nil, why end
+  local masks = scan({ k = sr.k2, l = sr.l2 }, sr.rect2)
+  for _, t in ipairs(sr.trav.res.traversees) do
+    local tiles = { t.entree, t.sortie }
+    for _, r in ipairs(t.rallonge) do tiles[#tiles + 1] = r end
+    for _, q in ipairs(tiles) do
+      if b.occ[P.tkey(q.x, q.y)] or not (fopts.free(q.x, q.y) or masks.free(q.x, q.y)) then
+        return nil, string.format("serie : passage du corridor occupe en (%d, %d)", q.x, q.y)
+      end
+    end
+  end
+  local fo = {}
+  for kk, v in pairs(fopts) do fo[kk] = v end -- (copie des options : l'ordre est sans effet)
+  fo.free, fo.within, fo.fed = masks.free, sr.within, { [g.ruban.port] = true }
+  local fit, fwhy = P.fit(g, sr.rect2, fo)
+  if not fit then return nil, "serie : " .. tostring(fwhy) .. " dans le lot " .. sr.k2 end
+  return { g = g, k = 0, ox = fit.ox, oy = fit.oy, lot = sr.k2, inst = M.instantiate(g, 0, fit.ox, fit.oy), cover = fit.cover, masks = masks, fan = fo.fan,
+    pen = fit.pen, d = fit.d, pave = sr.owner, fed = fo.fed, serie = sr.trav, lot_from = c.k }
+end
+
+--- Pièces du franchissement, dans le projet de la section posée de l'autre côté de la rue : rallonge de tapis jusqu'au bord du lot, entrée
+--- (type « input ») sur la dernière tuile du lot, sortie (type « output ») sur la première du suivant, dans le sens du corridor ; même tapis
+--- que le gabarit, souterrain du palier débloqué. `reserve` = reserve_tiles. Rend true ou false, raison ; journal [FO-MALL].
+function Build.Pave.cross(f, p, main, reserve)
+  local b = f.build
+  local tr = main.serie
+  local list = {}
+  for _, t in ipairs(tr.res.traversees) do
+    for _, r in ipairs(t.rallonge) do list[#list + 1] = { name = tr.belt, x = r.x + 0.5, y = r.y + 0.5, dir = t.dir, role = "serie-tapis", part = 1 } end
+    list[#list + 1] = { name = tr.ug.name, x = t.entree.x + 0.5, y = t.entree.y + 0.5, dir = t.dir, type = "input", role = "serie-souterrain", part = 1 }
+    list[#list + 1] = { name = tr.ug.name, x = t.sortie.x + 0.5, y = t.sortie.y + 0.5, dir = t.dir, type = "output", role = "serie-souterrain", part = 1 }
+  end
+  if not reserve(b, p, list) then return false, "serie : place du souterrain" end
+  p.parts[1].serie = { lot_from = main.lot_from, voies = #tr.res.traversees, ug = tr.ug.name }
+  local t1 = tr.res.traversees[1]
+  log(string.format("[FO-MALL] %s : serie : section %d posee de l'autre cote de la rue (lot %s), corridor en souterrain (%d voies) : projet %d, %s de (%d, %d) a (%d, %d), %d tapis de rallonge",
+    f.key or "player", Build.Pave.rank(b, main.pave), main.lot, #tr.res.traversees, p.id, tr.ug.name, t1.entree.x, t1.entree.y, t1.sortie.x, t1.sortie.y, #t1.rallonge))
+  return true
 end
 
 local function candidates(b, states, toward, res)
@@ -930,6 +1050,13 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
       return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan,
         axis = fopts.axis, pen = fit.pen, d = fit.d, pave = c.pave, shared = c.shared }
     end
+    -- lot MALL-RUE : le lot ne tient pas la section suivante d'un ruban : de l'autre côté de la rue, le corridor en souterrain (Build.Pave.try_serie)
+    if c.pave and g.gen == "ruban" then
+      local sp, swhy = Build.Pave.try_serie(f, surface, g, c, fopts, kind_states, function(c2, r2) return (lot_scan(f, surface, c2, r2, nil, opts and opts.cache)) end)
+      if sp then return sp end
+      if swhy:find("arretee", 1, true) or swhy:find("passage", 1, true) or swhy:find("souterrain", 1, true) or swhy:find("portee", 1, true) then Build.Pave.say(f, b, swhy) end
+      why = tostring(why) .. " ; " .. swhy
+    end
     last = why or last
     if not (opts and opts.simple_lots) then bump(b.stats.plan_refused, last) end -- (le repli simple ne fausse pas le décompte des refus du plan)
     -- Lot AUTO : `nobad` (foreuses de ravitaillement) : un refus ne compte pas contre le lot. Build.plan_drills essaie
@@ -967,7 +1094,7 @@ local function inst_entities(inst, part, belt)
     -- Lot CONVOYEURS : `belt` remplace le tapis du gabarit (le collecteur des foreuses suit le tracé qui l'achemine)
     local name = e.name
     if belt and (M.BASE[name] or {}).kind == "belt" then name = belt end
-    out[#out + 1] = { name = name, x = e.position.x, y = e.position.y, dir = e.direction or 0, recipe = e.recipe, part = part }
+    out[#out + 1] = { name = name, x = e.position.x, y = e.position.y, dir = e.direction or 0, recipe = e.recipe, part = part, type = e.type } -- (type : entrée ou sortie d'un souterrain)
   end
   return out
 end
@@ -1599,7 +1726,9 @@ local function plan_feed(f, surface, p, place, part)
   for _, port in ipairs(P.belt_ports(place.inst)) do if port.io ~= "in" then ports[#ports + 1] = port end end
   for _, port in ipairs(P.belt_ports(place.inst)) do if port.io == "in" then ports[#ports + 1] = port end end
   for _, port in ipairs(ports) do
-    if port.io == "in" then
+    if place.fed and place.fed[port.ent] then
+      -- lot MALL-RUE : port servi par le souterrain de la série (le corridor de la section précédente) : aucune tête d'alimentation
+    elseif port.io == "in" then
       local sources = { nil, nil }
       local drills = {}
       for lane = 1, 2 do
@@ -3016,6 +3145,12 @@ local function plan_project(f, surface, p)
     b.lots[main.lot].used = main.pave
     log(string.format("[FO-MALL] %s : projet %d, bloc de mall colle au bloc %d dans le lot %s (pavage, gap %d) en (%d, %d)",
       f.key or "player", p.id, main.pave, main.lot, Build.Pave.Mp.GAP, main.ox, main.oy))
+  end
+  -- lot MALL-RUE : section posée de l'autre côté de la rue : rallonge, entrée et sortie du souterrain sur chaque voie du corridor (le lot suivant
+  -- est au nom du même ruban : main.pave ; le port d'entrée servi n'a pas de tête : main.fed, plan_feed)
+  if main.serie then
+    local okc, cwhy = Build.Pave.cross(f, p, main, reserve_tiles)
+    if not okc then return false, cwhy end
   end
   if spec.feed or is_plant then
     Profiler.start("build:plan:feed")

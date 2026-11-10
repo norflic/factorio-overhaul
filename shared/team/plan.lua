@@ -465,12 +465,15 @@ end
 --- Tuiles réservées hors de l'emprise pour les ports tapis : têtes d'alimentation (3 tuiles derrière, ± 2 de côté)
 --- et quais de sortie (2 tuiles devant). Liste {x, y}. `fan` (lot AGENCEMENT) : nombre de bras par quai de sortie ; à 2, le bras
 --- et le coffre du côté EXTÉRIEUR du dernier tuile du tapis (2 tuiles en travers) sont aussi réservés. Sans `fan` : comme avant.
-function P.port_room(inst, fan)
+--- `skip` (lot MALL-RUE) : { [entité du port] = vrai } : ports servis par le souterrain d'une série (aucune tête) ; nil : tous les ports.
+function P.port_room(inst, fan, skip)
   local out = {}
   for _, p in ipairs(P.belt_ports(inst)) do
     local v = DV[p.dir]
     local lx, ly = left_of(p.dir)
-    if p.io == "in" then
+    if skip and skip[p.ent] then
+      -- (rien : la section précédente de la série sert ce port par le souterrain)
+    elseif p.io == "in" then
       for k = 1, P.FEED_DEPTH do
         for s = -2, 2 do out[#out + 1] = { p.x - k * v[1] + s * lx, p.y - k * v[2] + s * ly } end
       end
@@ -511,7 +514,8 @@ end
 --- port d'entrée tapis (la tête d'alimentation) regarde ce point, et placé le bout de la tête au plus près ; la colonne
 --- s'étend à l'opposé. Sans port d'entrée tapis, ou sans cette option, le score est celui d'avant.
 --- cover_min (lot AGENCEMENT) : part des tuiles minées qui doit porter le minerai (défaut P.DRILL_COVER) ; fan : bras par quai de
---- sortie (P.port_room), 1 par défaut.
+--- sortie (P.port_room), 1 par défaut ; fed (lot MALL-RUE) : { [entité du port] = vrai }, ports d'entrée servis par le souterrain d'une
+--- série : aucune place de tête réservée pour eux.
 --- Lot PD-FONDERIEQG (D82, retour du DC du 29/10, 14 h : « ça dépend de la forme du gisement », « on monte puis on redescend ») :
 --- out_toward = vrai : la distance à `toward` part de la SORTIE du collecteur (tuile après son port de sortie tapis) au lieu du
 --- centre : la sortie regarde l'arrivée, sans tapis qui contourne la ligne ; axis = "x" | "y" (sens du gisement,
@@ -588,7 +592,7 @@ function P.fit(g, rect, opts)
         end
       end
       local inst0 = M.instantiate(r, 0, 0, 0)
-      local room0 = P.port_room(inst0, opts.fan)
+      local room0 = P.port_room(inst0, opts.fan, opts.fed) -- (lot MALL-RUE : opts.fed = ports servis par le souterrain de la série, sans tête)
       -- lot PURETE-TAPIS : les queues de tapis du gabarit (le bout du tapis d'entrée d'une rangée sort d'une tuile de l'emprise) ne doivent verser
       -- sur aucun tapis existant ; opts.front_ok(tx, ty) -> faux si un tapis occupe cette tuile (nil : comme avant)
       local tails0
@@ -596,7 +600,7 @@ function P.fit(g, rect, opts)
         -- (la géométrie d'un gabarit ne change pas : queues gardées par gabarit, rotation et nombre de bras de sortie, dans un cache à clés faibles)
         local cache = TAILS[g]
         if not cache then cache = {}; TAILS[g] = cache end
-        local ck = k .. ":" .. (opts.fan or 1)
+        local ck = k .. ":" .. (opts.fan or 1) .. (opts.fed and ":fed" or "")
         tails0 = cache[ck]
         if not tails0 then tails0 = P.template_tails(inst0, room0); cache[ck] = tails0 end
       end

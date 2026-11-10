@@ -22,6 +22,8 @@
     - le BLOC de mall (P.bloc) : des recettes DIFFÉRENTES, une machine par objet, de part et d'autre de 2 tapis communs
         (4 voies, donc 4 objets d'entrée au plus pour tout le bloc), sortie en coffre avec barre (le bras s'arrête seul
         quand la barre est atteinte : F95). P.groups range des objets en blocs (glouton déterministe).
+    - le RUBAN de mall (P.ruban, lot MALL-RUE) : le bloc sur la géométrie de Mp.pattern quand la demande dépasse un lot : son
+        corridor continue de section en section, la rue franchie par un souterrain (§6 bis).
   Rendu : un gabarit M ordinaire (`gen`, `args`, ports, `nominal`, `inputs`) : M.analyze, M.check, M.regenerate, M.extend
   et P.fit s'y appliquent sans changement. Dupliquer = mêmes `gen` et `args` sur un autre lot.
 
@@ -809,6 +811,200 @@ function P.bloc(M, machine, recettes, kit, barre)
   b.g.gen, b.g.level_arg = "bloc", 1
   b.g.args = { machine, recs, kit, barre }
   b.g.extensions = {}
+  return b:finish(Wd, H)
+end
+
+---------------------------------------------------------------------------------------------------
+-- 6 bis. Le RUBAN de mall (lot MALL-RUE) : le gabarit des blocs quand la demande dépasse ce qu'un lot tient
+---------------------------------------------------------------------------------------------------
+-- Géométrie : Mp.pattern (shared/team/mall_paving.lua : deux rangées de machines face à face, corridor central de 2 convoyeurs,
+-- coffres extérieurs) ; bras et coffres suivent la cadence, par les règles du bloc. Corridor : le convoyeur A (seconde ligne du
+-- corridor) va vers l'EST, entré à l'ouest, 2 voies (les deux entrées les plus demandées) : c'est lui que la série prolonge de
+-- section en section, sous la rue, par un souterrain (Mp.serie ; script/team/build.lua, Build.Pave) ; le convoyeur B (première
+-- ligne) va vers l'OUEST, entré à l'est, UNE entrée sur ses deux voies : sa tête d'alimentation (P.feeder : bras et coffre au
+-- nord de la tête) laisse libre la ligne de A à l'est du corps, où passent la rallonge et l'entrée du souterrain. Donc
+-- P.RUBAN_VOIES = 3 entrées distinctes au plus (le bloc en porte 4 : au-delà, le bloc reste le gabarit ; script/ai3/industrie.lua).
+-- Le ruban n'est pas orientable (la série va vers l'est) ; g.ruban = { belts = { ligne de A }, port = entité du port d'entrée de A
+-- (la section suivante est servie par le souterrain : aucune tête sur ce port), fam = « ruban-<machine> » }.
+local Mp = require("shared.team.mall_paving")
+
+P.RUBAN_VOIES = 3
+
+--- Modèles des recettes d'un ruban (les contrôles du bloc : solides seuls, catégorie de la machine, pas deux fois, rien de fait ET
+--- consommé), rangés par entrées décroissantes puis nom. Rend la liste ou (nil, raison).
+local function ruban_models(M, machine, msp, recettes)
+  local models = {}
+  for i, rec in ipairs(recettes) do
+    local r, why = P.modele(M, rec)
+    if not r then return nil, why end
+    if #r.fin > 0 then return fail("%s : fluide en entrée (le ruban ne porte que des solides)", r.name) end
+    local cat_ok = false
+    for _, c in ipairs(msp.categories or {}) do if c == r.category then cat_ok = true end end
+    if not cat_ok then return fail("« %s » ne fabrique pas la catégorie « %s » (%s)", machine, r.category, r.name) end
+    models[i] = r
+  end
+  table.sort(models, function(a, b)
+    if #a.solids ~= #b.solids then return #a.solids > #b.solids end
+    return a.name < b.name
+  end)
+  for i = 2, #models do
+    if models[i].name == models[i - 1].name then return fail("%s deux fois dans le même ruban", models[i].name) end
+  end
+  local inputs_of = {}
+  for _, r in ipairs(models) do for _, it in ipairs(r.solids) do inputs_of[it.name] = true end end
+  for _, r in ipairs(models) do
+    for _, nm in ipairs(r.nets) do
+      if inputs_of[nm] == true then return fail("%s est fait ET consommé dans le même ruban (%s)", nm, r.name) end
+    end
+  end
+  return models
+end
+
+--- Voies du ruban : entrées rangées par usages décroissants puis nom ; A porte les deux premières, B la troisième (sur ses deux
+--- voies). Rend { belt_of = { [objet] = 1 (A) | 2 (B) }, A = { a, b }, B = { c, c }, names } ou (nil, raison).
+local function ruban_lanes(models)
+  local use, names = {}, {}
+  for _, r in ipairs(models) do
+    for _, it in ipairs(r.solids) do
+      if not use[it.name] then use[it.name] = { name = it.name, usages = 0 }; names[#names + 1] = it.name end
+      use[it.name].usages = use[it.name].usages + 1
+    end
+  end
+  if #names > P.RUBAN_VOIES then return fail("%d entrées distinctes pour le ruban (%d voies : 2 sur le corridor continu, 1 sur le retour)", #names, P.RUBAN_VOIES) end
+  local list = {}
+  for _, nm in ipairs(names) do list[#list + 1] = use[nm] end
+  table.sort(list, function(a, b)
+    if a.usages ~= b.usages then return a.usages > b.usages end
+    return a.name < b.name
+  end)
+  -- 3 entrées : A = { 1, 2 }, B = { 3, 3 } ; 2 entrées : A = { 1, 1 }, B = { 2, 2 } ; 1 entrée : A = { 1, 1 }, pas de B
+  local belt_of, A, B = {}, nil, nil
+  if #list == 3 then
+    belt_of[list[1].name], belt_of[list[2].name], belt_of[list[3].name] = 1, 1, 2
+    A, B = { list[1].name, list[2].name }, { list[3].name, list[3].name }
+  elseif #list == 2 then
+    belt_of[list[1].name], belt_of[list[2].name] = 1, 2
+    A, B = { list[1].name, list[1].name }, { list[2].name, list[2].name }
+  else
+    belt_of[list[1].name] = 1
+    A = { list[1].name, list[1].name }
+  end
+  return { belt_of = belt_of, A = A, B = B, names = list }
+end
+
+--- Cadence d'une machine du ruban et ses bras : `near` = convoyeur à portée 1 (bras normal), `far` = à portée 2 (bras long).
+--- Rend { rate, counts = { près, loin } (0 : aucun bras), out = bras de sortie } ou (nil, raison).
+local function ruban_plan(M, r, lanes, near, far, kit, msp, slots)
+  local d = { 0, 0 }
+  for _, it in ipairs(r.solids) do d[lanes.belt_of[it.name]] = d[lanes.belt_of[it.name]] + it.amount end
+  local groups = {}
+  if d[near] > 0 then groups[#groups + 1] = { d = d[near], arm = kit.bras, belt = true } end
+  if d[far] > 0 then groups[#groups + 1] = { d = d[far], arm = kit.bras_long, belt = true } end
+  local d_out = 0
+  for _, p in ipairs(r.prods) do d_out = d_out + p.amount end
+  local gout = { { d = d_out, arm = kit.bras, belt = false } }
+  local rate_max = msp.speed / r.time
+  local f = min(best_f(M, groups, slots, rate_max), best_f(M, gout, slots, rate_max))
+  if f <= 0 then return fail("aucun bras ne tient la machine pour %s", r.name) end
+  local rate = rate_max * f
+  local c = arm_counts(M, groups, rate)
+  local counts = { 0, 0 }
+  local k = 1
+  if d[near] > 0 then counts[1] = c[k]; k = k + 1 end
+  if d[far] > 0 then counts[2] = c[k] end
+  return { rate = rate, counts = counts, out = arm_counts(M, gout, rate)[1] }
+end
+
+--- Pose une rangée de machines du ruban (nord ou sud) : machine, bras d'entrée (près puis loin), bras et coffres de sortie.
+local function ruban_side(b, M, machine, recs, plans, rows, mw, per, kit, barre)
+  for j, r in ipairs(recs) do
+    local x = (j - 1) * (mw + 1)
+    local pl = plans[r.name]
+    b:put(machine, x, rows.m, N, { recipe = r.name, rate = pl.rate, role = "machine" })
+    local sl = slots_of(mw, pl.counts[1] + pl.counts[2], per)
+    local col = 0
+    for _ = 1, pl.counts[1] do col = col + 1; b:put(kit.bras, x + sl[col], rows.arm, rows.arm_dir) end
+    for _ = 1, pl.counts[2] do col = col + 1; b:put(kit.bras_long, x + sl[col], rows.arm, rows.arm_dir) end
+    local osl = slots_of(mw, pl.out, per)
+    local bar = (barre > 0) and barre or nil
+    for c = 1, pl.out do
+      b:put(kit.bras, x + osl[c], rows.oarm, rows.arm_dir)
+      local ci = b:put(kit.coffre, x + osl[c], rows.chest, N, { role = "coffre" })
+      for _, nm in ipairs(r.nets) do b:port({ kind = "quai", io = "out", ent = ci, item = nm, bar = bar }) end
+    end
+  end
+end
+
+--- Ruban : une machine par recette de `recettes`, moitié au nord, moitié au sud du corridor de Mp.pattern. Sortie : un coffre par
+--- bras de sortie, barre `barre`. Mêmes arguments que P.bloc ; rend le gabarit (gen « ruban ») ou (nil, raison).
+function P.ruban(M, machine, recettes, kit, barre)
+  barre = barre or 0
+  if type(recettes) ~= "table" or #recettes == 0 then return fail("ruban sans recette") end
+  if type(barre) ~= "number" or barre < 0 or barre ~= floor(barre) then return fail("barre invalide (%s)", tostring(barre)) end
+  local msp = M.spec(machine)
+  if not msp or msp.kind ~= "assembler" then return fail("machine « %s » inconnue du gabarit (P.declare)", tostring(machine)) end
+  if (msp.burner_kw or 0) > 0 then return fail("« %s » brûle un combustible : hors patron", machine) end
+  local okk, whyk = check_kit(M, kit, false)
+  if not okk then return nil, whyk end
+  local models, whym = ruban_models(M, machine, msp, recettes)
+  if not models then return nil, whym end
+  local lanes, whyl = ruban_lanes(models)
+  if not lanes then return nil, whyl end
+  local m, mw, mh = #models, msp.w, msp.h
+  local cols = P.colonnes(mw)
+  if m > 2 * cols then return fail("%d recettes, %d machines au plus par section de ruban de côté %d", m, 2 * cols, mw) end
+  local kmax = ceil(m / 2)
+  local pat, whyp = Mp.pattern({ asm = { w = mw, h = mh }, belts = 2, n = kmax, gap = Mp.GAP })
+  if not pat then return nil, whyp end
+  local Wd, H = pat.w, pat.h
+  if Wd + 2 * P.TETE > P.LOT or H + 2 * P.MARGE > P.LOT then
+    return fail("emprise %d × %d, avec les têtes d'alimentation %d × %d, au-delà du lot de %d × %d", Wd, H, Wd + 2 * P.TETE, H + 2 * P.MARGE, P.LOT, P.LOT)
+  end
+  -- lignes du ruban lues dans le gabarit pur : machines du nord et du sud, les deux convoyeurs (B puis A)
+  local y_m_n, y_m_s, yA, yB = math.huge, -math.huge, math.huge, -math.huge
+  for _, c in ipairs(pat.cells) do
+    if c.kind == "asm" then y_m_n, y_m_s = min(y_m_n, c.dy), max(y_m_s, c.dy) end
+    if c.kind == "belt" then yA, yB = min(yA, c.dy), max(yB, c.dy) end
+  end
+  local per = pole_period(M, kit)
+  local north, south = {}, {}
+  for i, r in ipairs(models) do if i % 2 == 1 then north[#north + 1] = r else south[#south + 1] = r end end
+  local plans, demand = {}, {}
+  for _, side in ipairs({ { north, 2, 1 }, { south, 1, 2 } }) do -- nord : près B (2), loin A (1) ; sud : près A, loin B
+    for _, r in ipairs(side[1]) do
+      local pl, why = ruban_plan(M, r, lanes, side[2], side[3], kit, msp, n_slots(mw, per))
+      if not pl then return nil, why end
+      plans[r.name] = pl
+      for _, it in ipairs(r.solids) do demand[it.name] = (demand[it.name] or 0) + it.amount * pl.rate end
+    end
+  end
+  local lanes_n = {} -- voies que chaque entrée occupe (A et B)
+  for _, nm in ipairs(lanes.A) do lanes_n[nm] = (lanes_n[nm] or 0) + 1 end
+  for _, nm in ipairs(lanes.B or {}) do lanes_n[nm] = (lanes_n[nm] or 0) + 1 end
+  for i, it in ipairs(lanes.names) do
+    local cap = lanes_n[it.name] * M.LANE_RATE
+    if demand[it.name] > cap + EPS then return fail("voie %d : %.2f/s demandés sur %.2f/s", i, demand[it.name], cap) end
+  end
+  local b = M.new_builder("ruban-" .. machine .. "-" .. m, "Ruban de mall (" .. m .. " " .. machine .. ", " .. #lanes.names .. " voies)",
+    "Mall ribbon (" .. m .. " " .. machine .. ", " .. #lanes.names .. " lanes)")
+  local firstB = lanes.B and b:belt_line(Wd - 1, yA, 0, yA, W)[1] or nil -- (sans troisième ni deuxième entrée : pas de convoyeur de retour)
+  local firstA = b:belt_line(0, yB, Wd - 1, yB, E)[1]
+  ruban_side(b, M, machine, north, plans, { m = y_m_n, arm = y_m_n + mh, oarm = 1, chest = 0, arm_dir = S }, mw, per, kit, barre)
+  if #south > 0 then ruban_side(b, M, machine, south, plans, { m = y_m_s, arm = yB + 1, oarm = y_m_s + mh, chest = H - 1, arm_dir = N }, mw, per, kit, barre) end
+  b:port({ kind = "tapis", io = "in", ent = firstA, lanes = { lanes.A[1], lanes.A[2] } })
+  if firstB then b:port({ kind = "tapis", io = "in", ent = firstB, lanes = { lanes.B[1], lanes.B[2] } }) end
+  local cands = {}
+  for y = 0, H - 1 do for x = 0, Wd - 1 do cands[#cands + 1] = { x, y } end end
+  b.g.power_pole = M.with_pole(kit.poteau, function() return b:auto_poles(cands) end)
+  local byname, recs = {}, {}
+  for _, orig in ipairs(recettes) do byname[orig.name] = orig end
+  for i, r in ipairs(models) do recs[i] = byname[r.name] end
+  b.g.params = { machine = machine, n = m }
+  b.g.gen, b.g.level_arg = "ruban", 1
+  b.g.args = { machine, recs, kit, barre }
+  b.g.extensions = {}
+  b.g.no_rotate = true
+  b.g.ruban = { belts = { yB }, port = firstA, fam = "ruban-" .. machine }
   return b:finish(Wd, H)
 end
 
