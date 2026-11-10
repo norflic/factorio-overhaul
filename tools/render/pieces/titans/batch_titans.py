@@ -3,7 +3,7 @@
     blender -b --factory-startup -noaudio -P batch_titans.py -- --what juggernaut --stages 1,2,3 --out DIR [--samples 48] [--px 40]
     blender -b --factory-startup -noaudio -P batch_titans.py -- --what kaiju --anim course --images 0,1,... --dirs 0..7 --out DIR [--samples 32]
 
-Juggernaut (1 direction, comme les géants : batch_blender.py) : passes main, lueur PAR GROUPE (conduits, cristal), ombre réduite ;
+Alliés : Juggernaut, Sentinelle, Léviathan (1 direction, comme les géants : batch_blender.py ; --what <allié> --stages 1,2,3[,drone]) : passes main, lueur PAR GROUPE (conduits, cristal), ombre réduite ;
 sortie <out>/juggernaut-<stage>/{juggernaut-<stage>-main.npy, -shadow.npy, -glow_<g>.npy, render.json} (format de rendre.post).
 Kaiju (8 directions × images, comme serie_blender.py des souches) : le maillage d'une image est fait une fois, tourné 8 fois ;
 passes main (débruitée), ao, shadow, glow (émissifs en BLANC : la teinte d'ère vient du prototype) ;
@@ -31,8 +31,14 @@ sys.path.insert(0, HERE)
 import fo_calib as C  # noqa: E402
 import fo_scene as S  # noqa: E402
 import geo as G  # noqa: E402
+import titans_mat as TM  # noqa: E402
 
-GROUPES_JU = {"conduits": ("ju_conduit", "ju_coeur"), "cristal": ("ju_cristal",)}
+ALLIES = ("juggernaut", "sentinelle", "leviathan")
+
+
+def groupes(prefix):
+    """Groupes de lueur d'un allié (fondus en une couche par feuilles_xp.geant) : conduits + cœurs + halos + anneaux + accents ; cristal."""
+    return {"conduits": tuple(prefix + x for x in ("conduit", "coeur", "halo", "anneau", "accent")), "cristal": (prefix + "cristal",)}
 EXPORT = os.path.join(HERE, "export")
 
 
@@ -126,27 +132,32 @@ def export_glb(nom):
         print("[FO-TITAN] export .glb impossible :", e, flush=True)
 
 
-# ------------------------------------------------------------------------------------------------ Juggernaut
-def juggernaut(a):
-    import juggernaut as JU
+# ------------------------------------------------------------------------------------------------ alliés (1 direction, stades)
+def allie(a):
+    """Juggernaut, Sentinelle, Léviathan : module du même nom, `build(S, lot, stage)`, PREFIX des matières ; stades `--stages`
+    (entiers, ou « drone » pour l'escorte du Léviathan : build(S, lot, "drone"))."""
+    MOD = __import__(a.what)
     C.PX_PER_UNIT_HR = a.px
     C.LIGHT_HOLDOUT = True
-    for stage in [int(x) for x in a.stages.split(",") if x]:
-        name = "juggernaut-%d" % stage
+    C.SKY_GLOSSY_FACTOR = TM.SKY_GLOSSY
+    stages = [x for x in a.stages.split(",") if x]
+    for st in stages:
+        stage = int(st) if st.isdigit() else st
+        name = "%s-%s" % (a.what, st)
         d = os.path.join(a.out, name)
         if os.path.exists(os.path.join(d, "render.json")):
             print("[FO-TITAN] %s deja rendu" % name, flush=True)
             continue
         t0 = time.time()
         scene = scene_neuve()
-        lot = G.Lot(S, "ju%d_" % stage)
-        info_build = JU.build(S, lot, stage)
+        lot = G.Lot(S, "%s%s_" % (MOD.PREFIX[:2], st))
+        info_build = MOD.build(S, lot, stage)
         n_pieces = lot.n
-        lot.flush()
+        TM.sans_ombre(lot.flush())
         t_build = time.time() - t0
         bpy.context.view_layer.update()
-        if a.glb and stage == max(int(x) for x in a.stages.split(",") if x):
-            export_glb("juggernaut")
+        if a.glb and st == stages[-1]:
+            export_glb(a.what)
         objs = S.piece_objects()
         nverts = sum(len(o.data.vertices) for o in objs if o.type == "MESH")
         (l, t, r, b), corps = projected_bounds(objs)
@@ -183,7 +194,7 @@ def juggernaut(a):
         res = S.render_passes(scene, d, name, ["main"], sun, ground)
         print("[FO-TITAN] %s main %dx%d %.1fs" % (name, W, H, time.time() - t1), flush=True)
         world = scene.world
-        for g, noms in GROUPES_JU.items():
+        for g, noms in groupes(MOD.PREFIX).items():
             def fn(mat, noms=noms):
                 if mat is not None and mat.get("fo_kind") == "emissive" and any(mat.name.startswith(x) for x in noms):
                     return mat
@@ -227,6 +238,7 @@ def kaiju(a):
     D = float(se["densite"])
     C.PX_PER_UNIT_HR = D
     C.AO_DISTANCE = KA.AO
+    C.SKY_GLOSSY_FACTOR = TM.SKY_GLOSSY
     nb = se[a.anim]
     d = os.path.join(a.out, "kaiju")
     os.makedirs(d, exist_ok=True)
@@ -245,6 +257,7 @@ def kaiju(a):
         KA.build(S, lot, u) if a.anim == "course" else KA.build(S, lot, 0.0, attaque=u)
         n_pieces = lot.n
         objs = lot.flush()
+        TM.sans_ombre(objs)
         bpy.context.view_layer.update()
         if a.glb and i == 0 and a.anim == "course":
             export_glb("kaiju")
@@ -317,7 +330,7 @@ def kaiju(a):
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
-    ap.add_argument("--what", required=True, choices=("juggernaut", "kaiju"))
+    ap.add_argument("--what", required=True, choices=ALLIES + ("kaiju",))
     ap.add_argument("--out", required=True)
     ap.add_argument("--stages", default="1,2,3")
     ap.add_argument("--anim", default="course")
@@ -331,8 +344,8 @@ def main():
     ap.add_argument("--glb", action="store_true")
     a = ap.parse_args(argv)
     a.out = os.path.abspath(a.out)
-    if a.what == "juggernaut":
-        juggernaut(a)
+    if a.what in ALLIES:
+        allie(a)
     else:
         kaiju(a)
 

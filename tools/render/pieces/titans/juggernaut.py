@@ -21,6 +21,7 @@ import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
 
+PREFIX = "ju_"
 PSI = -math.radians(40.0)
 KE = 1.15                    # échelle générale : 31 unités de modèle -> 36 tuiles
 GRIS = os.environ.get("FO_GRIS", "") == "1"
@@ -82,6 +83,8 @@ def jambe(lot, M, s, stage, r):
     # articulations : sphères de structure
     for p, rr in ((H, 1.6), (K, 1.3), (A, 1.05)):
         lot.put(M["struct"], G.sphere(p, rr, 10, 5))
+    lot.put(M["accent"], G.boite(G.add(H, (0.9, s * 1.3, 0.2)), (0.45, 0.22, 0.22)))
+    lot.put(M["accent"], G.boite(G.add(K, (0.8, s * 1.0, 0.0)), (0.3, 0.18, 0.18)))
     # cuisse : gros segment hexagonal blindé + plaque avant
     lot.put(M["blind"], hexseg(H, K, 2.1, 1.5, 6, 0.3))
     d = G.norm(G.sub(K, H))
@@ -155,6 +158,7 @@ def torse(lot, M, stage, r):
     # dos : cœur à vortex dans une cage, anneau magnétique flottant autour (axe x), gorge lumineuse
     C = (-3.3, 0.0, 24.2)
     lot.put(M["coeur"], G.sphere(C, 1.35, 16, 8))
+    lot.put(M["halo"], G.sphere(C, 2.3, 16, 8))
     for k in range(4):
         a = G.TAU * (k + 0.5) / 4
         p0 = (C[0] + 0.2, C[1] + 1.1 * math.cos(a), C[2] + 1.1 * math.sin(a))
@@ -187,6 +191,7 @@ def bras_canon(lot, M, stage, r):
     E = (1.4, s * 7.9, 20.8)
     Mz = (7.2, s * 8.1, 19.2)
     lot.put(M["struct"], G.sphere(S_, 1.25, 10, 5))
+    lot.put(M["accent"], G.boite(G.add(S_, (0.9, s * 0.8, -0.3)), (0.35, 0.2, 0.2)))
     lot.put(M["blind"], hexseg(S_, E, 1.35, 1.05, 6, 0.2))
     lot.put(M["conduit"], hexseg(G.add(S_, (0.9, s * 0.9, -0.2)), G.add(E, (0.8, s * 0.6, 0.4)), 0.12, 0.12))
     lot.put(M["struct"], G.sphere(E, 1.05, 10, 5))
@@ -216,6 +221,7 @@ def bras_canon(lot, M, stage, r):
             lot.put(M["struct"], G.oriente(G.boite((ra + 0.5, 0.0, 0.0), (0.5, 0.35, 0.3), rz=a), c, d))
     # bouche : vortex de focalisation (cœur), couronne de cristal
     lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, 0.82)], 16, "z", cap1=True), G.add(Mz, G.mul(d, 0.15)), d))
+    lot.put(M["halo"], G.sphere(G.add(Mz, G.mul(d, 0.4)), 1.5, 14, 7))
     for q in range(6):
         a = G.TAU * q / 6
         off = G.add(G.mul(fr[1], 1.15 * math.cos(a)), G.mul(fr[2], 1.15 * math.sin(a)))

@@ -1,15 +1,21 @@
-"""MATIÈRES DES TITANS (lot TITANS, 9/11) : l'identité visuelle commune au Juggernaut (allié) et au Kaiju (ennemi).
+"""MATIÈRES DES TITANS (lot TITANS, 9/11 ; RECALIBRÉES sur les sept concepts du DC, 10/11) : l'identité visuelle commune au
+Juggernaut, à la Sentinelle et au Léviathan (alliés) et au Kaiju (ennemi).
 
-Directive du DC : « blindage angulaire sombre/iridescent, anneaux magnétiques flottants, conduits lumineux et cœurs à vortex
-cyan/turquoise, pointes de cristal énergétique résonant ». Les images de concept n'ont pas été retrouvées : choix PROVISOIRES,
-consignés dans fo-logs/2026-11-09_TITANS/JOURNAL.md, à trancher sur les planches.
+Lu sur les concepts (C:\\Users\\evan2\\Pictures\\Gemini_Generated_Image_*.jfif, 2752×1536) :
+- le BLINDAGE est ARGENT PÂLE IRIDESCENT (environ #9FA8B8 en sRGB), reflets bleu → violet → rose aux rasances, PAS noir : les plaques
+  sombres des rendus du 9/11 étaient une erreur ; le sombre, ce sont les CREUX (joints entre plaques, mécanique interne, articulations) ;
+- les CONDUITS cyan (#19E6FF) sont des tracés FINS (circuits gravés) qui brillent même de jour ;
+- les CŒURS / VORTEX sont cyan incandescent, centre presque blanc, avec un HALO diffus ;
+- les CRISTAUX sont bleu glacier TRANSLUCIDES, arêtes vives, bord plus lumineux que le centre ;
+- les ANNEAUX de lévitation sont des tores cyan SEMI-TRANSPARENTS lumineux ;
+- accents MAGENTA / ROSE discrets : articulations, et la chair du Kaiju biomécanique.
 
-Tout repose sur le kit des géants (tools/render/pieces/experimentaux/mat.py : tôles usées, grain, arêtes, crasse) ; on y ajoute une
-IRIDESCENCE : une teinte qui tourne de l'indigo au turquoise puis au magenta selon l'angle de vue (Layer Weight « Facing » -> rampe de
-couleurs), mêlée au blindage sombre, vernis (Coat) sur les plaques. Les émissifs (conduits, cœur, cristal) passent par S.mat_emissive :
-couche lueur du pipeline, éteints à 30 % dans la couche principale (règle V0b : la lueur additive seule donne la couleur la nuit).
+Tout repose sur le kit des géants (tools/render/pieces/experimentaux/mat.py : tôles, grain, arêtes, crasse). Les émissifs passent par
+S.mat_emissive (couche lueur du pipeline ; `main_scale` : part d'émission gardée dans la couche principale, règle V0b).
+Lisibilité de JOUR à 32 px/tuile : le blindage argent froid (bleu-gris) se détache du sol de Factorio (brun/vert chaud) ; si l'argent se
+noyait, on assombrit les CREUX (joint, crasse, struct), jamais le blindage (consigne du DC).
 
-S'exécute DANS Blender (bpy). Importé par juggernaut.py et kaiju.py via batch_titans.py.
+S'exécute DANS Blender (bpy). Importé par juggernaut.py, kaiju.py, sentinelle.py, leviathan.py via batch_titans.py.
 """
 import os
 import sys
@@ -22,86 +28,213 @@ if XP not in sys.path:
     sys.path.insert(0, XP)
 import mat as MT  # noqa: E402
 
-# Palette provisoire (linéaire). Cyan/turquoise de l'identité ; cristal plus bleu ; cœur presque blanc-cyan.
-CYAN = (0.10, 0.92, 1.00)
-TURQUOISE = (0.12, 0.85, 0.80)
-CRISTAL = (0.30, 0.62, 1.00)
-COEUR = (0.55, 1.00, 1.00)
-# Iridescence : indigo de face, turquoise à 45°, magenta en rasant (les trois teintes de l'identité « sombre/iridescent »).
-IRIS = ((0.06, 0.05, 0.16), (0.05, 0.42, 0.46), (0.52, 0.10, 0.44))
+# ------------------------------------------------------------------------------------------------ palette (linéaire)
+ARGENT = (0.348, 0.391, 0.479)       # #9FA8B8 : blindage principal
+ARGENT2 = (0.262, 0.296, 0.372)      # plaques secondaires, un ton plus bas (#8B96AA)
+CREUX = (0.038, 0.042, 0.058)        # joints, mécanique interne, articulations : le SOMBRE des concepts
+ARETE = (0.78, 0.82, 0.90)           # métal nu des arêtes : vif, presque blanc
+CYAN = (0.098, 0.902, 1.000)         # #19E6FF : conduits
+TURQUOISE = (0.12, 0.86, 0.82)
+COEUR = (0.38, 0.96, 1.00)           # vortex : cyan vif (le centre blanchit par la croûte, pas par la force)
+CRISTAL = (0.16, 0.46, 1.00)         # émission des cristaux (bleu glacier saturé : la lueur additive ne doit pas blanchir)
+GLACE = (0.40, 0.60, 0.90)           # corps des cristaux (bleu glacier)
+MAGENTA = (0.95, 0.22, 0.70)
+CHAIR = (0.40, 0.14, 0.25)           # chair du Kaiju biomécanique
+PEAU = (0.25, 0.15, 0.21)            # peau mauve du Kaiju, entre les plaques
+# Iridescence : bleu à faible incidence, violet au milieu, rose en rasant.
+IRIS = ((0.40, 0.55, 1.00), (0.62, 0.42, 0.95), (1.00, 0.50, 0.80))
+# Éclairage : les métaux reflètent le ciel ; le ciel du calibrage (0,08) est trop sombre pour un argent iridescent : les seuls rayons
+# spéculaires voient un ciel SKY_GLOSSY fois plus fort (fo_scene.setup_world, SKY_GLOSSY_FACTOR ; sans effet sur le diffus ni l'ombre).
+SKY_GLOSSY = 6.0
 
 
-def iridescence(m, part=0.55, blend=0.4):
-    """Ajoute au matériau `m` (sorti de MT.surface) une teinte qui change avec l'angle de vue : mélange de la couleur de base
-    avec une rampe indigo -> turquoise -> magenta pilotée par Layer Weight (Facing). `part` : poids maximal de la rampe."""
+def _facing(N, L, blend=0.4):
+    lw = N.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = blend
+    return lw.outputs["Facing"]
+
+
+def iridescence(m, part=0.45, blend=0.4):
+    """Teinte le matériau `m` (sorti de MT.surface) selon l'angle de vue : rampe bleu -> violet -> rose (IRIS) pilotée par Layer Weight
+    (Facing), MÉLANGÉE à la couleur de base avec un poids Facing × `part` (de face : la base ; en rasant : la teinte à `part`)."""
     nt = m.node_tree
     N, L = nt.nodes, nt.links
     p = N["Principled BSDF"]
     link = p.inputs["Base Color"].links[0]
     base = link.from_socket
     L.remove(link)
-    lw = N.new("ShaderNodeLayerWeight")
-    lw.inputs["Blend"].default_value = blend
+    f = _facing(N, L, blend)
     ramp = N.new("ShaderNodeValToRGB")
     cr = ramp.color_ramp
     cr.elements[0].position = 0.0
     cr.elements[0].color = (IRIS[0][0], IRIS[0][1], IRIS[0][2], 1.0)
     cr.elements[1].position = 1.0
     cr.elements[1].color = (IRIS[2][0], IRIS[2][1], IRIS[2][2], 1.0)
-    e = cr.elements.new(0.55)
+    e = cr.elements.new(0.5)
     e.color = (IRIS[1][0], IRIS[1][1], IRIS[1][2], 1.0)
-    L.new(lw.outputs["Facing"], ramp.inputs["Fac"])
+    L.new(f, ramp.inputs["Fac"])
     k = N.new("ShaderNodeMath")
     k.operation = "MULTIPLY"
     k.inputs[1].default_value = part
-    L.new(lw.outputs["Facing"], k.inputs[0])
+    L.new(f, k.inputs[0])
     mix = N.new("ShaderNodeMix")
     mix.data_type = "RGBA"
-    mix.blend_type = "ADD"
+    mix.blend_type = "MIX"
     L.new(k.outputs[0], mix.inputs["Factor"])
     L.new(base, mix.inputs[6])
     L.new(ramp.outputs["Color"], mix.inputs[7])
     L.new(mix.outputs[2], p.inputs["Base Color"])
     if "Coat Weight" in p.inputs:
-        p.inputs["Coat Weight"].default_value = 0.45
-        p.inputs["Coat Roughness"].default_value = 0.12
+        p.inputs["Coat Weight"].default_value = 0.6
+        p.inputs["Coat Roughness"].default_value = 0.08
+        if "Coat Tint" in p.inputs:
+            p.inputs["Coat Tint"].default_value = (0.85, 0.90, 1.0, 1.0)
     return m
 
 
+def translucide(m, alpha):
+    """Mélange la sortie du matériau avec un Transparent BSDF : part opaque `alpha` (anneaux, halos)."""
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    out = N["Material Output"]
+    link = out.inputs["Surface"].links[0]
+    shader = link.from_socket
+    L.remove(link)
+    tr = N.new("ShaderNodeBsdfTransparent")
+    mix = N.new("ShaderNodeMixShader")
+    mix.inputs["Fac"].default_value = alpha
+    L.new(tr.outputs[0], mix.inputs[1])
+    L.new(shader, mix.inputs[2])
+    L.new(mix.outputs[0], out.inputs["Surface"])
+    m["fo_alpha"] = float(alpha)
+    return m
+
+
+def rim(m, strength, creux=0.35, blend=0.5):
+    """Émission plus forte au bord qu'au centre (cristal translucide, cœur) : force = strength × (creux + (1 - creux) × Facing)."""
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    p = N["Principled BSDF"]
+    old = N.get("fo_emit_strength")
+    if old is not None:               # croûte de mat_emissive : elle multipliait déjà par la force ; on la rend neutre
+        old.name = "fo_crust"
+        old.inputs[1].default_value = 1.0
+    k = N.new("ShaderNodeMath")
+    k.operation = "MULTIPLY"
+    k.name = "fo_emit_strength"       # _set_emit_strength (passe principale × main_scale) règle inputs[1]
+    k.inputs[1].default_value = strength
+    r = N.new("ShaderNodeMapRange")
+    r.inputs["From Min"].default_value = 0.0
+    r.inputs["From Max"].default_value = 1.0
+    r.inputs["To Min"].default_value = creux
+    r.inputs["To Max"].default_value = 1.0
+    L.new(_facing(N, L, blend), r.inputs["Value"])
+    prev = p.inputs["Emission Strength"].links
+    if prev:   # croûte déjà branchée : on la multiplie par le bord
+        src = prev[0].from_socket
+        L.remove(prev[0])
+        m2 = N.new("ShaderNodeMath")
+        m2.operation = "MULTIPLY"
+        L.new(src, m2.inputs[0])
+        L.new(r.outputs["Result"], m2.inputs[1])
+        L.new(m2.outputs[0], k.inputs[0])
+    else:
+        L.new(r.outputs["Result"], k.inputs[0])
+    L.new(k.outputs[0], p.inputs["Emission Strength"])
+    return m
+
+
+def cristal(S, name):
+    """Cristal bleu glacier translucide : corps GLACE, transmission partielle (le sol se devine au travers), vernis, bord lumineux
+    CRISTAL (rim), croûte fine pour casser l'aplat ; éteint à 45 % de jour."""
+    m = S.mat_emissive(name, CRISTAL, strength=0.9, base=GLACE, main_scale=0.4, crust=(2.4, 0.3, 5))
+    p = m.node_tree.nodes["Principled BSDF"]
+    p.inputs["Roughness"].default_value = 0.10
+    p.inputs["Metallic"].default_value = 0.0
+    if "Transmission Weight" in p.inputs:
+        p.inputs["Transmission Weight"].default_value = 0.30
+    if "IOR" in p.inputs:
+        p.inputs["IOR"].default_value = 1.6
+    if "Coat Weight" in p.inputs:
+        p.inputs["Coat Weight"].default_value = 1.0
+        p.inputs["Coat Roughness"].default_value = 0.03
+    rim(m, 0.9, creux=0.3, blend=0.55)
+    return m
+
+
+def coeur(S, name, strength=3.0):
+    """Cœur à vortex : cyan incandescent, croûte tourbillonnante (le blanc vient des crêtes de la croûte) ; garde 50 % de jour (il brûle en
+    plein jour sur les concepts) sans écraser tout le disque en blanc (Sentinelle : singularité de 9 unités)."""
+    m = S.mat_emissive(name, COEUR, strength=strength, base=(0.08, 0.50, 0.58), main_scale=0.5, crust=(1.4, 0.6, 3))
+    return m
+
+
+def halo(S, name):
+    """Halo d'un cœur : sphère plus large, cyan faible, presque toute transparente ; couche lueur surtout (20 % de jour)."""
+    m = S.mat_emissive(name, CYAN, strength=1.2, base=(0.02, 0.2, 0.24), main_scale=0.2)
+    rim(m, 1.2, creux=1.0, blend=0.5)
+    return translucide(m, 0.16)
+
+
+def anneau_lum(S, name):
+    """Anneau de lévitation : tore cyan semi-transparent, lumineux (bord plus fort), 50 % de jour."""
+    m = S.mat_emissive(name, CYAN, strength=1.3, base=(0.06, 0.40, 0.46), main_scale=0.4)
+    p = m.node_tree.nodes["Principled BSDF"]
+    p.inputs["Roughness"].default_value = 0.2
+    rim(m, 1.3, creux=0.5, blend=0.45)
+    return translucide(m, 0.55)
+
+
 def matieres(S, prefix, gris=False):
-    """Le jeu de matières d'un titan. `prefix` : « ju_ » ou « ka_ » (les groupes de lueur de batch_titans lisent les noms)."""
+    """Le jeu de matières d'un titan. `prefix` : « ju_ », « ka_ », « se_ », « le_ » (les groupes de lueur de batch_titans lisent les noms).
+    Clés : blind, blind2 (argent iridescent), struct (creux sombres), canon (acier clair), anneau (tore cyan translucide), os (griffes,
+    acier pâle), peau, chair (Kaiju), conduit, turq, coeur, halo, cristal, accent (magenta)."""
     def surf(name, col, **kw):
         if gris:
             return MT.surface(prefix + "g_" + name, (0.2, 0.2, 0.2), rough=0.6, met=0.1, usure=0.3, crasse=0.6, graine=kw.get("graine", 0))
         return MT.surface(prefix + name, col, **kw)
     MT.ECH[0] = 2.2
     MT.PATINE.clear()
-    MT.PATINE.update(ta=0.10, ra=0.16, ec=0.12, nu_k=1.3, ec_col=(0.02, 0.03, 0.05), sans=("cristal", "conduit", "coeur", "os"))
+    MT.PATINE.update(ta=0.07, ra=0.10, ec=0.0, nu_k=1.0, sans=("cristal", "conduit", "coeur", "os", "anneau", "halo"))
     M = {}
-    # blindage principal : plaques angulaires sombres, joints nets, usure des arêtes en métal bleu-gris
-    M["blind"] = surf("blind", (0.030, 0.034, 0.050), rough=0.30, met=0.80, tole=(1.6, 0.9), joint=0.35, joint_l=0.016, var=0.10,
-                      coulures=0.0, usure=0.45, nu=(0.30, 0.36, 0.46), crasse=0.55, crasse_col=(0.004, 0.005, 0.008), relief=0.6, graine=11)
-    M["blind2"] = surf("blind2", (0.045, 0.040, 0.070), rough=0.34, met=0.75, tole=(0.8, 0.5), joint=0.4, joint_l=0.02, var=0.14,
-                       usure=0.5, nu=(0.34, 0.32, 0.5), crasse=0.6, crasse_col=(0.004, 0.004, 0.007), relief=0.5, graine=12)
-    # structure (articulations, pistons, vérins) : acier gris-bleu brossé
-    M["struct"] = surf("struct", (0.11, 0.12, 0.14), rough=0.45, met=0.7, usure=0.6, nu=(0.4, 0.42, 0.46), crasse=0.7,
-                       crasse_col=(0.005, 0.005, 0.006), graine=13)
-    # anneaux magnétiques : métal noir brillant à liseré, rugosité >= 0,40 (tores : lucioles, README)
-    M["anneau"] = surf("anneau", (0.02, 0.022, 0.03), rough=0.42, met=0.9, usure=0.3, nu=(0.25, 0.3, 0.4), crasse=0.3, graine=14)
-    # canon : alliage plus clair, cannelé
-    M["canon"] = surf("canon", (0.16, 0.17, 0.19), rough=0.38, met=0.8, tole=(0.5, 0.25), joint=0.45, joint_l=0.03, var=0.1, usure=0.5,
-                      nu=(0.45, 0.47, 0.5), crasse=0.6, crasse_col=(0.006, 0.006, 0.007), relief=0.7, graine=15)
-    # peau cyber-organique du Kaiju : écailles sombres, reflets violets ; os/griffes : ivoire gris
-    M["peau"] = surf("peau", (0.040, 0.030, 0.055), rough=0.5, met=0.35, tole=(0.45, 0.28), joint=0.5, joint_l=0.03, var=0.2,
-                     usure=0.35, nu=(0.28, 0.2, 0.36), crasse=0.7, crasse_col=(0.004, 0.003, 0.006), relief=0.8, graine=16)
-    M["os"] = surf("os", (0.42, 0.40, 0.34), rough=0.55, met=0.05, usure=0.2, nu=(0.6, 0.58, 0.5), crasse=0.5, crasse_col=(0.05, 0.04, 0.03), graine=17)
+    # blindage principal : plaques argent pâle, joints sombres NETS (les creux), arêtes vives presque blanches, peu de crasse
+    M["blind"] = surf("blind", ARGENT, rough=0.26, met=0.70, tole=(1.6, 0.9), joint=0.12, joint_l=0.02, var=0.06, coulures=0.0,
+                      usure=0.55, nu=ARETE, crasse=0.45, crasse_col=CREUX, relief=0.8, graine=11)
+    M["blind2"] = surf("blind2", ARGENT2, rough=0.30, met=0.65, tole=(0.8, 0.5), joint=0.12, joint_l=0.024, var=0.08,
+                       usure=0.55, nu=ARETE, crasse=0.5, crasse_col=CREUX, relief=0.7, graine=12)
+    # structure (articulations, pistons, mécanique interne) : les CREUX sombres des concepts
+    M["struct"] = surf("struct", CREUX, rough=0.48, met=0.6, usure=0.45, nu=(0.30, 0.34, 0.42), crasse=0.6,
+                       crasse_col=(0.012, 0.013, 0.018), graine=13)
+    # canon : acier clair cannelé
+    M["canon"] = surf("canon", (0.30, 0.33, 0.40), rough=0.34, met=0.75, tole=(0.5, 0.25), joint=0.15, joint_l=0.03, var=0.08, usure=0.5,
+                      nu=ARETE, crasse=0.45, crasse_col=CREUX, relief=0.7, graine=15)
+    # peau du Kaiju biomécanique : mauve sombre à reflets roses ; chair : rose-magenta mat (cou, articulations)
+    M["peau"] = surf("peau", PEAU, rough=0.52, met=0.20, tole=(0.45, 0.28), joint=0.25, joint_l=0.03, var=0.18,
+                     usure=0.3, nu=(0.55, 0.40, 0.52), crasse=0.55, crasse_col=(0.03, 0.012, 0.025), relief=0.8, graine=16)
+    M["chair"] = surf("chair", CHAIR, rough=0.62, met=0.05, usure=0.15, nu=(0.62, 0.30, 0.45), crasse=0.5, crasse_col=(0.06, 0.015, 0.04), graine=18)
+    # griffes, dents, pointes d'os : acier pâle
+    M["os"] = surf("os", (0.52, 0.52, 0.55), rough=0.32, met=0.6, usure=0.3, nu=ARETE, crasse=0.35, crasse_col=CREUX, graine=17)
     if not gris:
-        for k in ("blind", "blind2", "peau"):
-            iridescence(M[k], part=0.55 if k != "peau" else 0.4)
-        iridescence(M["anneau"], part=0.3, blend=0.6)
-    # émissifs (couche lueur) : conduits, cœur à vortex, pointes de cristal ; éteints à 30 % de jour (main_scale)
-    M["conduit"] = S.mat_emissive(prefix + "conduit", CYAN, strength=2.2, base=(0.01, 0.08, 0.09), main_scale=0.35)
-    M["coeur"] = S.mat_emissive(prefix + "coeur", COEUR, strength=3.0, base=(0.02, 0.10, 0.11), main_scale=0.4, crust=(1.6, 0.5, 3))
-    M["cristal"] = S.mat_emissive(prefix + "cristal", CRISTAL, strength=1.8, base=(0.03, 0.06, 0.14), main_scale=0.3, crust=(2.4, 0.35, 5))
-    M["turq"] = S.mat_emissive(prefix + "conduit_turq", TURQUOISE, strength=1.6, base=(0.01, 0.07, 0.07), main_scale=0.3)
+        iridescence(M["blind"], part=0.45, blend=0.4)
+        iridescence(M["blind2"], part=0.5, blend=0.4)
+        iridescence(M["canon"], part=0.3, blend=0.45)
+        iridescence(M["peau"], part=0.35, blend=0.5)
+        iridescence(M["os"], part=0.2, blend=0.5)
+    # émissifs (couche lueur) : conduits fins, cœur et halo, cristaux, anneaux, accents magenta
+    M["conduit"] = S.mat_emissive(prefix + "conduit", CYAN, strength=2.6, base=(0.02, 0.30, 0.36), main_scale=0.45)
+    M["turq"] = S.mat_emissive(prefix + "conduit_turq", TURQUOISE, strength=2.0, base=(0.02, 0.26, 0.26), main_scale=0.4)
+    M["coeur"] = coeur(S, prefix + "coeur")
+    M["halo"] = halo(S, prefix + "halo")
+    M["cristal"] = cristal(S, prefix + "cristal")
+    M["anneau"] = anneau_lum(S, prefix + "anneau")
+    M["accent"] = S.mat_emissive(prefix + "accent", MAGENTA, strength=1.4, base=(0.30, 0.06, 0.20), main_scale=0.6)
     return M
+
+
+def sans_ombre(objs):
+    """Les halos (translucides) ne portent pas d'ombre et ne se reflètent pas : à appeler après lot.flush()."""
+    for o in objs:
+        if o.type == "MESH" and o.data.materials and any(m is not None and m.get("fo_alpha", 1.0) < 0.3 for m in o.data.materials):
+            o.visible_shadow = False
+            o.visible_diffuse = False
+            o.visible_glossy = False
