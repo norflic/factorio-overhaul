@@ -824,7 +824,8 @@ end
 -- ligne) va vers l'OUEST, entré à l'est, UNE entrée sur ses deux voies : sa tête d'alimentation (P.feeder : bras et coffre au
 -- nord de la tête) laisse libre la ligne de A à l'est du corps, où passent la rallonge et l'entrée du souterrain. Donc
 -- P.RUBAN_VOIES = 3 entrées distinctes au plus (le bloc en porte 4 : au-delà, le bloc reste le gabarit ; script/ai3/industrie.lua).
--- Le ruban n'est pas orientable (la série va vers l'est) ; g.ruban = { belts = { ligne de A }, port = entité du port d'entrée de A
+-- Le ruban est ORIENTABLE depuis le lot MALL-DIRECTIONS (la série suit l'orientation de sa première section, choisie vers un lot voisin
+-- libre : shared/team/serie_dirs.lua ; Build.Pave tourne les lignes du corridor par Sd.cross) ; g.ruban = { belts = { ligne de A }, port = entité du port d'entrée de A
 -- (la section suivante est servie par le souterrain : aucune tête sur ce port), fam = « ruban-<machine> » }.
 local Mp = require("shared.team.mall_paving")
 
@@ -1003,8 +1004,7 @@ function P.ruban(M, machine, recettes, kit, barre)
   b.g.gen, b.g.level_arg = "ruban", 1
   b.g.args = { machine, recs, kit, barre }
   b.g.extensions = {}
-  b.g.no_rotate = true
-  b.g.ruban = { belts = { yB }, port = firstA, fam = "ruban-" .. machine }
+  b.g.ruban = { belts = { yB }, port = firstA, fam = "ruban-" .. machine } -- (orientable : lot MALL-DIRECTIONS)
   return b:finish(Wd, H)
 end
 

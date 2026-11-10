@@ -462,4 +462,99 @@ function Mp.check_serie(res, lots, street)
   return true
 end
 
+---------------------------------------------------------------------------------------------------
+-- (g) Série dans les QUATRE directions (lot MALL-DIRECTIONS, directive du DC du 10/11) : Mp.serie et Mp.check_serie travaillent
+--     le long de +x (est) ou +y (sud). Vers l'ouest ou le nord, la grille et l'origine sont REFLÉTÉES le long de l'axe
+--     (tuile a <-> −a − 1, lot i <-> −i, origine des lots oa <-> −(oa + lot)), la série est calculée, puis reflétée en retour :
+--     mêmes règles, mêmes refus, aucune seconde géométrie. Pur et déterministe.
+---------------------------------------------------------------------------------------------------
+local AXIS_OF = { [Mp.E] = "x", [Mp.S] = "y", [Mp.W] = "x", [Mp.N] = "y" }
+
+local function mirror_lots(L, A)
+  local out = { pitch = L.pitch, lot = L.lot, ox = L.ox, oy = L.oy }
+  out[A.oa] = -(L[A.oa] + L.lot)
+  return out
+end
+
+--- Reflet d'un point { x, y } (tuile) le long de l'axe a : a <-> −a − 1.
+local function mirror_pt(p, A)
+  local q = { x = p.x, y = p.y }
+  q[A.a] = -p[A.a] - 1
+  return q
+end
+
+local function mirror_res(res, A, dir)
+  local out = { sections = {}, traversees = {}, raccords = {}, axis = res.axis, belts = res.belts, dir = dir }
+  for i, s in ipairs(res.sections) do
+    local t = { x = s.x, y = s.y, w = s.w, h = s.h, lot = { i = s.lot.i, j = s.lot.j } }
+    t[A.a] = -(s[A.a] + s[A.w])
+    if A.a == "x" then t.lot.i = -s.lot.i else t.lot.j = -s.lot.j end
+    out.sections[i] = t
+  end
+  for i, t in ipairs(res.traversees) do
+    local r = { entree = mirror_pt(t.entree, A), sortie = mirror_pt(t.sortie, A), voie = t.voie, dir = dir, ecart = t.ecart, rallonge = {}, section = t.section }
+    for j, q in ipairs(t.rallonge) do r.rallonge[j] = mirror_pt(q, A) end
+    out.traversees[i] = r
+  end
+  for i, r in ipairs(res.raccords) do
+    local q = mirror_pt(r, A)
+    out.raccords[i] = { x = q.x, y = q.y, voie = r.voie }
+  end
+  return out
+end
+
+--- Mp.serie dans la direction `dir` (0 N, 2 E, 4 S, 6 O) : mêmes arguments et même résultat que Mp.serie (plus `dir`), les
+--- traversées orientées vers `dir`. Vers l'est et le sud : Mp.serie tel quel.
+function Mp.serie_dir(origin, n, dir, lots, gap, street)
+  local axis = AXIS_OF[dir]
+  if not axis then error("contrat : direction 0, 2, 4 ou 6 attendue (" .. tostring(dir) .. ")", 2) end
+  if dir == Mp.E or dir == Mp.S then
+    local res, why = Mp.serie(origin, n, axis, lots, gap, street)
+    if res then res.dir = dir end
+    return res, why
+  end
+  local A, L = axes_of(axis), lots_of(lots)
+  if type(origin) ~= "table" or not is_int(origin.x) or not is_int(origin.y) then error("contrat : origin = { x, y, w, h } attendu", 2) end
+  local o2 = { x = origin.x, y = origin.y, w = origin.w, h = origin.h, belts = origin.belts }
+  o2[A.a] = -(origin[A.a] + origin[A.w])
+  local res, why = Mp.serie(o2, n, axis, mirror_lots(L, A), gap, street)
+  if not res then return nil, why end
+  return mirror_res(res, A, dir)
+end
+
+--- Mp.check_serie pour une série de Mp.serie_dir (res.dir) : vers l'ouest ou le nord, la série et la grille sont reflétées
+--- vers l'axe positif puis vérifiées par Mp.check_serie.
+function Mp.check_serie_dir(res, lots, street)
+  if type(res) ~= "table" then return false, "serie absente" end
+  local dir = res.dir or Mp.E
+  if dir == Mp.E or dir == Mp.S then return Mp.check_serie(res, lots, street) end
+  local A, L = axes_of(AXIS_OF[dir]), lots_of(lots)
+  local back = mirror_res(res, A, dir == Mp.W and Mp.E or Mp.S)
+  back.dir = nil
+  return Mp.check_serie(back, mirror_lots(L, A), street)
+end
+
+--- Mp.pave_origin dans la direction d'une série : la section suivante est collée à `prev` DU CÔTÉ où la série avance (est : à
+--- l'est ; ouest : à l'ouest ; sud : au sud ; nord : au nord), même ligne en travers ; need = { w, h, lead } comme Mp.pave_origin.
+--- Rend { x, y, axis, dir } ou nil, raison.
+function Mp.pave_origin_dir(prev, need, rect, gap, margin, dir)
+  if dir == nil or dir == Mp.E then return Mp.pave_origin(prev, need, rect, gap, margin) end
+  if not AXIS_OF[dir] then error("contrat : direction 0, 2, 4 ou 6 attendue (" .. tostring(dir) .. ")", 2) end
+  gap = Mp.gap_of(gap)
+  margin = margin or 0
+  local pb, lot = box_of(prev), box_of(rect)
+  if not (need and is_int(need.w) and is_int(need.h)) then error("contrat : need = { w, h } attendu", 2) end
+  local lead = need.lead or { x0 = 0, y0 = 0, x1 = need.w, y1 = need.h }
+  local lw, lh = lead.x1 - lead.x0, lead.y1 - lead.y0 -- emprise têtes comprises
+  local fo
+  if dir == Mp.S then fo = { x = pb.x0, y = pb.y1 + gap }
+  elseif dir == Mp.W then fo = { x = pb.x0 - gap - lw, y = pb.y0 }
+  else fo = { x = pb.x0, y = pb.y0 - gap - lh } end
+  local o = { x = fo.x - lead.x0, y = fo.y - lead.y0, axis = AXIS_OF[dir], dir = dir }
+  local ok = o.x >= lot.x0 + margin and o.y >= lot.y0 + margin and o.x + need.w <= lot.x1 - margin and o.y + need.h <= lot.y1 - margin
+    and o.x + lead.x0 >= lot.x0 and o.y + lead.y0 >= lot.y0 and o.x + lead.x1 <= lot.x1 and o.y + lead.y1 <= lot.y1
+  if ok then return o end
+  return nil, string.format("lot plein : %d x %d ne tient pas du cote %d de (%d, %d)-(%d, %d)", need.w, need.h, dir, pb.x0, pb.y0, pb.x1, pb.y1)
+end
+
 return Mp

@@ -140,8 +140,9 @@ end
 
 --- Entités canoniques (centres) de la cellule `i` (cell = { h, b, m }), kit `names` = { machine (repli), bras, bras_long, tapis, poteau, coffre }.
 --- Rend { ents = { name, x, y, dir, recipe, role, carries }, outs = { x, y, item, bar } }.
-function Mr.cellule(modele, i, cell, names, carries)
-  local dx = (i - 1) * Mr.PERIODE
+function Mr.cellule(modele, i, cell, names, carries, serie)
+  local dx = (i - 1) * Mr.PERIODE + ((serie and serie.shift and serie.shift[i]) or 0) -- (lot MALL-DIRECTIONS : cellule poussée après une rue)
+  local swap = serie and serie.swap or nil
   local ents, outs = {}, {}
   for _, p in ipairs(modele) do
     local nm = names[ROLE_NAME[p.role]]
@@ -152,6 +153,8 @@ function Mr.cellule(modele, i, cell, names, carries)
     elseif p.role == "tapis_entree" then
       c.carries = carries[p.k]
       c.line, c.flow = p.k, dx + p.x
+      local sw = swap and swap[dx + p.x]
+      if sw then c.name, c.type, c.ug, c.role = names.souterrain, sw, sw, "mall-serie" end -- (entrée ou sortie du souterrain sous la rue)
     elseif p.role == "coffre" then
       -- coffre : le coffre du haut (k = 1) reçoit la machine « haut », celui du bas (k = 2) la machine « bas »
       c.role = "mall-sortie"
@@ -277,14 +280,44 @@ end
 
 --- Section (projet) : entités du monde (centres) des cellules from à to de la rangée, tête comprise quand `head` ; `P` = plan (feeder).
 --- row = { j, voies, cells, ... } ; repere = { ox, oy, k } ; rend { ents, quais, outs }.
-function Mr.section(P, modele, row, from, to, names, repere, head, extra)
+function Mr.section(P, modele, row, from, to, names, repere, head, extra, serie)
   local carries = Mr.carries(row.voies)
   local ents, quais, outs = {}, {}, {}
   local function push(list, dest)
     for _, e in ipairs(list) do
       local x, y, d = Mr.to_world(e.x, e.y, e.dir, repere.k, repere.ox, repere.oy, row.j)
-      dest[#dest + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item, line = e.line, flow = e.flow }
+      dest[#dest + 1] = { name = e.name, x = x, y = y, dir = d, recipe = e.recipe, role = e.role, carries = e.carries, item = e.item, line = e.line, flow = e.flow,
+        type = e.type, ug = e.ug }
     end
+  end
+  -- lot MALL-DIRECTIONS : traversées des rues du treillis (Mr.serie_cells) servies par cette section : rallonge de tapis sur chaque ligne, souterrain
+  -- (entrée sur la dernière tuile avant la rue, sortie sur la première après : tuiles libres, ou tuiles de tapis d'une cellule remplacées, Mr.cellule swap),
+  -- deux poteaux relais dans la rangée de passage (y = −1), de part et d'autre de la rue
+  if serie and serie.trav then
+    local sw = {}
+    for _, t in ipairs(serie.trav) do
+      -- l'entrée est dans la dernière tuile de la cellule précédente (fin collée à la rue) ou sur une tuile libre après elle ; les remplacements (swap)
+      -- valent pour toute la rangée : la cellule qui porte l'entrée la pose, dans sa propre section (Mr.serie_cells est calculé une cellule au-delà)
+      local prev_end = t.avant > 1 and ((t.avant - 2) * Mr.PERIODE + (serie.shift[t.avant - 1] or 0) + Mr.PERIODE) or 0
+      local inside = t.a_in < prev_end
+      if inside then sw[t.a_in] = "input" end
+      sw[t.a_out] = "output"
+      if t.avant >= from and t.avant <= to then
+        local list = {}
+        for k, y in ipairs({ Mr.YA, Mr.YB }) do
+          for _, a in ipairs(t.rallonge) do
+            list[#list + 1] = { name = names.tapis, x = a + 0.5, y = y + 0.5, dir = 2, role = "mall-serie", carries = carries[k], line = k, flow = a }
+          end
+          if not inside then
+            list[#list + 1] = { name = names.souterrain, x = t.a_in + 0.5, y = y + 0.5, dir = 2, role = "mall-serie", carries = carries[k], line = k, flow = t.a_in, type = "input", ug = "input" }
+          end
+        end
+        list[#list + 1] = { name = names.poteau, x = t.a_in + 0.5, y = -0.5, dir = 0, role = "mall-poteau" }
+        list[#list + 1] = { name = names.poteau, x = t.a_out + 0.5, y = -0.5, dir = 0, role = "mall-poteau" }
+        push(list, ents)
+      end
+    end
+    serie = { shift = serie.shift, swap = sw }
   end
   local routes = {}
   if extra then -- le tronc et les prises (shared/team/mall_tronc.lua) : coordonnées absolues, repère de la rangée 1
@@ -314,7 +347,7 @@ function Mr.section(P, modele, row, from, to, names, repere, head, extra)
     end
   end
   for i = from, to do
-    local cc = Mr.cellule(modele, i, row.cells[i], names, carries)
+    local cc = Mr.cellule(modele, i, row.cells[i], names, carries, serie)
     push(cc.ents, ents)
     for _, o in ipairs(cc.outs) do
       local x, y = Mr.to_world(o.x, o.y, nil, repere.k, repere.ox, repere.oy, row.j)
@@ -324,10 +357,68 @@ function Mr.section(P, modele, row, from, to, names, repere, head, extra)
   -- tracés des deux tapis, dans l'ordre du flux (preuve de pureté : Pur.check_route)
   local lines = { {}, {} }
   for _, e in ipairs(ents) do
-    if e.line then lines[e.line][#lines[e.line] + 1] = { x = floor(e.x), y = floor(e.y), dir = e.dir, flow = e.flow } end
+    if e.line then lines[e.line][#lines[e.line] + 1] = { x = floor(e.x), y = floor(e.y), dir = e.dir, flow = e.flow, ug = e.ug } end
   end
   for k = 1, 2 do table.sort(lines[k], function(a, b) return a.flow < b.flow end) end
   return { ents = ents, quais = quais, outs = outs, lines = lines, carries = carries, routes = routes }
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot MALL-DIRECTIONS (directive du DC du 10/11) : au-delà du secteur, la rangée FRANCHIT LES RUES du treillis par un souterrain par tapis
+-- (la règle du ruban, F457, portée aux rangées) ; rien n'est posé sur la rue, qui reste libre pour les PNJ. Pur et déterministe.
+---------------------------------------------------------------------------------------------------
+--- Rues du treillis en coordonnées canoniques : bandes { a0, a1 } (a1 exclu, a = abscisse canonique le long de la rangée, en tuiles) dont a0 est
+--- dans [a_min, a_max), triées. rep = { ox, oy, k } (Mr.frame, Mr.to_world) ; lots = { ox, oy, pitch, lot } (origine = coin nord-ouest du lot 0:0,
+--- la rue = les pitch − lot tuiles après chaque lot, comme Mp.serie). L'axe canonique suit x croissant (k = 0), y croissant (k = 1), x décroissant
+--- (k = 2), y décroissant (k = 3) : la tuile canonique a est la tuile du monde ox + a, oy + a, ox − a − 1, oy − a − 1.
+function Mr.rues(rep, lots, a_min, a_max)
+  local k = rep.k % 4
+  local o = (k % 2 == 0) and rep.ox or rep.oy
+  local lo = (k % 2 == 0) and lots.ox or lots.oy
+  local sens = (k == 0 or k == 1) and 1 or -1
+  local out = {}
+  if lots.pitch - lots.lot <= 0 or a_max <= a_min then return out end
+  local w0 = (sens > 0) and (o + a_min) or (o - a_max)
+  local w1 = (sens > 0) and (o + a_max) or (o - a_min)
+  local i0 = floor((w0 - lo - lots.lot) / lots.pitch) - 1
+  local i1 = floor((w1 - lo) / lots.pitch) + 1
+  for i = i0, i1 do
+    local s0, s1 = lo + lots.pitch * i + lots.lot, lo + lots.pitch * (i + 1)
+    local a0, a1
+    if sens > 0 then a0, a1 = s0 - o, s1 - o else a0, a1 = o - s1, o - s0 end
+    if a0 >= a_min and a0 < a_max then out[#out + 1] = { a0 = a0, a1 = a1 } end
+  end
+  table.sort(out, function(x, y) return x.a0 < y.a0 end)
+  return out
+end
+
+--- Décalages des cellules 1..n et traversées. La cellule i commence en a = (i − 1) × PERIODE + shift ; si son emprise [a, a + PERIODE) touche une rue
+--- { a0, a1 }, elle est poussée APRÈS la rue : elle commence en a1 (sa première tuile de tapis devient la SORTIE du souterrain), l'ENTRÉE est sur la
+--- dernière tuile avant la rue (a0 − 1 : une tuile libre, ou la dernière tuile de tapis de la cellule précédente), une rallonge de tapis relie la fin de
+--- la cellule précédente à l'entrée. reach = portée du souterrain (écart maximal entrée → sortie, lu au prototype) ; écart = a1 − a0 + 1.
+--- Rend { shift = { [i] = s }, trav = { { a_in, a_out, rallonge = { a }, avant = i } } } ou nil, raison (portée insuffisante ou inconnue).
+function Mr.serie_cells(n, rues, reach)
+  local shift, trav = {}, {}
+  local s, r = 0, 1
+  for i = 1, n do
+    local a = (i - 1) * Mr.PERIODE + s
+    while rues[r] and rues[r].a1 <= a do r = r + 1 end
+    local rue = rues[r]
+    if rue and a + Mr.PERIODE > rue.a0 then
+      local a_in, a_out = rue.a0 - 1, rue.a1
+      local ecart = a_out - a_in
+      if not reach or ecart > reach or ecart < 2 then
+        return nil, string.format("rue de %d tuiles : souterrain d'ecart %d hors de la portee %s", rue.a1 - rue.a0, ecart, tostring(reach))
+      end
+      local t = { a_in = a_in, a_out = a_out, rallonge = {}, avant = i }
+      for q = a, a_in - 1 do t.rallonge[#t.rallonge + 1] = q end
+      trav[#trav + 1] = t
+      s = s + (a_out - a)
+      r = r + 1
+    end
+    shift[i] = s
+  end
+  return { shift = shift, trav = trav }
 end
 
 --- Liste de matériel { { nom, n } } triée par nom, comptée sur des entités.
