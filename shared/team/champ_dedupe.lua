@@ -92,4 +92,17 @@ function M.dead(owners, alive)
   return out
 end
 
+--- Lot UPS-2 (sprint du DC, 10/11) : tick du prochain essai d'un plan qui ATTEND que son tronc de charbon se libère. Mesuré au banc V0679-A
+--- (123456789, 90 min) : la bande -38 du joueur (projet 21) était replanifiée à chaque passe pendant toute l'attente (1 781 plans en 5 min de
+--- jeu, scarlet 1 717), soit l'essentiel de build:plan:place (258 s sur 1 007 s de banc, ≈ 14 ms par tick dans la fenêtre). Le prochain
+--- essai vient `poll` ticks plus tard, et jamais après la fin de l'attente (`t0 + wait`) : la décision « attente finie, réseau accepté tel
+--- quel » tombe au même tick qu'avant. Un conflit levé pendant l'attente est vu au plus `poll` ticks plus tard.
+function M.next_try(tick, t0, wait, poll)
+  local stop = t0 + wait
+  local nx = tick + poll
+  if nx > stop then nx = stop end
+  if nx < tick then nx = tick end
+  return nx
+end
+
 return M
