@@ -702,6 +702,21 @@ end
 --- Lot RETROFIT-GABARITS (décision du DC) : chaque four occupe une CELLULE RÉSERVÉE à l'empreinte du prochain palier d'ère
 --- (M.reserve, shared/team/box_layout.lua) : four au coin nord-ouest de sa cellule (Bl.anchor), bras sur la ligne d'interface de
 --- la cellule, bras LONGS du côté de la marge (est et sud) ; sans palier qui grandit, le gabarit d'avant à la tuile près.
+--- Colonnes d'une fonderie à cellules réservées `rs` (M.reserve) : tapis de sortie ouest, bras de sortie, cellule ouest, bras d'entrée,
+--- tapis central, bras d'entrée, cellule est, bras de sortie, tapis de sortie est. La portée d'un bras (1 + marge du côté qu'il sert) est
+--- sa distance au four ET à son tapis ; sans marge : 0, 1, 2, 2+s, 3+s, 4+s, 5+s, 5+2s, 6+2s (le gabarit d'avant).
+local function smelter_columns(rs)
+  local s, r_w, r_e = rs.cell.w, rs.west + 1, rs.east + 1
+  local x_ins_w = r_w
+  local x_f_w = x_ins_w + r_w - rs.west
+  local x_in_w = x_f_w + s
+  local x_belt = x_in_w + r_e
+  local x_in_e = x_belt + r_w
+  local x_f_e = x_in_e + r_w - rs.west
+  local x_ins_e = x_f_e + s
+  return { 0, x_ins_w, x_f_w, x_in_w, x_belt, x_in_e, x_f_e, x_ins_e, x_ins_e + r_e }
+end
+
 function G.smelter(furnace, ore, n, sortie)
   local sp, why = machine_spec(furnace, "furnace", "fonderie"); if not sp then return nil, why end
   local plate = M.PLATE_OF[ore]
@@ -730,17 +745,8 @@ function G.smelter(furnace, ore, n, sortie)
   if not (in_w and in_e and out_w and out_e) then
     return fail("fonderie (%s) : aucun bras seul ne suffit (%.2f/s par four depuis le tapis, %.2f/s en sortie)", furnace, rate + fuel, rate)
   end
-  -- colonnes : la portée d'un bras (1 + marge) est la distance de ce bras au four ET à son tapis
-  local r_w, r_e = rs.west + 1, rs.east + 1
-  local x_out_w = 0
-  local x_ins_w = x_out_w + r_w
-  local x_f_w = x_ins_w + r_w - rs.west
-  local x_in_w = x_f_w + s
-  local x_belt = x_in_w + r_e
-  local x_in_e = x_belt + r_w
-  local x_f_e = x_in_e + r_w - rs.west
-  local x_ins_e = x_f_e + s
-  local x_out_e = x_ins_e + r_e
+  local c = smelter_columns(rs)
+  local x_out_w, x_ins_w, x_f_w, x_in_w, x_belt, x_in_e, x_f_e, x_ins_e, x_out_e = c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9]
   local H = n * rs.cell.h
   local main = b:belt_line(x_belt, 0, x_belt, H - 1, S)
   local ow, oe

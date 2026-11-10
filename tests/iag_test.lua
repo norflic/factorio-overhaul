@@ -529,6 +529,7 @@ do
     ["script/team/convoyeurs.lua"] = { "TYPE", 1, "type du moteur transport-belt (filtre des prototypes de tapis, lot CONVOYEURS)" },
     ["script/team/scan_reveil.lua"] = { "TYPE", 1, "types du moteur des pièces surveillées par le palier de stock (Sr.TYPES : inserter, transport-belt, assembling-machine, lus au place_result des objets), lot SCAN-EVENEMENTS : le GENRE, jamais un niveau ni un nom" },
     ["script/team/foreuse_swap.lua"] = { "TYPE", 2, "types du moteur de ce qui BOUGE (véhicules et matériel roulant : spider-vehicle, cargo-wagon, fluid-wagon, artillery-wagon), écartés du relevé de place de la foreuse électrique (lot ETAGE5, Co.cuts) : le GENRE, jamais un niveau" },
+    ["script/team/swap_entity.lua"] = { "TYPE", 2, "lot RETROFIT-GABARITS : primitive partagée extraite de swap_one (foreuse_swap.lua) ; mêmes types du moteur de ce qui BOUGE (véhicules et matériel roulant), écartés du relevé de place d'une cellule qui grandit (box_upgrade_rt.lua) : le GENRE, jamais un niveau" },
     ["script/gui/team_window.lua"] = { "EXEC", 2, "coffre d'équipe : entité du mod" },
     ["shared/team/production.lua"] = { "DETTE", 16, "solveur de débits (lot IA1-e1) : machine par catégorie, matières brutes, recette par défaut du gaz : lire le catalogue du cerveau" },
     ["script/core/path_service.lua"] = { "TYPE", 1, "masque de collision d'eau" },
