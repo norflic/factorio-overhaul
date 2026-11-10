@@ -330,18 +330,27 @@ end
 ---------------------------------------------------------------------------------------------------
 -- §4 traductions
 ---------------------------------------------------------------------------------------------------
-local function cfg(p)
-  local t, sec = {}, ""
+-- KAIJUS-MUTANTS : le moteur REFUSE le mod si une section ([entity-name]…) apparaît deux fois dans UN fichier (« Duplicate key "entity-name"
+-- in property tree », banc content KAIJUS du 10/11) : chaque fichier est lu seul, ses sections comptées ; les clés des deux fichiers fusionnent.
+local function cfg(p, t)
+  t = t or {}
+  local sec, vues, doubles = "", {}, {}
   for line in read(p):gmatch("[^\r\n]+") do
     local s = line:match("^%[([%w%-_]+)%]$")
-    if s then sec = s else
+    if s then
+      if vues[s] then doubles[#doubles + 1] = s end
+      vues[s], sec = true, s
+    else
       local k, v = line:match("^([%w%-_]+)=(.*)$")
       if k then t[sec .. "." .. k] = v end
     end
   end
+  check(#doubles == 0, "§4 " .. p .. " : aucune section en double dans le fichier (" .. table.concat(doubles, ", ") .. ")")
   return t
 end
 local FR, EN = cfg("locale/fr/titans.cfg"), cfg("locale/en/titans.cfg")
+cfg("locale/fr/kaijus.cfg", FR)
+cfg("locale/en/kaijus.cfg", EN)
 local keys = { "entity-name." .. T.PREFIX .. "canon", "entity-name." .. T.PREFIX .. "griffe", "entity-name." .. T.PREFIX .. "singularite",
   "entity-name." .. T.PREFIX .. "singularite-eclair", "entity-name." .. T.PREFIX .. "drone-tir",
   "entity-name." .. T.PREFIX .. "impulsion", "entity-description." .. T.PREFIX .. T.KAIJU.id, "fo-titan.plafond", "fo-titan.evolue" }
@@ -350,7 +359,15 @@ for _, r in ipairs(T.ALLIES) do
     "item-description." .. r.segment_item, "technology-name." .. r.tech, "technology-description." .. r.tech }) do keys[#keys + 1] = k end
   for p = 1, T.PALIERS do keys[#keys + 1] = "entity-name." .. T.allie_name(r, p) end
 end
-for e = 1, T.ERAS do keys[#keys + 1] = "entity-name." .. T.kaiju_name(e) end
+for _, kk in ipairs(T.KAIJUS) do
+  keys[#keys + 1] = "entity-description." .. T.PREFIX .. kk.id
+  for e = kk.era_min, T.ERAS do keys[#keys + 1] = "entity-name." .. T.kaiju_name(e, kk) end
+end
+for _, v in ipairs(T.ECORCHE.variants) do
+  keys[#keys + 1] = "entity-description." .. T.PREFIX .. T.ECORCHE.id .. "-" .. v.id
+  for e = T.ECORCHE.era_min, T.ERAS do keys[#keys + 1] = "entity-name." .. T.ecorche_name(v, e) end
+end
+keys[#keys + 1] = "entity-name." .. T.PREFIX .. "mitraille"
 for _, k in ipairs(keys) do check(FR[k] ~= nil and EN[k] ~= nil and FR[k] ~= "" and EN[k] ~= "", "§4 clé en FR et EN : " .. k) end
 local same = true
 for k in pairs(FR) do if not EN[k] then same = false end end -- comparaison d'ensembles : l'ordre ne compte pas
