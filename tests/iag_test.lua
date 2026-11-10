@@ -528,6 +528,7 @@ do
     ["script/modules/mult.lua"] = { "TYPE", 2, "types du moteur des machines à modules" },
     ["script/team/convoyeurs.lua"] = { "TYPE", 1, "type du moteur transport-belt (filtre des prototypes de tapis, lot CONVOYEURS)" },
     ["script/team/scan_reveil.lua"] = { "TYPE", 1, "types du moteur des pièces surveillées par le palier de stock (Sr.TYPES : inserter, transport-belt, assembling-machine, lus au place_result des objets), lot SCAN-EVENEMENTS : le GENRE, jamais un niveau ni un nom" },
+    ["script/team/balises_teinte.lua"] = { "TYPE", 2, "type du moteur beacon (relevé des balises de la force et balise retrouvée à sa position), lot BALISES-TEINTE : le GENRE ; la famille d'un module est lue à son prototype (module_effect), jamais à son nom" },
     ["script/team/foreuse_swap.lua"] = { "TYPE", 2, "types du moteur de ce qui BOUGE (véhicules et matériel roulant : spider-vehicle, cargo-wagon, fluid-wagon, artillery-wagon), écartés du relevé de place de la foreuse électrique (lot ETAGE5, Co.cuts) : le GENRE, jamais un niveau" },
     ["script/gui/team_window.lua"] = { "EXEC", 2, "coffre d'équipe : entité du mod" },
     ["shared/team/production.lua"] = { "DETTE", 16, "solveur de débits (lot IA1-e1) : machine par catégorie, matières brutes, recette par défaut du gaz : lire le catalogue du cerveau" },
