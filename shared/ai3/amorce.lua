@@ -144,7 +144,7 @@ function Am.direct(projects, item, n)
     for _, p in ipairs(projects or {}) do
       if left <= 0 then break end
       local rebuild = p.rebuilding == true
-      local waits = (pass == 1 and rebuild) or (pass == 2 and not rebuild and p.state == "reserve")
+      local waits = (pass == 1 and rebuild) or (pass == 2 and not rebuild and (p.state == "reserve" or p.progressif == true)) -- (progressif : lot EXPANSION-LOINTAINE)
       if waits and p.reason ~= "pile" and p.reason ~= "qg" then
         local want = 0
         for _, m in ipairs(p.missing or {}) do

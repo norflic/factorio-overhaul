@@ -147,7 +147,7 @@ local function reserve_need(f)
   local lists = {}
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
-    if p and p.state == "reserve" and not p.abandoned and p.missing and #p.missing > 0 then lists[#lists + 1] = p.missing end
+    if p and (p.state == "reserve" or p.progressif) and not p.abandoned and p.missing and #p.missing > 0 then lists[#lists + 1] = p.missing end -- (p.progressif : bande partie sans toute sa matière)
   end
   local agg = Sg.reserve_need(lists)
   f.stock_resv = { at = tick, agg = agg }
