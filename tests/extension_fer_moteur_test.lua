@@ -41,7 +41,9 @@ local P = require("shared.team.pose_paires")
 local Outposts = require("script.faction.outposts")
 check(#config_fns == 1, "outposts.lua s'abonne UNE fois à on_configuration_changed (à la charge du module)")
 
-_G.game = { tick = 0, entity_prototypes = { [T.DRILL] = { tile_width = 2, tile_height = 2 } } }
+-- lot CC-SANCTUAIRE-2 (F509) : la place du réceptacle lit sa taille au prototype (four 2 x 2, coffre 1 x 1) et les ressources sous son emprise
+_G.game = { tick = 0, entity_prototypes = { [T.DRILL] = { tile_width = 2, tile_height = 2 }, ["stone-furnace"] = { tile_width = 2, tile_height = 2 },
+  ["iron-chest"] = { tile_width = 1, tile_height = 1 } } }
 
 local SPEC = T.outposts.iron
 local HALF = { [T.DRILL] = 0.7, ["stone-furnace"] = 0.7, ["iron-chest"] = 0.35 }
@@ -89,6 +91,7 @@ local function world(side)
     end
     return out
   end
+  s.count_entities_filtered = function(q) return #s.find_entities_filtered(q) end
   s.can_place_entity = function(q)
     s.can_place_calls = s.can_place_calls + 1
     local t = taken()
@@ -157,7 +160,17 @@ do
     calls = calls + 1
   end
   check(o.full and o.full_by == "pose_paires" and o.full_why == "gisement", "plein par le balayage complet (" .. tostring(o.full_why) .. ")")
-  check(o.drills > 100, "gisement de 40 x 40 exploité : " .. o.drills .. " foreuses (20 avant le lot)")
+  -- lot CC-SANCTUAIRE-2 (F509, règle du DC du 10/11) : un réceptacle (four, coffre) ne se pose jamais sur une ressource ; seules les foreuses
+  -- du bord du gisement ont une paire (l'intérieur revient aux bandes électriques). Le bord d'un gisement de 40 x 40 en tient environ 75.
+  check(o.drills > 60, "gisement de 40 x 40 : tout son bord exploité en paires : " .. o.drills .. " foreuses (20 avant le lot EXTENSION-FER)")
+  local on_ore = 0
+  for _, sk in ipairs(o.sinks) do
+    local bb = sk.bounding_box
+    if s.count_entities_filtered({ area = { { bb.left_top.x, bb.left_top.y }, { bb.right_bottom.x, bb.right_bottom.y } }, type = "resource" }) > 0 then
+      on_ore = on_ore + 1
+    end
+  end
+  check(on_ore == 0, "F509 : aucun des " .. #o.sinks .. " réceptacles sur une tuile de minerai (" .. on_ore .. ")")
   check(#o.drill_list == o.drills and #o.sinks == o.drills, "listes de l'avant-poste tenues à jour")
   check(overlaps(s) == 0, "aucun recouvrement entre les " .. (2 * o.drills) .. " objets posés")
   check(f.stats.extend_full == 1 and #logs >= 3, "compteurs et journal [FO-EXTEND]")

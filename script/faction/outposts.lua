@@ -120,25 +120,24 @@ end
 -- Pose
 ---------------------------------------------------------------------------------------------------
 --- Emplacement du réceptacle (four 2×2 ou coffre 1×1) couvrant le point de dépôt d'une foreuse.
+--- Lot CC-SANCTUAIRE-2 (F509, règle du DC) : jamais sur une tuile de ressource (Paires.sink_site ; taille lue au prototype, plus au nom).
 local function sink_position(surface, sink, drop, force, drill_pos, fits)
   -- lot FANTOMES : `fits(name, pos)` est la vérification de place (l'aperçu des paires en passe une autre) ; par défaut, celle de la pose.
   fits = fits or function(name, pos) return surface.can_place_entity({ name = name, position = pos, force = force }) end
-  if sink == "stone-furnace" then
-    local best, best_d
-    for dx = 0, 1 do
-      for dy = 0, 1 do
-        local c = { x = math.floor(drop.x) + dx, y = math.floor(drop.y) + dy }
-        if math.abs(c.x - drop.x) <= 1 and math.abs(c.y - drop.y) <= 1 and fits(sink, c) then
-          local d = (c.x - drill_pos.x) ^ 2 + (c.y - drill_pos.y) ^ 2
-          if not best_d or d > best_d then best, best_d = c, d end
-        end
-      end
-    end
-    return best
+  local sp = game.entity_prototypes[sink]
+  local sw, sh = sp and sp.tile_width or 1, sp and sp.tile_height or 1
+  local function ore(x0, y0, w, h)
+    return surface.count_entities_filtered({ area = { { x0 + 0.01, y0 + 0.01 }, { x0 + w - 0.01, y0 + h - 0.01 } }, type = "resource",
+      limit = 1 }) > 0
   end
-  local c = { x = math.floor(drop.x) + 0.5, y = math.floor(drop.y) + 0.5 }
-  if fits(sink, c) then return c end
-  return nil
+  return Paires.sink_site(drop, drill_pos, sw, sh, function(c) return fits(sink, c) end, ore)
+end
+
+--- Lot CC-SANCTUAIRE-2 (F509) : distance au bord du gisement en deçà de laquelle une foreuse peut verser dans un réceptacle posé sur le
+--- sol neutre : la foreuse doit toucher le bord (sa dernière rangée sur la dernière rangée de minerai), donc la tuile du parcours, coin de
+--- l'emprise, est à un côté de foreuse au plus du bord (lu au prototype) ; ordre du parcours : Paires.border_first.
+local function border_reach(dp)
+  return math.max(dp and dp.tile_width or 2, dp and dp.tile_height or 2)
 end
 
 --- Lot EXTENSION-FER : l'ouvrier dégage arbres et rochers du disque (`center`, `radius`) ou de la zone `area` (le bois revient à l'équipe).
@@ -185,7 +184,7 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
   local dp = game.entity_prototypes[T.DRILL]
   if o then o.ext_dead = o.ext_dead or {} end
   local pl = Paires.new({
-    resources = resource_tiles(surface, spec, center, radius, o ~= nil), cap = Paires.MAX_ATTEMPTS,
+    resources = Paires.border_first(resource_tiles(surface, spec, center, radius, o ~= nil), border_reach(dp)), cap = Paires.MAX_ATTEMPTS,
     w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
     occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil,
     mined = o and mined_set(o) or nil }) -- lot PLAFOND-FOREUSES : couverture du gisement (verdict « couverture »)
@@ -286,7 +285,7 @@ function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius, o)
   end
   local dp = game.entity_prototypes[T.DRILL]
   local pl = Paires.new({
-    resources = resource_tiles(surface, spec, center, radius, o ~= nil), cap = Paires.MAX_ATTEMPTS,
+    resources = Paires.border_first(resource_tiles(surface, spec, center, radius, o ~= nil), border_reach(dp)), cap = Paires.MAX_ATTEMPTS,
     w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
     occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil,
     mined = o and mined_set(o) or nil })

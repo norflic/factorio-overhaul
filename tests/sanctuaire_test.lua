@@ -13,6 +13,8 @@
   3. plan du champ (Ch.plan) : un gisement de fer, et un AUTRE gisement là où la fonderie irait : aucun four ni bras de fonderie sur une
      tuile de ressource, avec les deux fonderies (coffres et colonne) ; sans l'autre gisement, la fonderie est posée (aucune régression) ;
   4. mutants : chaque défaut injecté (seconde passe rendue, autre ressource ignorée, minerai visé ignoré) est vu.
+  5 à 7. Lot CC-SANCTUAIRE-2 (F509) : le réceptacle d'une paire thermique (four, coffre) n'est jamais posé sur une ressource ; une
+     foreuse intérieure n'a pas de réceptacle, une foreuse au bord verse sur le sol neutre ; câblage de la pose et de l'aperçu ; mutants.
 ]]
 package.path = "./?.lua;" .. package.path
 
@@ -161,6 +163,151 @@ for _, m in ipairs(MUTANTS) do
   check(seen, "mutant refusé : " .. m.name .. (ok and "" or (" (erreur : " .. tostring(err) .. ")")))
 end
 load_mods(nil)
+
+---------------------------------------------------------------------------------------------------
+-- Lot CC-SANCTUAIRE-2 (F509) : réceptacle d'une PAIRE thermique (four 2 x 2 ou coffre 1 x 1) jamais sur une ressource.
+-- Partie du DC en 0.6.89 (graine 4271945338) : 45 thermiques chez le joueur, 51 Écarlate, 26 Azur, 17 Émeraude, 41 Ambre, chacune avec son four
+-- en pierre (ou son coffre de charbon) posé sur le minerai, au point de dépôt de la foreuse (script/faction/outposts.lua, sink_position : seule
+-- la place libre était testée). Foreuse thermique 2 x 2 posée en (0, 1) (tuiles x -1..0, y 0..1), point de dépôt vers le nord (-0.5, -0.3).
+---------------------------------------------------------------------------------------------------
+local PAIRES = "shared.team.pose_paires"
+local function load_paires(mut)
+  package.loaded[PAIRES] = nil
+  if mut then
+    local src = read("shared/team/pose_paires.lua")
+    local s2, n = src:gsub(mut.from, mut.to, 1)
+    assert(n == 1, "mutant introuvable : " .. mut.name)
+    package.loaded[PAIRES] = assert(load(s2, "=" .. mut.name))()
+  end
+  return require(PAIRES)
+end
+local DRILL, DROP = { x = 0, y = 1 }, { x = -0.5, y = -0.3 }
+local function tile_key(x, y) return x * 65536 + y end
+-- place libre : seules les tuiles de la foreuse sont prises
+local function fits_of(sw, sh)
+  return function(c)
+    for ty = c.y - sh / 2, c.y + sh / 2 - 1 do
+      for tx = c.x - sw / 2, c.x + sw / 2 - 1 do
+        if tx >= -1 and tx <= 0 and ty >= 0 and ty <= 1 then return false end
+      end
+    end
+    return true
+  end
+end
+-- ressource sur toutes les tuiles y >= y_min (gisement au sud d'un bord horizontal)
+local function ore_from(y_min)
+  return function(x0, y0, w, h)
+    for ty = y0, y0 + h - 1 do for tx = x0, x0 + w - 1 do if ty >= y_min then return true end end end
+    return false
+  end
+end
+local function sinks(P, tag)
+  tag = tag or ""
+  -- four 2 x 2
+  local c = P.sink_site(DROP, DRILL, 2, 2, fits_of(2, 2), ore_from(-1000))
+  check(c == nil, tag .. "four : foreuse intérieure (minerai partout) -> aucun four (rendu " .. (c and (c.x .. "," .. c.y) or "nil") .. ")")
+  c = P.sink_site(DROP, DRILL, 2, 2, fits_of(2, 2), ore_from(0))
+  check(c ~= nil and c.x == -1 and c.y == -1, tag .. "four : foreuse au bord nord -> four sur le sol neutre en (-1, -1), le plus loin")
+  if c then check(not ore_from(0)(c.x - 1, c.y - 1, 2, 2), tag .. "four au bord : aucune tuile de son emprise sur le minerai") end
+  c = P.sink_site(DROP, DRILL, 2, 2, fits_of(2, 2), ore_from(-1))
+  check(c == nil, tag .. "four : une seule rangée de minerai sous le point de dépôt -> refusé")
+  c = P.sink_site(DROP, DRILL, 2, 2, function() return false end, ore_from(1000))
+  check(c == nil, tag .. "four : aucune place libre -> nil")
+  c = P.sink_site(DROP, DRILL, 2, 2, fits_of(2, 2), ore_from(1000))
+  check(c ~= nil and c.x == -1 and c.y == -1, tag .. "four : aucun minerai -> même place qu'avant le lot (le plus loin de la foreuse)")
+  -- coffre 1 x 1
+  c = P.sink_site(DROP, DRILL, 1, 1, fits_of(1, 1), ore_from(-1000))
+  check(c == nil, tag .. "coffre : foreuse intérieure -> aucun coffre")
+  c = P.sink_site(DROP, DRILL, 1, 1, fits_of(1, 1), ore_from(0))
+  check(c ~= nil and c.x == -0.5 and c.y == -0.5, tag .. "coffre : foreuse au bord -> coffre sur le sol neutre en (-0.5, -0.5)")
+  c = P.sink_site(DROP, DRILL, 1, 1, fits_of(1, 1), ore_from(-1))
+  check(c == nil, tag .. "coffre : tuile du point de dépôt sur le minerai -> refusé")
+end
+-- parcours « bord d'abord » : carré de 10 x 10 tuiles de minerai (centres x.5), trié par distance au centre
+local function square(n)
+  local l = {}
+  for iy = 0, n - 1 do for ix = 0, n - 1 do l[#l + 1] = { x = ix - n / 2 + 0.5, y = iy - n / 2 + 0.5 } end end
+  table.sort(l, function(a, b)
+    local da, db = a.x * a.x + a.y * a.y, b.x * b.x + b.y * b.y
+    if da ~= db then return da < db end
+    if a.x ~= b.x then return a.x < b.x end
+    return a.y < b.y
+  end)
+  return l
+end
+local function edge_dist(r, n) -- distance (Chebyshev) au bord d'un carré n x n : 1 sur la dernière rangée
+  local tx, ty = math.floor(r.x + n / 2), math.floor(r.y + n / 2)
+  return math.min(tx, ty, n - 1 - tx, n - 1 - ty) + 1
+end
+local function border(P, tag)
+  tag = tag or ""
+  local l = square(10)
+  local b = P.border_first(l, 2)
+  check(#b == #l, tag .. "bord d'abord : même nombre de tuiles (" .. #b .. ")")
+  local near = 0
+  for _, r in ipairs(l) do if edge_dist(r, 10) <= 2 then near = near + 1 end end
+  local ok_head, ok_tail = true, true
+  for i = 1, near do if edge_dist(b[i], 10) > 2 then ok_head = false end end
+  for i = near + 1, #b do if edge_dist(b[i], 10) <= 2 then ok_tail = false end end
+  check(near == 64 and ok_head, tag .. "bord d'abord : les 64 tuiles à 2 au plus du bord passent en tête")
+  check(ok_tail, tag .. "bord d'abord : les 36 tuiles intérieures ensuite")
+  -- partition stable : dans chaque groupe, l'ordre de la liste triée est gardé
+  local pos = {}
+  for i, r in ipairs(l) do pos[r] = i end
+  local stable = true
+  for i = 2, near do if pos[b[i]] < pos[b[i - 1]] then stable = false end end
+  for i = near + 2, #b do if pos[b[i]] < pos[b[i - 1]] then stable = false end end
+  check(stable, tag .. "bord d'abord : ordre gardé dans chaque groupe (distance au centre)")
+  local b1 = P.border_first(l, 1)
+  local n1 = 0
+  for i = 1, #b1 do if edge_dist(b1[i], 10) == 1 then n1 = n1 + 1 else break end end
+  check(n1 == 36, tag .. "portée 1 : seule la dernière rangée (36 tuiles) en tête (" .. n1 .. ")")
+end
+section("5. réceptacle des paires thermiques (F509)")
+local P0 = load_paires(nil)
+check(type(P0.sink_site) == "function", "Paires.sink_site existe")
+if type(P0.sink_site) == "function" then sinks(P0) end
+check(type(P0.border_first) == "function", "Paires.border_first existe")
+if type(P0.border_first) == "function" then border(P0) end
+
+section("6. câblage : la pose et l'aperçu des paires passent par la règle, avec le test des ressources")
+local OUT = read("script/faction/outposts.lua")
+local sp = OUT:match("local function sink_position%(.-\nend")
+check(sp ~= nil and sp:find("Paires%.sink_site%(") ~= nil, "sink_position délègue à Paires.sink_site")
+check(sp ~= nil and sp:find('type = "resource"', 1, true) ~= nil, "sink_position lit les ressources de l'emprise")
+check(sp ~= nil and sp:find("stone%-furnace") == nil, "sink_position ne choisit plus la forme au nom du four (taille du prototype)")
+local npos = 0
+for _ in OUT:gmatch("sink_position%(surface, spec%.sink") do npos = npos + 1 end
+check(npos == 2, "la pose (place_pairs) et l'aperçu (preview_pairs) appellent sink_position (" .. npos .. ")")
+local nb = 0
+for _ in OUT:gmatch("resources = Paires%.border_first%(resource_tiles%(") do nb = nb + 1 end
+check(nb == 2, "la pose et l'aperçu parcourent le bord du gisement d'abord (" .. nb .. ")")
+
+section("7. mutants de la règle des réceptacles et du parcours bord d'abord")
+local PMUT = {
+  { name = "ressource ignorée", from = "local function off_ore%(c%) return not ore%(c%.x %- sw / 2, c%.y %- sh / 2, sw, sh%) end",
+    to = "local function off_ore(c) return true end" },
+  { name = "seule la tuile du coin lue", from = "local function off_ore%(c%) return not ore%(c%.x %- sw / 2, c%.y %- sh / 2, sw, sh%) end",
+    to = "local function off_ore(c) return not ore(c.x - sw / 2, c.y - sh / 2, 1, 1) end" },
+  { name = "emprise décalée d'une tuile", from = "local function off_ore%(c%) return not ore%(c%.x %- sw / 2, c%.y %- sh / 2, sw, sh%) end",
+    to = "local function off_ore(c) return not ore(c.x - sw / 2 + 1, c.y - sh / 2 + 1, sw, sh) end" },
+  { name = "coffre sans test de ressource", from = "if off_ore%(c%) and fits%(c%) then return c end",
+    to = "if fits(c) then return c end" },
+  { name = "four le plus proche au lieu du plus loin", from = "if not best_d or d > best_d then", to = "if not best_d or d < best_d then" },
+  { name = "four sans test de place", from = "<= sh / 2 and off_ore%(c%) and fits%(c%) then", to = "<= sh / 2 and off_ore(c) then" },
+  { name = "bord : portée dépassée d'une tuile", from = "if d < reach then", to = "if d <= reach then" },
+  { name = "bord : intérieur jamais essayé", from = "for _, r in ipairs%(far%) do near%[#near %+ 1%] = r end", to = "" },
+  { name = "bord : diagonales ignorées au bord", from = "for dy = %-1, 1 do for dx = %-1, 1 do if not ore", to = "for dy = 0, 0 do for dx = -1, 1 do if not ore" },
+  { name = "bord : aucune propagation vers l'intérieur", from = "if d < reach then", to = "if d < 1 then" },
+}
+for _, m in ipairs(PMUT) do
+  local p0, f0 = passes, failures
+  local ok, err = pcall(function() local Pm = load_paires(m); sinks(Pm, "[" .. m.name .. "] "); border(Pm, "[" .. m.name .. "] ") end)
+  local seen = (not ok) or failures > f0
+  passes, failures = p0, f0
+  check(seen, "mutant refusé : " .. m.name .. (ok and "" or (" (erreur : " .. tostring(err) .. ")")))
+end
+load_paires(nil)
 
 print(string.format("[SANCTUAIRE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

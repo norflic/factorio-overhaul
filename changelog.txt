@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.92
+Date: 2026-11-11
+  Bugfixes:
+    - Gisements (F509) : le four ou le coffre d'une paire thermique n'est plus jamais posé sur une tuile de ressource ; seules les foreuses qui touchent le bord du gisement ont une paire (four sur le sol neutre), l'intérieur revient aux bandes électriques (règle du DC du 10/11).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10
   Bugfixes:
