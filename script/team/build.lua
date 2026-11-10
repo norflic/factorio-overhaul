@@ -1697,7 +1697,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
   local rows, why = Li.rows_wanted({
     rows_rate = cur, pairs_dep = pairs_dep, drill_rate = dsp.speed, cap = cap,
     pairs_line = pairs_line, rows_max = g.extensions[1].max, grow = true,
-    rows_fit = Li.rows_fit(P.LOT, 1, P.FEED_DEPTH, rev and 0 or 2, (g.cell and g.cell.h) or fsp.w), -- (lot RETROFIT-GABARITS : pas = cellule réservée du gabarit)
+    rows_fit = Li.rows_fit(P.LOT, 1, P.FEED_DEPTH, rev and 0 or 2, fsp.w),
     out_ok = function(r) return M.choose_inserters(r * cap, true, Li.MAX_ARMS) ~= nil end,
     -- lot FONDERIE-DYNAMIQUE : plus de plancher de 4 rangées ; ligne dynamique : la PLACE de la ligne entière est réservée (sans
     -- budget), les rangées sont posées par étapes (ligne_split au plan, Build.ligne_step ensuite) ; sinon le stock borne la ligne
@@ -2018,7 +2018,7 @@ function Build.tag_rows(ents, g, offset, which, field)
   local kinds, side = ROW_KINDS[which], nil
   for _, e in ipairs(g.entities) do
     local sp = M.spec(e.name)
-    if sp and sp.kind == SIDE_KIND[which] then side = (g.cell and g.cell.h) or sp.w break end -- (lot RETROFIT-GABARITS : pas = cellule réservée du gabarit)
+    if sp and sp.kind == SIDE_KIND[which] then side = sp.w break end
   end
   if not side then return end
   local rows = Li.rows_of(g.entities, side, offset, function(e)

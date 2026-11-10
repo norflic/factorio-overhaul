@@ -191,8 +191,6 @@ local function machine_catalog()
   return c
 end
 function Capital.mproto(name) return machine_catalog().by[name] end
---- Noms (triés) du catalogue des machines : successeurs à emprise plus grande du rétrofit (shared/team/box_upgrade.lua, Bu.grown_successors).
-function Capital.machine_names() return machine_catalog().names end
 
 --- Machines supérieures vers lesquelles `name` se remplace sur place (liste triée : vitesse croissante), lues aux prototypes.
 --- Interface du lot LEVIERS (valeur d'une recherche qui débloque une meilleure machine) : même règle que le remplacement.

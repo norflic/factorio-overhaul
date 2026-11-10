@@ -42,13 +42,11 @@ end
 local L = need("shared.levels.config", "shared/levels/config")
 local Points = need("shared.levels.points", "shared/levels/points")
 local X = need("shared.content.epochs", "shared/content/epochs")
-local Bl = need("shared.team.box_layout", "shared/team/box_layout") -- lot RETROFIT-GABARITS : cellules réservées (règle pure)
 local Pt = need("shared.team.patrons", "shared/team/patrons") -- lot INDUSTRIE I5 : chargé ici, jamais à l'appel (F24 : un générateur tourne en événement)
 
 local M = {}
 
 M.PORT_ROOM = 5                -- tuiles que les ports d'une rangée ajoutent à sa largeur (tête d'alimentation + sortie, plan.lua P.port_room)
-M.FEED_DEPTH = 3               -- P.FEED_DEPTH (shared/team/plan.lua), recopié : modules ne lit pas plan ; la sortie prend le reste de M.PORT_ROOM
 M.MAX_SIDE = 24                -- emprise maximale (EQUIPES_PNJ §6.4 ; lot de 24 × 24, §6.5)
 M.STREET = 4                   -- largeur de la rue autour d'un lot (§6.5)
 M.BUILD_DISTANCE = 16          -- O.SCRIPT_BUILD_DISTANCE (shared/team/org.lua), recopié : modules ne lit pas org
@@ -420,57 +418,6 @@ table.sort(M.ARMS, function(a, b)
   return a < b
 end)
 
---- Lot RETROFIT-GABARITS : les bras LONGS électriques (portée Bl.REACH_LONG), du plus lent au plus rapide (cadence, puis nom), lus dans
---- BASE : la ligne d'interface d'une cellule réservée les exige du côté où la machine actuelle laisse une marge (Bl.interface).
-M.LONG_ARMS = {}
-for name, s in pairs(BASE) do
-  if s.kind == "inserter" and not s.burner and s.reach == Bl.REACH_LONG then M.LONG_ARMS[#M.LONG_ARMS + 1] = name end
-end
-table.sort(M.LONG_ARMS, function(a, b)
-  if BASE[a].rate ~= BASE[b].rate then return BASE[a].rate < BASE[b].rate end
-  return a < b
-end)
-
---- Lot RETROFIT-GABARITS (décision du DC : « rétrofit glissant à gabarits évolutifs », réservation d'espace à la pose) : empreinte
---- RÉSERVÉE d'une machine. `target` = la machine du prochain palier d'ère de sa famille dont le côté grandit (M.footprint_steps, lu
---- à L.footprints ; famille lue à L.parse) ; sans famille, sans palier qui grandit, ou `plain` : la machine elle-même (rien de réservé,
---- le gabarit d'avant). Rend { now, target, cell = Bl.footprint, west, north, east, south (marges de la machine dans la cellule, Bl.anchor :
---- coin nord-ouest, marge au sud-est), why } ; un côté hors de portée d'un bras long, ou aucun bras long aux données : cellule = la
---- machine et `why` dit pourquoi (journalisé dans g.notes par le générateur). Jamais nil pour une machine connue.
-M.reserving = true     -- contexte (comme M.current_pole) : faux pendant la REPRISE sans réservation d'un gabarit réservé refusé (GEN)
-M.reserved_any = false -- vrai dès qu'une réservation réelle a servi au gabarit en cours (GEN : décide d'une reprise)
-function M.reserve(name, plain)
-  local now = M.spec(name)
-  if not now then return nil end
-  local function none(why) return { now = now, cell = { w = now.w, h = now.h }, west = 0, north = 0, east = 0, south = 0, why = why } end
-  if plain or M.reserving == false then return none() end
-  local fam, n = L.parse(name)
-  if not (fam and L.footprints[fam.key]) then return none() end
-  local target
-  for _, step in ipairs(M.footprint_steps(fam)) do
-    if step > n and L.footprint(fam, step) > L.footprint(fam, n) then target = M.spec(L.name(fam, step)); break end
-  end
-  if not target then return none() end
-  local cell = Bl.footprint(now, target)
-  local a = Bl.anchor(cell, now, target)
-  local r = { now = now, target = target, cell = cell, west = a.x, north = a.y, east = cell.w - now.w - a.x, south = cell.h - now.h - a.y }
-  local far = math.max(r.west, r.north, r.east, r.south)
-  if far + 1 > Bl.REACH_LONG then return none(string.format("%s : marge %d hors de portée d'un bras long", name, far)) end
-  if far >= 1 and #M.LONG_ARMS == 0 then return none(name .. " : aucun bras long aux données") end
-  M.reserved_any = true
-  return r
-end
-
---- Côté de la cellule réservée d'une machine (géométrie des blocs à deux étages : colonne de jonction, poteaux ; PAS d'une rangée
---- pour les lignes dynamiques : Li.rows_of, Rd.columns) ; la machine elle-même si rien n'est réservé. Les BORNES d'extension restent
---- celles de la machine actuelle : un gabarit réservé qui ne tient pas est repris sans réservation (GEN), tout n valide d'avant le reste.
-function M.cell_side(name)
-  local r = M.reserve(name)
-  return r and r.cell.w or (M.spec(name) or {}).w
-end
-local cell_w = M.cell_side
-
-
 --- Le poteau le moins cher que `usable(nom)` accepte (vrai quand la recette est débloquée et ses matières à portée), ou
 --- nil si aucun ne l'est.
 function M.cheapest_pole(usable)
@@ -699,31 +646,12 @@ end
 --- « vers l'extérieur » pour un flux d'usine) : absent ou "centre" = les tapis de sortie vont au bout opposé à la tête
 --- d'alimentation (le gabarit d'avant, clé et paramètres inchangés) ; "exterieur" = ils reviennent vers la tête, leurs quais
 --- (bras et coffre) finissent du côté de la tête, donc du gisement une fois la tête tournée vers lui (shared/team/plan.lua).
---- Lot RETROFIT-GABARITS (décision du DC) : chaque four occupe une CELLULE RÉSERVÉE à l'empreinte du prochain palier d'ère
---- (M.reserve, shared/team/box_layout.lua) : four au coin nord-ouest de sa cellule (Bl.anchor), bras sur la ligne d'interface de
---- la cellule, bras LONGS du côté de la marge (est et sud) ; sans palier qui grandit, le gabarit d'avant à la tuile près.
---- Colonnes d'une fonderie à cellules réservées `rs` (M.reserve) : tapis de sortie ouest, bras de sortie, cellule ouest, bras d'entrée,
---- tapis central, bras d'entrée, cellule est, bras de sortie, tapis de sortie est. La portée d'un bras (1 + marge du côté qu'il sert) est
---- sa distance au four ET à son tapis ; sans marge : 0, 1, 2, 2+s, 3+s, 4+s, 5+s, 5+2s, 6+2s (le gabarit d'avant).
-local function smelter_columns(rs)
-  local s, r_w, r_e = rs.cell.w, rs.west + 1, rs.east + 1
-  local x_ins_w = r_w
-  local x_f_w = x_ins_w + r_w - rs.west
-  local x_in_w = x_f_w + s
-  local x_belt = x_in_w + r_e
-  local x_in_e = x_belt + r_w
-  local x_f_e = x_in_e + r_w - rs.west
-  local x_ins_e = x_f_e + s
-  return { 0, x_ins_w, x_f_w, x_in_w, x_belt, x_in_e, x_f_e, x_ins_e, x_ins_e + r_e }
-end
-
 function G.smelter(furnace, ore, n, sortie)
   local sp, why = machine_spec(furnace, "furnace", "fonderie"); if not sp then return nil, why end
   local plate = M.PLATE_OF[ore]
   if not plate then return fail("fonderie : minerai « %s » sans plaque", tostring(ore)) end
   local ok, why2 = count_ok(n, "fonderie"); if not ok then return nil, why2 end
-  local rs = M.reserve(furnace)
-  local s = rs.cell.w
+  local s = sp.w
   local tag = (sp.base or furnace) == "stone-furnace" and "pierre" or "acier"
   if sortie ~= nil and sortie ~= "centre" and sortie ~= "exterieur" then return fail("fonderie : sortie « %s » inconnue", tostring(sortie)) end
   local rev = sortie == "exterieur"
@@ -732,22 +660,15 @@ function G.smelter(furnace, ore, n, sortie)
     "Electric smelter (" .. ore_label_en(ore) .. ", " .. furnace .. ", " .. 2 * n .. " furnaces" .. (rev and ", output at the head" or "") .. ")")
   local rate = sp.speed / R[plate].time
   local fuel = (sp.burner_kw or 0) / M.COAL_J
-  -- bras par côté de cellule : portée courte contre le four (marge 0), bras long derrière une marge (M.LONG_ARMS, données)
-  -- (jusqu'à une rangée de bras par rangée de tuiles du four : un seul suffit presque toujours, le moins d'entités d'abord)
-  local function pick(need, from_belt, margin)
-    if margin > 0 then return M.choose_inserters(need, from_belt, sp.h, M.LONG_ARMS) end
-    return M.choose_inserters(need, from_belt, sp.h)
-  end
-  local in_w, n_in_w = pick(rate + fuel, true, rs.east)
-  local in_e, n_in_e = pick(rate + fuel, true, rs.west)
-  local out_w, n_out_w = pick(rate, false, rs.west)
-  local out_e, n_out_e = pick(rate, false, rs.east)
-  if not (in_w and in_e and out_w and out_e) then
+  local in_k = M.choose_inserters(rate + fuel, true, 1)
+  local out_k = M.choose_inserters(rate, false, 1)
+  if not (in_k and out_k) then
     return fail("fonderie (%s) : aucun bras seul ne suffit (%.2f/s par four depuis le tapis, %.2f/s en sortie)", furnace, rate + fuel, rate)
   end
-  local c = smelter_columns(rs)
-  local x_out_w, x_ins_w, x_f_w, x_in_w, x_belt, x_in_e, x_f_e, x_ins_e, x_out_e = c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9]
-  local H = n * rs.cell.h
+  local x_out_w, x_ins_w, x_f_w = 0, 1, 2
+  local x_in_w, x_belt, x_in_e = 2 + s, 3 + s, 4 + s
+  local x_f_e, x_ins_e, x_out_e = 5 + s, 5 + 2 * s, 6 + 2 * s
+  local H = n * s
   local main = b:belt_line(x_belt, 0, x_belt, H - 1, S)
   local ow, oe
   if rev then
@@ -758,14 +679,13 @@ function G.smelter(furnace, ore, n, sortie)
     oe = b:belt_line(x_out_e, 0, x_out_e, H - 1, S)
   end
   for i = 0, n - 1 do
-    local y = i * rs.cell.h
-    b:put(furnace, x_f_w + rs.west, y + rs.north, N, { recipe = plate, rate = rate, role = "four" })
-    b:put(furnace, x_f_e + rs.west, y + rs.north, N, { recipe = plate, rate = rate, role = "four" })
-    local ya = y + rs.north -- rangées de bras : celles du four (jamais la marge réservée)
-    for k = 0, n_in_w - 1 do b:put(in_w, x_in_w, ya + k, E) end     -- prend à l'est (tapis), dépose à l'ouest (four)
-    for k = 0, n_in_e - 1 do b:put(in_e, x_in_e, ya + k, W) end     -- prend à l'ouest (tapis), dépose à l'est
-    for k = 0, n_out_w - 1 do b:put(out_w, x_ins_w, ya + k, E) end  -- prend à l'est (four), dépose à l'ouest (tapis de sortie)
-    for k = 0, n_out_e - 1 do b:put(out_e, x_ins_e, ya + k, W) end
+    local y = i * s
+    b:put(furnace, x_f_w, y, N, { recipe = plate, rate = rate, role = "four" })
+    b:put(furnace, x_f_e, y, N, { recipe = plate, rate = rate, role = "four" })
+    b:put(in_k, x_in_w, y, E)    -- prend à l'est (tapis), dépose à l'ouest (four)
+    b:put(in_k, x_in_e, y, W)    -- prend à l'ouest (tapis), dépose à l'est
+    b:put(out_k, x_ins_w, y, E)  -- prend à l'est (four), dépose à l'ouest (tapis de sortie)
+    b:put(out_k, x_ins_e, y, W)
   end
   b:port({ kind = "tapis", io = "in", ent = main[1], lanes = { ore, "coal" } })
   b:port({ kind = "tapis", io = "out", ent = ow[#ow] })
@@ -775,17 +695,14 @@ function G.smelter(furnace, ore, n, sortie)
     for y = 0, H - 1 do cands[#cands + 1] = { x, y } end
   end
   b.g.power_pole = b:auto_poles(cands)
-  if rs.why then b.g.notes[#b.g.notes + 1] = "emprise non réservée : " .. rs.why end
-  -- cellule réservée dite au gabarit (données) : pas des rangées pour les lignes dynamiques (build.lua tag_rows, rangee_dyn) ; absent sans réservation
-  if rs.target then b.g.cell = { w = rs.cell.w, h = rs.cell.h } end
   b.g.params = { furnace = furnace, ore = ore, n = n }
   b.g.gen, b.g.level_arg = "smelter", 1
   b.g.args = rev and { furnace, ore, n, "exterieur" } or { furnace, ore, n }
-  -- bornes (sur le four ACTUEL : un gabarit réservé trop grand est repris sans réservation par GEN, donc tout n valide d'avant le
-  -- reste) : hauteur n·s ; voie de minerai (2n fours) ; voie de charbon ; une voie de sortie par rangée (n fours) ; largeur 7 + 2s
-  local bounds = { floor_eps(M.MAX_SIDE / sp.h), floor_eps(M.LANE_RATE / (2 * rate)), floor_eps(M.LANE_RATE / rate) }
+  -- bornes : hauteur n·s ; voie de minerai (2n fours) ; voie de charbon ; une voie de sortie par rangée (n fours) ;
+  -- largeur 7 + 2s
+  local bounds = { floor_eps(M.MAX_SIDE / s), floor_eps(M.LANE_RATE / (2 * rate)), floor_eps(M.LANE_RATE / rate) }
   if fuel > 0 then bounds[#bounds + 1] = floor_eps(M.LANE_RATE / (2 * fuel)) end
-  if 7 + 2 * sp.w > M.MAX_SIDE then bounds[#bounds + 1] = 0 end
+  if 7 + 2 * s > M.MAX_SIDE then bounds[#bounds + 1] = 0 end
   set_ext(b.g, "n", 3, minimum(bounds))
   return b:finish()
 end
@@ -857,157 +774,111 @@ function G.steam(nb)
   return b:finish(W_, yb + 3)
 end
 
---- Lot RETROFIT-GABARITS : géométrie d'une rangée à CELLULES RÉSERVÉES (M.reserve de la première machine) : côté réservé `s`,
---- largeur `mw` de la machine actuelle, portées des bras d'entrée (nord), de sortie (sud) et de liaison (colonne est) lues aux
---- marges de la cellule ; sans palier qui grandit, les marges sont nulles et la géométrie est celle d'avant, à la tuile près.
-local function row_geometry(b, spec, ox, oy)
-  local rs = M.reserve(spec.machines[1].name)
-  local has2 = spec.lanes2 ~= nil
-  -- LIMITE PHYSIQUE : la colonne de liaison entre deux voisines (spec.links) longe la marge est d'une cellule réservée : ses bras
-  -- seraient tous LONGS (débit divisé par deux, aucune marche pour les niveaux suivants) ; un îlot à liaisons garde donc le gabarit
-  -- actuel (il passe l'ère par remplacement de module, M.upgrade_plan « remplacer ») ; de même un 2e tapis à bras longs (lanes2)
-  -- suppose l'entrée à portée courte : marge nord non nulle → gabarit actuel gardé. Noté dans g.notes (journal).
-  local links = spec.links ~= nil and #spec.links > 0
-  if rs.target and (links or (has2 and rs.north > 0)) then
-    b.g.notes[#b.g.notes + 1] = string.format("%s : cellules non réservées (%s)", tostring(b.g.key),
-      links and "liaisons par colonne" or "2e tapis à bras longs")
-    rs = M.reserve(spec.machines[1].name, true)
-  end
-  local s, mw = rs.cell.w, rs.now.w
-  local g = { rs = rs, s = s, mw = mw, nm = #spec.machines, has2 = has2, x0 = rs.west }
-  -- lot RECHERCHE-BRAS : avec des bras lents (plusieurs par rangée), une tuile par rangée reste libre pour un poteau
-  g.slots_n = M.current_arms and math.max(1, mw - 1) or mw
-  -- machine seule (hors étage A d'un bloc à deux étages) : une colonne de plus à l'est, pour un poteau (correction
-  -- IA1-c : sans colonne de liaison, une rangée de bras pleine n'avait aucun poteau possible)
-  g.Wd = g.nm * s + (g.nm - 1) + ((g.nm == 1 and not spec.no_out_port) and 1 or 0)
-  g.r_in, g.r_out, g.r_link = rs.north + 1, rs.south + 1, rs.east + 1
-  g.y_top2 = oy
-  g.y_top = oy + (has2 and 1 or 0)
-  g.y_ins = g.y_top + g.r_in
-  g.y_m = g.y_ins + 1
-  g.y_out = g.y_m + rs.cell.h
-  g.y_ob = g.y_out + g.r_out
-  return g
-end
-
---- Bras d'un côté de la cellule réservée : portée courte quand la machine actuelle touche le bord (marge 0), bras LONG de
---- l'équipe (M.LONG_ARMS, lus aux données) quand une marge d'une tuile la sépare de la ligne d'interface (Bl.interface).
-local function side_pick(need, from_belt, max_count, margin)
-  if margin > 0 then return arm_pick(need, from_belt, max_count, M.LONG_ARMS) end
-  return arm_pick(need, from_belt, max_count)
-end
-
---- Une machine de la rangée et ses bras (haut, 2e tapis, sortie) ; rend vrai, ou (nil, raison).
-local function row_machine(b, key, g, i, m, x)
-  -- lot RECHERCHE-BRAS : cadence bridée (M.arm_f < 1) quand seuls des bras lents sont obtenables ; 1 hors contexte (rien ne change)
-  local rate = m.rate * M.arm_f
-  local mw, mx = g.mw, x + g.x0
-  b:put(m.name, mx, g.y_m, N, { recipe = m.recipe, rate = rate, role = m.role or "machine" })
-  local r = R[m.recipe]
-  -- bras du haut
-  local function need_of(items)
-    local t = 0
-    for _, it in ipairs(items or {}) do
-      if m.kind == "lab" then t = t + rate
-      else
-        for _, ing in ipairs(r.ingredients) do if ing.name == it then t = t + ing.amount * rate end end
-        if it == "coal" then t = t + (m.fuel or 0) end -- lot ACIER : four à combustion d'une rangée, charbon sur l'autre voie du tapis
-      end
-    end
-    return t
-  end
-  local k1, n1, k2, n2 = nil, 0, nil, 0
-  if m.top and #m.top > 0 then
-    k1, n1 = side_pick(need_of(m.top), true, g.slots_n - (m.top2 and 1 or 0), g.rs.north)
-    if not k1 then return fail("%s : bras du haut introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top)) end
-  end
-  if m.top2 and #m.top2 > 0 then
-    k2, n2 = arm_pick(need_of(m.top2), true, g.slots_n - n1, M.LONG_ARMS)
-    if not k2 then return fail("%s : bras longs introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top2)) end
-  end
-  -- Rangée des bras du haut pleine sur une machine du bord, machines de 4 × 4 ou plus : aucun poteau ne couvre
-  -- les premiers bras (correction IA1-c, balayage des niveaux) : refus explicite plutôt qu'un module invalide.
-  if n1 + n2 >= mw and mw >= 4 and (i == 1 or i == g.nm) then
-    return fail("%s : rangée des bras du haut pleine sur la machine %d du bord (%d bras, côté %d) : poteaux impossibles", key, i, n1 + n2, mw)
-  end
-  -- emplacements : de gauche à droite, au-dessus de la MACHINE (jamais de la marge réservée) ; à partir de 5 × 5, la tuile du
-  -- milieu reste libre (poteau) si elle peut
-  local slots = {}
-  local mid = (mw >= 5 and n1 + n2 < mw) and math.floor(mw / 2) or -1
-  for c = 0, mw - 1 do if c ~= mid then slots[#slots + 1] = c end end
-  local col = 0
-  for _ = 1, n1 do col = col + 1; b:put(k1, mx + slots[col], g.y_ins, N) end
-  for _ = 1, n2 do col = col + 1; b:put(k2, mx + slots[col], g.y_ins, N) end
-  if m.out then
-    local outn = 0
-    for _, p in ipairs(r.products) do outn = outn + p.amount * rate end
-    local k, n = side_pick(outn, false, g.slots_n, g.rs.south)
-    if not k then return fail("%s : bras de sortie introuvables pour la machine %d (%.2f/s)", key, i, outn) end
-    for c = 0, n - 1 do b:put(k, mx + c, g.y_out, N) end
-  end
-  return true
-end
-
---- Liaisons par la colonne entre deux voisines (bras long quand la marge est de la cellule l'exige) ; rend vrai, ou (nil, raison).
-local function row_links(b, key, spec, g, xs)
-  local used = {}
-  for _, l in ipairs(spec.links or {}) do
-    if math.abs(l.from - l.to) ~= 1 then return fail("%s : liaison entre machines non voisines (%d → %d)", key, l.from, l.to) end
-    local gap = math.min(l.from, l.to)
-    local gx = xs[gap] + g.s
-    local dir = l.from < l.to and W or E     -- prend du côté de la source
-    local k, n = side_pick(l.flow * M.arm_f, false, g.slots_n, g.rs.east)
-    if not k then return fail("%s : liaison %d → %d impossible (%.2f/s)", key, l.from, l.to, l.flow) end
-    used[gap] = used[gap] or 0
-    for _ = 1, n do
-      if used[gap] >= g.mw then return fail("%s : colonne de liaison %d pleine", key, gap) end
-      b:put(k, gx, g.y_m + used[gap], dir)
-      used[gap] = used[gap] + 1
-    end
-  end
-  return true
-end
-
 --- Rangée d'assembleurs (ou de labos) : tapis d'entrée au nord (voies), bras, machines espacées d'une colonne de
 --- liaison, bras de sortie, tapis de sortie au sud vers l'est. Rend (b, info) ou (nil, raison). spec :
 ---   machines = { { name, recipe, rate, top = { objets pris au tapis du haut }, top2 = { objets pris au 2e tapis par
 ---     un bras long }, out = true (sortie au tapis du bas) } } ;
 ---   links = { { from = i, to = j (voisins), item, flow } } ;
 ---   lanes = voies du tapis du haut ; lanes2 = voies du 2e tapis (bras longs) ; out_x0 : début du tapis de sortie.
---- Lot RETROFIT-GABARITS (décision du DC) : chaque machine occupe une CELLULE RÉSERVÉE à l'empreinte du prochain palier d'ère
---- (M.reserve ; shared/team/box_layout.lua) : posée à Bl.anchor (coin nord-ouest), bras sur la ligne d'interface de la cellule,
---- bras longs du côté de la marge ; info.cell, info.mw, info.x0 disent la cellule, la largeur actuelle et la marge ouest.
 function G.row(key, fr, en, spec, ox, oy, b)
   b = b or new_builder(key, fr, en)
   if spec.belt then b.belt = spec.belt end -- lot RANGEES-ASM : tapis des données (G.simple, argument 5)
   ox, oy = ox or 0, oy or 0
-  local g = row_geometry(b, spec, ox, oy)
-  if g.rs.target and not b.g.cell then b.g.cell = { w = g.rs.cell.w, h = g.rs.cell.h } end -- (données : pas des colonnes, rangee_dyn)
-  local top = b:belt_line(ox, g.y_top, ox + g.Wd - 1, g.y_top, E)
+  local s = M.spec(spec.machines[1].name).w
+  -- lot RECHERCHE-BRAS : avec des bras lents (plusieurs par rangée), une tuile par rangée reste libre pour un poteau
+  local slots_n = M.current_arms and math.max(1, s - 1) or s
+  local nm = #spec.machines
+  -- machine seule (hors étage A d'un bloc à deux étages) : une colonne de plus à l'est, pour un poteau (correction
+  -- IA1-c : sans colonne de liaison, une rangée de bras pleine n'avait aucun poteau possible)
+  local Wd = nm * s + (nm - 1) + ((nm == 1 and not spec.no_out_port) and 1 or 0)
+  local has2 = spec.lanes2 ~= nil
+  local y_top2 = oy
+  local y_top = oy + (has2 and 1 or 0)
+  local y_ins = y_top + 1
+  local y_m = y_ins + 1
+  local y_out = y_m + s
+  local y_ob = y_out + 1
+  local top = b:belt_line(ox, y_top, ox + Wd - 1, y_top, E)
   b:port({ kind = "tapis", io = "in", ent = top[1], lanes = spec.lanes })
-  if g.has2 then
-    local top2 = b:belt_line(ox, g.y_top2, ox + g.Wd - 1, g.y_top2, E)
+  local top2
+  if has2 then
+    top2 = b:belt_line(ox, y_top2, ox + Wd - 1, y_top2, E)
     b:port({ kind = "tapis", io = "in", ent = top2[1], lanes = spec.lanes2 })
   end
   local any_out = false
   local xs = {}
   for i, m in ipairs(spec.machines) do
-    local x = ox + (i - 1) * (g.s + 1)
+    local x = ox + (i - 1) * (s + 1)
     xs[i] = x
-    local ok, why = row_machine(b, key, g, i, m, x)
-    if not ok then return nil, why end
-    if m.out then any_out = true end
+    -- lot RECHERCHE-BRAS : cadence bridée (M.arm_f < 1) quand seuls des bras lents sont obtenables ; 1 hors contexte (rien ne change)
+    local rate = m.rate * M.arm_f
+    b:put(m.name, x, y_m, N, { recipe = m.recipe, rate = rate, role = m.role or "machine" })
+    local r = R[m.recipe]
+    -- bras du haut
+    local function need_of(items)
+      local t = 0
+      for _, it in ipairs(items or {}) do
+        if m.kind == "lab" then t = t + rate
+        else
+          for _, ing in ipairs(r.ingredients) do if ing.name == it then t = t + ing.amount * rate end end
+          if it == "coal" then t = t + (m.fuel or 0) end -- lot ACIER : four à combustion d'une rangée, charbon sur l'autre voie du tapis
+        end
+      end
+      return t
+    end
+    local k1, n1, k2, n2 = nil, 0, nil, 0
+    if m.top and #m.top > 0 then
+      k1, n1 = arm_pick(need_of(m.top), true, slots_n - (m.top2 and 1 or 0))
+      if not k1 then return fail("%s : bras du haut introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top)) end
+    end
+    if m.top2 and #m.top2 > 0 then
+      k2, n2 = arm_pick(need_of(m.top2), true, slots_n - n1, { "long-handed-inserter" })
+      if not k2 then return fail("%s : bras longs introuvables pour la machine %d (%.2f/s)", key, i, need_of(m.top2)) end
+    end
+    -- Rangée des bras du haut pleine sur une machine du bord, machines de 4 × 4 ou plus : aucun poteau ne couvre
+    -- les premiers bras (correction IA1-c, balayage des niveaux) : refus explicite plutôt qu'un module invalide.
+    if n1 + n2 >= s and s >= 4 and (i == 1 or i == nm) then
+      return fail("%s : rangée des bras du haut pleine sur la machine %d du bord (%d bras, côté %d) : poteaux impossibles", key, i, n1 + n2, s)
+    end
+    -- emplacements : de gauche à droite ; à partir de 5 × 5, la tuile du milieu reste libre (poteau) si elle peut
+    local slots = {}
+    local mid = (s >= 5 and n1 + n2 < s) and math.floor(s / 2) or -1
+    for c = 0, s - 1 do if c ~= mid then slots[#slots + 1] = c end end
+    local col = 0
+    for _ = 1, n1 do col = col + 1; b:put(k1, x + slots[col], y_ins, N) end
+    for _ = 1, n2 do col = col + 1; b:put(k2, x + slots[col], y_ins, N) end
+    if m.out then
+      any_out = true
+      local outn = 0
+      for _, p in ipairs(r.products) do outn = outn + p.amount * rate end
+      local k, n = arm_pick(outn, false, slots_n)
+      if not k then return fail("%s : bras de sortie introuvables pour la machine %d (%.2f/s)", key, i, outn) end
+      for c = 0, n - 1 do b:put(k, x + c, y_out, N) end
+    end
   end
-  local ok, why = row_links(b, key, spec, g, xs)
-  if not ok then return nil, why end
+  -- liaisons par la colonne entre deux voisins
+  local used = {}
+  for _, l in ipairs(spec.links or {}) do
+    if math.abs(l.from - l.to) ~= 1 then return fail("%s : liaison entre machines non voisines (%d → %d)", key, l.from, l.to) end
+    local gap = math.min(l.from, l.to)
+    local gx = xs[gap] + s
+    local dir = l.from < l.to and W or E     -- prend du côté de la source
+    local k, n = arm_pick(l.flow * M.arm_f, false, slots_n)
+    if not k then return fail("%s : liaison %d → %d impossible (%.2f/s)", key, l.from, l.to, l.flow) end
+    used[gap] = used[gap] or 0
+    for _ = 1, n do
+      if used[gap] >= s then return fail("%s : colonne de liaison %d pleine", key, gap) end
+      b:put(k, gx, y_m + used[gap], dir)
+      used[gap] = used[gap] + 1
+    end
+  end
   local ob
   if any_out then
     local x0 = spec.out_x0 or ox
-    ob = b:belt_line(x0, g.y_ob, ox + g.Wd - 1, g.y_ob, E)
+    ob = b:belt_line(x0, y_ob, ox + Wd - 1, y_ob, E)
     if not spec.no_out_port then b:port({ kind = "tapis", io = "out", ent = ob[#ob] }) end
   end
-  return b, { y_ins = g.y_ins, y_out = g.y_out, y_ob = g.y_ob, w = g.Wd, xs = xs, s = g.s, top = top, out = ob, y_m = g.y_m,
-    cell = g.rs.cell, mw = g.mw, x0 = g.x0, reserve = g.rs }
+  return b, { y_ins = y_ins, y_out = y_out, y_ob = y_ob, w = Wd, xs = xs, s = s, top = top, out = ob, y_m = y_m }
 end
 
 local function row_poles(b, info, ox, oy, extra)
@@ -1376,7 +1247,7 @@ function G.red_packs(machine, nB)
   nB = nB or 5
   local sp, why = machine_spec(machine, "assembler", "packs rouges"); if not sp then return nil, why end
   local ok, why2 = count_ok(nB, "packs rouges"); if not ok then return nil, why2 end
-  local s = cell_w(machine) -- lot RETROFIT-GABARITS : côté de la cellule réservée (M.reserve)
+  local s = sp.w
   local kr = sp.speed / R["automation-science-pack"].time
   local kg = nB * kr
   local specA = { machines = { { name = machine, recipe = "iron-gear-wheel", rate = kg, top = { "iron-plate" }, out = true } },
@@ -1395,7 +1266,7 @@ function G.red_packs(machine, nB)
   b.g.params = { machine = machine, n = nB }
   b.g.gen, b.g.args, b.g.level_arg = "red_packs", { machine, nB }, 1
   -- bornes : largeur s + nB·(s + 1) − 1 ; un seul assembleur d'engrenages (cadence maximale) ; cuivre : une voie
-  set_ext(b.g, "n", 2, math.min(floor_eps((M.MAX_SIDE + 1 - sp.w) / (sp.w + 1)), floor_eps((sp.speed / R["iron-gear-wheel"].time) / kr),
+  set_ext(b.g, "n", 2, math.min(floor_eps((M.MAX_SIDE + 1 - s) / (s + 1)), floor_eps((sp.speed / R["iron-gear-wheel"].time) / kr),
     floor_eps(M.LANE_RATE / kr)))
   return b:finish()
 end
@@ -1407,7 +1278,7 @@ function G.green_packs(machine, nB)
   nB = nB or 5
   local sp, why = machine_spec(machine, "assembler", "packs verts"); if not sp then return nil, why end
   local ok, why2 = count_ok(nB, "packs verts"); if not ok then return nil, why2 end
-  local s = cell_w(machine) -- lot RETROFIT-GABARITS : côté de la cellule réservée (M.reserve)
+  local s = sp.w
   local kp = sp.speed / R["logistic-science-pack"].time
   local ki = nB * kp                       -- bras par seconde
   local kb = nB * kp / 2                   -- fabrications de convoyeurs (2 par fabrication)
@@ -1433,8 +1304,8 @@ function G.green_packs(machine, nB)
   b.g.params = { machine = machine, n = nB }
   b.g.gen, b.g.args, b.g.level_arg = "green_packs", { machine, nB }, 1
   -- bornes : largeur s + 2 + nB·(s + 1) − 1 (et 3s + 2 pour l'étage A) ; engrenages d'un seul assembleur
-  local wb = floor_eps((M.MAX_SIDE - 1 - sp.w) / (sp.w + 1))
-  if 3 * sp.w + 2 > M.MAX_SIDE then wb = 0 end
+  local wb = floor_eps((M.MAX_SIDE - 1 - s) / (s + 1))
+  if 3 * s + 2 > M.MAX_SIDE then wb = 0 end
   set_ext(b.g, "n", 2, math.min(wb, floor_eps((sp.speed / R["iron-gear-wheel"].time) / (1.5 * kp))))
   return b:finish()
 end
@@ -1609,56 +1480,10 @@ M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "simpl
   "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic",
   "patron", "bloc", "ruban" }
 local GEN = { row = G.row }
-
---- Emprise d'un gabarit PORTS COMPRIS (largeur, hauteur) : la tête d'alimentation de M.FEED_DEPTH tuiles derrière chaque port d'entrée
---- de tapis et les M.PORT_ROOM − M.FEED_DEPTH tuiles devant chaque port de sortie, comme P.port_room (shared/team/plan.lua) : un gabarit
---- plus grand que le lot, ports compris, est refusé « trop grand » par P.fit.
-local function port_extent(g)
-  local x0, y0, x1, y1 = 0, 0, g.w, g.h
-  for _, p in ipairs(g.ports or {}) do
-    local e = p.kind == "tapis" and g.entities[p.ent] or nil
-    if e then
-      local v = DV[e.dir or N]
-      local k = p.io == "in" and -M.FEED_DEPTH or (M.PORT_ROOM - M.FEED_DEPTH)
-      local px, py = math.floor(e.x) + k * v[1], math.floor(e.y) + k * v[2]
-      x0, y0, x1, y1 = math.min(x0, px), math.min(y0, py), math.max(x1, px + 1), math.max(y1, py + 1)
-    end
-  end
-  return x1 - x0, y1 - y0
-end
-
---- Lot RETROFIT-GABARITS : un gabarit à cellules RÉSERVÉES est gardé s'il est valide (généré, dans le lot de M.MAX_SIDE ports compris,
---- M.check sans erreur) ; sinon le générateur est REJOUÉ sans réservation (M.reserving = false : le gabarit d'avant) et la raison est
---- notée dans g.notes (« emprise non réservée : … »). Rend (g, why) du premier jeu quand rien n'a été réservé.
-local function reserved_or_plain(k, raw, ...)
-  M.reserved_any = false
-  local ok, g, why = pcall(raw, ...)
-  if not M.reserved_any or M.reserving == false then return ok, g, why end
-  local bad = (not ok) and ("erreur interne : " .. tostring(g)) or (g == nil and (why or "refus sans raison")) or nil
-  if not bad then
-    local pw, ph = port_extent(g)
-    if pw > M.MAX_SIDE or ph > M.MAX_SIDE then bad = string.format("emprise %d×%d, ports compris, au-delà du lot de %d", pw, ph, M.MAX_SIDE) end
-  end
-  if not bad then
-    local errs = M.check(g)
-    if #errs > 0 then bad = errs[1] end
-  end
-  if not bad then return ok, g, why end
-  local prev = M.reserving
-  M.reserving = false
-  local ok2, g2, why2 = pcall(raw, ...)
-  M.reserving = prev
-  if ok2 and g2 then
-    g2.notes[#g2.notes + 1] = "emprise non réservée (" .. k .. ") : " .. bad
-    return ok2, g2, why2
-  end
-  return ok, g, why
-end
-
 for _, k in ipairs(M.GENERATORS) do
   local raw = G[k]
   GEN[k] = function(...)
-    local ok, g, why = reserved_or_plain(k, raw, ...)
+    local ok, g, why = pcall(raw, ...)
     if not ok then return nil, "erreur interne du générateur " .. k .. " : " .. tostring(g) end
     if g == nil then return nil, why or ("générateur " .. k .. " : refus sans raison") end
     return g
