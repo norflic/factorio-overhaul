@@ -50,6 +50,9 @@ local function body()
   check(Th.fuel_short(2 * hz - 1, 2) == true, "m19 sous l'horizon : manque")
   check(Th.fuel_short(0, 0) == false, "m20 sans consommation lue : pas de manque mesure")
   check(Th.fuel_short(nil, nil) == false, "m21 mesures absentes : pas de manque")
+  check(Th.fuel_starved(0, 2, 0) == false, "m21b affame : aucun brûleur a sec, pas affame")
+  check(Th.fuel_starved(0, 2, 1) == true, "m21c affame : stock nul et un brûleur a sec")
+  check(Th.fuel_starved(2 * hz, 2, 5) == false, "m21d affame : stock qui ponte l'horizon, pas affame")
   -- horloge
   local s, l = Th.iron_clock(nil, nil, true, 500)
   check(s == 500 and l == 500, "m22 premier refus : l'horloge part")
@@ -88,7 +91,7 @@ f:close()
 check(mig:find("Th.raw_holds({ tier = it.tier, wanted = it.wanted, iron_waiting = iron_waiting, fuel = is_fuel, fuel_short = short,", 1, true) ~= nil, "le gisement brut est retenu par Th.raw_holds")
 check(mig:find("if Th.iron_waits(it.tier, why) then -- lot FER-D-ABORD", 1, true) ~= nil, "le refus « plaques » d'un gisement de plaques leve le drapeau")
 check(mig:find("Th.iron_clock(ms.iron_since, ms.iron_last, true, tick)", 1, true) ~= nil, "l'horloge avance au refus « plaques »")
-check(mig:find("short = Th.fuel_short(free[spec.product] or 0, burn)", 1, true) ~= nil, "le manque de combustible est mesure au stock et a la consommation")
+check(mig:find("short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", 1, true) ~= nil, "le manque de combustible est mesure au stock, au plancher et aux brûleurs a sec")
 check(mig:find("if (it.tier or 0) == 0 then ms.iron_since, ms.iron_last, ms.iron_note = nil, nil, nil end", 1, true) ~= nil, "le depart d'une bande de fer remet l'horloge a zero")
 local a = mig:find("local iron_waiting = false", 1, true)
 local b = mig:find("Th.raw_holds({ tier", 1, true)
@@ -96,6 +99,44 @@ local d = mig:find("if Th.iron_waits(it.tier", 1, true)
 check(a and b and d and a < b and b < d, "drapeau pose avant la boucle, lu en tete de boucle, ecrit apres Mg.start_ok")
 check(mig:find('why_hold == "expire"', 1, true) ~= nil and mig:find("retenue des bandes brutes levee apres", 1, true) ~= nil, "la levee de la retenue est ecrite au journal")
 check(mig:find('why_hold == "combustible"', 1, true) ~= nil and mig:find("le combustible manque", 1, true) ~= nil, "le combustible non retenu est ecrit au journal")
+print("== plancher du combustible de la retenue (F481, lot AVANT-POSTES-RAPIDES)")
+-- Cas mesuré (V0680-B, 1618033988, votre équipe) : avant-poste 2 (charbon) « bande brute neuve retenue » de 6,3 à 90 min ; brûleurs à sec 28 à 45 min,
+-- 26 à 75 min ; centrale à sec = générateurs à 0 objet/s. Le manque lisait les seuls générateurs : jamais « combustible », toujours retenu.
+local Mc = require("shared.team.migration_combustible")
+local function plancher_cas(McX)
+  local bad = 0
+  local function ok(c, m) if not c then bad = bad + 1; if not QUIET then print("  ECHEC : " .. m) end end end
+  local fl = McX.floor(0, { { kw = 150, n = 70 } }, 4000)   -- centrale à sec, 70 brûleurs de 150 kW, combustible de 4 MJ
+  ok(fl > 2.6 - 1e-6 and fl < 2.63, "p1 plancher = brûleurs à pleine cadence quand la centrale est à sec (" .. tostring(fl) .. ")")
+  ok(Th.fuel_short(0, fl) == true, "p2 stock nul sous le plancher des brûleurs : manque")
+  ok(Th.fuel_short(0, 0) == false, "p3 (rappel du défaut) générateurs seuls à 0 : aucun manque lu")
+  local h, w = Th.raw_holds({ tier = 1, wanted = false, iron_waiting = true, fuel = true, fuel_short = Th.fuel_short(0, fl), since = 0, now = 60 })
+  ok(h == false and w == "combustible", "p4 bande de combustible jamais retenue quand les brûleurs manquent")
+  local g = McX.floor(0.35, {}, 4000)
+  ok(math.abs(g - 0.35) < 1e-9, "p5 générateurs seuls : le plancher est leur consommation mesurée")
+  ok(McX.floor(0.35, { { kw = 90, n = 10 } }, 4000) > 0.35 + 0.2, "p6 générateurs + brûleurs : les deux s'ajoutent")
+  -- 2e cycle (panel AVP-P du 1er : fer 72 495 contre 100 075) : en ouverture le stock est nul et le plancher à pleine cadence > 0, mais aucun brûleur
+  -- n'est à sec : pas d'affamement, la retenue tient ; dès qu'un brûleur vital est mesuré à sec, la bande de combustible part
+  ok(Th.fuel_starved(0, fl, 0) == false, "p7 ouverture : stock nul, aucun brûleur a sec : pas affame (retenue)")
+  ok(Th.fuel_starved(0, fl, 3) == true, "p8 stock nul et 3 brûleurs a sec : affame")
+  ok(Th.fuel_starved(1e6, fl, 3) == false, "p9 stock qui ponte l'horizon : pas affame malgre des brûleurs a sec")
+  ok(Th.fuel_starved(0, 0, 3) == false, "p10 sans plancher lu : pas affame")
+  return bad
+end
+local function cablage(txt)
+  local bad = 0
+  local a = txt:find("local iron_waiting = false", 1, true)
+  local b = txt:find("Th.raw_holds({ tier", 1, true)
+  local zone = (a and b and a < b) and txt:sub(a, b) or ""
+  if not zone:find("burn = burn or fuel_floor(f, surface)", 1, true) then bad = bad + 1 end
+  if zone:find("fuel_burn(f, surface)", 1, true) then bad = bad + 1 end
+  if not zone:find("short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", 1, true) then bad = bad + 1 end
+  if not zone:find("dry_n = dry_n or burners_dry(f)", 1, true) then bad = bad + 1 end
+  if not zone:find("if is_fuel then", 1, true) then bad = bad + 1 end
+  return bad
+end
+check(plancher_cas(Mc) == 0, "le plancher de la retenue compte les brûleurs")
+check(cablage(mig) == 0, "la retenue FER-D-ABORD mesure le manque au plancher de l'équipe (fuel_floor), pas aux seuls générateurs")
 print("== mutants")
 local f2 = io.open("shared/team/thermique.lua", "rb")
 local src = f2:read("*a")
@@ -115,6 +156,8 @@ local mutants = {
   { "horloge jamais reprise", "local live = since ~= nil and last ~= nil and tick - last <= cfg.iron_hold_gap", "local live = since ~= nil and last ~= nil" },
   { "horloge remise a chaque refus", "if live then return since, tick end", "if live then return tick, tick end" },
   { "horloge jamais eteinte", "if live then return since, last end", "if true then return since, last end" },
+  { "affame sans brûleur a sec", "return (dry or 0) > 0 and M.fuel_short(stock, floor, cfg)", "return M.fuel_short(stock, floor, cfg)" },
+  { "affame sans le stock", "return (dry or 0) > 0 and M.fuel_short(stock, floor, cfg)", "return (dry or 0) > 0" },
 }
 for _, m in ipairs(mutants) do
   local x, y = src:find(m[2], 1, true)
@@ -135,5 +178,38 @@ for _, m in ipairs(mutants) do
     end
   end
 end
+print("== mutants du plancher (F481)")
+local f3 = io.open("shared/team/migration_combustible.lua", "rb")
+local msrc = f3:read("*a")
+f3:close()
+QUIET = true
+for _, m in ipairs({
+  { "plancher sans les brûleurs", "total = total + math.max(0, b.kw or 0) * math.max(0, b.n or 0) / fuel_kj", "total = total" },
+  { "plancher sans les générateurs", "local total = math.max(0, gen or 0)", "local total = 0" },
+}) do
+  local x, y = msrc:find(m[2], 1, true)
+  if not x then QUIET = false check(false, "motif introuvable : " .. m[1]) QUIET = true
+  else
+    local McM = load(msrc:sub(1, x - 1) .. m[3] .. msrc:sub(y + 1), "=mutmc", "t")()
+    local n = plancher_cas(McM)
+    QUIET = false check(n > 0, "mutant detecte : " .. m[1]) QUIET = true
+  end
+end
+for _, m in ipairs({
+  { "retour aux seuls générateurs (le défaut)", "burn = burn or fuel_floor(f, surface)", "burn = burn or fuel_burn(f, surface)" },
+  { "manque jamais lu", "short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", "short = false" },
+  { "brûleurs à sec ignorés (le 1er cycle)", "short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)", "short = Th.fuel_short(free[spec.product] or 0, burn)" },
+  { "exemption du combustible retiree", "if is_fuel then", "if false then" },
+}) do
+  local src2 = mig:gsub(string.char(13), "")
+  local a = src2:find("local iron_waiting = false", 1, true) or 1
+  local x, y = src2:find(m[2], a, true)
+  if not x then QUIET = false check(false, "motif introuvable : " .. m[1]) QUIET = true
+  else
+    local n = cablage(src2:sub(1, x - 1) .. m[3] .. src2:sub(y + 1))
+    QUIET = false check(n > 0, "mutant detecte : " .. m[1]) QUIET = true
+  end
+end
+QUIET = false
 print(string.format("[FER-D-ABORD] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

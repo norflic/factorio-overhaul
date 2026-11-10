@@ -607,6 +607,18 @@ local function burner_groups(f)
   return out
 end
 
+--- Lot AVANT-POSTES-RAPIDES (F481) : brûleurs de l'équipe MESURÉS à sec (foreuses à brûleur et fours des avant-postes, sans combustible ni
+--- combustion en cours), mêmes entités que burner_groups.
+local function burners_dry(f)
+  local n = 0
+  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    for _, d in ipairs(o.drill_list or {}) do if d.valid and d.burner and not has_fuel(d) then n = n + 1 end end
+    for _, s in ipairs(o.sinks or {}) do if s.valid and s.type == "furnace" and s.burner and not has_fuel(s) then n = n + 1 end end
+  end
+  return n
+end
+
 local function fuel_kj()
   local proto = game.item_prototypes and game.item_prototypes[T.fuel]
   return proto and (proto.fuel_value or 0) / 1000 or 0
@@ -1574,6 +1586,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
   cand = Th.order(cand) -- voulus d'abord, puis le plus d'extraction thermique en jeu, puis la plaque la plus en manque, puis le numéro
   local iron_waiting = false -- lot FER-D-ABORD : une bande de plaques attend le stock de fer (Th.iron_waits) : pas de bande brute neuve avant elle
   local burn -- (lot FER-D-ABORD : combustible brûlé par les générateurs, lu une fois par pensée et seulement si une bande de combustible est en jeu)
+  local dry_n -- (lot AVANT-POSTES-RAPIDES, F481 : brûleurs vitaux mesurés à sec, lus une fois par pensée, même condition)
   for _, it in ipairs(cand) do
     local oid = it.id
     local o = Champ.target(f, oid)
@@ -1583,8 +1596,12 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       local is_fuel = spec.resource == T.fuel
       local short = false
       if is_fuel then
-        burn = burn or fuel_burn(f, surface)
-        short = Th.fuel_short(free[spec.product] or 0, burn)
+        -- lot AVANT-POSTES-RAPIDES (F481) : le manque se mesure au PLANCHER de l'équipe (générateurs + brûleurs, Mc.floor), comme la coupe et le
+        -- retour en arrière du lot COMBUSTIBLE-MIGRATION ; il lisait les seuls générateurs (fuel_burn) : centrale à sec = 0 brûlé = « pas de manque »,
+        -- et la bande de charbon restait retenue derrière le fer de 6 à 90 min pendant que les brûleurs de l'équipe s'éteignaient (V0680-B, -C)
+        burn = burn or fuel_floor(f, surface)
+        dry_n = dry_n or burners_dry(f)
+        short = Th.fuel_starved(free[spec.product] or 0, burn, dry_n)
       end
       local held, why_hold = Th.raw_holds({ tier = it.tier, wanted = it.wanted, iron_waiting = iron_waiting, fuel = is_fuel, fuel_short = short,
         since = ms.iron_since, now = tick })
@@ -1597,8 +1614,8 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
           (tick - (ms.iron_since or tick)) / 3600, free[T.outposts.iron.product] or 0), true)
       elseif why_hold == "combustible" and ms.iron_note ~= "combustible" then
         ms.iron_note = "combustible"
-        say(f, ms, string.format("fer d'abord : avant-poste %d (%s) non retenu, le combustible manque (stock %d, %.2f/s brules)", o.id, o.kind,
-          free[spec.product] or 0, burn or 0), true)
+        say(f, ms, string.format("fer d'abord : avant-poste %d (%s) non retenu, le combustible manque (stock %d, plancher %.2f/s, generateurs et bruleurs, %d bruleur(s) a sec)", o.id, o.kind,
+          free[spec.product] or 0, burn or 0, dry_n or 0), true)
       end
     end
     -- lot THERMIQUE : charbon et pierre n'existent que par le champ (le gabarit de fonderie du treillis ne sait pas poser un coffre)

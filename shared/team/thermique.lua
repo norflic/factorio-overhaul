@@ -342,6 +342,13 @@ function M.fuel_short(stock, floor, cfg)
   return (stock or 0) + EPS < floor * cfg.horizon
 end
 
+--- Lot AVANT-POSTES-RAPIDES (F481, 2e cycle) : le combustible est-il AFFAMÉ ? Son stock ne ponte pas cfg.horizon secondes du plancher de l'équipe
+--- (générateurs + brûleurs, Mc.floor) ET des brûleurs vitaux sont MESURÉS à sec (dry : nombre). Le plancher à pleine cadence seul déclarait un manque
+--- dès la 6e minute (stock nul en ouverture) : la bande de charbon partait avant celle du fer (panel AVP-P : fer 72 495 contre 100 075).
+function M.fuel_starved(stock, floor, dry, cfg)
+  return (dry or 0) > 0 and M.fuel_short(stock, floor, cfg)
+end
+
 --- Un gisement de ce rang attend-il le fer (un gisement tier 0 attend déjà les plaques) ? Rend (retenu, raison).
 --- c = { tier, wanted (voulu par la capitalisation : jamais retenu), iron_waiting, fuel (ce minerai est le combustible), fuel_short (mesuré),
 --- since (début de l'attente), now }. Raisons : "retenue", "expire" (retenue levée après cfg.iron_hold_max ticks sans départ de la bande de fer),
