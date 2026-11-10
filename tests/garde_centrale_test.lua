@@ -109,6 +109,27 @@ check(t8 and qty(t8, "gun-turret") == 3, "deux chaudières : 3 tourelles voulues
 local p9 = Planner.plan(view({ stock = rich, plant = plant({ turrets = { turrets[1] } }) }), book)
 local t9 = guard_task(p9)
 check(t9 and qty(t9, "gun-turret") == 1, "une garde déjà là pour une chaudière : une seule de plus")
+-- Lot CHARBON-UNIFIE (F460 bis, cause 3) : une centrale sans AUCUNE garde passe avant les avant-postes qui ne sont pas de fer et le front
+do
+  local function post_task(plan, id)
+    for _, t in ipairs(plan.tasks) do if t.kind == "fortify" and t.outpost == id then return t end end
+    return nil
+  end
+  local two = { ["iron-plate"] = 2000, ["copper-plate"] = 500, ["gun-turret"] = 2, [T.turret_ammo] = 200, coal = 100, stone = 100 }
+  local function op(kind) return { { id = "o1", kind = kind, drills = 8, turrets = 0, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } } end
+  local q1 = Planner.plan(view({ stock = two, plant = plant(), outposts = op("stone") }), book)
+  check(guard_task(q1) ~= nil and post_task(q1, "o1") == nil, "2 tourelles au stock, avant-poste de pierre nu et centrale nue : la centrale est servie d'abord")
+  local q2 = Planner.plan(view({ stock = two, plant = plant(), outposts = op("iron") }), book)
+  check(guard_task(q2) == nil and post_task(q2, "o1") ~= nil, "avant-poste de FER nu : il passe avant la centrale (ressources d'abord)")
+  local q3 = Planner.plan(view({ stock = two, plant = plant({ turrets = { turrets[1] } }), outposts = op("stone") }), book)
+  check(guard_task(q3) == nil and post_task(q3, "o1") ~= nil, "centrale deja gardee par une tourelle : l'avant-poste de pierre passe d'abord (regle d'avant)")
+  local q4 = Planner.plan(view({ stock = two, plant = plant(), outposts = { { id = "o1", kind = "stone", drills = 8, turrets = 0, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 },
+    { id = "o2", kind = "iron", drills = 8, turrets = 0, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } } }), book)
+  check(post_task(q4, "o2") ~= nil and guard_task(q4) == nil and post_task(q4, "o1") == nil, "pierre puis fer dans la vue : le fer d'abord, la centrale ensuite (avant la pierre), 2 tourelles : le fer les prend")
+  local src = (function() local fh = assert(io.open("shared/team/planner.lua", "rb")); local s = fh:read("*a"); fh:close(); return s end)()
+  check(src:find("for i = 2, #posts do if posts[i].iron then at = i + 1 end end", 1, true) ~= nil and src:find("if (pick.need.near or 0) <= 0 then", 1, true) ~= nil,
+    "planner.lua : la centrale sans garde est inseree apres le DERNIER avant-poste de fer")
+end
 
 section("5. Sur-pose bornée, centrale détruite, pièces éloignées, grande centrale")
 do
