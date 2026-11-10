@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.78
+Date: 2026-11-10
+  Features:
+    - Mall dans les quatre directions (F461) : la série d'un ruban part vers le premier lot voisin libre (est, sud, ouest ou nord) et ses sections suivent ; les rangées du mall continuent au-delà de leur secteur et franchissent les rues de la ville par un souterrain par tapis, la rue restant libre.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.77
 Date: 2026-11-10
   Features:
