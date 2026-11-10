@@ -462,6 +462,24 @@ function Champ.frame(f, surface, o)
   local plan, why = Ch.plan(spec)
   Profiler.fstop("champ:frame-plan")
   if not plan then return nil, why end
+  -- Lot CC-SAUT (F515, mandat du DC du 10/11, 22 h 20) : le cadre figé fixe la place de la colonne de fours de TOUTES ses bandes futures (rejouée sans
+  -- recherche) ; ses tuiles hors ressource sont retenues au plan dès maintenant, sous le marqueur du cadre (Cd.frame_tiles) : libres pour les projets de
+  -- cet avant-poste, évitées par tous les autres (lignes de poteaux comprises). Avant, seules celles du réseau du charbon reporté l'étaient : la ligne de
+  -- poteaux de l'avant-poste, planifiée entre la demande de la bande et son plan, prenait la place figée de sa colonne et la bande ENTIÈRE était refusée
+  -- (référence 0.6.91, graine 314159265, joueur : projet 3 à 8,2 min, 17 foreuses ; puis le projet 19, 34 foreuses). Le minerai reste libre.
+  if f.build and f.build.occ then
+    local res = {}
+    for i = 1, #spec.ore - 1, 2 do res[Ch.key(spec.ore[i], spec.ore[i + 1])] = true end
+    local function is_res(x, y)
+      local k = Ch.key(x, y)
+      return res[k] or (spec.foreign and spec.foreign[k]) or false
+    end
+    local nres = Cd.reserve(f.build.occ, Cd.frame_tiles(plan.ents, is_res), o.id, P.tkey)
+    if nres > 0 then
+      log(string.format("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan (cadre:%d : colonnes, coffres, poteaux et tapis hors ressource des bandes futures) a %.1f min",
+        f.key or "player", o.id, nres, o.id, game.tick / 3600))
+    end
+  end
   -- lot COUT-600 : la vérification du plan (Cv.verify : 0,2 M d'instructions à l'ordinaire, 4,7 M sur un champ de 600 %) ne sert qu'à la ligne de
   -- journal [FO-CHAMP] ci-dessous : elle part dans une pensée à part (Champ.flush), le plan et l'ordre des bandes sont rendus tout de suite
   -- ce qui occupe le gisement (hors de nos paires) : cause des tuiles que le champ ne couvre pas
