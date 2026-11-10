@@ -136,7 +136,8 @@ end
 --- avec l'entité (remplacement de palier : `corps` les refait).
 local function corps_anime(g, r)
   local e = g.e
-  local dir = T.direction(e.orientation, r.anime.directions)   -- ART-16DIR : 16 directions (Juggernaut, Sentinelle, Ravageur), 8 sinon
+  -- F507 : le TORSE suit la marche (orientation reste 0 sur un spider-vehicle) ; ART-16DIR : 16 directions (Juggernaut, Sentinelle, Ravageur), 8 sinon
+  local dir = T.direction(e.torso_orientation, r.anime.directions)
   g.anim = { dir = dir, mode = "course", v = 0, ids = {} }
   for _, c in ipairs(T.COUCHES_ANIM) do
     g.anim.ids[#g.anim.ids + 1] = rendering.draw_animation({ animation = T.anim_name(r, g.stage, "course", dir, c[1]), target = e, surface = e.surface,
@@ -221,7 +222,7 @@ local function animer(g, r, tick)
   local e = g.e
   local a = g.anim
   if a.mode == "attaque" and tick < (a.fin or 0) then return end
-  local dir = T.direction(e.orientation, r.anime.directions)
+  local dir = T.direction(e.torso_orientation, r.anime.directions)
   if a.mode ~= "course" or dir ~= a.dir then
     a.mode, a.dir, a.v = "course", dir, nil
     anim_set(g, r, "course")

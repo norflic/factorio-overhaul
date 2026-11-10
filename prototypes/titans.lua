@@ -188,6 +188,12 @@ for n = 1, 4 do
   legs[n] = { leg = nom, mount_position = { POSES[n][1] * 0.3, POSES[n][2] * 0.3 }, ground_position = POSES[n], blocking_legs = { 5 - n } }
 end
 
+-- ART-16DIR (11/11, F507) : le TORSE tourne vers la marche, à la vitesse du torse de l'araignée vanilla (données du jeu) : c'est la seule
+-- orientation qu'un spider-vehicle tient à jour (LuaEntity.orientation reste 0 en marche, banc titans-marche) ; le script dessine le corps
+-- dans la direction du torse. À 0 (avant), le torse restait à 0,375 et le corps glissait en marche, toujours tourné vers le nord.
+local ARAIGNEE = data.raw["spider-vehicle"]["spidertron"]
+assert(ARAIGNEE and ARAIGNEE.torso_rotation_speed and ARAIGNEE.torso_rotation_speed > 0, "titans : torse de l'araignée vanilla absent")
+
 for ia, r in ipairs(T.ALLIES) do
   -- Un spider-vehicle par palier (évolution dynamique : le script remplace l'entité au changement d'âge)
   for palier = 1, T.PALIERS do
@@ -211,7 +217,7 @@ for ia, r in ipairs(T.ALLIES) do
       weight = 1, braking_force = 1, friction_force = 1, energy_per_hit_point = 1,
       allow_passengers = false, inventory_size = 0, trash_inventory_size = 0, energy_source = { type = "void" },
       chunk_exploration_radius = 3, automatic_weapon_cycling = false, chain_shooting_cooldown_modifier = 1,
-      movement_energy_consumption = "1kW", height = 0, torso_bob_speed = 0, torso_rotation_speed = 0,
+      movement_energy_consumption = "1kW", height = 0, torso_bob_speed = 0, torso_rotation_speed = ARAIGNEE.torso_rotation_speed,
       sound_minimum_speed = 0.05, sound_scaling_ratio = 0.6,
       working_sound = { sound = { filename = "__base__/sound/spidertron/spidertron-vox.ogg", volume = 0.4 }, match_speed_to_activity = true },
       spider_engine = { legs = table.deepcopy(legs), military_target = "spidertron-military-target" },

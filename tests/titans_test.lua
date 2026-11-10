@@ -475,6 +475,13 @@ do
     and scr:find("r.anime.directions", 1, true) ~= nil and scr:find("T.vitesse_anim(", 1, true) ~= nil,
     "§5 script : corps animé par rendering.draw_animation, direction et vitesse par la règle pure")
   check(not scr:find("math%.atan") and not scr:find("math%.sin") and not scr:find("math%.cos"), "§5 script : aucune trigonométrie")
+  -- F507 (ART-16DIR, banc titans-marche 11/11 : orientation = 0,000 et torse = 0,375 sur 252 relevés en marche dans 8 directions, corps
+  -- toujours dessiné au nord) : sur un spider-vehicle, seul le TORSE suit la marche ; le prototype le laisse tourner (vitesse du torse de
+  -- l'araignée vanilla) et le script dessine le corps dans sa direction, jamais dans `orientation`
+  check(scr:find("T.direction(e.torso_orientation, r.anime.directions)", 1, true) ~= nil and not scr:find("e%.orientation%f[^%w_]"),
+    "§5 script : direction du corps = torse du spider-vehicle (F507), jamais LuaEntity.orientation (toujours 0 en marche)")
+  check(proto:find('torso_rotation_speed = ARAIGNEE.torso_rotation_speed', 1, true) ~= nil and proto:find('data.raw["spider-vehicle"]["spidertron"]', 1, true) ~= nil
+    and not proto:find("torso_rotation_speed = 0[,%s]"), "§5 prototypes : le torse des titans tourne (vitesse du torse de l'araignée vanilla, F507)")
 end
 -- F-TITANS (banc content V0677) : une RotatedAnimation à `filenames` exige `slice` et `lines_per_file` (prototype-api.json : « Mandatory if
 -- filenames is defined » ; le schéma du harness les voit facultatifs : il ne l'attrape pas). Contrôle textuel sur TOUT prototypes/ : chaque
