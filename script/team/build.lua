@@ -5124,10 +5124,10 @@ local function pulse_team(f, tick)
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Profiler.fstop("bp:suivi")
-  Profiler.fstart("bp:reseau")
+  Profiler.start("bp:reseau")
   Rv.step({ plant = Build.plant, cancel = Build.cancel, box = BoiteChunks.get, jeton = Jeton, pulse = Build.PULSE, prof = Profiler }, f,
     surface, tick)
-  Profiler.fstop("bp:reseau")
+  Profiler.stop("bp:reseau")
   Profiler.fstart("bp:raccord")
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
   -- (lot FONDERIE, 0.6.43) champ_live : les bandes de champ en cours sont relevées aussi (fonderie à tapis allumée)

@@ -263,16 +263,16 @@ local function job_step(api, f, surface, sv, tick)
   local P = api.prof
   local done = false
   for _ = 1, Rv.BANDS_PER_PULSE do
-    if P then P.fstart("rv:bande") end
+    if P then P.start("rv:bande") end
     done = job_band(f, surface, j)
-    if P then P.fstop("rv:bande") end
+    if P then P.stop("rv:bande") end
     if done then break end
   end
   if not done then return nil end
   sv.nr_job = nil
-  if P then P.fstart("rv:fin") end
+  if P then P.start("rv:fin") end
   local nr = job_finish(f.build, j)
-  if P then P.fstop("rv:fin") end
+  if P then P.stop("rv:fin") end
   return nr
 end
 
@@ -380,9 +380,9 @@ local function apply_net(f, surface, b, sv, nr, api)
   sv.lost_links = 0
   if nr.islands + nr.uncovered > 0 then
     local P = api and api.prof
-    if P then P.fstart("rv:pertes") end
+    if P then P.start("rv:pertes") end
     sv.lost_links = #lost_poles(f, surface, b)
-    if P then P.fstop("rv:pertes") end
+    if P then P.stop("rv:pertes") end
   end
 end
 
@@ -515,9 +515,9 @@ function Rv.step(api, f, surface, tick)
     end
   end
   local P = api.prof
-  if P then P.fstart("rv:centrale") end
+  if P then P.start("rv:centrale") end
   local inp, lost = plant_read(f, surface, pp)
-  if P then P.fstop("rv:centrale") end
+  if P then P.stop("rv:centrale") end
   inp.demand_kw = sv.demand
   inp.islands, inp.uncovered, inp.lost_links = sv.islands, sv.uncovered, sv.lost_links
   local site = site_of(pp)
