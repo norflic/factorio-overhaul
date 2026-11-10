@@ -82,7 +82,7 @@ local function battery(Rc)
 
   section("1e. Journal")
   local line = Rc.line("player centrale 1", 36.3, Rc.parts(400, { vital = 108, bruleurs = 588, confort = 432 }), { vital = 108, bruleurs = 588, confort = 432 })
-  check(line:find("[FO-CHARBON] player centrale 1 : coffre du QG 400 charbon(s) a 36.3 min : vital 108/108, bruleurs 292/588, confort 0/432, libre 0", 1, true) ~= nil, "ligne [FO-CHARBON] : " .. line)
+  check(line:find("[FO-CHARBON-PARTS] player centrale 1 : coffre du QG 400 charbon(s) a 36.3 min : vital 108/108, bruleurs 292/588, confort 0/432, libre 0", 1, true) ~= nil, "ligne [FO-CHARBON] : " .. line)
 
   section("2. Les deux falaises mesurees, rejouees sur la regle")
   -- F445 (B4, banc V0676-D, 36,3 min) : 400 au coffre du QG, centrale (1 chaudiere, coffre a 0), 46 bruleurs de fer a sec (deficit 588) :

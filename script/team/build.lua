@@ -4421,7 +4421,7 @@ local function quai_tasks(f, p, surface, out)
     end
     return n + Rc.buffer(rate)
   end
-  -- journal [FO-CHARBON] : une ligne par changement d'état des parts (vital ou confort de la centrale retenus, ou servis de nouveau)
+  -- journal [FO-CHARBON-PARTS] : une ligne par changement d'état des parts (vital ou confort de la centrale retenus, ou servis de nouveau)
   local function rc_say(parts, need)
     local b = f.build
     local sig = (parts.vital < need.vital and "V" or "v") .. (parts.confort < need.confort and "C" or "c")

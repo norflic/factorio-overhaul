@@ -231,7 +231,7 @@ do
   out = {}
   X.quai_tasks(f, plant, surface, out)
   check(#out == 0 and cc_logs() == 3 and cc_log(3):find("SANS charbon", 1, true), "coffre du QG vide : pas de tache, la cause au journal")
-  check(#tagged("[FO-CHARBON]") == 1 and tagged("[FO-CHARBON]")[1]:find("vital 0/18", 1, true) ~= nil, "lot CHARBON-UNIFIE : coffre vide : la part vitale manque, une ligne [FO-CHARBON]")
+  check(#tagged("[FO-CHARBON-PARTS]") == 1 and tagged("[FO-CHARBON-PARTS]")[1]:find("vital 0/18", 1, true) ~= nil, "lot CHARBON-UNIFIE : coffre vide : la part vitale manque, une ligne [FO-CHARBON]")
   -- un module qui n'est pas une centrale garde la règle d'avant
   local mod = { id = 7, spec = { gen = "smelter" }, state = "fini", prio = 55, ents = {}, parts = {}, outs = {}, quais = { { x = 1.5, y = 1.5, item = "iron-ore" } } }
   W.stock, W.chests[1] = 1000, 100
@@ -259,7 +259,7 @@ do
   -- lot CHARBON-UNIFIE : la centrale prend d'abord sa part VITALE (seuil d'avance 108 - 0), les bruleurs gardent le reste (292 sur 588),
   -- le confort (jusqu'a 540) attend : avant le lot, rien pour la centrale (« SANS charbon libre ») ; avant BRULEURS-A-SEC, les 400
   check(#out == 1 and out[1].kind == "carry" and out[1].items[1][2] == 108, "400 au coffre, 588 reserves aux bruleurs du fer : la centrale prend sa part vitale (108), pas plus")
-  local rc = tagged("[FO-CHARBON]")
+  local rc = tagged("[FO-CHARBON-PARTS]")
   check(#rc == 1 and rc[1]:find("vital 108/108", 1, true) ~= nil and rc[1]:find("bruleurs 292/588", 1, true) ~= nil and rc[1]:find("confort 0/432", 1, true) ~= nil,
     "journal [FO-CHARBON] : vital servi, bruleurs 292 sur 588, confort retenu")
   W.stock = 1000

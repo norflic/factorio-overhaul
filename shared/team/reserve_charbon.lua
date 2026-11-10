@@ -25,7 +25,7 @@ local Rc = {}
 
 Rc.ORDER = { "vital", "bruleurs", "confort" } -- ordre de service (fixe : pas de `pairs`)
 Rc.HORIZON_S = 120 -- secondes de consommation des brûleurs gardées au coffre au-delà du déficit instantané (une tournée)
-Rc.LOGS = 30       -- lignes [FO-CHARBON] au plus par équipe
+Rc.LOGS = 30       -- lignes [FO-CHARBON-PARTS] au plus (le tag [FO-CHARBON] est celui des tournées courtes) par équipe
 
 local function whole(n) n = tonumber(n) or 0 if n < 0 then return 0 end return math.floor(n + 1e-9) end
 
@@ -72,10 +72,10 @@ function Rc.centrale(stock, need) local p = Rc.parts(stock, need) return p.vital
 function Rc.vital(stock, need) return Rc.parts(stock, need).vital end
 function Rc.libre(stock, need) return Rc.parts(stock, need).libre end
 
---- Ligne de journal [FO-CHARBON] (une par changement d'état chez l'appelant).
+--- Ligne de journal [FO-CHARBON-PARTS] (une par changement d'état chez l'appelant).
 function Rc.line(who, minute, p, need)
   need = need or {}
-  return string.format("[FO-CHARBON] %s : coffre du QG %d charbon(s) a %.1f min : vital %d/%d, bruleurs %d/%d, confort %d/%d, libre %d",
+  return string.format("[FO-CHARBON-PARTS] %s : coffre du QG %d charbon(s) a %.1f min : vital %d/%d, bruleurs %d/%d, confort %d/%d, libre %d",
     tostring(who), p.stock or 0, minute or 0, p.vital or 0, whole(need.vital), p.bruleurs or 0, whole(need.bruleurs),
     p.confort or 0, whole(need.confort), p.libre or 0)
 end
