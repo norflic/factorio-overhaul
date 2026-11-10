@@ -33,6 +33,57 @@ check(not Bl.own_blockers({}, "f", "t"), "rien -> faux")
 check(not Bl.own_blockers({ { name = "t", force = "f" }, { name = "tree", force = "neutral" } }, "f", "t"), "tourelle + arbre -> faux")
 check(not Bl.own_blockers({ { name = "t", force = "g" } }, "f", "t"), "tourelle d'une autre équipe -> faux")
 check(not Bl.own_blockers({ { name = "mur", force = "f" } }, "f", "t"), "autre bâtiment de l'équipe -> faux")
+-- Lot TOURELLE-BANDE (10/11) : état exact du journal EXPANSION-A (Scarlet, bande −314, poteau en (308.5, −313.5)) : l'emprise porte la
+-- tourelle de l'équipe ET le minerai du gisement (entité « resource », pas un obstacle) : la tourelle doit s'enlever
+local ORE = { name = "iron-ore", force = "neutral", solid = false }
+check(Bl.own_blockers({ { name = "t", force = "f", solid = true }, ORE }, "f", "t"), "tourelle + minerai (non solide) -> vrai")
+check(Bl.own_blockers({ ORE, { name = "t", force = "f", solid = true } }, "f", "t"), "minerai d'abord -> vrai (ordre indifférent)")
+check(not Bl.own_blockers({ ORE }, "f", "t"), "minerai seul -> faux (rien à enlever)")
+check(not Bl.own_blockers({ { name = "t", force = "f", solid = true }, { name = "tree", force = "neutral", solid = true } }, "f", "t"), "tourelle + arbre solide -> faux")
+check(not Bl.own_blockers({ { name = "t", force = "g", solid = true }, ORE }, "f", "t"), "tourelle d'une autre équipe + minerai -> faux")
+check(not Bl.own_blockers({ { name = "mur", force = "f", solid = true }, ORE }, "f", "t"), "mur de l'équipe + minerai -> faux")
+check(Bl.own_blockers({ { name = "t", force = "f" } }, "f", "t"), "sans champ solid : compte comme solide (ancien appelant)")
+
+-- Mutants de la règle (source rechargée avec une altération ; chacun doit être refusé par les contrôles ci-dessus)
+local function load_mutant(sub)
+  local src = assert(io.open("shared/team/blocage.lua")):read("*a")
+  local mutated, n = src:gsub(sub[1], sub[2])
+  if n == 0 then return nil, "motif absent : " .. sub[1] end
+  return assert(load(mutated, "=mutant"))()
+end
+local function detect(M)
+  local bad = {}
+  if not M.own_blockers({ { name = "t", force = "f", solid = true }, ORE }, "f", "t") then bad[#bad + 1] = "minerai compte comme obstacle" end
+  if M.own_blockers({ ORE }, "f", "t") then bad[#bad + 1] = "minerai seul accepte" end
+  if M.own_blockers({ { name = "t", force = "g", solid = true }, ORE }, "f", "t") then bad[#bad + 1] = "force ignoree" end
+  if M.own_blockers({ { name = "mur", force = "f", solid = true }, ORE }, "f", "t") then bad[#bad + 1] = "nom ignore" end
+  if M.own_blockers({}, "f", "t") then bad[#bad + 1] = "liste vide acceptee" end
+  if M.own_blockers({ { name = "t", force = "f", solid = true }, { name = "tree", force = "neutral", solid = true } }, "f", "t") then bad[#bad + 1] = "deuxieme entite ignoree" end
+  return bad
+end
+check(#detect(Bl) == 0, "la règle passe ses propres détecteurs")
+local MUTANTS = {
+  { "m1 : le champ solid est ignoré", { "if x%.solid ~= false then", "if true then" } },
+  { "m2 : liste sans solide acceptée", { "return solid > 0", "return true" } },
+  { "m3 : la force n'est pas vérifiée", { "if x%.force ~= force or x%.name ~= name then return false end", "if x.name ~= name then return false end" } },
+  { "m4 : le nom n'est pas vérifié", { "if x%.force ~= force or x%.name ~= name then return false end", "if x.force ~= force then return false end" } },
+  { "m5 : seule la première entité est lue", { "for _, x in ipairs%(list%) do", "for _, x in ipairs({ list[1] }) do" } },
+}
+for _, m in ipairs(MUTANTS) do
+  local M, err = load_mutant(m[2])
+  check(M ~= nil, "mutant chargé : " .. m[1] .. " (" .. tostring(err) .. ")")
+  if M then check(#detect(M) > 0, "mutant refusé : " .. m[1]) end
+end
+
+-- Chaîne statique : les deux poseurs de la règle dans le moteur (move_turrets_off, free_own_turrets, script/team/build.lua) ne relèvent
+-- que les entités solides (couche « object-layer ») et marquent `solid = true` ; sinon le minerai sous une bande redevient un obstacle
+local build = assert(io.open("script/team/build.lua")):read("*a")
+local _, nq = build:gsub('find_entities_filtered%(%{ area = footprint%(e%), collision_mask = "object%-layer" %}%)', "")
+check(nq >= 3, "build.lua : 3 relevés d'emprise filtrés sur object-layer (vu " .. nq .. ")")
+local _, ns = build:gsub('force = mine and x%.force%.name or "non%-enregistree", solid = true', "")
+check(ns == 2, "build.lua : les deux listes d'occupants marquent solid = true (vu " .. ns .. ")")
+check(not build:find('find_entities_filtered%(%{ area = footprint%(e%) %}%)'), "build.lua : plus aucun relevé d'emprise sans filtre de couche")
+
 
 -- cause
 check(Bl.cause("bloque", "fantome refuse (transport-belt en 498.5,320.5)") == "fantome:transport-belt", "cause bloque")

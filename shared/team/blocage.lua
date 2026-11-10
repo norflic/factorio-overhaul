@@ -52,14 +52,20 @@ function Bl.first_free(spots, find, reserved)
   return nil
 end
 
---- `list` : entités { name, force } sur l'emprise d'un fantôme refusé. Vrai si elle n'est pas vide et ne porte que des entités
---- de `force` nommées `name` (la tourelle de l'équipe) : ce ne sont ni des arbres, ni des falaises, ni un bâtiment du plan.
+--- `list` : entités { name, force, solid } sur l'emprise d'un fantôme refusé. Vrai si elle porte au moins une entité SOLIDE et que
+--- toutes les solides sont de `force` et nommées `name` (la tourelle de l'équipe) : ce ne sont ni des arbres, ni des falaises, ni un
+--- bâtiment du plan. Lot TOURELLE-BANDE (10/11) : une entité qui ne gêne pas la pose (`solid == false` : minerai du gisement, objet au
+--- sol) ne compte pas ; sans cela une bande posée SUR son minerai ne voyait jamais « que des tourelles » sur l'emprise refusée
+--- (EXPANSION-A, Scarlet, bande −314 : poteau refusé 12 fois par « gun-turret fo-scarlet, iron-ore neutral », jamais déplacée).
 function Bl.own_blockers(list, force, name)
-  if #list == 0 then return false end
+  local solid = 0
   for _, x in ipairs(list) do
-    if x.force ~= force or x.name ~= name then return false end
+    if x.solid ~= false then
+      solid = solid + 1
+      if x.force ~= force or x.name ~= name then return false end
+    end
   end
-  return true
+  return solid > 0
 end
 
 --- Cause d'un projet qui n'avance pas, en un mot stable (une même cause = une seule ligne de journal par équipe).
