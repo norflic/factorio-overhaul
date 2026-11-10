@@ -140,7 +140,7 @@ do
   check(sante:find("function Sante.prime_need(f, p)", 1, true) ~= nil, "sante_centrale.lua : amorce due exposee (Sante.prime_need)")
 
   local worker = slurp("script/team/worker.lua")
-  check(worker:find('if o.kind == "coal" then carry = 0 end', 1, true) == nil and worker:find("if Rc.is_fuel_outpost(T.outposts[o.kind], T.fuel) then carry = 0 end", 1, true) ~= nil, "worker.lua : avant-poste de combustible par les donnees")
+  check(worker:find('if o.kind == "coal" then carry = 0 end', 1, true) == nil and worker:find("if Rsv.is_fuel_outpost(T.outposts[o.kind], T.fuel) then carry = 0 end", 1, true) ~= nil and worker:find("local Rc = require(\"shared.team.repli_chemin\")", 1, true) ~= nil, "worker.lua : avant-poste de combustible par les donnees")
   local fond = slurp("shared/team/fond.lua")
   check(fond:find('kind == "coal"', 1, true) == nil and fond:find("Rc.is_fuel_outpost(spec, T.fuel) and 2 * pairs", 1, true) ~= nil, "fond.lua : idem")
   for _, path in ipairs({ "script/team/build.lua", "script/team/worker.lua", "shared/team/planner.lua", "shared/team/fond.lua", "script/team/sante_centrale.lua", "script/team/team.lua" }) do
