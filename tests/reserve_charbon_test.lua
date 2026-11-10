@@ -116,28 +116,26 @@ do
   check(planner:find('kind == "coal" and 2 *', 1, true) == nil, "planner.lua : l'amorce d'un avant-poste de combustible n'est plus par le nom")
   check(planner:find('require("shared.team.reserve_charbon")', 1, true) ~= nil, "planner.lua : lit la regle")
   check(planner:find("avail[T.fuel] = Rc.libre(avail[T.fuel] or 0, fuel_need)", 1, true) ~= nil, "planner.lua : la fabrication prend la part LIBRE")
-  check(planner:find("fuel_need.bruleurs = fuel_need.bruleurs + Rc.buffer(tour_rate)", 1, true) ~= nil, "planner.lua : le tampon d'une tournee est dans la part des bruleurs")
-  check(planner:find("vital = plant_coal.vital or 0, confort = plant_coal.confort or 0", 1, true) ~= nil, "planner.lua : la centrale (vue) a ses parts vital et confort")
-  local a = planner:find("local coal_rate, burn_rate = 0, 0", 1, true)
-  local b = planner:find("avail[T.fuel] = Rc.libre(", 1, true)
-  local c = planner:find("tour_rate = burn_rate", 1, true)
-  check(a and b and c and a < c and c < b, "planner.lua : le bilan du charbon (tour_rate) precede la reserve")
+  -- mesure ISO-CHARBON-PLAN (graine 123456789, 90 min) : reserver aussi la centrale et un tampon au planificateur : 14 830 fer, 2 bandes ;
+  -- la part des tournees seule : 22 182 fer, 4 bandes (reference 21 835, 8) : le planificateur ne reserve que les tournees
+  check(planner:find("local fuel_need = { bruleurs = view.smelter_coal or 0 }", 1, true) ~= nil and planner:find("plant_coal", 1, true) == nil and planner:find("Rc.buffer(", 1, true) == nil,
+    "planner.lua : la reserve du planificateur = tournees seules (ni centrale ni tampon : mesure ISO-CHARBON-PLAN)")
 
   local build = slurp("script/team/build.lua")
   check(build:find('Build.Rc = require("shared.team.reserve_charbon")', 1, true) ~= nil, "build.lua : lit la regle (champ de Build)")
   check(build:find("have = parts.vital + parts.confort", 1, true) ~= nil and build:find("local parts = Rc.parts(have, need)", 1, true) ~= nil, "build.lua quai_tasks : la centrale prend vital + confort")
   check(build:find("have = Rc.libre(have, { bruleurs = burners })", 1, true) ~= nil, "build.lua quai_tasks : le quai de combustible d'un champ prend le libre")
   check(build:find("Cc.free_fuel(have, burner_fuel_reserve())", 1, true) == nil, "build.lua : plus de lecteur « stock moins reserve »")
-  check(build:find("function Build.plant_fuel_need(f, tick)", 1, true) ~= nil and build:find("Build.Rc.need_centrale(n, r.low, r.target, Sante.prime_need(f, p))", 1, true) ~= nil, "build.lua : besoin des centrales pour la vue")
+  check(build:find("Build.plant_fuel_need", 1, true) == nil, "build.lua : plus de besoin des centrales pour la vue (producteur sans consommateur apres la mesure)")
   check(build:find("return n + Rc.buffer(rate)", 1, true) ~= nil and build:find("if not Rc.is_fuel_outpost(spec, T.fuel) then n = n + Outposts.coal_needed(o, fill) end", 1, true) ~= nil, "build.lua : reserve des bruleurs = deficit + tampon, avant-poste de combustible par les donnees")
   check(build:find("log(Rc.line(", 1, true) ~= nil and build:find("if first and sig == \"vc\" then return end", 1, true) ~= nil, "build.lua : journal [FO-CHARBON] par Rc.line, une ligne par changement")
 
   local team = slurp("script/team/team.lua")
-  check(team:find("plant_coal = Profiler.fwrap(\"view:5-centrale\", Build.plant_fuel_need, f, tick)", 1, true) ~= nil, "team.lua : la vue porte plant_coal")
+  check(team:find("plant_coal", 1, true) == nil, "team.lua : la vue ne porte plus plant_coal")
 
   local sante = slurp("script/team/sante_centrale.lua")
   check(sante:find("local stock = Rc.vital(Stock.count(f, T.fuel), { vital = c.boilers.dry * S.PRIME })", 1, true) ~= nil, "sante_centrale.lua : l'amorce prend la part vitale")
-  check(sante:find("function Sante.prime_need(f, p)", 1, true) ~= nil, "sante_centrale.lua : amorce due exposee (Sante.prime_need)")
+  check(sante:find("function Sante.prime_need(f, p)", 1, true) ~= nil and build:find("Sante.prime_need(f, p)", 1, true) ~= nil, "sante_centrale.lua : amorce due exposee (Sante.prime_need), lue par quai_tasks")
 
   local worker = slurp("script/team/worker.lua")
   check(worker:find('if o.kind == "coal" then carry = 0 end', 1, true) == nil and worker:find("if Rsv.is_fuel_outpost(T.outposts[o.kind], T.fuel) then carry = 0 end", 1, true) ~= nil and worker:find("local Rc = require(\"shared.team.repli_chemin\")", 1, true) ~= nil, "worker.lua : avant-poste de combustible par les donnees")

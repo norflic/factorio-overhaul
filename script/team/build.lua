@@ -4370,33 +4370,6 @@ local function out_tasks(f, p, surface, out)
   return q, counts
 end
 
---- Lot CHARBON-UNIFIE : besoin de charbon des centrales finies nourries à la main (part « vital » : amorce due + coffre jusqu'au seuil
---- d'avance ; part « confort » : du seuil à la cible, Cc.refill), lu par la vue du planificateur (view.plant_coal, script/team/team.lua) :
---- le planificateur réserve ces parts avant toute fabrication (shared/team/reserve_charbon.lua). Une centrale automatisée n'en prend plus.
-function Build.plant_fuel_need(f, tick)
-  local b = f and f.build
-  local need = { vital = 0, confort = 0 }
-  if not b then return need end
-  local surface = surface_of(f)
-  if not surface then return need end
-  for _, pid in ipairs(b.order) do
-    local p = b.projects[pid]
-    if p and p.state == "fini" and is_plant_project(p) and not plant_automated(b, p) then
-      local q = p.quais and p.quais[1]
-      local chest = q and surface.find_entity(Build.QUAI_CHEST, { q.x, q.y })
-      if chest and chest.valid and chest.force.name == f.force then
-        local _, kw = plant_burn_kw(p)
-        local n = chest.get_item_count(q.item)
-        local inv = chest.get_inventory(defines.inventory.chest)
-        local r = Cc.refill(n, Cc.rate(kw, M.COAL_J), nil, inv and (n + inv.get_insertable_count(q.item)) or nil)
-        local c = Build.Rc.need_centrale(n, r.low, r.target, Sante.prime_need(f, p))
-        need.vital, need.confort = need.vital + c.vital, need.confort + c.confort
-      end
-    end
-  end
-  return need
-end
-
 local function quai_tasks(f, p, surface, out)
   --- Lot BRULEURS-A-SEC (B4, banc V0676-D graine 123456789) : combustible du coffre du QG RÉSERVÉ aux tournées des brûleurs : la grandeur
   --- que shared/team/planner.lua retire du stock virtuel (« le charbon nécessaire aux tournées est réservé avant toute fabrication ») :

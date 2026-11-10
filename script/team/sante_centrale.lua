@@ -157,7 +157,7 @@ function Sante.observe(f, surface, p, tick)
   return res
 end
 
---- Lot CHARBON-UNIFIE : charbon de l'amorce due de la centrale `p` (0 sans amorce) : la part « vital » du coffre du QG (Build.plant_fuel_need).
+--- Lot CHARBON-UNIFIE : charbon de l'amorce due de la centrale `p` (0 sans amorce) : dans la part « vital » du coffre du QG (quai_tasks).
 function Sante.prime_need(f, p)
   local st = mem(f).plants[p.id]
   return st and st.prime and st.prime.total or 0

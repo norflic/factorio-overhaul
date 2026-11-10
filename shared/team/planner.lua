@@ -602,12 +602,11 @@ function P.plan(view, book)
   ---------------------------------------------------------------------------------------------------
   -- 1. Entretien : brûleurs, production en attente, munitions des tourelles
   ---------------------------------------------------------------------------------------------------
-  -- Lot CHARBON-UNIFIE : besoins de charbon par PART (shared/team/reserve_charbon.lua) : centrale nourrie à la main (vital : amorce + seuil
-  -- d'avance ; confort : jusqu'à la cible ; vue, Build.plant_fuel_need), tournées des brûleurs (fours de l'équipe, avant-postes dont le
-  -- PRODUIT n'est pas le combustible : données, plus de nom de gisement en dur) ; le tampon d'une tournée s'ajoute au bilan (tour_rate).
-  local plant_coal = view.plant_coal or {}
-  local fuel_need = { vital = plant_coal.vital or 0, confort = plant_coal.confort or 0, bruleurs = view.smelter_coal or 0 }
-  local tour_rate = 0
+  -- Lot CHARBON-UNIFIE : la part des tournées des brûleurs (shared/team/reserve_charbon.lua) : fours de l'équipe et avant-postes dont le
+  -- PRODUIT n'est pas le combustible (données, plus de nom de gisement en dur). Le planificateur ne réserve QUE cette part : la part vitale
+  -- de la centrale est servie la première au quai (quai_tasks) et à l'amorce ; réserver ici aussi sa part de confort et un tampon privait
+  -- les nouveaux avant-postes de leur combustible (banc CHARBON-A2 : 14 830 fer, 2 bandes ; sans : ISO-CHARBON-PLAN 22 182, 4 bandes).
+  local fuel_need = { bruleurs = view.smelter_coal or 0 }
   for _, o in ipairs(view.outposts) do
     if not Rc.is_fuel_outpost(T.outposts[o.kind], T.fuel) then fuel_need.bruleurs = fuel_need.bruleurs + (o.coal_needed or 0) end
     if df and o.lethal and lacking[o.id] and (view.stock[T.outposts[o.kind].product] or 0) >= T.lethal_need then
@@ -646,7 +645,6 @@ function P.plan(view, book)
       burn_rate = burn_rate + o.drills * 0.0375 + (spec.sink == "stone-furnace" and o.drills * 0.0225 or 0)
     end
     burn_rate = burn_rate + view.smelters * 0.0225
-    tour_rate = burn_rate -- lot CHARBON-UNIFIE : ce que les tournées servent (avant-postes et fours de l'équipe), pour le tampon Rc.buffer
     burn_rate = burn_rate + (view.build_burn or 0) -- lot INTEG-ECONOMIE (D4) : fours à combustible du plan directeur (relevé de script/team/build.lua)
     out.coal_rate, out.burn_rate = coal_rate, burn_rate
     -- Lot THERMIQUE2 (essai 3) : banc thermique-garde (moteur réel) : ce bilan, qui ne lit que des cadences, ajoutait 4 brûleurs de charbon
@@ -676,9 +674,8 @@ function P.plan(view, book)
     end
   end
 
-  -- Lot CHARBON-UNIFIE : le charbon des parts vitales (centrale, tournées + tampon d'une tournée, confort de la centrale) est réservé avant
-  -- toute fabrication (grenades, nouvel avant-poste...) ; le reste est LIBRE : la même règle que le quai de la centrale et l'amorce.
-  fuel_need.bruleurs = fuel_need.bruleurs + Rc.buffer(tour_rate)
+  -- Lot CHARBON-UNIFIE : le charbon des tournées est réservé avant toute fabrication (grenades, etc.) ; le reste est LIBRE (la même règle
+  -- que le quai de la centrale et l'amorce : Rc.parts, ici sans part de centrale ni tampon, voir plus haut).
   avail[T.fuel] = Rc.libre(avail[T.fuel] or 0, fuel_need)
 
   -- Lot MUNITIONS : la munition FABRIQUÉE et PORTÉE aux tourelles (view.turret_ammo : la meilleure fabricable, Mu.best_ammo) ; la pose d'une

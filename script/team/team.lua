@@ -818,7 +818,6 @@ function Team.view(f, tick)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, Outposts.smelters(f)),
-    plant_coal = Profiler.fwrap("view:5-centrale", Build.plant_fuel_need, f, tick), -- lot CHARBON-UNIFIE : parts vital/confort des centrales nourries à la main
     build_burn = Profiler.fwrap("view:5-burn", Build.burn_rate, f, game.tick), -- lot INTEG-ECONOMIE (D4) : charbon/s des fours du plan directeur (bilan du charbon du planificateur)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
