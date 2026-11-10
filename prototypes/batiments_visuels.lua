@@ -316,4 +316,73 @@ do
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot MURS-2 (10/11) : murs renforcé et blindé (copies du mur de pierre vanilla teintées par prototypes/arsenal.lua). Chaque pièce de
+-- raccord (single, straight_vertical, straight_horizontal, corner_right_down, corner_left_down, t_up, ending_right, ending_left,
+-- filling, water_connection_patch, gate_connection_patch) garde SA géométrie vanilla (taille, décalage, variantes, line_length) : seule
+-- la feuille change, recolorée par tools/render/pieces/batiments/murs.py (acier argent, liseré de fonction), teinte retirée ; une
+-- couche de lueur (draw_as_glow) double le liseré sur les pièces à calques. Ombres vanilla. Santé, résistances, boîtes, recettes :
+-- INCHANGÉES. Un mur absent de graphics/batiments/murs/sprites.lua garde son visuel teinté.
+---------------------------------------------------------------------------------------------------
+do
+  local MU = require("__factorio-overhaul__/graphics/batiments/murs/sprites")
+  local function base(fn) return type(fn) == "string" and fn:match("^__base__/graphics/entity/wall/(.+)$") or nil end
+  local function copie(t)
+    if type(t) ~= "table" then return t end
+    local c = {}
+    for k, v in pairs(t) do c[k] = copie(v) end
+    return c
+  end
+  --- Une image (avec son hr_version) : feuille du mur u ; rend sa copie de lueur si la pièce en a une.
+  local function refaire(s, u)
+    local b = base(s.filename)
+    if s.draw_as_shadow or not b or not u.fichiers[b] then return nil end
+    local glow = u.lueurs[(b:gsub("%.png$", "-glow.png"))] and copie(s) or nil
+    s.filename, s.tint = u.dossier .. b, nil
+    local hb = s.hr_version and base(s.hr_version.filename)
+    if hb and u.fichiers[hb] then s.hr_version.filename, s.hr_version.tint = u.dossier .. hb, nil end
+    if glow then
+      glow.filename, glow.tint, glow.draw_as_glow, glow.blend_mode = u.dossier .. (b:gsub("%.png$", "-glow.png")), nil, true, "additive"
+      if glow.hr_version then
+        local hg = base(glow.hr_version.filename)
+        glow.hr_version.filename = u.dossier .. (hg and hg:gsub("%.png$", "-glow.png") or "")
+        glow.hr_version.tint, glow.hr_version.draw_as_glow, glow.hr_version.blend_mode = nil, true, "additive"
+      end
+    end
+    return glow
+  end
+  local CLES = { "single", "straight_vertical", "straight_horizontal", "corner_right_down", "corner_left_down", "t_up", "ending_right",
+    "ending_left", "filling", "water_connection_patch", "gate_connection_patch" }
+  local walls = data.raw.wall or {}
+  local noms = {}
+  for nom in pairs(MU) do noms[#noms + 1] = nom end
+  table.sort(noms)
+  for _, nom in ipairs(noms) do
+    local u, e = MU[nom], walls[nom]
+    if e and e.pictures then
+      for _, cle in ipairs(CLES) do
+        local p = e.pictures[cle]
+        if type(p) == "table" then
+          if p.layers then
+            local glows = {}
+            for _, l in ipairs(p.layers) do glows[#glows + 1] = refaire(l, u) end
+            for _, g in ipairs(glows) do p.layers[#p.layers + 1] = g end
+          elseif p.sheets then
+            for _, sh in ipairs(p.sheets) do refaire(sh, u) end
+          elseif p.filename then
+            refaire(p, u)
+          end
+        end
+      end
+      e.map_color = { r = u.map_color[1], g = u.map_color[2], b = u.map_color[3] }
+      e.friendly_map_color = e.map_color
+      local ic = { { icon = u.icone.filename, icon_size = u.icone.icon_size, icon_mipmaps = u.icone.icon_mipmaps } }
+      lib.set_icons(e, ic)
+      if data.raw.item[nom] then lib.set_icons(data.raw.item[nom], { { icon = u.icone.filename, icon_size = u.icone.icon_size,
+        icon_mipmaps = u.icone.icon_mipmaps } }) end
+      habilles = habilles + 1
+    end
+  end
+end
+
 log("[FO-BATIMENTS] " .. habilles .. " bâtiment(s) habillé(s) par les feuilles de graphics/batiments")

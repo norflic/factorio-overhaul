@@ -1,0 +1,13 @@
+{
+ "generateur": "tools/render/pieces/batiments/murs.py",
+ "murs": {
+  "fo-armored-wall": {
+   "feuilles": 39,
+   "pixels_lisere": 10837
+  },
+  "fo-reinforced-wall": {
+   "feuilles": 39,
+   "pixels_lisere": 10837
+  }
+ }
+}

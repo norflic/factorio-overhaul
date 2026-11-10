@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.85
+Date: 2026-11-10
+  Graphics:
+    - Murs (F484) : les murs renforcé et blindé passent à l'acier argent des tourelles, avec un liseré de fonction cyan (renforcé) ou magenta (blindé) qui luit la nuit ; toutes les pièces de raccord gardent leur forme.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.84
 Date: 2026-11-10
   Graphics:

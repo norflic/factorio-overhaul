@@ -253,6 +253,8 @@ local function habille(src)
   local env = setmetatable({ data = { raw = raw }, log = function() end }, { __index = _G })
   package.loaded["prototypes.lib"] = nil
   package.loaded["__factorio-overhaul__/graphics/batiments/sprites"] = BAT
+  local okmu, MU = pcall(dofile, "graphics/batiments/murs/sprites.lua") -- MURS-2 : section des murs (sans mur au banc : rien)
+  package.loaded["__factorio-overhaul__/graphics/batiments/murs/sprites"] = okmu and MU or {}
   local chunk, err = load(src, "=batiments_visuels", "t", env)
   if not chunk then return nil, nil, err end
   local ok, e2 = pcall(chunk)
@@ -626,6 +628,128 @@ mut_bat("silhouettes confondues", function(B) B.canon.marque.mesure.iou.mortier 
 mut_bat("tourelle électrique marquée", function(B) B.bastion2.marque = deepcopy(B.bastion1.marque) end)
 mut_bat("feuilles périmées", function(B) B.mortier.marque.forme = "rond" end)
 mut_bat("lueur grise", function(B) B.canon.marque.mesure.saturation = 0.05 end)
+
+---------------------------------------------------------------------------------------------------
+-- §9 (MURS-2, 10/11) : murs renforcé et blindé. Toutes les pièces de raccord du mur vanilla gardent leur géométrie (taille, décalage,
+-- variantes, line_length) ; la feuille principale passe sur graphics/batiments/murs/<mur>/, sans teinte ; les pièces à calques gagnent
+-- une couche de lueur ; ombres, santé, résistances, boîtes : inchangées ; toutes les feuilles existent sur le disque.
+---------------------------------------------------------------------------------------------------
+local okm, MURS = pcall(dofile, "graphics/batiments/murs/sprites.lua")
+check(okm and type(MURS) == "table", "§9 graphics/batiments/murs/sprites.lua lisible")
+local PIECES_MUR = {
+  { "single", "wall-single", 32, 46, 2, true }, { "straight_vertical", "wall-vertical", 32, 68, 5, true },
+  { "straight_horizontal", "wall-horizontal", 32, 50, 6, true }, { "corner_right_down", "wall-corner-right", 32, 64, 2, true },
+  { "corner_left_down", "wall-corner-left", 32, 68, 2, true }, { "t_up", "wall-t", 32, 64, 4, true },
+  { "ending_right", "wall-ending-right", 32, 48, 2, true }, { "ending_left", "wall-ending-left", 32, 48, 2, true },
+  { "filling", "wall-filling", 24, 30, 8, false }, { "water_connection_patch", "wall-patch", 58, 64, nil, false },
+  { "gate_connection_patch", "wall-gate", 42, 56, nil, false },
+}
+local W = "__base__/graphics/entity/wall/"
+local function img(f, w, h, n, shadow)
+  local s = { filename = W .. f .. ".png", width = w, height = h, variation_count = n, line_length = n, shift = { 0, -0.2 },
+    tint = { r = 0.78, g = 0.80, b = 0.88 }, draw_as_shadow = shadow,
+    hr_version = { filename = W .. "hr-" .. f .. ".png", width = 2 * w, height = 2 * h, variation_count = n, line_length = n,
+      shift = { 0, -0.2 }, scale = 0.5, tint = { r = 0.78, g = 0.80, b = 0.88 }, draw_as_shadow = shadow } }
+  return s
+end
+local function mur_vanilla(name, hp)
+  local pics = {}
+  for _, p in ipairs(PIECES_MUR) do
+    local main, shadow = img(p[2], p[3], p[4], p[5]), img(p[2] .. "-shadow", p[3] + 18, p[4] - 10, p[5], true)
+    if p[1] == "filling" then pics[p[1]] = main
+    elseif p[5] == nil then pics[p[1]] = { sheets = { main, shadow } }
+    else pics[p[1]] = { layers = { main, shadow } } end
+  end
+  return { type = "wall", name = name, max_health = hp, collision_box = { { -0.29, -0.29 }, { 0.29, 0.29 } },
+    selection_box = { { -0.5, -0.5 }, { 0.5, 0.5 } }, minable = { mining_time = 0.3, result = name },
+    resistances = { { type = "physical", decrease = 8, percent = 30 }, { type = "explosion", decrease = 20, percent = 50 } },
+    pictures = pics, icon = "__base__/graphics/icons/wall.png", icon_size = 64, icon_mipmaps = 4 }
+end
+local function habille_murs(src)
+  local raw = banc()
+  raw.wall = { ["fo-reinforced-wall"] = mur_vanilla("fo-reinforced-wall", 1200), ["fo-armored-wall"] = mur_vanilla("fo-armored-wall", 3500) }
+  raw.item["fo-reinforced-wall"] = { type = "item", name = "fo-reinforced-wall", icon = "__base__/graphics/icons/wall.png", icon_size = 64 }
+  raw.item["fo-armored-wall"] = { type = "item", name = "fo-armored-wall", icon = "__base__/graphics/icons/wall.png", icon_size = 64 }
+  local avant = deepcopy(raw)
+  local env = setmetatable({ data = { raw = raw }, log = function() end }, { __index = _G })
+  package.loaded["prototypes.lib"] = nil
+  package.loaded["__factorio-overhaul__/graphics/batiments/sprites"] = BAT
+  package.loaded["__factorio-overhaul__/graphics/batiments/murs/sprites"] = okm and MURS or nil
+  local chunk, err = load(src, "=batiments_visuels", "t", env)
+  if not chunk then return nil, nil, err end
+  local ok, e2 = pcall(chunk)
+  if not ok then return nil, nil, e2 end
+  return raw, avant
+end
+local function sur_disque(fn)
+  local rel = fn and fn:match("^__factorio%-overhaul__/(.+)$")
+  return rel and png_size(rel) ~= nil
+end
+local GEOM = { "width", "height", "variation_count", "line_length", "shift", "scale", "priority" }
+local function juge_murs(raw, avant)
+  local refus = {}
+  local function non(t) refus[#refus + 1] = t end
+  if not raw then non("habillage en erreur") return refus end
+  for _, nom in ipairs({ "fo-armored-wall", "fo-reinforced-wall" }) do
+    local e, a, u = raw.wall[nom], avant.wall[nom], MURS and MURS[nom]
+    if not u then non(nom .. " absent de sprites.lua") end
+    for _, k in ipairs({ "max_health", "collision_box", "selection_box", "minable", "resistances" }) do
+      if not same(e[k], a[k]) then non(nom .. " : " .. k .. " changé") end
+    end
+    for _, p in ipairs(PIECES_MUR) do
+      local cle = p[1]
+      local n, o = e.pictures[cle], a.pictures[cle]
+      local liste_n = n and (n.layers or n.sheets or { n }) or {}
+      local liste_o = o.layers or o.sheets or { o }
+      local main, main_o = liste_n[1], liste_o[1]
+      if not main or not main.filename or not main.filename:find("graphics/batiments/murs/", 1, true) then non(nom .. "/" .. cle .. " : feuille vanilla gardée")
+      else
+        if main.tint then non(nom .. "/" .. cle .. " : teinte gardée") end
+        if not sur_disque(main.filename) then non(nom .. "/" .. cle .. " : feuille absente du disque " .. main.filename) end
+        if not (main.hr_version and sur_disque(main.hr_version.filename)) then non(nom .. "/" .. cle .. " : hr absente") end
+        for _, g in ipairs(GEOM) do
+          if not same(main[g], main_o[g]) then non(nom .. "/" .. cle .. " : géométrie changée (" .. g .. ")") end
+          if main.hr_version and not same(main.hr_version[g], main_o.hr_version[g]) then non(nom .. "/" .. cle .. " : géométrie hr changée (" .. g .. ")") end
+        end
+      end
+      if not same(liste_n[2], liste_o[2]) then non(nom .. "/" .. cle .. " : ombre changée") end
+      local glow = liste_n[3]
+      if p[6] then
+        if not (glow and glow.draw_as_glow and glow.blend_mode == "additive" and sur_disque(glow.filename)
+          and glow.hr_version and sur_disque(glow.hr_version.filename) and same(glow.variation_count, main_o.variation_count)) then
+          non(nom .. "/" .. cle .. " : couche de lueur absente ou fausse")
+        end
+      elseif glow then non(nom .. "/" .. cle .. " : lueur inattendue") end
+    end
+    local ic = e.icons and e.icons[1]
+    if not (ic and sur_disque(ic.icon)) then non(nom .. " : icône absente") end
+    local it = raw.item[nom].icons and raw.item[nom].icons[1]
+    if not (it and it.icon == (ic and ic.icon)) then non(nom .. " : icône de l'objet non refaite") end
+  end
+  if MURS and MURS["fo-armored-wall"] and MURS["fo-reinforced-wall"] then
+    local h1, h2 = teinte(MURS["fo-reinforced-wall"].lisere), teinte(MURS["fo-armored-wall"].lisere)
+    if ecart(h1, h2) < 45 then non("liserés des deux murs trop proches") end
+  end
+  return refus
+end
+local rm, am, em = habille_murs(SOURCE or "")
+check(rm ~= nil, "§9 habillage des murs sans erreur : " .. tostring(em))
+local motifs9 = juge_murs(rm, am)
+for _, s in ipairs(motifs9) do check(false, "§9 " .. s) end
+check(#motifs9 == 0, "§9 murs renforcé et blindé : onze pièces de raccord refaites, géométrie, ombres et jeu intacts")
+local function mutant_mur(nom, de, vers)
+  check(SOURCE and SOURCE:find(de, 1, true) ~= nil, "§9 mutant « " .. nom .. " » : le texte d'origine est là")
+  if not SOURCE then return end
+  local src = SOURCE:gsub(de:gsub("%p", "%%%0"), (vers:gsub("%%", "%%%%")), 1)
+  local r, a = habille_murs(src)
+  check(#juge_murs(r, a) > 0, "§9 mutant refusé : " .. nom)
+end
+mutant_mur("géométrie changée", "s.filename, s.tint = u.dossier .. b, nil", "s.filename, s.tint, s.variation_count = u.dossier .. b, nil, 1")
+mutant_mur("teinte gardée", "s.filename, s.tint = u.dossier .. b, nil", "s.filename = u.dossier .. b")
+mutant_mur("lueur absente", "for _, g in ipairs(glows) do p.layers[#p.layers + 1] = g end", "")
+mutant_mur("hr vanilla gardée", "if hb and u.fichiers[hb] then", "if false then")
+mutant_mur("pièce oubliée", '"corner_left_down", "t_up", "ending_right"', '"corner_left_down", "ending_right"')
+mutant_mur("santé changée", "      e.friendly_map_color = e.map_color\n      local ic", "      e.friendly_map_color = e.map_color\n      e.max_health = 1\n      local ic")
 
 print(string.format("[BATIMENTS] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 if fail > 0 then os.exit(1) end

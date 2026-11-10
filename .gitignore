@@ -52,3 +52,5 @@ graphics/levels/laser/*.png
 # Lot POLISSAGE-FX (10/11) : feuilles procédurales des effets et feuilles rendues des bâtiments (D-6)
 graphics/effets/*.png
 graphics/batiments/*.png
+# Feuilles des murs (lot MURS-2, même règle) : tools/render/pieces/batiments/murs.py
+graphics/batiments/murs/*/*.png

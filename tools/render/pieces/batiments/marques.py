@@ -19,6 +19,9 @@ MARQUES = {
     # lot MURS-ACIDE (10/11) : pulvérisateur d'acide, socle rectangulaire 2×3 à citerne (m_acide.py), vert acide entre le vert-jaune du
     # mortier (≈ 72°) et le cyan du Bastion I (≈ 182°)
     "acide": {"forme": "citerne", "lisere": (0.120, 1.000, 0.330), "toit": "vague", "fonction": "corrosif"},
+    # lot MURS-2 (10/11) : murs, sans socle ni toit : seul le lisere de fonction compte (tools/render/pieces/batiments/murs.py)
+    "mur_renforce": {"forme": "mur", "lisere": (0.098, 0.902, 1.000), "toit": "aucun", "fonction": "rempart"},
+    "mur_blinde": {"forme": "mur", "lisere": (1.000, 0.140, 0.700), "toit": "aucun", "fonction": "rempart lourd"},
 }
 SUFFIXES = ("_n", "_e", "_s", "_w")      # variantes de direction d'un socle (acide_n…) : même marque que la tourelle
 
