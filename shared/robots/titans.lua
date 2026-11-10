@@ -190,6 +190,8 @@ T.SENTINELLE = {
   segment = { ingredients = { { "fo-titanium-plate", 80 }, { "processing-unit", 40 }, { "fo-guidance-core", 20 }, { "fo-graphics-card", 10 },
     { "battery", 60 }, { "steel-plate", 80 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
+  -- TITANS-8DIR : corps animé (flottement, pattes qui ondulent ; salve : la singularité gonfle puis se libère), FOULEE de sentinelle.py
+  anime = { images = { course = 8, attaque = 4 }, foulee = 6.0, attaque_ticks = 30 },
 }
 --- Léviathan serpentin (âge 12, après le Lévite) : le plus rapide (il flotte), salve de drones d'escorte ; le vortex frontal sert de canon.
 T.LEVIATHAN = {
@@ -200,6 +202,8 @@ T.LEVIATHAN = {
   segment = { ingredients = { { "fo-superconducting-coil", 80 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 30 },
     { "fo-titanium-plate", 60 }, { "fo-graphics-card", 10 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
+  -- TITANS-8DIR : corps animé (onde le long du corps ; salve : les anneaux s'ouvrent, les drones sortent de la gueule), FOULEE de leviathan.py
+  anime = { images = { course = 8, attaque = 4 }, foulee = 9.0, attaque_ticks = 30 },
 }
 --- Armes du Ravageur (KAIJUS-MUTANTS) : mitraille : rafale du gatling (T.RAVAGEUR.mitraille.n projectiles par coup, dégâts = part de la salve
 --- répartie) ; lames : coup de zone courte des lames de cristal ; puis salve de zone, résonance.

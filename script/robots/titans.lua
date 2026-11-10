@@ -413,6 +413,7 @@ local function drones_tirer(g, j, target, tick)
     e.surface.create_entity({ name = DRONE_TIR .. j.palier, position = { e.position.x + off[1], e.position.y + off[2] }, target = target,
       source = e, force = e.force, speed = j.drones.speed })
   end
+  anim_attaque(g, archetype(g), tick)   -- TITANS-8DIR : les anneaux s'ouvrent, les drones sortent de la gueule
   journal("%s drones #%d x%d cible #%s tick %d", j.id, g.un, n, tostring(target.unit_number), tick)
 end
 
@@ -437,7 +438,10 @@ local function scan(ev)
           g.next_griffes = ev.tick + j.griffes.cooldown
           if not j.armes.canon then anim_attaque(g, r, ev.tick) end   -- palier 1 : les griffes sont la seule salve visible
         end
-        if j.armes.singularite and singularite(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.singularite.cooldown end
+        if j.armes.singularite and singularite(g, j, ev.tick) > 0 then
+          g.next_griffes = ev.tick + j.singularite.cooldown
+          if not j.armes.canon then anim_attaque(g, r, ev.tick) end   -- TITANS-8DIR : palier 1, la singularité est la salve visible
+        end
         if j.armes.lames and lames(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.lames.cooldown end
       end
       if ev.tick >= g.next and not G.zone_active(g.un) then

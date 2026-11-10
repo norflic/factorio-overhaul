@@ -42,16 +42,20 @@ LOGS2 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.9
 # plusieurs dossiers de sources (séparés par « ; ») : un titan est pris dans le premier qui a son sous-dossier (KAIJUS-MUTANTS, 10/11)
 LOGS3 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_VISUELS-DISTINCTS")
 # VISUELS-DISTINCTS (10/11) : les Écorchés re-rendus (chair, peau, silhouette et collerette par variante) sont pris en PREMIER
-SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS3, "rendu"), os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
+LOGS4 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-8DIR")
+# TITANS-8DIR (10/11) : Sentinelle et Léviathan animés (8 directions) pris dans leur propre dossier
+SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS4, "rendu"), os.path.join(LOGS3, "rendu"), os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
 DEST_DEFAUT = os.path.join(MOD, "graphics", "robots", "titans")
 PREFIXE = "__factorio-overhaul__/graphics/robots/titans/"
-COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
+COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
 # alliés à une image (traitement des géants) : stades rendus ; le Léviathan a de plus son drone d'escorte (une image, clé « drone »)
-ALLIES = (("sentinelle", ("1", "2", "3")), ("leviathan", ("1", "2", "3", "drone")))
+ALLIES = (("leviathan", ("drone",)),)   # TITANS-8DIR : Sentinelle et Léviathan sont animés ; seul le drone d'escorte reste une image
 # alliés ANIMÉS : (nom, stades, diviseur de densité par couche, feuille la plus large) ; KAIJUS-MUTANTS : Ravageur (allié) et Écorchés
 # (ennemis : le « stade » est la VARIANTE, rôdeur / porteur / hurleur)
 ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
           ("ravageur", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
+          ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
+          ("leviathan", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
 ENNEMIS = ("kaiju", "ecorcheur")
@@ -253,8 +257,9 @@ def main():
                 poids[nom]["normale"] += c["lr"]["width"] * c["lr"]["height"] / 1e6
             poids[nom]["images"] += 1
     for nom, stades, divs, max_px in ANIMES:
-        spr[nom] = {"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
-        poids[nom] = {"haute": 0.0, "normale": 0.0, "images": 0}
+        # le Léviathan garde son drone (ALLIES) : on complète l'entrée au lieu de la remplacer
+        spr.setdefault(nom, {}).update({"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS})
+        poids.setdefault(nom, {"haute": 0.0, "normale": 0.0, "images": 0})
         if a.sans_animes:
             continue
         for st in stades:
