@@ -23,6 +23,7 @@
 local Mt = require("shared.content.modules_teintes")
 local BoiteChunks = require("script.team.boite_chunks")
 local St = require("shared.team.scan_tranches")
+local Zone = require("script.team.zone_equipe") -- lot UPS-HYGIENE : relevé dans la zone de l'équipe, plus sur toute la carte
 local Profiler = require("script.core.profiler")
 
 local Bt = {}
@@ -111,12 +112,11 @@ end
 
 --- 1. Relevé des balises de la force dans la boîte des chunks : liste triée { u, x, y }, ensemble des unit_number vus ;
 --- les lumières des balises absentes du relevé sont retirées. Rend aussi les entités (même tick : utilisables directement).
-local function releve(f, surface, t, h)
+local function releve(f, surface, t, h, tick)
   local box = BoiteChunks.get(surface)
   local q = { type = "beacon", force = f.force }
-  if box then q.area = { { box.x0 * 32, box.y0 * 32 }, { (box.x1 + 1) * 32, (box.y1 + 1) * 32 } } end
   local list, by_u = {}, {}
-  for _, e in ipairs(surface.find_entities_filtered(q)) do
+  for _, e in ipairs(Zone.find(surface, q, Zone.rects(f, surface, tick), box)) do
     if e.valid and e.unit_number and visible(e) then
       list[#list + 1] = { e.unit_number, e.position.x, e.position.y }
       by_u[e.unit_number] = e
@@ -173,7 +173,7 @@ function Bt.step(f, surface, tick, slice)
   Profiler.fstart("balises:tranche")
   local slices = St.CFG.slices
   if slice == 0 then
-    local by_u = releve(f, surface, t, h)
+    local by_u = releve(f, surface, t, h, tick)
     if h.n <= Bt.CFG.max_per_slice then
       traiter(f, surface, t, h, 1, h.n, by_u)
       journal(f, h)

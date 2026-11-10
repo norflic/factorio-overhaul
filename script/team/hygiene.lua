@@ -72,6 +72,7 @@ local Stock = require("script.team.stock") -- lot HYGIENE-ACTIVE : objet rendu a
 local Famine = require("script.team.famine_fer") -- lot HYGIENE-ACTIVE : jamais pendant une famine de la plaque clé
 local Gens = require("script.team.generateurs") -- lot HYGIENE-ACTIVE : réseaux alimentés (registre des génératrices)
 local Rv = require("script.team.reseau_vivant") -- lot HYGIENE-ACTIVE : Rv.foe_near (aucun remplaçant posé avec un ennemi près)
+local Zone = require("script.team.zone_equipe") -- lot UPS-HYGIENE : relevé dans la zone de l'équipe (rectangles du plan), plus sur toute la carte
 
 local Hy = {}
 
@@ -143,12 +144,13 @@ end
 --- 1. Relevé des poteaux de la force (jeton des travaux lourds pris d'abord ; faux s'il est refusé : on réessaie à la tranche suivante).
 local function releve(f, surface, h, tick, slice)
   local box = BoiteChunks.get(surface)
-  if not Lourd.take(tick, who(f), nil, St.box_cost(box)) then return false end
+  local rects = Zone.rects(f, surface, tick) -- lot UPS-HYGIENE : rectangles du plan (nil : équipe sans plan ni QG, la boîte entière)
+  if not Lourd.take(tick, who(f), nil, Zone.cost(rects, box)) then return false end
   Profiler.fstart("hyg:releve")
   local q = { type = "electric-pole", force = f.force }
-  if box then q.area = { { box.x0 * 32, box.y0 * 32 }, { (box.x1 + 1) * 32, (box.y1 + 1) * 32 } } end
   local poles, dmax = {}, 0
-  for _, e in ipairs(surface.find_entities_filtered(q)) do
+  h.zone = rects and #rects or 0
+  for _, e in ipairs(Zone.find(surface, q, rects, box)) do
     if e.valid and e.unit_number then
       poles[#poles + 1] = { e.unit_number, e.position.x, e.position.y }
       local d = e.prototype.supply_area_distance or 0
@@ -561,6 +563,7 @@ local function report(f, h, why)
   if h.gone > 0 then extra = extra .. string.format(" ; %d disparus pendant la passe", h.gone) end
   if h.why and h.why ~= "periode" then extra = extra .. " ; reveil (" .. h.why .. ")" end -- lot SCAN-EVENEMENTS : la cause de la passe
   if (h.boxed or 0) > 0 then extra = extra .. string.format(" ; %d ignores (box MAXED)", h.boxed) end -- lot BOXES
+  if (h.zone or 0) > 0 then extra = extra .. string.format(" ; zone : %d rectangle(s)", h.zone) end -- lot UPS-HYGIENE
   extra = extra .. actions_text(h) -- lot HYGIENE-ACTIVE
   if why then extra = extra .. " ; " .. why end
   log(string.format("[FO-HYGIENE] %s : impulsion a %.1f min : %d poteaux releves, %d sur gisement, %d redondants candidats (feuilles sans consommateur propre) ; cout : %d tranches%s",
