@@ -427,7 +427,7 @@ end
 ---------------------------------------------------------------------------------------------------
 local BUILD = read("script/team/build.lua")
 do
-  local r = BUILD:find("if reserve(f, p) then", 1, true)
+  local r = BUILD:find("local full, need = reserve(f, p)", 1, true) -- (lot EXPANSION-LOINTAINE : la réserve rend aussi le besoin)
   local g = r and BUILD:find("elseif Rr.partial_go(p) and not (p.spec.degel and not p.degele) then", r, true)
   local m = g and BUILD:find('p.reason, p.reserve_next = "materiaux", tick + 60', g, true)
   check(r and g and m and r < g and g < m, "build.lua : un projet rouvert repart sans toute sa matière (après la réserve, avant l'attente « materiaux »)")

@@ -120,6 +120,9 @@ Build.QUAI_PAR_DEBIT = true -- vrai : NOUVEAUX gabarits seulement (les projets d
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
+-- Lot EXPANSION-LOINTAINE : une bande de champ NEUVE part en chantier dès que chaque objet de son kit est réservé aux deux tiers (règle pure) ;
+-- champ de Build, pas une locale (limite des 200 locales du bloc principal).
+Build.Cp = require("shared.team.chantier_progressif")
 -- Lot TOURELLE-JOURNAL : [FO-TOURELLE-RETIREE] (tourelles de l'équipe déplacées ou reprises). Champ de Build, pas une locale
 -- (limite de 200 locales du bloc principal, relecture de la 0.6.59).
 Build.Tj = require("script.team.tourelle_journal")
@@ -3444,7 +3447,7 @@ local function reserve(f, p)
     end
   end
   p.missing = missing
-  return #missing == 0
+  return #missing == 0, need -- (need : lu par le chantier progressif, lot EXPANSION-LOINTAINE)
 end
 
 --- Lot INTEG-RECONSTRUCTION (D6) : les objets qui MANQUENT au coffre pour les pièces à refaire d'un projet ROUVERT qui n'est plus en
@@ -4314,7 +4317,7 @@ local function batch_tasks(f, p, out, free_of)
   -- Relecture REBUILD-RAPIDE : un projet ROUVERT entre en chantier sans toute sa matière (Rr.partial_go) ; un lot dont AUCUN objet n'est au
   -- coffre (réserve du projet + stock libre, comme Build.take_reserved) n'est pas mis au tableau : le PNJ irait au coffre pour rien, à la
   -- priorité de la reconstruction. Il y revient dès que la matière arrive (pensée suivante) ; le manque reste dit par p.missing.
-  local free = Rr.partial_go(p) and free_of and free_of() or nil
+  local free = (Rr.partial_go(p) or p.progressif) and free_of and free_of() or nil -- (p.progressif : bande neuve partie sans toute sa matière, lot EXPANSION-LOINTAINE)
   local function have(it) return (p.stock[it] or 0) + (free[it] or 0) end
   for _, k in ipairs(order) do
     local bt = by[k]
@@ -4798,12 +4801,25 @@ local function advance(f, surface, p, tick)
     if Build.reserve_suspended(f, p, tick) then return end
     if p.spec.enceinte then craft_walls(f, p) end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
-    if reserve(f, p) then
+    local full, need = reserve(f, p)
+    -- Lot EXPANSION-LOINTAINE : une bande de champ NEUVE n'attend plus TOUTE sa matière (azure, bande 393 : 40 min en « reserve:materiaux »
+    -- avec 283 pièces sur 311 au coffre) : elle part dès que chaque objet est réservé au plancher de Build.Cp (règle pure) ; le reste est pris
+    -- au coffre à la prise du PNJ (Build.take_reserved), suivi par refresh_missing (p.progressif), fabriqué par le cerveau comme en réserve.
+    local prog, pd = false, nil
+    if not full then
+      prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, spec = p.spec, need = need, stock = p.stock })
+    end
+    if full or prog then
       -- lot MIGRATION-CHAMP : matières réunies, la partie de champ à remplacer est retirée par script/team/migration_champ.lua (qui pose
       -- p.degele) : le chantier ne commence qu'ensuite, et le champ produit jusque-là
       if p.spec.degel and not p.degele then
         p.reason, p.reserve_next = "degel", tick + 60
         return
+      end
+      if prog and not p.progressif then
+        p.progressif = true
+        log(string.format("[FO-CHANTIER-PROGRESSIF] %s : projet %d (bande %s) part en chantier sans toute sa matiere a %.1f min : %s", f.key or "player",
+          p.id, tostring(p.spec.champ and p.spec.champ.pr), tick / 3600, Build.Cp.describe(pd)))
       end
       -- lot PETROLE : un site étendu (spec.lazy_clear) ne défriche pas tout d'abord : ses fantômes se posent, et les
       -- arbres sont coupés pendant le chantier, entité par entité (moteur réel, petrole-site : 58 arbres sur un site
@@ -4834,7 +4850,7 @@ local function advance(f, surface, p, tick)
   -- lot RACCORD-BANDE 2 : une LIGNE de bande (p.spec.lg) relit aussi ses manques en chantier : partie neuve 0.6.72 (diag2), 29 poteaux sur 32 posés puis plus rien
   -- pendant 6 min, 0 tâche au tableau : les poteaux perdus en route (PNJ tué, réserve de 31 pour 32) n'étaient demandés à personne (p.missing resté vide
   -- depuis la fin de la réserve), le PNJ échouait « stock » en boucle
-  if (p.reopened or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
+  if (p.reopened or p.progressif or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
     p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
     refresh_missing(f, p)
   end
@@ -5619,7 +5635,7 @@ function Build.status(f, id)
     gen = p.spec and p.spec.gen or nil, secours = p.secours or nil, -- (lot TV-ENERGIE : générateur du projet, unité de secours)
     unbuilt = unbuilt, open_obstacles = open_obst,
     obstacles = #p.obstacles, quais = quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
-    finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries,
+    finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries, progressif = p.progressif or nil,
     -- lot FONDERIE-DYNAMIQUE : taille posée et réservée d'une ligne dynamique (nil pour les autres projets)
     ligne = p.ligne and { rows = p.ligne.rows, rows_max = p.ligne.rows_max, pairs = p.ligne.pairs, pairs_max = p.ligne.pairs_max,
       held = #p.ligne.held, last = p.ligne.last, steps = p.ligne.steps } or nil }
@@ -5704,7 +5720,7 @@ function Build.brief(f, id)
   local rebuilding = Sweep.rebuilding(p)
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
     retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow,
-    rebuilding = rebuilding, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false,
+    rebuilding = rebuilding, progressif = p.progressif or nil, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false,
     rangee = Build.Rangee.brief(p) } -- lot RANGEES-ASM : { n, n_max, held } d'une rangée dynamique
 end
 

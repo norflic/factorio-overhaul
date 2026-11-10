@@ -985,7 +985,7 @@ do
   local c = build:find("if THAW then THAW = nil", a, true)
   check(a and b2 and c and a < b2 and b2 < c, "C13 : THAW posé, plan, THAW retiré (dans cet ordre)")
   -- la porte est après la réserve des matières (le champ produit pendant l'attente) et avant le défrichage
-  local r = build:find("if reserve(f, p) then", 1, true)
+  local r = build:find("local full, need = reserve(f, p)", 1, true) -- (lot EXPANSION-LOINTAINE : réserve complète OU plancher atteint, degel gardé)
   local g = build:find('"degel"', r, true)
   local d = build:find('"defrichage" or "fantomes"', r, true)
   check(r and g and d and r < g and g < d, "C14 : la porte est entre « matières réunies » et « défrichage »")

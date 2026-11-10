@@ -198,8 +198,9 @@ function AmRt.deliver(f, inv, name, n)
     -- lot CHARBON-CENTRALE : un projet ROUVERT pour reconstruction (Sw.rebuilding) dont le chantier a repris (REBUILD-RAPIDE : défrichage, fantômes,
     -- chantier ; p.missing tenu par refresh_missing) attend aussi, et d'abord : ses pièces détruites (tapis du charbon de la centrale) ne sont
     -- refaites que si l'objet atteint son p.stock ou le coffre, et la réserve d'un module neuf prenait tout au dépôt
-    if p and (p.state == "reserve" or (AmRt.REBUILD_STATES[p.state] and Sw.rebuilding(p))) then
-      list[#list + 1] = { id = id, state = p.state, reason = p.reason, missing = p.missing, rebuilding = Sw.rebuilding(p) }
+    if p and (p.state == "reserve" or (AmRt.REBUILD_STATES[p.state] and (Sw.rebuilding(p) or p.progressif))) then
+      -- (p.progressif : bande de champ partie en chantier sans toute sa matière, lot EXPANSION-LOINTAINE : servie comme une réserve)
+      list[#list + 1] = { id = id, state = p.state, reason = p.reason, missing = p.missing, rebuilding = Sw.rebuilding(p), progressif = p.progressif or nil }
     end
   end
   local given = 0

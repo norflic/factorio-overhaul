@@ -417,7 +417,7 @@ local function idle_report(f, st, tick, idle)
   local b = f.build
   for _, pid in ipairs(b and b.order or {}) do
     local p = b.projects[pid]
-    if p and p.state == "reserve" and not p.abandoned and p.missing and #p.missing > 0 then
+    if p and (p.state == "reserve" or p.progressif) and not p.abandoned and p.missing and #p.missing > 0 then -- (p.progressif : lot EXPANSION-LOINTAINE)
       waiting[#waiting + 1] = { pid = pid, ents = #(p.ents or {}), missing = p.missing }
     end
   end
