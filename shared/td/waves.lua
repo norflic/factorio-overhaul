@@ -85,7 +85,9 @@ function TD.compose(wave, rng, age)
 
   local kaijus = age and T.kaiju_in_wave(wave, TD.boss_every) or 0
   if kaijus > 0 then
-    add(T.kaiju_name(T.era(age)), kaijus)
+    -- KAIJUS-MUTANTS : le i-ième Kaiju de la vague est de l'archétype T.kaiju_pour(ère, i) (rotation parmi les archétypes ouverts à l'ère)
+    local era = T.era(age)
+    for i = 1, kaijus do add(T.kaiju_name(era, T.kaiju_pour(era, i)), 1) end
     budget = math.floor(budget * 0.6)
   end
   if TD.is_boss(wave) then

@@ -161,6 +161,22 @@ do
     } } }
     out[#out + 1] = p
   end
+  -- KAIJUS-MUTANTS : projectiles de la mitraille du Ravageur (obus de canon vanilla teinté, vif, petite zone), un par palier
+  local mi = T.RAVAGEUR.mitraille
+  for palier = 1, T.PALIERS do
+    local j = T.allie(T.RAVAGEUR, T.age_of_palier(palier))
+    local p = lib.copy("projectile", "cannon-projectile")
+    p.name = T.PREFIX .. "mitraille-" .. palier
+    p.localised_name = { "entity-name." .. T.PREFIX .. "mitraille" }
+    p.light = { intensity = 0.5, size = 6, color = { r = 0.3, g = 0.9, b = 1.0 } }
+    lib.tint_sprites(p, { r = 0.4, g = 0.95, b = 1.0 })
+    p.action = { type = "area", radius = 1.5, force = "enemy", action_delivery = { type = "instant", target_effects = {
+      { type = "damage", damage = { amount = j.salve * mi.part / mi.n, type = j.dtype } },
+      { type = "create-entity", entity_name = "explosion-hit" },
+    } } }
+    p.final_action = nil
+    out[#out + 1] = p
+  end
 end
 
 -- Pattes : celles des géants, déjà déclarées par prototypes/experimentaux_geants.lua

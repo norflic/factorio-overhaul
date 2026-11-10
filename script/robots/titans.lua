@@ -29,6 +29,7 @@ local Armee = require("script.robots.armee")
 local G = require("script.robots.experimentaux_geants")
 local Rg = require("shared.tirs.regles")   -- Rg.decalage : image 0 d'une animation au tick voulu (image = floor(tick × vitesse + décalage) mod n)
 local Fx = require("shared.content.effets_armes")   -- POLISSAGE-FX : pulsation de la singularité (table précalculée, couleur de la règle du titan)
+require("script.robots.kaijus")   -- KAIJUS-MUTANTS : la ponte de l'Écorcheur (ennemi), abonnée ici (control.lua intact)
 
 local M = {}
 
@@ -46,6 +47,7 @@ local SINGULARITE = T.PREFIX .. "singularite"
 local SINGULARITE_ECLAIR = T.PREFIX .. "singularite-eclair"
 local DRONE_TIR = T.PREFIX .. "drone-tir-"
 local DRONE_SPRITE = T.PREFIX .. "leviathan-drone"
+local MITRAILLE = T.PREFIX .. "mitraille-"   -- KAIJUS-MUTANTS : projectiles de la rafale du Ravageur, un par palier
 -- Douze positions d'un cercle unité (pas de 30°), sans trigonométrie : les drones y avancent d'un cran par balayage.
 local CERCLE = {
   { 1.0, 0.0 }, { 0.866, 0.5 }, { 0.5, 0.866 }, { 0.0, 1.0 }, { -0.5, 0.866 }, { -0.866, 0.5 },
@@ -362,6 +364,35 @@ local function singularite(g, j, tick)
   return n
 end
 
+--- Lames du Ravageur (KAIJUS-MUTANTS) : coup de zone courte des lames de cristal, même mécanique que les griffes (éclair des griffes).
+local function lames(g, j, tick)
+  local e = g.e
+  local total, n = K.blast(j, e.surface, e.force, e, { x = e.position.x, y = e.position.y }, j.lames.radius, j.salve * j.lames.part, j.dtype,
+    j.lames.edge)
+  if n > 0 then
+    e.surface.create_entity({ name = GRIFFE, position = e.position })
+    rendering.draw_circle({ color = rgba(0.3, 0.95, 1.0, 0.5), radius = j.lames.radius, width = 8, filled = false, target = e.position,
+      surface = e.surface, time_to_live = 20, draw_on_ground = true })
+    journal("%s lames #%d cibles %d degats %.0f tick %d", j.id, g.un, n, total, tick)
+  end
+  return n
+end
+
+--- Mitraille du Ravageur : rafale de j.mitraille.n projectiles (prototype par palier, dégâts de zone sur les ennemis) depuis la bouche du
+--- gatling vers la cible, étalés autour d'elle sur le cercle à 12 crans (sans trigonométrie) ; la salve à l'écran suit.
+local function mitraille(g, j, target, tick)
+  local e = g.e
+  local n = j.mitraille.n
+  local src = { e.position.x + j.bouche[1], e.position.y + j.bouche[2] }
+  for k = 1, n do
+    local c = CERCLE[math.floor((k - 1) * 12 / n) % 12 + 1]
+    local dest = { target.position.x + c[1] * j.mitraille.spread, target.position.y + c[2] * j.mitraille.spread }
+    e.surface.create_entity({ name = MITRAILLE .. j.palier, position = src, target = dest, source = e, force = e.force, speed = j.mitraille.speed })
+  end
+  anim_attaque(g, archetype(g), tick)
+  journal("%s mitraille #%d x%d cible #%s tick %d", j.id, g.un, n, tostring(target.unit_number), tick)
+end
+
 local function canon(g, j, target, tick)
   local e = g.e
   e.surface.create_entity({ name = CANON, position = e.position, source = e, source_offset = { j.bouche[1], j.bouche[2] },
@@ -407,11 +438,13 @@ local function scan(ev)
           if not j.armes.canon then anim_attaque(g, r, ev.tick) end   -- palier 1 : les griffes sont la seule salve visible
         end
         if j.armes.singularite and singularite(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.singularite.cooldown end
+        if j.armes.lames and lames(g, j, ev.tick) > 0 then g.next_griffes = ev.tick + j.lames.cooldown end
       end
       if ev.tick >= g.next and not G.zone_active(g.un) then
         local t = G.cible(g.e, j, nil)
         if t then
           if j.armes.canon then canon(g, j, t, ev.tick) end
+          if j.armes.mitraille then mitraille(g, j, t, ev.tick) end
           if j.armes.drones then drones_tirer(g, j, t, ev.tick) end
           if j.armes.salve then G.salve(g.e, g.un, j, { x = t.position.x, y = t.position.y }, ev.tick, nil) end
           local s = K.stat(j.id)
