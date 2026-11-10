@@ -1,5 +1,12 @@
 # REPRISE : état du projet pour l'orchestrateur suivant
 
+> **10/11, 16 h 55 : VERSION 0.6.86 (`500e8104`, tag `v0.6.86`) DÉPLOYÉE dans le dossier du mod (checkout détaché) et POUSSÉE sur GitHub (`origin`, toutes les branches et les tags ; push par `git -c http.sslBackend=schannel`, le magasin openssl de Git refuse le certificat).**
+> - **Branche de travail** : `release-0.6.77` (porte les versions 0.6.77 à 0.6.86). `main` n'a pas bougé. Le dossier du mod est en HEAD détachée sur le tag déployé ; feuilles hors git (≈ 4 300 PNG, titans 399 Mo) copiées par `cp -r .claude/worktrees/release-0677/graphics/. graphics/`.
+> - **Validation d'un lot d'IA** : PANEL de 4 graines, 90 min, carte max (123456789, 1618033988, 271828182, 314159265), somme du fer livré et des bandes finies (mémoire `panel-graines`). Une graine seule est chaotique. Référence 0.6.86 : 104 002 fer / 45 bandes (A 18 213/7, B 22 495/11, C 51 239/22, D 12 055/5).
+> - **Chargement prouvé** : banc content sur le dossier du mod lui-même à chaque déploiement (0.6.86 : 617 OK, code 0) ; harness datastage code 0 mesuré SANS pipe (`echo $?` direct).
+> - **Mesurés, NON fusionnés (choix du DC)** : réserve unique de charbon F460/F477 (branches `lot-charbon`, `charbon-tournee` : creux réduit, bandes ÷ 2) ; avant-postes rapides F481 (`axe-guerre` : +15 % de fer, −12 bandes) ; extension du charbon F486 (`charbon-extension` : brûleurs à sec ÷ 2, −10,8 % de fer). Le creux de combustible de la minute 60 reste ouvert.
+> - **Places de banc** : 3 (CLAUDE.md §4.4 : 3 au plus, 1 quand le DC joue). Disque F: : 55 Go libres. Journal de bord : `fo-logs/2026-11-09_BORD-MANDAT-15H.md`.
+
 > **0.6.74 (9/11 fin d'après-midi, demande du DC, 30 min)** : 0.6.73 + `bus-long` + `mall-allonge` + `geant-d-abord` + réservation du charbon + famine forcée + repli du tampon (`v0674`). Preuve : `content` et parties de 60 min à 600 % en Normal seulement (`fo-logs/2026-11-09_V0674-F`), AUCUNE partie de 120 min sur cette tête ni mesure comparative suffisante. Cause de la stagnation, mesurée : (1) `o.full` posé par la migration dès sa demande, (2) `Planner.no_go` (« défendre d'abord ») sans tourelle. Le bus ne prime toujours pas sur les trajets PNJ : seul le tampon est débloqué ; refus suivant connu : « bras bloqué » à la sortie du four. Exemption de la tourelle : décision forcée du DC, à revoir si les pertes montent.
 
 > **À lire en premier** par tout agent qui reprend la gestion du projet. Les fichiers de référence sont
