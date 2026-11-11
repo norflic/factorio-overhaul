@@ -11,10 +11,9 @@
     * jamais une machine posée sur une tuile réservée par le plan directeur ;
     * le type est celui d'un registre connu (R.ADOPT, shared/ai3/reglages.lua) et, s'il l'exige, la machine brûle du combustible ;
     * réglage de carte fo-war-adopte pour couper (runtime-global, vrai par défaut).
-  Une machine adoptée dont un bras, un tapis ou une foreuse est posé ensuite à côté est RENDUE au joueur (A.releasable).
+  Une machine adoptée dont un bras, un tapis ou une foreuse est posé ensuite à côté est RENDUE au joueur.
 
     A.decide(c)        -> adopter (bool), motif
-    A.releasable(c)    -> rendre (bool)
     A.sorted(list)     -> les entrées triées par numéro d'unité (déterminisme des migrations)
 
   Déterminisme : aucune décision selon l'ordre de pairs, aucune mesure de temps.
@@ -77,11 +76,6 @@ function A.join_target(list, kind, x, y)
     end
   end
   return nil
-end
-
---- Une machine adoptée est rendue au joueur quand une ligne la rejoint ou quand l'adoption est coupée.
-function A.releasable(c)
-  return (not c.on) or (c.linked and true or false)
 end
 
 --- Entrées { unit = n, ... } triées par numéro d'unité (copie).

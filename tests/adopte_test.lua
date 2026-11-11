@@ -47,8 +47,6 @@ do
   check(calls == 0, "voisinage non lu quand un autre motif refuse déjà")
   A.decide(with({ linked = function() calls = calls + 1 return false end }))
   check(calls == 1, "voisinage lu une fois quand le reste est acquis")
-  check(A.releasable({ on = true, linked = true }) and A.releasable({ on = false, linked = false })
-    and not A.releasable({ on = true, linked = false }), "machine rendue : ligne posée ou adoption coupée")
   local s = A.sorted({ { unit = 9 }, { unit = 2 }, { unit = 5 } })
   check(s[1].unit == 2 and s[2].unit == 5 and s[3].unit == 9, "tri par numéro d'unité")
   local box = A.search_box({ x = 10, y = 20 }, 1, 1)
