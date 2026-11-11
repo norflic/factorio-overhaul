@@ -362,7 +362,7 @@ mutant_ok("preuve : coffre non contrôlé", 'if arm%.tx %- av%[1%] ~= D%.x or ar
   function(Pm) return #Pm.verify(geo, ents, { x = 15, y = 9 }, isbelt, isarm) > 0 end)
 mutant_ok("livraison : tapis ignoré", "or %(branch or 0%) > 0", "",
   function(Pm) return Pm.delivers(10, 60, 3) end)
-mutant_ok("décision de la liaison contournée", "function Pq%.decide%(inp%) return Li%.decide%(inp%) end", 'function Pq.decide(inp) return "relier", "" end',
+mutant_ok("menace du QG ignorée par le piquage", "if inp%.threat then return", "if false then return",
   function(Pm) return Pm.decide(dinp({ threat = true })) == "attendre" end)
 
 print(string.format("[PIQUAGE] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
