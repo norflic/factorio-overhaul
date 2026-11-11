@@ -77,7 +77,7 @@ end
 -- 3. Réglages et branchements (lecture des sources : un lecteur par état écrit)
 check(type(T.debit) == "table" and T.debit.belt == true and T.debit.shrunk_grows == true, "reglages T.debit presents")
 local build = read("script/team/build.lua")
-check(build:find("pairs_line = Build.debit_pairs(f, prm.ore, pairs_line, dsp.speed)", 1, true) ~= nil, "line_rows lit la borne du tapis")
+check(build:find("pairs_line = Build.debit_pairs(f, prm.ore, pairs_line, dsp.speed, P.FEEDER_SIDE_LOAD)", 1, true) ~= nil, "line_rows lit la borne du tapis")
 check(build:find("[FO-DEBIT]", 1, true) ~= nil, "journal [FO-DEBIT] dans build.lua")
 check(build:find('require("shared.team.debit")', 1, true) ~= nil, "build.lua charge la regle au chargement du fichier")
 do -- relecture : Build.debit_pairs ne passe pas par Conv.choose (journal [FO-CONVOYEURS] « premier choix » réservé au vrai tracé)

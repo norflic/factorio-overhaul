@@ -35,4 +35,20 @@ function Db.belt_pairs(lane_cap, drill_rate, emprise)
   return max(0, per_side)
 end
 
+--- Lot FIX-P4 (faille 1) : l'arrivée LATÉRALE du tapis des foreuses sur la tête (P.feeder, P.FEEDER_SIDE_LOAD) verse les DEUX
+--- voies du collecteur dans UNE voie de la tête : la ligne ne porte que la moitié des paires que deux voies porteraient (au moins 1).
+function Db.head_pairs(by_belt, lateral)
+  if type(by_belt) ~= "number" or by_belt <= 0 then return 0 end
+  if not lateral then return by_belt end
+  return max(1, floor(by_belt / 2 + EPS))
+end
+
+--- Lot FIX-P4 (faille 3) : débit par voie d'un port dont les DEUX voies portent la même ressource. Une voie suffit tant que
+--- `flow` <= `lane_cap` : { flow } (la voie 2 n'est pas sourcée) ; au-delà : { flow / 2, flow / 2 } (les deux voies sourcées).
+function Db.lane_split(flow, lane_cap)
+  flow = flow or 0
+  if type(lane_cap) == "number" and lane_cap > 0 and flow > lane_cap + EPS then return { flow / 2, flow / 2 } end
+  return { flow }
+end
+
 return Db
