@@ -115,7 +115,8 @@ check("B1 : le remplacement sur place passe l'ancienne emprise", FS:find("Outpos
   and B:find("if by_cor and keep then by_cor = Build.Co.cuts(", 1, true) ~= nil)
 local _, nad = AD:gsub("Outposts%.reserved%(f, ent%.name, ent%.position, ent%.direction, { couloir = false }%)", "")
 check("B2 : les deux adoptions ignorent le couloir", nad == 2, tostring(nad))
-local TM = read("script/team/team.lua")
+-- Lot TESTS-VERTS : script/team/team.lua mêle des fins de ligne CRLF et LF ; le texte cherché est en LF
+local TM = (read("script/team/team.lua"):gsub("\r\n", "\n"))
 local rep_at = TM:find("\n  Build.couloir_report(f, tick) -- lot ÉTAGE 5 (revue B3, 2e relecture)", 1, true)
 local plan_at = TM:find("\n  if f.build then\n    Profiler.start(\"team:build\")", 1, true)
 check("B3 : bilan [FO-COULOIR] dans la pensee de TOUTE equipe (Team.think, hors du test du plan directeur)",
