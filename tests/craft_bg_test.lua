@@ -31,16 +31,24 @@ local k3 = CB.keep(list, 3, ing)
 check(next(k3) == nil, "tout lancé : rien en réserve")
 local kj = CB.keep_jobs({ { list = list, i = 2 }, { list = { { recipe = "gear", runs = 3 } }, i = 1 } }, ing)
 check(kj.plate == 26 and kj.gear == 10, "réserve de deux travaux additionnée (20 + 6 plaques)")
-check(CB.left_s(list, 1) == 13 and CB.left_s(list, 2) == 13 and CB.left_s(list, 3) == 8, "file restante : étape en cours comptée entière")
-check(CB.left_s({ { recipe = "x", runs = 4 } }, 1) == 2, "étape sans energy : 0,5 s par fabrication")
-check(CB.left_jobs({ { list = list, i = 3, ready = true }, { list = list, i = 2 } }) == 13, "travail fini ignoré dans la file restante")
-check(CB.fits("mine", 60, 0, 100, 13) == false, "minage de 60 s pendant 13 s de file : refusé")
-check(CB.fits("mine", 30, 0, 100, 13) == true, "30 s pendant 13 s + 20 s de marge : accepté")
-check(CB.fits("mine", 600, 100, 100, 0) == true, "urgence : toujours acceptée")
-check(CB.fits("craft", 600, 0, 100, 0) == true, "fabrication (au QG) : pas de borne de durée")
--- Lot CRAFT-ROLE (graine 1618033988 : mine:indice 84 pendant la famine de la plaque clé) : en famine, le retard de livraison ne borne plus
-check(CB.fits("mine", 60, 0, 100, 13, true) == true, "famine de la plaque clé : minage de 60 s pendant 13 s de file : accepté")
-check(CB.fits("mine", 60, 0, 100, 13, false) == false, "hors famine : refusé (inchangé)")
+-- Lot FABRIQUE (B4, pavage-photo-60 graine 2507543475 : [FO-PRISE-VIDE] craft:role 8 213, PNJ « rien à faire » au QG, file pleine,
+-- [FO-DIAG-FABRIQUE] dist_home 1 à 5, file du personnage occupée) : la porte d'un PNJ qui fabrique n'a plus de borne de durée. Seules
+-- restent CB.EXCLUDED (garde, avant-poste) et la fabrication de plus au-delà de CB.MAX_JOBS ; une tâche longue (minage, pose, tournée)
+-- est permise : sa file avance pendant qu'il marche.
+check(CB.fits == nil and CB.SLACK_S == nil and CB.left_jobs == nil, "FABRIQUE : plus de borne de durée (CB.fits, CB.SLACK_S, CB.left_jobs supprimés)")
+local function src(path)
+  local fh = assert(io.open(path, "rb"))
+  local s = fh:read("*a")
+  fh:close()
+  return s
+end
+local board_src, worker_src = src("script/team/board.lua"), src("script/team/worker.lua")
+check(not board_src:find("CB.fits", 1, true) and not board_src:find("bg_left", 1, true),
+  "FABRIQUE : la place de marché n'écarte plus une tâche par la durée restante de la file (board.lua)")
+check(not worker_src:find("left_jobs", 1, true), "FABRIQUE : Board.bg_view ne rend plus de durée restante (worker.lua)")
+local cw = CB.cannot_with(nil, true)
+check(not cw.mine and not cw.ghost and not cw.carry and not cw.service and not cw.smelt,
+  "FABRIQUE : PNJ plein de ses 2 fabrications : minage, pose, tournées, fonte permis, quelle que soit leur durée")
 check(CB.allowed("garrison") == false and CB.allowed("build") == false and CB.allowed("mine") == true, "garde et avant-poste exclus")
 check(CB.allowed("craft", false) == true and CB.allowed("craft", true) == false, "fabrication de plus : jusqu'à MAX_JOBS")
 local shared_cannot = { garrison = true, design = true }

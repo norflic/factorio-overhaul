@@ -1163,8 +1163,8 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Chaîne : run_steps, étape « craft » -> to_background (un TRAVAIL de agent.bg.jobs ; la tâche « craft » reste PRISE au tableau à
 -- son nom) -> le PNJ est rendu à « idle » et prend une autre tâche (Board.claim ; la place de marché, board.lua, crochet
--- Board.bg_view, lui refuse CB.EXCLUDED, une fabrication de plus au-delà de CB.MAX_JOBS, et toute tâche non urgente plus longue que
--- sa file + CB.SLACK_S) -> à chaque pensée, quel que soit l'état (defend), bg_tick lance l'étape suivante quand la file du
+-- Board.bg_view, lui refuse CB.EXCLUDED et une fabrication de plus au-delà de CB.MAX_JOBS ; lot FABRIQUE : plus de borne de durée,
+-- sa file avance pendant la tâche) -> à chaque pensée, quel que soit l'état (defend), bg_tick lance l'étape suivante quand la file du
 -- personnage est vide (travaux dans l'ordre) -> travail entièrement fabriqué : job.ready -> dépôt au coffre au prochain passage au
 -- QG (étape « home », ou sur place s'il est au QG sans tâche) -> bg_close_job (Board.finish, Poles.task_done : la tâche se termine
 -- comme avant, à la livraison). Les ingrédients des étapes pas encore lancées sont gardés HORS de la poche (bg.hold) : ni le dépôt
@@ -1361,16 +1361,16 @@ local function bg_tick(agent, tick)
 end
 
 --- Vue de la fabrication en arrière-plan pour la porte de la place de marché (script/team/board.lua) : nil sans fabrication ;
---- sinon { left = secondes de file restantes (estimées, CB.left_jobs), full = plus de place pour une fabrication (CB.MAX_JOBS) }.
+--- sinon { full = plus de place pour une fabrication (CB.MAX_JOBS) }.
 Board.bg_view = function(agent)
   local bg = agent.bg
   if not bg then return nil end
-  return { left = CB.left_jobs(bg.jobs), full = #bg.jobs >= CB.MAX_JOBS }
+  return { full = #bg.jobs >= CB.MAX_JOBS }
 end
 
 --- Le PNJ peut-il passer sa tâche « craft » en arrière-plan (réglage, place de marché, place parmi ses travaux) ?
 --- Relecture : place de marché ÉTEINTE (réglage fo-war-ia3-marche) : ancien chemin, car la porte Board.bg_view (gardes,
---- avant-postes, durée bornée par la file, MAX_JOBS) n'existe que dans claim_market ; la prise classique (O.pick_task) donnerait
+--- avant-postes, MAX_JOBS) n'existe que dans claim_market ; la prise classique (O.pick_task) donnerait
 --- à un PNJ qui fabrique une garde de 5 min ou un avant-poste lointain, produits en poche.
 local function bg_room(agent, f)
   return Worker.CRAFT_BG and agent.task ~= nil and f ~= nil and Board.market(f)

@@ -11,7 +11,13 @@
   produits au coffre, à son prochain passage au QG.
 
   Ce module ne touche ni au moteur ni à `global` : il dit quelles matières mettre en réserve (étapes pas encore lancées), quelles
-  tâches un PNJ qui fabrique prend, ce qui lui reste de file, et écrit le bilan [FO-CRAFT].
+  tâches un PNJ qui fabrique prend, et écrit le bilan [FO-CRAFT].
+  Lot FABRIQUE (11/11, pavage-photo-60, graine 2507543475 : [FO-PRISE-VIDE] craft:role 8 213 sur la partie, PNJ « rien à faire » au QG,
+  file pleine) : la borne de durée (C.fits : une tâche non urgente seulement si elle finit avec la file + 20 s, levée en famine par le
+  lot CRAFT-ROLE) est SUPPRIMÉE. Elle retenait au QG le PNJ dont la file fabrique : refusé de toute tâche plus longue que sa file, il
+  ne pouvait que prendre une fabrication de plus, jusqu'à C.MAX_JOBS, puis attendait, pendant que les tâches longues attendaient un
+  autre PNJ. Un PNJ libre travaille (Zero-Idle) ; sa file avance pendant qu'il marche, mine ou pose (le sens de ce lot) ; ses produits
+  sont déposés à son prochain passage au QG.
 ]]
 
 local C = {}
@@ -24,56 +30,13 @@ local C = {}
 -- livraisons au coffre -15 à -25 % ; avec, 170 à 198).
 C.EXCLUDED = { garrison = true, build = true }
 C.MAX_JOBS = 2 -- travaux en arrière-plan par PNJ (un en cours, un qui attend derrière)
--- Genres qui se passent AU QG sans retarder la livraison (le programme ne quitte pas le QG avant de rendre la main) : pas de borne
--- de durée (C.fits).
-C.AT_HOME = { craft = true }
-
 C.REPORT_EVERY = 5 * 3600 -- bilan [FO-CRAFT] au plus toutes les 5 min par équipe
-
--- Retard de livraison toléré (s) : un PNJ qui fabrique ne prend une tâche NON urgente que si son travail estimé (task.work, durées
--- mesurées par script/team/poles.lua, sinon O.TASK_WORK) tient dans ce qui reste de sa file + C.SLACK_S. Moteur simulé (scénario de
--- pteam_test, 20 min) sans borne : produits 30 à 72 s en poche après la fin de la file (minage à 60 tuiles).
-C.SLACK_S = 20
-C.STEP_S = 0.5 -- durée d'une fabrication quand l'étape ne dit pas la sienne (energy absente) : la plus courte des recettes vanilla
 
 --- Le PNJ qui fabrique en arrière-plan peut-il prendre une tâche de ce genre ? `full` : il a déjà C.MAX_JOBS travaux.
 function C.allowed(kind, full)
   if C.EXCLUDED[kind or ""] then return false end
   if kind == "craft" and full then return false end
   return true
-end
-
---- Secondes de file restantes d'un travail (vitesse de fabrication 1) : étapes list[i-1..n] (l'étape en cours, list[i-1], comptée
---- entière : estimation par excès). `energy` d'une étape = durée de toutes ses fabrications (shared/team/book.lua).
-function C.left_s(list, i)
-  local s = 0
-  for k = math.max(1, (i or 1) - 1), #(list or {}) do
-    local c = list[k]
-    s = s + (c.energy or C.STEP_S * (c.runs or 1))
-  end
-  return s
-end
-
---- Secondes de file restantes de tous les travaux pas encore fabriqués (`jobs` : { {list, i, ready}, ... }).
-function C.left_jobs(jobs)
-  local s = 0
-  for _, j in ipairs(jobs or {}) do
-    if not j.ready then s = s + C.left_s(j.list, j.i) end
-  end
-  return s
-end
-
---- La tâche (genre `kind`, travail estimé `work_s`, priorité `prio`) tient-elle pendant la file restante `left_s` ? Une urgence
---- (prio >= urgent) passe toujours (la défense avant la livraison), une tâche du QG aussi (C.AT_HOME).
---- Lot CRAFT-ROLE (chirurgie 0.6.76, graine 1618033988 : [FO-PRISE-VIDE] mine:indice 84 et craft:role 454 en 5 min à 35 min, le seul PNJ
---- inactif au QG plein de ses 2 fabrications refusait tout minage plus long que sa file, pendant que la plaque clé manquait de 458 à
---- 1 220 toute la partie) : en `famine` de la plaque clé (vue de l'équipe, script/team/famine_fer.lua), le retard de livraison n'est plus
---- une borne : le PNJ dont la file fabrique part miner, sa file avance en marchant (c'est le sens du lot).
-function C.fits(kind, work_s, prio, urgent, left_s, famine)
-  if (prio or 0) >= (urgent or math.huge) then return true end
-  if famine then return true end
-  if C.AT_HOME[kind or ""] then return true end
-  return (work_s or 0) <= (left_s or 0) + C.SLACK_S
 end
 
 --- `cannot` (genres interdits du PNJ, table { [genre] = true } ou nil) augmentée des genres exclus pendant une fabrication en

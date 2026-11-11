@@ -407,11 +407,10 @@ local okm, errm = pcall(function()
   -- devra attendre « inactifs ».
   do
     local CB = require("shared.team.craft_bg")
-    local URGENT = require("shared.ai3.marche").URGENT
     if a1 then a1.bg = { jobs = { { task = { key = "test:bg", kind = "craft" }, list = {}, i = 1, at = tick } }, hold = {}, last = tick } end
     local v3 = Team.view(f, tick + 3)
     local why = v3.effectif and v3.effectif.reason
-    local can = CB.allowed("craft", false) and CB.fits("craft", 0, 60, URGENT, 0)
+    local can = CB.allowed("craft", false) -- (lot FABRIQUE : plus de borne de durée, CB.fits supprimé)
     check(can and v3.workers_waiting == 0 and why == "recrue", "ÉCART CONNU (worker.lua:1897, effectif.lua:154) : PNJ sans tâche qui "
       .. "fabrique en arrière-plan, un craft attend : il pourrait le prendre, la vue dit « recrue » (" .. tostring(why) .. ")")
     print("[AI3-EFFECTIF] ÉCART CONNU (contrôle compté) : un PNJ qui fabrique en arrière-plan n'est pas un bras pour un craft qui attend ("
