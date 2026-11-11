@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.4
+Date: 2026-11-11
+  Bugfixes:
+    - Débogage (F554) : un module n'est plus signalé « sans courant » quand toutes ses machines tournent.
+  Changes:
+    - IA (F555) : une bande de champ pose toutes les foreuses que son minerai permet ; les fours se dimensionnent à part, hors minerai.
+    - IA (F556) : les vieilles foreuses thermiques et fours en pierre sur l'emprise d'une nouvelle bande sont démontés par le chantier.
+    - IA (F557) : une ligne de rapatriement arrive directement dans le quai, sans coffre intermédiaire.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.3
 Date: 2026-11-11
   Changes:
