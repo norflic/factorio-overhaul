@@ -214,6 +214,20 @@ local function suite(Th, verbose)
     busy = { total = C.slots, fer = 1, cuivre = 1, charbon = 1 }
     s, w = Th.free_slot("pierre", busy)
     check(not s and w == "creneaux", "4 : tous les créneaux pris : attendre (" .. tostring(w) .. ")")
+    -- IA-SPAWN (B2, partie du DC 0.6.96, 11/11, graine 2507543475) : de 30 à 114 min, les 2 créneaux tenus par le charbon (p21 puis p46) et le
+    -- cuivre (p22, 76 min en « reserve:materiaux ») ; le champ du fer du spawn (plaque clé en manque, couvert à 177 pour mille) restait « en
+    -- veille », jamais servi : la plaque clé sans chantier à elle a sa voie même quand les autres minerais tiennent tous les créneaux
+    busy = { total = C.slots, charbon = 1, cuivre = 1, key = "fer", stuck = {} }
+    s, w = Th.free_slot("fer", busy)
+    check(s and w == "voie-cle", "4 : plaque clé sans chantier, créneaux tenus par le charbon et le cuivre : sa voie (" .. tostring(w) .. ")")
+    s, w = Th.free_slot("charbon", busy)
+    check(not s and w == "creneaux", "4 : voie de la plaque clé : un autre minerai attend toujours un créneau (" .. tostring(w) .. ")")
+    busy = { total = C.slots, fer = 1, charbon = 1, key = "fer", stuck = { fer = 1 } }
+    s, w = Th.free_slot("fer", busy)
+    check(not s and w == "creneaux", "4 : plaque clé qui a déjà un chantier : pas de voie de plus au-delà des créneaux (" .. tostring(w) .. ")")
+    busy = { total = C.slots, charbon = 1, cuivre = 1, stuck = {} }
+    s, w = Th.free_slot("fer", busy)
+    check(not s and w == "creneaux", "4 : sans plaque clé déclarée : pas de voie (" .. tostring(w) .. ")")
   end
 
   -- 4 bis. verdict au retrait
@@ -370,6 +384,11 @@ local mutants = {
   { "band_stuck : seuil inclusif", "(age or 0) > cfg.stuck_wait", "(age or 0) >= cfg.stuck_wait" },
   { "band_stuck : chantier compte", "state == \"reserve\" and reason", "reason" },
   { "free_slot : total ignoré", "if (busy.total or 0) >= cfg.slots then", "if false then" },
+  -- IA-SPAWN : voie de la plaque clé
+  { "free_slot : voie de la plaque clé ignorée", 'if busy.key ~= nil and busy.key == res and (busy[res] or 0) == 0 then return true, "voie-cle" end', '' },
+  { "free_slot : voie pour tout minerai", 'if busy.key ~= nil and busy.key == res and (busy[res] or 0) == 0 then return true, "voie-cle" end', 'if (busy[res] or 0) == 0 then return true, "voie-cle" end' },
+  { "free_slot : voie même avec un chantier", 'if busy.key ~= nil and busy.key == res and (busy[res] or 0) == 0 then return true, "voie-cle" end', 'if busy.key ~= nil and busy.key == res then return true, "voie-cle" end' },
+  { "free_slot : voie sans plaque clé déclarée", 'if busy.key ~= nil and busy.key == res and (busy[res] or 0) == 0 then return true, "voie-cle" end', 'if (busy.key == nil or busy.key == res) and (busy[res] or 0) == 0 then return true, "voie-cle" end' },
   { "raw_full : seuil ignoré", "return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max", "return true" },
   { "raw_full : seuil strict", "return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max", "return ((stock or {})[spec.product] or 0) > cfg.raw_stock_max" },
   { "raw_full : paire avec four comptée", "if spec == nil or spec.product ~= spec.resource then return false end", "if spec == nil then return false end" },

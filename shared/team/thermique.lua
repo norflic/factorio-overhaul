@@ -364,9 +364,15 @@ end
 
 --- Reste-t-il un créneau pour un chantier de ce minerai ? busy = { total, [res] = n, key = minerai de la plaque clé, stuck = { [res] = chantiers bloqués
 --- par leurs matières } } (chantiers de bande en cours). Rend (vrai/faux, raison). La plaque clé a un 2e chantier quand tous les siens sont bloqués.
+--- Lot IA-SPAWN (B2, partie du DC 0.6.96) : la plaque clé SANS chantier à elle a sa voie même quand les autres minerais tiennent tous les créneaux
+--- (raison « voie-cle ») : de 30 à 114 min, le charbon et le cuivre tenaient les 2 créneaux, le champ du fer du spawn (couvert à 177 pour mille,
+--- fer en manque) restait en veille, « plein » pour le reste du cerveau (o.migr), et l'équipe bâtissait le fer ailleurs.
 function M.free_slot(res, busy, cfg)
   cfg = cfg_of(cfg)
-  if (busy.total or 0) >= cfg.slots then return false, "creneaux" end
+  if (busy.total or 0) >= cfg.slots then
+    if busy.key ~= nil and busy.key == res and (busy[res] or 0) == 0 then return true, "voie-cle" end
+    return false, "creneaux"
+  end
   if (busy[res] or 0) >= cfg.per_mineral then
     if busy.key ~= nil and busy.key == res and (busy[res] or 0) < cfg.key_per_mineral and ((busy.stuck and busy.stuck[res]) or 0) >= (busy[res] or 0) then
       return true, "libre-cle"
