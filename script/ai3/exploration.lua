@@ -60,6 +60,9 @@ local Veille = require("script.faction.veille") -- lot VEILLE : reconnaissance r
 local V = require("shared.faction.veille")
 -- Lot RECO-DIRECTION : reconnaissance par la direction des attaques (mission « reco », carnet transmis au retour).
 local Reco = require("script.ai3.reco")
+-- Lot IA-GARDE (règle du DC, 11/11) : garde anti-dispersion (shared/ai3/anti_dispersion.lua) ; l'exploration lointaine attend 2 colonnes de
+-- fonderie automatisées et 6 assembleurs actifs, sauf le premier gisement d'une ressource de démarrage, le minerai brut en manque et l'eau d'une centrale.
+local AdRt = require("script.ai3.anti_dispersion")
 
 local X = {}
 
@@ -306,6 +309,11 @@ local function team_label(f) return f.key or tostring(f.id) end
 
 local function minutes(t) return t / 3600 end
 
+--- Lot IA-GARDE : contexte de la garde pour une demande d'exploration de `res` (raison `why`).
+local function garde_ctx(f, res, why)
+  return { sorte = AdRt.sorte(res), tenu = AdRt.tient(f, res), manque = AdRt.manque(f, res), centrale = why == "centrale" }
+end
+
 local function open_request(f, k, res, tick, why)
   local r = k.req[res]
   if r then
@@ -316,6 +324,7 @@ local function open_request(f, k, res, tick, why)
   -- abords du QG ne sont pas vus (moteur réel, ia3c-dc-apres, 27/10 : exploration du fer demandée à 0,1 min alors que
   -- le gisement était à 127 tuiles, dans l'œil du QG pas encore regardé).
   if not k.home_seen then return "abords" end
+  if not AdRt.permet(f, "exploration", garde_ctx(f, res, why), tick) then return "inhibee" end
   k.req[res] = { t = tick, why = why, known0 = K.count(k.m, res), renewed = tick }
   log(string.format("[FO-IA3F] %s : exploration demandee pour %s (%s) a %.1f min, gisements connus %d, secteurs vus %d",
     team_label(f), res, why, minutes(tick), k.req[res].known0, k.m.n))
@@ -998,6 +1007,14 @@ local function team_pass(f, tick)
     if tick - k.born > TOUR_DEADLINE then k.tour.state = "skip" else kind = "tour" end
   end
   if not kind then
+    -- Lot IA-GARDE : une demande ouverte avant une fermeture de la garde (assembleurs perdus) est close, jamais servie ; elle se rouvre
+    -- d'elle-même (besoin de site, minage, centrale) quand la garde la permet.
+    for _, r0 in ipairs(sorted_keys(k.req)) do
+      if not AdRt.voit(f, "exploration", garde_ctx(f, r0, k.req[r0].why), tick) then
+        close_request(f, k, r0, tick, "inhibee (anti-dispersion)")
+        AdRt.compte(f, "exploration", 1, tick)
+      end
+    end
     res = next_request(k, tick)
     if res then kind = "explore" end
   end
@@ -1021,6 +1038,8 @@ local function team_pass(f, tick)
     local ok, why = V.want({ tick = tick, next_at = next_at, threat = st and st.last_threat or 0, survive = st and st.survival or false,
       alert = tick < (f.threatened_until or 0), tour_done = k.tour.state ~= "todo", request = false, open_tasks = open,
       idle = idle, push = push, missing = f.team ~= nil and f.team.missing ~= nil and #f.team.missing > 0 })
+    -- Lot IA-GARDE : la veille (reconnaissance au rayon croissant) est une exploration lointaine
+    if ok and not AdRt.permet(f, "exploration", { veille = true }, tick) then ok, why = false, "anti-dispersion" end
     if ok then kind, veille = "explore", true else
       Veille.refuse(f, why)
       -- Lot C3 EXTENSION (3 746 refus « pas de PNJ libre » chez Azure) : le départ est échu et personne n'est libre : la file sûre s'efface un

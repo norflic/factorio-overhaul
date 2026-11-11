@@ -49,6 +49,7 @@ local Fx = require("shared.team.flux") -- lot FLUX : tournée des sorties pleine
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite de votre équipe sous l'effectif de départ
 local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : pente mesurée du stock, saturation jugée sur le stock projeté
 local ZI = require("shared.ai3.zero_idle") -- lot ZERO-IDLE : agrandissement de fonderie par PNJ libre, tout de suite
+local Ad = require("shared.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (sur-stockage d'un minerai brut)
 
 local C = {}
 
@@ -338,6 +339,25 @@ function C.think(view, book, st, ctx)
       if keep then kept[#kept + 1] = g end
     end
     goals = kept
+  end
+  -- Lot IA-GARDE (règle du DC, 11/11) : garde fermée (sous 2 colonnes de fonderie automatisées et 6 assembleurs actifs, ctx.dispersion posé
+  -- par script/ai3/anti_dispersion.lua) : un but AU-DELÀ du besoin (« couverture:<type> », relève sans manque) d'un minerai BRUT est retiré,
+  -- sauf si sa matière manque par rapport au besoin ; « extraction:<type> » (capacités visées) et la relève pour manque passent.
+  st.ad_inhibe = nil
+  local disp = ctx.dispersion
+  if disp and not disp.ouvert then
+    local kept, n = {}, 0
+    for _, g in ipairs(goals) do
+      local au_dela = type(g.key) == "string" and (g.key:sub(1, 11) == "couverture:" or (g.releve ~= nil and g.releve ~= "manque"))
+      local ok = true
+      if au_dela and g.outpost then
+        local sp = T.outposts[g.outpost]
+        ok = Ad.permet(disp, "surstock", { sorte = (disp.sortes or {})[g.outpost], manque = sp ~= nil and starved_pass[sp.product] == true })
+      end
+      if ok then kept[#kept + 1] = g else n = n + 1 end
+    end
+    goals = kept
+    if n > 0 then st.ad_inhibe = n end -- relu par script/ai3/cerveau.lua (journal [FO-ANTI-DISPERSION])
   end
   -- Lot PILE-PRIORITE (le cerveau principal aussi) : pile retenue, une recherche CHÈRE ne dépasse pas B.RESEARCH_PRE (sous
   -- l'extraction et l'armée de départ) ; une recherche peu chère (g.short) ou attendue par l'automatisation garde sa valeur.

@@ -48,6 +48,7 @@ local Sw = require("shared.team.foreuse_swap") -- (Sw.reserve_keepers : les K ga
 local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile pour le départ d'une bande neuve pendant une retenue
 
 local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
+local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (shared/ai3/anti_dispersion.lua)
 local Mig = {}
 
 local CFG = Mg.CFG
@@ -773,6 +774,13 @@ end
 --- Lot CHAMP : la bande suivante du champ de l'avant-poste `o` (cadre figé au premier appel), demandée au plan directeur comme un SITE
 --- (Build.SITES.champ, script/team/champ.lua). Les paires dont une tuile est sous la bande sont celles que le dégel retire. Rend vrai si la
 --- demande est partie.
+--- Lot IA-GARDE : une bande de l'avant-poste `o` peut-elle partir (garde anti-dispersion, famille « sur-stockage ») ?
+local function garde_band(f, o, tick)
+  local sorte = AdRt.sorte_type(o.kind)
+  if sorte ~= "brut" then return true end
+  return (AdRt.permet(f, "surstock", { sorte = sorte, manque = AdRt.manque(f, T.outposts[o.kind].product) }, tick))
+end
+
 local function begin_band(f, surface, ms, o, st, list, tick, free)
   st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE
   -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
@@ -793,6 +801,14 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     -- 1 M) : celle-ci part à la pensée suivante de la migration (st.retry = ce tick : aucune attente de plus)
     st.retry = tick
     ms.verify_due = true -- lu par Mig.think (drapeau de global : la pensée suivante est celle de la vérification, même après un chargement)
+    return false
+  end
+  -- Lot IA-GARDE (règle du DC, 11/11) : sous 2 colonnes de fonderie automatisées et 6 assembleurs actifs, une bande d'un minerai BRUT (charbon,
+  -- pierre) n'est demandée que si sa matière manque par rapport au besoin (partie du DC 0.6.96 : 46 foreuses de charbon du joueur, bandes 4, 7
+  -- et 21, de 12 à 30 min, pour 10 foreuses de fer) ; les paires thermiques en place continuent de produire.
+  if not garde_band(f, o, tick) then
+    st.retry = tick + CFG.retry
+    say_why(f, ms, st, "anti-dispersion", string.format("avant-poste %d (%s) : bande retenue par la garde anti-dispersion (minerai brut sans manque mesure)", o.id, o.kind))
     return false
   end
   local bad = {}
@@ -1745,6 +1761,7 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dorma
   end
   local ok, why = Mp.allow(c)
   if not ok then return refuse(why) end -- (les causes sans coût : courant, plafond, matières de la principale ; l'ennemi et le plan viennent après)
+  if not garde_band(f, o, tick) then return refuse("anti-dispersion") end -- lot IA-GARDE : même garde que begin_band
   if hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "couverture", product))) then return refuse("pile") end
   c.enemy = enemy_near(f, surface, o.pos.x, o.pos.y)
   ok, why = Mp.allow(c)
