@@ -184,11 +184,13 @@ end
 --- Colonne d'un groupe : (entités, longueur, s_edge, nombre, info) ou nil. Même contrat que Fd.place (shared/team/champ_fonderie.lua) ;
 --- `fixed` = { s_edge, count } rejoue la place du cadre figé (bande seule) sans chercher.
 function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed)
+  -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
+  -- autres ressources) ; plus de seconde passe qui acceptait le minerai. Lot DECOUPLAGE : la colonne d'un cadre figé (`fixed`) aussi.
   local function fits(s_edge, list)
     for u = edge + side, s_edge - side, side do if not free(u, b) then return false end end
     for _, e in ipairs(list) do
       for u = e.u, e.u + e.size - 1 do
-        for v = e.v, e.v + e.size - 1 do if not free(u, v) then return false end end
+        for v = e.v, e.v + e.size - 1 do if not free(u, v) or is_ore(u, v) then return false end end
       end
     end
     return true
@@ -198,18 +200,10 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     if list and fits(fixed.s_edge, list) then return list, len, fixed.s_edge, fixed.count, info end
     return nil
   end
-  -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
-  -- autres ressources) ; plus de seconde passe qui acceptait le minerai
   for t = 0, shift do
     local s_edge = edge + side * (gap + 1 + t)
     local list, len, info = Co.layout(spec, b, side, s_edge, count, mode)
-    local ok = list ~= nil and fits(s_edge, list)
-    if ok then
-      for _, e in ipairs(list) do
-        for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do if is_ore(u, v) then ok = false end end end
-      end
-    end
-    if ok then return list, len, s_edge, count, info end
+    if list and fits(s_edge, list) then return list, len, s_edge, count, info end
   end
   return nil
 end

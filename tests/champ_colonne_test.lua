@@ -743,10 +743,11 @@ do
   local scarlet = load_spec("tests/fixtures/champ_spec_scarlet_20261020.txt")
   local player = load_spec("tests/fixtures/champ_spec_player_271828182.txt")
   local ps = Ch.plan(scarlet())
-  check(ps ~= nil and Ch.head_chests(ps) == 0 and ps.order_swapped and ps.order_swapped.chests == 4,
-    string.format("scarlet 20261020 : 0 coffre de tete (%s ; avant : %s)", tostring(ps and Ch.head_chests(ps)), tostring(ps and ps.order_swapped and ps.order_swapped.chests)))
-  check(ps and Ch.field_drills(ps) >= 0.8 * ps.order_swapped.drills, string.format("scarlet : au moins 80 %% des foreuses gardees (%d sur %d)",
-    ps and Ch.field_drills(ps) or 0, ps and ps.order_swapped and ps.order_swapped.drills or 0))
+  -- lot DECOUPLAGE : un groupe sans place de fonderie garde ses foreuses (tapis collecteur seul) ; 0.7.5 : 35 foreuses, 40 après l'échange
+  -- d'ordre ; ici 40 au moins, fonderie ou pas
+  check(ps ~= nil and Ch.head_chests(ps) == 0, string.format("scarlet 20261020 : 0 coffre de tete (%s)", tostring(ps and Ch.head_chests(ps))))
+  check(ps and Ch.field_drills(ps) >= 40, string.format("scarlet : les foreuses du gisement gardees, fonderie ou pas (%d, 40 au moins)",
+    ps and Ch.field_drills(ps) or 0))
   local r = ps and Cv.verify(ps, scarlet())
   check(r and r.no_coal == 0 and r.no_ore == 0 and r.no_plate == 0, "scarlet : chaque four a minerai et charbon, plaques au quai (" .. (r and Cv.line(r) or "?") .. ")")
   -- bandes seules rejouées du cadre (le réseau du charbon est rejoué du cadre, sans dépendre de l'ordre)
@@ -811,7 +812,12 @@ do
   end end
   local p10 = Ch.plan(spec_of(ore10, { blocked = wall10 }))
   local at = p10 and p10.stats.no_smelter_at
-  check(p10 ~= nil and #p10.ents == 0 and p10.stats.no_smelter >= 1 and (p10.stats.band_drills or 0) > 0, "champ muré : bande vide, des foreuses possibles, des groupes sans fonderie")
+  -- lot DECOUPLAGE (directive du DC du 11/11) : sans place de fonderie, les foreuses RESTENT (tapis collecteur seul) ; 0.7.5 : bande vide
+  local f10 = 0
+  for _, e in ipairs(p10 and p10.ents or {}) do if e.kind == "four" then f10 = f10 + 1 end end
+  check(p10 ~= nil and p10.stats.no_smelter >= 1 and Ch.field_drills(p10) > 0 and Ch.field_drills(p10) == (p10.stats.band_drills or -1) - p10.stats.capped
+    and f10 == 0, string.format("champ muré : les foreuses restent sans fonderie (%d foreuses, %d possibles, %d groupe(s) sans fonderie, %d four)",
+    p10 and Ch.field_drills(p10) or -1, p10 and p10.stats.band_drills or -1, p10 and p10.stats.no_smelter or -1, f10))
   check(at ~= nil and at.fixed == false and (math.abs(at.x) > 16 or math.abs(at.y) > 11) and at.band ~= nil and (at.side == 1 or at.side == -1),
     "la première tuile prise est donnée, dans le mur (" .. (at and string.format("%.1f, %.1f", at.x, at.y) or "aucune") .. ")")
   -- déterminisme du diagnostic

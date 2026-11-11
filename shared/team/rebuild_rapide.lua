@@ -101,7 +101,7 @@ Rr.PRIO_POLE = 88   -- poteaux (ils relient la production à la centrale)
 Rr.PRIO_MAIN = 87   -- production principale : fonderies, foreuses, champs de minerai
 -- Générateurs de modules (shared/team/modules.lua, M.GENERATORS) : des clés de gabarit, pas des objets du jeu.
 Rr.POWER_GENS = { steam = true }
-Rr.MAIN_GENS = { smelter = true, drills = true, outpost_burner = true }
+Rr.MAIN_GENS = { smelter = true, drills = true }
 
 --- Rang d'un projet rouvert selon son générateur : 1 = alimentation, 2 = production principale, 3 = le reste.
 function Rr.project_rank(spec)

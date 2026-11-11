@@ -141,7 +141,7 @@ local MUTANTS = {
   { name = "Fd ressource ignorée (ancienne seconde passe)", mod = MODS.fd, file = "shared/team/champ_fonderie.lua",
     from = "if not free%(u, v%) or is_res%(u, v%) then ok = false end", to = "if not free(u, v) then ok = false end" },
   { name = "Co ressource ignorée (ancienne seconde passe)", mod = MODS.co, file = "shared/team/champ_colonne.lua",
-    from = "if is_ore%(u, v%) then ok = false end", to = "if false then ok = false end" },
+    from = "if not free%(u, v%) or is_ore%(u, v%) then return false end", to = "if not free(u, v) then return false end" },
   { name = "Ch : autre ressource ignorée", mod = MODS.ch, file = "shared/team/champ.lua",
     from = "return c%.is_ore%(u, v%) or c%.is_foreign%(u, v%)", to = "return c.is_ore(u, v)" },
   { name = "Fd : recul arrêté au premier essai", mod = MODS.fd, file = "shared/team/champ_fonderie.lua",

@@ -158,7 +158,7 @@ function Far.place(f, surface, g, ctx)
       fits = fits + 1
       local rect = Cl.window(sh.x, sh.y)
       local masks = ctx.read_masks(f, surface, rect.x0, rect.y0, rect.x1, rect.y1)
-      local fit = P.fit(g, rect, { free = masks.free, toward = hq, margin = 0, water = masks.water })
+      local fit = P.fit(g, rect, { free = masks.free, res = masks.res, toward = hq, margin = 0, water = masks.water })
       if fit then
         local r = fit.k == 0 and g or M.rotate(g, fit.k)
         local inst = M.instantiate(r, 0, fit.ox, fit.oy)

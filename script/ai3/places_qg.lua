@@ -16,8 +16,21 @@
   prototype et la fonction de pose viennent de l'appelant. Déterminisme : listes dans leur ordre, aucun pairs.
 ]]
 local Pl = require("shared.ai3.places")
+local Sm = require("shared.team.sol_minerai") -- lot DECOUPLAGE : rien d'autre que foreuses, poteaux, tapis sur une ressource
 
 local Q = {}
+
+--- Lot DECOUPLAGE : l'entité `name` posée en `pos` couvrirait-elle une tuile de ressource alors que son type ne le permet pas
+--- (shared/team/sol_minerai.lua, Sm.forbidden) ? Emprise = collision_box du prototype. Lu aussi par les tourelles (outposts, team).
+function Q.on_resource(surface, name, pos)
+  local proto = game.entity_prototypes[name]
+  local cb = proto and proto.collision_box
+  return Sm.forbidden(proto and proto.type, function()
+    if not cb then return false end
+    return surface.count_entities_filtered({ area = { { pos.x + cb.left_top.x, pos.y + cb.left_top.y }, { pos.x + cb.right_bottom.x, pos.y + cb.right_bottom.y } },
+      type = "resource", limit = 1 }) > 0
+  end)
+end
 
 --- Pose au plus `count` bâtiments `name` en rangées autour de `origin` (centre du QG). spec : disposition (T.hq_rows.*) ;
 --- need : places à générer ; make(position) pose un bâtiment et rend true (posé), false (raté : place suivante) ou nil
@@ -37,7 +50,7 @@ function Q.place_list(surface, name, force, origin, list, search, count, make)
   local spec = { search = search }
   local placed = 0
   local function try(p)
-    if not surface.can_place_entity({ name = name, position = p, force = force }) then return true end
+    if not surface.can_place_entity({ name = name, position = p, force = force }) or Q.on_resource(surface, name, p) then return true end
     local r = make(p)
     if r == nil then return false end
     if r then placed = placed + 1 end

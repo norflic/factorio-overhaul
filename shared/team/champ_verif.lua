@@ -412,7 +412,8 @@ function Cv.verify(plan, spec)
       end
       -- un tapis plus lent que le plus rapide doit porter tout le groupe
       if not bt or (g.belt ~= #spec.belts and flow + 1e-9 < (p[0] + p[2] + p[4] + p[6]) * d.rate) then rep.starved = rep.starved + 1 end
-      if (count[k] or 0) * rate + 1e-9 < flow then rep.starved = rep.starved + 1 end
+      -- (lot DECOUPLAGE) un groupe sans fonderie dans ce plan (tapis collecteur seul, g.bare) n'est pas jugé sur ses fours
+      if not g.bare and (count[k] or 0) * rate + 1e-9 < flow then rep.starved = rep.starved + 1 end
     end
   end
   local fl = Cv.flow(plan, spec)

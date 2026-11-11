@@ -725,7 +725,8 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
       local pos = Blocage.first_free(spots,
         function(c) return surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1) end,
         function(q) -- réservée, dans un couloir d'extension, hors de la zone voulue (accept), ou trop près d'une autre tourelle
-          if (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or in_axe(q) ~= nil or (accept ~= nil and not accept(q)) then
+          if (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or in_axe(q) ~= nil or (accept ~= nil and not accept(q))
+            or PlacesQG.on_resource(surface, T.turret, q) then -- (lot DECOUPLAGE : aucune tourelle sur une ressource)
             return true
           end
           if not Pose.spaced(q.x, q.y, near, gap) then ec.refused = ec.refused + 1 return true end
@@ -733,7 +734,7 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
         end)
       if not pos then
         local q = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
-        if q and not in_axe(q) then pos = q end
+        if q and not in_axe(q) and not PlacesQG.on_resource(surface, T.turret, q) then pos = q end
       end
       if hit and Outposts.axe_log and pass == 1 then
         Outposts.axe_log(f, pos and string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s) -> tourelle en (%g, %g), hors du couloir",

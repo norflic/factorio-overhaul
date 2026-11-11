@@ -171,7 +171,7 @@ package.loaded["script.faction.sites"] = {
     table.insert(f.lost_sites, { x = pos.x, y = pos.y, tick = tick, keep = keep })
   end,
 }
-package.loaded["script.ai3.places_qg"] = {}
+package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
 local added = {}
 package.loaded["script.team.board"] = {
   get = function(f) return f.team.board end,

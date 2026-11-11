@@ -30,7 +30,7 @@ end
 
 local FINE = { on = true }
 local function load_stock(src)
-  package.loaded["script.ai3.places_qg"] = {}
+  package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
   package.loaded["script.core.profiler"] = { fine = function() return FINE.on end, fcount = function() end }
   return assert(load(src, "=script/team/stock.lua"))("script.team.stock")
 end

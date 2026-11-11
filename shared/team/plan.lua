@@ -32,6 +32,7 @@ local Ligne = need("shared.team.ligne", "shared/team/ligne") -- lot AGENCEMENT :
 local T = need("shared.team.config", "shared/team/config") -- lot RECHARGE : type de prototype du répartiteur (T.LOGISTIC_TYPES)
 local Lm = need("shared.team.lot_minerai", "shared/team/lot_minerai") -- lot MINERAI-SONDE : seuils par ressource d'un lot de gisement (règle pure)
 local Pu = need("shared.team.purete", "shared/team/purete") -- lot PURETE-TAPIS : queues de tapis d'un gabarit (règle pure)
+local Sm = need("shared.team.sol_minerai", "shared/team/sol_minerai") -- lot DECOUPLAGE : BOX_MINAGE / BOX_FONDERIE (règle pure)
 
 local P = {}
 
@@ -523,31 +524,36 @@ end
 --- Sans ces options, le score est celui d'avant.
 --- foreign (lot MELANGE, retour du DC du 3/11 : « les minerais de charbon prennent la place des minerais de fer sur les convoyeurs ») :
 --- { [tkey] = true } des tuiles d'une AUTRE ressource minable ; aucune position dont une zone de foreuse en touche une.
+--- res (lot DECOUPLAGE) : { [tkey] = true } des tuiles de TOUTES les ressources ; une BOX_FONDERIE (Sm.mining_box faux) n'en couvre aucune.
 P.ROT_ALL = { 0, 1, 2, 3 }
 function P.fit(g, rect, opts)
   opts = opts or {}
   local margin = opts.margin or 1
   local best
   local tried = 0
-  -- Somme cumulée 2D des tuiles bloquées du rectangle : emprise contrôlée en O(1) par position.
+  -- Somme cumulée 2D des tuiles marquées du rectangle : emprise contrôlée en O(1) par position.
   local W, H = rect.x1 - rect.x0, rect.y1 - rect.y0
-  local sat
-  if opts.free then
-    sat = {}
-    for x = 0, W do sat[x] = 0 end
+  local function cumul(marked)
+    local t = {}
+    for x = 0, W do t[x] = 0 end
     for y = 1, H do
-      sat[y * (W + 1)] = 0
+      t[y * (W + 1)] = 0
       local row = 0
       for x = 1, W do
-        if not opts.free(rect.x0 + x - 1, rect.y0 + y - 1) then row = row + 1 end
-        sat[y * (W + 1) + x] = sat[(y - 1) * (W + 1) + x] + row
+        if marked(rect.x0 + x - 1, rect.y0 + y - 1) then row = row + 1 end
+        t[y * (W + 1) + x] = t[(y - 1) * (W + 1) + x] + row
       end
     end
+    return t
   end
-  local function blocked(x0, y0, w, h)
+  local function count(t, x0, y0, w, h)
     local a, b = y0 * (W + 1), (y0 + h) * (W + 1)
-    return sat[b + x0 + w] - sat[a + x0 + w] - sat[b + x0] + sat[a + x0]
+    return t[b + x0 + w] - t[a + x0 + w] - t[b + x0] + t[a + x0]
   end
+  local sat = opts.free and cumul(function(x, y) return not opts.free(x, y) end)
+  -- lot DECOUPLAGE (shared/team/sol_minerai.lua) : une BOX_FONDERIE (tout gabarit qui n'est pas que foreuses, poteaux, convoyeurs) ne
+  -- couvre aucune tuile de ressource, ni par son emprise ni par ses têtes ; opts.res = { [tkey] = true } (toutes les ressources)
+  local rsat = opts.res and not Sm.mining_box(g) and cumul(function(x, y) return opts.res[tkey(x, y)] end)
   -- lot MALL-DIRECTIONS : opts.rot = liste des rotations (k) permises, dans l'ordre (nil : les quatre) ; la section d'une série garde l'orientation de la série
   for _, k in ipairs(opts.rot or P.ROT_ALL) do
     local r = (k == 0) and g or (not g.no_rotate and M.rotate(g, k) or nil)
@@ -646,7 +652,8 @@ function P.fit(g, rect, opts)
       for oy = rect.y0 + margin, rect.y1 - margin - r.h, opts.step or 1 do
         for ox = rect.x0 + margin, rect.x1 - margin - r.w, opts.step or 1 do
           tried = tried + 1
-          local ok = (not sat) or blocked(ox - rect.x0, oy - rect.y0, r.w, r.h) == 0
+          local ok = ((not sat) or count(sat, ox - rect.x0, oy - rect.y0, r.w, r.h) == 0)
+            and ((not rsat) or count(rsat, ox - rect.x0, oy - rect.y0, r.w, r.h) == 0)
           -- lot MIGRATION-CHAMP : placement borné à une zone { x0, y0, x1, y1 } (x1, y1 exclus) : la place libérée par une partie de champ
           if ok and opts.within then
             local wz = opts.within
@@ -657,7 +664,7 @@ function P.fit(g, rect, opts)
             for _, t0 in ipairs(room0) do
               local tx, ty = ox + t0[1], oy + t0[2]
               if tx < rect.x0 or tx >= rect.x1 or ty < rect.y0 or ty >= rect.y1 then ok = false break end
-              if opts.free and not opts.free(tx, ty) then ok = false break end
+              if (opts.free and not opts.free(tx, ty)) or (rsat and opts.res[tkey(tx, ty)]) then ok = false break end
             end
           end
           if ok and tails0 then

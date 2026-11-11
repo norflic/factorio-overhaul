@@ -85,7 +85,6 @@ for _, g in ipairs(cat) do
 end
 -- blocs demandés (époques 1 à 4)
 local wanted = {
-  { "avant-poste-fer", "iron-plate" }, { "avant-poste-cuivre", "copper-plate" },
   { "fonderie-fer-pierre", "iron-plate" }, { "fonderie-cuivre-pierre", "copper-plate" }, { "fonderie-fer-acier", "iron-plate" },
   { "foreuses-fer", "iron-ore" }, { "foreuses-cuivre", "copper-ore" }, { "foreuses-charbon", "coal" },
   { "circuits-verts", "electronic-circuit" }, { "packs-rouges", "automation-science-pack" },
@@ -103,8 +102,9 @@ check(by["labos-4"] and by["labos-4"].inputs["automation-science-pack"] > 0, "bl
 -- électricité = foreuse et four à combustion, déjà l'avant-poste ; le four en acier exige des bras électriques)
 local ep = {}
 for _, g in ipairs(cat) do ep[g.epoch] = (ep[g.epoch] or 0) + 1 end
-check((ep[1] or 0) >= 2 and (ep[3] or 0) >= 8 and (ep[4] or 0) >= 6, string.format("époques : 1→%d, 3→%d, 4→%d", ep[1] or 0, ep[3] or 0, ep[4] or 0))
-check(by["avant-poste-fer"].epoch == 1, "avant-poste à combustion : époque 1")
+-- lot DECOUPLAGE : plus d'avant-poste à combustion (paires foreuse → four) au catalogue, l'époque 1 n'a plus de gabarit
+check(ep[1] == nil and (ep[3] or 0) >= 8 and (ep[4] or 0) >= 6, string.format("époques : 1→%d, 3→%d, 4→%d", ep[1] or 0, ep[3] or 0, ep[4] or 0))
+check(M.GEN.outpost_burner == nil and by["avant-poste-fer"] == nil, "aucun gabarit hybride foreuse → four (lot DECOUPLAGE)")
 check(by["centrale-vapeur-2"].epoch == 3, "centrale à vapeur : époque 3")
 check(by["chevalets-4"].epoch == 4 and by["raffinerie-2"].epoch == 4 and by["plastique-2"].epoch == 4, "pétrole et chimie : époque 4")
 check(by["fonderie-fer-acier"].epoch == 3, "fonderie électrique : époque 3 (électricité), même en fours en acier (époque 2)")
@@ -128,7 +128,6 @@ check(near(by["soufre-2"].nominal["sulfur"], 4) and near(by["soufre-2"].inputs["
 check(near(by["petrole-plastique"].nominal["plastic-bar"], 0.9), "pétrole sur place : 9 gaz/s → 0,9 plastique/s (usine à 45 %)")
 check(near(by["packs-rouges"].nominal["automation-science-pack"], 0.75), "5 assembleurs de packs rouges : 0,75/s")
 check(near(by["packs-verts"].nominal["logistic-science-pack"], 0.625), "5 assembleurs de packs verts : 0,625/s")
-check(near(by["avant-poste-fer"].nominal["iron-plate"], 1.5), "6 paires foreuse à combustion → four : 1,5 plaque/s (foreuse limitante)")
 check(near(by["moteurs"].nominal["engine-unit"], 0.075), "1 assembleur de moteurs (P M G, cellules réservées) : 0,075/s")
 check(near(M.power_kw("assembling-machine-2"), 155), "assembleur 2 : 150 kW + ponction 5 kW")
 -- §6.4 : « colonne de 24 fours en pierre : 7,5 plaques/s » tient sur une voie de minerai ; « en acier : 15/s »
@@ -436,7 +435,6 @@ do
     { "labs", { 2, 0 }, "durée" },
     { "circuits", { "lab" }, "sorte" },
     { "red_packs", { "assembling-machine-2", -1 }, "nombre" },
-    { "outpost_burner", { "coal", 3 }, "plaque" },
   }
   for _, c in ipairs(cases) do
     local ok, g, why = pcall(M.GEN[c[1]], table.unpack(c[2], 1, 3))
@@ -504,7 +502,7 @@ do
     cases[#cases + 1] = { "red_packs", { lvn("assembler", n), 1 }, 2 }
     cases[#cases + 1] = { "green_packs", { lvn("assembler", n), 1 }, 2 }
   end
-  for _, c in ipairs({ { "outpost_burner", { "iron-ore", 1 }, 2 }, { "smelter", { "stone-furnace", "iron-ore", 1 }, 3 },
+  for _, c in ipairs({ { "smelter", { "stone-furnace", "iron-ore", 1 }, 3 },
     { "steam", { 1 }, 1 }, { "labs", { 1, 30 }, 1 }, { "labs", { 1, 5 }, 1 }, { "pumpjacks", { 1 }, 1 }, { "refinery", { 1 }, 1 },
     { "plastic", { 1 }, 1 }, { "sulfur", { 1 }, 1 }, { "drills", { "coal", 1 }, 2 }, { "drills", { "copper-ore", 1 }, 2 } }) do
     cases[#cases + 1] = c

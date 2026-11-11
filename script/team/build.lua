@@ -70,6 +70,9 @@ local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pur
 local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors du treillis, ligne de poteaux
 
 local Build = {}
+-- lot DECOUPLAGE : le type de prototype d'une entité de gabarit (BOX_MINAGE / BOX_FONDERIE de P.fit), lu dans les données du jeu
+Build.Sm = require("shared.team.sol_minerai")
+Build.Sm.type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
 
 Build.RADIUS = 3              -- carré de lots évalué au départ (7 × 7)
 Build.RADIUS_MAX = 5
@@ -514,9 +517,13 @@ end
 
 local function read_masks(f, surface, x0, y0, x1, y1)
   local b = f.build
-  local water, blocked, clear = {}, {}, {}
+  local water, blocked, clear, res = {}, {}, {}, {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
     water[P.tkey(math.floor(t.position.x), math.floor(t.position.y))] = true
+  end
+  -- lot DECOUPLAGE : tuiles de toutes les ressources (P.fit : une BOX_FONDERIE n'en couvre aucune, shared/team/sol_minerai.lua)
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = "resource" })) do
+    res[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
   end
   for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
     local bb = e.bounding_box
@@ -545,7 +552,7 @@ local function read_masks(f, surface, x0, y0, x1, y1)
   f.stats = f.stats or {}
   local st = f.stats
   return {
-    water = water, blocked = blocked, clear = clear,
+    water = water, blocked = blocked, clear = clear, res = res,
     rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
     free = function(tx, ty)
       local k = P.tkey(tx, ty)
@@ -885,6 +892,7 @@ function Build.Pave.try_serie(f, surface, g, c, fopts, states, scan)
   local fo = {}
   for kk, v in pairs(fopts) do fo[kk] = v end -- (copie des options : l'ordre est sans effet)
   fo.free, fo.within, fo.fed, fo.rot = masks.free, sr.within, { [g.ruban.port] = true }, { sr.k } -- (rot : l'orientation de la série, lot MALL-DIRECTIONS)
+  fo.res = masks.res -- (lot DECOUPLAGE : ressources du lot de la section, P.fit)
   local fit, fwhy = P.fit(g, sr.rect2, fo)
   if not fit then return nil, "serie : " .. tostring(fwhy) .. " dans le lot " .. sr.k2 end
   local r = fit.k == 0 and g or M.rotate(g, fit.k)
@@ -1068,7 +1076,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
     -- lot AGENCEMENT : `opts.cache` (scan_cache) garde les relevés d'un lot entre deux tailles essayées
     local masks, ores = lot_scan(f, surface, c, rect, res, opts and opts.cache)
-    local fopts = { free = masks.free, toward = toward, margin = (opts and opts.margin) or 1 }
+    local fopts = { free = masks.free, res = masks.res, toward = toward, margin = (opts and opts.margin) or 1 }
     -- lot FONDERIES : la tête d'alimentation regarde le gisement (shared/team/plan.lua, P.fit)
     if opts and opts.head_toward then fopts.head_toward = opts.head_toward end
     -- lot AGENCEMENT : couverture visée des foreuses (80 % d'abord) et bras de sortie par quai (P.fit : place du second bras)
@@ -1741,7 +1749,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
       local masks, ores = lot_scan(f, surface, c, rect, prm.ore, cache)
       for n = ub, pairs_dep + 1, -1 do
         local gd2 = M.GEN.drills(prm.ore, n)
-        if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, foreign = ores and ores.foreign or nil, cover_min = cfg.cover }) then pairs_dep = n break end
+        if gd2 and P.fit(gd2, rect, { free = masks.free, res = masks.res, ore = ores, foreign = ores and ores.foreign or nil, cover_min = cfg.cover }) then pairs_dep = n break end
       end
     end
   end
@@ -1795,13 +1803,14 @@ local function plan_feed(f, surface, p, place, part)
         if item and not (split and not split[lane]) then
           sources[lane] = "quai"
           local flow = split and split[lane] or (g.inputs and g.inputs[item] or 0)
-          -- Lot IA3-e : feed = "tapis" (fonderie de l'automatisation) : sa voie de minerai est servie par foreuses et
-          -- tapis, JAMAIS par un quai (il se remplit depuis le coffre, où il n'y a pas de minerai : e7 et e10-usine,
-          -- fours « no_ingredients », 0 plaque sans PNJ) ; sinon le plan est refusé, raison « gisement : … ».
-          local need_belt = p.spec.feed == "tapis" and M.ORES[item] and item ~= "coal"
+          -- Lot IA3-e, étendu par le lot DECOUPLAGE (directive du DC du 11/11 : « le minerai brut quitte la box de minage par un
+          -- convoyeur collecteur continu jusqu'à l'entrée de la box de fonderie », relais par coffre interdit) : la voie de minerai
+          -- d'une fonderie est servie par foreuses et tapis, JAMAIS par un quai, quel que soit le mode d'alimentation demandé et sous
+          -- le seuil du tapis compris ; sinon le plan est refusé, raison « gisement : … ». Le charbon (combustible) garde son quai.
+          local need_belt = Build.Sm.belt_only(item, M.ORES, T.fuel)
           -- Lot C2 : seuil du tapis par le coût réel de la voie (f.team.ia3e.belt_flow, shared/ai3/demande.lua) ; à défaut, la constante P.AUTO_FLOW
           local belt_thr = (f.team and f.team.ia3e and f.team.ia3e.belt_flow) or P.AUTO_FLOW
-          if M.ORES[item] and flow >= belt_thr and p.spec.feed ~= "quai" then
+          if need_belt or (M.ORES[item] and flow >= belt_thr and p.spec.feed ~= "quai") then
             local dt = deposit_toward(b, item)
             if not dt and need_belt then -- lot GISEMENTS
               scan_ore_lots(f, surface, item)
@@ -1811,7 +1820,7 @@ local function plan_feed(f, surface, p, place, part)
             local d = dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) or nil
             if d and d <= reach * P.PITCH then
               sources[lane] = "tapis"
-              drills[lane] = { item = item, flow = flow, dist = d }
+              drills[lane] = { item = item, flow = flow, dist = d, need = need_belt }
             elseif need_belt then
               -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change). Lot INDUSTRIE I3 : d'un coup
               -- jusqu'au gisement que la sonde a vu, au plus RADIUS_ORE, et jamais pour rien (l'ancien +1 par refus, borné à RADIUS_MAX,
@@ -1821,8 +1830,6 @@ local function plan_feed(f, surface, p, place, part)
               if not dt then Build.drill_diag(f, item, 0, { x = place.ox, y = place.oy }, "hors du treillis", nil) end
               return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
             end
-          elseif need_belt then
-            return false, string.format("gisement : %s %.2f/s, sous le seuil du tapis (%.2f/s)", item, flow, belt_thr)
           end
         end
       end
@@ -1861,7 +1868,7 @@ local function plan_feed(f, surface, p, place, part)
         if d then
           local ok, why, wait = Build.plan_drills(f, surface, p, d.item, d.flow, a, head_belt)
           if wait then return false, why, wait end -- lot TRANCHES-FOREUSES : le tracé du tapis continue à la pensée suivante (ni refus ni repli sur un quai)
-          if not ok and p.spec.feed == "tapis" then
+          if not ok and d.need then
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
             return false, "gisement : tapis des foreuses (" .. tostring(why) .. ")"
           end
