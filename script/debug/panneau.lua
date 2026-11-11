@@ -320,6 +320,16 @@ end
 
 local function fill_decisions(el, ctx)
   el.clear()
+  -- Lot TELEMETRIE : décision active et taille des tables de décision de chaque IA
+  for _, t in ipairs(ctx.telemetry or {}) do
+    local parts = { "" }
+    for i, s in ipairs(t.sizes) do
+      if i > 1 then parts[#parts + 1] = ", " end
+      parts[#parts + 1] = s.name .. " " .. tostring(s.n) .. (s.full and "+" or "")
+    end
+    local l = lbl(el, { "fo-dbg-cerveau.tel-ligne", t.id, { "fo-dbg-cerveau.tel-cat-" .. t.active.cat }, t.active.why, t.total, t.anneau, parts }, nil, true)
+    l.style.maximal_width = 840
+  end
   if #ctx.decisions == 0 then lbl(el, { "fo-dbg-cerveau.aucune-decision" }, nil, true) return end
   for _, d in ipairs(ctx.decisions) do
     local ag = d.tick and (ctx.now - d.tick) or nil
@@ -380,6 +390,7 @@ function Panneau.update(player, v, ctx)
   if ctx.npc then ctx.npc.now = ctx.now end
   Panneau.update_npc(player, v, ctx.npc, ctx.npc_gone)
   local sd = tostring(#ctx.decisions) .. ":" .. (ctx.decisions[1] and (tostring(ctx.decisions[1].tick) .. tostring(ctx.decisions[1].text)) or "")
+  for _, t in ipairs(ctx.telemetry or {}) do sd = sd .. "|" .. t.id .. t.active.cat .. tostring(t.active.why) .. t.total .. "," .. t.anneau end
   if v.sig.dec ~= sd then
     v.sig.dec = sd
     fill_decisions(find(frame, "fo_dbg_dec"), ctx)

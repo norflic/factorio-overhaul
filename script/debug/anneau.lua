@@ -61,6 +61,15 @@ function An.note(f, tick, sent, refused)
 end
 
 --- Lecture pour la vue : l'anneau de l'équipe de clé `key` (liste, plus ancien d'abord), ou une liste vide.
+--- Lot TELEMETRIE : retire les anneaux des équipes disparues (clés absentes de alive), au plus Te.PURGE_MAX par appel. Rend les clés retirées.
+function An.purge(alive)
+  local st = ns()
+  if not (st and st.rings) then return {} end
+  local gone = require("shared.debug.telemetrie").orphans(st.rings, alive)
+  for _, k in ipairs(gone) do st.rings[k] = nil end
+  return gone
+end
+
 function An.get(key)
   local st = ns()
   local ring = st and st.rings and st.rings[tostring(key)]
