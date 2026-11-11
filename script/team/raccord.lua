@@ -295,7 +295,7 @@ local function ends_of(f, surface, g, live)
   if new then
     spec.start = { new = true }
     spec.cands = {}
-    for i, c in ipairs(R.ring_tiles(g.mbox, t)) do
+    for i, c in ipairs(R.ring_tiles(g.mbox, t, proto and proto.supply_area_distance)) do
       if i > 12 then break end
       spec.cands[#spec.cands + 1] = { x = c.x, y = c.y }
     end
