@@ -754,8 +754,7 @@ function Worker.program(f, task, surface, tick)
     -- à la main quand un coffre en a (retour du DC du 31/10 : minage de charbon seul de la 3e à la 7e heure, coffres garnis).
     do
       local ok, why = Mi.hand_verdict({ stock = Stock.count(f, task.resource), count = task.count, fuel = task.resource == T.fuel,
-        survie = task.survie, crisis = task.crisis, short = task.short,
-        electrique = Elec.hand_blocked(f, tick, task.resource) }) -- lot CC-MAIN : même exclusion que les paires thermiques
+        survie = task.survie, crisis = task.crisis, short = task.short }) -- PURGE-MINE : Elec.hand_blocked supprimé (la pioche sort de la file à l'ère électrique)
       if not ok then
         f.stats.main_refus = f.stats.main_refus or {}
         local last = f.stats.main_refus[task.resource]

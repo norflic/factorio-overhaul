@@ -155,6 +155,8 @@ local function phase_of(f, st, tick, v)
 end
 
 --- (a) Entrées du verdict, relues à chaque pensée d'équipe (stock, livre de recettes, centrale). Une ligne quand le verdict change.
+local date_era -- défini plus bas (après drills) ; déclaré ici pour Elec.think (correctif 0.7.2 : nil en 0.7.0)
+
 function Elec.think(f, book, tick)
   if not f then return end
   local st = state_of(f)
@@ -338,7 +340,7 @@ function Elec.era(f) return f and f.elec and f.elec.era end
 
 --- Ère électrique : la phase sort d'early (centrale finie et saine, foreuse obtenable) ET une foreuse électrique des données est débloquée
 --- pour la force (sa recette est au livre, qui ne tient que les recettes actives : la technologie est recherchée).
-local function date_era(f, st, book, tick, phase)
+date_era = function(f, st, book, tick, phase)
   if st.era or phase == "early" or not book then return end
   for _, item in ipairs(drills().items) do
     if book:handcraftable(item) then
