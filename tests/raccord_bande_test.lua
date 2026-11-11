@@ -273,7 +273,8 @@ end
 local champ_src, mig_src = read("script/team/champ.lua"), read("script/team/migration_champ.lua")
 local function has(src, text, msg) check(src:find(text, 1, true) ~= nil, "§8 " .. msg) end
 has(champ_src, "local prm = { tier = only, hull = hull,", "champ.lua : raccord_tous passe par Ra.tiered_chain, un palier par essai")
-has(champ_src, "local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p)", "champ.lua : le projet est passé à raccord_tous (palier suivant à l'essai suivant)")
+-- (0.6.74, 3fd9c27c : raccord_tous reçoit aussi l'avant-poste `o`)
+has(champ_src, "local n_r, why_r, wait_r, nc = raccord_tous(f, surface, bd, ents, cx, cy, p, o)", "champ.lua : le projet est passé à raccord_tous (palier suivant à l'essai suivant)")
 has(champ_src, "proj.rtier = only + 1", "champ.lua : palier suivant mémorisé sur le projet")
 has(champ_src, "local nearest = proj and Ra.nearest(own, targets) or nil", "champ.lua : réseau lointain : la ligne est demandée sans palier local")
 has(champ_src, "LB.ensure(f, surface, proj, fails[1], wire, bd.names.pole, game.tick)", "champ.lua : après le dernier palier, la ligne est demandée")
