@@ -58,6 +58,26 @@ function Cc.free_fuel(stock, reserve)
   return stock - reserve
 end
 
+--- Lot CHAUDIERES (partie du DC en 0.7.3, 84 foreuses en « low power », centrale à 1 800 kW sur 14 400) : la réserve des brûleurs que
+--- Cc.free_fuel retire du stock est celle des tournées DUES, pas le complément de TOUS les brûleurs. Une tournée de ravitaillement ne part
+--- que pour un groupe dont un brûleur est sous le seuil bas (planificateur : o.fuel_low -> service prio 95 ; fours : smelter_fuel_low) ; elle
+--- porte alors le complément du groupe jusqu'à son niveau. Avant, le complément de chaque brûleur à 4-9 charbons (aucune tournée prévue)
+--- restait réservé : banc CHAUDIERES graine 2507543475, player de 8 à 19 min, coffre du QG 23 à 70 charbons, réserve 28 à 99, libre 0,
+--- coffre de la centrale sous son seuil pendant 11 min. groups = { { fill = niveau visé, levels = { charbon de chaque brûleur } } } ;
+--- low = seuil bas (données de la config). Somme d'entiers, aucune API.
+function Cc.tour_reserve(groups, low)
+  local n = 0
+  for _, g in ipairs(groups or {}) do
+    local due, need = false, 0
+    for _, x in ipairs(g.levels or {}) do
+      if x < low then due = true end
+      need = need + math.max(0, (g.fill or 0) - x)
+    end
+    if due then n = n + need end
+  end
+  return n
+end
+
 --- Remplissage du coffre de la centrale. n = charbon au coffre ; rate = consommation (Cc.rate) ; have = charbon LIBRE au coffre du QG
 --- (hors la réserve des brûleurs, Cc.free_fuel) ;
 --- cap = place du coffre en charbon (contenu compris), nil si inconnue. steam_low (lot TV-VAPEUR, V36) : le tampon de vapeur de la

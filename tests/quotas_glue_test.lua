@@ -62,7 +62,7 @@ local function load_code(src, Qg)
     Stock = { count = function(_, it) return (W.stock[it] or 0) end },
     -- lot BRULEURS-A-SEC : reserve des bruleurs (burner_fuel_reserve) ; doublure sans bruleur : aucune reserve, le stock juste
     T = require("shared.team.config"),
-    Outposts = { smelters = function() return {} end, coal_needed_for = function() return 0 end, coal_needed = function() return 0 end },
+    Outposts = { smelters = function() return {} end, burners = function() return {} end, fuel_levels = function(list) return list end }, -- lot CHAUDIERES
     defines = { inventory = { chest = 1 } },
     sorted_keys = function(t) local ks = {} for k in next, t or {} do ks[#ks + 1] = k end table.sort(ks) return ks end,
     -- (intégrateur, 8/11 : X10-S0 met des portées de mesure dans quai_tasks ; doublure muette, aucune décision)
