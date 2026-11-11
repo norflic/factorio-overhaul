@@ -28,6 +28,10 @@ local logs = {}
 log = function(s) logs[#logs + 1] = s end
 local PROTOS = { ["medium-electric-pole"] = { max_wire_distance = 9, tile_width = 1 } }
 game = { entity_prototypes = PROTOS, tick = 0 }
+-- Lot TESTS-VERTS : script/team/zone_equipe.lua (UPS-HYGIENE, a9010348) requiert script/team/boite_chunks.lua, abonné à
+-- defines.events.on_chunk_generated au chargement (POULS, c03b7f67).
+defines = defines or {}
+defines.events = defines.events or { on_chunk_generated = 34 }
 
 local store = {}
 package.loaded["script.core.events"] = { on = function() end, on_init = function() end, on_configuration_changed = function() end }
