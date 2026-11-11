@@ -62,6 +62,16 @@ function Rp.recently_bad(bad, rect, tick)
   return t ~= nil and tick - t < Rp.RETRY
 end
 
+--- Point 48 : purge des fenêtres refusées dont le délai RETRY est échu (la table ne grossit plus sans fin). Rend le nombre purgé.
+function Rp.purge_bad(bad, tick)
+  if not bad then return 0 end
+  local n = 0
+  for k, t in pairs(bad) do
+    if tick - t >= Rp.RETRY then bad[k] = nil; n = n + 1 end
+  end
+  return n
+end
+
 --- Raison d'écarter une fenêtre sans la lire, ou nil. lot_info(tx, ty) -> état, raison du lot du treillis qui contient la tuile (nil
 --- sur une rue ou hors du treillis) ; avoided(rect) -> vrai si un site écarté (danger) touche la fenêtre ; `res` : le module a une
 --- ressource (il peut aller sur un gisement).
@@ -88,6 +98,7 @@ end
 --- Rend { g, k, ox, oy, inst, cover, masks, fan, axis, pen, d, rect, ring } ou nil, cause (texte), info { tried, skipped, windows, refused }.
 function Rp.pick(g, center, ctx)
   local wins = Rp.windows(center.x, center.y)
+  Rp.purge_bad(ctx.bad, ctx.tick)
   local info = { tried = 0, skipped = 0, windows = #wins, refused = {} }
   local function count(why) info.refused[why] = (info.refused[why] or 0) + 1 end
   for _, rect in ipairs(wins) do

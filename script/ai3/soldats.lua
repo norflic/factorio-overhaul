@@ -329,7 +329,7 @@ local function hq_threat(f, t, surface, tick)
   local threat = { x = en.position.x, y = en.position.y }
   -- Force ennemie PESÉE autour de la menace (même mesure que le regard : moyen déchiqueteur = 1).
   local force = 0
-  local seen_foes = { en } -- lot CORR-RALLIEMENT : profils d'ATTAQUE du groupe (Re.outranges, C.foe_profiles)
+  local seen_foes = {} -- point 50 : en est déjà rendu par la recherche ci-dessous ; lot CORR-RALLIEMENT : profils d'ATTAQUE du groupe (Re.outranges, C.foe_profiles)
   for _, u in ipairs(surface.find_entities_filtered({ position = threat, radius = 16, force = en.force,
     type = { "unit", "character" }, limit = 24 })) do
     force = force + C.weight(u)
@@ -823,7 +823,7 @@ Events.on_nth_tick(120, function(e)
   local en = Mn.nearest_unit(f.hq.surface, f.force, f.hq_pos, SD.HQ_THREAT_R) -- lot FIX-P5 : une UNITÉ, pas un ver ou un nid
   if en then
     -- Lot CORR-RALLIEMENT : profils d'attaque du groupe (même recherche que hq_threat) : pas de refuge sous une tourelle débordée.
-    local seen_foes = { en }
+    local seen_foes = {} -- point 50 : en est déjà rendu par la recherche
     for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = en.position, radius = 16, force = en.force,
       type = { "unit", "character" }, limit = 24 })) do
       seen_foes[#seen_foes + 1] = u
