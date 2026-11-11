@@ -69,7 +69,7 @@ local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : texte des pièc
 local Ia3 = {}
 
 Ia3.SETTING = "fo-war-ia3-cerveau"
-Ia3.LAB_WINDOW_S = 600      -- un laboratoire de plus quand il reste plus de 10 min de laboratoire (§5.2, M12)
+Ia3.LAB_WINDOW_S = 180      -- un laboratoire de plus quand il reste plus de 3 min de laboratoire (§5.2, M12 ; audit point 28)
 Ia3.LABS_MAX = 3
 Ia3.PACK_BATCH = 30         -- packs d'une sorte demandés à la fois (comme IA3-a)
 Ia3.PACK_RESERVE = 10       -- réserve de packs de chaque sorte payable (la recherche suivante démarre sans attendre)
