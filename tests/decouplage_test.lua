@@ -9,6 +9,8 @@
   3. P.fit, BOX_MINAGE (ligne de foreuses) : posée sur le minerai malgré `res` ;
   4. Co.place, cadre figé (`fixed`) : une colonne figée sur une ressource est refusée (le cadre d'avant F500 ne la gardait pas) ;
   5. mutants : chaque coupe retirée est vue ;
+  9. (lot FONDERIE-BOUT) bout de bande muré : la colonne se pose ailleurs sur le sol neutre (Co.away), hors ressource, nourrie par le
+     tapis collecteur prolongé (aucun relais) ; plan vérifié (Cv.verify) avec combustible et four électrique ;
   6. règle 3 (plan_feed, script/team/build.lua) : la voie de minerai d'une fonderie est servie par foreuses et tapis, quel que soit le
      mode demandé ou le seuil ; sans tapis possible, le plan est refusé (plus de quai de minerai de repli). Le combustible garde son quai.
 ]]
@@ -118,6 +120,40 @@ local function scenario(tag, Sm, P, Co, M)
   local belts = 0
   for _, e in ipairs(pw and pw.ents or {}) do if e.kind == "tapis" then belts = belts + 1 end end
   check(belts > 0, tag .. "tapis collecteur posé sans fonderie (" .. belts .. ")")
+  -- 9. lot FONDERIE-BOUT : bouts de bande murés (aucune place de colonne dans leur prolongement), sol neutre plus loin, une autre ressource
+  -- au sud : la colonne se pose AILLEURS, hors de toute ressource, et le collecteur la nourrit sans relais (tapis continu, Cv.flow)
+  local Cv = require("shared.team.champ_verif")
+  for _, fuel in ipairs({ true, false }) do
+    local wall2, foreign = {}, {}
+    for x = -140, 140 do for y = -11, 11 do if math.abs(x) >= 16 then wall2[Ch.key(x, y)] = true end end end
+    for x = 13, 45 do for y = 12, 15 do foreign[Ch.key(x, y)] = true end end
+    local s9 = { ore = ore, blocked = wall2, foreign = foreign, drill = sp.drill, pole = sp.pole, belts = sp.belts,
+      furnace = { size = 2, rate = 0.3125, fuel = fuel, fuel_rate = 0.0225 }, inserter = sp.inserter, target = sp.target, max_side = 8,
+      design = "colonne", logistics = { underground = 5 }, window = { -150, -40, 150, 40 } }
+    local t9 = tag .. (fuel and "[combustible] " or "[électrique] ")
+    local p9 = Ch.plan(s9)
+    local res = {}
+    for i = 1, #ore - 1, 2 do res[Ch.key(ore[i], ore[i + 1])] = true end
+    for k in pairs(foreign) do res[k] = true end
+    local away, f9, on_res, links = 0, 0, 0, 0
+    for _, bd in ipairs(p9 and p9.bands or {}) do for _, g in ipairs(bd.groups) do if g.away then away = away + 1 end end end
+    for _, e in ipairs(p9 and p9.ents or {}) do
+      if e.kind == "four" then f9 = f9 + 1 end
+      if e.role == "lien" then links = links + 1 end
+      if e.kind == "four" or e.kind == "bras" or e.kind == "coffre" then
+        local w, h = e.w or e.size, e.h or e.size
+        local x0, y0 = math.floor(e.x - w / 2 + 0.5), math.floor(e.y - h / 2 + 0.5)
+        for x = x0, x0 + w - 1 do for y = y0, y0 + h - 1 do if res[Ch.key(x, y)] then on_res = on_res + 1 end end end
+      end
+    end
+    check(p9 ~= nil and away >= 2 and f9 > 0 and links > 0,
+      string.format(t9 .. "bouts murés : colonnes posées ailleurs (%d groupe(s), %d fours, %d tapis de lien)", away, f9, links))
+    check(on_res == 0, t9 .. "colonne ailleurs : aucune tuile de four, bras ou coffre sur une ressource (" .. on_res .. ")")
+    local r = p9 and Cv.verify(p9, s9) or {}
+    check(r.overlaps == 0 and r.blocked == 0 and r.traverse == 0 and r.drops == 0 and r.arms == 0 and r.no_ore == 0 and r.no_coal == 0
+      and r.no_plate == 0 and r.junction == 0 and r.mixed == 0 and r.unpowered == 0,
+      t9 .. "colonne ailleurs : plan vérifié, chaque four reçoit le minerai du collecteur (" .. (p9 and Cv.line(r) or "pas de plan") .. ")")
+  end
 end
 
 section("1 à 4. Règle BOX_MINAGE / BOX_FONDERIE")
@@ -181,7 +217,13 @@ local MUTANTS = {
   { name = "P.fit : BOX_MINAGE refusée", mod = MODS.p, file = "shared/team/plan.lua",
     from = "opts%.res and not Sm%.mining_box%(g%)", to = "opts.res" },
   { name = "Ch.plan : groupe sans fonderie retiré (0.7.5)", mod = MODS.ch, file = "shared/team/champ.lua",
-    from = "bare_todo%[#bare_todo %+ 1%] = { bi = bi, bd = bd, used = used, side = side, edge = edge }", to = "" },
+    from = "bare_todo%[#bare_todo %+ 1%] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }", to = "" },
+  { name = "Ch.plan : aucune colonne ailleurs (avant FONDERIE-BOUT)", mod = MODS.ch, file = "shared/team/champ.lua",
+    from = "if colonne and not t%.refused then", to = "if false then" },
+  { name = "Co.away : colonne sur une ressource", mod = MODS.co, file = "shared/team/champ_colonne.lua",
+    from = "m = inb%(u, v%) and free%(u, v%) and not is_ore%(u, v%)", to = "m = inb(u, v) and free(u, v)" },
+  { name = "Co.away : tapis de lien sauté", mod = MODS.co, file = "shared/team/champ_colonne.lua",
+    from = "        if route then\n", to = "        if route then route = {}\n" },
   { name = "Co.place : cadre figé sur la ressource", mod = MODS.co, file = "shared/team/champ_colonne.lua",
     from = "if not free%(u, v%) or is_ore%(u, v%) then return false end", to = "if not free(u, v) then return false end" },
 }

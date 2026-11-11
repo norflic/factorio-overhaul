@@ -208,6 +208,79 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
   return nil
 end
 
+Co.AWAY_ROUTES = 8      -- (lot FONDERIE-BOUT) tracés essayés au plus pour une colonne ailleurs
+Co.AWAY_CAP = 20000     -- états développés au plus par tracé d'une colonne ailleurs
+
+--- Lot FONDERIE-BOUT (attendu du DC, 11/11 : la BOX_FONDERIE sur sol neutre, alimentée DIRECTEMENT par le convoyeur collecteur continu
+--- qui sort de la box de minage ; aucun relais coffre -> coffre ni bras intermédiaire). Colonne AILLEURS au bout d'un tapis collecteur
+--- seul (groupe g.bare de shared/team/champ.lua) : la même colonne que Co.place (Co.layout, même sens `side`), sur la rangée b + k
+--- (|k| <= o.rows), tête à t tuiles (0..o.shift) au-delà de `from`, places essayées de la plus proche à la plus lointaine (|k| + t) ;
+--- emprise entière libre et hors ressource (F500) ; puis le tapis de `from` (tuile devant la sortie du collecteur, où le minerai entre dans
+--- le sens `side`) jusqu'à la tuile avant la tête, tracé par Co.route (souterrains au croisement d'un autre flux si o.ug).
+--- o = { shift, rows, ug, span, box = { u0, v0, u1, v1 } (tuiles lues ; nil : sans borne), tcost }.
+--- Rend { list, len, s_edge, b, count, info, route } ou nil, raison.
+function Co.away(spec, from, side, count, mode, free, is_ore, o)
+  local box = o.box
+  local function inb(u, v) return not box or (u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1) end
+  -- la colonne ne dépend de (s_edge, b) que par translation : calculée une fois en (0, 0), ses tuiles décalées pour chaque place
+  local base, len, info0 = Co.layout(spec, 0, side, 0, count, mode)
+  if not base then return nil, "colonne impossible" end
+  local rel = {}
+  for _, e in ipairs(base) do
+    for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v } end end
+  end
+  local memo = {} -- tuile -> sol neutre libre (lu une fois par appel ; rien n'est pris pendant la recherche)
+  local function neutral(u, v)
+    local k = Co.tk(u, v)
+    local m = memo[k]
+    if m == nil then m = inb(u, v) and free(u, v) and not is_ore(u, v); memo[k] = m end
+    return m
+  end
+  local cands = {}
+  for k = -o.rows, o.rows do
+    for t = 0, o.shift do cands[#cands + 1] = { k = k, t = t, d = math.abs(k) + t } end
+  end
+  table.sort(cands, function(a, b)
+    if a.d ~= b.d then return a.d < b.d end
+    if math.abs(a.k) ~= math.abs(b.k) then return math.abs(a.k) < math.abs(b.k) end
+    if a.k ~= b.k then return a.k < b.k end
+    return a.t < b.t
+  end)
+  local routes, why = 0, "aucune place sur le sol neutre"
+  for _, cd in ipairs(cands) do
+    if routes >= Co.AWAY_ROUTES then break end
+    local b2, s_edge = from.v + cd.k, from.u + side * (cd.t + 1)
+    local fine = true
+    for _, r in ipairs(rel) do
+      if not neutral(s_edge + r[1], b2 + r[2]) then fine = false break end
+    end
+    local t = { u = s_edge - side, v = b2 }
+    if fine then
+      local mine = {}
+      for _, r in ipairs(rel) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end
+      if not mine[Co.tk(t.u, t.v)] then
+        routes = routes + 1
+        local function rfree(u, v) return inb(u, v) and not mine[Co.tk(u, v)] and free(u, v) end
+        local rb = box or { u0 = math.min(from.u, t.u) - Co.ROUTE_MARGIN, u1 = math.max(from.u, t.u) + Co.ROUTE_MARGIN,
+          v0 = math.min(from.v, t.v) - Co.ROUTE_MARGIN, v1 = math.max(from.v, t.v) + Co.ROUTE_MARGIN }
+        local sd = didx(side, 0)
+        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, Co.AWAY_CAP, o.tcost)
+        if route then
+          local list = {}
+          for _, e in ipairs(base) do
+            list[#list + 1] = { kind = e.kind, u = e.u + s_edge, v = e.v + b2, size = e.size, du = e.du, dv = e.dv, role = e.role, col = e.col }
+          end
+          local info = { far = info0.far, head_pole = info0.head_pole, need = info0.need, plates = info0.plates, bay = info0.bay,
+            mode = info0.mode, b_coal = info0.b_coal + b2, b_link = info0.b_link + b2 }
+          return { list = list, len = len, s_edge = s_edge, b = b2, count = count, info = info, route = route }
+        end
+        why = "trace : " .. tostring(rwhy)
+      end
+    end
+  end
+  return nil, why
+end
+
 ---------------------------------------------------------------------------------------------------
 -- 2. Tracé d'un tapis avec souterrains (A* sur (tuile, sens d'arrivée, « tout droit imposé »))
 ---------------------------------------------------------------------------------------------------
