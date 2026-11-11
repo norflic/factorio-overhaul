@@ -183,7 +183,7 @@ end
 ---------------------------------------------------------------------------------------------------
 package.loaded["script.faction.state"] = { own = function() end, sorted_keys = function(t) local k = {} for a in pairs(t) do k[#k + 1] = a end table.sort(k) return k end }
 package.loaded["script.faction.sites"] = {}
-package.loaded["script.ai3.places_qg"] = {}
+package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
 local OUT_SRC = read("script/faction/outposts.lua")
 local function load_outposts(src)
   package.loaded["script.faction.outposts"] = nil
@@ -417,7 +417,7 @@ mutant("couloir court", AXE_SRC, "y0 = lot%.y0, y1 = lot%.y1, axis = \"y\"", "y0
 mutant("côté lointain", AXE_SRC, "if %(x %- c%.x0%) > %(c%.x1 %- x%)", "if (x - c.x0) < (c.x1 - x)", function(m) return with_axe(m, pure) end)
 mutant("axe inversé", AXE_SRC, "if d %% 4 == 0 then v = v %+ 1", "if d %% 4 == 0 then h = h + 1", function(m) return with_axe(m, pure) end)
 mutant("pose ignore le couloir", OUT_SRC, "or in_axe%(q%) ~= nil or", "or", function(m) return fortify_cases(load_outposts(m)) end)
-mutant("repli dans le couloir", OUT_SRC, "if q and not in_axe%(q%) then pos = q end", "if q then pos = q end", function(m) return fortify_cases(load_outposts(m)) end)
+mutant("repli dans le couloir", OUT_SRC, "if q and not in_axe%(q%) and not PlacesQG", "if q and not PlacesQG", function(m) return fortify_cases(load_outposts(m)) end)
 mutant("côté d'abord oublié", OUT_SRC, "local spots = Axe%.side_spots%(s%.x, s%.y, cors, tw, th%)", "local spots = {}",
   function(m) return fortify_cases(load_outposts(m)) end)
 mutant("déplacement dans un couloir", BUILD_SRC, "or Build%.axis_entity%(cors, x%.name, q%) ~= nil end%)", "end)", function(m) return move_cases(load_move(m, Axe)) end)

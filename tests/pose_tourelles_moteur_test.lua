@@ -10,7 +10,7 @@ local logs = {}
 function log(s) logs[#logs + 1] = s end
 package.loaded["script.faction.state"] = { own = function() end, sorted_keys = function(t) local k = {} for a in pairs(t) do k[#k + 1] = a end table.sort(k) return k end }
 package.loaded["script.faction.sites"] = {}
-package.loaded["script.ai3.places_qg"] = {}
+package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
 package.loaded["shared.ai3.places"] = package.loaded["shared.ai3.places"] or nil
 
 local passes, failures = 0, 0
