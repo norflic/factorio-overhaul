@@ -40,13 +40,6 @@ Ms.CLASS_SHORT = 1      -- l'objet de la machine manque
 Ms.CLASS_DRILL = 2      -- foreuse qui TOURNE (demande du DC : « sur les foreuses, évidemment ») : la vitesse de plus a un débouché
 Ms.CLASS_PLAIN = 3      -- machine qui tourne, objet non en manque
 
-local function sorted_keys(t)
-  local ks = {}
-  for k in pairs(t or {}) do ks[#ks + 1] = k end
-  table.sort(ks)
-  return ks
-end
-
 local function fmt(x)
   if x == nil then return "-" end
   if x ~= x then return "nan" end

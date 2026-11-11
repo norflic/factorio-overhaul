@@ -442,12 +442,6 @@ local function sides_de(req)
   return s
 end
 
-local function copie(t)
-  local o = {}
-  for i = 1, #t do o[i] = t[i] end
-  return o
-end
-
 --- Meilleur placement de m (n ≤ cap). Renvoie { n, x, y, T, l, h, faux, ecart } ou nil.
 local function placer(m, cap, Z, obs, supplies)
   local tete = m.tete and m.tete.len or 0
