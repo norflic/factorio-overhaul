@@ -27,6 +27,7 @@ local Ec = require("shared.debug.ecart")
 local Lg = require("shared.debug.lignes")
 local Am = require("shared.debug.ameliorations")
 local An = require("script.debug.anneau")
+local Te = require("shared.debug.telemetrie")
 
 local Cv = {}
 
@@ -209,6 +210,35 @@ local function selected_row(rows, v, player)
   return rows[1]
 end
 
+--- Lot TELEMETRIE : par équipe observable, la décision active (4 catégories) et la taille de ses tables de décision (entrées comptées).
+function Cv.telemetry()
+  local out = {}
+  for _, t in ipairs(Lec.teams()) do
+    local sizes, total = Te.sizes(t.f)
+    out[#out + 1] = { id = tostring(t.id), key = t.key, active = Te.classify(t.f), sizes = sizes, total = total, anneau = #An.get(t.key) }
+  end
+  return out
+end
+
+--- Lot TELEMETRIE : purge des tables orphelines (anneaux et relevés d'équipes disparues). Rend { anneau = {clés}, snaps = {clés} }.
+function Cv.purge_orphans()
+  local alive_keys, alive_ids = {}, {}
+  for _, t in ipairs(Lec.teams()) do alive_keys[t.key] = true; alive_ids[t.id] = true end
+  local gone = { anneau = An.purge(alive_keys), snaps = {} }
+  local st = ns()
+  if st and st.snaps then
+    gone.snaps = Te.orphans(st.snaps, alive_ids)
+    for _, k in ipairs(gone.snaps) do st.snaps[k] = nil end
+  end
+  if #gone.anneau + #gone.snaps > 0 then log("[FO-TELEMETRIE] purge : anneau " .. table.concat(gone.anneau, ",") .. " ; releves " .. table.concat(gone.snaps, ",")) end
+  return gone
+end
+
+Cv.PURGE = 3600
+Events.on_nth_tick(Cv.PURGE, function()
+  pcall(Cv.purge_orphans)
+end)
+
 function Cv.refresh_one(player, st, v, now)
   local f = Lec.team(v.fid)
   if not (f and player.valid) then return end
@@ -220,6 +250,7 @@ function Cv.refresh_one(player, st, v, now)
   local ctx = {
     now = now, rows = rows, sel = row, f = f, snap = s, teams = Lec.teams(),
     decisions = Lg.decisions(Lec.decision_rows(f), Lg.DECISIONS_MAX),
+    telemetry = Cv.telemetry(),
     sel_tasks = row and Lg.tasks_for_zone(tasks, { pid = row.z.pid, oid = row.z.oid }) or {},
     sel_piquage = row and row.z.pid and Lec.piquage_rows(f, row.z.pid) or {},
     sel_am_refus = row and row.z.pid and Lec.am_refus_rows(f, row.z.pid) or {},
