@@ -100,6 +100,22 @@ local function copy_points(list)
   return out
 end
 
+--- Un des 8 secteurs voisins de `key` a-t-il un gisement vu de la ressource `name` ?
+function K.neighbor_has(m, key, name)
+  local sx, sy = A.xy(key)
+  for dy = -1, 1 do
+    for dx = -1, 1 do
+      if dx ~= 0 or dy ~= 0 then
+        local s = m.s[A.key(sx + dx, sy + dy)]
+        for _, r in ipairs(s and s.r or {}) do
+          if r.name == name then return true end
+        end
+      end
+    end
+  end
+  return false
+end
+
 --- Résultat d'un regard. obs = { res = { { name, n, a, x, y }, ... }, nests = { {x, y} }, worms = { {x, y} }, water }.
 --- Renvoie la liste (triée) des ressources NOUVELLES dans ce secteur.
 function K.record(m, key, tick, obs)
@@ -123,16 +139,18 @@ function K.record(m, key, tick, obs)
   local fresh = {}
   m.cnt = m.cnt or {}
   local now = {}
+  -- Lot FIX-P2 : m.cnt compte les GISEMENTS, pas les secteurs : un secteur dont un des 8 voisins a déjà la ressource
+  -- prolonge un gisement connu (un gisement à cheval sur deux secteurs ne clôt plus la demande d'exploration à tort).
   for _, r in ipairs(res) do
     now[r.name] = true
     if not old[r.name] then
       fresh[#fresh + 1] = r.name
-      m.cnt[r.name] = (m.cnt[r.name] or 0) + 1
+      if not K.neighbor_has(m, key, r.name) then m.cnt[r.name] = (m.cnt[r.name] or 0) + 1 end
     end
     if not m.found[r.name] then m.found[r.name] = tick end
   end
   for _, name in ipairs(sorted_keys(old)) do
-    if not now[name] then m.cnt[name] = (m.cnt[name] or 1) - 1 end
+    if not now[name] and not K.neighbor_has(m, key, name) then m.cnt[name] = math.max(0, (m.cnt[name] or 1) - 1) end
   end
   local sp, wm = copy_points(obs.nests), copy_points(obs.worms)
   s.sp = #sp > 0 and sp or nil
@@ -176,7 +194,33 @@ function K.deposits(m, res, from)
   return out
 end
 
---- Nombre de secteurs où un gisement de la ressource est vu (tenu à chaque regard : aucun parcours).
+--- Lot FIX-P2 : cible d'éclaireur acceptable : aucun nid ni ver vu sur le trajet éclaireur → centre du secteur.
+function K.scout_ok(m, me, key)
+  local cx, cy = A.center(A.xy(key))
+  return K.path_clear(m, me, { x = cx, y = cy })
+end
+
+--- Lot FIX-P2 : gisement lointain acceptable pour le minage d'appoint : aucun nid vu sur le couloir QG → gisement.
+function K.corridor_ok(m, hq, d)
+  return K.path_nests(m, hq, d) == 0
+end
+
+--- Lot FIX-P2 : gisements (liste de K.deposits avec `from`) rangés par intérêt a / (distance + 100), du meilleur au moins bon ;
+--- à égalité, par clé (déterministe). Renvoie une nouvelle liste.
+function K.rank_known(list)
+  local out = {}
+  for i, d in ipairs(list) do
+    out[i] = d
+    d.score = (d.a or 0) / (math.sqrt(d.d2 or 0) + 100)
+  end
+  table.sort(out, function(p, q)
+    if p.score ~= q.score then return p.score > q.score end
+    return p.key < q.key
+  end)
+  return out
+end
+
+--- Nombre de GISEMENTS vus de la ressource (secteurs voisins fusionnés) (tenu à chaque regard : aucun parcours).
 function K.count(m, res) return (m.cnt and m.cnt[res]) or 0 end
 
 --- Ressources connues (au moins un gisement vu), triées.

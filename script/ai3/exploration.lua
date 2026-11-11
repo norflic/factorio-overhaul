@@ -602,8 +602,16 @@ local function retarget(f, k, a, ex, tick)
     end
   else
     local _note, soft -- `_note` local : jamais `_` (variable globale du mod écrite en événement)
-    key, _note, soft = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
-      rivals = rivals(f, surface), exclude = make_exclude(k, tick, ex, true), soft = make_soft(k, tick) })
+    -- Lot FIX-P2 : une cible dont le trajet depuis l'éclaireur passe près d'un nid ou d'un ver vu est écartée (comme la veille).
+    local excl = make_exclude(k, tick, ex, true)
+    local tctx = { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
+      rivals = rivals(f, surface), exclude = excl, soft = make_soft(k, tick) }
+    for _try = 1, 4 do
+      key, _note, soft = K.best_target(k.m, tctx)
+      if not key or K.scout_ok(k.m, me, key) then break end
+      rawset(excl, key, true)
+      key, soft = nil, nil
+    end
     if key and soft then
       -- Lot IA3F-PETROLE : toute la frontière non vue est dans des régions bloquées ; avant, la mission finissait « rien » et la
       -- demande passait pour épuisée (10 min sans éclaireur) alors que rien n'avait été vu. Journal : une ligne par mission.
@@ -858,7 +866,8 @@ end
 --- Gisements connus d'une ressource soumis à la prospection (au plus 3 par contrôle, chacun au plus toutes les 5 min).
 local function inject_known(f, k, surface, res, tick)
   local n = 0
-  for _, d in ipairs(K.deposits(k.m, res, f.hq_pos)) do
+  -- Lot FIX-P2 : les 3 retenus sont les plus intéressants (quantité ÷ (distance + 100)), plus seulement les plus proches.
+  for _, d in ipairs(K.rank_known(K.deposits(k.m, res, f.hq_pos))) do
     if n >= 3 then break end
     local last = k.probed[d.key]
     if not last or tick - last >= PROBE_RETRY then
@@ -1162,6 +1171,8 @@ Worker.far_mine = function(f, task, surface, tick)
     -- Azur, 45 minages à la main ratés sur « chemin », toujours vers les mêmes gisements de l'autre côté de l'eau).
     local t0 = unreach[d.key]
     if t0 and tick - t0 < BAD_TTL then why.injoignable = why.injoignable + 1 goto continue end
+    -- Lot FIX-P2 : nid vu sur le couloir QG → gisement : sauté.
+    if not K.corridor_ok(k.m, f.hq_pos, d) then why.ennemis = why.ennemis + 1 goto continue end
     local nests, worms = K.enemies_near(k.m, d.x, d.y, K.NEAR)
     if nests + worms > 0 then why.ennemis = why.ennemis + 1
     elseif K.marks_near(k.m, d.x, d.y, K.NEAR, tick) > 0 then why.marques = why.marques + 1
