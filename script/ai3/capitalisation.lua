@@ -5,8 +5,8 @@
   peut faire fondre évidemment), si assembleurs disponibles alors on ajoute des chaînes de production etc etc. » ; 12 h 30
   « un joueur […] aurait maximisé vraiment tout le gisement, il aurait mis des foreuses partout »).
   Côté RUNTIME de la règle pure shared/ai3/capitalisation.lua (conception : docs/IA_CAPITALISATION.md ; plan de
-  branchement : fo-logs/2026-10-27_CAPI/INTEGRATION.md §5). Factions ET votre équipe de PNJ (Capi.on n'exclut pas is_player ;
-  Auto.FACTIONS_ONLY = false), réglage de carte fo-war-capi (ALLUMÉ par défaut depuis le 27/10 au soir) ET automatisation
+  branchement : fo-logs/2026-10-27_CAPI/INTEGRATION.md §5). Factions ET votre équipe de PNJ (Capi.on n'exclut pas is_player),
+  réglage de carte fo-war-capi (ALLUMÉ par défaut depuis le 27/10 au soir) ET automatisation
   allumée (fo-war-ia3e, allumé par défaut : sans son exécutant, ni foreuses électriques ni chaînes). Mesuré le 29/10 sur
   la partie du DC : 691 décisions [FO-CAPI] en 198 min, branchée et tournante ; texte « éteint par défaut, factions seulement »
   périmé et corrigé ici (lot CAPI-REPLI + CAPI-MESURE).

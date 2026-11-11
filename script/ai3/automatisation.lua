@@ -1,8 +1,7 @@
 --[[
   IA3-e « automatiser ce qui revient », côté RUNTIME : relie la règle pure main → machine (shared/ai3/automatiser.lua)
   au cerveau par besoins (script/ai3/cerveau.lua, shared/ai3/cerveau.lua) et au plan directeur d'IA1-d
-  (script/team/build.lua). Allumé par défaut pour les FACTIONS au cerveau par besoins (votre équipe : voir
-  Auto.FACTIONS_ONLY).
+  (script/team/build.lua). Allumé par défaut pour les FACTIONS au cerveau par besoins et pour votre équipe.
 
   - Mesures (fenêtre glissante de minutes complètes, f.team.ia3e.window) : à la fin de chaque tâche réussie
     (crochet Board.on_done), les PNJ-ticks de la tâche vont à l'objet qu'elle produit : tournée d'un avant-poste
@@ -42,7 +41,6 @@ local Auto = {}
 -- Étape 1 du 27/10 au soir (constat du DC : « mes IA sont infiniment stupides » ; sa partie : 9 PNJ, 37 foreuses fabriquées
 -- jamais posées, 1 800 plaques de fer au coffre, projets {} aux minutes 10, 15, 30 et 35) : votre équipe reçoit la même
 -- automatisation que les factions. Son « QG » est le coffre d'équipe (f.hq). Sa RECHERCHE reste la vôtre.
-Auto.FACTIONS_ONLY = false
 Auto.EVERY = 3600           -- ticks entre deux décisions
 Auto.RADIUS = 3             -- treillis du plan directeur évalué au départ (7 × 7 lots)
 Auto.REFUSE_EPOCH = 30 * 3600 -- un refus est revu quand le contexte change, et au plus tard toutes les 30 min
@@ -81,7 +79,6 @@ local PRODUCT_AMOUNT = {}
 Auto.SETTING = "fo-war-ia3e" -- réglage de carte (settings/ia3e.lua)
 local function enabled(f)
   if not (f and f.team and f.team.ia3c and f.hq and f.hq.valid) then return false end
-  if Auto.FACTIONS_ONLY and f.is_player then return false end
   local s = settings.global[Auto.SETTING]
   if s ~= nil and s.value == false then return false end
   return true

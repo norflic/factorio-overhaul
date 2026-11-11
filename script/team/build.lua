@@ -118,7 +118,6 @@ local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la p
 Build.Ene = require("shared.team.energie_dabord") -- lot TV-ENERGIE (G41) : « la première expansion est l'énergie », règle pure ; champ de Build, pas une locale (bloc principal à 198 locales)
 Build.Qd = require("shared.team.quai_debit") -- lot RESEAU-GRAPHE : bras du quai d'entrée choisi par le débit, n borné à ce que le quai porte (règle pure) ; champ de Build, pas une locale
 Build.QUAI_CHEST = "iron-chest" -- coffre des quais et des sorties (pièce du plan, P.feeder) : un seul nom pour les relevés au moteur
-Build.QUAI_BORNE_N = false -- vrai : rangée raccourcie à ce que le quai porte (RESEAU-GRAPHE) ; faux depuis la directive du DC (rangées longues)
 Build.QUAI_PAR_DEBIT = true -- vrai : NOUVEAUX gabarits seulement (les projets déjà planifiés gardent leurs pièces) ; faux : le quai d'avant (un bras de base par voie)
 Build.Colr = require("shared.team.collecte") -- lot COLLECTE : règle pure (états servis, voyage à vide) ; champ de Build, pas une locale (essai-0660 : bloc principal à 200 locales)
 local Collecte = require("script.team.collecte") -- lot COLLECTE : coffres de sortie du champ collectés en urgence quand le fer manque
@@ -697,15 +696,6 @@ local function template_of(spec, opts)
     local cur = g.args[ex.arg]
     local n = opts.grow(g, cur)
     if type(n) == "number" and n ~= cur and n >= 1 and n <= ex.max then g = extend_to(g, n) end
-  end
-  -- lot RESEAU-GRAPHE (audit « n entrées, m sorties ») : le quai d'entrée porte au plus 2 bras rapides par voie ; un gabarit dont l'entrée
-  -- (servie par quai) demande plus est refait à la plus grande taille que le quai porte (n proportionnel au débit d'entrée)
-  -- Intégrateur (8/11, 13 h 15, directive du DC « aligner une rangée d'assembleurs (ex: 5 à la suite) ») : rangée JAMAIS raccourcie au
-  -- débit du quai (Build.QUAI_BORNE_N faux) ; l'entrée qui manque arrive par tapis (piquage, bus), le second bras du quai reste.
-  if Build.QUAI_PAR_DEBIT and Build.QUAI_BORNE_N and g.gen ~= "steam" and g.extensions and g.extensions[1] then
-    local cur = g.args[g.extensions[1].arg]
-    local n = Build.Qd.max_n(M, g, Build.Qd.skip(M, g, spec.feed == "quai"))
-    if n and n < cur then g = extend_to(g, n) end
   end
   return g
 end
