@@ -67,6 +67,29 @@ def projected_bounds(objs):
     return (min(us + su), min(vs + sv2), max(us + su), max(vs + sv2)), (min(us), min(vs), max(us), max(vs))
 
 
+def gpu(scene):
+    """TITANS2 (11/11) : Cycles GPU (HIP, RX 6900 XT) si FO_CYCLES_GPU=HIP ; sinon CPU 8 fils (défaut, déterministe comme avant)."""
+    kind = os.environ.get("FO_CYCLES_GPU", "")
+    if not kind:
+        return False
+    prefs = bpy.context.preferences.addons["cycles"].preferences
+    prefs.compute_device_type = kind
+    prefs.get_devices()
+    n = 0
+    for dev in prefs.devices:
+        dev.use = dev.type == kind
+        n += dev.use
+    if not n:
+        print("[FO-TITAN] GPU %s introuvable : CPU" % kind, flush=True)
+        return False
+    scene.cycles.device = "GPU"
+    if os.environ.get("FO_CYCLES_PERSIST", "1") == "1":
+        scene.render.use_persistent_data = True     # session Cycles gardée entre les passes (contexte HIP, BVH) : coût fixe par rendu
+    scene.cycles.denoising_use_gpu = True           # OIDN sur le GPU (sur le CPU par défaut : le gros du coût fixe d'une vue)
+    print("[FO-TITAN] GPU %s : %s" % (kind, [d.name for d in prefs.devices if d.use]), flush=True)
+    return True
+
+
 def lire_png(path):
     img = bpy.data.images.load(path, check_existing=False)
     img.colorspace_settings.name = "Non-Color"
@@ -187,6 +210,7 @@ def allie(a):
         H += H % 2
         ox, oy = -left, -top
         S.setup_render(scene, W, H, samples=a.samples)
+        gpu(scene)
         cy = scene.cycles
         cy.use_denoising = True
         cy.denoiser = "OPENIMAGEDENOISE"
@@ -324,6 +348,7 @@ def anime(a):
             W += W % 2
             H += H % 2
             S.setup_render(scene, W, H, samples=a.samples)
+            gpu(scene)
             cy = scene.cycles
             gpu_hip(scene)
             cy.use_denoising = True
@@ -341,19 +366,27 @@ def anime(a):
             parts = {"ao": 4, "shadow": 8}
 
             def rt(sc, path):
-                ech = parts.get(os.path.basename(path)[:-4].rsplit("-", 1)[-1])
+                couche = os.path.basename(path)[:-4].rsplit("-", 1)[-1]
+                ech = parts.get(couche)
                 avant, den = sc.cycles.samples, sc.cycles.use_denoising
                 if ech:
                     sc.cycles.samples = ech
                     sc.cycles.use_denoising = False
+                # TITANS2 (11/11) : passe d'OMBRE sans émissifs. Les conduits, bagues et anneaux allumés éclairaient le sol attrape-ombre :
+                # à 8 échantillons, leur lumière criblait l'ombre de points clairs (Juggernaut re-modelé : 10 % de « trous » dans l'ombre
+                # contre 4 % en 0.6.94, ombre moyenne 233 contre 244) ; en noir, ils portent leur ombre (visibilité inchangée) sans éclairer.
+                saved = S._swap_materials(objs, lambda m: S._black_mat() if (m is not None and m.get("fo_kind") == "emissive") else m) if couche == "shadow" else None
                 try:
                     return _rt(sc, path)
                 finally:
+                    if saved is not None:
+                        S._restore(saved)
                     sc.cycles.samples, sc.cycles.use_denoising = avant, den
             S.render_to = rt
             # dossier de travail PROPRE au processus (KAIJUS-MUTANTS : deux places de rendu sur la même série se partageaient « _tmp-<anim>-<image> »
             # et l'une effaçait la passe ao de l'autre : vue ravageur-2-attaque-00-05 à ao vide)
-            tmp = os.path.join(d, "_tmp-%s-%02d-%d" % (a.anim, i, os.getpid()))
+            # TITANS2 (11/11) : FO_TITAN_TMP place ces passes intermédiaires (4 PNG 16 bits par vue) hors du disque des sorties (F: est une clé USB)
+            tmp = os.path.join(os.environ.get("FO_TITAN_TMP") or d, "_tmp-%s-%s-%02d-%d" % (base, a.anim, i, os.getpid()))
             os.makedirs(tmp, exist_ok=True)
             fn_lueur = (lambda mat: _lueur_de(mat, blanc) if (mat is not None and mat.get("fo_kind") == "emissive") else S._black_mat())
             m = int(round(0.8 * D))     # marge de la fenêtre du corps : liseré de contact (AO) et débordement de la lueur
@@ -420,7 +453,9 @@ def main():
     a = ap.parse_args(argv)
     a.out = os.path.abspath(a.out)
     if a.what in SANS_STADE or (a.anime and a.what in ANIMES):
-        anime(a)
+        for anim in a.anim.split(","):       # TITANS2 : « course,attaque » en une session (un seul passage par le verrou)
+            a.anim = anim
+            anime(a)
     else:
         allie(a)
 
