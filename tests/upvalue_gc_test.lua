@@ -33,6 +33,8 @@ local ALLOW = {
   ["shared/levels/config.lua"] = { cost_table = "table des coûts, posée une fois" },
   -- (intégrateur, 8/11 : lot LOURD point 2, b4be4c89) J.reset ne sert qu'aux bancs hors jeu (nouvelle partie simulée), jamais par tick
   ["script/core/lourd.lua"] = { served = "remis à neuf par J.reset, bancs hors jeu seulement, jamais par tick" },
+  -- (TESTS-VERTS, relecture : lot PURGE-MINE, 77c26cc8) drills() rend DRILLS dès qu'il existe et ne le remet jamais à nil
+  ["script/team/electrique.lua"] = { DRILLS = "foreuses électriques des données, cache paresseux posé une fois" },
 }
 
 --- Affectations d'une table neuve à un local de module dans une fonction : { { ligne, nom, texte } }.

@@ -27,6 +27,11 @@ local function battery(V)
   check(V.set(f, 12, { "x" }) == false, "source non texte refusée")
   check(V.wanted({}) == nil and V.wanted(nil) == nil, "wanted sans cerveau : nil")
   check(V.wanted({ team = { ia3 = { voulues = { vide = { tick = 1, items = {} } } } } }) == nil, "source sans objet : nil, pas une table vide")
+  -- Lot TESTS-VERTS : l'ordre GARDÉ par set (lu tel quel par set identique et par wanted) est trié, sans dépendre de l'ordre de pairs : avec
+  -- deux objets, l'ordre de pairs de lua5.2 tombait trié et le mutant « set ne trie pas » survivait (voulues.lua inchangée depuis 0ac4778e)
+  local g = { team = { ia3 = {} } }
+  V.set(g, "mall", { "m7", "a2", "q5", "c9", "z1", "b4", "k3", "e8", "x6" }, 1)
+  check(table.concat(g.team.ia3.voulues.mall.items, ",") == "a2,b4,c9,e8,k3,m7,q5,x6,z1", "set : liste gardée triée")
 end
 
 local src = read_file("script/ai3/voulues.lua")
