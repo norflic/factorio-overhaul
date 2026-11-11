@@ -228,6 +228,8 @@ local function attendu()
     ["script/companion/registry.lua"] = { types = set_of({ "character" }) },
     -- EFFONDREMENT (parade du kit offert, 7/11) : la mort d'un PNJ au kit offert note sa fiche ; jamais la force « enemy »
     ["script/team/worker.lua"] = { types = set_of({ "character" }), ennemi = false },
+    -- MINAGE-MAIN (d9694bdf, 8/11) : registre des coffres de sortie, oublié à la mort d'un coffre, d'un bras ou d'une foreuse de l'équipe
+    ["script/team/sources.lua"] = { types = set_of({ "container", "inserter", "mining-drill" }), ennemi = false },
     ["script/scenario/journal.lua"] = { types = set_of({ "unit-spawner" }) },
     ["script/td/director.lua"] = { types = set_of({ "unit" }) },
     ["script/world/enemy_mechanics.lua"] = { types = by_names(brood) },
@@ -533,7 +535,7 @@ local died = Events.died_list()
 -- P2 : déclarations
 do
   local want = attendu()
-  check(#died == 24, "P2 : 24 abonnés à on_entity_died recensés (" .. #died .. ")") -- 23 + worker.lua (parade du kit offert, EFFONDREMENT)
+  check(#died == 25, "P2 : 25 abonnés à on_entity_died recensés (" .. #died .. ")") -- 23 + worker.lua (parade du kit offert, EFFONDREMENT) + sources.lua (MINAGE-MAIN)
   local tout, bad = {}, {}
   local seen = {}
   for i, d in ipairs(died) do
