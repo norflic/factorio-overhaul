@@ -54,10 +54,17 @@ local function setup(n, mutants)
   local pre = {}
   for _, m in ipairs(mutants or {}) do
     local src = slurp(m.path)
-    local i, j = src:find(m.old, 1, true)
+    local mold, mnew = m.old, m.new
+    local i, j = src:find(mold, 1, true)
+    if not i then
+      -- Lot TESTS-VERTS : script/team/team.lua mêle des fins de ligne CRLF et LF (P1-ELAGAGE f1f62e9d a passé le retour de l'étape
+      -- refusée en CRLF) : le même texte, fins de ligne CRLF
+      mold, mnew = mold:gsub(NL, "\r" .. NL), mnew:gsub(NL, "\r" .. NL)
+      i, j = src:find(mold, 1, true)
+    end
     assert(i, "texte du mutant introuvable dans " .. m.path .. " : " .. m.old)
-    assert(not src:find(m.old, j + 1, true), "texte du mutant present plusieurs fois : " .. m.old)
-    src = src:sub(1, i - 1) .. m.new .. src:sub(j + 1)
+    assert(not src:find(mold, j + 1, true), "texte du mutant present plusieurs fois : " .. m.old)
+    src = src:sub(1, i - 1) .. mnew .. src:sub(j + 1)
     package.preload[m.module] = function() return assert(load(src, "=" .. m.module .. "(mutant)"))() end
     pre[#pre + 1] = m.module
   end
@@ -276,7 +283,8 @@ end
 do
   local b = slurp("script/team/build.lua")
   local n = select(2, b:gsub("pulse = Build%.PULSE", ""))
-  check(n == 2, string.format("T8 : build.lua passe pulse = Build.PULSE aux deux relevés (Rv.step et Raccord.step) : %d", n))
+  -- (MALL tranche 1, 05dad4fe : le secteur du mall, Build.Mall.step, relève aussi par chunks sous le jeton et reçoit la période)
+  check(n == 3, string.format("T8 : build.lua passe pulse = Build.PULSE aux deux relevés (Rv.step et Raccord.step) et au mall (Build.Mall.step) : %d", n))
   local rv = slurp("script/team/reseau_vivant.lua")
   local ra = slurp("script/team/raccord.lua")
   local takes_rv = select(2, rv:gsub("api%.jeton%.take%(", ""))

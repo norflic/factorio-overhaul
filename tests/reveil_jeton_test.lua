@@ -301,7 +301,8 @@ end
 do
   local b = slurp("script/team/build.lua")
   local n = select(2, b:gsub("pulse = Build%.PULSE", ""))
-  check(n == 2, string.format("§5 : build.lua passe pulse = Build.PULSE aux deux relevés (Rv.step et Raccord.step) : %d", n))
+  -- (MALL tranche 1, 05dad4fe : le secteur du mall, Build.Mall.step, relève aussi par chunks sous le jeton et reçoit la période)
+  check(n == 3, string.format("§5 : build.lua passe pulse = Build.PULSE aux deux relevés (Rv.step et Raccord.step) et au mall (Build.Mall.step) : %d", n))
   local rv = slurp("script/team/reseau_vivant.lua")
   local ra = slurp("script/team/raccord.lua")
   local takes_rv = select(2, rv:gsub("api%.jeton%.take%(", ""))
