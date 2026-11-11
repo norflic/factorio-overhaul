@@ -157,6 +157,7 @@ Build.Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjam
 Build.Pur = require("script.team.purete") -- lot PURETE-TAPIS : garde-fou de pureté des tapis (aucun mélange d'objets), champ de Build pour la même raison
 -- Lot RAPATRIEMENT (8/11) : lignes sortie lointaine -> tapis -> tampon (script/team/rapatriement.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Rapatriement = require("script.team.rapatriement")
+Build.RpPart = require("shared.team.rapatriement") -- lot CC-PRIO-LIGNES (F532) : part du coffre d'une ligne de rapatriement (champ de Build : 199 locales)
 Build.Mall = require("script.team.mall") -- lot MALL (tranche 1) : secteur du mall choisi par le terrain et réservé, état S (docs/MALL.md) ; champ de Build, pas une locale
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 Build.Hygiene = require("script.team.hygiene") -- lot SCAN-TRANCHES (DC 9/11) : audit électrique en lecture seule par impulsions (s'abonne lui-même à on_tick) ; champ de Build, pas une locale (199 locales)
@@ -3432,7 +3433,8 @@ end
 local function reserve(f, p)
   local need = needs_of(p)
   local missing = {}
-  local free = free_stock(f)
+  -- lot CC-PRIO-LIGNES (F532) : une ligne de rapatriement ne prend pas ce qui manque aux bandes de champ actives (les bandes d'abord)
+  local free = Build.RpPart.libre_pour(p.spec, free_stock(f), f.build.projects, f.build.order)
   for _, it in ipairs(sorted_keys(need)) do
     local want = need[it] - (p.stock[it] or 0)
     if want > 0 then

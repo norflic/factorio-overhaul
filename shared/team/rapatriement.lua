@@ -585,4 +585,32 @@ function Rp.open_lines(lines, projects)
   return out
 end
 
+--- Lot CC-PRIO-LIGNES (F532, règle du DC « le pavage des gisements passe d'abord ») : stock LIBRE pour la réserve d'une LIGNE DE RAPATRIEMENT.
+--- Le coffre est servi au premier lecteur (Build.reserve relit chaque projet en réserve une fois par seconde, chacun à sa phase) : une ligne,
+--- objectif d'investissement, prenait les tapis et les bras qui manquaient à une bande de champ (banc C4, graine 271828182 : 10 lignes dont
+--- 2 demandées avant les bandes 21, 26, 28 ; à 31 min la bande manque 145 tapis contre 29 sans les lignes, 1 348 plaques livrées de 31 à
+--- 40 min contre 6 803). La famille « bande de champ » (spec.champ) passe avant la famille « rapatriement » (spec.rapatriement) : pour une
+--- ligne, chaque objet libre est diminué de ce qui MANQUE aux bandes de champ actives (réserve ou chantier, p.missing frais). Pour tout autre
+--- projet, `free` est rendu tel quel. Ne modifie pas `free` (vue qui le lit, objets gardés seuls réécrits). Ni nom d'objet ni quantité :
+--- tout vient des manques (ipairs seulement : objets dans l'ordre des listes de manques).
+Rp.BANDE_ACTIVE = { reserve = true, defrichage = true, fantomes = true, chantier = true }
+
+function Rp.libre_pour(spec, free, projects, order)
+  if not (type(spec) == "table" and spec.rapatriement ~= nil) then return free end
+  local owed, keys = {}, {}
+  for _, pid in ipairs(order or {}) do
+    local q = projects and projects[pid]
+    if q and q.spec and q.spec.champ and Rp.BANDE_ACTIVE[q.state] and q.missing then
+      for _, m in ipairs(q.missing) do
+        if owed[m[1]] == nil then keys[#keys + 1] = m[1] end
+        owed[m[1]] = (owed[m[1]] or 0) + (m[2] or 0)
+      end
+    end
+  end
+  if #keys == 0 then return free end
+  local out = setmetatable({}, { __index = free })
+  for _, it in ipairs(keys) do out[it] = math.max(0, (free[it] or 0) - owed[it]) end
+  return out
+end
+
 return Rp
