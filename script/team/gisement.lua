@@ -19,6 +19,7 @@ local G = require("shared.team.gisement")
 local S = require("shared.team.foreuse_swap")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
+local El = require("shared.team.elagage") -- lot P1-ELAGAGE : foreuses sans ressource sous leur zone démontées
 
 local Gis = {}
 
@@ -205,6 +206,35 @@ function Gis.think(f, surface, tick, book)
   end
   st.idle = seen
   return actions
+end
+
+--- Lot P1-ELAGAGE : ronde découpée (shared/team/elagage.lua) sur TOUTES les foreuses de l'équipe ; une foreuse dont la zone de
+--- minage ne porte plus aucune ressource est démontée, son objet (celui du prototype) et son contenu rendus au stock.
+function Gis.prune(f, surface, tick)
+  if not (f and f.force and surface and surface.valid) then return 0 end
+  f.elagage = f.elagage or {}
+  return El.step(f.elagage, tick, {
+    list = function()
+      local l = surface.find_entities_filtered({ type = "mining-drill", force = f.force })
+      table.sort(l, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
+      return l
+    end,
+    valid = function(d) return d and d.valid end,
+    left = function(d)
+      local r = d.prototype.mining_drill_radius or 0
+      local p = d.position
+      return surface.count_entities_filtered({ type = "resource",
+        area = { { p.x - r, p.y - r }, { p.x + r, p.y + r } } })
+    end,
+    retire = function(d)
+      local its = d.prototype.items_to_place_this
+      local item = its and its[1] and its[1].name
+      local pos = d.position
+      take_back(f, d, item)
+      log(string.format("[FO-ELAGAGE] %s : foreuse sans ressource demontee en (%.1f, %.1f), objet %s rendu au stock",
+        f.key or "player", pos.x, pos.y, tostring(item)))
+    end,
+  })
 end
 
 return Gis

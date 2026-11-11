@@ -1220,6 +1220,7 @@ TT.e4 = function(f, surface, tick, et)
   local pile_hold = ia3 and PileRt.hold(f)
   Profiler.fstart("tt:gisement")
   Gisement.think(f, surface, tick, book_for(f)) -- lot GISEMENTS (retour du DC du 31/10) : foreuses à combustion à l'arrêt rebranchées ou retirées du gisement (rend tout au stock)
+  Gisement.prune(f, surface, tick) -- lot P1-ELAGAGE : foreuses de l'equipe sans ressource sous elles demontees, objet au coffre
   Profiler.fstop("tt:gisement")
   -- Le stock libre passe à E5 et E6 sans être relu, comme avant le découpage (il était passé tel quel à FoSwap, MigChamp et au capital).
   local lost, where
