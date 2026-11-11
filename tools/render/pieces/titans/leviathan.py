@@ -40,7 +40,7 @@ CTRL = [(-17.5, 4.5, 8.4), (-13.5, 5.6, 8.9), (-9.5, 3.2, 9.5), (-5.5, -1.4, 10.
 # la tête, puis tous les 5 (longueur d'un segment), la queue 5 derrière le dernier (T.LEVIATHAN.segmente). Les pièces débordent de
 # 0,4 tuile à chaque joint (collier sombre) et chaque joint porte une ROTULE (sphère du rayon du corps centrée sur le joint) : deux pièces
 # voisines partagent la même sphère, aucun jour ni fond plat quel que soit l'angle entre elles.
-SERIE = {"course": 4, "attaque": 4, "densite": 15.0, "R": 13.0, "zmax": 19.5, "sol": 400.0, "dirs": 16}
+SERIE = {"course": 4, "attaque": 4, "densite": 22.0, "R": 13.0, "zmax": 19.5, "sol": 400.0, "dirs": 16}
 PIECES = {"segment": {"R": 7.0, "zmax": 16.5, "sol": 400.0, "dirs": 16}, "queue": {"R": 10.5, "zmax": 16.5, "sol": 400.0, "dirs": 16}}
 AO = 0.6
 GLOW_BLANC = False
@@ -371,12 +371,281 @@ def queue_piece(lot, M, stage):
         lame(lot, M, G.add(pts[3], G.mul(fr0[1], s_ * 0.5)), G.norm(G.add(G.mul(fr0[1], s_ * 0.9), G.mul(fr0[0], -0.6))), fr0[2], 2.6, 0.6, 1)
 
 
+
+# ======================================================================================================================================
+# LEVIATHAN2 (ordre du DC, 11/11 09 h 47) : « tête blindée massive à gueule d'impulsion, 4 segments intermédiaires à crêtes dorsales et
+# anneaux magnétiques externes, queue motrice effilée ; relief et ombres portées franches ». Mêmes repères et mêmes joints que
+# LEVIATHAN-SEG (Z, R_CORPS, DEMI, DEBORD, rotules) : le script (serpent.lua) ne change pas. Blindage OCTOGONAL BISEAUTÉ (facettes nettes,
+# reflets argent/iridescents), bandes TÉLESCOPIQUES qui se chevauchent (une lèvre en saillie par bande : marche d'ombre franche), crêtes
+# dorsales en lames étagées sur une échine, anneaux magnétiques DÉTACHÉS du corps (bras, émetteurs, gorge lumineuse), cœurs à vortex
+# cyan sur les flancs (lunette blindée, pales en spirale). Crêtes FIXES (en relief) : pas d'animation des segments (temps du crunch).
+# Concept de référence : concept-enm9m7 (gueule circulaire à double couronne de crocs, vortex central, lames dorsales, anneaux).
+# ======================================================================================================================================
+SOLEIL_ANGLE = 0.6           # diamètre apparent du soleil (degrés) pour CE titan : ombres portées franches (batch_titans.anime le lit)
+
+
+def sect(x, r, n=8, ch=0.2, rot=0.0, sy=1.0, sz=1.0, dz=0.0):
+    """Section OCTOGONALE BISEAUTÉE autour de l'axe x (centre (x, 0, Z + dz)) : n sommets de rayon r, chaque coin coupé (ch) : 2n
+    points, même sens de parcours que ring() : faces planes nettes, reflets francs."""
+    zc = Z + dz
+    V = []
+    for k in range(n):
+        a = rot + G.TAU * (k + 0.5) / n
+        V.append((r * sy * math.cos(a), r * sz * math.sin(a)))
+    out = []
+    for k in range(n):
+        p, a, b = V[k], V[k - 1], V[(k + 1) % n]
+        for q in ((p[0] + (a[0] - p[0]) * ch * 0.5, p[1] + (a[1] - p[1]) * ch * 0.5), (p[0] + (b[0] - p[0]) * ch * 0.5, p[1] + (b[1] - p[1]) * ch * 0.5)):
+            out.append((x, q[0], zc + q[1]))
+    return out
+
+
+def bande(lot, M, xa, xb, r, lip=1.2, mat="blind", n=8, rot=0.0, sy=1.0, sz=1.0, dz=0.0):
+    """Bande de blindage TÉLESCOPIQUE de xa (arrière) à xb (avant) : lèvre avant en saillie (r × lip) qui retombe en biseau vers
+    l'arrière ; la bande suivante la recouvre : marche d'ombre franche à chaque bande."""
+    L = xb - xa
+    k = lip - 1.0
+    secs = [sect(xa, r, n, 0.2, rot, sy, sz, dz), sect(xa + 0.08 * L, r * (1.0 + k * 0.55), n, 0.2, rot, sy, sz, dz),
+            sect(xb - 0.22 * L, r * (1.0 + k * 0.8), n, 0.2, rot, sy, sz, dz), sect(xb - 0.04 * L, r * lip, n, 0.2, rot, sy, sz, dz),
+            sect(xb, r * (1.0 + k * 0.45), n, 0.2, rot, sy, sz, dz)]
+    lot.put(M[mat], G.loft(secs, False, False))
+
+
+def lunette_vortex(lot, M, c, n, r, pales=5):
+    """Cœur à VORTEX cyan posé en c (normale n) : lunette blindée, puits sombre, disque lumineux, pales en spirale, halo."""
+    n = G.norm(n)
+    lot.put(M["blind"], G.oriente(anneau((0.0, 0.0, 0.0), "z", r * 0.78, r * 0.42, r * 0.22), c, n))
+    lot.put(M["struct"], G.oriente(G.tour([(-0.25 * r, 0.0), (-0.25 * r, r * 0.8), (0.1 * r, r * 0.8)], 16, "z", cap0=True), c, n))
+    lot.put(M["coeur"], G.oriente(G.tour([(-0.12 * r, 0.0), (-0.12 * r, r * 0.62)], 16, "z", cap0=True), c, n))
+    e1 = G.norm(G.cross(n, (0.0, 0.0, 1.0) if abs(n[2]) < 0.9 else (1.0, 0.0, 0.0)))
+    e2 = G.cross(n, e1)
+    for k in range(pales):
+        a0 = G.TAU * k / pales
+        pts = []
+        for j in range(6):
+            t = j / 5.0
+            a = a0 + 1.6 * t
+            rr = r * (0.66 - 0.5 * t)
+            pts.append(G.add(G.add(c, G.mul(n, -0.04 * r)), G.add(G.mul(e1, rr * math.cos(a)), G.mul(e2, rr * math.sin(a)))))
+        lot.put(M["turq"], G.tube(pts, 0.045 * r + 0.02, 5))
+    lot.put(M["halo"], G.sphere(G.add(c, G.mul(n, 0.05 * r)), r * 0.55, 10, 5))
+
+
+def anneau_magnetique(lot, M, x, r_int, stage, ouvre=0.0, bras=4, dz=0.0, r_corps=None):
+    """Anneau magnétique EXTERNE détaché du corps (axe x) : couronne blindée, gorge lumineuse, émetteurs, bras de maintien."""
+    c = (x, 0.0, Z + dz)
+    d = (1.0, 0.0, 0.0)
+    ri = r_int + 1.35 * ouvre
+    rc = R_CORPS if r_corps is None else r_corps
+    lot.put(M["blind2"], G.oriente(anneau((0.0, 0.0, 0.0), "z", ri, 0.55, 0.24), c, d))
+    lot.put(M["struct"], G.oriente(anneau((0.0, 0.0, 0.0), "z", ri - 0.12, 0.2, 0.33), c, d))
+    lot.put(M["anneau"], G.oriente(rainure((0.0, 0.0, 0.0), "z", ri + 0.57, 0.1), c, d))
+    lot.put(M["conduit"], G.oriente(rainure((0.0, 0.0, 0.0), "z", ri - 0.13, 0.05), G.add(c, (0.34, 0.0, 0.0)), d))
+    for k in range(bras):
+        a = G.TAU * (k + 0.5) / bras
+        u = (0.0, math.cos(a), math.sin(a))
+        e = G.add(c, G.mul(u, ri + 0.3))
+        lot.put(M["struct"], G.tube([G.add(c, G.mul(u, rc * 0.95)), G.add(c, G.mul(u, ri - 0.1))], 0.16, 6))
+        lot.put(M["blind"], G.oriente(G.tour([(-0.35, 0.0), (-0.35, 0.34), (0.2, 0.28), (0.42, 0.0)], 6, "z", cap0=True), e, u))
+        lot.put(M["coeur"], G.sphere(G.add(e, G.mul(u, 0.42)), 0.13, 6, 3))
+        if stage >= 3:
+            lot.put(M["cristal"], pointe(G.add(e, G.mul(u, 0.35)), u, 1.1, 0.16, 5))
+
+
+def echine(lot, M, xa, xb, r, hauts, k_grav=2, dz=0.0):
+    """CRÊTE DORSALE : échine (prisme biseauté) de xa à xb sur le dos, lames étagées (hauts : longueurs, d'avant en arrière), chacune
+    gravée de circuits et flanquée de deux écailles."""
+    zt = Z + dz + r
+    lot.put(M["struct"], G.loft([[(x, -0.38, zt - 0.25), (x, 0.38, zt - 0.25), (x, 0.22, zt + 0.22), (x, -0.22, zt + 0.22)] for x in (xa, xb)], True, True))
+    lot.put(M["conduit"], G.tube([(xa, 0.0, zt + 0.25), (xb, 0.0, zt + 0.25)], 0.07, 5))
+    nb = len(hauts)
+    for i, L in enumerate(hauts):
+        x = xb - (xb - xa) * (i + 0.5) / nb
+        lame(lot, M, (x + 0.25, 0.0, zt + 0.1), G.norm((-0.62, 0.0, 1.0)), (0.0, 1.0, 0.0), L, 0.85, k_grav)
+        for s_ in (-1, 1):
+            lot.put(M["blind"], plaque((x + 0.1, s_ * r * 0.42, zt - 0.12), G.norm((0.15, s_ * 0.55, 1.0)), 0.9, 1.1, 0.18, up=(1.0, 0.0, 0.0), coins=0.65))
+
+
+def rotule(lot, M, xj, r, dz=0.0):
+    """Joint : ROTULE (sphère du rayon du corps, partagée par les deux pièces voisines), collier biseauté et gorge turquoise."""
+    p = (xj, 0.0, Z + dz)
+    lot.put(M["blind2"], G.sphere(p, r * 1.02, 16, 8))
+    lot.put(M["struct"], G.loft([sect(xj - 0.28, r * 1.08, 8, 0.25, dz=dz), sect(xj, r * 1.16, 8, 0.25, dz=dz), sect(xj + 0.28, r * 1.08, 8, 0.25, dz=dz)], True, True))
+    lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", r * 1.17, 0.05), p, (1.0, 0.0, 0.0)))
+
+
+def flancs(lot, M, x0, x1, r, dz=0.0):
+    """Lignes latérales turquoise et quille ventrale."""
+    for s_ in (-1, 1):
+        lot.put(M["turq"], G.tube([(x0, s_ * r, Z + dz - r * 0.12), (x1, s_ * r, Z + dz - r * 0.12)], 0.07, 5))
+    lot.put(M["blind"], G.loft([[(x, -0.3, Z + dz - r * 0.92), (x, 0.3, Z + dz - r * 0.92), (x, 0.08, Z + dz - r * 1.28), (x, -0.08, Z + dz - r * 1.28)]
+                                for x in (x0 + 0.3, x1 - 0.3)], True, True))
+
+
+def segment_v2(lot, M, stage):
+    """SEGMENT intermédiaire (centre à l'origine, joints à ±DEMI) : âme octogonale, trois bandes télescopiques, crête dorsale (3 lames
+    étagées, 4 au stade 3), anneau magnétique EXTERNE détaché, quatre cœurs à vortex sur les flancs, quille ; stade 2+ : nageoires
+    ventrales ; stade 3 : cristaux sur l'anneau."""
+    r = R_CORPS
+    x0, x1 = -DEMI - DEBORD, DEMI + DEBORD
+    lot.put(M["struct"], G.loft([sect(x, r * 0.97, 8, 0.2, rot=G.TAU / 16) for x in (x0, x1)], True, True))
+    for xa, xb in ((-2.55, -0.85), (-0.95, 0.75), (0.65, 2.45)):
+        bande(lot, M, xa, xb, r, lip=1.17)
+    rotule(lot, M, -DEMI, r)
+    rotule(lot, M, DEMI, r)
+    echine(lot, M, -2.0, 2.0, r * 1.14, (3.4, 4.3, 3.2) if stage < 3 else (3.0, 4.4, 3.8, 2.6))
+    anneau_magnetique(lot, M, -0.1, r + 1.15, stage)
+    for s_ in (-1, 1):
+        lunette_vortex(lot, M, (1.55, s_ * r * 1.13, Z + 0.1), (0.0, float(s_), 0.12), 0.85)
+        lunette_vortex(lot, M, (-1.75, s_ * r * 1.13, Z + 0.1), (0.0, float(s_), 0.12), 0.7)
+    flancs(lot, M, x0, x1, r * 1.12)
+    if stage >= 2:
+        for s_ in (-1, 1):
+            lame(lot, M, (0.9, s_ * r * 0.7, Z - r * 0.75), G.norm((-0.5, s_ * 0.9, -0.8)), (0.0, 0.0, 1.0), 3.4, 0.8, 1)
+
+
+def queue_v2(lot, M, stage):
+    """QUEUE MOTRICE EFFILÉE (pivot à l'origine, joint avant à +DEMI) : bandes télescopiques qui s'effilent, petite crête, anneau(x)
+    magnétique(s) qui rapetissent, PROPULSEUR à tuyère (vortex, anneau lumineux, halo) entre quatre ailerons en croix ; pointe de
+    cristal au stade 3."""
+    xt = -6.6
+    rf = lambda x: R_CORPS if x >= 0.0 else 0.75 + (R_CORPS - 0.75) * max(0.0, (x - xt) / -xt) ** 1.15
+    x1 = DEMI + DEBORD
+    xs = [xt + (x1 - xt) * i / 14.0 for i in range(15)]
+    lot.put(M["struct"], G.loft([sect(x, rf(x) * 0.97, 8, 0.2, rot=G.TAU / 16) for x in xs], False, True))
+    for xa, xb in ((1.0, 2.5), (-0.8, 1.15), (-2.6, -0.65), (-4.3, -2.45), (-5.9, -4.15)):
+        bande(lot, M, xa, xb, rf(0.5 * (xa + xb)), lip=1.18)
+    rotule(lot, M, DEMI, R_CORPS)
+    echine(lot, M, -3.8, 1.8, R_CORPS * 0.95, (3.0, 2.4, 1.7), k_grav=1)
+    anneau_magnetique(lot, M, 0.2, R_CORPS + 1.0, stage)
+    if stage >= 2:
+        anneau_magnetique(lot, M, -3.4, rf(-3.4) + 0.8, stage, bras=3, r_corps=rf(-3.4))
+    for s_ in (-1, 1):
+        lunette_vortex(lot, M, (1.6, s_ * R_CORPS * 1.12, Z + 0.1), (0.0, float(s_), 0.12), 0.75)
+    # propulseur : tuyère blindée évasée, puits, vortex à pales, anneau lumineux, halo d'impulsion
+    xn = xt - 0.1
+    d = (-1.0, 0.0, 0.0)
+    c = (xn, 0.0, Z)
+    lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.8), (0.5, 0.95), (1.1, 1.25), (1.35, 1.3), (1.35, 1.05), (0.6, 0.72), (0.4, 0.0)], 16, "z"), c, d))
+    lot.put(M["coeur"], G.oriente(G.tour([(0.55, 0.0), (0.55, 0.78)], 16, "z", cap0=True), c, d))
+    lot.put(M["anneau"], G.oriente(rainure((0.0, 0.0, 0.0), "z", 1.3, 0.06), G.add(c, G.mul(d, 1.36)), d))
+    lot.put(M["halo"], G.sphere(G.add(c, G.mul(d, 1.5)), 0.95, 12, 6))
+    for k in range(5):
+        a0 = G.TAU * k / 5
+        pts = [G.add(c, (-(0.6 + 0.12 * j), 0.95 * (1 - j / 6.0) * math.cos(a0 + 0.5 * j), 0.95 * (1 - j / 6.0) * math.sin(a0 + 0.5 * j))) for j in range(5)]
+        lot.put(M["turq"], G.tube(pts, 0.05, 4))
+    for k in range(4):
+        a = G.TAU * (k + 0.5) / 4
+        u = (0.0, math.cos(a), math.sin(a))
+        base = G.add((xt + 1.4, 0.0, Z), G.mul(u, 0.85))
+        lame(lot, M, base, G.norm(G.add(u, (-0.75, 0.0, 0.0))), G.norm(G.cross((1.0, 0.0, 0.0), u)), 2.5, 0.7, 1)
+    if stage >= 3:
+        lot.put(M["cristal"], pointe(G.add(c, G.mul(d, 0.2)), d, 2.6, 0.22))
+
+
+def tete_v2(lot, M, stage, u=None, attaque=None):
+    """TÊTE BLINDÉE MASSIVE à GUEULE D'IMPULSION (pivot à l'origine, joint arrière à -(DEMI + 1)) : cou télescopique, crâne octogonal
+    biseauté évasé (plus large que haut), arcades blindées, quatre mandibules, gueule circulaire à double couronne de crocs, VORTEX
+    central à pales en spirale, anneaux d'impulsion devant la gueule (la salve les écarte), crête de trois lames, yeux et évents cyan,
+    lames pectorales ; stade 2+ : anneau magnétique du cou ; stade 3 : couronne de cristaux."""
+    ouvre, n_dr, dz = 0.0, 0, 0.0
+    if attaque is not None:
+        ouvre, n_dr = ATTAQUE[int(round(attaque * SERIE["attaque"])) % SERIE["attaque"]]
+    elif u is not None:
+        ouvre = 0.12 * (0.5 - 0.5 * math.cos(G.TAU * u))
+        dz = 0.15 * math.sin(G.TAU * u)
+    r = R_CORPS
+    xj = -(DEMI + 1.0)
+    zc = Z + dz
+    # cou : âme, deux bandes, rotule
+    lot.put(M["struct"], G.loft([sect(x, r * 0.97, 8, 0.2, rot=G.TAU / 16, dz=dz) for x in (xj - DEBORD, -0.6)], True, False))
+    bande(lot, M, -3.1, -1.75, r, lip=1.17, dz=dz)
+    bande(lot, M, -1.95, -0.55, r * 1.04, lip=1.2, dz=dz)
+    rotule(lot, M, xj, r, dz=dz)
+    # crâne : octogone biseauté qui s'évase vers la gueule, aplati (sy > sz), trois bandes en recouvrement
+    RF = 3.75
+    sk = [(-0.8, r * 1.05), (0.2, 3.05), (1.3, 3.55), (2.4, RF), (3.0, RF * 1.04)]
+    lot.put(M["blind2"], G.loft([sect(x, rr, 8, 0.28, sy=1.12, sz=0.92, dz=dz) for x, rr in sk], False, False))
+    bande(lot, M, -0.7, 0.55, 3.0, lip=1.12, sy=1.12, sz=0.92, dz=dz)
+    bande(lot, M, 0.45, 1.75, 3.45, lip=1.1, sy=1.12, sz=0.92, dz=dz)
+    bande(lot, M, 1.65, 3.05, RF, lip=1.1, sy=1.12, sz=0.92, dz=dz)
+    c = (3.05, 0.0, zc)
+    d = (1.0, 0.0, 0.0)
+    # gueule : collerette blindée épaisse, gencive (chair), double couronne de crocs, puits, vortex et pales en spirale, halo
+    lot.put(M["blind"], G.oriente(G.tour([(-0.2, RF * 1.12), (0.25, RF * 1.12), (0.55, RF * 1.02), (0.55, RF * 0.8), (0.3, RF * 0.72)], 32, "z"), c, d))
+    lot.put(M["chair"], G.oriente(G.tour([(0.32, RF * 0.74), (-0.1, RF * 0.6), (-0.6, RF * 0.5)], 32, "z"), c, d))
+    lot.put(M["struct"], G.oriente(G.tour([(-0.6, RF * 0.5), (-1.3, RF * 0.42), (-1.45, 0.0)], 24, "z"), c, d))
+    for k in range(18):
+        a = G.TAU * k / 18
+        off = (0.0, math.cos(a), math.sin(a))
+        lot.put(M["os"], pointe(G.add(c, G.add(G.mul(off, RF * 0.72), (0.2, 0.0, 0.0))), G.norm(G.add(G.mul(off, -1.0), (0.45, 0.0, 0.0))), 0.95, 0.16, 4))
+    for k in range(12):
+        a = G.TAU * (k + 0.5) / 12
+        off = (0.0, math.cos(a), math.sin(a))
+        lot.put(M["os"], pointe(G.add(c, G.add(G.mul(off, RF * 0.52), (-0.45, 0.0, 0.0))), G.norm(G.add(G.mul(off, -1.0), (0.3, 0.0, 0.0))), 0.7, 0.12, 4))
+    vc = G.add(c, (-1.25, 0.0, 0.0))
+    lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, RF * 0.36)], 20, "z", cap1=True), vc, d))
+    lot.put(M["coeur"], G.sphere(G.add(vc, (0.35, 0.0, 0.0)), 0.62, 14, 7))
+    for k in range(6):
+        a0 = G.TAU * k / 6
+        pts = [G.add(vc, (0.1 + 0.12 * j, RF * (0.4 - 0.05 * j) * math.cos(a0 + 0.45 * j), RF * (0.4 - 0.05 * j) * math.sin(a0 + 0.45 * j))) for j in range(6)]
+        lot.put(M["turq"], G.tube(pts, 0.06, 4))
+    lot.put(M["halo"], G.sphere(G.add(c, (-0.3, 0.0, 0.0)), RF * 0.62, 18, 9))
+    # anneaux d'impulsion devant la gueule (la salve les écarte)
+    for k, (dx, rr) in enumerate(((0.9, RF * 0.62), (1.7, RF * 0.48), (2.4, RF * 0.36))):
+        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", rr * (1.0 + 0.25 * ouvre), 0.16, 0.06), G.add(c, (dx + 1.6 * ouvre * (k + 1), 0.0, 0.0)), d))
+    # quatre mandibules blindées (en X), courbées vers l'axe, croc au bout
+    for k in range(4):
+        a = G.TAU * (k + 0.5) / 4
+        off = (0.0, math.cos(a) * 1.12, math.sin(a) * 0.92)
+        base = G.add(c, G.add(G.mul(off, RF * 0.95), (-0.3, 0.0, 0.0)))
+        dd = G.norm(G.add(d, G.mul(off, -0.32)))
+        nn = G.norm(G.cross(dd, off))
+        lame(lot, M, base, dd, nn, 2.6, 0.75, 1)
+        lot.put(M["os"], pointe(G.add(base, G.mul(dd, 2.3)), G.norm(G.add(dd, G.mul(off, -0.5))), 0.8, 0.14, 4))
+    # arcades : deux plaques épaisses au-dessus de la gueule, yeux cyan, évents latéraux
+    for s_ in (-1, 1):
+        lot.put(M["blind"], plaque((2.1, s_ * 1.85, zc + RF * 0.88), G.norm((0.35, s_ * 0.45, 1.0)), 2.2, 2.6, 0.42, up=(1.0, 0.0, 0.0), coins=0.6))
+        e = (2.5, s_ * RF * 0.98, zc + 1.25)
+        lot.put(M["struct"], G.oriente(G.tour([(-0.2, 0.0), (-0.2, 0.42), (0.12, 0.4)], 10, "z", cap0=True), e, G.norm((0.3, s_ * 1.0, 0.2))))
+        lot.put(M["coeur"], G.sphere(e, 0.27, 10, 5))
+        for j in range(3):
+            x = 0.55 * j
+            lot.put(M["struct"], G.boite((x, s_ * 3.56, zc - 0.2), (0.34, 0.2, 1.2)))
+            lot.put(M["turq"], G.boite((x, s_ * 3.7, zc - 0.2), (0.12, 0.08, 0.9)))
+    # crête : trois lames balayées vers l'arrière sur une échine
+    zt = zc + RF * 0.92
+    lot.put(M["struct"], G.loft([[(x, -0.45, zt - 0.3), (x, 0.45, zt - 0.3), (x, 0.25, zt + 0.25), (x, -0.25, zt + 0.25)] for x in (-1.5, 2.2)], True, True))
+    lot.put(M["conduit"], G.tube([(-1.5, 0.0, zt + 0.28), (2.2, 0.0, zt + 0.28)], 0.08, 5))
+    for x, L in ((1.6, 4.4), (0.4, 5.4), (-0.9, 4.2)):
+        lame(lot, M, (x, 0.0, zt), G.norm((-0.7, 0.0, 1.0)), (0.0, 1.0, 0.0), L, 1.0, 2)
+    # lames pectorales sur le cou, vortex des tempes
+    for s_ in (-1, 1):
+        lame(lot, M, (-1.6, s_ * r, zc - 0.2), G.norm((-0.75, s_ * 1.0, -0.15)), (0.0, 0.0, 1.0), 4.6, 1.0, 2)
+        lunette_vortex(lot, M, (0.9, s_ * 3.25 * 1.12, zc - 0.1), (0.0, float(s_), 0.15), 0.85)
+    flancs(lot, M, xj, -0.5, r * 1.12, dz=dz)
+    if stage >= 2:
+        anneau_magnetique(lot, M, -2.4, r + 1.25, stage, ouvre=ouvre, dz=dz)
+    if stage >= 3:
+        for k in range(8):
+            a = G.TAU * (k + 0.5) / 8
+            off = (0.0, math.cos(a) * 1.12, math.sin(a) * 0.92)
+            lot.put(M["cristal"], pointe(G.add(c, G.add(G.mul(off, RF * 1.12), (-0.1, 0.0, 0.0))), G.norm(G.add(off, (0.25, 0.0, 0.0))), 1.6 if k % 2 else 1.1, 0.22, 5))
+    # salve : les drones sortent de la gueule (un de plus par image)
+    for k in range(n_dr):
+        s_ = 1 if k % 2 == 0 else -1
+        off = G.add(G.add(c, (3.0 + 2.2 * k, 0.0, 0.0)), (0.0, s_ * (1.2 + 0.8 * k), 1.1 * k))
+        lot.xf = (lambda v, o=off: XF0((v[0] * DRONE_K + o[0], v[1] * DRONE_K + o[1], v[2] * DRONE_K + o[2])))
+        drone(lot, M)
+    lot.xf = XF0
+
+
 def build_anime(S, lot, stage, u, attaque):
     """Entrée des titans animés (batch_titans.anime) : la TÊTE seule (LEVIATHAN-SEG), phase de marche ou de salve, sans lacet."""
     M = TM.matieres(S, PREFIX, GRIS)
     lot.xf = XF0
     R.raz()
-    tete_piece(lot, M, stage, u=u if attaque is None else None, attaque=attaque)
+    tete_v2(lot, M, stage, u=u if attaque is None else None, attaque=attaque)
     return {"stage": stage, "pieces": lot.n, "u": u, "attaque": attaque}
 
 
@@ -385,5 +654,5 @@ def build_piece(S, lot, stage, piece):
     M = TM.matieres(S, PREFIX, GRIS)
     lot.xf = XF0
     R.raz()
-    {"segment": segment_piece, "queue": queue_piece}[piece](lot, M, stage)
+    {"segment": segment_v2, "queue": queue_v2}[piece](lot, M, stage)
     return {"stage": stage, "piece": piece, "pieces": lot.n}

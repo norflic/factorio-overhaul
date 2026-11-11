@@ -250,6 +250,27 @@ def allie(a):
 
 
 # ------------------------------------------------------------------------------------------------ animés : Kaiju, Juggernaut
+def gpu_hip(scene):
+    """LEVIATHAN2 (11/11) : FO_GPU=HIP -> Cycles sur le GPU AMD (HIP) ; sinon (défaut) le CPU de setup_render. Repli CPU si aucun
+    périphérique HIP n'est trouvé."""
+    if os.environ.get("FO_GPU", "").upper() != "HIP":
+        return False
+    try:
+        pr = bpy.context.preferences.addons["cycles"].preferences
+        pr.compute_device_type = "HIP"
+        pr.get_devices()
+        devs = [dv for dv in pr.devices if dv.type == "HIP"]
+        for dv in pr.devices:
+            dv.use = dv.type == "HIP"
+        if devs:
+            scene.cycles.device = "GPU"
+            print("[FO-TITAN] GPU HIP : %s" % ", ".join(dv.name for dv in devs), flush=True)
+            return True
+    except Exception as e:  # noqa: BLE001
+        print("[FO-TITAN] GPU HIP indisponible : %s" % e, flush=True)
+    return False
+
+
 def anime(a):
     MOD = __import__(a.what)
     se = MOD.SERIE
@@ -304,13 +325,14 @@ def anime(a):
             H += H % 2
             S.setup_render(scene, W, H, samples=a.samples)
             cy = scene.cycles
+            gpu_hip(scene)
             cy.use_denoising = True
             cy.denoiser = "OPENIMAGEDENOISE"
             cy.denoising_input_passes = "RGB_ALBEDO_NORMAL"
             cy.denoising_prefilter = "ACCURATE"
             S.setup_camera(scene, W, H, center_px=(ox, oy))
             S.setup_world(scene)
-            sun = S.add_sun(scene)
+            sun = S.add_sun(scene, angle=getattr(MOD, "SOLEIL_ANGLE", None))   # LEVIATHAN2 : ombres franches (petit soleil), si le module le dit
             S.add_fill(scene)
             ground = S.add_ground(scene, size=float(se.get("sol", 120.0 if kaiju else 400.0)))
             world = scene.world
