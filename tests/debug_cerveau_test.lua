@@ -61,12 +61,27 @@ local function run_all(Zn, Ec, Am, Lg, Pn, Bl)
   check(r.color == "rouge" and r.cause == "sortie", "rouge : la cause la plus frequente (sortie 3 > courant 1)")
   r = Zn.classify({ state = "fini", machines = { marche = 10 }, lost = 1 })
   check(r.color == "orange" and r.cause == "pieces", "10 sur 10 mais une piece manquante : orange, cause pieces")
+  -- A1 (DBG-COURANT, partie du DC en 0.7.3 : ~15 zones « sans courant » dont toutes les machines tournent) : un bras sans courant n'est pas une
+  -- machine ; « courant » seulement si au moins une MACHINE du module manque d'alimentation (règle du DC, 11/11)
   r = Zn.classify({ state = "fini", machines = { marche = 10 }, aux = { courant = 2 } })
-  check(r.color == "orange" and r.cause == "courant", "bras sans courant : orange, cause courant")
+  check(r.color == "vert" and r.cause == nil, "bras sans courant, 10 machines sur 10 en marche : vert (pas « sans courant »)")
+  r = Zn.classify({ state = "fini", machines = { marche = 1 }, aux = { courant = 5 } })
+  check(r.color == "vert" and #r.top == 0, "1 machine en marche, 5 bras sans courant : vert, aucune cause")
+  r = Zn.classify({ state = "fini", aux = { courant = 3 } })
+  check(r.color == "gris" and r.cause == "non_mesure", "aucune machine, 3 bras sans courant : non mesure (jamais « sans courant »)")
+  do
+    local m = {}
+    for _, s in ipairs({ "working", "working", "working", "working", "working", "working", "working", "no_power", "low_power", "no_power" }) do
+      local c = Zn.cause_of_status(s)
+      m[c] = (m[c] or 0) + 1
+    end
+    r = Zn.classify({ state = "fini", machines = m })
+    check(r.color == "orange" and r.cause == "courant" and r.top[1].n == 3, "3 machines sur 10 sans courant (statuts du moteur) : orange, cause courant")
+  end
   r = Zn.classify({ state = "fini", lost = 3 })
   check(r.color == "orange" and r.cause == "pieces" and r.n == 0, "fini sans machine mesuree mais 3 pieces manquantes : orange (jamais gris silencieux)")
-  r = Zn.classify({ state = "fini", machines = { marche = 1 }, aux = { courant = 5 } })
-  check(r.color == "orange" and r.top[1].cause == "courant" and r.top[1].n == 5, "top : courant 5")
+  r = Zn.classify({ state = "fini", machines = { marche = 1, courant = 5 } })
+  check(r.color == "orange" and r.top[1].cause == "courant" and r.top[1].n == 5, "top : courant 5 (machines)")
 
   section("2. cause principale, departage, statuts")
   r = Zn.classify({ state = "fini", machines = { entree = 2, sortie = 2 } })
@@ -465,7 +480,10 @@ local MUTANTS = {
   { "zone: fini sans mesure vert", "zone", { "return { color = \"gris\", cause = \"non_mesure\", n = 0, top = {} }", "return { color = \"vert\", cause = \"non_mesure\", n = 0, top = {} }" } },
   { "zone: ratio 0 non rouge", "zone", { "if ratio == 0 then return { color = \"rouge\"", "if ratio < 0 then return { color = \"rouge\"" } },
   { "zone: pieces manquantes ignorees", "zone", { "if c == \"pieces\" then n = n + num(lost) end", "" } },
-  { "zone: bras sans courant ignores", "zone", { "if c == \"courant\" then n = n + num(aux and aux.courant) end", "" } },
+  { "zone: bras sans courant comptes en cause", "zone", { "local top = ranked(m, z.lost)", "local mm = {} for k, v in pairs(m or {}) do mm[k] = v end mm.courant = num(mm.courant) + num(z.aux and z.aux.courant) local top = ranked(mm, z.lost)" } },
+  { "zone: bras sans courant degradent", "zone", { "local degraded = num(z.lost) > 0", "local degraded = num(z.lost) + num(z.aux and z.aux.courant) > 0" } },
+  { "zone: machines sans courant ignorees", "zone", { "local top = ranked(m, z.lost)", "local top = ranked(nil, z.lost)" } },
+  { "zone: no_power hors courant", "zone", { "no_power = \"courant\", low_power", "no_power = \"autre\", low_power" } },
   { "zone: departage inverse", "zone", { "return ORDER[a.cause] < ORDER[b.cause]", "return ORDER[a.cause] > ORDER[b.cause]" } },
   { "zone: bloque non orange", "zone", { "if st == \"bloque\" then return { color = \"orange\"", "if st == \"bloque\" then return { color = \"gris\"" } },
   { "zone: statut inconnu = marche", "zone", { "return Zn.STATUS[name] or \"autre\"", "return Zn.STATUS[name] or Zn.RUN" } },
