@@ -27,6 +27,9 @@ graphics/levels/foreuse/*.png
 graphics/levels/centre/*.png
 # Feuilles de jeu du Bourdon (lot BOURDON, même règle) : tools/render/pieces/experimentaux/feuilles.py
 graphics/robots/bourdon/*.png
+# Feuilles du Méga-Bourdon (lot MEGA-BOURDON, 11/11, même règle ; l'icône est suivie) : tools/render/pieces/experimentaux/feuilles_mega.py
+graphics/robots/megabourdon/*.png
+!graphics/robots/megabourdon/icone.png
 # Feuilles de jeu des usines de robots (lot US-V1, même règle) : tools/render/pieces/usines_robots/feuilles.py
 graphics/robots/usines/*.png
 # Feuilles de jeu des robots (lot RB-V1, même règle) : tools/render/pieces/robots/feuilles.py

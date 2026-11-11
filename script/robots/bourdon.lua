@@ -25,6 +25,8 @@ local Ro = require("shared.content.robots") -- lot BOURDON-SORTIE : taille de l'
 local State = require("script.faction.state") -- lot BOURDON-MINEURS : une faction ne sort pas de Bourdon (B.sortie)
 local XpG = require("script.robots.experimentaux_geants") -- règle d'échelle : cible « tout ce qui est ennemi » (lot EXPERIMENTAUX-PUISSANCE)
 local Ech = require("shared.robots.echelle") -- séquelles du Glas : 10 min (QCM-7/11 : « non temporaire mais de 10 minutes »)
+local SPRM = require("graphics.robots.megabourdon.sprites") -- lot MEGA-BOURDON : corps cuirassé, casemates (bouches : SPRM.canons)
+local A = require("shared.content.arsenal") -- lot MEGA-BOURDON : orbe du Bastion, que les casemates tirent à l’âge 15
 -- Traces du Glas : sol balayé et cicatrices des fissures durent Ech.TRACE_GLAS_TICKS ; le sol s'efface sur les 10 dernières secondes, les
 -- cicatrices se referment morceau par morceau sur les 20 dernières (même étalement qu'avant, 70 s et 47 à 67 s).
 local GLAS_FONDU, GLAS_REFERME = 600, 1200
@@ -40,6 +42,8 @@ local COUCHE_AIR = "air-object"
 local COUCHE_DERRIERE = "smoke"   -- chaînes, battant, ancres pendues : derrière la cloche
 local COUCHE_OMBRE = "lower-object"
 local COUCHE_ANCRE = "object"
+local CYAN = { r = 0.5, g = 0.95, b = 1.0, a = 1.0 } -- lot MEGA-BOURDON : teinte des lueurs additives (la feuille est d'un cyan presque blanc, qui sature)
+local COUCHE_TOURELLE = "air-entity-info-icon" -- lot MEGA-BOURDON : les tourelles, devant la cloche (couche juste au-dessus d'« air-object »)
 
 local function nom(k) return "fo-bourdon-" .. k end
 
@@ -47,6 +51,13 @@ local function nom(k) return "fo-bourdon-" .. k end
 local function blanc(v)
   v = v < 0 and 0 or (v > 1 and 1 or v)
   return { r = v, g = v, b = v, a = v }
+end
+
+--- Lot MEGA-BOURDON : nom et feuille d'une couche selon la variante de la cloche b ; le Méga-Bourdon a ses propres corps, vitraux, cristaux,
+--- ombre et lueur cyan (graphics/robots/megabourdon), le reste (battant, chaînes, ancres, Glas) est celui du Bourdon.
+local function spr_de(b, cle)
+  if b and b.v == "mega" and type(SPRM[cle]) == "table" and SPRM[cle].hr then return B.MEGA.NOM .. "-" .. cle, SPRM[cle] end
+  return nom(cle), SPR[cle]
 end
 
 local function dessine(surface, cle, cible, decal, couche, opts)
@@ -67,7 +78,16 @@ local function creer_corps(b)
   local s, e = b.e.surface, b.e
   b.ids = {}
   local function retient(id) b.ids[#b.ids + 1] = id; return id end
-  b.o_ombre = retient(dessine(s, "corps-ombre", e, { SPR["corps-ombre"].shift[1], SPR["corps-ombre"].shift[2] }, COUCHE_OMBRE))
+  local function dessine_v(cle, decal, couche, opts)
+    local n = spr_de(b, cle)
+    local t = opts or {}
+    return rendering.draw_sprite({ sprite = n, surface = s, target = e, target_offset = decal, render_layer = couche, tint = t.tint })
+  end
+  local function sh(cle)
+    local _, f = spr_de(b, cle)
+    return f.shift
+  end
+  b.o_ombre = retient(dessine_v("corps-ombre", { sh("corps-ombre")[1], sh("corps-ombre")[2] }, COUCHE_OMBRE))
   b.ancres = {}
   for i = 1, #B.ANCRES do
     local bx, by = B.bas_chaine(i, 0)
@@ -91,25 +111,56 @@ local function creer_corps(b)
   local sb, sbl = SPR["battant"].shift, SPR["battant-lueur"].shift
   b.o_battant = retient(dessine(s, "battant", e, { sb[1], sb[2] }, COUCHE_DERRIERE))
   b.o_battant_l = retient(dessine(s, "battant-lueur", e, { sbl[1], sbl[2] }, COUCHE_DERRIERE))
-  local sc, sv, sr = SPR["corps"].shift, SPR["vitrail"].shift, SPR["cristal"].shift
-  b.o_corps = retient(dessine(s, "corps", e, { sc[1], sc[2] }, COUCHE_AIR))
+  local sc, sv, sr = sh("corps"), sh("vitrail"), sh("cristal")
+  b.o_corps = retient(dessine_v("corps", { sc[1], sc[2] }, COUCHE_AIR))
   b.o_vit, b.o_cri = {}, {}
   for k = 1, 3 do
-    b.o_vit[k] = retient(dessine(s, "vitrail", e, { sv[1], sv[2] }, COUCHE_AIR, { tint = k == 1 and { r = 1, g = 1, b = 1, a = 1 } or { r = 0, g = 0, b = 0, a = 0 } }))
+    b.o_vit[k] = retient(dessine_v("vitrail", { sv[1], sv[2] }, COUCHE_AIR, { tint = k == 1 and { r = 1, g = 1, b = 1, a = 1 } or { r = 0, g = 0, b = 0, a = 0 } }))
   end
   for k = 1, 3 do
     local c = k == 1 and b.teinte or { r = 0, g = 0, b = 0, a = 0 }
-    b.o_cri[k] = retient(dessine(s, "cristal", e, { sr[1], sr[2] }, COUCHE_AIR, { tint = c }))
+    b.o_cri[k] = retient(dessine_v("cristal", { sr[1], sr[2] }, COUCHE_AIR, { tint = c }))
+  end
+  -- lot MEGA-BOURDON : conduits et cœurs à vortex cyan des casemates, en lueur ; une tourelle par casemate, tournée vers l'extérieur
+  if b.v == "mega" and type(SPRM.vortex) == "table" then
+    local sx = sh("vortex")
+    b.o_vortex = retient(dessine_v("vortex", { sx[1], sx[2] }, COUCHE_AIR, { tint = CYAN }))
+  end
+  if b.v == "mega" and type(SPRM.canons_sol) == "table" then
+    b.tourelles = {}
+    for k, cs in ipairs(SPRM.canons_sol) do
+      local d = B.direction16(cs[1], cs[2] / B.COS45) or 0
+      local t = { d = d, vise = d }
+      local f, fl = SPRM[string.format("tourelle-%02d", d)], SPRM[string.format("tourelle-lueur-%02d", d)]
+      t.main = retient(rendering.draw_sprite({ sprite = B.MEGA.NOM .. string.format("-tourelle-%02d", d), surface = s, target = e,
+        target_offset = { cs[1] + f.shift[1], cs[2] + f.shift[2] }, render_layer = COUCHE_TOURELLE }))
+      t.lueur = retient(rendering.draw_sprite({ sprite = B.MEGA.NOM .. string.format("-tourelle-lueur-%02d", d), surface = s, target = e,
+        target_offset = { cs[1] + fl.shift[1], cs[2] + fl.shift[2] }, render_layer = COUCHE_TOURELLE, tint = CYAN }))
+      b.tourelles[k] = t
+    end
   end
   -- lumière de nuit : la cloche éclaire le sol sous elle
   b.o_lum = retient(rendering.draw_light({ sprite = "utility/light_medium", surface = s, target = e, target_offset = { 0, -12 }, scale = 28, intensity = 0.7, color = OR, minimum_darkness = 0.2 }))
+end
+
+--- Lot MEGA-BOURDON : la tourelle k (feuille de sa direction t.d) sur le pied de son pivot, à la hauteur courante de la cloche (b.dh).
+local function place_tourelle(b, k, t)
+  local cs = SPRM.canons_sol[k]
+  local nm, nl = string.format("tourelle-%02d", t.d), string.format("tourelle-lueur-%02d", t.d)
+  local f, fl = SPRM[nm], SPRM[nl]
+  local d = b.dh or 0
+  rendering.set_sprite(t.main, B.MEGA.NOM .. "-" .. nm)
+  rendering.set_sprite(t.lueur, B.MEGA.NOM .. "-" .. nl)
+  rendering.set_target(t.main, b.e, { cs[1] + f.shift[1], cs[2] + f.shift[2] - d })
+  rendering.set_target(t.lueur, b.e, { cs[1] + fl.shift[1], cs[2] + fl.shift[2] - d })
 end
 
 --- Place tout ce qui suit le corps, d à l'écran au-dessus de la pose (flottement + descente) ; bat_o : angle du battant.
 local function place_corps(b, d, om)
   local e = b.e
   local function p(id, cle)
-    local sh = SPR[cle].shift
+    local _, f = spr_de(b, cle)
+    local sh = f.shift
     rendering.set_target(id, e, { sh[1], sh[2] - d })
   end
   p(b.o_corps, "corps")
@@ -117,8 +168,14 @@ local function place_corps(b, d, om)
     p(b.o_vit[k], "vitrail")
     p(b.o_cri[k], "cristal")
   end
+  if b.o_vortex then p(b.o_vortex, "vortex") end
+  if b.tourelles then
+    b.dh = d
+    for k, t in ipairs(b.tourelles) do place_tourelle(b, k, t) end
+  end
   if om then
-    local sh = SPR["corps-ombre"].shift
+    local _, fo = spr_de(b, "corps-ombre")
+    local sh = fo.shift
     rendering.set_target(b.o_ombre, e, { sh[1] + d * B.OMBRE_PAR_Z / B.COS45, sh[2] })
   end
   local o = b.bat_o or 0
@@ -692,6 +749,61 @@ local function fin_bourdon(b)
   end
 end
 
+-- ---------------------------------------------------------------------------------------- casemates du Méga-Bourdon (lot MEGA-BOURDON)
+local ARME_MEGA -- valeurs pures (B.arme_mega), calculées une fois
+local function arme_mega()
+  if ARME_MEGA == nil then
+    ARME_MEGA = B.arme_mega(A.age_turret(B.MEGA.ARME_AGE), Ech.salve(B.AGE, "laser"), Ech.salve(B.AGE, "explosion")) or false
+  end
+  return ARME_MEGA or nil
+end
+
+--- Chaque tourelle vise l'ennemi le plus proche à portée (XpG.cible : militaire d'abord), tourne d'un cran toutes les B.MEGA.TOURNE ticks par le
+--- plus court chemin (B.pas_tourelle) et tire l'orbe de sa bouche (B.bouche) une fois alignée, en quinconce dans la recharge de l'orbe du Bastion,
+--- jamais en deçà de la portée minimale. Sans cible, elle reste où elle est.
+local function tir_canons(b, tick)
+  local a = arme_mega()
+  local canons, sols = SPRM.canons, SPRM.canons_sol
+  if not (a and b.tourelles and type(canons) == "table" and type(sols) == "table") then return end
+  b.canons_t = b.canons_t or {}
+  local e = b.e
+  local pos = e.position
+  local cible
+  if tick % B.MEGA.TOURNE == b.id % B.MEGA.TOURNE then
+    cible = XpG.cible(e, { range = a.portee })
+    b.cible = cible and cible.valid and cible or nil
+  else
+    cible = b.cible
+  end
+  if cible and not cible.valid then cible, b.cible = nil, nil end
+  for k, t in ipairs(b.tourelles) do
+    local sol = sols[k]
+    if cible then
+      local dx, dy = cible.position.x - (pos.x + sol[1]), cible.position.y - (pos.y + sol[2])
+      t.vise = B.direction16(dx, dy / B.COS45) or t.vise
+      if t.d ~= t.vise and tick % B.MEGA.TOURNE == b.id % B.MEGA.TOURNE then
+        t.d = B.pas_tourelle(t.d, t.vise)
+        place_tourelle(b, k, t)
+      end
+      if not b.canons_t[k] then b.canons_t[k] = tick + B.decalage_canon(k, b.id, a.recharge) end
+      if tick >= b.canons_t[k] and t.d == t.vise then
+        local c = canons[k]
+        local bx, by = B.bouche(t.d)
+        local ox, oy = pos.x + c[1] + bx, pos.y + c[2] + by
+        local ddx, ddy = cible.position.x - ox, cible.position.y - oy
+        if ddx * ddx + ddy * ddy >= a.portee_min * a.portee_min then
+          e.surface.create_entity({ name = B.MEGA.ORBE, position = { ox, oy }, target = cible, source = e, force = e.force, speed = a.vitesse,
+            max_range = a.portee * 2 })
+          rendering.draw_light({ sprite = "utility/light_medium", surface = e.surface, target = { ox, oy }, scale = 4, intensity = 0.9,
+            color = { r = 0.35, g = 0.95, b = 1.0 }, minimum_darkness = 0.0, time_to_live = 12 })
+          b.tirs = (b.tirs or 0) + 1
+        end
+        b.canons_t[k] = tick + a.recharge
+      end
+    end
+  end
+end
+
 local function sur_tick(ev)
   local etat = st()
   if not etat then return end
@@ -707,6 +819,7 @@ local function sur_tick(ev)
     else
       if b.glas then pas_glas(b, b.glas, tick) end
       pas_phase(b, tick)
+      if b.v == "mega" and b.e.valid and b.phase == "pose" then tir_canons(b, tick) end
       if b.e.valid then
         -- attente : la cloche est allée sonner plus loin
         -- lot BOURDON-SORTIE : le Glas en attente part une fois posé, sans vol en attente (ordre reçu pendant la descente) et recharge finie
@@ -754,8 +867,11 @@ Events.on(defines.events.on_tick, sur_tick)
 
 -- ---------------------------------------------------------------------------------------- actions
 --- Fait descendre un Bourdon. Rend le numéro, ou nil.
-function M.descendre(surface, force, x, y)
-  local e = surface.create_entity({ name = B.NOM, position = { x, y }, force = force, create_build_effect_smoke = false })
+function M.descendre(surface, force, x, y, variante)
+  local v = variante or "bourdon"
+  local nom_e = B.nom_de(v)
+  if not nom_e then return nil end
+  local e = surface.create_entity({ name = nom_e, position = { x, y }, force = force, create_build_effect_smoke = false })
   if not e then return nil end
   local etat = st()
   e.color = force.color
@@ -763,7 +879,7 @@ function M.descendre(surface, force, x, y)
   local id = etat.prochain
   etat.prochain = id + 1
   local c = force.color
-  local b = { id = id, e = e, phase = "descente", t0 = game.tick, recharge = 0,
+  local b = { id = id, e = e, v = v, phase = "descente", t0 = game.tick, recharge = 0,
     teinte = { r = 0.5 * OR.r + 0.5 * c.r, g = 0.5 * OR.g + 0.5 * c.g, b = 0.5 * OR.b + 0.5 * c.b, a = 1 },
     rng = { v = (id * 48271 + game.tick) % 2147483647 + 1 } }
   creer_corps(b)
@@ -892,7 +1008,7 @@ function M.compte(force_name)
   local n = 0
   if not etat then return 0 end
   for _, b in ipairs(etat.liste) do
-    if b.e and b.e.valid and b.e.force.name == force_name then n = n + 1 end
+    if b.e and b.e.valid and b.e.force.name == force_name then n = n + B.poids(b.e.name) end -- lot MEGA-BOURDON : le Méga-Bourdon compte double
   end
   return n
 end
@@ -903,14 +1019,16 @@ Armee.hooks.extra_giants = M.compte
 function M.pose_fabrique(relais, player)
   local surface, force, p = relais.surface, relais.force, relais.position
   local x, y = p.x, p.y
+  local v = B.variante_pose(relais.name) or "bourdon"
+  local objet = v == "mega" and B.MEGA.OBJET or B.OBJET
   relais.destroy()
   local id
-  if B.peut_poser({ actif = Armee.enabled(), geants = Armee.giants(force.name), admis = Mo.giants_allowed(Armee.age(force)) }) then
-    id = M.descendre(surface, force, x, y)
+  if B.peut_poser({ actif = Armee.enabled(), geants = Armee.giants(force.name), admis = Mo.giants_allowed(Armee.age(force)), poids = B.poids(B.nom_de(v)) }) then
+    id = M.descendre(surface, force, x, y, v)
   end
   if not id then
-    local rendu = (player and player.valid) and player.insert({ name = B.OBJET, count = 1 }) or 0
-    if rendu < 1 then surface.spill_item_stack({ x, y }, { name = B.OBJET, count = 1 }, true) end
+    local rendu = (player and player.valid) and player.insert({ name = objet, count = 1 }) or 0
+    if rendu < 1 then surface.spill_item_stack({ x, y }, { name = objet, count = 1 }, true) end
     dire(player and player.valid and player or nil, "fo-bourdon.refuse")
     log(string.format("[FO-BOURDON] pose refusee (plafond de geants ou robots eteints) force=%s geants=%d", force.name, Armee.giants(force.name)))
     return nil
@@ -926,21 +1044,21 @@ end
 
 --- Lot BOURDON-SORTIE : balayage d'une usine (script/robots/usine.lua, Armee.hooks.extra_release). Un Bourdon fini en sortie descend au point de
 --- sortie de l'usine si le plafond de géants le permet, puis vole au ralliement `rally` = { x, y }. Rend le nombre de Bourdons sortis (0 ou 1).
-function M.sortie_usine(usine, inv, rally)
-  local n = inv.get_item_count(B.OBJET)
+local function sortie_une(usine, inv, rally, v, objet)
+  local n = inv.get_item_count(objet)
   if n < 1 then return 0 end
   local force = usine.force
   local w = Ro.factory(usine.name)
   if not w then return 0 end
   if not B.sortie({ objets = n, faction = State.by_force(force.name) ~= nil, actif = Armee.enabled(), geants = Armee.giants(force.name),
-    admis = Mo.giants_allowed(Armee.age(force)) }) then
+    admis = Mo.giants_allowed(Armee.age(force)), poids = B.poids(B.nom_de(v)) }) then
     return 0
   end
-  if inv.remove({ name = B.OBJET, count = 1 }) ~= 1 then return 0 end
+  if inv.remove({ name = objet, count = 1 }) ~= 1 then return 0 end
   local o = Mo.out_point(usine.position, w.size)
-  local id = M.descendre(usine.surface, force, o.x, o.y)
+  local id = M.descendre(usine.surface, force, o.x, o.y, v)
   if not id then
-    inv.insert({ name = B.OBJET, count = 1 }) -- rien de perdu : l'objet revient, on réessaiera au balayage suivant
+    inv.insert({ name = objet, count = 1 }) -- rien de perdu : l'objet revient, on réessaiera au balayage suivant
     return 0
   end
   local b = trouve(id)
@@ -949,6 +1067,13 @@ function M.sortie_usine(usine, inv, rally)
     force.name, o.x, o.y, b.ralliement and string.format("(%.1f, %.1f)", b.ralliement.x, b.ralliement.y) or "sur place", Armee.giants(force.name),
     Mo.giants_allowed(Armee.age(force))))
   return 1
+end
+
+--- Lot MEGA-BOURDON : le Bourdon d'abord, puis le Méga-Bourdon (une cloche au plus par balayage).
+function M.sortie_usine(usine, inv, rally)
+  local n = sortie_une(usine, inv, rally, "bourdon", B.OBJET)
+  if n > 0 then return n end
+  return sortie_une(usine, inv, rally, "mega", B.MEGA.OBJET)
 end
 Armee.hooks.extra_release = M.sortie_usine
 
@@ -984,7 +1109,7 @@ end
 
 -- Adaptateur « robot commandable » (script/robots/armee.lua) : l'outil Armée choisit, cercle et commande le Bourdon comme un robot du registre.
 M.commandable = {
-  is = function(e) return e.name == B.NOM and par_numero(e.unit_number) ~= nil end,
+  is = function(e) return B.variante(e.name) ~= nil and par_numero(e.unit_number) ~= nil end,
   entity = function(un)
     local b = par_numero(un)
     return b and b.e or nil
@@ -995,7 +1120,7 @@ Armee.hooks.commandable = M.commandable
 
 local function sur_pose(ev)
   local e = ev.created_entity or ev.entity
-  if not (e and e.valid and e.name == B.POSE) then return end
+  if not (e and e.valid and B.variante_pose(e.name)) then return end
   M.pose_fabrique(e, ev.player_index and game.get_player(ev.player_index) or nil)
 end
 Events.on(defines.events.on_built_entity, sur_pose)
@@ -1011,8 +1136,8 @@ end)
 
 -- Pilotage des bancs : mêmes fonctions que les commandes.
 remote.add_interface("fo-bourdon", {
-  descendre = function(force_nom, x, y, surface_index)
-    return M.descendre(game.surfaces[surface_index or 1], game.forces[force_nom], x, y)
+  descendre = function(force_nom, x, y, surface_index, variante)
+    return M.descendre(game.surfaces[surface_index or 1], game.forces[force_nom], x, y, variante)
   end,
   glas = function(id, x, y)
     local b = trouve(id)
@@ -1041,7 +1166,7 @@ remote.add_interface("fo-bourdon", {
     if not b then return nil end
     local tir = b.dernier or {}
     return { phase = b.phase, x = b.e.position.x, y = b.e.position.y, glas = b.glas and true or false, compte = b.compte or 0, unite = b.e.unit_number,
-      attente = b.attente and true or false,
+      attente = b.attente and true or false, variante = b.v or "bourdon", tirs = b.tirs or 0,
       touches = tir.touches or 0, tues = tir.tues or 0, recharge = b.recharge, sante = b.e.health, ancres = (function()
         local n = 0
         for i = 1, #b.ancres do if b.ancres[i].e >= 1 then n = n + 1 end end

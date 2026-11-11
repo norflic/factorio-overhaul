@@ -3,6 +3,9 @@ Version: 0.6.92
 Date: 2026-11-11
   Graphics:
     - Icônes (F505) : la tôle magnétique, les billettes de fer, de cuivre et de tungstène et la plaque de titane ne copient plus la plaque d'acier teintée ; chacune a sa silhouette rendue en 3D : tôles feuilletées à liserés cyan, lingots moulés gris acier et cuivre orangé, barreau carré sombre fretté, plaques hexagonales polies.
+    - Méga-Bourdon (F517) : corps en acier sombre irisé, vitraux et anneau de lévitation magnétique cyan, ceinture de plaques taillées, casemates à cœur à vortex ; tourelles rendues en 16 directions.
+  Features:
+    - Le Méga-Bourdon (F517) : variante cuirassée du Bourdon, fabriquée au Portique à partir d'un Bourdon (âge 15, compte pour deux géants). Quatre tourelles à canons jumeaux à plasma qui pivotent vers leur cible (16 directions) et tirent l'orbe du Bastion aux dégâts de l'âge 15 ; il garde Le Glas, les ancres et la télécommande.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10

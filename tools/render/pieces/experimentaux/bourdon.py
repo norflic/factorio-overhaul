@@ -62,7 +62,7 @@ def vu(az, m=0.35):
     return math.sin(az) < m
 
 
-def matieres(S):
+def matieres(S, variante="bourdon"):
     def surf(name, col, **kw):
         if GRIS:
             return MT.surface("bo_g_" + name, (0.2, 0.2, 0.2), rough=0.6, met=0.1, usure=0.3, crasse=0.6, graine=kw.get("graine", 0))
@@ -97,6 +97,22 @@ def matieres(S):
     M["cristal"] = MT.lumiere(S, "bo_cristal", (1.0, 0.86, 0.52), 1.5, main=0.35)
     M["halo"] = MT.lumiere(S, "bo_halo", (1.0, 0.82, 0.48), 1.15, main=0.3)
     M["coeur"] = MT.lumiere(S, "bo_battant_c", (1.0, 0.8, 0.42), 1.6, main=0.4)
+    # lot MEGA-BOURDON (11/11) : charte du DC « blindage sombre iridescent, anneaux de lévitation magnétique, cœurs et conduits à vortex cyan »
+    M["blindage"] = surf("blindage", (0.022, 0.03, 0.045), rough=0.26, met=0.88, tole=(2.4, 1.6), joint=0.42, joint_l=0.018, var=0.2, usure=0.35,
+                         nu=(0.3, 0.36, 0.48), crasse=0.45, crasse_col=(0.003, 0.004, 0.006), relief=0.55, graine=21)
+    M["blindage2"] = surf("blindage2", (0.035, 0.022, 0.05), rough=0.26, met=0.88, tole=(2.4, 1.6), joint=0.42, joint_l=0.018, var=0.2, usure=0.35,
+                          nu=(0.4, 0.3, 0.5), crasse=0.45, crasse_col=(0.004, 0.003, 0.006), relief=0.55, graine=22)
+    M["canon"] = surf("canon", (0.03, 0.032, 0.036), rough=0.32, met=0.92, usure=0.5, nu=(0.42, 0.44, 0.48), crasse=0.6, crasse_col=(0.004, 0.004, 0.004), graine=23)
+    M["aimant"] = surf("aimant", (0.016, 0.02, 0.028), rough=0.3, met=0.85, tole=(1.2, 0.5), joint=0.5, joint_l=0.02, var=0.15, usure=0.3,
+                       nu=(0.25, 0.3, 0.38), crasse=0.4, crasse_col=(0.003, 0.003, 0.004), graine=24)
+    M["vortex"] = MT.lumiere(S, "bo_vortex", (0.3, 0.92, 1.0), 2.2, main=0.45)
+    if variante == "mega" or variante.startswith("tourelle-"):
+        M["bronze"] = surf("mg_corps", (0.03, 0.036, 0.05), rough=0.3, met=0.85, tole=(3.1, 2.1), joint=0.45, joint_l=0.012, var=0.18, coulures=0.4,
+                           rouille=(0.02, 0.05, 0.07), usure=0.4, nu=(0.32, 0.38, 0.5), crasse=0.6, crasse_col=(0.003, 0.004, 0.006), relief=0.5, graine=31)
+        M["bronze2"] = surf("mg_corps2", (0.04, 0.026, 0.055), rough=0.32, met=0.85, coulures=0.35, usure=0.45, nu=(0.36, 0.3, 0.48), crasse=0.6,
+                            crasse_col=(0.003, 0.003, 0.005), graine=32)
+        M["vitrail"] = S.mat_emissive("bo_vitrail_mega", (0.25, 0.85, 1.0), strength=1.1, base=(0.01, 0.05, 0.07), main_scale=0.3, crust=(3.0, 0.45, 2))
+        M["hublot"] = MT.lumiere(S, "bo_vitrail_h_mega", (0.35, 0.9, 1.0), 1.05, main=0.25)
     return M
 
 
@@ -502,8 +518,156 @@ def battant(lot, M):
     lot.put(M["or"], G.tour([(0.8, 0.0), (1.3, 0.3), (2.1, 1.0)], 20, "z"))
 
 
+# ------------------------------------------------------------------------------------------------ le Méga-Bourdon (lot MEGA-BOURDON, 11/11)
+# La même cloche (même lèvre : les 6 chaînes et ancres du Bourdon s'y attachent), cuirassée : corps en acier sombre irisé, vitraux cyan,
+# ceinture de plaques taillées sur la faussure, épaulières, anneau de lévitation magnétique sous la lèvre, et 4 casemates en arc avant.
+# Sur chaque casemate, une TOURELLE lourde (canons jumeaux à plasma, cœur à vortex cyan) rendue À PART en 16 directions (variantes
+# « tourelle-00 » à « tourelle-15 ») : en jeu elle pivote vers sa cible (script/robots/bourdon.lua). Le lot de rendu projette les pivots
+# (MEGA_PIVOTS) dans render.json : « canons » (pivot à l'écran, d'où partent les orbes) et « canons_sol » (le point du sol sous le pivot,
+# origine des feuilles de tourelle), en tuiles depuis la position au sol de la cloche.
+MEGA_CANONS = [-math.pi * 0.92, -math.pi * 0.64, -math.pi * 0.36, -math.pi * 0.08]
+Z_CASEMATE = Z_LEVRE + 9.0
+H_CAISSON = 2.6
+MEGA_PIVOTS = []
+N_DIR_TOURELLE = 16
+
+
+def _quad(verts, faces, uvs, a, b, c, d):
+    base = len(verts)
+    verts += [a, b, c, d]
+    uvs += [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    faces.append((base, base + 1, base + 2, base + 3))
+
+
+def plaque(az0, az1, z0, z1, d0, ep, biseau):
+    """Plaque taillée posée sur la cloche, d'az0 à az1 et de z0 à z1, à d0 de la surface, épaisse de ep ; sa face extérieure est rentrée de
+    biseau (en fraction) : arêtes chanfreinées, aspect taillé."""
+    i00, i10, i11, i01 = S_pt(az0, z0, d0), S_pt(az1, z0, d0), S_pt(az1, z1, d0), S_pt(az0, z1, d0)
+    da, dz = (az1 - az0) * biseau, (z1 - z0) * biseau
+    o00, o10 = S_pt(az0 + da, z0 + dz, d0 + ep), S_pt(az1 - da, z0 + dz, d0 + ep)
+    o11, o01 = S_pt(az1 - da, z1 - dz * 0.6, d0 + ep * 0.8), S_pt(az0 + da, z1 - dz * 0.6, d0 + ep * 0.8)
+    v, f, u = [], [], []
+    _quad(v, f, u, o00, o10, o11, o01)
+    _quad(v, f, u, i01, i11, i10, i00)
+    _quad(v, f, u, i00, i10, o10, o00)
+    _quad(v, f, u, i10, i11, o11, o10)
+    _quad(v, f, u, i11, i01, o01, o11)
+    _quad(v, f, u, i01, i00, o00, o01)
+    return v, f, u
+
+
+def blindage(lot, M):
+    """Ceinture de 24 plaques sur la faussure, en deux rangs décalés, et une épaulière au-dessus de chaque casemate."""
+    n = 24
+    for rang, (z0, z1, dec) in enumerate(((Z_LEVRE + 1.5, Z_LEVRE + 4.4, 0.0), (Z_LEVRE + 4.0, Z_LEVRE + 7.2, 0.5))):
+        for k in range(n):
+            a0 = G.TAU * (k + dec) / n + 0.012
+            a1 = G.TAU * (k + 1 + dec) / n - 0.012
+            if not vu((a0 + a1) / 2, 0.75):
+                continue
+            m = M["blindage"] if (k + rang) % 2 == 0 else M["blindage2"]
+            lot.put(m, plaque(a0, a1, z0, z1, 0.15 + 0.2 * rang, 0.55, 0.12))
+    for az in MEGA_CANONS:
+        lot.put(M["blindage2"], plaque(az - 0.3, az + 0.3, Z_CASEMATE + 4.2, Z_CASEMATE + 8.2, 0.25, 0.85, 0.16))
+
+
+def pivot(az):
+    """Pivot d'une tourelle (monde) : sur le toit du caisson de la casemate d'azimut az."""
+    ca, sa = math.cos(az), math.sin(az)
+    r0 = rz(Z_CASEMATE)
+    return (r0 * ca + ca * 1.7, r0 * sa + sa * 1.7, Z_CASEMATE + H_CAISSON)
+
+
+def casemate(lot, M, az):
+    """Casemate fixe : caisson anguleux en console sur l'épaule (il porte la tourelle), cœur à vortex sur sa face, conduits cyan jusqu'à la lèvre."""
+    ca, sa = math.cos(az), math.sin(az)
+    n = (ca, sa, 0.0)
+    zc = Z_CASEMATE
+    r0 = rz(zc)
+    c = (r0 * ca, r0 * sa, zc)
+    # caisson : bloc taillé de 4 × 4,2 tuiles, assis sur la cloche, toit plat où pivote la tourelle
+    pv = pivot(az)
+    poly = [(-2.0, -1.6), (2.0, -1.6), (2.3, 0.6), (1.3, 2.1), (-1.3, 2.1), (-2.3, 0.6)]
+    v, f, u = G.prisme(poly, 0.0, H_CAISSON, top_scale=0.86)
+    v = [(q[0], q[1], q[2]) for q in v]
+    # repère du caisson : son +y local vers l'extérieur (normale), +x tangent ; posé au pied du pivot
+    t = (-sa, ca, 0.0)
+    v = [G.add((pv[0], pv[1], zc), G.add(G.mul(t, -q[0]), G.add(G.mul(n, q[1]), (0.0, 0.0, q[2])))) for q in v]
+    lot.put(M["blindage"], (v, f, u))
+    # console sous le caisson, jusqu'à la cloche
+    lot.put(M["aimant"], G.oriente(G.prisme(R.octo((0.0, 0.0), 1.3, 6), 0.0, 2.2, top_scale=0.7), G.add(c, (0.0, 0.0, -1.6)), G.norm((ca, sa, 0.6))))
+    # cœur à vortex sur la face extérieure du caisson
+    face = G.add((pv[0], pv[1], zc + H_CAISSON * 0.45), G.mul(n, 2.05))
+    lot.put(M["aimant"], G.oriente(G.tour([(0.0, 0.45), (0.0, 0.95), (0.3, 0.95), (0.3, 0.45), (0.0, 0.45)], 24, "z"), face, n))
+    lot.put(M["vortex"], G.oriente(G.tour([(0.06, 0.55), (0.06, 0.85), (0.26, 0.85), (0.26, 0.55), (0.06, 0.55)], 24, "z"), G.add(face, G.mul(n, 0.02)), n))
+    lot.put(M["vortex"], G.oriente(G.sphere((0.0, 0.0, 0.0), 0.32, 12, 6), G.add(face, G.mul(n, 0.12)), n))
+    # conduits cyan de la casemate à la lèvre
+    for k in (-1, 1):
+        a = az + 0.12 * k
+        pts = [S_pt(a, z, 0.32) for z in (zc - 0.4, zc - 2.5, zc - 4.5, zc - 6.5, Z_LEVRE + 1.3)]
+        lot.put(M["vortex"], G.tube(pts, 0.12, 8))
+        lot.put(M["aimant"], G.tube([S_pt(a, z, 0.2) for z in (zc - 0.4, zc - 2.5, zc - 4.5, zc - 6.5, Z_LEVRE + 1.3)], 0.22, 8))
+
+
+def anneau_magnetique(lot, M):
+    """Anneau de lévitation magnétique sous la lèvre : 18 voussoirs sombres cerclés d'un liseré cyan sur leur tranche extérieure."""
+    zc = Z_LEVRE - 3.4
+    for i in range(18):
+        a0 = G.TAU * i / 18.0 + 0.02
+        a1 = a0 + G.TAU / 18.0 - 0.05
+        lot.put(M["aimant"], G.tour([(zc - 0.55, 15.6), (zc - 0.55, 17.1), (zc + 0.55, 17.1), (zc + 0.55, 15.6), (zc - 0.55, 15.6)], 10, "z", a0=a0, a1=a1))
+        lot.put(M["vortex"], G.tour([(zc - 0.14, 17.12), (zc + 0.14, 17.12)], 10, "z", a0=a0 + 0.03, a1=a1 - 0.03))
+        lot.put(M["vortex"], G.tour([(zc + 0.56, 16.1), (zc + 0.56, 16.6)], 10, "z", a0=a0 + 0.05, a1=a1 - 0.05))
+
+
+def tourelle(lot, M, k):
+    """Tourelle lourde, direction k sur 16 (0 = nord, sens des aiguilles ; monde : +y nord, +x est) : masque taillé, canons jumeaux à plasma
+    légèrement plongeants, frettes et bouches cyan, cœur à vortex sur la culasse. Posée au-dessus de l'origine, à la hauteur d'un pivot (le
+    jeu la place sur le pivot de sa casemate : feuilles_mega.py, « canons_sol »)."""
+    th = G.TAU * k / float(N_DIR_TOURELLE)
+    h = Z_CASEMATE + H_CAISSON
+
+    def xf(q):
+        p = G.rot_z(q, -th)
+        return (p[0], p[1], p[2] + h)
+
+    # embase tournante
+    lot.put(M["aimant"], G.tour([(0.0, 1.55), (0.35, 1.55), (0.45, 1.35), (0.45, 0.0)], 32, "z", cap1=True), xf)
+    lot.put(M["vortex"], G.tour([(0.12, 1.57), (0.24, 1.57)], 32, "z"), xf)
+    # masque taillé : prisme en coin, nez vers +y
+    poly = [(-1.5, -1.6), (1.5, -1.6), (1.7, 0.2), (0.9, 1.9), (-0.9, 1.9), (-1.7, 0.2)]
+    v, f, u = G.prisme(poly, 0.45, 2.0, top_scale=0.7, top_shift=(0.0, -0.25))
+    lot.put(M["blindage"], (v, f, u), xf)
+    lot.put(M["blindage2"], G.boite((0.0, -1.2, 2.15), (2.0, 1.2, 0.35)), xf)
+    # cœur à vortex sur la culasse (arrière, vers -y)
+    lot.put(M["aimant"], G.oriente(G.tour([(0.0, 0.35), (0.0, 0.8), (0.25, 0.8), (0.25, 0.35), (0.0, 0.35)], 24, "z"), (0.0, -1.65, 1.25), (0.0, -1.0, 0.0)), xf)
+    lot.put(M["vortex"], G.oriente(G.tour([(0.04, 0.45), (0.04, 0.72), (0.2, 0.72), (0.2, 0.45), (0.04, 0.45)], 24, "z"), (0.0, -1.67, 1.25), (0.0, -1.0, 0.0)), xf)
+    # canons jumeaux, plongée de 12°
+    d = G.norm((0.0, 0.978, -0.208))
+    for sx in (-0.62, 0.62):
+        o = (sx, 1.4, 1.25)
+        lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.42), (1.2, 0.42), (1.3, 0.36), (5.6, 0.32)], 18, "z", cap0=True, cap1=True), o, d), xf)
+        for z0 in (1.6, 3.0, 4.4):
+            lot.put(M["aimant"], G.oriente(G.tour([(z0, 0.44), (z0 + 0.3, 0.44)], 18, "z", cap0=True, cap1=True), o, d), xf)
+            lot.put(M["vortex"], G.oriente(G.tour([(z0 + 0.1, 0.455), (z0 + 0.2, 0.455)], 18, "z"), o, d), xf)
+        lot.put(M["canon"], G.oriente(G.tour([(5.3, 0.5), (6.2, 0.5)], 18, "z", cap0=True, cap1=True), o, d), xf)
+        lot.put(M["vortex"], G.oriente(G.tour([(6.18, 0.24), (6.24, 0.24)], 14, "z", cap0=True, cap1=True), o, d), xf)
+
+
+def mega(lot, M):
+    del MEGA_PIVOTS[:]
+    blindage(lot, M)
+    for az in MEGA_CANONS:
+        casemate(lot, M, az)
+        MEGA_PIVOTS.append(pivot(az))
+    anneau_magnetique(lot, M)
+
+
 def build(S, lot, variante="bourdon"):
-    M = matieres(S)
+    M = matieres(S, variante)
+    if variante.startswith("tourelle-"):
+        tourelle(lot, M, int(variante.split("-")[1]))
+        return {}
     r = G.Rnd(1515)
     R.raz()
     if variante == "battant":
@@ -527,9 +691,11 @@ def build(S, lot, variante="bourdon"):
     terrasse_couronne(lot, M, r)
     arcs_boutants(lot, M, r)
     levre(lot, M, r)
-    if variante == "corps":
+    if variante in ("corps", "mega"):
         manilles(lot, M)
-    else:
+    if variante == "mega":
+        mega(lot, M)
+    if variante not in ("corps", "mega"):
         chaines(lot, M, r)
     rochers(lot, M, r)
     return dict(R.COMPTE)

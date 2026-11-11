@@ -1,0 +1,456 @@
+{
+ "arguments": [],
+ "commande": "py -3.9 tools/render/pieces/experimentaux/feuilles_mega.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_MEGA-BOURDON/rendu et cache/mega/render.json, à GARDER)",
+ "fichiers": {
+  "corps-ombre.png": {
+   "hauteur": 215,
+   "largeur": 558,
+   "sha256": "ed0d9a8228e4e664ddf1dddf455984f49c2c1a749f112cad3fbf17f943ee4a8a",
+   "taille": 56072
+  },
+  "corps.png": {
+   "hauteur": 851,
+   "largeur": 606,
+   "sha256": "d8a9873f3514d961cb99b10e1ca18221eabbff6d9c288df5dc2dfa6e525682c0",
+   "taille": 670950
+  },
+  "cristal.png": {
+   "hauteur": 850,
+   "largeur": 605,
+   "sha256": "772e2b8c7937a951165216ee4cc7a75a3f0cd138d663d8d0f8eec5e5ac483f9d",
+   "taille": 299376
+  },
+  "hr-corps-ombre.png": {
+   "hauteur": 430,
+   "largeur": 1116,
+   "sha256": "19b5513a16cd4981536f66398606a450bb5a325f2b00b3e6be9bfddcb9715bd2",
+   "taille": 183583
+  },
+  "hr-corps.png": {
+   "hauteur": 2128,
+   "largeur": 1514,
+   "sha256": "4b224e0a92fd6bc9524fb26a22095f977add7a12dbe7b864bec8d84961df0772",
+   "taille": 3074114
+  },
+  "hr-cristal.png": {
+   "hauteur": 2126,
+   "largeur": 1512,
+   "sha256": "568a1912e7d240b75d1c85d2d18b8f0fbe2b925fa6c873f1fb62391c6c063531",
+   "taille": 247222
+  },
+  "hr-tourelle-00.png": {
+   "hauteur": 272,
+   "largeur": 138,
+   "sha256": "57275064e5e7547e85cb1a0e21c94e5a915b20d860b70608c20eaee4860a8a4b",
+   "taille": 48643
+  },
+  "hr-tourelle-01.png": {
+   "hauteur": 266,
+   "largeur": 238,
+   "sha256": "01382ac66b349c0573f2f97c5c1d68f1c036c80a46bf24196e5620ac2c7054f6",
+   "taille": 55521
+  },
+  "hr-tourelle-02.png": {
+   "hauteur": 231,
+   "largeur": 333,
+   "sha256": "e174ddaef6785752dcab3d13a81821b69f9285b3138001459040f15e1c45fe22",
+   "taille": 60849
+  },
+  "hr-tourelle-03.png": {
+   "hauteur": 162,
+   "largeur": 379,
+   "sha256": "1db69ce7d971af923b7fed1ff5b09df41e8dff81fff10b1845a7e1160030132b",
+   "taille": 60554
+  },
+  "hr-tourelle-04.png": {
+   "hauteur": 140,
+   "largeur": 381,
+   "sha256": "4539822d734f43789b346e14ce6b92c69e9356353cc54cc182547ae6fac3aa6b",
+   "taille": 58655
+  },
+  "hr-tourelle-05.png": {
+   "hauteur": 230,
+   "largeur": 379,
+   "sha256": "b8eac73bcccca0cca48d6bd3d038c65c29acf915ba81c947dbfa46f6837e52c6",
+   "taille": 66889
+  },
+  "hr-tourelle-06.png": {
+   "hauteur": 302,
+   "largeur": 333,
+   "sha256": "ac2e4f64d298039bbffbc7c467ae9c1cee19d55e65685d03542d54d3100f5b77",
+   "taille": 71944
+  },
+  "hr-tourelle-07.png": {
+   "hauteur": 341,
+   "largeur": 238,
+   "sha256": "88a8598d2aa30e7f1236750c8b650d8c290fc63375d2c0b23839dc6686333bfc",
+   "taille": 68416
+  },
+  "hr-tourelle-08.png": {
+   "hauteur": 343,
+   "largeur": 138,
+   "sha256": "c4ee3440360b8d431928d57da8887d495df99bc79ccd7ed43e02cd4486c2bd99",
+   "taille": 58506
+  },
+  "hr-tourelle-09.png": {
+   "hauteur": 341,
+   "largeur": 238,
+   "sha256": "ca086647647dcbb95e1ccff8e2a7e97c985dc8b0117671f906f3c2d155b1f23f",
+   "taille": 65953
+  },
+  "hr-tourelle-10.png": {
+   "hauteur": 302,
+   "largeur": 332,
+   "sha256": "042e799f092e16774c660b94fba294a41500bb7fd824796f3d6c04b6cd75953f",
+   "taille": 71932
+  },
+  "hr-tourelle-11.png": {
+   "hauteur": 230,
+   "largeur": 379,
+   "sha256": "721597a6aa98b78d04289908a3f57cb540d9833e2b2e300b768c5e79d94a6cc3",
+   "taille": 67689
+  },
+  "hr-tourelle-12.png": {
+   "hauteur": 140,
+   "largeur": 381,
+   "sha256": "92f6da55b9993a1c7bba443b58d3bd75618a813d4e25f2a5ea941769744beced",
+   "taille": 61981
+  },
+  "hr-tourelle-13.png": {
+   "hauteur": 161,
+   "largeur": 379,
+   "sha256": "9e9665ffc9ac05c3ffe68e06b8b661a4b42303180122622283ed20b80de6989a",
+   "taille": 64337
+  },
+  "hr-tourelle-14.png": {
+   "hauteur": 231,
+   "largeur": 333,
+   "sha256": "25f06dbbef8a17f0fbaaca3b8dcf829de4f43111b188097361297fd13ed65389",
+   "taille": 62637
+  },
+  "hr-tourelle-15.png": {
+   "hauteur": 266,
+   "largeur": 238,
+   "sha256": "1d690ab7a50cf8e1d8b9ae960c4a1c1911d5e37a8846a5bd6505ca63b4d90a2c",
+   "taille": 55295
+  },
+  "hr-tourelle-lueur-00.png": {
+   "hauteur": 267,
+   "largeur": 88,
+   "sha256": "2172ec78e4fad03e46e576b334bc0535898d1d3eac7c116bde904b2aa0af6d70",
+   "taille": 7573
+  },
+  "hr-tourelle-lueur-01.png": {
+   "hauteur": 257,
+   "largeur": 193,
+   "sha256": "774a02cd010f7e1b3443c73effeebcac1b70454ef8a3f68743dadc1d7084e90b",
+   "taille": 9211
+  },
+  "hr-tourelle-lueur-02.png": {
+   "hauteur": 212,
+   "largeur": 262,
+   "sha256": "8d7a526d7f6e795965ef3a0ffba8cd2d3d5caa05f491b9e24f48d0b9325ed3eb",
+   "taille": 9901
+  },
+  "hr-tourelle-lueur-03.png": {
+   "hauteur": 152,
+   "largeur": 351,
+   "sha256": "06059129ba74f8ec98bb7b2fe3da378901bfaec7957d79028beab2f439751216",
+   "taille": 11023
+  },
+  "hr-tourelle-lueur-04.png": {
+   "hauteur": 112,
+   "largeur": 378,
+   "sha256": "76a23badf505ba84224f9440e6931cab49ca0984c03a68f393ad07b069a558d1",
+   "taille": 10984
+  },
+  "hr-tourelle-lueur-05.png": {
+   "hauteur": 166,
+   "largeur": 348,
+   "sha256": "573189fac833dd63fc94277bb78aaf11e5b517d3bc6727abce8490b1a4023b19",
+   "taille": 12047
+  },
+  "hr-tourelle-lueur-06.png": {
+   "hauteur": 216,
+   "largeur": 303,
+   "sha256": "d55b6c1e1c6f4cb50c96d7b848d95c29bfbcfb1c2cc271e62c59cba962b29f6d",
+   "taille": 12657
+  },
+  "hr-tourelle-lueur-07.png": {
+   "hauteur": 246,
+   "largeur": 215,
+   "sha256": "9dbed3c742887048fbab3351b829d52006418c763d9cc8e2c9c9a0f4b8f4f21e",
+   "taille": 12073
+  },
+  "hr-tourelle-lueur-08.png": {
+   "hauteur": 280,
+   "largeur": 126,
+   "sha256": "254c1760578e27dd342b223174c8ee71ae30bf77ee654db7c4d477755d4c23a5",
+   "taille": 11171
+  },
+  "hr-tourelle-lueur-09.png": {
+   "hauteur": 273,
+   "largeur": 226,
+   "sha256": "2e3eeeb131b37265f645747682a01f3f581746fc3bf927e769cb488ad5983ed2",
+   "taille": 12318
+  },
+  "hr-tourelle-lueur-10.png": {
+   "hauteur": 218,
+   "largeur": 303,
+   "sha256": "ccc97bdf986bdd782dc8a9ec9ba8d09f75445966b8f88a0b0b68c127f3e88397",
+   "taille": 12567
+  },
+  "hr-tourelle-lueur-11.png": {
+   "hauteur": 172,
+   "largeur": 347,
+   "sha256": "b8dea306a4555fc4542bdf8d7f8b8b5ad1f416d2e7322c78ebb717916e28c237",
+   "taille": 11775
+  },
+  "hr-tourelle-lueur-12.png": {
+   "hauteur": 115,
+   "largeur": 378,
+   "sha256": "b1b0e68f39dd994a3f71dbc9a9628fd506a223b5ff28eb9fee4629fc84b76080",
+   "taille": 11437
+  },
+  "hr-tourelle-lueur-13.png": {
+   "hauteur": 151,
+   "largeur": 324,
+   "sha256": "e7db1ce3d43800c56297d0f9a2b64b5e6aeea956b7498915971bfa018b3ef473",
+   "taille": 10674
+  },
+  "hr-tourelle-lueur-14.png": {
+   "hauteur": 214,
+   "largeur": 270,
+   "sha256": "305cdb68cb1aa4f4c81adb324b59cf67bfb7808586da96c1d98d3ea61cc42253",
+   "taille": 10064
+  },
+  "hr-tourelle-lueur-15.png": {
+   "hauteur": 255,
+   "largeur": 196,
+   "sha256": "6c34ee22e6dc340002ed78c4322442b944327fae919b920af83feda182276848",
+   "taille": 8817
+  },
+  "hr-vitrail.png": {
+   "hauteur": 2031,
+   "largeur": 1441,
+   "sha256": "b8b26dff7c0c957971a5380417fe3598a17aed977da9b2e3f81005f3a45a4524",
+   "taille": 468028
+  },
+  "hr-vortex.png": {
+   "hauteur": 1953,
+   "largeur": 1511,
+   "sha256": "3929a6fc2b4655d5950de15a05bfda97b52c3440c243c58fa2a2af41760e488d",
+   "taille": 181607
+  },
+  "icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "3db63241637fef9c1d513140c3f2fd4f608d5c37db87da5a49b45b12dc3338d0",
+   "taille": 12673
+  },
+  "tourelle-00.png": {
+   "hauteur": 109,
+   "largeur": 55,
+   "sha256": "fd3846741b4f86a22e48a725dfd6acdac9e6d70d16b8055d9aa51d32cd944777",
+   "taille": 12699
+  },
+  "tourelle-01.png": {
+   "hauteur": 106,
+   "largeur": 95,
+   "sha256": "59535cf106693579bae06ea4962560d406acbd2571b12ae5a61535d4aecbf56a",
+   "taille": 15243
+  },
+  "tourelle-02.png": {
+   "hauteur": 92,
+   "largeur": 133,
+   "sha256": "07da29dd56b5056d56973f4a90a9e14258715b58887f7e36f54fed69fbd997fe",
+   "taille": 16490
+  },
+  "tourelle-03.png": {
+   "hauteur": 65,
+   "largeur": 152,
+   "sha256": "6fded1de3b11acdf3ae56fcc00b9f7628d9ff136150a1f3c4ee0b706018ddd71",
+   "taille": 15583
+  },
+  "tourelle-04.png": {
+   "hauteur": 56,
+   "largeur": 152,
+   "sha256": "1eac9645d7426735f1db5b00d1ea15f3224b194e8e2002de1ca3ca118c4b3764",
+   "taille": 14807
+  },
+  "tourelle-05.png": {
+   "hauteur": 92,
+   "largeur": 152,
+   "sha256": "321f93833469982ed23d3a827d52893bed6190b0f8e8c3aa2202951c7ab55f42",
+   "taille": 18379
+  },
+  "tourelle-06.png": {
+   "hauteur": 121,
+   "largeur": 133,
+   "sha256": "6a5c85eadc8a8460914a4be093a81c9364c91c6c89fd7fbeb78b7f0931776df6",
+   "taille": 20317
+  },
+  "tourelle-07.png": {
+   "hauteur": 136,
+   "largeur": 95,
+   "sha256": "641bfe2b6f4446b759a140f0cbfcdaecfe0e2dee22a0bf14176281f8a9339d84",
+   "taille": 19045
+  },
+  "tourelle-08.png": {
+   "hauteur": 137,
+   "largeur": 55,
+   "sha256": "14c1173c814ad56d37c1318891f3fa3fc9e80cde77bc9ffe2886a3950b3ea2ee",
+   "taille": 15216
+  },
+  "tourelle-09.png": {
+   "hauteur": 136,
+   "largeur": 95,
+   "sha256": "ad4f249c1b31f00de81e6791be35d1a5aa1963872d4419b5551b55e3fef1b18f",
+   "taille": 18661
+  },
+  "tourelle-10.png": {
+   "hauteur": 121,
+   "largeur": 133,
+   "sha256": "9dd62be7e85619c8e7f42c165c4fd6f2bafa0d18c09a759777f637050ef70124",
+   "taille": 20176
+  },
+  "tourelle-11.png": {
+   "hauteur": 92,
+   "largeur": 152,
+   "sha256": "910eca54aeb8f8adf67b54520043ce1d7141f628a7a8dd270536fb478a27bd40",
+   "taille": 18491
+  },
+  "tourelle-12.png": {
+   "hauteur": 56,
+   "largeur": 152,
+   "sha256": "9d1fa2ad6174bff986e4a2e436fd5825989c2163695ef6480bb69fb66db81549",
+   "taille": 15392
+  },
+  "tourelle-13.png": {
+   "hauteur": 64,
+   "largeur": 152,
+   "sha256": "77f695e7bf6aaff74e07523134e90dc9b3e84c8427a6e2fb5c272982b1872b40",
+   "taille": 16082
+  },
+  "tourelle-14.png": {
+   "hauteur": 92,
+   "largeur": 133,
+   "sha256": "8dc2f62e22e7e7cd512f96f90d6f99e6e30048bbb8359c47f9f84ff1bdb50cd5",
+   "taille": 16788
+  },
+  "tourelle-15.png": {
+   "hauteur": 106,
+   "largeur": 95,
+   "sha256": "f5e6d9384558860491f763c7e2c4eeb322b073ddea3458cd7eef699ced4c7f3b",
+   "taille": 15309
+  },
+  "tourelle-lueur-00.png": {
+   "hauteur": 107,
+   "largeur": 35,
+   "sha256": "0fe4c80701c90f4358a10d38150b6cc0aa29d8725fe45a5e0611ac23b430ccda",
+   "taille": 5161
+  },
+  "tourelle-lueur-01.png": {
+   "hauteur": 103,
+   "largeur": 77,
+   "sha256": "31aaf87c4fd31386ed61744c875d8449716cb8e2822453769b7b0f459dfc32b7",
+   "taille": 6883
+  },
+  "tourelle-lueur-02.png": {
+   "hauteur": 85,
+   "largeur": 105,
+   "sha256": "c7cc05fffab35de904227d35c7e1e865ec61f9c035ced511ffa768dd3d2d118e",
+   "taille": 7257
+  },
+  "tourelle-lueur-03.png": {
+   "hauteur": 61,
+   "largeur": 140,
+   "sha256": "d8f6c92b8cb764c0cd6bb273dc751552d0bf2782419a0959f14b154ed6aae526",
+   "taille": 7800
+  },
+  "tourelle-lueur-04.png": {
+   "hauteur": 45,
+   "largeur": 151,
+   "sha256": "d153ad91d0b3591164940c597149918750cb3a8b65b11d921b3ee0aa714aac79",
+   "taille": 8301
+  },
+  "tourelle-lueur-05.png": {
+   "hauteur": 66,
+   "largeur": 139,
+   "sha256": "3edb7c57adf6368cc1c3893aaf9e6f12253b5e3032dd117e149ef11410c638b7",
+   "taille": 8110
+  },
+  "tourelle-lueur-06.png": {
+   "hauteur": 86,
+   "largeur": 121,
+   "sha256": "0feac53772ab4a97da3e373940371c8165d7f6db5998723bfa8a5f54cb5f4a57",
+   "taille": 8589
+  },
+  "tourelle-lueur-07.png": {
+   "hauteur": 98,
+   "largeur": 86,
+   "sha256": "62f175837d710b6f0558c527b2996a084666cb66a920df70ea2ac7e0315921c7",
+   "taille": 8573
+  },
+  "tourelle-lueur-08.png": {
+   "hauteur": 112,
+   "largeur": 50,
+   "sha256": "1e9c95614cde942ea9101b5d4564923e3b55ce38e12a8f7b2802c7ebc3a1745a",
+   "taille": 8395
+  },
+  "tourelle-lueur-09.png": {
+   "hauteur": 109,
+   "largeur": 90,
+   "sha256": "de7b9a8c7c497aad2812ac45eca1e1a8e275860eb19e83c939205ec4250a7fe8",
+   "taille": 8547
+  },
+  "tourelle-lueur-10.png": {
+   "hauteur": 87,
+   "largeur": 121,
+   "sha256": "b7f87e5048a602b3e3c41c3ea32996005ddf45f6292af8ff88f77bfa55243bf5",
+   "taille": 8255
+  },
+  "tourelle-lueur-11.png": {
+   "hauteur": 69,
+   "largeur": 139,
+   "sha256": "d5bbd3338b95364c05600b279c065aa43388bf096d323903581a0bc2c3ce7e86",
+   "taille": 8234
+  },
+  "tourelle-lueur-12.png": {
+   "hauteur": 46,
+   "largeur": 151,
+   "sha256": "16a2e861fc621d41d21d2e113539b709fd5db898f58b95c046a2a2c2b8a544ee",
+   "taille": 8310
+  },
+  "tourelle-lueur-13.png": {
+   "hauteur": 60,
+   "largeur": 130,
+   "sha256": "524597ee0c8c1c906a44ec208b7755f929e369015d80034ef532920f1928ff0d",
+   "taille": 7415
+  },
+  "tourelle-lueur-14.png": {
+   "hauteur": 86,
+   "largeur": 108,
+   "sha256": "1bb77e70e7a54fada199cb13ba8854195b0bc400a8237c512d2afbe1065a8303",
+   "taille": 7307
+  },
+  "tourelle-lueur-15.png": {
+   "hauteur": 102,
+   "largeur": 78,
+   "sha256": "727579fd3703155d1ce388acfb1809b5c5a537ddba6c808c6ba7bf404eed4431",
+   "taille": 6607
+  },
+  "vitrail.png": {
+   "hauteur": 812,
+   "largeur": 576,
+   "sha256": "9782277272de903fc77268b2bbd5d0dc758fddfd30173689b2ff9799a5a6f289",
+   "taille": 296287
+  },
+  "vortex.png": {
+   "hauteur": 781,
+   "largeur": 604,
+   "sha256": "793bb40031fe36515e5557fed6b7119ed1b1fb5721a25a64d05f0b16ee4a1e9e",
+   "taille": 193976
+  }
+ }
+}
