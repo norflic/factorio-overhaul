@@ -854,7 +854,6 @@ function Team.view(f, tick)
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = threatened,
     threat_held = MenaceEq.observe(f, tick) or nil, -- lot L12 (partie 3) : menace tenue (une mesure par pensée), lue SEULEMENT par la capitalisation
-    pile_held = Build.pile_held(f), -- lot CC-PILE (F522) : matière retenue au coffre par les améliorations en réserve, lue par le budget de la pile
     -- Lot ARMEE-ANTICIPATION : vague annoncée (script/ai3/soldats.lua, f.armee) : l'armée visée monte au besoin estimé, avec la
     -- priorité de la défense (shared/team/planner.lua). Factions seulement (votre équipe n'a pas de soldats : soldiers_max = 0).
     -- Lot PREVISION : alerte d'ÉTAT (cadre « préparer » de la première vague ouvert, script/ai3/prevision.lua ; plus d'horloge) ;

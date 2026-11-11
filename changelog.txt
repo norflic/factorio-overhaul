@@ -4,7 +4,6 @@ Date: 2026-11-11
   Graphics:
     - Icônes (F505) : la tôle magnétique, les billettes de fer, de cuivre et de tungstène et la plaque de titane ne copient plus la plaque d'acier teintée ; chacune a sa silhouette rendue en 3D : tôles feuilletées à liserés cyan, lingots moulés gris acier et cuivre orangé, barreau carré sombre fretté, plaques hexagonales polies.
   Bugfixes:
-    - Pile (F522) : une fois les améliorations permises, la pile ne les suspend plus parce que leurs propres chantiers ont retiré du coffre la matière qu'ils réservent ; elle ne basculait plus que d'une pensée à l'autre et les modules neufs (assembleurs, science, tourelles) restaient à 0 posé.
     - Mall (F504) : un bloc du mall n'attend plus le bois de ses petits poteaux quand l'équipe peut le récolter ; le choix du poteau et l'achat du bloc lisent la même règle (partie du DC sur la 0.6.89 : Ambre gardait 5 007 fer et une seule rangée de mall, tous ses blocs en attente de bois de 30 à 82 min).
   Bugfixes:
     - Minage (F511) : plus aucun PNJ ne pioche une ressource que les foreuses électriques savent extraire quand des foreuses électriques dorment au coffre (même règle que les paires thermiques) ; dans la partie du DC sur la 0.6.88, 14 PNJ piochaient le fer à côté de 50 foreuses au coffre.

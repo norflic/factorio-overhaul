@@ -111,7 +111,7 @@ end
 ---   prep        = { { id, have, want, exec, nohold, why } } : sites à PRÉPARER (lot PREVISION, Pc.pile_rows) ;
 ---   (lot PILE-BUDGET, facultatifs ; sans `book` la retenue est celle d'avant) book = livre de recettes, avail = stock libre,
 ---   upgrades = { { key, cost = { {objet, n} } } } améliorations connues (dans l'ordre), plan_wants = { {objet, n} } objets du
----   projet rouvert ; held = { [objet] = n } retenu au coffre par les améliorations en cours (lot CC-PILE) }
+---   projet rouvert }
 --- Rend st (mis à jour) : top, hold, blocked, frames (triés), focus, short, crafts, reserve, changed.
 function Pi.update(st, sig, tick)
   sig = sig or {}
@@ -279,7 +279,7 @@ function Pi.update(st, sig, tick)
       if a.n - a.claimed > 0 then claims.rebuild[#claims.rebuild + 1] = { item, a.n - a.claimed } end
     end
     for _, it in ipairs(sig.plan_wants or {}) do claims.rebuild[#claims.rebuild + 1] = it end
-    budget = Bg.assess(sig.book, sig.avail or {}, claims, st.parallel, sig.held) -- lot CC-PILE : matière des améliorations en cours
+    budget = Bg.assess(sig.book, sig.avail or {}, claims, st.parallel)
     if budget.covered then hold, parallel = false, true end
   end
   -- Ouvertures et fermetures (par l'état, jamais par l'horloge).
@@ -481,7 +481,6 @@ function Pi.signals(view, base, inp, s, ctx, bud)
     penurie = view.survie and true or false,
     prep = ctx and ctx.prevu or nil, -- lot PREVISION
     book = bud and bud.book or nil, avail = bud and bud.avail or nil, upgrades = bud and bud.upgrades or nil, -- lot PILE-BUDGET
-    held = bud and bud.held or nil, -- lot CC-PILE : matière retenue au coffre par les améliorations en cours (view.pile_held)
     plan_wants = inp.plan_wants, recruit_claim = recruit_claim }
 end
 
