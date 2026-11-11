@@ -95,7 +95,16 @@ local function new_el(spec, parent)
   local el = { valid = true, children = {}, style = {}, parent = parent, tags = spec.tags }
   for k, v in pairs(spec) do el[k] = v end -- recopie des champs de la description (copie : l'ordre ne compte pas)
   el.style_name, el.style = spec.style, {} -- dans le moteur, `style` d'une description est un nom, puis l'élément porte un objet de style
-  el.add = function(s) local c = new_el(s, el) el.children[#el.children + 1] = c return c end -- méthodes du moteur : liées à l'objet (appel par point)
+  -- Règle du moteur (LuaGuiElement.add) : deux enfants d'un même parent ne portent jamais le même nom non vide ; le moteur lève alors
+  -- « Gui element with name X already present in the parent element. » (crash du DC, partie 0.6.96, panneau.lua:220 fill_list).
+  el.add = function(s)
+    if s.name ~= nil and s.name ~= "" then
+      for _, c in ipairs(el.children) do
+        if c.valid and c.name == s.name then error("Gui element with name " .. s.name .. " already present in the parent element.") end
+      end
+    end
+    local c = new_el(s, el) el.children[#el.children + 1] = c return c
+  end -- méthodes du moteur : liées à l'objet (appel par point)
   el.clear = function() el.children = {} end
   el.destroy = function()
     el.valid = false
@@ -733,6 +742,82 @@ do
   GS["fo-debug-render"].value = true
   fire({ setting = "fo-debug-render", setting_type = "runtime", player_index = 99 })
   check(not Cv.is_open(1), "un joueur inconnu ne fait rien")
+end
+
+section("9. Crash du DC (0.6.96, panneau.lua:220) : le reglage de debogage ouvre la vue sur PLUSIEURS zones, sans nom en double")
+do
+  local GS = { ["fo-debug-render"] = { value = false } }
+  settings.global = GS
+  local function fire(ev) for _, fn in ipairs(evs[defines.events.on_runtime_mod_setting_changed] or {}) do fn(ev) end end
+  local Pn = require("script.debug.panneau")
+  -- sans équipe du joueur, la vue s'ouvre sur la faction 7 et ses 6 zones (section 1) ; chaque ouverture relève puis redessine
+  STORE["pteam"].v.team = nil
+  local function open_full()
+    GS["fo-debug-render"].value = true
+    fire({ setting = "fo-debug-render", setting_type = "runtime", player_index = 1 })
+    run_slices(8, NOW)
+    local v1 = STORE["debug_cerveau"].v.viewers[1]
+    v1.sig = {}
+    Cv.refresh_one(P1, STORE["debug_cerveau"].v, v1, game.tick)
+  end
+  local function cycle(n)
+    for _ = 1, n do
+      open_full()
+      GS["fo-debug-render"].value = false
+      fire({ setting = "fo-debug-render", setting_type = "runtime", player_index = 1 })
+    end
+    open_full()
+  end
+  if Cv.is_open(1) then Cv.close(P1) end
+  local ok, err = pcall(cycle, 3)
+  check(ok, "trois bascules du reglage puis ouverture : aucune erreur (" .. tostring(err) .. ")")
+  check(Cv.is_open(1), "la vue est ouverte")
+  local lst = P1.gui.screen["fo_dbg_frame"] and find(P1.gui.screen["fo_dbg_frame"], "fo_dbg_list")
+  local names, dup, keys = {}, false, 0
+  for _, ch in ipairs(lst and lst.children or {}) do
+    if ch.name and ch.name ~= "" then
+      if names[ch.name] then dup = true end
+      names[ch.name] = true
+    end
+    if ch.tags and ch.tags.key then keys = keys + 1 end
+  end
+  check(lst ~= nil and keys >= 2, "la liste porte au moins 2 zones (cas du crash) : " .. keys)
+  check(not dup, "aucun nom en double parmi les lignes de la liste")
+  -- un redessin force (signature effacee) refait la liste sans erreur
+  local vv = STORE["debug_cerveau"].v.viewers[1]
+  vv.sig = {}
+  ok, err = pcall(Cv.refresh_one, P1, STORE["debug_cerveau"].v, vv, game.tick)
+  check(ok, "redessin force de la liste : aucune erreur (" .. tostring(err) .. ")")
+  -- clic sur la 2e ligne : la zone de ses tags est retenue
+  lst = find(P1.gui.screen["fo_dbg_frame"], "fo_dbg_list")
+  local b2 = nil
+  for _, ch in ipairs(lst.children) do if ch.tags and ch.tags.key then if b2 == nil then b2 = false elseif b2 == false then b2 = ch end end end
+  if b2 then
+    for _, fn in ipairs(evs[defines.events.on_gui_click]) do fn({ element = b2, player_index = 1 }) end
+    check(STORE["debug_cerveau"].v.viewers[1].sel == b2.tags.key, "clic sur la 2e ligne : sa zone (" .. tostring(b2.tags.key) .. ") est retenue")
+  else
+    check(false, "2e ligne introuvable")
+  end
+  Cv.close(P1)
+  -- Mutants : le module muté remplace les fonctions du vrai (la vue garde sa référence à la table du module).
+  local function mutant(name, path, old, new, ok_expected_false)
+    local f = assert(io.open(path, "rb")) local src = f:read("*a") f:close()
+    local i = src:find(old, 1, true)
+    if not i then check(false, "mutant " .. name .. " : texte introuvable") return end
+    local tbl = (path:find("panneau", 1, true)) and Pn or nil
+    local saved = {}
+    for k, v in pairs(tbl) do saved[k] = v end
+    local m = assert(load(src:sub(1, i - 1) .. new .. src:sub(i + #old), "=" .. path))()
+    for k, v in pairs(m) do tbl[k] = v end
+    local refused = ok_expected_false()
+    for k in pairs(m) do tbl[k] = saved[k] end
+    if Cv.is_open(1) then pcall(Cv.close, P1) end
+    check(refused, "mutant refuse : " .. name)
+  end
+  mutant("nom fixe pour chaque ligne (le crash du DC)", "script/debug/panneau.lua", "name = Panneau.ZONE_PREFIX .. i,", 'name = "fo_dbg_zone",',
+    function() return not pcall(cycle, 1) end)
+  mutant("prefixe sans rang (meme nom pour toutes les lignes)", "script/debug/panneau.lua", "name = Panneau.ZONE_PREFIX .. i,", "name = Panneau.ZONE_PREFIX,",
+    function() return not pcall(cycle, 1) end)
 end
 
 print(string.format("[DEBUG-CERVEAU-VUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))

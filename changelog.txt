@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.98
+Date: 2026-11-11
+  Bugfixes:
+    - Débogage (F538) : activer « fo-debug-render » ne plante plus la partie quand la vue des zones liste deux zones ou plus (« fo_dbg_zone already present »).
+---------------------------------------------------------------------------------------------------
+Version: 0.6.97
+Date: 2026-11-11
+  Graphics:
+    - Juggernaut (F536) : modèle 3D enrichi d'après les concepts (couronnes de focalisation flottantes devant le canon, griffes articulées, conduits lumineux denses sur les membres, bagues aux articulations, chevron au plexus, ailerons, capteur-œil), rendu en 16 directions ; ombre portée lisse (les conduits allumés ne criblent plus l'ombre de points clairs).
+---------------------------------------------------------------------------------------------------
+Version: 0.6.96
+Date: 2026-11-11
+  Graphics:
+    - Méga-Bourdon ×2,2 (F534) : 220 % du Bourdon (117 tuiles de haut), blindage lourd en lames, double paire de réacteurs à impulsion cyan ; chaînes, ancres, battant et boîtes à l'échelle ; feuilles de plus de 4096 px découpées en tuiles (un sprite par tuile).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.95
 Date: 2026-11-11
   Changes:

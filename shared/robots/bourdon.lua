@@ -63,24 +63,34 @@ B.ANCRES = {
   { sol = { -25.889, -13.300 }, levre = { -11.893, -29.444 }, u = { -0.7118, 0.7024 }, long = 19.663, o = 0.1261, ombre_long = 44.284, ombre_o = 0.7760, ombre_u = { 0.9867, 0.1624 } },
 }
 
+--- Lot ART-MEGA2 : k (1 par défaut) = échelle de la cloche (B.echelle) ; toute la géométrie ci-dessous (lèvre, sol, chaîne, ancre) en est
+--- multipliée : le Méga-Bourdon, 2,2 fois plus grand, garde les mêmes 6 ancres, homothétiques depuis sa position au sol.
 --- Bas de la chaîne (écran, depuis la position au sol) pour une extension e : 0 repliée, 1 posée.
-function B.bas_chaine(i, e)
+function B.bas_chaine(i, e, k)
+  k = k or 1
   local a = B.ANCRES[i]
-  local px, py = a.levre[1] + a.u[1] * B.PLIEE, a.levre[2] + a.u[2] * B.PLIEE
-  local qx, qy = a.sol[1], a.sol[2] - B.ANCRE_TETE
+  local px, py = (a.levre[1] + a.u[1] * B.PLIEE) * k, (a.levre[2] + a.u[2] * B.PLIEE) * k
+  local qx, qy = a.sol[1] * k, (a.sol[2] - B.ANCRE_TETE) * k
   return px + (qx - px) * e, py + (qy - py) * e
 end
 
 --- Centre de la feuille de chaîne dont le bas est en (bx, by) : elle glisse dans la cloche (elle est dessinée derrière).
-function B.centre_chaine(i, bx, by)
+function B.centre_chaine(i, bx, by, k)
   local a = B.ANCRES[i]
-  local h = B.CHAINE_LONG / 2
+  local h = B.CHAINE_LONG * (k or 1) / 2
   return bx - a.u[1] * h, by - a.u[2] * h
 end
 
 --- Position de l'ancre (son point au sol, pour les décalages des couches) quand le bas de sa chaîne est en (bx, by).
-function B.ancre_depuis_bas(bx, by)
-  return bx, by + B.ANCRE_TETE
+function B.ancre_depuis_bas(bx, by, k)
+  return bx, by + B.ANCRE_TETE * (k or 1)
+end
+
+--- Point au sol de l'ancre i (écran, depuis la position au sol de la cloche), à l'échelle k.
+function B.sol(i, k)
+  local a = B.ANCRES[i]
+  k = k or 1
+  return a.sol[1] * k, a.sol[2] * k
 end
 
 -- ------------------------------------------------------------------------------------------------ temps
@@ -158,10 +168,12 @@ function B.copies(i)
 end
 
 --- Décalage du centre d'une couche du battant, tournée de `o` (fraction de tour) autour du pivot.
-function B.centre_battant(sx, sy, o)
+function B.centre_battant(sx, sy, o, k)
+  k = k or 1 -- lot ART-MEGA2 : échelle de la cloche ; (sx, sy) est déjà à cette échelle
   local cx, sn = B.dir(o)
-  local vx, vy = sx - B.PIVOT[1], sy - B.PIVOT[2]
-  return B.PIVOT[1] + vx * cx - vy * sn, B.PIVOT[2] + vx * sn + vy * cx
+  local px, py = B.PIVOT[1] * k, B.PIVOT[2] * k
+  local vx, vy = sx - px, sy - py
+  return px + vx * cx - vy * sn, py + vx * sn + vy * cx
 end
 
 --- Flottement vertical à l'écran, au tick donné (tuiles).
@@ -398,7 +410,23 @@ B.MEGA = {
   TOURNE = 7,
   ARME_AGE = 4,   -- âge d'armement de la lignée Bastion dont il reprend l'orbe
   ORBE = "fo-mega-bourdon-orbe",
+  -- Lot ART-MEGA2 (ordre du DC du 11/11, 9 h 47 : « une taille strictement 2 fois supérieure, minimum 200 % à 250 % de l'échelle du
+  -- Bourdon ») : échelle du rendu (bourdon.py, MEGA_ECHELLE ; feuilles_mega.py l'écrit dans sprites.lua, « echelle », le test les compare).
+  -- Tout ce que le Méga-Bourdon emprunte au Bourdon en est multiplié : chaînes, ancres, battant, griffes, boîtes, lumière.
+  ECHELLE = 2.2,
 }
+
+--- Échelle d'une variante de cloche : B.MEGA.ECHELLE pour « mega », 1 sinon.
+function B.echelle(v)
+  if v == "mega" then return B.MEGA.ECHELLE end
+  return 1
+end
+
+--- Boîte (collision, sélection, dessin, autocollants) du Méga-Bourdon : celle du Bourdon à l'échelle B.MEGA.ECHELLE. Rend une nouvelle table.
+function B.boite_mega(bx)
+  local k = B.MEGA.ECHELLE
+  return { { bx[1][1] * k, bx[1][2] * k }, { bx[2][1] * k, bx[2][2] * k } }
+end
 
 do
   local ings = { { B.OBJET, 1 } }

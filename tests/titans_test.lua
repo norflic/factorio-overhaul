@@ -297,19 +297,20 @@ local MAN = {}
 if okspr then
   local okm, txt = pcall(read, "graphics/robots/titans/MANIFEST.json")
   if okm then for n in txt:gmatch('"([%w%-_%.]+%.png)"') do MAN[n] = true end end
+  -- ART-TITANS2 (11/11, F536) : budget porté à 85 Mpx (le DC lève les plafonds de texture ; Juggernaut re-modelé : 82,1 Mpx).
   -- ART-16DIR (11/11) : budget de mémoire vidéo de chaque allié animé, 80 Mpx de feuilles HR (poids_mpx du MANIFEST : aire utile des images,
   -- lueur et ombre à leur densité) ; 16 directions ne passent qu'avec la densité réduite et la lueur à demi-densité, l'ombre au quart
   local function hors_budget(t)
     local l = {}
     for nom, h in (t or ""):gmatch('"(%a+)": {%s*"haute": ([%d%.]+)') do
       for _, r in ipairs(T.ALLIES) do
-        if r.id == nom and r.anime and tonumber(h) > 80 then l[#l + 1] = nom .. " " .. h end
+        if r.id == nom and r.anime and tonumber(h) > 85 then l[#l + 1] = nom .. " " .. h end
       end
     end
     return l
   end
   local hb = hors_budget(okm and txt)
-  check(okm and txt:find('"poids_mpx"', 1, true) ~= nil and #hb == 0, "§3 budget : chaque allié animé ≤ 80 Mpx HR (" .. table.concat(hb, ", ") .. ")")
+  check(okm and txt:find('"poids_mpx"', 1, true) ~= nil and #hb == 0, "§3 budget : chaque allié animé ≤ 85 Mpx HR (" .. table.concat(hb, ", ") .. ")")
   check(#hors_budget([["poids_mpx": {
   "sentinelle": {
    "haute": 90.27,]]) == 1, "§3 mutant refusé : Sentinelle à 90,27 Mpx (avant ART-16DIR)")

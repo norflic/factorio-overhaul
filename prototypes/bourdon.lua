@@ -138,6 +138,15 @@ do
   mega.healing_per_tick = Bm.pv_mega(VEHICULE.healing_per_tick)
   mega.map_color = { r = 0.35, g = 0.9, b = 1.0 }
   mega.friendly_map_color = { r = 0.4, g = 0.95, b = 1.0 }
+  -- lot ART-MEGA2 : boîtes de sélection, de dessin et d'autocollants à l'échelle de ses feuilles (sprites.lua, « echelle », rendue à
+  -- B.MEGA.ECHELLE) ; la boîte de collision reste celle du Bourdon (masque vide : elle ne touche rien)
+  local SPRE = require("__factorio-overhaul__/graphics/robots/megabourdon/sprites")
+  if SPRE.echelle then
+    assert(math.abs(SPRE.echelle - Bm.MEGA.ECHELLE) < 1e-9, "mega-bourdon : feuilles à l'échelle " .. tostring(SPRE.echelle))
+    mega.selection_box = Bm.boite_mega(VEHICULE.selection_box)
+    mega.drawing_box = Bm.boite_mega(VEHICULE.drawing_box)
+    mega.sticker_box = Bm.boite_mega(VEHICULE.sticker_box)
+  end
   protos[#protos + 1] = mega
 end
 
@@ -297,12 +306,27 @@ do
   table.sort(cles_m)
   for _, k in ipairs(cles_m) do
     local s = SPRM[k]
-    local pm = bloc(s.lr, s)
-    pm.type = "sprite"
-    pm.name = Bm.MEGA.NOM .. "-" .. k
-    pm.flags = { "group=none" }
-    pm.hr_version = bloc(s.hr, s)
-    protos[#protos + 1] = pm
+    if s.hr.tuiles then
+      -- lot ART-MEGA2 : feuille découpée en tuiles (au-delà de 4096 px de côté). En 1.1, le prototype `sprite` n'a ni `layers` ni `stripes`
+      -- (schéma 1.1.91, tests/datastage/schema.lua) : UN sprite par tuile, fo-mega-bourdon-<cle>-t<i>, hr_version tuile par tuile ; le
+      -- script les dessine ensemble, chacune à son décalage (script/robots/bourdon.lua, dessine_v).
+      assert(s.lr.tuiles and #s.lr.tuiles == #s.hr.tuiles, "mega-bourdon : tuiles " .. k)
+      for i, th in ipairs(s.hr.tuiles) do
+        local pm = bloc(s.lr.tuiles[i], s)
+        pm.hr_version = bloc(th, s)
+        pm.type = "sprite"
+        pm.name = Bm.MEGA.NOM .. "-" .. k .. "-t" .. i
+        pm.flags = { "group=none" }
+        protos[#protos + 1] = pm
+      end
+    else
+      local pm = bloc(s.lr, s)
+      pm.hr_version = bloc(s.hr, s)
+      pm.type = "sprite"
+      pm.name = Bm.MEGA.NOM .. "-" .. k
+      pm.flags = { "group=none" }
+      protos[#protos + 1] = pm
+    end
   end
   -- l'orbe des casemates : celle du Bastion d'armement 4, plus grosse, cyan, aux dégâts de l'âge de la cloche
   local spec = A.age_turret(Bm.MEGA.ARME_AGE)
