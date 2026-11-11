@@ -4,13 +4,14 @@ Date: 2026-11-11
   Changes:
     - Rapatriement (F537) : les lignes de rapatriement vers le QG sont fusionnées (F518, F520, F532) : elles visent la bonne tuile du QG, leurs souterrains et tapis manquants deviennent des buts des PNJ, et elles passent après les bandes de champ ; la planification coûte jusqu'à 40 fois moins par tick sur certaines cartes.
     - Ouvriers (F537) : « Factions : ouvriers au plus » remonte une fois à son défaut (30) dans une partie sauvegardée avant la 0.6.95 où il valait moins ; une valeur plus haute est gardée.
+  Graphics:
+    - Léviathan (F535) : segments (stades 1 et 2) et queue (stade 1) redessinés : blindage octogonal biseauté en bandes télescopiques, crête dorsale de lames gravées, anneau magnétique détaché du corps à bras et émetteurs, cœurs à vortex cyan sur les flancs, queue motrice effilée à tuyère et ailerons ; rendus plus fins (22 px par unité au lieu de 15), ombres plus franches. La tête garde son image de la 0.6.94 (nouvelle tête modélisée, rendu à finir).
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.94
 Date: 2026-11-11
   Bugfixes:
     - Rapatriement (F532) : une ligne de rapatriement ne prend plus au coffre les tapis, les bras ou les poteaux qui manquent à une bande de champ en attente ou en chantier ; le pavage des gisements passe d'abord, la ligne prend le surplus et se construit ensuite.
   Graphics:
-    - Léviathan (F535) : segments (stades 1 et 2) et queue (stade 1) redessinés : blindage octogonal biseauté en bandes télescopiques, crête dorsale de lames gravées, anneau magnétique détaché du corps à bras et émetteurs, cœurs à vortex cyan sur les flancs, queue motrice effilée à tuyère et ailerons ; rendus plus fins (22 px par unité au lieu de 15), ombres plus franches. La tête garde son image de la 0.6.94 (nouvelle tête modélisée, rendu à finir).
     - Ixion (F525) : le géant à roue tourne son corps vers sa marche (8 poses rendues, 39,4 Mpx) ; les géants expérimentaux et les bourdons ont un torse libre ; Cairn, Stylet, Trombe, Tournesol et les bourdons gardent une image, leur forme ne dépendant pas du sens de marche.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.93
