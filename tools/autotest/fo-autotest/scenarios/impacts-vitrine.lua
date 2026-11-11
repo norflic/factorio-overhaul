@@ -133,11 +133,13 @@ return {
     ctx.log(string.format("[FO-IMPACTS-VITRINE] BILAN brulures=%d", brulures))
   end,
 
+  -- 25 captures : la session avec images de cette vitrine s'arrête d'elle-même vers la 27e (banc du 11/11 : 27 sur 31) ;
+  -- 3 de nuit et 1 de jour par site, puis la vue d'ensemble.
   shots = function(ctx, add)
     local st = ctx.state()
     if not st.pret then return end
     for _, site in ipairs(st.sites) do
-      for i = 1, 4 do
+      for i = 1, 3 do
         add(string.format("impacts-%s-nuit-%d", site.cle, i), site.x, site.y, 1.6, 0.5, { res = { 480, 360 }, info = false, aa = false, cadence = 7 })
       end
       add(string.format("impacts-%s-jour", site.cle), site.x, site.y, 1.6, 0, { res = { 480, 360 }, info = false, aa = false })
