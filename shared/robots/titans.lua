@@ -159,15 +159,18 @@ T.JUGGERNAUT = {
 }
 --- Juggernaut ANIMÉ (FINITIONS 10/11) : corps en 8 directions × images (feuilles : tools/render/pieces/titans/juggernaut.py, SERIE ;
 --- foulee = FOULEE du modèle, tuiles par cycle de marche, vérifiée par tests/titans_test.lua) ; attaque_ticks : durée d'une salve à l'écran.
-T.JUGGERNAUT.anime = { images = { course = 8, attaque = 4 }, foulee = 6.9, attaque_ticks = 30 }
+T.JUGGERNAUT.anime = { images = { course = 8, attaque = 4 }, foulee = 6.9, attaque_ticks = 30, directions = 16 }   -- ART-16DIR : 16 directions
 --- Couches d'un corps animé (nom de couche, calque de rendu), dans l'ordre de dessin.
 T.COUCHES_ANIM = { { "ombre", "lower-object" }, { "corps", "air-object" }, { "lueur", "air-object" } }
 
---- Direction (0 = nord, sens horaire, 8 secteurs) d'une orientation dans [0, 1[ : le secteur le plus proche, sans trigonométrie.
-function T.direction8(orientation)
+--- Direction (0 = nord, sens horaire, `n` secteurs) d'une orientation dans [0, 1[ : le secteur le plus proche, sans trigonométrie.
+--- ART-16DIR (11/11) : `n` = r.anime.directions (16 pour Juggernaut, Sentinelle, Ravageur ; 8 sinon), égal aux directions des feuilles.
+function T.direction(orientation, n)
+  n = n or 8
   local o = tonumber(orientation) or 0
-  return math.floor(o * 8 + 0.5) % 8
+  return math.floor(o * n + 0.5) % n
 end
+function T.direction8(orientation) return T.direction(orientation, 8) end
 
 --- Vitesse d'animation (images par tick) d'une marche à `speed` tuiles par tick : la foulée (tuiles) défile en `images` images ; 0 à l'arrêt.
 function T.vitesse_anim(speed, foulee, images)
@@ -181,6 +184,12 @@ function T.anim_name(r, stage, anim, dir, couche)
   return T.PREFIX .. r.id .. "-" .. stage .. "-" .. anim .. "-" .. dir .. "-" .. couche
 end
 
+--- Nom d'une pièce d'un titan segmenté (segment de corps, queue), image fixe par direction :
+--- <préfixe><archétype>-<pièce>-<stade>-<direction>-<couche>.
+function T.piece_name(r, piece, stage, dir, couche)
+  return T.PREFIX .. r.id .. "-" .. piece .. "-" .. stage .. "-" .. dir .. "-" .. couche
+end
+
 --- Sentinelle hexapode (âge 11, après le Finback) : plus lente, singularité (zone + ralentissement) ; le canon annulaire est à gauche.
 T.SENTINELLE = {
   id = "sentinelle", age = 11, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-finback", ref = "finback", mu = 80000,
@@ -191,7 +200,7 @@ T.SENTINELLE = {
     { "battery", 60 }, { "steel-plate", 80 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
   -- TITANS-8DIR : corps animé (flottement, pattes qui ondulent ; salve : la singularité gonfle puis se libère), FOULEE de sentinelle.py
-  anime = { images = { course = 8, attaque = 4 }, foulee = 6.0, attaque_ticks = 30 },
+  anime = { images = { course = 8, attaque = 4 }, foulee = 6.0, attaque_ticks = 30, directions = 16 },   -- ART-16DIR : 16 directions
 }
 --- Léviathan serpentin (âge 12, après le Lévite) : le plus rapide (il flotte), salve de drones d'escorte ; le vortex frontal sert de canon.
 T.LEVIATHAN = {
@@ -202,8 +211,16 @@ T.LEVIATHAN = {
   segment = { ingredients = { { "fo-superconducting-coil", 80 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 30 },
     { "fo-titanium-plate", 60 }, { "fo-graphics-card", 10 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
-  -- TITANS-8DIR : corps animé (onde le long du corps ; salve : les anneaux s'ouvrent, les drones sortent de la gueule), FOULEE de leviathan.py
-  anime = { images = { course = 8, attaque = 4 }, foulee = 9.0, attaque_ticks = 30 },
+  -- LEVIATHAN-SEG (mandat du DC, 11/11) : corps ARTICULÉ. L'entité porte la TÊTE seule, animée en 16 directions (marche : la couronne de
+  -- crocs respire, le vortex pulse ; salve : les anneaux s'ouvrent, les drones sortent de la gueule ; SERIE et FOULEE de leviathan.py) ;
+  -- les SEGMENTS (n) et la QUEUE sont des images fixes par direction posées par `rendering` qui suivent la trajectoire de la tête
+  -- (shared/robots/serpent.lua) : le premier segment à `premier` tuiles de la tête, puis tous les `espacement`, la queue `queue` derrière
+  -- le dernier ; historique échantillonné tous les `pas` tuiles ; mise à jour toutes les `periode` ticks ; ondulation verticale `onde`
+  -- (tuiles). Longueurs = celles des pièces du modèle (leviathan.py, PIECES).
+  anime = { images = { course = 4, attaque = 4 }, foulee = 4.5, attaque_ticks = 30, directions = 16 },
+  -- tol : tolérance (tuiles) de l'ordre de dessin (la pièce la plus au sud par-dessus) avant de le refaire.
+  segmente = { n = 4, premier = 6.0, espacement = 5.0, queue = 5.0, pas = 0.5, periode = 5, directions = 16, onde = 0.12, tol = 1.0,
+    pieces = { "segment", "queue" } },
 }
 --- Armes du Ravageur (KAIJUS-MUTANTS) : mitraille : rafale du gatling (T.RAVAGEUR.mitraille.n projectiles par coup, dégâts = part de la salve
 --- répartie) ; lames : coup de zone courte des lames de cristal ; puis salve de zone, résonance.
@@ -223,7 +240,7 @@ T.RAVAGEUR = {
   segment = { ingredients = { { "fo-titanium-plate", 80 }, { "processing-unit", 60 }, { "fo-magnetic-actuator", 40 },
     { "fo-superconducting-coil", 40 }, { "battery", 60 } }, time = 30 },
   lueur = { r = 0.10, g = 0.92, b = 1.00 },
-  anime = { images = { course = 8, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 },   -- FOULEE de tools/render/pieces/titans/ravageur.py
+  anime = { images = { course = 8, attaque = 4 }, foulee = 4.472, attaque_ticks = 30, directions = 16 },   -- FOULEE de ravageur.py ; ART-16DIR : 16 dir.
 }
 T.ALLIES = { T.JUGGERNAUT, T.SENTINELLE, T.LEVIATHAN, T.RAVAGEUR }
 for _, r in ipairs(T.ALLIES) do

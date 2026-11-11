@@ -12,13 +12,19 @@ from PIL import Image, ImageDraw
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import scene as SC  # noqa: E402
+import effets as EF  # noqa: E402
 
 TITRES = {"ixion": "IXION, expérimental d'âge 13 : roue de feu", "bourdon": "BOURDON, expérimental d'âge 15 : cloche-cathédrale en lévitation"}
-ORDRE = {"ixion": ("main", "glow_plasma", "glow_soleil", "glow_hublots"), "bourdon": ("battant_main", "battant_glow", "main", "glow_vitrail", "glow_cristal")}
+TITRES.update({"cairn": "CAIRN, expérimental d'âge 10 : pile de galets en lévitation", "stylet": "STYLET, expérimental d'âge 11 : lance pointe en bas", "trombe": "TROMBE, expérimental d'âge 12 : tornade d'anneaux",
+               "tournesol": "TOURNESOL, expérimental d'âge 14 : miroir sur échasses", "mat_foudre": "MÂT-FOUDRE, petit expérimental d'âge 6, défense", "geode": "GÉODE, petit expérimental d'âge 7, attaque",
+               "sarracenie": "SARRACÉNIE, petite expérimentale d'âge 8, défense", "demi_vie": "DEMI-VIE, petit expérimental d'âge 9, attaque", "veilleuse": "VEILLEUSE, petite expérimentale d'âge 13, défense"})
+PETITS = ("mat_foudre", "geode", "sarracenie", "demi_vie", "veilleuse")
+ORDRE = {"ixion": ("main", "glow_plasma", "glow_soleil", "glow_hublots", "glow_feu"), "bourdon": ("battant_main", "battant_glow", "main", "glow_vitrail", "glow_cristal")}
 
 
 def couches(src, nom, ppt):
     g = SC.geant(src, nom, ppt)
+    ORDRE.setdefault(nom, ["main"] + sorted(k for k in g if k.startswith("glow")))
     if nom == "bourdon":
         b = SC.geant(src, "battant", ppt)
         g["battant_main"] = b["main"]
@@ -32,10 +38,17 @@ def z1(src, nom, dest):
     W_t, H_t, gx, gy = 138, 72, 86, 58
     if nom == "bourdon":
         W_t, H_t, gx, gy = 150, 84, 88, 56
+    elif nom in PETITS:
+        W_t, H_t, gx, gy = 84, 46, 62, 32
+    elif nom in ("cairn", "stylet", "trombe"):
+        W_t, H_t, gx, gy = 138, 76, 84, 62
+    elif nom == "tournesol":
+        W_t, H_t, gx, gy = 150, 78, 82, 64
     sc = SC.Scene(W_t, H_t, ppt, seed=11)
     sol_y = gy
     ents = [{"pos": (9, sol_y), "layers": SC.vanilla("silo", ppt)}, {"pos": (23, sol_y + 1), "layers": SC.behemoth(ppt)}, {"pos": (37, sol_y), "layers": SC.qg(ppt)}]
-    img = sc.rendu(ents, [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom], "mult": {"glow_soleil": 0.7}}])
+    img = sc.rendu(ents, [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom]}],
+                   air_fn=(lambda i: EF.flammes_tuyeres(i, gx, gy, 0.35, 0, ppt)) if nom == "ixion" else None)
     im = SC.to_im(img)
     d = ImageDraw.Draw(im)
     f = SC.police(22)
@@ -51,14 +64,22 @@ def z1(src, nom, dest):
 
 def gros(src, nom, dest):
     ppt = 40
-    if nom == "ixion":
+    if nom in PETITS:
+        ppt = 48
+        W_t, H_t, gx, gy = 34, 30, 16, 24
+    elif nom in ("cairn", "stylet", "trombe"):
+        W_t, H_t, gx, gy = 64, 62, 30, 56
+    elif nom == "tournesol":
+        W_t, H_t, gx, gy = 66, 64, 34, 58
+    elif nom == "ixion":
         W_t, H_t, gx, gy = 72, 56, 37, 50
     else:
         W_t, H_t, gx, gy = 50, 62, 25, 53
     sc = SC.Scene(W_t, H_t, ppt, seed=12)
-    img = sc.rendu([], [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom], "mult": {"glow_soleil": 0.7}}])
+    img = sc.rendu([], [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom]}],
+                   air_fn=(lambda i: EF.flammes_tuyeres(i, gx, gy, 0.35, 0, ppt)) if nom == "ixion" else None)
     im = SC.to_im(img)
-    ImageDraw.Draw(im).text((14, 10), TITRES[nom] + " · gros plan, 40 px/tuile (rendu du corps)", fill=(255, 225, 150), font=SC.police(30))
+    ImageDraw.Draw(im).text((14, 10), TITRES[nom] + " · gros plan, %d px/tuile (rendu du corps)" % ppt, fill=(255, 225, 150), font=SC.police(30))
     im.save(os.path.join(dest, "%s-gros.png" % nom), optimize=True)
     return im.size
 

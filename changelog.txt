@@ -1,7 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.94
+Date: 2026-11-11
+  Graphics:
+    - Ixion (F525) : le géant à roue tourne son corps vers sa marche (8 poses rendues, 39,4 Mpx) ; les géants expérimentaux et les bourdons ont un torse libre ; Cairn, Stylet, Trombe, Tournesol et les bourdons gardent une image, leur forme ne dépendant pas du sens de marche.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.93
+Date: 2026-11-11
+  Graphics:
+    - Titans, Léviathan articulé, Méga-Bourdon et impacts livrés dans cette version (détail sous 0.6.92 : F506, F507, F513, F514, F517).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.92
 Date: 2026-11-11
   Graphics:
+    - Géants expérimentaux (F525) : Ixion, la roue de feu, ne glisse plus : son corps suit sa marche (8 vues rendues en 3D, une par cap de 22,5°, servent ses 16 directions : une roue est la même à 180° près) ; Cairn, Stylet, Trombe, Tournesol, le Bourdon et le Méga-Bourdon gardent leur image unique, symétrique par dessin.
     - Icônes (F505) : la tôle magnétique, les billettes de fer, de cuivre et de tungstène et la plaque de titane ne copient plus la plaque d'acier teintée ; chacune a sa silhouette rendue en 3D : tôles feuilletées à liserés cyan, lingots moulés gris acier et cuivre orangé, barreau carré sombre fretté, plaques hexagonales polies.
   Bugfixes:
     - Rapatriement (F520) : ce qui manque à une ligne de rapatriement (tapis, souterrains, bras, poteaux, coffre) est fabriqué par l'équipe ; les lignes restaient en attente de matériaux sans fin, faute de souterrains que personne ne fabriquait.
@@ -19,6 +30,11 @@ Date: 2026-11-11
   Features:
     - Le Méga-Bourdon (F517) : variante cuirassée du Bourdon, fabriquée au Portique à partir d'un Bourdon (âge 15, compte pour deux géants). Quatre tourelles à canons jumeaux à plasma qui pivotent vers leur cible (16 directions) et tirent l'orbe du Bastion aux dégâts de l'âge 15 ; il garde Le Glas, les ancres et la télécommande.
     - Lignes de rapatriement (F518) : le tampon et les bouts du tapis sont posés sur des tuiles entières (la position du QG, centre de l'entité, était lue comme une tuile) ; les lignes, qui cherchaient leur tracé sans jamais l'atteindre, le trouvent.
+    - Léviathan (F513) : le titan serpentin n'est plus une image rigide ; sa tête est suivie de quatre segments et d'une queue qui épousent sa trajectoire dans les virages (16 directions, rotules aux joints, ondulation), et sa tête regarde où elle va.
+    - Titans (F506) : le Juggernaut, la Sentinelle et le Ravageur sont dessinés en 16 directions (8 avant) ; blindage plus sombre et iridescent, conduits et anneaux cyan plus lumineux ; poids des feuilles en haute qualité ramené sous 80 Mpx par titan.
+  Bugfixes:
+    - Titans (F507) : un titan allié qui marche se tourne dans la direction de sa marche ; avant, son corps restait tourné vers le nord et glissait sur la carte.
+    - Impacts (F514) : faisceaux denses (laser de la lignée, trace du fusil à rail qui n'est plus l'arc électrique vanilla), ondes de choc au sol avec brûlure éphémère (plasma, singularité, frappe orbitale, titans), distorsion de singularité (ombre noire et anneau de photons) pour le lanceur de singularités et les titans ; feuilles procédurales, aucun effet par tick.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10

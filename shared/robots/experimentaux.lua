@@ -110,6 +110,28 @@ Xp.SEGMENTS = 10
 --- Corps d'un géant : « rendering » (sprites attachés à l'entité par le script : prouvé par le Bourdon, BO-2) ou « prototype »
 --- (graphics_set.animation du spider-vehicle : essai E-XP1, palier 2).
 Xp.GIANT_BODY = "rendering"
+--- ART-GEANTS (11/11, F525) : corps ORIENTÉ. Ixion (roue de feu qui roule) a 16 directions de marche servies par 8 poses (une roue est la
+--- même à 180° près : direction d -> pose d mod 8), feuilles de tools/render/pieces/experimentaux/feuilles_ixion_dirs.py (ixion_dirs.lua,
+--- contrôlé par prototypes/experimentaux_geants.lua). Les quatre autres gardent UNE image par dessin (leur bible : Cairn, pile de galets qui
+--- « ne se retourne pas » ; Stylet, lance verticale à 3 pans ; Trombe, entonnoir ; Tournesol, miroir tourné vers le soleil).
+Xp.CORPS_DIRS = { ixion = { directions = 16, poses = 8 } }
+--- Couches du corps dessinées par le script (rendering), dans l'ordre de dessin.
+Xp.CORPS_COUCHES = { "ombre", "corps", "lueur-1" }
+
+--- Pose du corps (0-based) d'un géant `id` pour l'orientation `o` (0 = nord, sens horaire, en tours ; celle du TORSE : la seule qu'un
+--- spider-vehicle tient à jour, F507) ; nil pour un géant à une seule image. Arrondi au secteur le plus proche, sans trigonométrie.
+function Xp.pose(id, o)
+  local d = Xp.CORPS_DIRS[id]
+  if not d then return nil end
+  local n = d.directions
+  local dir = math.floor((tonumber(o) or 0) * n + 0.5) % n
+  return dir % d.poses
+end
+
+--- Nom du sprite d'une couche du corps (`couche` dans Xp.CORPS_COUCHES), pour une pose (0-based) ou sans pose (une image).
+function Xp.sprite_corps(id, couche, pose)
+  return Xp.PREFIX .. id .. "-" .. couche .. (pose and string.format("-d%02d", pose) or "")
+end
 Xp.SEGMENT_FACTORY = "fo-robot-dock"
 Xp.GEANTS = {
   {

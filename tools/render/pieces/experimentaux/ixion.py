@@ -18,12 +18,16 @@ import geo as G
 import greb as R
 import mat as MT
 
-PSI = -math.radians(27.0)
+PSI = -math.radians(38.0)      # assez de biais pour que le soleil traverse la roue : l'ombre garde ses vides
+# ART-GEANTS (11/11, F525) : FO_IXION_CAP = cap de marche en degrés (0 = nord, sens horaire) des feuilles multidirectionnelles
+# (feuilles_ixion_dirs.py) ; x local = sens de marche, donc PSI = 90° - cap. Sans la variable : -38°, la vue unique du 1/11 (cap 128°).
+if os.environ.get("FO_IXION_CAP"):
+    PSI = math.radians(90.0 - float(os.environ["FO_IXION_CAP"]))
 R_EXT = 28.0                  # rayon extérieur de la coque
 DENT = 1.7                    # hauteur des pavés
 ZC = R_EXT + DENT - 0.3       # axe (la roue mord un peu le sol)
-W = 4.6                       # demi-largeur de la jante
-KE = 0.88                     # échelle générale : 50 tuiles de haut à l'écran
+W = 3.8                       # demi-largeur de la jante
+KE = 0.85                     # échelle générale : 50 tuiles de haut à l'écran
 GRIS = os.environ.get("FO_GRIS", "") == "1"
 
 
@@ -87,21 +91,47 @@ def matieres(S):
     M["brule"] = surf("brule", (0.075, 0.056, 0.044), rough=0.65, met=0.4, coulures=0.4, rouille=(0.09, 0.04, 0.02), usure=0.7,
                       nu=(0.3, 0.26, 0.22), crasse=0.8, crasse_col=(0.004, 0.003, 0.002), graine=4)
     M["noyau"] = surf("noyau", (0.05, 0.045, 0.04), rough=0.55, met=0.6, usure=0.3, crasse=0.8, crasse_col=(0.002, 0.002, 0.002), graine=5)
-    M["cuivre"] = surf("cuivre", (0.72, 0.34, 0.12), rough=0.3, met=0.72, tole=(0.9, 0.22), joint=0.42, joint_l=0.03, var=0.16, coulures=0.4,
-                       rouille=(0.05, 0.11, 0.08), usure=0.5, nu=(0.85, 0.5, 0.28), crasse=0.8, crasse_col=(0.012, 0.006, 0.003), relief=0.8, graine=6)
-    M["cuivre2"] = surf("cuivre2", (0.58, 0.25, 0.08), rough=0.34, met=0.72, coulures=0.4, rouille=(0.05, 0.1, 0.07), usure=0.55,
+    M["cuivre"] = surf("cuivre", (0.3, 0.11, 0.04), rough=0.36, met=0.88, coulures=0.5,
+                       rouille=(0.05, 0.11, 0.08), usure=0.65, nu=(0.78, 0.46, 0.26), crasse=0.75, crasse_col=(0.01, 0.005, 0.003), graine=6)
+    M["cuivre2"] = surf("cuivre2", (0.2, 0.075, 0.028), rough=0.4, met=0.85, coulures=0.4, rouille=(0.05, 0.1, 0.07), usure=0.55,
                         nu=(0.7, 0.4, 0.2), crasse=0.75, crasse_col=(0.01, 0.005, 0.003), graine=7)
     M["acier"] = surf("acier", (0.12, 0.11, 0.1), rough=0.5, met=0.6, coulures=0.4, rouille=(0.08, 0.04, 0.02), usure=0.6, nu=(0.34, 0.32, 0.3),
                       crasse=0.7, crasse_col=(0.006, 0.005, 0.004), graine=8)
     M["pont"] = surf("pont", (0.1, 0.085, 0.07), rough=0.7, met=0.3, tole=(0.9, 0.9), joint=0.4, joint_l=0.03, var=0.3, usure=0.5, nu=(0.2, 0.18, 0.15),
                      crasse=0.8, crasse_col=(0.004, 0.003, 0.002), relief=0.5, graine=9)
+    M["or_riv"] = surf("riv", (0.5, 0.3, 0.14), rough=0.35, met=0.8, usure=0.7, nu=(0.85, 0.6, 0.4), crasse=0.2, graine=10)
     M["verre"] = MT.verre("ix_verre", col=(0.012, 0.012, 0.014), reflet=(0.2, 0.18, 0.22))
-    M["plasma"] = S.mat_emissive("ix_plasma", (1.0, 0.07, 0.62), strength=1.35, base=(0.08, 0.005, 0.05), main_scale=0.25, crust=(0.9, 0.55, 1))
-    M["plasma2"] = S.mat_emissive("ix_plasma_b", (1.0, 0.07, 0.62), strength=1.0, base=(0.08, 0.005, 0.05), main_scale=0.2)
-    M["soleil"] = S.mat_emissive("ix_soleil", (1.0, 0.32, 0.04), strength=1.5, base=(0.1, 0.03, 0.005), main_scale=0.45, crust=(1.4, 0.4, 2))
+    # règle de la critique du 1/11 : aucune surface émissive sans dégradé. Une fente = 3 couches emboîtées (bord sombre, milieu, cœur clair)
+    M["plasma_e"] = S.mat_emissive("ix_plasma_e", (0.5, 0.012, 0.27), strength=0.55, base=(0.04, 0.002, 0.02), main_scale=0.2)
+    M["plasma_m"] = S.mat_emissive("ix_plasma_m", (1.0, 0.06, 0.58), strength=1.0, base=(0.08, 0.005, 0.05), main_scale=0.2, crust=(1.3, 0.35, 1))
+    M["plasma_c"] = S.mat_emissive("ix_plasma_c", (1.0, 0.6, 0.82), strength=1.25, base=(0.2, 0.08, 0.14), main_scale=0.35)
+    M["soleil"] = S.mat_emissive("ix_soleil", (1.0, 0.2, 0.02), strength=1.1, base=(0.1, 0.03, 0.005), main_scale=0.28, crust=(1.4, 0.6, 2))
+    M["feu"] = S.mat_emissive("ix_feu", (1.0, 0.3, 0.03), strength=1.5, base=(0.1, 0.03, 0.005), main_scale=0.5)
     M["hublot"] = MT.lumiere(S, "ix_hublot", (1.0, 0.82, 0.55), 1.4, main=0.25)
     M["balise"] = MT.lumiere(S, "ix_hublot_balise", (1.0, 0.1, 0.62), 1.6, main=0.3)
     return M
+
+
+def fente_dessus(lot, M, th0, th1, r, ac, demi):
+    """Fente vue de dessus ou de dessous : cadre sombre, bord, milieu, cœur clair, emboîtés en rayon et en largeur."""
+    sg = 1.0 if r > 25.0 else -1.0
+    d = 0.12 / abs(r)
+    lot.put(M["acier"], arc(th0 - d, th1 + d, min(r, r + sg * 0.1), max(r, r + sg * 0.1), ac - demi - 0.1, ac + demi + 0.1, 1.0))
+    for (m, k, e, z) in ((M["plasma_e"], 1.0, 0.0, 0.1), (M["plasma_m"], 0.6, 0.8, 0.14), (M["plasma_c"], 0.24, 1.8, 0.18)):
+        t0, t1 = th0 + e * d, th1 - e * d
+        lot.put(m, arc(t0, t1, min(r + sg * (z - 0.03), r + sg * z), max(r + sg * (z - 0.03), r + sg * z), ac - demi * k, ac + demi * k, 0.8))
+
+
+def fente_flanc(lot, M, th0, th1, r, demi, s):
+    """Fente d'un flanc (s = ±1), emboîtée en rayon et en hauteur."""
+    d = 0.1 / abs(r)
+
+    def bloc(m, t0, t1, k, a0, a1):
+        lot.put(m, arc(t0, t1, r - demi * k, r + demi * k, (W + a0) if s > 0 else (-W - a1), (W + a1) if s > 0 else (-W - a0), 0.8))
+    bloc(M["acier"], th0 - d, th1 + d, 1.35, 0.0, 0.12)
+    bloc(M["plasma_e"], th0, th1, 1.0, 0.0, 0.15)
+    bloc(M["plasma_m"], th0 + d, th1 - d, 0.58, 0.0, 0.18)
+    bloc(M["plasma_c"], th0 + 2.2 * d, th1 - 2.2 * d, 0.22, 0.0, 0.21)
 
 
 def carcasse(lot, M):
@@ -133,8 +163,10 @@ def plaques_flanc(lot, M, r):
                     if e > 0.45:
                         lot.put(M["acier"], arc(t0 + 0.006, t1 - 0.006, r0 + 0.1, r1 - 0.1, a1 if s > 0 else a0 - 0.05, (a1 + 0.05) if s > 0 else a0, 1.2))
             # anneau de plasma visible sur le flanc (coupé par les bobines)
-            a0, a1 = (W, W + 0.1) if s > 0 else (-W - 0.1, -W)
-            lot.put(M["plasma2"], arc(th0 + 0.045, th0 + d - 0.045, 24.5, 24.95, a0, a1, 0.8))
+            for q in range(3):
+                pas_f = (d - 0.1) / 3.0
+                t0 = th0 + 0.05 + pas_f * q
+                fente_flanc(lot, M, t0 + 0.012, t0 + pas_f * 0.62, 24.72, 0.26, s)
 
 
 def bobines(lot, M, r):
@@ -150,6 +182,13 @@ def bobines(lot, M, r):
                 lot.put(M["cera3"], arc(th - d * 1.5, th + d * 1.5, rr - 0.25, rr + 0.25, a0 - 0.1 if s > 0 else a1 - 0.2, a1 + 0.2 if s > 0 else a1 + 0.1, 1.0))
                 for q in (-1, 1):
                     lot.put(M["acier"], pose_mur(G.tour([(0.0, 0.1), (0.14, 0.08), (0.2, 0.0)], 6, "z", cap0=True), th + q * d * 1.1, rr, s, W + 1.54))
+            # rivets sur les 2 bords de la bande, comme le cuivre du Portique
+            for i in range(9):
+                rr = 23.0 + i * 0.64
+                for q in (-1, 1):
+                    lot.put(M["or_riv"], pose_mur(G.tour([(0.0, 0.11), (0.1, 0.09), (0.15, 0.0)], 7, "z", cap0=True), th + q * d * 0.72, rr, s, W + 1.42))
+            for rr in (24.2, 26.7):
+                lot.put(M["acier"], arc(th - d * 1.08, th + d * 1.08, rr - 0.1, rr + 0.1, a0 - 0.04, a1 + 0.06, 1.0))
             # le flanc reçoit la bobine : pied en biais
             lot.put(M["cuivre2"], arc(th - d, th + d, 22.7, 28.3, W - 0.05 if s > 0 else -W - 0.75, W + 0.75 if s > 0 else -W + 0.05, 1.0))
         lot.put(M["cuivre"], arc(th - d, th + d, 28.0, 28.55, -W - 1.42, W + 1.42, 1.0))
@@ -157,6 +196,16 @@ def bobines(lot, M, r):
         lot.put(M["cuivre"], arc(th - d, th + d, 21.0, 21.55, 2.1, W + 1.42, 1.0))
         for s in (-1, 1):
             lot.put(M["cuivre2"], arc(th - d, th + d, 21.0, 22.7, s * (W + 0.72) if s > 0 else -W - 1.42, W + 1.42 if s > 0 else -W - 0.72, 1.0))
+
+
+def tuyere(lot, M, th, a):
+    """Tuyère radiale à la place d'un crampon : socle brûlé, cloche de cuivre, cœur de feu (la flamme elle-même est une animation)."""
+    n = (math.cos(th), 0.0, math.sin(th))
+    lot.put(M["brule"], arc(th - 0.045, th + 0.045, 28.0, 28.75, a - 1.15, a + 1.15, 1.0))
+    p = P(th, 28.6, a)
+    lot.put(M["cuivre2"], G.oriente(G.tour([(0.0, 1.15), (0.35, 0.95), (0.7, 0.62), (1.55, 1.02), (1.6, 0.92), (0.95, 0.48), (0.8, 0.0)], 18, "z"), p, n))
+    lot.put(M["cuivre"], G.oriente(G.tour([(0.62, 0.72), (0.66, 0.84), (0.78, 0.84), (0.82, 0.68)], 18, "z"), p, n))
+    lot.put(M["feu"], G.oriente(G.tour([(0.98, 0.5), (1.02, 0.0)], 14, "z", cap0=True), p, n))
 
 
 def roulement(lot, M, r):
@@ -169,9 +218,17 @@ def roulement(lot, M, r):
         for s in (-1, 1):
             dec = s * G.TAU / N * 0.25
             a0, a1 = (W - 1.9, W + 0.85) if s > 0 else (-W - 0.85, -W + 1.9)
-            lot.put(M["brule"], arc(th + dec - d, th + dec + d, 28.0, R_EXT + DENT * 0.72, a0, a1, 1.0))
-            lot.put(M["brule"], arc(th + dec - d * 0.8, th + dec + d * 0.8, R_EXT + DENT * 0.72, R_EXT + DENT, a0 + 0.2, a1 - 0.2, 1.0))
-            lot.put(M["acier"], arc(th + dec - d * 0.5, th + dec + d * 0.5, R_EXT + DENT, R_EXT + DENT + 0.1, a0 + 0.55, a1 - 0.55, 1.2))
+            if k % 4 == 0:
+                tuyere(lot, M, th + dec, (a0 + a1) / 2.0)
+                continue
+            h = DENT * (1.0, 1.0, 0.72, 1.14)[k % 4]
+            e = 0.0 if k % 4 != 2 else 0.25
+            lot.put(M["brule"], arc(th + dec - d, th + dec + d, 28.0, R_EXT + h * 0.72, a0 + e, a1 - e, 1.0))
+            lot.put(M["brule"], arc(th + dec - d * 0.8, th + dec + d * 0.8, R_EXT + h * 0.72, R_EXT + h, a0 + 0.2 + e, a1 - 0.2 - e, 1.0))
+            if k % 4 == 3:
+                lot.put(M["cuivre2"], arc(th + dec - d * 0.22, th + dec + d * 0.22, R_EXT + h, R_EXT + h + 0.22, a0 + 0.2, a1 - 0.2, 1.2))
+            else:
+                lot.put(M["acier"], arc(th + dec - d * 0.5, th + dec + d * 0.5, R_EXT + h, R_EXT + h + 0.1, a0 + 0.55, a1 - 0.55, 1.2))
     formes = ["carre", "fente", "double", "rond", "octo", "ogive"]
     for k in range(18):
         th0 = G.TAU * k / 18.0
@@ -199,14 +256,20 @@ def roulement(lot, M, r):
         lot.put(M["cuivre"], arc(th0 - d, th0 + d, 28.2, 29.15, -W + 1.85, W - 1.85, 1.0))
         lot.put(M["cera3"], arc(th0 - d * 1.5, th0 + d * 1.5, 29.05, 29.3, -0.9, 0.9, 1.0))
     # fente centrale : plasma entre 2 rails d'acier
-    lot.put(M["plasma"], G.tour([(-0.62, R_EXT + 0.14), (0.62, R_EXT + 0.14)], 240, "y", (0.0, 0.0, ZC)))
+    for k in range(72):
+        if k % 4 == 0:
+            continue
+        t0 = G.TAU * k / 72.0 + 0.006
+        fente_dessus(lot, M, t0, t0 + G.TAU / 72.0 * 0.66, R_EXT + 0.02, 0.0, 0.5)
     for s in (-1, 1):
         lot.put(M["acier"], G.tour([(s * 0.64, R_EXT), (s * 0.64, R_EXT + 0.5), (s * 0.84, R_EXT + 0.5), (s * 0.84, R_EXT)], 240, "y", (0.0, 0.0, ZC)))
 
 
 def plasma(lot, M, r):
     """Le tore de plasma dans sa rainure intérieure, derrière une grille de barres de céramique."""
-    lot.put(M["plasma"], G.tour([(-1.7, 22.8), (-1.2, 21.9), (0.0, 21.65), (1.2, 21.9), (1.7, 22.8), (0.0, 23.7), (-1.7, 22.8)], 240, "y", (0.0, 0.0, ZC)))
+    for k in range(30):
+        t0 = G.TAU * k / 30.0 + 0.01
+        fente_dessus(lot, M, t0, t0 + G.TAU / 30.0 * 0.58, 22.7, 0.0, 1.55)
     for k in range(72):
         th = G.TAU * k / 72.0
         d = 0.09 / 21.5 * (2.2 if k % 4 == 0 else 1.0)
@@ -283,7 +346,7 @@ def rayons(lot, M, r):
         th = G.TAU * (i + 0.25) / 6.0
         for s in (-1, 1):
             a = P(th, 3.2, s * 9.2)
-            b = P(th, 21.2, s * 4.0)
+            b = P(th, 21.2, s * 3.2)
             d = G.norm(G.sub(b, a))
             rr = lambda sd, ii: 0.62 - 0.26 * min(1.0, sd / 18.0)
             lot.put(M["cera3"], G.tube([G.lerp(a, b, t / 8.0) for t in range(9)], 0.6, 10, rfun=rr))
@@ -334,8 +397,12 @@ def moyeu(lot, M, r):
         prof = [(ya - 0.9, 2.0), (ya - 0.6, 5.6), (ya - 1.1, 7.2), (ya - 1.1, 8.6), (ya + 1.1, 8.6), (ya + 1.1, 7.2), (ya + 0.6, 5.6), (ya + 0.9, 2.0)]
         lot.put(M["cera2"], G.tour(prof, 96, "y", (0.0, 0.0, ZC)))
         lot.put(M["cuivre2"], G.tour([(ya - 1.3, 7.5), (ya - 1.3, 8.0), (ya + 1.3, 8.0), (ya + 1.3, 7.5)], 96, "y", (0.0, 0.0, ZC)))
-        lot.put(M["plasma2"], G.tour([(ya - 1.13, 8.15), (ya - 1.13, 8.42)], 96, "y", (0.0, 0.0, ZC)))
-        lot.put(M["plasma2"], G.tour([(ya + 1.13, 8.15), (ya + 1.13, 8.42)], 96, "y", (0.0, 0.0, ZC)))
+        for i in range(20):
+            t0 = G.TAU * i / 20.0
+            for q in (-1, 1):
+                aa = ya + q * 1.13
+                lot.put(M["plasma_e"], arc(t0, t0 + 0.18, 8.1, 8.47, aa - 0.02, aa + 0.02, 1.0))
+                lot.put(M["plasma_c"], arc(t0 + 0.03, t0 + 0.15, 8.22, 8.35, aa - 0.04, aa + 0.04, 1.0))
         for i in range(12):
             th = G.TAU * i / 12.0
             ra = ya + s * 1.15
@@ -413,7 +480,7 @@ def side_car(lot, M, r, s):
         cy = y - 1.1 * (1 if s < 0 else -1)
         lot.put(M["acier"], G.boite((cx * 0.9, cy, dz), (2.0, 1.2, 0.8)))
         lot.put(M["cera3"], G.sphere((cx, cy, dz), 1.05, 16, 8))
-        lot.put(M["plasma2"], G.tour([(dz - 0.11, 1.12), (dz + 0.11, 1.12)], 20, "z", (cx, cy, 0.0)))
+        lot.put(M["plasma_m"], G.tour([(dz - 0.11, 1.12), (dz + 0.11, 1.12)], 20, "z", (cx, cy, 0.0)))
         lot.put(M["cuivre2"], G.tour([(dz - 0.26, 1.03), (dz - 0.13, 1.28), (dz + 0.13, 1.28), (dz + 0.26, 1.03)], 20, "z", (cx, cy, 0.0)))
         for q in (-0.32, 0.32):
             p0 = (cx + dx * 0.7, cy, dz + q)

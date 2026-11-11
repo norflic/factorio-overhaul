@@ -253,19 +253,25 @@ def allie(a):
 def anime(a):
     MOD = __import__(a.what)
     se = MOD.SERIE
+    piece = a.piece or ""
+    if piece:
+        # LEVIATHAN-SEG (11/11) : pièce FIXE d'un titan articulé (segment, queue) : une image par direction, cadre propre (MOD.PIECES)
+        se = dict(se)
+        se.update(MOD.PIECES[piece])
     D = float(se["densite"])
     C.PX_PER_UNIT_HR = D
     C.AO_DISTANCE = MOD.AO
     C.SKY_GLOSSY_FACTOR = TM.SKY_GLOSSY
     blanc = bool(getattr(MOD, "GLOW_BLANC", False))
-    nb = se[a.anim]
+    nb = 1 if piece else se[a.anim]
     kaiju = a.what in SANS_STADE
     stages = [None] if kaiju else [int(x) for x in a.stages.split(",") if x]
-    dirs_all = [int(x) for x in a.dirs.split(",") if x] or list(range(8))
+    ndirs = int(se.get("dirs", 8))      # ART-16DIR et LEVIATHAN-SEG (11/11) : n directions (SERIE["dirs"], 8 par défaut), pas de 360 / n degrés
+    dirs_all = [int(x) for x in a.dirs.split(",") if x] or list(range(ndirs))
     images = [int(x) for x in a.images.split(",") if x] or list(range(nb))
     for stage in stages:
-        base = a.what if kaiju else "%s-%d" % (a.what, stage)
-        d = os.path.join(a.out, a.what if kaiju else "%s-anime-%d" % (a.what, stage))
+        base = a.what if kaiju else ("%s-%s-%d" % (a.what, piece, stage) if piece else "%s-%d" % (a.what, stage))
+        d = os.path.join(a.out, a.what if kaiju else ("%s-%s-%d" % (a.what, piece, stage) if piece else "%s-anime-%d" % (a.what, stage)))
         os.makedirs(d, exist_ok=True)
         for i in images:
             nom_de = lambda k: os.path.join(d, "%s-%s-%02d-%02d.npz" % (base, a.anim, i, k))
@@ -277,7 +283,10 @@ def anime(a):
             scene = scene_neuve()
             lot = G.Lot(S, "%s_" % MOD.PREFIX[:2])
             u = i / float(nb)
-            MOD.build_anime(S, lot, stage, u if a.anim == "course" else 0.0, None if a.anim == "course" else u)
+            if piece:
+                MOD.build_piece(S, lot, stage, piece)
+            else:
+                MOD.build_anime(S, lot, stage, u if a.anim == "course" else 0.0, None if a.anim == "course" else u)
             n_pieces = lot.n
             objs = lot.flush()
             TM.sans_ombre(objs)
@@ -327,7 +336,7 @@ def anime(a):
             fn_lueur = (lambda mat: _lueur_de(mat, blanc) if (mat is not None and mat.get("fo_kind") == "emissive") else S._black_mat())
             m = int(round(0.8 * D))     # marge de la fenêtre du corps : liseré de contact (AO) et débordement de la lueur
             for k in dirs:
-                cap = k * 45.0
+                cap = k * 360.0 / ndirs
                 yaw = math.atan2(math.cos(math.radians(cap)), math.sin(math.radians(cap)))
                 for o in objs:
                     o.rotation_euler = (0.0, 0.0, yaw)
@@ -385,6 +394,7 @@ def main():
     ap.add_argument("--lueur-spp", type=int, default=16)
     ap.add_argument("--glb", action="store_true")
     ap.add_argument("--anime", action="store_true", help="série à 8 directions d'un allié animé (Juggernaut) ; le Kaiju l'est toujours")
+    ap.add_argument("--piece", default="", help="LEVIATHAN-SEG : pièce fixe d'un titan articulé (MOD.PIECES : segment, queue), avec --anime --anim pose")
     a = ap.parse_args(argv)
     a.out = os.path.abspath(a.out)
     if a.what in SANS_STADE or (a.anime and a.what in ANIMES):

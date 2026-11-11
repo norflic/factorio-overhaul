@@ -1,11 +1,59 @@
 {
  "commande": "py -3.9 tools/render/pieces/effets/vortex.py   (depuis la racine du mod)",
  "fichiers": {
+  "choc.png": {
+   "hauteur": 512,
+   "largeur": 512,
+   "sha256": "c4b43421bc0783b1187b8729d7937fdd08a7e05e359e2d0b5c950c1d4ced20d1",
+   "taille": 139215
+  },
+  "eclat.png": {
+   "hauteur": 64,
+   "largeur": 512,
+   "sha256": "210472879a8277faa77828a441cf2bba94c79d33cbd59828c93a768267228667",
+   "taille": 24244
+  },
+  "faisceau.png": {
+   "hauteur": 24,
+   "largeur": 256,
+   "sha256": "72c1d98bbaa9fa5c6cf21cab4ca8deca8b3ce906301abfdfd13017bb339a009a",
+   "taille": 6153
+  },
+  "hr-choc.png": {
+   "hauteur": 1024,
+   "largeur": 1024,
+   "sha256": "144172faa14c635938791855f9a8800ec114250d3895dbb05e1167a72380a8e3",
+   "taille": 380587
+  },
+  "hr-eclat.png": {
+   "hauteur": 128,
+   "largeur": 1024,
+   "sha256": "76593fe66b9887521a446edd214333186d171daee0aa7be81dfd2eb25cb8be59",
+   "taille": 64634
+  },
+  "hr-faisceau.png": {
+   "hauteur": 48,
+   "largeur": 512,
+   "sha256": "f4913f0cbb9f2757846121255f0428493445e8b5c79f8a3d1a2b3b91739a454c",
+   "taille": 14055
+  },
   "hr-onde.png": {
    "hauteur": 256,
    "largeur": 2048,
    "sha256": "cc028906c741b257248668ec94fb6c3cdfcde57a1c1635ae1144457178fb908e",
    "taille": 132642
+  },
+  "hr-singularite-ombre.png": {
+   "hauteur": 1024,
+   "largeur": 1024,
+   "sha256": "405b557e2eed69529287faa53501beac7b9e587db9c6baf3dd38a925b592d9fc",
+   "taille": 19264
+  },
+  "hr-singularite.png": {
+   "hauteur": 1024,
+   "largeur": 1024,
+   "sha256": "4033247a5f6741e22953cbda37bb5c9865e6d54e7fe657d8565d0b178d07a0cb",
+   "taille": 253685
   },
   "hr-vortex.png": {
    "hauteur": 256,
@@ -18,6 +66,18 @@
    "largeur": 1024,
    "sha256": "c76c7bfe3112693c4a30a70d9c01142e053d5ba2e69056f881bffd8042e01218",
    "taille": 44584
+  },
+  "singularite-ombre.png": {
+   "hauteur": 512,
+   "largeur": 512,
+   "sha256": "cf29a7cd171d37582603bb9c982f659246abaaf6c374f77073ab30e996241d74",
+   "taille": 7618
+  },
+  "singularite.png": {
+   "hauteur": 512,
+   "largeur": 512,
+   "sha256": "acb0b607e7035f441ae55967502750964a98a02bac17c32df05675267f57db8e",
+   "taille": 95816
   },
   "vortex.png": {
    "hauteur": 128,

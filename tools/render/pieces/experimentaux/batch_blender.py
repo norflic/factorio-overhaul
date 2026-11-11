@@ -25,13 +25,14 @@ import fo_calib as C  # noqa: E402
 import fo_scene as S  # noqa: E402
 import geo as G  # noqa: E402
 
-GROUPES = {"ixion": {"plasma": ("ix_plasma",), "soleil": ("ix_soleil",), "hublots": ("ix_hublot",)},
+GROUPES = {"ixion": {"plasma": ("ix_plasma",), "soleil": ("ix_soleil",), "hublots": ("ix_hublot",), "feu": ("ix_feu",)},
            "bourdon": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},
            "battant": {"battant": ("bo_",)},
            "corps": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},
            "mega": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo"), "vortex": ("bo_vortex",)},
            "tourelle": {"vortex": ("bo_vortex",)},
            "ancre": {"ancre": ("bo_halo",)}, "griffes": {}, "chaine": {}}
+GEANTS = ("cairn", "stylet", "trombe", "tournesol")
 
 
 def projected_bounds(objs):
@@ -67,8 +68,18 @@ def to_npy(png_path, npy_path):
 def construire(name):
     import ixion
     import bourdon
+    import petits
+    import importlib
     lot = G.Lot(S, "xp_" + name)
-    info = ixion.build(S, lot) if name == "ixion" else bourdon.build(S, lot, name)
+    if name in petits.BUILD:
+        GROUPES[name] = petits.GROUPES[name]
+        info = petits.BUILD[name](S, lot)
+    elif name in GEANTS:
+        mod = importlib.import_module(name)
+        GROUPES[name] = mod.GROUPES
+        info = mod.build(S, lot)
+    else:
+        info = ixion.build(S, lot) if name == "ixion" else bourdon.build(S, lot, name)
     n = lot.n
     lot.flush()
     return n, info or {}

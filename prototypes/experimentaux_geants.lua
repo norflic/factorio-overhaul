@@ -15,6 +15,13 @@ local Ech = require("shared.robots.echelle")
 local Ro = require("shared.content.robots")
 local C = require("shared.content.crafts")
 local SPR = require("__factorio-overhaul__/graphics/robots/experimentaux/sprites")
+-- ART-GEANTS (11/11, F525) : feuilles multidirectionnelles d'Ixion (générées, tools/render/pieces/experimentaux/feuilles_ixion_dirs.py)
+local DIRS = { ixion = require("__factorio-overhaul__/graphics/robots/experimentaux/ixion_dirs") }
+-- ART-GEANTS (F525, comme les titans F507) : le TORSE tourne vers la marche, à la vitesse de celui de l'araignée vanilla (données du jeu) :
+-- c'est la seule orientation qu'un spider-vehicle tient à jour ; le script pose le corps dans sa direction (Xp.pose). À 0 (avant), le
+-- torse restait fixe et le corps d'Ixion glissait, toujours tourné vers le sud-est.
+local ARAIGNEE = data.raw["spider-vehicle"]["spidertron"]
+assert(ARAIGNEE and ARAIGNEE.torso_rotation_speed and ARAIGNEE.torso_rotation_speed > 0, "experimentaux : torse de l'araignée vanilla absent")
 
 local out = {}
 
@@ -135,6 +142,18 @@ for i, r in ipairs(Xp.GEANTS) do
   out[#out + 1] = sprite(Xp.PREFIX .. r.id .. "-corps", s.main, {})
   for k, g in ipairs(s.lueurs) do out[#out + 1] = sprite(Xp.PREFIX .. r.id .. "-lueur-" .. k, g, { lueur = true }) end
   out[#out + 1] = sprite(Xp.PREFIX .. r.id .. "-ombre", s.ombre, { ombre = true })
+  -- F525 : une pose par sprite (couches dans Xp.CORPS_COUCHES), si le géant a un corps orienté
+  local cd = Xp.CORPS_DIRS[r.id]
+  if cd then
+    local fd = DIRS[r.id]
+    assert(fd and fd.directions == cd.directions and #fd.poses == cd.poses, "experimentaux : feuilles orientees incoherentes " .. r.id)
+    for k, p in ipairs(fd.poses) do
+      assert(#p.lueurs == 1, "experimentaux : une lueur par pose " .. r.id)
+      out[#out + 1] = sprite(Xp.sprite_corps(r.id, "corps", k - 1), p.main, {})
+      out[#out + 1] = sprite(Xp.sprite_corps(r.id, "lueur-1", k - 1), p.lueurs[1], { lueur = true })
+      out[#out + 1] = sprite(Xp.sprite_corps(r.id, "ombre", k - 1), p.ombre, { ombre = true })
+    end
+  end
   local gs = { render_layer = "air-object", base_render_layer = "object", autopilot_destination_visualisation_render_layer = "object" }
   if Xp.GIANT_BODY == "prototype" then
     local layers = { couche(s.main, {}) }
@@ -161,7 +180,7 @@ for i, r in ipairs(Xp.GEANTS) do
     weight = 1, braking_force = 1, friction_force = 1, energy_per_hit_point = 1,
     allow_passengers = false, inventory_size = 0, trash_inventory_size = 0, energy_source = { type = "void" },
     chunk_exploration_radius = 3, automatic_weapon_cycling = false, chain_shooting_cooldown_modifier = 1,
-    movement_energy_consumption = "1kW", height = 0, torso_bob_speed = 0, torso_rotation_speed = 0,
+    movement_energy_consumption = "1kW", height = 0, torso_bob_speed = 0, torso_rotation_speed = ARAIGNEE.torso_rotation_speed,
     sound_minimum_speed = 0.05, sound_scaling_ratio = 0.6,
     working_sound = { sound = { filename = "__base__/sound/spidertron/spidertron-vox.ogg", volume = 0.4 }, match_speed_to_activity = true },
     spider_engine = { legs = legs, military_target = "spidertron-military-target" },

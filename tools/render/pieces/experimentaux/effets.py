@@ -83,11 +83,11 @@ def lisse(a, b, x):
 
 
 # ==================================================================================================== IXION
-PSI = -math.radians(27.0)
+PSI = -math.radians(38.0)
 R_EXT, DENT = 28.0, 1.7
 ZC = R_EXT + DENT - 0.3
-W_J = 4.6
-KE = 0.88
+W_J = 3.8
+KE = 0.85
 
 
 def ecran_ix(x, y, z):
@@ -102,7 +102,7 @@ def effet_ixion(src, dest):
     sc = SC.Scene(W_t, H_t, PPT, seed=21)
     g = SC.geant(src, "ixion", PPT)
     # la fissure : droit devant, légèrement en biais de la marche
-    D = math.radians(15.0)
+    D = math.radians(21.0)
     V = 46.0                    # tuiles par unité de temps
     rs = X.Reseau(1313)
     rs.trace((gx + 1.5, gy + 0.2), D, 92.0, 0.0, 1.5, wob=0.3, pas=0.7, branches=0.075)
@@ -142,8 +142,8 @@ def effet_ixion(src, dest):
             pts_geysers.append((x0, y0, s / V, w, int(rr.randint(1, 5)), rr.uniform(0.7, 1.3)))
     # ======= le temps
     T = [-2.0, -0.6, 0.12, 0.65, 1.3, 2.0, 3.1, 6.0]
-    plasma_k = [1.0, 1.7, 2.3, 2.0, 1.8, 1.7, 1.2, 0.55]
-    soleil_k = [0.7, 1.2, 1.6, 1.2, 1.0, 0.9, 0.7, 0.4]
+    plasma_k = [1.0, 1.5, 2.0, 1.8, 1.6, 1.5, 1.1, 0.5]
+    soleil_k = [1.0, 1.5, 2.0, 1.5, 1.3, 1.1, 0.9, 0.5]
     charge = [0.0, 0.7, 1.0, 0.85, 0.75, 0.65, 0.3, 0.0]
     legendes = ["1 · Roue au repos", "2 · Elle prend feu : arcs du soleil captif vers la jante", "3 · Elle mord le sol : le front part", "4 · 30 tuiles en 0,4 s, la ligne de tourelles saute",
                 "5 · Les geysers sortent derrière le front", "6 · 90 tuiles, toute la fissure crache", "7 · Les geysers retombent, les ruines brûlent", "8 · Cicatrice : on voit où elle a frappé"]
@@ -238,27 +238,8 @@ def effet_ixion(src, dest):
                         hf = hf // 32 * 32
                         fm = X.fumee(int(hf * 0.75), hf, int(x0) % 5 + 31)
                         X.pose_over(img, fm, x0 * PPT + hf * 0.2, y0 * PPT - hf * 0.48)
-            # roue de feu : flammes rayonnantes sur tout le tour de la jante
-            if cont > 0.05:
-                for j_r, (o, th) in enumerate(rim_pts):
-                    if j_r >= 36 and j_r % 2:
-                        continue
-                    sx, sy = (gx + o[0]) * PPT, (gy + o[1]) * PPT
-                    vague = 0.5 + 0.5 * math.cos(3.0 * th + k * 1.9)
-                    alea = (math.sin(j_r * 12.9898 + k * 78.233) * 43758.5453) % 1.0
-                    hp = int((64 + 330 * cont) * (0.3 + 0.7 * vague) * (0.55 + 0.45 * alea))
-                    if hp < 40:
-                        continue
-                    hp = hp // 16 * 16
-                    wp = int(hp * 0.5)
-                    ang = int(round((math.degrees(th) - 90.0) / 15.0)) % 24
-                    fl = panache_tourne(wp, hp, (int(th * 7) % 3) + 41, ang)
-                    # décalage : la flamme part de la dent vers l'extérieur (axe écran : rayon projeté)
-                    dx, dy = math.cos(th) * math.cos(PSI), -math.sin(th) * COS - math.cos(th) * math.sin(PSI) * COS
-                    n = math.hypot(dx, dy) or 1.0
-                    cxp = sx + dx / n * hp * 0.3
-                    cyp = sy + dy / n * hp * 0.3
-                    pose_add_centre(img, fl, cxp, cyp, 0.62 * (0.5 + 0.5 * cont))
+            # roue de feu : les 18 tuyères crachent
+            flammes_tuyeres(img, gx, gy, max(0.3, cont), k, PPT)
             # arcs du soleil vers la jante
             if cont > 0.2:
                 a0 = ((gx + soleil[0]) * PPT, (gy + soleil[1]) * PPT)
@@ -276,8 +257,8 @@ def effet_ixion(src, dest):
                 X.add(img, (1.0, 0.82, 0.9), np.clip(1.5 * np.exp(-(d / 7.0) ** 2), 0, 1))
                 X.add(img, (1.0, 0.2, 0.6), np.clip(0.7 * np.exp(-(d / 20.0) ** 2), 0, 0.8))
 
-        img = sc.rendu(ents, [{"pos": (gx, gy), "layers": g, "ordre": ("main", "glow_plasma", "glow_soleil", "glow_hublots"),
-                               "mult": {"glow_plasma": plasma_k[k], "glow_soleil": soleil_k[k], "glow_hublots": 1.0}}], sol_fn=sol_fn, air_fn=air_fn)
+        img = sc.rendu(ents, [{"pos": (gx, gy), "layers": g, "ordre": ("main", "glow_plasma", "glow_soleil", "glow_hublots", "glow_feu"),
+                               "mult": {"glow_plasma": plasma_k[k], "glow_soleil": soleil_k[k], "glow_hublots": 1.0, "glow_feu": 1.0 + charge[k]}}], sol_fn=sol_fn, air_fn=air_fn)
         images.append(np.asarray(SC.to_im(img).resize((sc.W // 2, sc.H // 2), Image.LANCZOS), np.float32) / 255.0)
         if k == 5:
             SC.to_im(img).save(os.path.join(dest, "ixion-effet-1-pic-z1.png"), optimize=True)
@@ -288,11 +269,33 @@ def effet_ixion(src, dest):
 _TOUR = {}
 
 
+def flammes_tuyeres(img, gx, gy, cont, k, ppt):
+    """Flamme orange de chaque tuyère (1 crampon sur 4 des 2 rails). cont : 0,3 au repos, 1 en charge. En jeu : 18 `draw_animation` liées à l'entité."""
+    points = []
+    for s in (-1, 1):
+        for n in range(0, 36, 4):
+            th = math.tau * n / 36.0 + s * math.tau / 36.0 * 0.25
+            a = s * (W_J - 0.525)
+            points.append((ecran_ix(30.1 * math.cos(th), a, ZC + 30.1 * math.sin(th)), th, n + (s + 1) * 18))
+    for (o, th, sem) in sorted(points, key=lambda q: q[0][1]):
+        alea = (math.sin(sem * 12.9898 + k * 78.233) * 43758.5453) % 1.0
+        hp = int((130 + 430 * cont) * (0.72 + 0.28 * alea) * cont ** 0.35 * ppt / 32.0)
+        hp = max(48, hp // 16 * 16)
+        wp = int(hp * 0.46)
+        # le rayon vu à l'écran, pas l'angle dans le plan de la roue : la flamme sort de sa tuyère
+        dx, dy = math.cos(th) * math.cos(PSI), -math.sin(th) * COS - math.cos(th) * math.sin(PSI) * COS
+        n_ = math.hypot(dx, dy) or 1.0
+        ang = int(round(math.degrees(math.atan2(dx, -dy)) / 15.0)) % 24
+        fl = panache_tourne(wp, hp, (sem % 3) + 41, ang)
+        pose_add_centre(img, fl, (gx + o[0]) * ppt + dx / n_ * hp * 0.43, (gy + o[1]) * ppt + dy / n_ * hp * 0.43, 0.9)
+
+
+
 def panache_tourne(wp, hp, seed, ang):
     cle = (wp, hp, seed, ang)
     if cle in _TOUR:
         return _TOUR[cle]
-    sp = X.panache(wp, hp, seed, X.PAL_FLAMME)
+    sp = X.panache(wp, hp, seed, X.PAL_FEU)
     ims = []
     for c in range(3):
         ims.append(np.asarray(Image.fromarray(sp[..., c], "F").rotate(-ang * 15.0, Image.BILINEAR, expand=True), np.float32))

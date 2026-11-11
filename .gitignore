@@ -50,6 +50,8 @@ graphics/machines/ateliers/*.png
 graphics/robots/experimentaux/*.png
 # Feuilles de jeu des titans (lot TITANS, même règle) : tools/render/pieces/titans/feuilles_titans.py
 graphics/robots/titans/*.png
+# Léviathan articulé (lot LEVIATHAN-SEG, même règle) : tools/render/pieces/titans/feuilles_leviathan.py
+graphics/robots/titans/leviathan/*.png
 # Feuilles de jeu de la tourelle laser (lot F1-C, même règle) : tools/render/pieces/levels/laser_e/feuilles.py
 graphics/levels/laser/*.png
 # Lot POLISSAGE-FX (10/11) : feuilles procédurales des effets et feuilles rendues des bâtiments (D-6)
