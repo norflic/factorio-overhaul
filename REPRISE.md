@@ -1,5 +1,7 @@
 # REPRISE : état du projet pour l'orchestrateur suivant
 
+> **11/11, 06 h 15 : FIN DU MANDAT DE NUIT. Version jouée 0.6.94 (+ outils des géants F530 et constats F531, F533). Branches mesurées et NON fusionnées, à trancher par le DC : `cc-route` (F518), `cc-matieres` (F520), `cc-prio-lignes` (F532) : UPS contre fer (F533) ; `cand-charbon` (F486 devenue neutre) ; choix de design F527 (remise de la matière à chaque retenue), F528 (défense des avant-postes hors fer). Réglage du DC à revoir : « ouvriers au plus » = 8 (F510).**
+
 > **11/11, 04 h 25 : 0.6.94 = 0.6.93 + Ixion orienté (F525, 48 PNG hors git graphics/robots/experimentaux/*ixion-d*). 0.6.93 validée au panel (F529). Décisions du DC en attente : lignes de rapatriement contre bandes (F526), remise de la matière d'un module à chaque retenue (F527), défense des avant-postes hors fer dont la tourelle meurt à chaque vague (F528), réglage « ouvriers au plus » à 8 dans ses parties (F510).**
 
 > **11/11, 02 h 55 : 0.6.93 = titans en 16 directions qui s'orientent enfin en marchant (F506, F507 : corps face au nord avant, 100 % des relevés dans la marche après), Léviathan articulé tête + 4 segments + queue (F513), Méga-Bourdon (F517), impacts refaits (F514). Feuilles hors git : graphics/robots/titans (2 520 PNG) et leviathan (1 155), robots/megabourdon (77), effets (10 nouveaux). Arbitrage DC : lignes de rapatriement (cc-route, cc-matieres) contre bandes (F526).**
