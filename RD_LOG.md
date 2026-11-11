@@ -10,6 +10,12 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-11, 17 h 20 : version 0.7.5 (directive du DC de 17 h 09 : énergie P0, élagage, incohérences V2)
+
+- **F558 · FAIT · [0.7.5]** Centrale bloquée à 1 800 kW (p0-centrale 80305871) : la règle des 75 % (F491) divisait la production mesurée, plafonnée à la capacité, par la capacité bâtie PLUS les centrales en chantier (scarlet 1594 / (1800 + 3600) = 30 %) : jamais de croissance, ordres refusés « 2528 kW pris sur 1800 kW ». `shared/team/centrale.lua:140` : une demande engagée (production + consommateurs en chantier ou retenus) supérieure à la capacité bâtie compte pour 100 % (`C.engaged_over`, calculée dans `script/team/plant_arms.lua:276`) ; F491 tenue. centrale_charge §2b, mutant. Non vu en jeu.
+- **F559 · FAIT · [0.7.5]** Élagage périodique (p1-elagage f1f62e9d) : `Gis.think` ne retirait que les foreuses à combustion des avant-postes sur minerai épuisé ; ronde toutes les 4 min par tranches de 20 (`shared/team/elagage.lua`, `Gis.prune`) : toute foreuse de l'équipe sans ressource sous sa zone est démontée, objet et combustible au coffre (modules perdus). elagage_test, 2 mutants ; la partie branchée au jeu n'est pas testée en moteur.
+- **F560 · CONSTAT · [0.7.5]** 84 foreuses de bande du joueur sans courant (partie du DC 0.7.3, minute 61) : le coffre n'a AUCUN poteau moyen (8 projets en attendent 92) ; le bloc du mall des poteaux est refusé « manque iron-plate 59/86 » (`script/ai3/industrie.lua:320` afford_list) alors que 6 085 plaques dorment dans les coffres de sortie des champs. Maillon suspecté (stock libre sans les sorties de champ), NON prouvé, NON corrigé. Audit V2 : 22 incohérences prouvées (pas 50), `AUDIT_50_INCOHERENCES_V2.md`, aucune corrigée.
+
 ## 2026-11-11, 17 h 00 : version 0.7.4 (directive du DC après sa partie en 0.7.3 : 4 verrous)
 
 - **F554 · FAIT · [0.7.4]** Faux « sans courant » du panneau (dbg-courant fa0c9b9c) : `shared/debug/zone.lua:35,64` comptait les bras sans courant dans la cause « courant » : un seul bras hors portée rendait « sans courant » un module tournant à 100 % (≈15 fausses alertes dans la partie du DC). Seules les machines en no_power/low_power comptent. debug_cerveau 213 OK (rouge avant, 4 mutants). VU, NON TRAITÉ : 84 foreuses électriques des bandes du DC sont réellement sans courant (aucun poteau alimenté à portée des champs).

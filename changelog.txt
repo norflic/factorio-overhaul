@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.5
+Date: 2026-11-11
+  Bugfixes:
+    - Énergie (F558) : la centrale grandit quand la demande engagée dépasse sa capacité, même si les centrales en chantier diluaient la charge mesurée.
+  Changes:
+    - IA (F559) : toutes les 4 minutes, les foreuses posées sur un minerai épuisé sont démontées et rendues au coffre.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.4
 Date: 2026-11-11
   Bugfixes:
