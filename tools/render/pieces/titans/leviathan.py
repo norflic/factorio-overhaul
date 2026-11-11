@@ -563,11 +563,20 @@ def tete_v2(lot, M, stage, u=None, attaque=None):
     bande(lot, M, -1.95, -0.55, r * 1.04, lip=1.2, dz=dz)
     rotule(lot, M, xj, r, dz=dz)
     # crâne : octogone biseauté qui s'évase vers la gueule, aplati (sy > sz), trois bandes en recouvrement
-    RF = 3.75
-    sk = [(-0.8, r * 1.05), (0.2, 3.05), (1.3, 3.55), (2.4, RF), (3.0, RF * 1.04)]
+    RF = 4.6      # 0.6.96 : tête MASSIVE (1,5 fois les bandes du corps ; 3,75 au premier essai, trop proche du corps)
+    sk = [(-0.8, r * 1.05), (0.2, 3.5), (1.3, 4.2), (2.4, RF), (3.0, RF * 1.04)]
+
+    def rk(x):
+        """Rayon du crâne en x (interpolé sur sk) : les pièces posées dessus suivent le crâne."""
+        if x <= sk[0][0]:
+            return sk[0][1]
+        for (xa, ra), (xb, rb) in zip(sk, sk[1:]):
+            if x <= xb:
+                return ra + (rb - ra) * (x - xa) / (xb - xa)
+        return sk[-1][1]
     lot.put(M["blind2"], G.loft([sect(x, rr, 8, 0.28, sy=1.12, sz=0.92, dz=dz) for x, rr in sk], False, False))
-    bande(lot, M, -0.7, 0.55, 3.0, lip=1.12, sy=1.12, sz=0.92, dz=dz)
-    bande(lot, M, 0.45, 1.75, 3.45, lip=1.1, sy=1.12, sz=0.92, dz=dz)
+    bande(lot, M, -0.7, 0.55, rk(-0.1), lip=1.12, sy=1.12, sz=0.92, dz=dz)
+    bande(lot, M, 0.45, 1.75, rk(1.1), lip=1.1, sy=1.12, sz=0.92, dz=dz)
     bande(lot, M, 1.65, 3.05, RF, lip=1.1, sy=1.12, sz=0.92, dz=dz)
     c = (3.05, 0.0, zc)
     d = (1.0, 0.0, 0.0)
@@ -605,24 +614,26 @@ def tete_v2(lot, M, stage, u=None, attaque=None):
         lot.put(M["os"], pointe(G.add(base, G.mul(dd, 2.3)), G.norm(G.add(dd, G.mul(off, -0.5))), 0.8, 0.14, 4))
     # arcades : deux plaques épaisses au-dessus de la gueule, yeux cyan, évents latéraux
     for s_ in (-1, 1):
-        lot.put(M["blind"], plaque((2.1, s_ * 1.85, zc + RF * 0.88), G.norm((0.35, s_ * 0.45, 1.0)), 2.2, 2.6, 0.42, up=(1.0, 0.0, 0.0), coins=0.6))
-        e = (2.5, s_ * RF * 0.98, zc + 1.25)
+        lot.put(M["blind"], plaque((2.1, s_ * RF * 0.45, zc + RF * 0.88), G.norm((0.35, s_ * 0.45, 1.0)), RF * 0.6, RF * 0.7, 0.45, up=(1.0, 0.0, 0.0), coins=0.6))
+        e = (2.5, s_ * RF * 0.98, zc + RF * 0.33)
         lot.put(M["struct"], G.oriente(G.tour([(-0.2, 0.0), (-0.2, 0.42), (0.12, 0.4)], 10, "z", cap0=True), e, G.norm((0.3, s_ * 1.0, 0.2))))
         lot.put(M["coeur"], G.sphere(e, 0.27, 10, 5))
         for j in range(3):
             x = 0.55 * j
-            lot.put(M["struct"], G.boite((x, s_ * 3.56, zc - 0.2), (0.34, 0.2, 1.2)))
-            lot.put(M["turq"], G.boite((x, s_ * 3.7, zc - 0.2), (0.12, 0.08, 0.9)))
+            yv = 0.924 * 1.12 * rk(x) * 1.1
+            lot.put(M["struct"], G.boite((x, s_ * yv, zc - 0.2), (0.34, 0.2, 1.4)))
+            lot.put(M["turq"], G.boite((x, s_ * (yv + 0.12), zc - 0.2), (0.12, 0.08, 1.1)))
     # crête : trois lames balayées vers l'arrière sur une échine
-    zt = zc + RF * 0.92
-    lot.put(M["struct"], G.loft([[(x, -0.45, zt - 0.3), (x, 0.45, zt - 0.3), (x, 0.25, zt + 0.25), (x, -0.25, zt + 0.25)] for x in (-1.5, 2.2)], True, True))
-    lot.put(M["conduit"], G.tube([(-1.5, 0.0, zt + 0.28), (2.2, 0.0, zt + 0.28)], 0.08, 5))
-    for x, L in ((1.6, 4.4), (0.4, 5.4), (-0.9, 4.2)):
-        lame(lot, M, (x, 0.0, zt), G.norm((-0.7, 0.0, 1.0)), (0.0, 1.0, 0.0), L, 1.0, 2)
+    zh = lambda x: zc + 0.924 * 0.92 * rk(x) * 1.1     # dessus du crâne (lèvre des bandes comprise)
+    xs = (-0.4, 0.6, 1.6, 2.6)
+    lot.put(M["struct"], G.loft([[(x, -0.5, zh(x) - 0.3), (x, 0.5, zh(x) - 0.3), (x, 0.28, zh(x) + 0.3), (x, -0.28, zh(x) + 0.3)] for x in xs], True, True))
+    lot.put(M["conduit"], G.tube([(x, 0.0, zh(x) + 0.33) for x in xs], 0.09, 5))
+    for x, L in ((2.0, 4.6), (0.9, 5.6), (-0.2, 4.4)):
+        lame(lot, M, (x, 0.0, zh(x) + 0.1), G.norm((-0.7, 0.0, 1.0)), (0.0, 1.0, 0.0), L, 1.1, 2)
     # lames pectorales sur le cou, vortex des tempes
     for s_ in (-1, 1):
         lame(lot, M, (-1.6, s_ * r, zc - 0.2), G.norm((-0.75, s_ * 1.0, -0.15)), (0.0, 0.0, 1.0), 4.6, 1.0, 2)
-        lunette_vortex(lot, M, (0.9, s_ * 3.25 * 1.12, zc - 0.1), (0.0, float(s_), 0.15), 0.85)
+        lunette_vortex(lot, M, (-0.2, s_ * (0.924 * 1.12 * rk(-0.2) * 1.12 + 0.05), zc - 0.1), (0.0, float(s_), 0.15), 0.9)
     flancs(lot, M, xj, -0.5, r * 1.12, dz=dz)
     if stage >= 2:
         anneau_magnetique(lot, M, -2.4, r + 1.25, stage, ouvre=ouvre, dz=dz)

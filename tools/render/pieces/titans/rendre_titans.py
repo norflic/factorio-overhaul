@@ -26,7 +26,7 @@ BATCH = os.path.join(HERE, "batch_titans.py")
 RACINE = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 LOGS = os.path.join(RACINE, "fo-logs", "2026-11-10_TITANS-FINITIONS")
 OUT_DEFAUT = os.path.join(LOGS, "rendu")
-TMP = os.path.join(LOGS, "tmp")
+TMP = os.environ.get("FO_TMP_RENDU") or os.path.join(LOGS, "tmp")   # LEVIATHAN2 : FO_TMP_RENDU -> TEMP de Blender sur C: (F: est une clé USB lente)
 
 
 def lancer(args, out, wait):
