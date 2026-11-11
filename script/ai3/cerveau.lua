@@ -41,6 +41,7 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
+local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (état passé à la pensée pure)
 local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module (mall…)
 local Lj = require("script.ai3.labo_journal") -- lot BLOCAGE-LABOS : journal [FO-LABO] (cause d'une recherche qui attend ses packs)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
@@ -919,10 +920,12 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     armee = Pil.armee_input(capi), -- lot TV-PILOTE (V10) : famille armée, parts δ + α de la capitalisation (nil : réglage fo-war-armee-famille éteint)
     industrie = Rsv.on(), -- lot INDUSTRIE I1 : le besoin est évalué à chaque pensée (f.team.ia3.noyau)
     pile = PileRt.inputs(f, book, tick), -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
-    prevu = Prev.pile_rows(f) } -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
+    prevu = Prev.pile_rows(f), -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
+    dispersion = AdRt.cerveau(f, tick) } -- lot IA-GARDE : garde anti-dispersion (nil : pas de mesure)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  if st.ad_inhibe then AdRt.compte(f, "surstock", st.ad_inhibe, tick) end -- lot IA-GARDE : buts de sur-stockage retirés par la pensée
   ZIrt.after(f, st, tick, math.floor(minutes(f, tick) + 0.5)) -- lot ZERO-IDLE : ligne [FO-ZERO-IDLE] (une par minute, PNJ libres)
   Pil.armee_line(f, plan, minutes(f, tick)) -- lot TV-PILOTE (V10) : journal [FO-ARMEE] aux changements de la réserve
   Ext.after(f, view, st, tick) -- lot C3 EXTENSION : mesures (étendue, rayon de base, sites gardés) et journal [FO-EXTENSION]

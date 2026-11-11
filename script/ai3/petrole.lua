@@ -34,6 +34,7 @@ local Rb = require("shared.team.rangee_bus") -- règle COMMUNE de rangée extens
 local Rf = require("shared.ai3.rangee_fluides") -- lot PETROLE-RANGEE, étape 2 : rangée de modules sur bus (règle pure)
 local Dg = require("shared.ai3.danger") -- carte du danger (lot IA3-k) : lue seulement
 local State = require("script.faction.state")
+local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (shared/ai3/anti_dispersion.lua)
 local Build = require("script.team.build")
 local Board = require("script.team.board") -- (reprise 0.6.20 : chargé ici, plus par un require pendant un appel distant, F24)
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
@@ -1602,9 +1603,12 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   Profiler.start("petrole:think")
   local st = state_of(f)
   Profiler.fstart("pet:decide") -- lot PERF3 : portées fines (mesure seulement)
+  -- Lot IA-GARDE (règle du DC, 11/11) : sous 2 colonnes de fonderie automatisées et 6 assembleurs actifs, aucune tâche de pétrole : ni site
+  -- demandé, ni extension de champ de puits, ni fabrication pour un site pas fini (partie du DC 0.6.96 : Ambre demande son site à 41,6 min)
+  local garde = AdRt.voit(f, "petrole", nil, tick)
   if tick >= (st.next or 0) then
     st.next = tick + Pet.EVERY
-    decide(f, st, General, deposits, tick)
+    if garde then decide(f, st, General, deposits, tick) else AdRt.compte(f, "petrole", 1, tick) end
   end
   Profiler.fstop("pet:decide")
   Profiler.fstart("pet:centrale")
@@ -1680,11 +1684,13 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       end
       s.built, s.total, s.reason = br.built, br.total, br.reason
       if br.state ~= "fini" and br.state ~= "refuse" then
-        mods[#mods + 1] = { product = product_of[s.key] or ("petrole:" .. s.key), state = br.state, missing = br.missing or {},
-          reason = br.reason, gain = Pet.GAIN }
+        if garde then
+          mods[#mods + 1] = { product = product_of[s.key] or ("petrole:" .. s.key), state = br.state, missing = br.missing or {},
+            reason = br.reason, gain = Pet.GAIN }
+        end
       elseif br.state == "fini" then
         Profiler.fstart("pet:champ")
-        extend_site(f, st, s, tick)
+        if garde then extend_site(f, st, s, tick) end
         Profiler.fstop("pet:champ")
         if s.ext_id then
           local eb = Build.brief(f, s.ext_id)
