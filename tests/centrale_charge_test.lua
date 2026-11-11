@@ -53,6 +53,14 @@ local function battery(C)
   check(C.growth(sat(), n({ load = 3812 / 14400, done = 5 })) == nil, "emerald 72,8 min : 3 812 sur 14 400 : rien")
   check(C.growth(sat(), n({ load = 0.749 })) == nil, "74,9 % : rien")
 
+  section("2b. P0-CENTRALE : demande engagee au-dela de la capacite = 100 %")
+  check(C.growth(sat(), n({ load = 1594 / 5400, engaged_kw = 2528, cap_kw = 1800 })) == 2, "partie du DC 0.7.3 : 2 528 kW engages sur 1 800, mesure 30 % : le champ")
+  nb, why = C.growth(sat(), n({ load = 0.5, engaged_kw = 1800, cap_kw = 1800 }))
+  check(nb == nil and why == C.LOAD_REASON, "engage egal a la capacite, mesure 50 % : rien")
+  nb, why = C.growth(sat(), n({ load = 0.5, engaged_kw = 2528 }))
+  check(nb == nil and why == C.LOAD_REASON, "capacite inconnue : la mesure decide")
+  check(C.engaged_over(1979, 1800) and not C.engaged_over(1979, 0) and not C.engaged_over(nil, 1800), "C.engaged_over")
+
   section("3. À partir de 75 % : la croissance d'avant")
   check(C.growth(sat(), n({ load = 0.75, built = 8 })) == 4, "saturée à 75 % pile : le champ ordinaire (4 pour 8 vivantes)")
   check(C.growth(sat(), n({ load = 1 })) == 2, "saturée à 100 % : le champ de 2")
@@ -104,11 +112,12 @@ section("Mutants")
 local f = assert(io.open("shared/team/centrale.lua", "rb"))
 local src = f:read("*a")
 f:close()
-local GATE = "if n.load ~= nil and n.load < C.GROW_LOAD then return nil, C.LOAD_REASON end"
+local GATE = "if n.load ~= nil and n.load < C.GROW_LOAD and not C.engaged_over(n.engaged_kw, n.cap_kw) then return nil, C.LOAD_REASON end"
 local TRIGGER = "  if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, \"pas saturee\" end\n"
 local COMMENT = "  -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité\n"
 local mutants = {
   { "garde retirée", GATE, "" },
+  { "engage ignore (P0-CENTRALE)", " and not C.engaged_over(n.engaged_kw, n.cap_kw)", "" },
   { "seuil 75 -> 70 %", "C.GROW_LOAD = 0.75", "C.GROW_LOAD = 0.7" },
   { "seuil 75 -> 80 %", "C.GROW_LOAD = 0.75", "C.GROW_LOAD = 0.8" },
   { "75 % pile retenu (< -> <=)", "n.load < C.GROW_LOAD", "n.load <= C.GROW_LOAD" },

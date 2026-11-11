@@ -123,6 +123,11 @@ function C.parallel_kw(st, n)
   return left
 end
 
+--- Lot P0-CENTRALE : la demande engagee (kW) depasse-t-elle la capacite batie (kW) ? Faux sans l'une des deux mesures.
+function C.engaged_over(engaged_kw, cap_kw)
+  return engaged_kw ~= nil and cap_kw ~= nil and cap_kw > 0 and engaged_kw > cap_kw
+end
+
 --- Nombre de chaudières de la centrale à demander, ou (nil, raison). n : { done = centrales finies, pending = centrales en
 --- projet (ni finies ni refusées), refused = demandes de croissance refusées, hold = repli de l'équipe, cool = pause après un abandon, off = règle coupée }.
 function C.growth(st, n)
@@ -132,7 +137,10 @@ function C.growth(st, n)
   local deficit = (n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS -- lot TV-ENERGIE : déficit de kW installé
   if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, "pas saturee" end
   -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité
-  if n.load ~= nil and n.load < C.GROW_LOAD then return nil, C.LOAD_REASON end
+  if n.load ~= nil and n.load < C.GROW_LOAD and not C.engaged_over(n.engaged_kw, n.cap_kw) then return nil, C.LOAD_REASON end
+  -- lot P0-CENTRALE (partie du DC 0.7.3 : « courant insuffisant : 2528 kW pris sur 1800 kW », centrale figee) : la production mesuree plafonne
+  -- a la capacite (et sous elle quand les machines attendent leur courant) ; une demande ENGAGEE (n.engaged_kw : production + consommateurs
+  -- en chantier ou retenus) au-dela de la capacite batie (n.cap_kw) compte comme une charge de 100 %
   -- lot ENERGIE (relecture) : la reconstruction qui n'aboutit pas ne retient pas le champ de remplacement (« si on y arrive vraiment pas, on
   -- le fait ailleurs ») ; n.rebuilding : ceux de n.pending qui sont des centrales rouvertes
   if n.lost then
