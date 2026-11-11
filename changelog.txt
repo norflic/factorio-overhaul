@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.10
+Date: 2026-11-11
+  Changes:
+    - IA (F562) : aucun four, assembleur, coffre, labo, tourelle ni centrale sur une tuile de minerai ; les foreuses ne dépendent plus de la place des fours.
+    - IA (F563) : quand un champ n'a pas de place pour ses fours, la colonne de fonderie est posée à côté, sur sol neutre, au bout du tapis collecteur.
+    - IA (F564) : pas d'avant-poste lointain tant qu'un gisement proche du même minerai n'est pas plein.
+    - Outils (F561) : banc de preuve par captures des gisements (couverture, bâtiments sur minerai, évacuation).
+  Bugfixes:
+    - IA (F565) : une foreuse isolée trouve la place de son poteau même quand le couloir d'accès longe la bande.
+    - IA (F566) : le charbon n'est plus retenu pour des brûleurs encore pleins ; les chaudières de la centrale ne sont plus à sec.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.5
 Date: 2026-11-11
   Bugfixes:
