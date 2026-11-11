@@ -14,28 +14,37 @@ end
 local function section(name) if not quiet then print("== " .. name) end end
 local function read_file(path) local fh = assert(io.open(path, "rb")); local s = fh:read("*a"); fh:close(); return s end
 
---- Tapis par relais sur une carte libre (ou avec obstacles), via le VRAI A* du plan directeur : la route rendue est-elle continue ?
-local function relay_run(Cv, sx, sy, ax, ay, blocked)
-  local a = { x = ax, y = ay, dir = 0 }
-  local mode, legs = Cv.reach(sx, sy, ax, ay)
-  if mode ~= "relais" then return nil, mode, legs end
-  local planned, reads = {}, 0
+local Tv = require("shared.team.traversee")
+
+--- Lot VAPEUR-RELAIS : tapis LONG d'une alimentation (au-dela de la boite de 120 tuiles), via le VRAI trace a souterrains (Tv.route), dans la
+--- boite entiere des extremites + Cv.MARGIN, comme Tdr.trace (essai pondere de plan_drills) : la route rendue est-elle continue ?
+local function long_run(Cv, sx, sy, ax, ay, blocked, maxd)
+  local a = { x = ax, y = ay, dir = P.dir_of(ax >= sx and 1 or -1, 0) }
+  local mode, why = Cv.reach(sx, sy, ax, ay)
+  if mode ~= "long" then return nil, mode or why end
   local function cost(x, y)
     if blocked and blocked(x, y) then return nil end
-    if planned[P.tkey(x, y)] then return nil end
     return 1
   end
-  local maxbox = 0
-  local tiles, why = Cv.route({ x = sx, y = sy }, a, legs, {
-    dir_of = P.dir_of, DV = P.DV, cost = cost,
-    read = function() reads = reads + 1 end,
-    route = function(from, to, dir, bd)
-      maxbox = math.max(maxbox, bd.x1 - bd.x0 + 1, bd.y1 - bd.y0 + 1)
-      return P.belt_route(from, to, dir, bd, cost)
-    end,
-    mark = function(t) planned[P.tkey(t.x, t.y)] = true end,
-  })
-  return tiles, why, legs, maxbox
+  local bd = { x0 = math.min(sx, ax) - Cv.MARGIN, y0 = math.min(sy, ay) - Cv.MARGIN, x1 = math.max(sx, ax) + Cv.MARGIN, y1 = math.max(sy, ay) + Cv.MARGIN }
+  local tiles, info = Tv.route({ x = sx, y = sy }, a, a.dir, bd, cost,
+    { maxd = maxd, weight = 1.25, max = (bd.x1 - bd.x0 + 1) * (bd.y1 - bd.y0 + 1) })
+  return tiles, info
+end
+
+local function continuous(tiles, sx, sy, ax, ay)
+  if not (tiles and tiles[1].x == sx and tiles[1].y == sy and tiles[#tiles].x == ax and tiles[#tiles].y == ay) then return false end
+  local seen = {}
+  for i, t in ipairs(tiles) do
+    if seen[P.tkey(t.x, t.y)] then return false end
+    seen[P.tkey(t.x, t.y)] = true
+    local nx = tiles[i + 1]
+    if nx and t.ug ~= "input" then
+      local v = P.DV[t.dir]
+      if not (v and t.x + v[1] == nx.x and t.y + v[2] == nx.y) then return false end
+    end
+  end
+  return true
 end
 
 local function battery(Cv, C)
@@ -99,58 +108,33 @@ local function battery(Cv, C)
   st = {}
   for _ = 1, 2 * Cv.LOSS_CHECKS do check(Cv.lost(st, 100, 50) == false, "exactement la moitie vivante : pas perdue") end
 
-  section("4. Portee du tapis et relais")
+  section("4. Portee du tapis")
   check(Cv.reach(0, 0, 90, 60) == "direct", "boite de 114 x 85 : tapis ordinaire")
-  local mode, legs = Cv.reach(0, 0, 142, 0)
-  check(mode == "relais" and legs == 2, "ambre : 142 tuiles -> relais en 2 troncons (mode " .. tostring(mode) .. ", " .. tostring(legs) .. ")")
-  mode, legs = Cv.reach(0, 0, 360, 0)
-  check(mode == "relais" and legs == 4, "360 tuiles : 4 troncons, le maximum")
-  mode, legs = Cv.reach(0, 0, 361, 0)
-  check(mode == nil and legs == "trop loin", "au-dela : trop loin")
-  local wps = Cv.waypoints(0, 0, 200, 40, 3, P.dir_of)
-  check(#wps == 2 and wps[1].x == 67 and wps[1].y == 13 and wps[2].x == 133 and wps[2].y == 27, "points de passage sur la droite")
-  check(wps[1].dir == P.dir_of(1, 0), "sens d'arrivee : axe dominant (x)")
-  wps = Cv.waypoints(0, 0, -10, -200, 3, P.dir_of)
-  check(wps[1].dir == P.dir_of(0, -1), "axe dominant y, vers le nord")
-  check(#Cv.waypoints(0, 0, 50, 0, 1, P.dir_of) == 0, "un seul troncon : aucun point de passage")
-  local cands = Cv.waypoint_candidates(10, 10)
-  check(#cands == (2 * Cv.WAYPOINT_R + 1) ^ 2 and cands[1][1] == 10 and cands[1][2] == 10, "candidats : le point lui-meme d'abord")
-  local ok_order = true
-  for i = 2, #cands do if cands[i][3] < cands[i - 1][3] then ok_order = false end end
-  check(ok_order, "candidats par distance de Chebyshev croissante")
+  check(Cv.reach(0, 0, 142, 0) == "long", "ambre : 142 tuiles -> tapis long, le meme trace")
+  check(Cv.reach(0, 0, 360, 0) == "long", "360 tuiles : le maximum")
+  local mode, why = Cv.reach(0, 0, 361, 0)
+  check(mode == nil and why == "trop loin", "au-dela : trop loin")
+  check(Cv.route == nil and Cv.waypoints == nil and Cv.waypoint_candidates == nil, "lot VAPEUR-RELAIS : plus de troncons ni de points de passage")
 
-  section("5. Route par relais (vrai A* du plan directeur)")
-  local cases = { { 0, 0, 142, 0 }, { 0, 0, -140, 37 }, { 0, 0, 20, 200 }, { 5, 5, 250, -180 }, { 0, 0, 340, 0 } }
+  section("5. Tapis long : un seul trace continu, souterrains sous les autres flux (lot VAPEUR-RELAIS)")
+  local cases = { { 0, 0, 142, 0 }, { 0, 0, -140, 37 }, { 0, 0, 20, 200 }, { 5, 5, 250, -180 } }
   for _, c in ipairs(cases) do
-    local tiles, why, lg, maxbox = relay_run(Cv, c[1], c[2], c[3], c[4])
+    local tiles, why2 = long_run(Cv, c[1], c[2], c[3], c[4])
     local label = string.format("(%d,%d)->(%d,%d)", c[1], c[2], c[3], c[4])
-    check(tiles ~= nil, "route trouvee " .. label .. " : " .. tostring(why))
-    if tiles then
-      local cont = tiles[1].x == c[1] and tiles[1].y == c[2] and tiles[#tiles].x == c[3] and tiles[#tiles].y == c[4]
-      local seen = {}
-      for i, t in ipairs(tiles) do
-        if seen[P.tkey(t.x, t.y)] then cont = false end
-        seen[P.tkey(t.x, t.y)] = true
-        local nx = tiles[i + 1]
-        if nx then
-          local v = P.DV[t.dir]
-          if not (v and t.x + v[1] == nx.x and t.y + v[2] == nx.y) then cont = false end
-        end
-      end
-      check(cont, "route continue, sans doublon, chaque tuile tournee vers la suivante " .. label)
-      check(maxbox <= Cv.BOX_DIRECT, "chaque boite de troncon tient dans 120 tuiles " .. label .. " (" .. tostring(maxbox) .. ")")
-    end
+    check(tiles ~= nil, "route trouvee " .. label .. " : " .. tostring(why2))
+    check(continuous(tiles, c[1], c[2], c[3], c[4]), "route continue, sans doublon, chaque tuile tournee vers la suivante " .. label)
   end
-  -- un mur au milieu avec une breche : le relais contourne ; un mur sans breche sur toute la boite : refus nomme
-  local wall = function(x, y) return x == 71 and (y < -30 or y > 30) end
-  local tiles = relay_run(Cv, 0, 0, 142, 0, wall)
-  check(tiles ~= nil, "mur avec breche au milieu : le relais passe")
-  local closed = function(x, y) return x >= 70 and x <= 72 end
-  local t2, why2 = relay_run(Cv, 0, 0, 142, 0, closed)
-  check(t2 == nil and tostring(why2):find("troncon", 1, true) ~= nil, "mur sans breche : refus qui nomme le troncon (" .. tostring(why2) .. ")")
-  local noway = function(x, y) return x > 40 and x < 100 end -- les points de passage (47, 94) sont dans la zone interdite
-  local t3, why3 = relay_run(Cv, 0, 0, 142, 0, noway)
-  check(t3 == nil, "zone interdite sur toute la droite : refus (" .. tostring(why3) .. ")")
+  -- partie du DC en 0.7.3 (player, centrale 13, projets 24, 38, 53) : queue (88, -29), arrivee (-41, -46) ; un quartier bati couvre le milieu de la
+  -- droite (le point de passage du relais y tombait : « relais : point de passage ») et un tapis etranger coupe toute la boite du nord au sud
+  local function dc(x, y) return (x >= 9 and x <= 39 and y >= -52 and y <= -22) or x == -10 end
+  local t1, i1 = long_run(Cv, 88, -29, -41, -46, dc, 5)
+  check(t1 ~= nil and continuous(t1, 88, -29, -41, -46), "partie du DC : le tapis contourne le quartier bati (" .. tostring(t1 and #t1 or i1) .. ")")
+  check(t1 ~= nil and type(i1) == "table" and i1.jumps >= 1, "partie du DC : il passe SOUS le tapis etranger (souterrain)")
+  local t2 = long_run(Cv, 88, -29, -41, -46, dc, nil)
+  check(t2 == nil, "sans souterrain, le tapis etranger ferme la boite : refus (le relais n'en posait jamais)")
+  local closed = function(x, y) return x >= 70 and x <= 80 end
+  local t3, why3 = long_run(Cv, 0, 0, 142, 0, closed, 5)
+  check(t3 == nil, "mur plus large que la portee d'un souterrain : refus nomme (" .. tostring(why3) .. ")")
 
   section("6. Refus de l'alimentation")
   check(Cv.after_refusal("foreuses : minerai", true) == "grandir", "gisement hors des lots : le treillis grandit")
@@ -164,8 +148,6 @@ local function battery(Cv, C)
   check(l:find("%[FO%-CHAMP%-VAPEUR%] scarlet : champ de 3 chaudiere%(s%) demande a 90%.0 min") ~= nil, "ligne champ : " .. l)
   l = Cv.line({ kind = "perte", team = "azure", tick = 7200, alive = 0, planned = 60000, nb = 2 })
   check(l:find("centrale perdue", 1, true) ~= nil and l:find("autre rive", 1, true) ~= nil, "ligne perte")
-  l = Cv.line({ kind = "relais", team = "amber", tick = 0, project = 4, legs = 2, sx = 1, sy = 2, ax = 3, ay = 4 })
-  check(l:find("2 troncon", 1, true) ~= nil, "ligne relais")
   l = Cv.line({ kind = "grandir", team = "amber", tick = 0, project = 4, why = "minerai", radius = 4 })
   check(l:find("le treillis grandit", 1, true) ~= nil, "ligne grandir")
 end
@@ -187,21 +169,21 @@ check(arms:find("local lost = Cv.lost(g, planned, capacity + reopened_alive)", 1
 check(arms:find("built = boilers_alive", 1, true) ~= nil and arms:find("lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J)", 1, true) ~= nil,
   "plant_arms : chaudieres vivantes et voie de tapis a la decision")
 check(arms:find("Cv.line({ kind = \"champ\"", 1, true) ~= nil and arms:find("kind = \"perte\"", 1, true) ~= nil, "plant_arms : journal du champ et de la perte")
-check(build:find("mode, legs = Cv.reach(s.x, s.y, a.x, a.y)", 1, true) ~= nil and build:find("if p.spec and p.spec.alim then", 1, true) ~= nil,
-  "plan_drills : le relais ne sert qu'a l'alimentation d'une centrale (et, lot FONDERIE-BLOC, a celle d'un coffre de champ)")
-check(build:find("if p.spec and p.spec.alimquai then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end", 1, true) ~= nil,
-  "plan_drills : le relais sert aussi a l'alimentation d'un coffre de champ (spec.alimquai)")
-check(build:find("tiles, why_leg, leg_no = Cv.route(s, a, relay_legs", 1, true) ~= nil, "plan_drills : trace par troncons")
--- (lot TRANCHES-FOREUSES : les trois essais de boite unique sont dans Tdr.trace, appele dans la branche « sinon » du relais)
+check(build:find("if p.spec and (p.spec.alim or p.spec.alimquai) then mode = Cv.reach(s.x, s.y, a.x, a.y) end", 1, true) ~= nil,
+  "plan_drills : le tapis long ne sert qu'a l'alimentation d'une centrale (et, lot FONDERIE-BLOC, a celle d'un coffre de champ)")
+-- lot VAPEUR-RELAIS : le tapis long passe par le MEME trace que le tapis ordinaire (Tdr.trace : souterrains, tranches) et par la preuve de purete
+check(build:find("Cv.route(", 1, true) == nil and build:find("relay_legs", 1, true) == nil and build:find("relais : ", 1, true) == nil,
+  "plan_drills : plus de tapis par troncons et points de passage")
 do
-  local i_relais = build:find('n2 = "relais : " .. tostring(why_leg)', 1, true)
+  local i_long = build:find('if mode ~= "long" then return false, "trop loin" end', 1, true)
   local i_trace = build:find("Tdr.trace({", 1, true)
-  check(i_relais ~= nil and i_trace ~= nil and i_trace > i_relais and build:sub(i_relais, i_trace):find("\n  else\n", 1, true) ~= nil
-    and build:sub(i_relais, i_trace):find("if not tiles and not relay_legs", 1, true) == nil,
-    "plan_drills : les essais de boite unique (Tdr.trace) ne servent pas au relais")
+  local i_pur = build:find('Build.Pur.check_route(f, surface, p, "foreuses"', 1, true)
+  check(i_long ~= nil and i_trace ~= nil and i_pur ~= nil and i_long < i_trace and i_trace < i_pur
+    and build:sub(i_long, i_pur):find("\n  if not relay", 1, true) == nil and build:sub(i_long, i_pur):find("\n  else\n", 1, true) == nil,
+    "plan_drills : le tapis long passe par Tdr.trace puis par la preuve de purete, sans autre branche")
 end
 check(build:find("Cv.after_refusal(last, Build.can_grow(b)) == \"grandir\"", 1, true) ~= nil, "plan_alim : le treillis grandit sur un refus « minerai »")
-check(build:find("if mode ~= \"relais\" then return false, \"trop loin\" end", 1, true) ~= nil, "plan_drills : au-dela du relais, « trop loin » reste")
+check(build:find("if mode ~= \"long\" then return false, \"trop loin\" end", 1, true) ~= nil, "plan_drills : au-dela du tapis long, « trop loin » reste")
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
@@ -228,19 +210,10 @@ mutant("perte totale immediate", function(Cm) Cm.LOSS_CHECKS_TOTAL = 1 end)
 mutant("perte immediate", function(Cm) Cm.LOSS_CHECKS = 1 end)
 mutant("perte jamais", function(Cm) Cm.lost = function() return false end end)
 mutant("seuil de perte a 100 %", function(Cm) Cm.LOSS_FRAC = 1.0 end)
-mutant("relais jamais", function(Cm) Cm.MAX_LEGS = 0 end)
-mutant("relais sans borne", function(Cm) Cm.MAX_LEGS = 100 end)
-mutant("troncons trop longs", function(Cm) Cm.LEG = 200 end)
-mutant("pas de point de passage", function(Cm) local old = Cm.waypoints; Cm.waypoints = function(a, b, c, d, e, f) local w = old(a, b, c, d, e, f); return {} end end)
-mutant("tronçon suivant sur le point de passage", function(Cm)
-  local old = Cm.route
-  Cm.route = function(s, a, legs, env)
-    local DV = {}
-    for k, v in pairs(env.DV) do DV[k] = { 0, 0 } end
-    env.DV = DV
-    return old(s, a, legs, env)
-  end
-end)
+mutant("tapis long jamais", function(Cm) Cm.MAX_SPAN = 0 end)
+mutant("tapis long sans borne", function(Cm) Cm.MAX_SPAN = 1e9 end)
+mutant("boite ordinaire illimitee", function(Cm) Cm.BOX_DIRECT = 1e9 end)
+mutant("relais de retour (troncons)", function(Cm) Cm.route = function() return nil, "point de passage", 1 end end)
 mutant("le treillis ne grandit jamais", function(Cm) Cm.after_refusal = function() return "attendre" end end)
 mutant("le treillis grandit meme au maximum", function(Cm) Cm.after_refusal = function() return "grandir" end end)
 mutant("centrale perdue ignoree par la croissance", function(_, Cc)
@@ -251,11 +224,6 @@ mutant("croissance sans champ", function(_, Cc)
   local old = Cc.growth
   Cc.growth = function(st, n) local n2 = {}; for k, v in pairs(n) do n2[k] = v end; n2.built = nil; return old(st, n2) end
 end)
-mutant("candidats dans le desordre", function(Cm)
-  local old = Cm.waypoint_candidates
-  Cm.waypoint_candidates = function(x, y) local l = old(x, y); local r = {}; for i = #l, 1, -1 do r[#r + 1] = l[i] end; return r end
-end)
-
 ---------------------------------------------------------------------------------------------------
 -- Relecture : les maillons qui manquaient (PA.watch reel, moteur simule ; but du cerveau ; refus qui fait grandir)
 ---------------------------------------------------------------------------------------------------

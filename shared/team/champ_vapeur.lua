@@ -13,9 +13,10 @@
   1. TAILLE DU CHAMP (Cv.boilers_for) : la croissance demande un CHAMP (une rangee de Cv.MIN_FIELD a Cv.MAX_FIELD chaudieres nourries
      par UN tapis qui entre d'un seul cote, gabarit steam(nb)), pas une chaudiere isolee dont chaque coffre demanderait son propre
      apport ; reduit d'une chaudiere par refus du plan (un lot trop petit), borne par ce qu'une voie de tapis porte.
-  2. TAPIS PAR RELAIS (Cv.reach, Cv.waypoints) : l'alimentation d'une centrale peut depasser la boite de 120 tuiles du tapis ordinaire :
-     le tapis est trace en TRONCONS de Cv.LEG tuiles au plus, chacun dans sa boite lue au moteur, relies par des points de passage
-     sur la droite du depart a l'arrivee ; au-dela de Cv.MAX_LEGS troncons, « trop loin » reste vrai.
+  2. PORTEE DU TAPIS (Cv.reach) : l'alimentation d'une centrale peut depasser la boite de 120 tuiles du tapis ordinaire, jusqu'a
+     Cv.MAX_SPAN tuiles ; au-dela, « trop loin » reste vrai. Lot VAPEUR-RELAIS (11/11) : le tapis long est UN SEUL trace continu, celui
+     du tapis ordinaire (Tdr.trace : souterrains sous les autres flux, par tranches, preuve de purete), plus de troncons relies par des
+     points de passage fixes sur la droite (« relais : point de passage » des qu'un quartier bati couvrait le milieu, aucun souterrain).
   3. REFUS DE L'ALIMENTATION (Cv.after_refusal) : « minerai » (gisement hors du treillis) fait GRANDIR le treillis au lieu d'attendre ;
      « trop loin » n'arrive plus qu'au-dela du relais.
   4. PERTE (Cv.lost) : des machines a vapeur detruites qui ne sont pas revenues apres Cv.LOSS_CHECKS releves (la reconstruction
@@ -27,11 +28,9 @@ local Cv = {}
 Cv.MIN_FIELD = 2        -- chaudieres d'un champ demande par la croissance (au moins)
 Cv.MAX_FIELD = 6        -- chaudieres d'un champ (au plus : 20 tuiles de large, un lot en compte 24)
 Cv.GROW_FRAC = 0.5      -- le champ de plus ajoute au moins cette part des chaudieres deja bâties
-Cv.LEG = 90             -- tuiles d'un troncon de tapis au plus (boite de troncon : LEG + 2 x marge <= 120)
-Cv.MARGIN = 12          -- marge de la boite d'un troncon
+Cv.MARGIN = 12          -- marge de la boite du tapis (celle de script/team/build.lua, Build.plan_drills)
 Cv.BOX_DIRECT = 120     -- boite du tapis ordinaire (script/team/build.lua, Build.plan_drills)
-Cv.MAX_LEGS = 4         -- troncons au plus (360 tuiles)
-Cv.WAYPOINT_R = 6       -- rayon de recherche d'une tuile libre pour un point de passage
+Cv.MAX_SPAN = 360       -- tuiles au plus du depart a l'arrivee (axe dominant) d'un tapis d'alimentation
 Cv.LOSS_FRAC = 0.5      -- part de la capacite prevue en dessous de laquelle la centrale est dite perdue
 Cv.LOSS_CHECKS = 120    -- releves (5 s) de perte de suite avant le remplacement : 10 min
 Cv.LOSS_CHECKS_TOTAL = 36 -- lot ENERGIE (2/11) : perte TOTALE (plus aucune machine vivante : toute la base sans courant, Scarlet a 57,3 min,
@@ -60,81 +59,13 @@ function Cv.box(sx, sy, ax, ay, margin)
   return math.abs(ax - sx) + 2 * margin + 1, math.abs(ay - sy) + 2 * margin + 1
 end
 
---- Portee du tapis de s a a. Rend "direct" (la boite tient dans Cv.BOX_DIRECT : tapis ordinaire), ou "relais" et le nombre de troncons,
---- ou nil et la raison (« trop loin »).
+--- Portee du tapis de s a a. Rend "direct" (la boite tient dans Cv.BOX_DIRECT : tapis ordinaire), "long" (au-dela, jusqu'a Cv.MAX_SPAN
+--- tuiles : le meme trace, dans la boite entiere), ou nil et la raison (« trop loin »).
 function Cv.reach(sx, sy, ax, ay)
   local w, h = Cv.box(sx, sy, ax, ay)
-  if w <= Cv.BOX_DIRECT and h <= Cv.BOX_DIRECT then return "direct", 1 end
-  local span = math.max(math.abs(ax - sx), math.abs(ay - sy))
-  local legs = math.ceil(span / Cv.LEG - 1e-9)
-  if legs > Cv.MAX_LEGS then return nil, "trop loin" end
-  return "relais", legs
-end
-
---- Points de passage ideaux d'un tapis de s a a en `legs` troncons : legs - 1 points sur la droite, avec le sens d'arrivee (axe
---- dominant du depart vers l'arrivee). dir_of(dx, dy) donne le sens (celui de shared/team/plan.lua). Liste vide pour un seul troncon.
-function Cv.waypoints(sx, sy, ax, ay, legs, dir_of)
-  local out = {}
-  if legs <= 1 then return out end
-  local dx, dy = ax - sx, ay - sy
-  local dom_x, dom_y = 0, 0
-  if math.abs(dx) >= math.abs(dy) then dom_x = dx >= 0 and 1 or -1 else dom_y = dy >= 0 and 1 or -1 end
-  local dir = dir_of(dom_x, dom_y)
-  for i = 1, legs - 1 do
-    out[#out + 1] = { x = sx + math.floor(dx * i / legs + 0.5), y = sy + math.floor(dy * i / legs + 0.5), dir = dir }
-  end
-  return out
-end
-
---- Tuiles candidates autour d'un point de passage ideal, ordre fixe (distance de Chebyshev, puis y, puis x), rayon Cv.WAYPOINT_R.
-function Cv.waypoint_candidates(x, y)
-  local list = {}
-  for dy = -Cv.WAYPOINT_R, Cv.WAYPOINT_R do
-    for dx = -Cv.WAYPOINT_R, Cv.WAYPOINT_R do list[#list + 1] = { x + dx, y + dy, math.max(math.abs(dx), math.abs(dy)) } end
-  end
-  table.sort(list, function(u, v)
-    if u[3] ~= v[3] then return u[3] < v[3] end
-    if u[2] ~= v[2] then return u[2] < v[2] end
-    return u[1] < v[1]
-  end)
-  return list
-end
-
---- Tapis par relais, de la tuile s a la tuile a (arrivee de sens a.dir) en `legs` troncons. env (tout est injecte : aucune API du jeu) :
----   dir_of(dx, dy), DV[dir] = {dx, dy} (shared/team/plan.lua) ; cost(x, y) -> nil (interdit) ou cout ;
----   read(x0, y0, x1, y1) : releve (au moteur) les masques d'une boite, avant que cost la lise ;
----   route(from, to, dir, bounds) -> tuiles {x, y, dir} ou nil, raison (un tracé A* dans `bounds`) ;
----   mark(tile) : appelee pour chaque tuile posee (les troncons suivants l'evitent).
---- Rend la liste des tuiles (s en tete, a en queue, chaque tuile tournee vers la suivante) ou nil, raison, troncon atteint.
-function Cv.route(s, a, legs, env)
-  local wps = Cv.waypoints(s.x, s.y, a.x, a.y, legs, env.dir_of)
-  wps[#wps + 1] = { x = a.x, y = a.y, dir = a.dir, last = true }
-  local cur, all = { x = s.x, y = s.y }, {}
-  for i, wp in ipairs(wps) do
-    local target = { x = wp.x, y = wp.y }
-    if not wp.last then
-      local v = env.DV[wp.dir]
-      local r = Cv.WAYPOINT_R + 2
-      env.read(wp.x - r, wp.y - r, wp.x + r + 1, wp.y + r + 1) -- boite du point de passage
-      local found
-      for _, c in ipairs(Cv.waypoint_candidates(wp.x, wp.y)) do
-        if env.cost(c[1], c[2]) and env.cost(c[1] + v[1], c[2] + v[2]) then found = c break end
-      end
-      if not found then return nil, "point de passage", i end
-      target = { x = found[1], y = found[2] }
-    end
-    local x0, y0 = math.min(cur.x, target.x) - Cv.MARGIN, math.min(cur.y, target.y) - Cv.MARGIN
-    local x1, y1 = math.max(cur.x, target.x) + Cv.MARGIN, math.max(cur.y, target.y) + Cv.MARGIN
-    env.read(x0, y0, x1 + 1, y1 + 1)
-    local leg, why = env.route(cur, target, wp.dir, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 })
-    if not leg then return nil, string.format("troncon %d/%d : %s", i, #wps, tostring(why)), i end
-    for _, t in ipairs(leg) do all[#all + 1] = t; if env.mark then env.mark(t) end end
-    if not wp.last then
-      local v = env.DV[wp.dir]
-      cur = { x = target.x + v[1], y = target.y + v[2] }
-    end
-  end
-  return all
+  if w <= Cv.BOX_DIRECT and h <= Cv.BOX_DIRECT then return "direct" end
+  if math.max(math.abs(ax - sx), math.abs(ay - sy)) > Cv.MAX_SPAN then return nil, "trop loin" end
+  return "long"
 end
 
 --- Refus du projet d'alimentation (raison rendue par le plan, ex. « foreuses : minerai ») -> action : "grandir" (gisement hors du
@@ -165,12 +96,6 @@ function Cv.line(ev)
   if ev.kind == "champ" then
     return string.format("[FO-CHAMP-VAPEUR] %s : champ de %d chaudiere(s) demande a %.1f min (%d vivantes, %d refus du plan, %s)",
       tostring(ev.team), ev.nb or 0, min, ev.built or 0, ev.refused or 0, tostring(ev.why or "saturation"))
-  elseif ev.kind == "relais" then
-    return string.format("[FO-CHAMP-VAPEUR] %s : projet %s, tapis du gisement en %d troncon(s) de %d tuile(s) au plus, de (%d, %d) a (%d, %d) a %.1f min",
-      tostring(ev.team), tostring(ev.project), ev.legs or 1, Cv.LEG, ev.sx or 0, ev.sy or 0, ev.ax or 0, ev.ay or 0, min)
-  elseif ev.kind == "relais-refus" then
-    return string.format("[FO-CHAMP-VAPEUR] %s : projet %s, relais refuse au troncon %d sur %d (%s) a %.1f min",
-      tostring(ev.team), tostring(ev.project), ev.leg or 0, ev.legs or 0, tostring(ev.why), min)
   elseif ev.kind == "grandir" then
     return string.format("[FO-CHAMP-VAPEUR] %s : projet %s, gisement de charbon hors du treillis (%s) : le treillis grandit (rayon %d) a %.1f min",
       tostring(ev.team), tostring(ev.project), tostring(ev.why), ev.radius or 0, min)
