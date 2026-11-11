@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.95
+Date: 2026-11-11
+  Changes:
+    - Rapatriement (F537) : les lignes de rapatriement vers le QG sont fusionnées (F518, F520, F532) : elles visent la bonne tuile du QG, leurs souterrains et tapis manquants deviennent des buts des PNJ, et elles passent après les bandes de champ ; la planification coûte jusqu'à 40 fois moins par tick sur certaines cartes.
+    - Ouvriers (F537) : « Factions : ouvriers au plus » remonte une fois à son défaut (30) dans une partie sauvegardée avant la 0.6.95 où il valait moins ; une valeur plus haute est gardée.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.94
 Date: 2026-11-11
   Bugfixes:

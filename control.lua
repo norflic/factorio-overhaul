@@ -79,6 +79,7 @@ require("script.robots.experimentaux") -- lot EXPERIMENTAUX : effets, lancer des
 
 -- Lot VIDEO (0.6.61) : migration UNIQUE des quatre réglages de carte de la vidéo dans une partie d'avant la 0.6.61
 require("script.ai3.video_reglages")
+require("script.ai3.ouvriers_reglage")
 
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
