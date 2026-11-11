@@ -211,6 +211,7 @@ function Elec.think(f, book, tick)
     el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
     since = st.switch_tick and (tick - st.switch_tick) or nil }
   phase_of(f, st, tick, v) -- arbre de décision : v.phase, v.elec_drill_stock
+  date_era(f, st, book, tick, v.phase) -- lot PURGE-MINE
   st.v = v
   -- bascule datée (retour au thermique après E.CFG.revert sans électrique) : posée au premier refus, effacée quand une cause MATÉRIELLE
   -- rend la thermique (centrale, objet, poteaux) ; gardée pendant le retour pour cause de 0 électrique (la règle se réarme quand une tourne)
@@ -299,43 +300,54 @@ function Elec.allowed(f, tick, kind)
   return (E.thermal(inputs(v, kind, false)))
 end
 
---- Lot CC-MAIN : l'objet `item` sort-il d'une ressource que la foreuse électrique sait extraire (catégorie de la ressource parmi celles de la
---- foreuse, lues aux prototypes) ? Le bois des arbres, un fluide d'une autre catégorie : non. Mémorisé par objet dans une table de module
---- (jamais dans `global` ; une somme booléenne : l'ordre de `pairs` ne compte pas).
-local DRILLABLE = {}
-local function drillable(item)
-  local c = DRILLABLE[item]
-  if c ~= nil then return c end
-  c = false
-  local ok, drill = pcall(function() return game.entity_prototypes[T.DRILL_ELECTRIC] end)
-  local cats = ok and drill and proto_get(drill, "resource_categories") or nil
-  local ok2, list = pcall(function() return game.get_filtered_entity_prototypes({ { filter = "type", type = "resource" } }) end)
-  if cats and ok2 and list then
-    for _, r in pairs(list) do
-      if cats[proto_get(r, "resource_category") or ""] then
-        local mp = proto_get(r, "mineable_properties")
-        for _, p in ipairs(mp and mp.products or {}) do
-          if p.name == item and p.type ~= "fluid" then c = true end
-        end
-      end
+--- Lot PURGE-MINE : foreuses électriques des DONNÉES (type mining-drill, source d'énergie électrique) : objets qui les posent, catégories de
+--- ressource qu'elles extraient. Aucun nom ; lu une fois dans des tables de module (jamais dans `global` ; sommes et liste triée).
+local DRILLS, DRILLABLE = nil, {}
+local function drills()
+  if DRILLS then return DRILLS end
+  DRILLS = { items = {}, cats = {} }
+  local ok, list = pcall(function() return game.get_filtered_entity_prototypes({ { filter = "type", type = "mining-drill" } }) end)
+  for _, p in pairs(ok and list or {}) do
+    if proto_get(p, "electric_energy_source_prototype") then
+      for c in pairs(proto_get(p, "resource_categories") or {}) do DRILLS.cats[c] = true end
+      for _, it in ipairs(proto_get(p, "items_to_place_this") or {}) do DRILLS.items[#DRILLS.items + 1] = it.name end
+    end
+  end
+  table.sort(DRILLS.items)
+  return DRILLS
+end
+
+--- L'objet `item` sort-il d'une ressource qu'une foreuse électrique extrait (catégorie lue aux prototypes) ? Le bois des arbres, un fluide : non.
+function Elec.drillable(item)
+  if item == nil then return false end
+  if DRILLABLE[item] ~= nil then return DRILLABLE[item] end
+  local c, cats = false, drills().cats
+  local ok, list = pcall(function() return game.get_filtered_entity_prototypes({ { filter = "type", type = "resource" } }) end)
+  for _, r in pairs(ok and list or {}) do
+    local mp = cats[proto_get(r, "resource_category") or ""] and proto_get(r, "mineable_properties")
+    for _, pr in ipairs(mp and mp.products or {}) do
+      if pr.name == item and pr.type ~= "fluid" then c = true end
     end
   end
   DRILLABLE[item] = c
   return c
 end
 
---- Lot CC-MAIN (mandat du DC, 10/11 22 h 20 : plus de minage au sol dès que les foreuses électriques sont là) : cause (chaîne) qui interdit
---- la pioche sur `item`, ou nil. MÊME exclusion mutuelle que la thermique (Dt.thermal_allowed : hors phase early, des foreuses électriques
---- dorment au coffre), appliquée aux seules ressources que la foreuse électrique extrait (jamais le bois des arbres). Verdict périmé ou
---- règle éteinte : nil (comportement d'avant). Lu par la garde unique du minage à la main (Mi.hand_verdict : worker, fond).
-function Elec.hand_blocked(f, tick, item)
-  local st = f and f.elec
-  local v = st and st.v
-  if not (v and v.on and tick - (v.tick or -math.huge) <= Elec.TTL) then return nil end
-  local dt_ok, dt_why = Dt.thermal_allowed({ phase = v.phase, elec_drill_stock = v.elec_drill_stock })
-  if dt_ok then return nil end
-  if not drillable(item) then return nil end
-  return dt_why
+--- Ère électrique de l'équipe (tick, nil avant) : datée par Elec.think, jamais effacée. Lue par la file de sélection (Mi.gone, board.lua).
+function Elec.era(f) return f and f.elec and f.elec.era end
+
+--- Ère électrique : la phase sort d'early (centrale finie et saine, foreuse obtenable) ET une foreuse électrique des données est débloquée
+--- pour la force (sa recette est au livre, qui ne tient que les recettes actives : la technologie est recherchée).
+local function date_era(f, st, book, tick, phase)
+  if st.era or phase == "early" or not book then return end
+  for _, item in ipairs(drills().items) do
+    if book:handcraftable(item) then
+      st.era = tick
+      log(string.format("[FO-ELECTRIQUE] %s : ERE ELECTRIQUE (%s debloquee) : la pioche est radiee de la file de selection a %.1f min",
+        f.key or "player", item, minutes(f, tick)))
+      return
+    end
+  end
 end
 
 --- Journal : foreuses thermiques perdues non refaites (n) et secours thermiques annulés (back) par la reconstruction.
