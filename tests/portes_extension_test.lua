@@ -36,10 +36,10 @@ local function suite(Pe)
   -- I2 : la défense (R1) garde ses 4 unités.
   want(r2.kept[2] and r2.kept[2].n == 4, "I2 : R1 ni retenu ni reduit")
   -- 2. Hystérésis : une mesure à peine sous le seuil de sortie ne rouvre pas ; 2 mesures détendues rouvrent.
-  local mid = { workers = 10, idle = 1, free_tasks = 10, batis = 10, open_sites = 0 } -- 100 ‰ libres : ni tendu ni détendu
+  local mid = { workers = 10, idle = 1, free_tasks = 25, batis = 10, open_sites = 0 } -- 25 tâches (sortie 22, entrée 32) : ni tendu ni détendu
   Pe.decide(st, mid, {})
   Pe.decide(st, mid, {})
-  want(st.closed, "hysteresis : 10 % libres ne rouvre pas (sortie a 20 %)")
+  want(st.closed, "hysteresis : 25 taches libres pour 10 PNJ ne rouvre pas (sortie a 22)")
   local calm = { workers = 10, idle = 3, free_tasks = 10, batis = 10, open_sites = 0 }
   Pe.decide(st, calm, {})
   want(st.closed, "hysteresis : une mesure detendue ne rouvre pas")
@@ -52,7 +52,7 @@ local function suite(Pe)
   local t30b = Pe.measure({ workers = 30, idle = 10, free_tasks = 100 })
   want(t30b == true, "30 PNJ, 100 taches libres : tendu")
   local t30c = Pe.measure({ workers = 30, idle = 2, free_tasks = 0 })
-  want(t30c == true, "30 PNJ, 2 libres (67 pour mille) : tendu")
+  want(t30c == false, "30 PNJ, 2 libres, aucune tache qui attende : pas tendu (lot IA-CAPI)")
   -- 4. Garde fermée : mesure absente ou effectif nul -> fermée.
   local ra = Pe.decide(big, { batis = 0, open_sites = 0 }, { ord("chantier", { tours = true }) })
   want(ra.closed and #ra.kept == 0, "mesure absente : porte fermee")
@@ -71,7 +71,7 @@ local function suite(Pe)
   want(#r5.kept == 2 and #r5.refused == 4, "I1 : 2 chantiers ouverts sur 6 demandes (" .. #r5.kept .. ")")
   -- 6. Petites marches : tendu (une seule mesure) -> une unité ; détendu -> n ; mesuré -> une unité.
   local s6 = Pe.new()
-  local r6 = Pe.decide(s6, { workers = 4, idle = 0, free_tasks = 0, batis = 0, open_sites = 0 }, { ord("fours", { n = 3 }) })
+  local r6 = Pe.decide(s6, { workers = 4, idle = 0, free_tasks = 20, batis = 0, open_sites = 0 }, { ord("fours", { n = 3 }) })
   want(r6.kept[1] and r6.kept[1].n == 1 and r6.kept[1].reduced, "tendu : une unite par decision")
   local s6b = Pe.new()
   local r6b = Pe.decide(s6b, calm2, { ord("fours", { n = 3 }), ord("labos", { n = 2, measured = true }) })
@@ -149,7 +149,7 @@ local function suite(Pe)
   local rb8 = Pe.decide(sb, D1, orders)
   want(Pe.describe(sa, ra8) == Pe.describe(sb, rb8), "deterministe")
   -- 9. RACINE (lot tv-fer, partie du 8/11 : « 0 PNJ libre sur 8, 6 tache(s) libre(s) », ordre couvrir iron-ore retenu 14 minutes de suite).
-  local Rn = { workers = 8, idle = 0, free_tasks = 6, batis = 0, open_sites = 0 }
+  local Rn = { workers = 8, idle = 0, free_tasks = 30, batis = 0, open_sites = 0 } -- (lot IA-CAPI : 6 tâches ne ferment plus ; 30 > 26)
   local function ctx_root(short) -- short = { [produit] = manque } ; couvrir/ouvrir iron-ore -> iron-plate
     return { family_of = function() return "capi" end, family_rank = { capi = 3 }, site_kinds = { couvrir = true, ouvrir = true },
       tours_kinds = { couvrir = true, ouvrir = true, chaine = true }, measured = {}, measured_n = 0,
@@ -185,6 +185,37 @@ local function suite(Pe)
   -- Manque nul : pas une racine.
   local tz = Pe.translate(couv, ctx_root({ ["iron-plate"] = 0 }))
   want(not tz.root, "racine : manque 0 ne fait pas une racine")
+  -- 10. Lot IA-CAPI (partie du DC 0.6.96, joueur, minute 114, tick 409980 : « 1 PNJ libre(s) sur 22, 4 tache(s) libre(s) (tendu
+  -- au-dela de 68) » ; porte fermée de la minute 16 à la 114, 38 ordres chaine retenus sur 38, aucune rangée d'assembleurs envoyée).
+  -- Les règles I2 (file sûre) et ZERO-IDLE donnent une tâche à tout PNJ sans tâche : la part de PNJ libres reste à 0 ou 1 par
+  -- construction, dans les 5 factions. Le transport sature quand du travail ATTEND au-delà de ce que l'effectif sert.
+  local P114 = { workers = 22, idle = 1, free_tasks = 4, batis = 2, open_sites = 0 }
+  local chaine = { ord("chaine:copper-cable", { tours = true, site = true }) }
+  local s10 = Pe.new()
+  Pe.decide(s10, P114, chaine)
+  local r10 = Pe.decide(s10, P114, chaine)
+  want(not r10.closed and keys(r10.kept) == "chaine:copper-cable", "IA-CAPI : 1 PNJ libre sur 22, 4 taches libres : porte ouverte, la rangee passe")
+  -- fermée par un vrai engorgement (minute 109 : 0 libre sur 23, 77 tâches > 71), elle rouvre quand les tâches libres retombent au
+  -- seuil de sortie (minute 103 : 3 libres sur 22, 30 tâches <= 46), sans attendre 20 % de PNJ libres
+  local P109 = { workers = 23, idle = 0, free_tasks = 77, batis = 2, open_sites = 0 }
+  local s10b = Pe.new()
+  Pe.decide(s10b, P109, {})
+  Pe.decide(s10b, P109, {})
+  want(s10b.closed, "IA-CAPI : 77 taches libres pour 23 PNJ : fermee")
+  local P103 = { workers = 22, idle = 3, free_tasks = 30, batis = 2, open_sites = 0 }
+  Pe.decide(s10b, P103, {})
+  local r10b = Pe.decide(s10b, P103, chaine)
+  want(not r10b.closed and #r10b.kept == 1, "IA-CAPI : 30 taches libres pour 22 PNJ (sortie 46) : rouverte, la rangee passe")
+  -- entre les deux seuils (60 tâches : sortie 46, entrée 68) : ni tendu ni détendu, l'état reste (hystérésis sur les tâches)
+  local s10c = Pe.new()
+  Pe.decide(s10c, P109, {})
+  Pe.decide(s10c, P109, {})
+  local mid22 = { workers = 22, idle = 0, free_tasks = 60, batis = 2, open_sites = 0 }
+  Pe.decide(s10c, mid22, {})
+  Pe.decide(s10c, mid22, {})
+  want(s10c.closed, "IA-CAPI : 60 taches libres pour 22 PNJ (entre 46 et 68) : reste fermee")
+  -- seuil strict (minute 107 : 71 tâches pour un seuil de 71) : pas tendu
+  want(Pe.measure({ workers = 23, idle = 0, free_tasks = 71 }) == false, "IA-CAPI : 71 taches au seuil de 71 : pas tendu")
   return bad
 end
 
@@ -231,6 +262,13 @@ local MUTANTS = {
   { "traduction : tournees ignorees", "tours = research or (ctx.tours_kinds or {})[o.kind] == true", "tours = research" },
   { "traduction : manque mesure ignore", "local measured = item ~= nil and ((ctx.measured or {})[item] or 0) > 0", "local measured = false" },
   { "traduction : seul toujours vrai", "alone = measured and (ctx.measured_n or 0) == 1, research = research }", "alone = measured, research = research }" },
+  -- Lot IA-CAPI : la tension ne lit que les tâches qui attendent.
+  { "IA-CAPI : PNJ libres a nouveau dans la tension", "local tense = free > y", "local tense = idle * 1000 < w * 100 or free > y" },
+  { "IA-CAPI : PNJ libres seuls (taches ignorees)", "local tense = free > y", "local tense = idle * 1000 < w * 100" },
+  { "IA-CAPI : 20 % de PNJ libres exiges pour rouvrir", "local calm = free <= y_exit", "local calm = idle * 1000 >= w * 200 and free <= y_exit" },
+  { "IA-CAPI : sortie au seuil d'entree (sans hysteresis)", "local calm = free <= y_exit", "local calm = free <= y" },
+  { "IA-CAPI : seuil de sortie fixe", "local y_exit = Pe.BACKLOG_EXIT_PER * w + Pe.BACKLOG_BASE", "local y_exit = 8" },
+  { "IA-CAPI : tendu au seuil", "local tense = free > y", "local tense = free >= y" },
 }
 local refused = 0
 for _, m in ipairs(MUTANTS) do

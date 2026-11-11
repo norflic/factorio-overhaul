@@ -95,7 +95,7 @@ local function suite(Cv)
   want(#Cv.reserve_wants(nil, nil) == 0 and #Cv.reserve_wants({ "x" }, nil) == 0, "wants : entree absente ou illisible")
 
   -- 3. Branchée sur la vraie porte L6, comme Capi.portes la branche (root_of rend un nombre > 0 pour un ordre en boucle).
-  local A = { workers = 8, idle = 0, free_tasks = 6, batis = 0, open_sites = 0 } -- 0 PNJ libre sur 8 : tendu
+  local A = { workers = 8, idle = 0, free_tasks = 30, batis = 0, open_sites = 0 } -- 30 taches libres pour 8 PNJ (seuil 26) : tendu (lot IA-CAPI : la part de PNJ libres ne compte plus)
   local function ctx_for(saturated, free, crisis)
     return { family_of = function() return "capi" end, family_rank = { capi = 3 }, site_kinds = { couvrir = true, ouvrir = true, chaine = true },
       tours_kinds = { couvrir = true, ouvrir = true, chaine = true }, measured = {}, measured_n = 0,
