@@ -85,11 +85,11 @@ local function band_list(bd)
   return list
 end
 
---- Fer (matières premières du livre) qu'il reste à FABRIQUER pour la bande `bd` une fois ses pièces déjà au stock `free` retirées (lot SATURATION :
---- avant, la bande entière était comptée, stock dormant compris), et l'état de saturation. nil si le livre ne sait pas le dire.
-local function band_iron(book, bd, free)
-  if not (book and bd and bd.ents) then return nil end
-  local sat = Mp.saturation(band_list(bd), free)
+--- Fer (matières premières du livre) qu'il reste à FABRIQUER pour la liste de pièces `need` (band_list) une fois ses pièces déjà au stock `free`
+--- retirées (lot SATURATION : avant, la bande entière était comptée, stock dormant compris), et l'état de saturation. nil si le livre ne sait pas le dire.
+local function band_iron(book, need, free)
+  if not (book and need) then return nil end
+  local sat = Mp.saturation(need, free)
   if #sat.net == 0 then return 0, sat end
   local ok, raw = pcall(function() return book:raw_cost(sat.net) end)
   local iron = ok and raw and raw[T.outposts.iron.product] or nil
@@ -775,6 +775,27 @@ local function garde_band(f, o, tick)
   return (AdRt.permet(f, "surstock", { sorte = sorte, manque = AdRt.manque(f, T.outposts[o.kind].product) }, tick))
 end
 
+--- Paires de `list` dont une tuile est sous la bande `bd` (celles que le dégel retire) : numéros triés, tuiles à dégeler (liste plate), centre de
+--- la bande. Lu par les deux voies (principale : begin_band ; en avance : ahead_launch).
+local function band_cut(bd, list)
+  local under = {}
+  for i = 1, #bd.tiles - 1, 2 do under[P.tkey(bd.tiles[i], bd.tiles[i + 1])] = true end
+  local ids, thaw = {}, {}
+  for _, pr2 in ipairs(list) do
+    local t = Mg.tiles({ Mg.box(pr2.drill), Mg.box(pr2.sink) })
+    local hit = false
+    for i = 1, #t - 1, 2 do if under[P.tkey(t[i], t[i + 1])] then hit = true end end
+    if hit then
+      ids[#ids + 1] = pr2.id
+      for i = 1, #t do thaw[#thaw + 1] = t[i] end
+    end
+  end
+  table.sort(ids)
+  local cx, cy, n = 0, 0, 0
+  for _, e in ipairs(bd.ents) do cx, cy, n = cx + e.x, cy + e.y, n + 1 end
+  return ids, thaw, cx / math.max(1, n), cy / math.max(1, n)
+end
+
 local function begin_band(f, surface, ms, o, st, list, tick, free)
   st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE
   -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
@@ -852,19 +873,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     return false
   end
   -- paires sous la bande : retirées au dégel
-  local under = {}
-  for i = 1, #bd.tiles - 1, 2 do under[P.tkey(bd.tiles[i], bd.tiles[i + 1])] = true end
-  local ids, thaw = {}, {}
-  for _, pr2 in ipairs(list) do
-    local t = Mg.tiles({ Mg.box(pr2.drill), Mg.box(pr2.sink) })
-    local hit = false
-    for i = 1, #t - 1, 2 do if under[P.tkey(t[i], t[i + 1])] then hit = true end end
-    if hit then
-      ids[#ids + 1] = pr2.id
-      for i = 1, #t do thaw[#thaw + 1] = t[i] end
-    end
-  end
-  table.sort(ids)
+  local ids, thaw, cx, cy = band_cut(bd, list)
   -- lot THERMIQUE : un minerai ne perd pas ses paires sous une bande tant que l'approvisionnement qui reste n'atteint pas son plancher ou qu'il
   -- reste sans source (dernière source, centrale) : cette bande-là est mise de côté et une bande sans paire (ou moins chargée) passe devant, de
   -- sorte que l'électrique PRODUISE avant qu'une paire parte (mesuré, 1re mesure : 45 à 57 attentes « protege » de 10 min sinon)
@@ -891,9 +900,6 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   end
   local wanted = (st.want_until or 0) > tick
   st.band_need = band_list(bd)
-  local cx, cy, n = 0, 0, 0
-  for _, e in ipairs(bd.ents) do cx, cy, n = cx + e.x, cy + e.y, n + 1 end
-  cx, cy = cx / math.max(1, n), cy / math.max(1, n)
   -- la bande porte sa plaque (spec.product) et la famille d'investissement de la pile « capi » (shared/ai3/pile.lua) : pendant une retenue,
   -- elle avance pour une plaque d'un cadre ouvert ou qui manque, comme un module de la capitalisation (avant : « migration », rang améliorer,
   -- jamais d'exception : 4 à 6 refus par équipe et par heure, réserve rendue à chaque refus)
@@ -1009,34 +1015,30 @@ local function part_ids(st, list, thaw)
 end
 
 local park, leave_band -- lot AZURE : définis plus bas (réserve définitive d'une bande, sortie du suivi)
---- Projet demandé : attend le plan et les matières ; au moment du « degel », retire la partie.
-local function step_project(f, surface, ms, o, st, tick, free, book)
+--- Lot BANDES-PARALLELES : le DÉGEL d'une voie, commun à la voie principale (ln = st : step_project) et aux bandes en avance (ln = st.ahead[k] :
+--- ahead_thaw). ln = { pid, ids (paires sous la bande), t0, cx, cy, gate_t0, why_last, mc_logs, mc_why } ; st : l'état du champ (cadre, production).
+--- Rend la décision de Mg.gate (action, raison) et le relevé des paires (list, ents) quand le projet attend son dégel.
+local function thaw_gate(f, surface, ms, o, st, ln, p, tick, free, book)
   local b = f.build
-  local p = b.projects[st.pid]
   local env = { now = tick }
   local list, ents
-  if Rb.cooling(st.cool, tick) then -- lot AZURE : bande remise en réserve par un retour en arrière : le champ produit, pas de retrait avant la fin de la pause
-    say_why(f, ms, st, "retour", string.format("avant-poste %d : bande du projet %d en reserve apres un retour en arriere, retrait possible a %.1f min",
-      o.id, st.pid, st.cool / 3600), true)
-    return
-  end
   if p and p.state == "reserve" and p.reason == "degel" then
-    st.gate_t0 = st.gate_t0 or tick
+    ln.gate_t0 = ln.gate_t0 or tick
     if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end
-    local ids, added = part_ids(st, list, p.spec and p.spec.degel and p.spec.degel.tiles)
+    local ids, added = part_ids(ln, list, p.spec and p.spec.degel and p.spec.degel.tiles)
     if added > 0 then
-      st.ids = ids
+      ln.ids = ids
       say(f, ms, string.format("avant-poste %d : %d paire(s) refaite(s) par la reconstruction sur la partie du projet %d : retirees avec elle",
-        o.id, added, st.pid), true)
+        o.id, added, ln.pid), true)
     end
     local present = 0
     local alive = {}
     for _, pr in ipairs(list) do alive[pr.id] = true end
-    for _, id in ipairs(st.ids) do if alive[id] then present = present + 1 end end
+    for _, id in ipairs(ln.ids or {}) do if alive[id] then present = present + 1 end end
     env.total, env.present, env.produced = #list, present, st.produced > 0
-    env.enemy = enemy_near(f, surface, st.cx, st.cy) or enemy_near(f, surface, o.pos.x, o.pos.y)
+    env.enemy = enemy_near(f, surface, ln.cx, ln.cy) or enemy_near(f, surface, o.pos.x, o.pos.y)
     env.uses = uses_thaw(p, p.spec.degel.tiles)
-    env.gate_age = tick - st.gate_t0
+    env.gate_age = tick - ln.gate_t0
     -- lot THERMIQUE : protection. Couper les paires de la partie laisse-t-il assez du minerai (le charbon de la centrale, la dernière source d'un
     -- minerai) ? Sinon la coupe attend (un pont de stock, ou une bande qui produit ailleurs) ; un minerai ordinaire ne bloque jamais plus de
     -- Th.CFG.protect_wait, un minerai critique n'est jamais coupé sous son plancher (la demande est annulée après Th.CFG.critical_wait).
@@ -1063,23 +1065,51 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
           if not b.opts.no_combustible then -- (réglage de banc no_combustible : la règle d'avant, témoin des bancs)
             ok, cwhy = Mc.cut_ok({ fuel = true, ready = not env.enemy, rest = rest, floor = floor, stock = ctx.stock[o.kind] or 0 })
           end
-          st.mc_logs = (st.mc_logs or 0) + 1
-          if st.mc_logs <= 3 or st.mc_why ~= cwhy then
-            st.mc_why = cwhy
+          ln.mc_logs = (ln.mc_logs or 0) + 1
+          if ln.mc_logs <= 3 or ln.mc_why ~= cwhy then
+            ln.mc_why = cwhy
             say(f, ms, string.format("avant-poste %d (%s) : coupe des %d paire(s) du projet %d : %s (plancher du combustible %.2f/s dont bruleurs de l'equipe, reste %.2f/s, stock %d, chantier %d min)",
-              o.id, o.kind, env.present, st.pid, tostring(cwhy), floor, rest, ctx.stock[o.kind] or 0, Mc.CFG.build_s / 60), true)
+              o.id, o.kind, env.present, ln.pid, tostring(cwhy), floor, rest, ctx.stock[o.kind] or 0, Mc.CFG.build_s / 60), true)
           end
         end
         local verdict = Th.verdict(ok, ctx.critical[o.kind], env.gate_age)
         if verdict ~= "retirer" then
           env.hold = verdict
-          say_why(f, ms, st, "hold:" .. tostring(cwhy), string.format("avant-poste %d : coupe des %d paire(s) du projet %d retenue par la protection (%s, %s)",
-            o.id, env.present, st.pid, tostring(cwhy), verdict), true)
+          say_why(f, ms, ln, "hold:" .. tostring(cwhy), string.format("avant-poste %d : coupe des %d paire(s) du projet %d retenue par la protection (%s, %s)",
+            o.id, env.present, ln.pid, tostring(cwhy), verdict), true)
         end
       end
     end
   end
-  local act, why = Mg.gate(st, p, env, st.frame and CHAMP_CFG or nil)
+  local act, why = Mg.gate(ln, p, env, st.frame and CHAMP_CFG or nil)
+  return act, why, list, ents
+end
+
+--- Lot BANDES-PARALLELES : retrait des paires de la voie `ln` après « retirer » de thaw_gate, commun aux deux voies. Rend (retirées, undo), ou
+--- nil si le stock ne tient pas leur contenu (la voie attend au même stade, rien au sol).
+local function thaw_cut(f, surface, ms, o, st, ln, list, ents)
+  if not list then if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end end
+  local removed, got, undo, full = retire(f, surface, o, { ids = ln.ids or {}, frame = st.frame }, list, ents)
+  if full then -- lot STOCKAGE-VITAL : le stock ne tient pas le contenu des paires ; la partie attend au même stade, rien au sol
+    say_why(f, ms, ln, "stock-plein", string.format("avant-poste %d : projet %d : retrait remis, le stock ne tient pas le contenu des paires", o.id, ln.pid), true)
+    return nil
+  end
+  local purged = purge_recon(f, o)
+  ms.retired = (ms.retired or 0) + removed
+  say(f, ms, string.format("avant-poste %d : partie retiree, projet %d : %d foreuse(s) thermique(s) et leurs fours repris au stock (%s), %d paire(s) restent "
+    .. "debout, %d piece(s) du registre de reconstruction ecartee(s)", o.id, ln.pid, removed, items_text(got), math.max(0, #list - removed), purged), true)
+  return removed, undo
+end
+
+--- Projet demandé : attend le plan et les matières ; au moment du « degel », retire la partie.
+local function step_project(f, surface, ms, o, st, tick, free, book)
+  local p = f.build.projects[st.pid]
+  if Rb.cooling(st.cool, tick) then -- lot AZURE : bande remise en réserve par un retour en arrière : le champ produit, pas de retrait avant la fin de la pause
+    say_why(f, ms, st, "retour", string.format("avant-poste %d : bande du projet %d en reserve apres un retour en arriere, retrait possible a %.1f min",
+      o.id, st.pid, st.cool / 3600), true)
+    return
+  end
+  local act, why, list, ents = thaw_gate(f, surface, ms, o, st, st, p, tick, free, book)
   if act == "attendre" then
     say_why(f, ms, st, "gate:" .. why, string.format("avant-poste %d : projet %d en attente (%s)%s", o.id, st.pid, why,
       why == "ennemi" and string.format(", ennemi a moins de %d tuiles, rien n'est retire", CFG.safe) or ""))
@@ -1108,19 +1138,11 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
   end
   -- "retirer" ou "passer" : le plan reprend (p.degele)
   if act == "retirer" then
-    if not list then if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end end
-    local removed, got, undo, full = retire(f, surface, o, st, list, ents)
-    if full then -- lot STOCKAGE-VITAL : le stock ne tient pas le contenu des paires ; la partie attend au même stade, rien au sol
-      say_why(f, ms, st, "stock-plein", string.format("avant-poste %d : projet %d : retrait remis, le stock ne tient pas le contenu des paires", o.id, st.pid), true)
-      return
-    end
-    local purged = purge_recon(f, o)
+    local removed, undo = thaw_cut(f, surface, ms, o, st, st, list, ents)
+    if not removed then return end
     st.retired = removed
     local packed, lost = Rb.pack(undo)
     st.undo, st.pg, st.cool, st.undo_lost = packed, nil, nil, lost -- lot AZURE (lost : paires au-delà de la borne, dites au journal) : de quoi revenir en arrière (borné) ; le suivi du progrès repart
-    ms.retired = (ms.retired or 0) + removed
-    say(f, ms, string.format("avant-poste %d : partie retiree, projet %d : %d foreuse(s) thermique(s) et leurs fours repris au stock (%s), %d paire(s) restent "
-      .. "debout, %d piece(s) du registre de reconstruction ecartee(s)", o.id, st.pid, removed, items_text(got), math.max(0, #list - removed), purged), true)
   else
     if Th.noop_counts(st.ids) then st.noop = st.noop + 1 end -- lot THERMIQUE5 : une bande sans paire n'avait rien à libérer
     st.retired = 0
@@ -1651,13 +1673,29 @@ end
 -- réunies). Déclencheur : script/team/mega_fonderie.lua (Mega.think) pose st.mega_par par Mig.want ; décision : Mp.allow (courant, ennemi,
 -- plafond de bandes en vol, stock qui PAIE la bande et une marge, pile) ; action : Build.request du même site « champ » que la bande
 -- principale ; effet : des bandes qui se bâtissent en parallèle (journal [FO-MIGRATION] « EN AVANCE »). Lecteur de st.ahead : begin_band (ne
--- reprend pas la bande), ahead_reap (la compte posée), Mig.projects (le cerveau fabrique ses matières). État : st.ahead = { [bande] =
--- { pid, t0 } } (nombres seulement). Une bande avec des paires thermiques dessous reste à la voie principale (retrait, dégel, retour arrière).
+-- reprend pas la bande), ahead_reap (la compte posée, fait son dégel), Mig.projects (le cerveau fabrique ses matières). État : st.ahead =
+-- { [bande] = { pid, t0, ids, cx, cy, gate_t0, why_last } } (nombres, listes de nombres, chaînes).
+-- Lot BANDES-PARALLELES : une bande en avance avec des paires thermiques dessous porte son dégel (spec.degel, comme begin_band) ; quand ses
+-- matières sont réunies (Mp.reap : "degel"), ahead_thaw passe par le MÊME dégel que la voie principale (thaw_gate, thaw_cut). Pas de retour en
+-- arrière sur cette voie : une bande en avance perdue après son retrait redevient une bande du cadre (ses paires sont déjà au stock).
 
 -- (band_iron : voir en tête du module, lot SATURATION : le fer de la bande est celui qu'il reste à fabriquer une fois le stock dormant pris)
 
---- Les bandes en avance du champ : posées (fini), bloquées trop longtemps (laissées au plan) ou perdues ; rend le nombre de bandes comptées.
-local function ahead_reap(f, ms, o, st, tick)
+--- Lot BANDES-PARALLELES : dégel d'une bande en avance `a` dont le projet `p` a ses matières (état « reserve », raison « degel »).
+local function ahead_thaw(f, surface, ms, o, st, a, p, tick, free, book)
+  local act, why, list, ents = thaw_gate(f, surface, ms, o, st, a, p, tick, free, book)
+  if act == "attendre" then
+    say_why(f, ms, a, "gate:" .. why, string.format("avant-poste %d : projet %d EN AVANCE en attente de son degel (%s)", o.id, a.pid, why))
+    return
+  end
+  if act == "annuler" then Build.cancel(f, a.pid, "migration: " .. why) end -- (ahead_reap la dit perdue au passage suivant)
+  if act == "annuler" or act == "echec" then return end
+  if act == "retirer" and not thaw_cut(f, surface, ms, o, st, a, list, ents) then return end
+  p.degele, p.reserve_next = true, nil
+end
+
+--- Les bandes en avance du champ : posées (fini), bloquées trop longtemps (laissées au plan), perdues, ou à dégeler ; rend le nombre de bandes comptées.
+local function ahead_reap(f, surface, ms, o, st, tick, free, book)
   local b = f.build
   local n = 0
   for _, k in ipairs(sorted_keys(st.ahead)) do
@@ -1670,8 +1708,10 @@ local function ahead_reap(f, ms, o, st, tick)
     else
       a.block_t0 = nil
     end
-    local v = Mp.reap(p and { state = p.state, blocked_for = blocked_for } or nil)
-    if v == "posee" or v == "bloquee" then
+    local v = Mp.reap(p and { state = p.state, reason = p.reason, degele = p.degele, blocked_for = blocked_for } or nil)
+    if v == "degel" then
+      ahead_thaw(f, surface, ms, o, st, a, p, tick, free, book)
+    elseif v == "posee" or v == "bloquee" then
       st.done_pr[k] = true
       st.produced = st.produced + 1
       ms.lines = (ms.lines or 0) + 1
@@ -1697,18 +1737,21 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dorma
   for _ in ipairs(sorted_keys(st.ahead)) do inflight = inflight + 1 end
   local product = T.outposts[o.kind].product
   -- lot SATURATION : un champ dont les machines de la bande dorment au coffre a le plafond de parallélisme entier, méga-fonderie ou non
-  local c = { on = true, power = power_ok(b), crisis = false, enemy = false, pairs_under = 0, inflight = inflight, par_max = st.mega_par or (dormant and Mp.CFG.par_cap) or 1,
-    main_ready = p ~= nil and p.state ~= "reserve" and p.state ~= "plan" and p.state ~= "attente", iron = free[T.outposts.iron.product] or 0, band_iron = 1 }
+  local c = { on = true, power = power_ok(b), crisis = false, enemy = false, inflight = inflight, par_max = st.mega_par or (dormant and Mp.CFG.par_cap) or 1,
+    main_ready = p ~= nil and p.state ~= "reserve" and p.state ~= "plan" and p.state ~= "attente", iron = free[T.outposts.iron.product] or 0,
+    band_iron = 1 }
   local function refuse(why)
     say_why(f, ms, st, "avance:" .. why, string.format("%s %d (%s) : pas de bande en avance (%s), %d bande(s) en vol", o.field and "gisement" or "avant-poste", o.id, o.kind, why,
       inflight))
     return false
   end
   local ok, why = Mp.allow(c)
-  if not ok then return refuse(why) end -- (les causes sans coût : courant, plafond, matières de la principale ; l'ennemi et le plan viennent après)
+  if not ok then return refuse(why) end -- (les causes sans coût : courant, plafond, matières de la principale ; l'ennemi, le stock et le plan viennent après)
   if not garde_band(f, o, tick) then return refuse("anti-dispersion") end -- lot IA-GARDE : même garde que begin_band
   if hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "couverture", product))) then return refuse("pile") end
-  c.enemy = enemy_near(f, surface, o.pos.x, o.pos.y)
+  -- lot BANDES-PARALLELES : le stock est jugé AVANT le plan de la bande (Champ.band, cher), sur les pièces de la dernière bande planifiée du
+  -- cadre (st.band_need) ; le plan de la bande choisie ne fait que le confirmer sur ses propres pièces
+  c.enemy, c.band_iron = enemy_near(f, surface, o.pos.x, o.pos.y), (st.band_need and band_iron(book, st.band_need, free)) or 1
   ok, why = Mp.allow(c)
   if not ok then return refuse(why) end
   -- la bande à demander : la première du cadre qui n'est ni posée, ni écartée, ni en vol, ni celle de la voie principale
@@ -1729,28 +1772,19 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dorma
     return false
   end
   st.band_need = band_list(bd) -- lot SATURATION : la porte des bandes en avance relit le stock dormant sur cette liste
-  local list = survey_field(f, o)
-  local under = {}
-  for i = 1, #bd.tiles - 1, 2 do under[P.tkey(bd.tiles[i], bd.tiles[i + 1])] = true end
-  local pairs_under = 0
-  for _, pr2 in ipairs(list) do
-    local t = Mg.tiles({ Mg.box(pr2.drill), Mg.box(pr2.sink) })
-    for i = 1, #t - 1, 2 do
-      if under[P.tkey(t[i], t[i + 1])] then pairs_under = pairs_under + 1; break end
-    end
-  end
+  local ids, thaw, cx, cy = band_cut(bd, survey_field(f, o)) -- paires sous la bande : retirées à SON dégel (ahead_thaw)
   local sat
-  c.pairs_under, c.band_iron, sat = pairs_under, nil, nil
-  c.band_iron, sat = band_iron(book, bd, free)
+  c.band_iron, sat = band_iron(book, st.band_need, free)
   if not c.band_iron then return refuse("cout de la bande illisible") end
   ok, why = Mp.allow(c)
   if not ok then
-    st.ahead_retry = tick + 3600 -- (le plan d'une bande est cher : un refus de stock ou de paires se relit dans une minute)
+    st.ahead_retry = tick + 3600 -- (le plan d'une bande est cher : un refus de stock se relit dans une minute)
     return refuse(why)
   end
   coal_projects(f, ms, o, st, bd, pr)
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
     domain = "production", lazy_clear = true, pile = "couverture", product = product }
+  if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
   local id, rwhy = Build.request(f, spec)
   if not id then
     st.ahead_retry = tick + CFG.retry
@@ -1758,17 +1792,18 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dorma
   end
   defer_projects(f, ms, o, st, bd, pr, id)
   st.ahead = st.ahead or {}
-  st.ahead[tostring(pr)] = { pid = id, t0 = tick }
+  st.ahead[tostring(pr)] = { pid = id, t0 = tick, ids = ids, cx = cx, cy = cy }
   ms.requests = (ms.requests or 0) + 1
   st.why_last = nil
-  say(f, ms, string.format("%s %d (%s) : bande %d EN AVANCE demandee, projet %d (%d bande(s) en vol sur %d), fer libre %d pour %d (marge d'une bande comprise)%s",
-    o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, inflight + 1, c.par_max, math.floor(c.iron), math.ceil(c.band_iron * (1 + Mp.CFG.margin)),
+  say(f, ms, string.format("%s %d (%s) : bande %d EN AVANCE demandee, projet %d (%d bande(s) en vol sur %d), %d paire(s) thermique(s) dessous (%s), fer libre %d pour %d (marge d'une bande comprise)%s",
+    o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, inflight + 1, c.par_max, #ids, table.concat(ids, ","), math.floor(c.iron), math.ceil(c.band_iron * (1 + Mp.CFG.margin)),
     (sat and sat.starts) and string.format(" ; PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre, seuil %d %%)", sat.dormant, sat.want, Mp.CFG.start_pct) or ""), true)
   return true
 end
 
 --- Passage des bandes en avance de tous les champs voulus par une méga-fonderie (st.mega_par). Une demande au plus par passage. Rend 1 si une
---- demande est partie.
+--- demande est partie. Lot BANDES-PARALLELES : les bandes déjà en avance sont suivies (posées, dégel) même quand le champ n'a plus droit à une de
+--- plus (la réserve de la bande vide le stock dormant : son dégel n'arrivait jamais).
 local function ahead_step(f, surface, ms, free, book, tick, hold)
   if not free then return 0 end
   local did = 0
@@ -1776,12 +1811,12 @@ local function ahead_step(f, surface, ms, free, book, tick, hold)
     local st = ms.o[oid]
     -- lot SATURATION (DC 9/11) : les machines de la dernière bande planifiée dorment au coffre : le champ a droit aux bandes en avance, méga-fonderie ou non
     local dormant = st.band_need ~= nil and Mp.saturation(st.band_need, free).starts == true
-    if (st.mega_par or dormant) and st.frame and not st.abandoned then
+    if (st.mega_par or dormant or st.ahead) and st.frame and not st.abandoned then
       local o = Champ.target(f, oid)
       if o then
-        if st.ahead then ahead_reap(f, ms, o, st, tick) end
-        if did == 0 and ((st.want_until or 0) > tick or dormant) and tick >= (st.ahead_retry or 0) and st.pid and (st.stage == "projet" or st.stage == "chantier")
-          and ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dormant) then did = 1 end
+        if st.ahead then ahead_reap(f, surface, ms, o, st, tick, free, book) end
+        if did == 0 and (st.mega_par or dormant) and ((st.want_until or 0) > tick or dormant) and tick >= (st.ahead_retry or 0) and st.pid
+          and (st.stage == "projet" or st.stage == "chantier") and ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dormant) then did = 1 end
       end
     end
   end
