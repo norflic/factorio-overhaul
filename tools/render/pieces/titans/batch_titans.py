@@ -344,14 +344,21 @@ def anime(a):
             parts = {"ao": 4, "shadow": 8}
 
             def rt(sc, path):
-                ech = parts.get(os.path.basename(path)[:-4].rsplit("-", 1)[-1])
+                couche = os.path.basename(path)[:-4].rsplit("-", 1)[-1]
+                ech = parts.get(couche)
                 avant, den = sc.cycles.samples, sc.cycles.use_denoising
                 if ech:
                     sc.cycles.samples = ech
                     sc.cycles.use_denoising = False
+                # TITANS2 (11/11) : passe d'OMBRE sans émissifs. Les conduits, bagues et anneaux allumés éclairaient le sol attrape-ombre :
+                # à 8 échantillons, leur lumière criblait l'ombre de points clairs (Juggernaut re-modelé : 10 % de « trous » dans l'ombre
+                # contre 4 % en 0.6.94, ombre moyenne 233 contre 244) ; en noir, ils portent leur ombre (visibilité inchangée) sans éclairer.
+                saved = S._swap_materials(objs, lambda m: S._black_mat() if (m is not None and m.get("fo_kind") == "emissive") else m) if couche == "shadow" else None
                 try:
                     return _rt(sc, path)
                 finally:
+                    if saved is not None:
+                        S._restore(saved)
                     sc.cycles.samples, sc.cycles.use_denoising = avant, den
             S.render_to = rt
             # dossier de travail PROPRE au processus (KAIJUS-MUTANTS : deux places de rendu sur la même série se partageaient « _tmp-<anim>-<image> »
