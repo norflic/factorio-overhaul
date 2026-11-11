@@ -225,11 +225,15 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 4. Candidats
 ---------------------------------------------------------------------------------------------------
---- srcs = { { key, pid, idx, x, y, item, rate (objets/s), linked } }, docks = { { key, x, y, item, flow, served } }, hub = { x, y }.
+--- srcs = { { key, pid, idx, x, y, item, rate (objets/s), linked } }, docks = { { key, x, y, item, flow, served } } (TUILES), hub = { x, y } : la POSITION du QG
+--- (centre d'entité : x,5 pour un coffre 1 x 1), ramenée une fois à sa tuile.
 --- o = { price, labor, tmax, threat, tampons = { { x, y, item, lines } } } (facultatifs). Rend la liste des candidats triée par valeur nette décroissante
 --- (puis clé) : { src, item, flow, d_src, point = { x, y }, reuse (tampon réutilisé ou nil), d_tam, covered, d_fill, consumers (n), ok, why, det, net }.
 function Rp.candidates(srcs, docks, hub, o)
   o = o or {}
+  -- lot CC-ROUTE (F518) : toute la règle travaille en tuiles (sorties, quais, tampon, bouts du tapis) ; le centre du QG gardé tel quel donnait un tampon
+  -- et un bout d'arrivée en demi-tuiles, une cible que le tracé (tuiles entières) n'atteint jamais : la ligne cherchait jusqu'à épuiser ses réparations
+  hub = { x = floor(hub.x), y = floor(hub.y) }
   local by_item = {}
   for _, d in ipairs(docks) do
     if d.item and not d.served and (d.flow or 0) >= Li.MIN_FLOW then

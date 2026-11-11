@@ -215,6 +215,35 @@ local function suite(Rp, quiet)
   local unsat = Rp.candidates({ { key = "u", pid = 1, idx = 1, x = 120, y = 20, item = "A", rate = 0.8, nature = "mesure", saturated = false } }, {}, H)
   check(unsat[1].why ~= Rp.WHY_SATURATED, "6.17 objet non sature : la cause n'est pas la saturation")
 
+  -- lot CC-ROUTE (F518, A6) : le QG est donné par sa POSITION (centre d'entité, x,5 pour un coffre 1 x 1) ; le tampon et les bouts du tapis sont des TUILES.
+  -- Partie du DC (graine 1618033988, banc CC-ROUTE-SONDE) : les 5 lignes du joueur visaient le bout (-3,5 ; 4,5) et cherchaient 2 000 appels et plus sans fin.
+  local HC = { x = -0.5, y = 0.5 }
+  local function is_tile(v) return v == math.floor(v) end
+  local c_hub = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, {}, HC)[1]
+  check(c_hub and c_hub.point.x == -1 and c_hub.point.y == 0, "6.18 aucun quai, QG au centre (-0,5 ; 0,5) : le tampon est la tuile du QG (-1, 0) ("
+    .. tostring(c_hub and c_hub.point.x) .. ", " .. tostring(c_hub and c_hub.point.y) .. ")")
+  local c_clamp = Rp.candidates({ src("s-far", 200, 20, "A", 0.8) }, { dock("dz", 400, 401, "A", 1.0) }, HC)[1]
+  check(c_clamp and is_tile(c_clamp.point.x) and is_tile(c_clamp.point.y) and math.abs(c_clamp.point.x + 1) + math.abs(c_clamp.point.y) <= Rp.NEAR_HUB,
+    "6.19 tampon ramene pres du QG : une tuile entiere (" .. tostring(c_clamp and c_clamp.point.x) .. ", " .. tostring(c_clamp and c_clamp.point.y) .. ")")
+  check(c_hub and c_hub.d_src == 141 and c_hub.d_tam == 0, "6.20 distances comptees depuis la tuile du QG (-1, 0)")
+  -- la chaîne jusqu'au tracé : point -> place du tampon -> paire de bouts -> tracé par tronçons, monde ouvert : la ligne est trouvée en quelques appels
+  do
+    local Tc = require("shared.team.troncons")
+    local open = function() return true end
+    local sp = c_hub and Rp.pick_spots(c_hub.point.x, c_hub.point.y, open, 1)[1]
+    local e = sp and Li.pick_ends({ x = 120, y = 20 }, { x = sp.x, y = sp.y }, open, Rp.ROUTE_TRIES)[1]
+    local status, calls = "aucun bout", 0
+    if e then
+      local m = Li.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by)
+      local st = Tc.new({ s = { x = e.src.bx, y = e.src.by }, t = { x = e.dst.bx, y = e.dst.by }, t_dir = Li.end_dir(e.dst), sd = e.src.dir,
+        box = { x0 = -60, y0 = -60, x1 = 180, y1 = 80 }, lim = Rp.DETOUR * (m + 1) + Rp.DETOUR_SLACK })
+      local w = { maxd = 4, solid = function() return false end, cost = function() return 1 end }
+      repeat calls = calls + 1; status = Tc.step(st, w) until status ~= "more" or calls >= 400
+    end
+    check(e and is_tile(e.dst.bx) and is_tile(e.dst.by) and status == "done", "6.21 QG au centre d'entite : le bout d'arrivee est une tuile et le trace est trouve ("
+      .. tostring(status) .. " en " .. calls .. " appel(s), bout " .. tostring(e and e.dst.bx) .. ", " .. tostring(e and e.dst.by) .. ")")
+  end
+
   -- §7 décision
   local good = { worth = true, worth_why = "ok", open_total = 0, free = 1, seen = 2, tries = 0, since_try = Rp.RETRY_AFTER, enemies = 0, threat = false, lines = 0 }
   local function with(t) local c = {} for k, v in pairs(good) do c[k] = v end for k, v in pairs(t) do c[k] = v end return c end
@@ -523,6 +552,12 @@ local mutants = {
   { "candidats : une sortie liee est reprise", "if s.item and not s.linked and", "if s.item and" },
   { "candidats : un quai deja servi est consommateur", "if d.item and not d.served and", "if d.item and" },
   { "candidats : le debit minimal est oublie", "(s.rate or 0) >= Rp.MIN_RATE and d_src", "true and d_src" },
+  { "candidats : le QG reste au centre d'entite (demi-tuile)", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = hub.x, y = hub.y }" },
+  { "candidats : seul x est ramene a la tuile", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = floor(hub.x), y = hub.y }" },
+  { "candidats : seul y est ramene a la tuile", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = hub.x, y = floor(hub.y) }" },
+  { "candidats : arrondi vers le haut (tuile voisine)", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = math.ceil(hub.x), y = math.ceil(hub.y) }" },
+  { "candidats : arrondi au plus proche (tuile voisine)", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = floor(hub.x + 0.5), y = floor(hub.y + 0.5) }" },
+  { "candidats : la tuile du QG n'est plus lue (centre gardé pour le tampon)", "if not px then px, py = hub.x, hub.y end", "if not px then px, py = hub.x + 0.5, hub.y + 0.5 end" },
   { "candidats : le tampon n'est plus ramene au QG", "px, py = Rp.clamp_near(px, py, hub, Rp.NEAR_HUB)", "" },
   { "candidats : le tampon du meme objet n'est pas controle", "if t.item == s.item and (t.lines or 1) < Rp.REUSE_MAX", "if (t.lines or 1) < Rp.REUSE_MAX" },
   { "candidats : la limite de lignes par tampon est oubliee", "(t.lines or 1) < Rp.REUSE_MAX and", "true and" },
