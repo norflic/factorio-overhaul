@@ -167,6 +167,8 @@ function Mf.decide(inp)
       z.full_lines or 0, Mf.MIN_LINES)
   end
   if inp.crisis then return "attendre", "crise (survie ou QG menace) : le travail de base d'abord" end
+  -- R3 (règle du DC du 11/11, lot PAVAGE-GEANT) : pas de gisement lointain tant qu'un gisement ouvert plus proche du même minerai n'est pas plein
+  if inp.nearer then return "attendre", "gisement ouvert plus proche pas plein" end
   if inp.power ~= true then return "attendre", "aucun reseau qui produit" end
   if inp.sig ~= nil and inp.sig == Mf.signature(z) then return "garder", "bloc deja decide, taille inchangee" end
   return "decider", string.format("%d ligne(s) de bus, %d four(s)", z.lines, z.furnaces)
