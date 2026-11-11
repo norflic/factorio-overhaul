@@ -25,7 +25,7 @@ import fo_calib as C  # noqa: E402
 import fo_scene as S  # noqa: E402
 import geo as G  # noqa: E402
 
-GROUPES = {"ixion": {"plasma": ("ix_plasma",), "soleil": ("ix_soleil",), "hublots": ("ix_hublot",)},
+GROUPES = {"ixion": {"plasma": ("ix_plasma",), "soleil": ("ix_soleil",), "hublots": ("ix_hublot",), "feu": ("ix_feu",)},
            "bourdon": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},
            "battant": {"battant": ("bo_",)},
            "corps": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},

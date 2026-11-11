@@ -1,0 +1,294 @@
+{
+ "arguments": [],
+ "commande": "py -3.9 tools/render/pieces/experimentaux/feuilles_ixion_dirs.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_GEANTS/rendu/cap-<c>, à GARDER)",
+ "fichiers": {
+  "hr-ixion-d00-lueur.png": {
+   "hauteur": 1640,
+   "largeur": 1335,
+   "sha256": "0506c454db85293f30a345047e813ddc288bbd382e95e249029c1cd2a6500f37",
+   "taille": 1211714
+  },
+  "hr-ixion-d00-ombre.png": {
+   "hauteur": 581,
+   "largeur": 993,
+   "sha256": "9d42e4fafdcb61721216ec9fde2219ac06e5e4ac1391e0e4b2c4e778bceab741",
+   "taille": 320368
+  },
+  "hr-ixion-d00.png": {
+   "hauteur": 1643,
+   "largeur": 1342,
+   "sha256": "367006d80e13e22b60fe1c9957462a0a0b1e438aff1f8f0bbc5e283690308c9d",
+   "taille": 1867160
+  },
+  "hr-ixion-d01-lueur.png": {
+   "hauteur": 1626,
+   "largeur": 1258,
+   "sha256": "8853472533f926b47e561ffdbe5564e463ad014dc314e03fa925b2762f5d1550",
+   "taille": 1931483
+  },
+  "hr-ixion-d01-ombre.png": {
+   "hauteur": 568,
+   "largeur": 1006,
+   "sha256": "6266f570d7fb73b8bbcc787e42f50831555f1807560ba65533639db2e50a044d",
+   "taille": 317564
+  },
+  "hr-ixion-d01.png": {
+   "hauteur": 1643,
+   "largeur": 1262,
+   "sha256": "afa54e36cd0abcbbd9fbcb850507eb710c96109c1549ea1a8be170f51279bebc",
+   "taille": 2558311
+  },
+  "hr-ixion-d02-lueur.png": {
+   "hauteur": 1517,
+   "largeur": 1302,
+   "sha256": "9259fdafdf0960379867c642e35467c916b04bf03db35b940b051c0e56ca6800",
+   "taille": 2014773
+  },
+  "hr-ixion-d02-ombre.png": {
+   "hauteur": 470,
+   "largeur": 1019,
+   "sha256": "364f077fa8d4f0347c8d186eb36d8aa09ecabdcd82929da1238ee170e080a1be",
+   "taille": 282848
+  },
+  "hr-ixion-d02.png": {
+   "hauteur": 1530,
+   "largeur": 1318,
+   "sha256": "0398d93b824de48dde0960527e1b4946b519d04ed88c72edd0bc743cd3999e68",
+   "taille": 2918129
+  },
+  "hr-ixion-d03-lueur.png": {
+   "hauteur": 1491,
+   "largeur": 1586,
+   "sha256": "06be7d4a2e8738cb0c46e70ffa1923a3d25e9209e30e46104e5cb1f70fcf3254",
+   "taille": 2269806
+  },
+  "hr-ixion-d03-ombre.png": {
+   "hauteur": 448,
+   "largeur": 1098,
+   "sha256": "721400df4c2a46835f56e0c737734ea5711fc9440bfcea7aebdd37ec7efb0c81",
+   "taille": 260985
+  },
+  "hr-ixion-d03.png": {
+   "hauteur": 1515,
+   "largeur": 1593,
+   "sha256": "718c97004b871df0718da524d1485e015469c1d7664a336a51adb8953da8b67a",
+   "taille": 3218014
+  },
+  "hr-ixion-d04-lueur.png": {
+   "hauteur": 1497,
+   "largeur": 1637,
+   "sha256": "8dd7a9dba46f90fcd2a5b13e93379bc95b2ea6887f427cc6146a3ec7f1767a1f",
+   "taille": 2291932
+  },
+  "hr-ixion-d04-ombre.png": {
+   "hauteur": 476,
+   "largeur": 1105,
+   "sha256": "c566e7eac7a5de3d71790ebc309f866ba7c536fd083ed1d7c845c707daae3286",
+   "taille": 207275
+  },
+  "hr-ixion-d04.png": {
+   "hauteur": 1500,
+   "largeur": 1638,
+   "sha256": "ff131d7c947dee677cf63fb5b319968ff677fbccdd1a80d1ad8de3d435ddc558",
+   "taille": 3196890
+  },
+  "hr-ixion-d05-lueur.png": {
+   "hauteur": 1500,
+   "largeur": 1600,
+   "sha256": "72df5e2ab30195ba5389b101a3019820801d38a6202dc4c40c5b0b8a3161d54a",
+   "taille": 2267129
+  },
+  "hr-ixion-d05-ombre.png": {
+   "hauteur": 449,
+   "largeur": 1105,
+   "sha256": "4ec32c78d0f967a667a8edaea77d451bb9e67a37a6341ff6d3d8aee5b7df2540",
+   "taille": 260249
+  },
+  "hr-ixion-d05.png": {
+   "hauteur": 1516,
+   "largeur": 1602,
+   "sha256": "9e1dcbdce2dff9b7716a3c085c7b4b2a73e07c69fca00a1aff08b2dc64410e90",
+   "taille": 3250531
+  },
+  "hr-ixion-d06-lueur.png": {
+   "hauteur": 1537,
+   "largeur": 1317,
+   "sha256": "74019f88eedf9325cdf5209f37a25e427159235396123762a02b232fb759957e",
+   "taille": 2055213
+  },
+  "hr-ixion-d06-ombre.png": {
+   "hauteur": 468,
+   "largeur": 1018,
+   "sha256": "f23fa119e35c744ecdb316bf6260dbd57ac1aa8c68bb1c4c8e46fe671dc0edf4",
+   "taille": 281817
+  },
+  "hr-ixion-d06.png": {
+   "hauteur": 1540,
+   "largeur": 1325,
+   "sha256": "75007aea0b8944b7c5b3ea5340c5faaa0c95b001faa8e9e9eb23f2074c8a012f",
+   "taille": 2942938
+  },
+  "hr-ixion-d07-lueur.png": {
+   "hauteur": 1631,
+   "largeur": 1259,
+   "sha256": "38ddfda580823e124df42b0c9d294ecd9ac3908e165262abf02c3686ecc15754",
+   "taille": 1945629
+  },
+  "hr-ixion-d07-ombre.png": {
+   "hauteur": 565,
+   "largeur": 1004,
+   "sha256": "075a3a86821c2aebcb92525c96bd4594a664ec2499b1545021992d6ad8fc251e",
+   "taille": 319311
+  },
+  "hr-ixion-d07.png": {
+   "hauteur": 1632,
+   "largeur": 1263,
+   "sha256": "86f9961526123ab621055ed019e4262a43bd453dbb9bd3f21878e36f17419a73",
+   "taille": 2582014
+  },
+  "ixion-d00-lueur.png": {
+   "hauteur": 820,
+   "largeur": 668,
+   "sha256": "ba172bb1a27fe9d38afb3dad75615145df20031b3eef8982ba2defdb836aa68b",
+   "taille": 446643
+  },
+  "ixion-d00-ombre.png": {
+   "hauteur": 290,
+   "largeur": 496,
+   "sha256": "2441a6be6caee49de18529eef65f25b6aa434eb406bbc7eac58b42405491e59b",
+   "taille": 84675
+  },
+  "ixion-d00.png": {
+   "hauteur": 822,
+   "largeur": 671,
+   "sha256": "f0928271899e3a3a5ec4844b6855d603cf1172076ff11f0ddf1c29b649682476",
+   "taille": 523251
+  },
+  "ixion-d01-lueur.png": {
+   "hauteur": 813,
+   "largeur": 629,
+   "sha256": "a7911bd26e88da38fecd69099d8aab3ff012fd8a89adcf4a1f0d2ee8cdb1a9cd",
+   "taille": 666148
+  },
+  "ixion-d01-ombre.png": {
+   "hauteur": 284,
+   "largeur": 503,
+   "sha256": "5e5e900094e448fbf8e492e873d29a1e04c552e90b4d72564f6414e17c8e4af3",
+   "taille": 84731
+  },
+  "ixion-d01.png": {
+   "hauteur": 822,
+   "largeur": 631,
+   "sha256": "f7797774d6d76204d15fdf8e7d4f81a1e2400ebf78a865f04d86d8acfeac578c",
+   "taille": 725057
+  },
+  "ixion-d02-lueur.png": {
+   "hauteur": 758,
+   "largeur": 651,
+   "sha256": "a6397bd5c3cbe570ce4be83bd16a7628f1d77075f38dc392ec19e47c62a833b4",
+   "taille": 709330
+  },
+  "ixion-d02-ombre.png": {
+   "hauteur": 235,
+   "largeur": 510,
+   "sha256": "fe8c222c85e900fa3bc932a3019be13f4031cec8f6ba9a10d76f9c1da4344a69",
+   "taille": 75304
+  },
+  "ixion-d02.png": {
+   "hauteur": 765,
+   "largeur": 659,
+   "sha256": "aa4524424f6c6aed5baf6ab799c671079a626bc5acc6bff2fac46045c1e428c2",
+   "taille": 846208
+  },
+  "ixion-d03-lueur.png": {
+   "hauteur": 746,
+   "largeur": 793,
+   "sha256": "62563ad83476f603df7d9c1347331e308761dfa9eae9a03db81becc884909c78",
+   "taille": 805311
+  },
+  "ixion-d03-ombre.png": {
+   "hauteur": 224,
+   "largeur": 549,
+   "sha256": "d7bb3b12007c97f064fdfb98baf5ac246d659d04fba5b382ff7d504e6091df71",
+   "taille": 66872
+  },
+  "ixion-d03.png": {
+   "hauteur": 758,
+   "largeur": 796,
+   "sha256": "9bc19d54f2e7fc806f60fa91d59f82ec94b6018c583c9abeb8a123b14f3dbcbc",
+   "taille": 928121
+  },
+  "ixion-d04-lueur.png": {
+   "hauteur": 748,
+   "largeur": 818,
+   "sha256": "369645733a018be5f228149df57d616da5b41b1a34a5ca5e29bf586d4799d391",
+   "taille": 820524
+  },
+  "ixion-d04-ombre.png": {
+   "hauteur": 238,
+   "largeur": 553,
+   "sha256": "c4a2b95469ff9f648fb357ab99d4c79a9d78f4873e9ce0c2846f4b3dea37f739",
+   "taille": 55118
+  },
+  "ixion-d04.png": {
+   "hauteur": 750,
+   "largeur": 819,
+   "sha256": "bad0a31dab0c663462612609dedd70eb84cf147eca01c026c9bbe9d555ed6e44",
+   "taille": 909798
+  },
+  "ixion-d05-lueur.png": {
+   "hauteur": 750,
+   "largeur": 800,
+   "sha256": "65b690cfb6c1e6a60ea8ca2111ed828c44c7cd48b7d9815ec583603286480026",
+   "taille": 808869
+  },
+  "ixion-d05-ombre.png": {
+   "hauteur": 224,
+   "largeur": 553,
+   "sha256": "b245df7bd9823e6694dd8d3b5b031d9a2c7caa1f6c5ce5342cfae91ca73834fd",
+   "taille": 66617
+  },
+  "ixion-d05.png": {
+   "hauteur": 758,
+   "largeur": 801,
+   "sha256": "889f4341b2b5f859cbfeb8112b501785342f5c6fcfb70aaeb970ca362551a476",
+   "taille": 942236
+  },
+  "ixion-d06-lueur.png": {
+   "hauteur": 768,
+   "largeur": 658,
+   "sha256": "41395f98fdec224821ba86a4578c57f8b10f68ab4fc50cd419b4ddded30011ce",
+   "taille": 710457
+  },
+  "ixion-d06-ombre.png": {
+   "hauteur": 234,
+   "largeur": 509,
+   "sha256": "c0ff82501be719cb6c7823244392a20748015da486e18ab55bad7f7cee080e39",
+   "taille": 74736
+  },
+  "ixion-d06.png": {
+   "hauteur": 770,
+   "largeur": 662,
+   "sha256": "d50145109edba863d163d6a9e24f17dde4dbd218a7c0b68e749ac85da7e58da6",
+   "taille": 855494
+  },
+  "ixion-d07-lueur.png": {
+   "hauteur": 816,
+   "largeur": 630,
+   "sha256": "b1561e5594373a34c202070e1d5cd31788a398ac2f9b7f58fb3c250ccb67f2b7",
+   "taille": 667584
+  },
+  "ixion-d07-ombre.png": {
+   "hauteur": 282,
+   "largeur": 502,
+   "sha256": "caa231605baabb4bd15b7fc13e61b08132cb940fd804aa56c932eca401a92b01",
+   "taille": 84557
+  },
+  "ixion-d07.png": {
+   "hauteur": 816,
+   "largeur": 632,
+   "sha256": "cdc4cf4a4ddb75830c09206d1749d2413d9fe792bc3908cbca112a6b620e13be",
+   "taille": 733909
+  }
+ }
+}
