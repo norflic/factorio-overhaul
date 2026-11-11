@@ -702,35 +702,6 @@ local function plan_once(spec)
     end
     out_bands[#out_bands + 1] = bo
   end
-  -- lot DECOUPLAGE (directive du DC du 11/11 ; maillon prouvé par PAVAGE-GEANT, 0.7.5, graine 2507543475 : émeraude fer, 37 foreuses sur
-  -- 42 retirées faute de place pour les fours) : une foreuse ne dépend QUE du minerai. Une fois TOUTES les fonderies posées, les
-  -- foreuses qu'aucun groupe n'a prises au bout d'une bande sans place de fonderie forment un groupe « tapis collecteur seul » (g.bare :
-  -- tapis jusqu'au bord du champ, tuile devant sa sortie réservée, aucune fonderie dans ce plan : elle se pose ailleurs sur le sol neutre).
-  for _, t in ipairs(bare_todo) do
-    local bd, bo = t.bd, out_bands[t.bi]
-    local g = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
-    if g then
-      for _, a in ipairs(g.n) do t.used[a .. "n"] = true end
-      for _, a in ipairs(g.s) do t.used[a .. "s"] = true end
-      capped = capped - #g.n - #g.s
-      local gi = #bo.groups + 1
-      for _, a in ipairs(g.n) do emit("foreuse", a, bd.pr + 1, d.size, 0, 1, t.bi, gi, bd.pr) end
-      for _, a in ipairs(g.s) do emit("foreuse", a, bd.b + 1, d.size, 0, -1, t.bi, gi, bd.pr) end
-      g.belt = belt_for(g)
-      local nb = 0
-      for u = g.cut, t.edge, t.side do
-        c.take(u, bd.b)
-        emit("tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
-        nb = nb + 1
-      end
-      c.take(t.edge + t.side, bd.b)
-      local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
-      flow_all = flow_all + flow
-      bo.groups[gi] = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = 0,
-        capacity = 0, belt_tiles = nb, s_edge = t.edge + t.side, len = 0, cut = g.cut, pole_u = t.edge, pole_u2 = colonne and t.edge or nil,
-        bare = true }
-    end
-  end
   -- lot FONDERIE : charbon des colonnes, un réseau par côté du champ (cadre neuf : calculé ; bande seule : rejoué du cadre)
   local cols_frame, coal_frame, coal_stats = nil, nil, {}
   local fallback = nil -- (lot FONDERIE) colonnes d'un cadre neuf retombées sur le coffre de tête : { pr, side, why }
@@ -888,6 +859,40 @@ local function plan_once(spec)
           end
         end
       end
+    end
+  end
+  -- lot DECOUPLAGE (directive du DC du 11/11 ; maillon prouvé par PAVAGE-GEANT, 0.7.5, graine 2507543475 : émeraude fer, 37 foreuses sur
+  -- 42 retirées faute de place pour les fours) : une foreuse ne dépend QUE du minerai. Une fois TOUTES les fonderies posées (colonnes ET réseau du charbon :
+  -- formé plus tôt, son tapis barrait le tracé du charbon, banc 2507543475 : azure fer 58 fours -> 10), les
+  -- foreuses qu'aucun groupe n'a prises au bout d'une bande sans place de fonderie forment un groupe « tapis collecteur seul » (g.bare :
+  -- tapis jusqu'au bord du champ, tuile devant sa sortie réservée, aucune fonderie dans ce plan : elle se pose ailleurs sur le sol neutre).
+  for _, t in ipairs(bare_todo) do
+    local bd, bo = t.bd, out_bands[t.bi]
+    local g = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
+    if g then
+      for _, a in ipairs(g.n) do t.used[a .. "n"] = true end
+      for _, a in ipairs(g.s) do t.used[a .. "s"] = true end
+      capped = capped - #g.n - #g.s
+      local gi = #bo.groups + 1
+      for _, a in ipairs(g.n) do emit("foreuse", a, bd.pr + 1, d.size, 0, 1, t.bi, gi, bd.pr) end
+      for _, a in ipairs(g.s) do emit("foreuse", a, bd.b + 1, d.size, 0, -1, t.bi, gi, bd.pr) end
+      g.belt = belt_for(g)
+      -- le tapis finit au bord du champ, ou plus tôt (jamais avant la dernière foreuse) si la tuile devant sa sortie est déjà prise : le
+      -- minerai ne tombe sur aucun autre tapis
+      local e_end = t.edge
+      while e_end ~= g.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
+      local nb = 0
+      for u = g.cut, e_end, t.side do
+        c.take(u, bd.b)
+        emit("tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
+        nb = nb + 1
+      end
+      c.take(e_end + t.side, bd.b)
+      local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
+      flow_all = flow_all + flow
+      bo.groups[gi] = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = 0,
+        capacity = 0, belt_tiles = nb, s_edge = e_end + t.side, len = 0, cut = g.cut, pole_u = e_end, pole_u2 = colonne and e_end or nil,
+        bare = true }
     end
   end
   -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
