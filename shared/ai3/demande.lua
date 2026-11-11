@@ -18,7 +18,7 @@
        reserve.lua : ce que le noyau garde). Tant qu'il dort, la base se fixe un débit visé EN PLUS de sa consommation, p (MU/min), qui
        croît de Dm.GROW ‰ par cycle ; il est plafonné par ce que le stock libre nourrit pendant Dm.DRAIN_H minutes ET par Dm.Y_MULT fois la
        production mesurée (le plafond monte avec la production : croissance géométrique, sans borne fixe). Quand le stock ne dort plus, p
-       redescend de Dm.DECAY ‰ par cycle. Le puits est une liste de puits ÉLASTIQUES d'objets, que Ca.decide ajoute à ses puits :
+       retombe à 0 (fermeture nette, lot FIX-P1). Le puits est une liste de puits ÉLASTIQUES d'objets, que Ca.decide ajoute à ses puits :
          - SCIENCE : les objets d'entrée des laboratoires (D.packs), tant qu'il reste des technologies à la file ;
          - ÉQUIPEMENT : les biens d'équipement (fabriques, foreuses, laboratoires) les plus chers que l'équipe sait obtenir, les plus
            utiles à la croissance elle-même (les chantiers les consomment : le capital fabrique le capital).
@@ -167,7 +167,7 @@ function Dm.step(st, inp)
   if dormant then
     p = (p > Dm.EPS) and p * (1000 + Dm.GROW) / 1000 or cap * Dm.SEED_PCT / 100
   else
-    p = p * (1000 - Dm.DECAY) / 1000
+    p = 0 -- lot FIX-P1 : fermeture nette quand le stock ne dort plus (plus de décroissance de Dm.DECAY ‰ par cycle)
   end
   if p > cap then p = cap end
   if p < Dm.P_MIN then p = 0 end

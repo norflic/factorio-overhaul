@@ -15,6 +15,12 @@ function Bc.cap(consumers, drills, fuel_j)
 end
 
 --- Une foreuse (ou une bande) de combustible de plus n'est permise que tant que l'extraction posée reste SOUS le besoin réel.
+--- Lot FIX-P1 : une foreuse du combustible ne compte dans la capacité que si elle produit (status = working) ou attend la place de sa
+--- sortie (waiting_for_space_in_destination) ; à sec, sans courant, sans combustible ou à l'arrêt, elle ne rend rien. S = defines.entity_status.
+function Bc.drill_counts(status, S)
+  return S ~= nil and status ~= nil and (status == S.working or status == S.waiting_for_space_in_destination)
+end
+
 function Bc.room(cap) return cap ~= nil and cap.capacity < cap.need end
 
 return Bc

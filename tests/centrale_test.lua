@@ -81,7 +81,7 @@ local function battery(C)
   local s8 = { saturated = true, requests = C.MAX_REQUESTS - 1 }
   check(C.growth(s8, free()) == 1, "derniere demande permise")
   s8.requests = C.MAX_REQUESTS
-  check(C.growth(s8, free()) == nil, "borne des demandes sur la partie : rien")
+  check(C.growth(s8, free()) == 1, "lot FIX-P1 : plus de borne des demandes sur la partie")
   C.requested(s8)
   check(s8.requests == C.MAX_REQUESTS + 1, "chaque demande est comptee")
 
@@ -183,7 +183,6 @@ local mutants = {
   { "deux chaudieres", "C.BOILERS = 1 ", "C.BOILERS = 2 " },
   { "relevé sans remise a zero", "else st.sat = 0 end", "end" },
   { "pause apres abandon ignoree", "if n.cool then", "if false then" },
-  { "borne des demandes ignoree", "(st.requests or 0) >= C.MAX_REQUESTS", "false" },
   { "demandes non comptees", "st.requests = (st.requests or 0) + 1", "st.requests = st.requests" },
   { "abandon sans delai", "state == \"reserve\" and reason == \"materiaux\" and waited >= C.STALE", "state == \"reserve\" and reason == \"materiaux\"" },
   { "abandon d'un chantier", "state == \"reserve\" and reason", "state ~= \"fini\" and reason" },

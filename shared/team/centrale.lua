@@ -132,7 +132,7 @@ function C.growth(st, n)
   local deficit = (n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS -- lot TV-ENERGIE : déficit de kW installé
   if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, "pas saturee" end
   -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité
-  if n.load ~= nil and n.load < C.GROW_LOAD then return nil, C.LOAD_REASON end
+  if n.load ~= nil and n.load < C.GROW_LOAD and not n.anticipate then return nil, C.LOAD_REASON end -- lot FIX-P1 : sauf l'avance (n.anticipate)
   -- lot ENERGIE (relecture) : la reconstruction qui n'aboutit pas ne retient pas le champ de remplacement (« si on y arrive vraiment pas, on
   -- le fait ailleurs ») ; n.rebuilding : ceux de n.pending qui sont des centrales rouvertes
   if n.lost then
@@ -146,7 +146,7 @@ function C.growth(st, n)
   if (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end
   if n.hold and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end
   if n.cool then return nil, "pause apres une centrale refusee ou abandonnee" end
-  if (st.requests or 0) >= C.MAX_REQUESTS then return nil, "trop de demandes" end
+  -- lot FIX-P1 : plus de borne C.MAX_REQUESTS sur la partie (elle bloquait la croissance électrique pour toujours) ; C.COOL et C.MAX_REFUSED bornent
   -- lot TV-ENERGIE (G65) : en crise, l'unité de secours (la plus petite), jamais le champ ; plafonnée par crise (n.secours_n)
   if C.crisis(st, n) then
     if (n.secours_n or 0) >= C.SECOURS_MAX then return nil, "unites de secours epuisees pour cette crise" end

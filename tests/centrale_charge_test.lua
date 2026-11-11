@@ -41,7 +41,7 @@ local function battery(C)
   local nb, why = C.growth(sat(), n({ load = 0.5 }))
   check(nb == nil and why == C.LOAD_REASON, "saturée (hystérésis) mais demande à 50 % : rien (" .. tostring(why) .. ")")
   nb, why = C.growth({ saturated = false, sat = 0 }, n({ load = 0.6, anticipate = true }))
-  check(nb == nil and why == C.LOAD_REASON, "avance sur les chantiers à 60 % mesurés : rien")
+  check(nb ~= nil, "avance sur les chantiers à 60 % mesurés : demandée (lot FIX-P1 : F491 ne retient plus l'avance)")
   nb, why = C.growth(def(), n({ load = 0, deficit_kw = 8610 }))
   check(nb == nil and why == C.LOAD_REASON, "partie du DC, player 12,6 min : 8 610 kW retenus, 0 kW sur 1 800 : rien")
   nb, why = C.growth(def(), n({ load = C.grow_load(1368 * KW, 1800 * KW, 1800 * KW), pending = 1, pending_kw = 1800, deficit_kw = 8610 }))
@@ -104,7 +104,7 @@ section("Mutants")
 local f = assert(io.open("shared/team/centrale.lua", "rb"))
 local src = f:read("*a")
 f:close()
-local GATE = "if n.load ~= nil and n.load < C.GROW_LOAD then return nil, C.LOAD_REASON end"
+local GATE = "if n.load ~= nil and n.load < C.GROW_LOAD and not n.anticipate then return nil, C.LOAD_REASON end"
 local TRIGGER = "  if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, \"pas saturee\" end\n"
 local COMMENT = "  -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité\n"
 local mutants = {

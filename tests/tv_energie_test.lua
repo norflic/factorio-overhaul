@@ -309,7 +309,8 @@ do
     local engines = { { name = "boiler", x = 11, y = 0 }, { name = "steam-engine", x = 12, y = 0 }, { name = "steam-engine", x = 13, y = 0 } }
     f.build.projects[2].ents = engines
     -- F491 : le chantier ouvert compte dans la capacité : 22 800 J/tick sur 30 000 bâtis + 30 000 en chantier = 38 % : rien en parallèle
-    check(kw_run(10, 5000) == false, "F491 E1 : demande 1 368 kW sur 1 800 bâtis + 1 800 en chantier (38 %) : AUCUN chantier en parallèle")
+    -- lot FIX-P1 : l'avance (retenu de 5 000 kW) n'est plus neutralisée par F491 : le chantier en parallèle passe à 38 %
+    check(kw_run(10, 5000) == true, "F491 E1 : demande 1 368 kW sur 1 800 bâtis + 1 800 en chantier (38 %), avance par le retenu : chantier en parallèle (lot FIX-P1)")
     -- centrale finie de 16 machines (14 400 kW) à 97 % : 232 000 J/tick sur 240 000 + 30 000 en chantier = 86 %, déficit de 5 000 kW
     for i = 4, 17 do plant.ents[#plant.ents + 1] = { name = "steam-engine", x = i, y = 0 }; alive["steam-engine:" .. i] = true end
     PROD = 14500
@@ -330,11 +331,12 @@ do
     f.build.extra_plants = { 2 }
     f.build.projects[2].ents = {}
   end
-  -- borne écrite : au plus C.MAX_REQUESTS demandes sur la partie
+  -- lot FIX-P1 : plus de borne C.MAX_REQUESTS sur la partie (C.COOL et C.MAX_REFUSED bornent)
   f.build.extra_plants, f.build.projects[2] = nil, nil
   f.build.grow.requests = C0.MAX_REQUESTS
   f.build.grow.cool_until = 0
-  check(run(10, 5000) == false, "C.MAX_REQUESTS atteint : plus de demande, même avec un déficit (demande mesurée 76 %)")
+  check(run(10, 5000) == true, "C.MAX_REQUESTS atteint : la demande passe encore (lot FIX-P1), déficit, demande mesurée 76 %")
+  f.build.extra_plants, f.build.projects[2] = nil, nil
   PROD = 3000
   tick = tick + PA.WATCH_EVERY -- (F491 : un relevé à 20 % sans retenu remet à zéro l'avance comptée pendant les phases à 76-100 %)
   f.team.capi.kw_blocked = nil
