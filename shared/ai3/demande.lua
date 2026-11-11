@@ -51,7 +51,7 @@ Dm.DECAY = 50          -- ‰ par cycle : décroissance quand le stock ne dort p
 Dm.SEED_PCT = 5        -- % du plafond : première valeur du débit visé
 Dm.DRAIN_H = 60        -- minutes : le stock libre doit pouvoir nourrir le débit visé pendant ce temps
 Dm.Y_MULT = 4          -- le débit visé ne dépasse jamais 4 fois la production mesurée (le plafond suit la production)
-Dm.Y_FLOOR = 10        -- MU/min : production comptée au moins (une base à l'arrêt a quand même un plafond)
+Dm.Y_FLOOR = 0         -- MU/min : production comptée au moins (une base à l'arrêt a quand même un plafond)
 Dm.EQUIP_MAX = 3       -- biens d'équipement au plus dans le puits (les plus chers que l'équipe sait obtenir)
 Dm.EPS = 1e-9
 Dm.P_MIN = 0.01        -- MU/min : sous ce débit visé, le puits est fermé
@@ -173,7 +173,7 @@ function Dm.step(st, inp)
   if p < Dm.P_MIN then p = 0 end
   st.p = p
   local out = { dormant = dormant, p = p, cap = cap, cap_why = cap_why, sinks = {}, classes = {}, need_mu = need_mu,
-    tmax_sleep = dormant and (free_mu / y) or 0,
+    tmax_sleep = (dormant and y > 0) and (free_mu / y) or 0,
     left = dormant and math.max(0, stock_mu - Dm.DORM_FACTOR * math.max(need_mu, Dm.NEED_MIN_MU)) or 0 }
   out.left0 = out.left -- (le stock qui dort au départ du cycle ; `left` s'use ordre après ordre)
   if p <= 0 then
