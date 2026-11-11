@@ -146,7 +146,8 @@ do
     and sk:find("local need = demanded(f, true)", 1, true) ~= nil
     and sk:find("T.stockage, ia3 and ia3.other_short, need, over_cap(f))", 1, true) ~= nil)
   check("cablage C1 : les manques des projets en reserve (p.missing, etat reserve) entrent au depot, bornes par le stock (Sg.resv_room)",
-    sk:find('if p and p.state == "reserve" and not p.abandoned and p.missing and #p.missing > 0 then lists[#lists + 1] = p.missing end', 1, true) ~= nil
+    -- (EXPANSION-LOINTAINE, 1552119c : une bande partie sur son plancher, p.progressif, compte aussi son manque)
+    sk:find('if p and (p.state == "reserve" or p.progressif) and not p.abandoned and p.missing and #p.missing > 0 then lists[#lists + 1] = p.missing end', 1, true) ~= nil
     and sk:find("local agg = Sg.reserve_need(lists)", 1, true) ~= nil and sk:find("local resv = reserve_need(f)", 1, true) ~= nil
     and sk:find("local rroom = rq and Sg.resv_room(rq, Stock.count(f, item)) or 0", 1, true) ~= nil
     and sk:find("local k = math.min(n - put, math.max(room, rroom))", 1, true) ~= nil)
