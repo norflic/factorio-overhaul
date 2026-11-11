@@ -21,6 +21,7 @@ Date: 2026-11-11
     - Titans (F506) : le Juggernaut, la Sentinelle et le Ravageur sont dessinés en 16 directions (8 avant) ; blindage plus sombre et iridescent, conduits et anneaux cyan plus lumineux ; poids des feuilles en haute qualité ramené sous 80 Mpx par titan.
   Bugfixes:
     - Titans (F507) : un titan allié qui marche se tourne dans la direction de sa marche ; avant, son corps restait tourné vers le nord et glissait sur la carte.
+    - Impacts (F514) : faisceaux denses (laser de la lignée, trace du fusil à rail qui n'est plus l'arc électrique vanilla), ondes de choc au sol avec brûlure éphémère (plasma, singularité, frappe orbitale, titans), distorsion de singularité (ombre noire et anneau de photons) pour le lanceur de singularités et les titans ; feuilles procédurales, aucun effet par tick.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10

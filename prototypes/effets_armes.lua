@@ -13,6 +13,11 @@
   - champ   : le nuage du lanceur de singularités (smoke-with-trigger) prend le vortex pour animation ;
   - titans  : griffes et éclair de singularité reçoivent leur onde, les tirs des drones leur lumière et leur traînée ;
   - animations « fo-fx-vortex » et « fo-fx-onde » (blanches) pour rendering.draw_animation (pulsation de la Sentinelle, script).
+  Lot ART-IMPACTS (11/11, mandat de nuit du DC) : FAISCEAUX DENSES (corps « faisceau » à cœur blanc et filaments, éclat aux bouts)
+  pour le laser de la lignée et la trace du fusil à rail (qui était l'arc électrique vanilla) ; ONDE DE CHOC AU SOL (feuille
+  « choc », 16 images, couche lower-object-above-shadow) et BRÛLURE éphémère (scorchmark vanilla teintable, effacée en
+  quelques secondes) pour le plasma, la singularité, la frappe orbitale et les titans ; DISTORSION DE SINGULARITÉ (ombre noire
+  en mélange normal sous un anneau de photons additif) pour les armes de la plus haute ère : lanceur de singularités et titans.
   Feuilles : graphics/effets/sprites.lua (tools/render/pieces/effets/vortex.py, PNG hors git, D-6). Tout est porté par le
   moteur : aucun effet par tick côté script (UPS). Âge 1 (cinétique) : délégué au lot TIRS (prototypes/tirs.lua).
 ]]
@@ -34,19 +39,30 @@ end
 local function rgba(c, a) return Fx.rgba(c, a) end
 local function color(c) return { r = c.r, g = c.g, b = c.b } end
 
---- Animation d'une feuille (vortex, onde) : rangée de `images` images, échelle = diamètre en tuiles, durée en ticks (une boucle).
-local function feuille_anim(cle, c, echelle, duree)
+--- Animation d'une feuille de graphics/effets/sprites.lua (rangée, ou grille de line_length colonnes), à l'échelle `k` de
+--- la feuille, une boucle en `duree` ticks ; `ombre` : noire, mélange normal, sans teinte ni lueur (ombre de la singularité).
+local function anim_feuille(cle, c, k, duree, ombre)
   local s = SPR[cle]
   assert(s, "effets_armes : feuille absente de graphics/effets/sprites.lua : " .. tostring(cle))
-  local k = echelle / Fx.FEUILLE_TUILES
-  local function une(d, hr)
-    return { filename = d.filename, width = d.width, height = d.height, frame_count = s.images, line_length = s.images,
-      animation_speed = s.images / duree, scale = d.scale * k, tint = rgba(c), blend_mode = "additive", draw_as_glow = true,
+  local motifs = Fx.verifier_feuille(cle, s)
+  if #motifs > 0 then error("[factorio-overhaul] effets_armes : " .. table.concat(motifs, " ; ")) end
+  local function une(d)
+    local a = { filename = d.filename, width = d.width, height = d.height, frame_count = s.images,
+      line_length = s.line_length or s.images, animation_speed = s.images / duree, scale = d.scale * k,
       priority = "extra-high", flags = { "linear-minification" } }
+    if not ombre then a.tint, a.blend_mode, a.draw_as_glow = rgba(c), "additive", true end
+    return a
   end
-  local a = une(s.lr, false)
-  a.hr_version = une(s.hr, true)
+  local a = une(s.lr)
+  a.hr_version = une(s.hr)
   return a
+end
+
+--- Animation d'une feuille carrée à un DIAMÈTRE donné en tuiles (vortex, onde, choc, singularité, éclat).
+local function feuille_anim(cle, c, echelle, duree, ombre)
+  local s = SPR[cle]
+  assert(s, "effets_armes : feuille absente de graphics/effets/sprites.lua : " .. tostring(cle))
+  return anim_feuille(cle, c, echelle / (s.lr.width / 32), duree, ombre)
 end
 
 local function lumiere(l) return { intensity = l.intensite, size = l.taille, color = color(l.couleur) } end
@@ -108,16 +124,77 @@ local function onde(nom, o, c, l, affiche)
   return nom
 end
 
---- Explosion d'impact d'un pack (nil si le pack n'en a pas de source : l'onde seule est alors l'impact) ; rend son nom.
+--- ART-IMPACTS : onde de choc AU SOL (feuille CHOC, 16 images, sous les entités hautes) ; rend son nom.
+local function choc(nom, o, c, l, affiche)
+  local e = {
+    type = "explosion", name = nom, flags = { "not-on-map", "hidden" }, subgroup = "explosions", localised_name = affiche,
+    animations = { feuille_anim("choc", c, o.echelle, o.duree) }, rotate = false, render_layer = "lower-object-above-shadow",
+  }
+  if l then flash(e, l) end
+  out[#out + 1] = e
+  return e
+end
+
+--- ART-IMPACTS : brûlure au sol ÉPHÉMÈRE (copie d'un scorchmark vanilla teintable : la couleur du sol la teinte), effacée
+--- après `tenue` ticks ; rend son nom.
+local function brulure(nom, b, affiche)
+  local src = data.raw.corpse[b.source]
+  assert(src, "effets_armes : marque au sol vanilla absente " .. tostring(b.source))
+  local e = table.deepcopy(src)
+  e.name, e.localised_name = nom, affiche
+  e.ground_patch_fade_out_start = b.tenue
+  e.ground_patch_fade_out_duration = math.floor(b.tenue / 2)
+  e.time_before_removed = b.tenue + math.floor(b.tenue / 2) + 60
+  out[#out + 1] = e
+  return nom
+end
+
+--- ART-IMPACTS : distorsion de singularité = deux explosions créées ensemble : l'OMBRE (disque noir, mélange normal, couche
+--- explosion) et l'anneau de photons (additif, teinte de l'arme, couche projectile : au-dessus de l'ombre) ; rend les effets.
+local function distorsion(pack, d, affiche)
+  local effets = {}
+  for _, k in ipairs({ { "distorsion-ombre", "singularite-ombre", true, "explosion" }, { "distorsion", "singularite", false, "projectile" } }) do
+    local e = {
+      type = "explosion", name = Fx.nom(pack, k[1]), flags = { "not-on-map", "hidden" }, subgroup = "explosions",
+      localised_name = affiche, animations = { feuille_anim(k[2], pack.couleur, d.echelle, d.duree, k[3]) }, rotate = false,
+      render_layer = k[4],
+    }
+    out[#out + 1] = e
+    effets[#effets + 1] = { type = "create-entity", entity_name = e.name }
+  end
+  return effets
+end
+
+--- Explosion d'impact d'un pack ; rend le nom de l'entité à créer au point d'impact. Sans explosion vanilla source, le PORTEUR
+--- est l'onde de choc (sinon l'onde) : il crée à son tour les étincelles, l'onde, la brûlure et la distorsion.
 local function impact(pack)
   local i = pack.impact
   if not i then return nil end
   local c = pack.couleur
   local nom = Fx.nom(pack, "impact")
+  local affiche = nom_affiche(pack)
+  local lum = not i.source and i.lumiere or nil
   local effets = {}
-  if i.etincelles then effets[#effets + 1] = etincelles(Fx.nom(pack, "etincelle"), i.etincelles, c, nom_affiche(pack)) end
-  if i.onde then effets[#effets + 1] = { type = "create-entity", entity_name = onde(Fx.nom(pack, "onde"), i.onde, c, not i.source and i.lumiere or nil, nom_affiche(pack)) } end
-  if not i.source then return Fx.nom(pack, "onde") end
+  if i.etincelles then effets[#effets + 1] = etincelles(Fx.nom(pack, "etincelle"), i.etincelles, c, affiche) end
+  local porteur   -- explosion (table) qui porte l'impact quand il n'y a pas de source vanilla
+  if i.choc then
+    local e = choc(Fx.nom(pack, "choc"), i.choc, c, lum, affiche)
+    if i.source then effets[#effets + 1] = { type = "create-entity", entity_name = e.name } else porteur = e end
+  end
+  if i.onde then
+    local n = onde(Fx.nom(pack, "onde"), i.onde, c, (not i.source and not porteur) and lum or nil, affiche)
+    if i.source or porteur then
+      effets[#effets + 1] = { type = "create-entity", entity_name = n }
+    else
+      porteur = out[#out]
+    end
+  end
+  if i.brulure then effets[#effets + 1] = { type = "create-entity", entity_name = brulure(Fx.nom(pack, "brulure"), i.brulure, affiche) } end
+  if i.distorsion then for _, ef in ipairs(distorsion(pack, i.distorsion, affiche)) do effets[#effets + 1] = ef end end
+  if not i.source then
+    if #effets > 0 then porteur.created_effect = { type = "direct", action_delivery = { type = "instant", target_effects = effets } } end
+    return porteur.name
+  end
   local src = data.raw.explosion[i.source]
   assert(src, "effets_armes : explosion vanilla absente " .. tostring(i.source))
   local anims = K.variations(table.deepcopy(src.animations))
@@ -214,6 +291,36 @@ local function projectile(p, pack, nom_impact)
   if nom_impact and p.action then ajoute_cible(p.action, { type = "create-entity", entity_name = nom_impact }) end
 end
 
+--- ART-IMPACTS : faisceau DENSE : corps (feuille FAISCEAU, raccordable, 8 images qui défilent) et éclats aux deux bouts,
+--- teints de la couleur de l'arme, en lumière aussi (light_animations). Le CORPS garde l'échelle 1 (une image = UNE tuile de
+--- long, comme le faisceau vanilla) : le moteur pose les maillons à ~0,93 tuile ; plus court, chaque jointure laissait un trou
+--- (captures du 11/11) ; l'épaisseur `f.epaisseur` règle les éclats des bouts. Filtrage du faisceau vanilla (trilinéaire).
+local function faisceau_dense(b, pack)
+  local f, c = pack.faisceau, pack.couleur
+  local function corps()
+    local a = anim_feuille("faisceau", c, 1, 16)
+    a.flags, a.hr_version.flags = { "trilinear-filtering" }, { "trilinear-filtering" }
+    return a
+  end
+  local function bout() return feuille_anim("eclat", c, 1.6 * f.epaisseur, 16) end
+  b.head, b.tail, b.body = corps(), bout(), { corps() }
+  b.start, b.ending = nil, nil
+  b.light_animations = { head = corps(), tail = bout(), body = { corps() } }
+  return b
+end
+
+--- ART-IMPACTS : la trace du fusil à rail devient un faisceau dense à elle (visuel seul : AUCUNE action, les dégâts restent sur
+--- la ligne) ; rend son nom.
+local function faisceau_rail(pack)
+  local b = {
+    type = "beam", name = Fx.nom(pack, "faisceau"), flags = { "not-on-map" }, localised_name = nom_affiche(pack),
+    width = 0.5, damage_interval = 20, random_target_offset = false, action_triggered_automatically = false,
+  }
+  faisceau_dense(b, pack)
+  out[#out + 1] = b
+  return b.name
+end
+
 local function source_bouche(t, nom_bouche)
   if not (t and nom_bouche) then return end
   local ap = t.attack_parameters
@@ -242,6 +349,7 @@ for _, pack in ipairs(packs) do
     if pack.mode == "laser" then
       local b = data.raw.beam[nom .. "-beam"]
       if b and b.action and ni then ajoute_cible(b.action, { type = "create-entity", entity_name = ni }) end
+      if b and pack.faisceau then faisceau_dense(b, pack) end
       source_bouche(data.raw["electric-turret"][nom], nbo)
     elseif pack.mode == "arc" then
       for _, s in ipairs({ "-arc-1", "-arc-2" }) do
@@ -260,6 +368,14 @@ for _, pack in ipairs(packs) do
         ajoute_cible(act, { type = "create-entity", entity_name = ni })
         local items = act.type and { act } or act
         for _, it in ipairs(items) do if it.type == "line" and nbo then it.source_effects = { type = "create-explosion", entity_name = nbo } end end
+        -- la trace : le faisceau de l'arc électrique vanilla est remplacé par le faisceau dense de l'arme
+        if pack.faisceau then
+          local fr = faisceau_rail(pack)
+          for _, it in ipairs(items) do
+            local d = it.action_delivery
+            if d and d.type == "beam" then d.beam, d.duration = fr, pack.faisceau.duree or d.duration end
+          end
+        end
       end
     elseif pack.mode == "singularite" then
       projectile(data.raw.projectile[nom .. "-projectile"], pack, ni)
@@ -280,9 +396,9 @@ for _, pack in ipairs(packs) do
     elseif pack.mode == "orbital" then
       local marker = data.raw["combat-robot"][nom .. "-marker"]
       local d = marker and marker.destroy_action and marker.destroy_action.action_delivery
-      if d and d.source_effects then
+      if d and d.source_effects and ni then
         local se = d.source_effects.type and { d.source_effects } or d.source_effects
-        se[#se + 1] = { type = "create-entity", entity_name = Fx.nom(pack, "onde") }
+        se[#se + 1] = { type = "create-entity", entity_name = ni }   -- le porteur : onde de choc au sol, brûlure
         d.source_effects = se
       end
     elseif pack.mode == "titan" then
