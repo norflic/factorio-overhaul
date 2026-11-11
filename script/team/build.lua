@@ -1681,7 +1681,7 @@ Build.DEBIT_LOGS = 24 -- lignes [FO-DEBIT] au plus, par équipe
 --- équipe la ligne [FO-CONVOYEURS] « premier choix de tapis » : appelée ici, au plan, avec un débit HYPOTHÉTIQUE, elle prenait la place
 --- de celle du premier vrai tracé (plan_feed). Avec les données de base, la borne retenue est l'emprise (7 paires, M.MAX_SIDE), jamais le
 --- tapis (15 foreuses par côté sur une voie jaune) : le gabarit (M.GEN.drills) bornait déjà par M.LANE_RATE, le plus lent des tapis.
-function Build.debit_pairs(f, ore, emprise, drill_rate)
+function Build.debit_pairs(f, ore, emprise, drill_rate, lateral)
   local dc = T.debit or {}
   if not dc.belt or type(drill_rate) ~= "number" or drill_rate <= 0 then return emprise end
   -- une voie = un côté de la ligne entière
@@ -1689,6 +1689,7 @@ function Build.debit_pairs(f, ore, emprise, drill_rate)
   local lane = Db.lane_capacity(speed)
   local by_belt = Db.belt_pairs(lane, drill_rate, nil)
   if by_belt <= 0 then return emprise end -- aucun tapis lisible : la borne du gabarit (comportement d'avant)
+  by_belt = Db.head_pairs(by_belt, lateral) -- lot FIX-P4 : arrivée latérale sur la tête = deux voies versées dans une seule
   local np, why = math.min(by_belt, emprise or by_belt), (by_belt < (emprise or by_belt)) and "tapis" or "emprise"
   local b = f.build
   b.debit_seen = b.debit_seen or {}
@@ -1721,7 +1722,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
   local cap = main / (2 * prm.n) -- plaques/s d'UN four
   local gd = M.GEN.drills(prm.ore, 1)
   local pairs_line = gd and gd.extensions and gd.extensions[1] and gd.extensions[1].max or 0
-  pairs_line = Build.debit_pairs(f, prm.ore, pairs_line, dsp.speed) -- lot RANGEES-DEBIT : le collecteur réel borne la ligne
+  pairs_line = Build.debit_pairs(f, prm.ore, pairs_line, dsp.speed, P.FEEDER_SIDE_LOAD) -- lot RANGEES-DEBIT : le collecteur réel borne la ligne
   local reach = Rg.reach(dsp.radius, dsp.w)
   -- ce que les lots de gisement les plus proches portent : le comptage des tuiles du relevé de lot donne une BORNE HAUTE
   -- (Rg.pairs_for_tiles), puis P.fit lui-même (pur) dit quelle ligne de foreuses y TIENT à la couverture visée
@@ -1780,12 +1781,19 @@ local function plan_feed(f, surface, p, place, part)
     elseif port.io == "in" then
       local sources = { nil, nil }
       local drills = {}
+      -- une même ressource sur les deux voies : une seule source (la voie 1), sauf si son débit dépasse une voie (lot FIX-P4 :
+      -- Db.lane_split, voie lue sur le tapis que ce débit demanderait) : alors les deux voies, chacune pour la moitié
+      local split
+      if port.lanes and port.lanes[1] and port.lanes[1] == port.lanes[2] then
+        local all = g.inputs and g.inputs[port.lanes[1]] or 0
+        local _, sp = CvRegle.pick(Conv.belts(), Conv.usable(f), all, { need_only = Conv.MODE == "besoin" })
+        split = Db.lane_split(all, Db.lane_capacity(sp))
+      end
       for lane = 1, 2 do
         local item = port.lanes and port.lanes[lane]
-        -- une même ressource sur les deux voies : une seule source (la voie 1)
-        if item and not (lane == 2 and port.lanes[1] == item) then
+        if item and not (split and not split[lane]) then
           sources[lane] = "quai"
-          local flow = g.inputs and g.inputs[item] or 0
+          local flow = split and split[lane] or (g.inputs and g.inputs[item] or 0)
           -- Lot IA3-e : feed = "tapis" (fonderie de l'automatisation) : sa voie de minerai est servie par foreuses et
           -- tapis, JAMAIS par un quai (il se remplit depuis le coffre, où il n'y a pas de minerai : e7 et e10-usine,
           -- fours « no_ingredients », 0 plaque sans PNJ) ; sinon le plan est refusé, raison « gisement : … ».
@@ -1802,7 +1810,7 @@ local function plan_feed(f, surface, p, place, part)
             local d = dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) or nil
             if d and d <= reach * P.PITCH then
               sources[lane] = "tapis"
-              drills[lane] = { item = item, flow = flow }
+              drills[lane] = { item = item, flow = flow, dist = d }
             elseif need_belt then
               -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change). Lot INDUSTRIE I3 : d'un coup
               -- jusqu'au gisement que la sonde a vu, au plus RADIUS_ORE, et jamais pour rien (l'ancien +1 par refus, borné à RADIUS_MAX,
@@ -1831,9 +1839,12 @@ local function plan_feed(f, surface, p, place, part)
       -- Lot CONVOYEURS : la tête et le tracé des foreuses ont le même tapis (le meilleur débloqué, ou celui que le débit exige)
       local head_belt
       do
-        local top = 0
-        for lane = 1, 2 do if drills[lane] and drills[lane].flow > top then top = drills[lane].flow end end
-        if top > 0 then head_belt = Conv.choose(f, top) end
+        local top, len = 0, 0
+        for lane = 1, 2 do
+          if drills[lane] and drills[lane].flow > top then top = drills[lane].flow end
+          if drills[lane] and (drills[lane].dist or 0) > len then len = drills[lane].dist end -- lot FIX-P4 : longueur du tracé (distance du gisement)
+        end
+        if top > 0 then head_belt = Conv.choose(f, top, len) end
       end
       local fd = P.feeder(port, sources, quai_ins, head_belt, quai_n)
       for _, e in ipairs(fd.entities) do e.part = part end
@@ -1860,10 +1871,10 @@ local function plan_feed(f, surface, p, place, part)
             local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins, head_belt, quai_n)
             local extra = {}
             for _, e in ipairs(alt.entities) do if e.role ~= "tete" then e.part = part; extra[#extra + 1] = e end end
-            if reserve_tiles(b, p, extra) then
-              for _, c in ipairs(alt.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
-              for _, e in ipairs(extra) do quay_ents[#quay_ents + 1] = e end
-            end
+            -- lot FIX-P4 : quai de repli refusé (tuiles prises) = voie jamais alimentée : l'échec remonte
+            if not reserve_tiles(b, p, extra) then return false, "quai de repli : tuiles prises" end
+            for _, c in ipairs(alt.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
+            for _, e in ipairs(extra) do quay_ents[#quay_ents + 1] = e end
           end
         end
       end

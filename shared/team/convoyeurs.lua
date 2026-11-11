@@ -60,11 +60,13 @@ end
 --- nouveau tracé prend le tapis le plus rapide disponible DONT L'OBJET EST DÉJÀ AU STOCK en quantité (`count(objet)` >= `min`) : les
 --- tapis rapides fabriqués pour les remplacements ne restent pas à dormir et les tracés neufs ne naissent plus au rang de base, sans
 --- jamais commander une fabrication (le fer manque). nil : aucun tapis disponible n'est assez en stock (l'appelant garde C.pick).
-function C.stocked(belts, usable, count, min)
+--- Lot FIX-P4 : `length` (tuiles du tracé, facultatif) : le stock doit aussi couvrir le tracé entier, count >= max(min, length).
+function C.stocked(belts, usable, count, min, length)
   local list = usable_list(belts, usable)
+  local need = math.max(min or 0, length or 0)
   for i = #list, 2, -1 do
     local b = list[i]
-    if b.item and (count(b.item) or 0) >= min then return b.name, b.speed end
+    if b.item and (count(b.item) or 0) >= need then return b.name, b.speed end
   end
   return nil
 end

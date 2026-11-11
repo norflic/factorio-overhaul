@@ -737,6 +737,9 @@ end
 --- Voie 1 = gauche du sens de marche. Un bras dépose sur la voie LOINTAINE : le quai d'une voie est de l'autre côté.
 --- Un chargement latéral sur une seule voie exige un tapis DERRIÈRE la tuile chargée (sinon elle devient un virage) :
 --- bout mort à 3 tuiles. `belt` (lot CONVOYEURS) : le tapis des têtes, "transport-belt" par défaut.
+--- Lot FIX-P4 : le tapis des foreuses arrive sur la tête PAR LE CÔTÉ (at(2, side) ci-dessous) : ses deux voies tombent sur une seule
+--- voie de la tête. Lu par Build.debit_pairs (Db.head_pairs) pour ne pas dimensionner la ligne de foreuses sur deux voies.
+P.FEEDER_SIDE_LOAD = true
 function P.feeder(port, sources, quai_inserter, belt, arms)
   arms = arms or 1 -- lot RESEAU-GRAPHE : bras par voie de quai (1 : comme avant) ; le second est à la profondeur 3, la tuile la plus reculée de la tête
   local d = port.dir

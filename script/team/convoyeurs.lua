@@ -95,8 +95,9 @@ local function note(f, topic, text)
 end
 
 --- Tapis d'un nouveau tracé dont `flow` objets/s passent sur une voie. nil : aucun tapis débloqué.
-function Conv.choose(f, flow)
-  local name = C.stocked(Conv.belts(), Conv.usable(f), function(item) return Stock.count(f, item) end, Conv.NEW_MIN)
+--- `len` (lot FIX-P4, facultatif) : longueur du tracé en tuiles ; le tapis rapide « déjà au stock » doit la couvrir.
+function Conv.choose(f, flow, len)
+  local name = C.stocked(Conv.belts(), Conv.usable(f), function(item) return Stock.count(f, item) end, Conv.NEW_MIN, len)
     or C.pick(Conv.belts(), Conv.usable(f), flow, { need_only = Conv.MODE == "besoin" })
   if f.build then
     local ok = unlocked(f)
