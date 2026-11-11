@@ -1456,16 +1456,6 @@ function Pet.valve_think(f, st, tick)
   return total
 end
 
---- Pensée d'une faction (script/ai3/cerveau.lua, après Auto.think) : décisions, état des sites, et leurs projets rendus
---- au cerveau par le contexte de l'automatisation (A.goals : manques des chantiers, quais d'un site fini).
---- Chaque projet d'extension d'un site : le numéro du chantier en cours (s.ext_id) et ceux déjà finis (s.exts).
-local function ext_ids(s)
-  local ids = {}
-  for _, id in ipairs(s.exts or {}) do ids[#ids + 1] = id end
-  if s.ext_id then ids[#ids + 1] = s.ext_id end
-  return ids
-end
-
 --- Rangée de modules (étape 2) : le site de base est le module 1 ; autant de copies que le brut des chevalets posés en nourrit (Rf.count : débit des
 --- chevalets / consommation d'un module, lus aux prototypes), au plus Rf.KMAX modules et Rf.BATCH copies par chantier. Un chantier à la fois ; le
 --- pas, le sens et les bus du chantier précédent sont repris (s.rangee). Rien n'est demandé tant qu'un chantier d'extension de puits est en cours.
@@ -1598,6 +1588,8 @@ local function extend_site(f, st, s, tick)
   end
 end
 
+--- Pensée d'une faction (script/ai3/cerveau.lua, après Auto.think) : décisions, état des sites, et leurs projets rendus
+--- au cerveau par le contexte de l'automatisation (A.goals : manques des chantiers, quais d'un site fini).
 function Pet.think(f, view, book, tick, auto, General, deposits)
   if not Pet.on() or not (f.team and f.hq and f.hq.valid) then return auto end
   Profiler.start("petrole:think")

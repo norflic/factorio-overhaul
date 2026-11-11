@@ -243,7 +243,6 @@ end
 M.rect = rect
 
 local function tkey(tx, ty) return (tx + 4096) * 16384 + (ty + 4096) end
-local function tile_of(x, y) return math.floor(x), math.floor(y) end
 
 local function fmt(v)
   if v == math.floor(v) then return string.format("%d", v) end
@@ -342,9 +341,6 @@ M.arm_f = 1
 M.arm_need = nil
 M.ARM_F_MIN = 0.2   -- en dessous, les bras lents ne valent plus un module : refus (le bras rapide sera recherché)
 M.ARM_TRIES = 16
-
---- Les bras utilisables par le gabarit en cours : les obtenables, sinon tous les bras électriques de portée 1 (M.ARMS).
-function M.usable_arms() return M.current_arms or M.ARMS end
 
 --- Comme M.choose_inserters, mais sous un contexte de bras (M.current_arms) un refus note la part de cadence que les bras permis
 --- tiennent (M.arm_need) : M.with_arms refait alors le gabarit à cette cadence. Hors contexte : choose_inserters tel quel.
@@ -588,14 +584,6 @@ function Builder:auto_poles(cands, pole)
     first = first or i
   end
   return first
-end
-
---- Tuiles libres d'un rectangle (bornes incluses), dans l'ordre (y, x).
-function Builder:free_tiles(x0, y0, x1, y1)
-  local occ = occupancy(self.g)
-  local out = {}
-  for y = y0, y1 do for x = x0, x1 do if not occ[tkey(x, y)] then out[#out + 1] = { x, y } end end end
-  return out
 end
 
 --- Points d'appui : milieu de chaque côté et coins, à 2 tuiles de l'emprise (dans la rue de 4).

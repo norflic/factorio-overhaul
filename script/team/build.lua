@@ -1515,11 +1515,6 @@ local function plan_power(f, p, mp, masks)
   return out, nil, nodes
 end
 
-local function first_pole(ents)
-  for _, e in ipairs(ents) do if e.name:find("electric%-pole") then return e end end
-  return nil
-end
-
 local function needs_power(g) return (g.power_kw or 0) > 0 end
 
 --- Lot GISEMENTS : aucun lot ne porte ce minerai au dernier relevé : recompte le minerai des lots libres (toutes les G.ORE_SCAN ticks par

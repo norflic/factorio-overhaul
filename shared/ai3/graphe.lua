@@ -703,12 +703,6 @@ function G.unfold(cat, goals, state, prepared)
     truncated = st.truncated, why = st.why, passes = ev.passes, cycles = cycles, retries = retries }
 end
 
---- Une technologie est-elle payable dans cet état (toutes ses feuilles atteignables) ?
-function G.tech_payable(cat, state, tname, prepared)
-  local ev = prepared or G.prepare(cat, state)
-  return ev.techs[tname] == true or ev.tfeas[tname] == true
-end
-
 --- Coût d'une technologie en packs, prérequis non recherchés compris (chacun compté une fois).
 function G.tech_packs(cat, tname, done)
   local seen, packs = {}, {}

@@ -436,13 +436,6 @@ function Ind.ruban_wanted(st, cands, width)
   return #blocks >= 2 and Mp.compact(blocks, Mp.GAP).w > Pt.LOT
 end
 
---- Banc : remplace le solveur (doublure) ; rend l'ancien.
-function Ind.set_solver(S)
-  local old = Ind.SOLVER
-  Ind.SOLVER = S
-  return old
-end
-
 function Ind.think(f, cs, res, view, book, tick)
   if not Rsv.on() then return nil end
   local lec = lecture()

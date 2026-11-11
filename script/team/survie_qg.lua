@@ -160,12 +160,6 @@ function SurvieQg.mark_protect(f, oid, tick, turrets, wanted)
   return p
 end
 
---- Une tourelle est-elle posable tout de suite (au stock ou payable) selon le dernier plan ? Les attentes de protection ne valent que si oui : sans
---- recette ni fer, attendre des tourelles gèlerait la production pour rien.
-function SurvieQg.can_protect(f)
-  return f.team ~= nil and f.team.s1 ~= nil and f.team.s1.turret_ok == true
-end
-
 --- Écrit, après le plan de la pensée, si une tourelle est posable (`plan.turret_ok` et `plan.turret_payable`, planificateur).
 function SurvieQg.note_plan(f, plan)
   if not (f and f.team and plan) then return end
