@@ -318,9 +318,10 @@ B.TECH = { name = B.TECHNO, epoch = B.AGE, count = 400, time = 30, prerequisites
 
 --- Un Bourdon fabriqué peut-il descendre ? p = { actif (réglage fo-war-robots), geants (géants vivants de la force, Bourdons compris),
 --- admis (géants admis à son âge) }. Les commandes de démonstration (/fo-bourdon) ne passent pas par ici.
+--- Lot MEGA-BOURDON : p.poids (1 par défaut) = géants que la cloche comptera ; le Méga-Bourdon (2) demande deux places libres.
 function B.peut_poser(p)
   if type(p) ~= "table" or not p.actif then return false end
-  return (p.geants or 0) < (p.admis or 0)
+  return (p.geants or 0) + (p.poids or 1) <= (p.admis or 0)
 end
 
 -- ------------------------------------------------------------------------------------------------ sortie du Portique (lot BOURDON-SORTIE, 4/11)
@@ -337,7 +338,7 @@ B.RALLIEMENT_MIN = 6 -- tuiles : plus près que cela du point de descente, il re
 --- et le Bourdon n'a pas de rôle de faction (ni garnison, ni raid : script/faction/military.lua ne l'adopte pas) ; l'objet resterait en sortie.
 function B.sortie(p)
   if type(p) ~= "table" or (p.objets or 0) < 1 or p.faction then return false end
-  return B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis })
+  return B.peut_poser({ actif = p.actif, geants = p.geants, admis = p.admis, poids = p.poids })
 end
 
 -- Commande par l'outil Armée (lot BOURDON-SORTIE) : les ordres de l'outil (script/robots/outils.lua) deviennent un vol et un Glas.
@@ -368,6 +369,126 @@ function B.ralliement(x, y, r)
   local dx, dy = r.x - x, r.y - y
   if dx * dx + dy * dy < B.RALLIEMENT_MIN * B.RALLIEMENT_MIN then return nil end
   return { x = r.x, y = r.y }
+end
+
+-- ------------------------------------------------------------------------------------------------ le Méga-Bourdon (lot MEGA-BOURDON, 11/11)
+-- Mandat du DC (10/11, 22 h 20, chantier A §2) : « une déclinaison lourde, massive et menaçante du bourdon, dotée d'armes lourdes intégrées
+-- et de blindages angulaires taillés ». La même cloche (âge 15, le dernier : il n'y a pas d'âge suivant), cuirassée de plaques taillées,
+-- cerclée d'un anneau de lévitation magnétique, avec 4 casemates de canons à plasma sur les épaules. Elle garde le Glas, la descente,
+-- les ancres et la télécommande du Bourdon (script/robots/bourdon.lua, variante « mega »).
+-- Règles dérivées, aucune valeur sans base :
+-- - poids : il compte pour DEUX géants au plafond (Armee.giants) ; d'où le double des PV du Bourdon, le double de sa fabrication et de sa
+--   technologie ;
+-- - canons : l'orbe à plasma de la lignée Bastion d'armement 4 (shared/content/arsenal.lua, A.age_turret(4), la plus lourde) : portée,
+--   portée minimale, cadence, vitesse et rayon de l'orbe repris tels quels ; dégâts portés à l'âge de la cloche par la règle d'échelle E3
+--   (Ech.salve, comme les salves des titans) : une volée des CANONS livre la salve de l'âge 15, partagée entre coup direct, zone laser et
+--   zone d'explosion dans les proportions de l'orbe Bastion.
+B.MEGA = {
+  NOM = "fo-mega-bourdon",
+  OBJET = "fo-mega-bourdon-item",
+  POSE = "fo-mega-bourdon-pose",
+  RECETTE = "fo-robot-make-mega-bourdon",
+  TECHNO = "fo-robot-mega-bourdon",
+  GEANTS = 2,     -- géants qu'il compte au plafond
+  CANONS = 4,     -- casemates (tools/render/pieces/experimentaux/bourdon.py, MEGA_CANONS)
+  N_DIR = 16,     -- directions rendues de chaque tourelle (bourdon.py, N_DIR_TOURELLE)
+  CANON_L = 6.2,  -- longueur des canons depuis le pivot, à plat (bourdon.py, tourelle) : la bouche, d'où part l'orbe
+  -- un cran (1/16 de tour) toutes les TOURNE ticks : la vitesse de la tourelle laser vanilla (rotation_speed 0,01 tour par tick), que le
+  -- Bastion d'armement 4 copie : 1/16 de tour en 6,25 ticks, arrondi au tick supérieur
+  TOURNE = 7,
+  ARME_AGE = 4,   -- âge d'armement de la lignée Bastion dont il reprend l'orbe
+  ORBE = "fo-mega-bourdon-orbe",
+}
+
+do
+  local ings = { { B.OBJET, 1 } }
+  for _, g in ipairs(B.FAB.ingredients) do ings[#ings + 1] = { g[1], g[2] } end
+  -- le Bourdon lui-même, plus une seconde fois sa matière : deux géants, deux fois le prix
+  B.FAB_MEGA = { temps = 2 * B.FAB.temps, ingredients = ings }
+  B.TECH_MEGA = { name = B.MEGA.TECHNO, epoch = B.AGE, count = 2 * B.TECH.count, time = B.TECH.time, prerequisites = { B.TECHNO } }
+end
+
+--- Variante d'une entité : « bourdon », « mega », ou nil si ce n'est pas une cloche.
+function B.variante(nom)
+  if nom == B.NOM then return "bourdon" end
+  if nom == B.MEGA.NOM then return "mega" end
+  return nil
+end
+
+--- Nom de l'entité d'une variante (nil : variante inconnue).
+function B.nom_de(v)
+  if v == nil or v == "bourdon" then return B.NOM end
+  if v == "mega" then return B.MEGA.NOM end
+  return nil
+end
+
+--- Géants que compte une cloche au plafond (0 : pas une cloche).
+function B.poids(nom)
+  local v = B.variante(nom)
+  if v == "bourdon" then return 1 end
+  if v == "mega" then return B.MEGA.GEANTS end
+  return 0
+end
+
+--- Variante posée par un relais (nil : pas un relais de cloche).
+function B.variante_pose(nom)
+  if nom == B.POSE then return "bourdon" end
+  if nom == B.MEGA.POSE then return "mega" end
+  return nil
+end
+
+--- PV du Méga-Bourdon depuis ceux du Bourdon.
+function B.pv_mega(pv) return pv * B.MEGA.GEANTS end
+
+--- Arme des casemates. spec : A.age_turret(B.MEGA.ARME_AGE) (range, min_range, cooldown, plasma = { direct, radius, speed, area = { laser,
+--- explosion } }) ; salve_laser, salve_explosion : Ech.salve(B.AGE, « laser » / « explosion »). Rend la table de l'arme d'UNE casemate, ou nil.
+function B.arme_mega(spec, salve_laser, salve_explosion)
+  if type(spec) ~= "table" or type(spec.plasma) ~= "table" or type(spec.plasma.area) ~= "table" then return nil end
+  if type(salve_laser) ~= "number" or type(salve_explosion) ~= "number" then return nil end
+  local P = spec.plasma
+  local tot = P.direct + P.area.laser + P.area.explosion
+  if tot <= 0 then return nil end
+  local n = B.MEGA.CANONS
+  return {
+    portee = spec.range, portee_min = spec.min_range or 0, recharge = spec.cooldown, vitesse = P.speed, rayon = P.radius,
+    direct = math.ceil(salve_laser * P.direct / tot / n),
+    zone_laser = math.ceil(salve_laser * P.area.laser / tot / n),
+    zone_explosion = math.ceil(salve_explosion * P.area.explosion / tot / n),
+  }
+end
+
+--- Direction d'une tourelle (0 à N_DIR - 1 ; 0 = nord, sens des aiguilles) la plus proche du vecteur (dx, dy) des feuilles (dy vers le sud,
+--- déjà ramené au plan du rendu : le script divise l'écart à l'écran par B.COS45). nil pour un vecteur nul. Table des directions, sans trigonométrie.
+function B.direction16(dx, dy)
+  if type(dx) ~= "number" or type(dy) ~= "number" or (dx == 0 and dy == 0) then return nil end
+  local n = B.MEGA.N_DIR
+  local best, bv = 0, nil
+  for k = 0, n - 1 do
+    local c, sn = B.dir(k / n)
+    local v = dx * sn - dy * c
+    if bv == nil or v > bv + 1e-9 then best, bv = k, v end
+  end
+  return best
+end
+
+--- Cran suivant d'une tourelle en d qui vise c : un cran par le plus court chemin (à égalité, sens des aiguilles) ; d si elle y est.
+function B.pas_tourelle(d, c)
+  local n = B.MEGA.N_DIR
+  if d == c then return d end
+  if (c - d) % n <= n / 2 then return (d + 1) % n end
+  return (d - 1) % n
+end
+
+--- Bouche des canons d'une tourelle en direction k : décalage à l'écran depuis son pivot, en tuiles.
+function B.bouche(k)
+  local c, sn = B.dir(k / B.MEGA.N_DIR)
+  return sn * B.MEGA.CANON_L, -c * B.MEGA.CANON_L * B.COS45
+end
+
+--- Tick du prochain tir de la casemate k (1..n) d'une cloche numéro id : les casemates tirent en quinconce dans la recharge.
+function B.decalage_canon(k, id, recharge)
+  local n = B.MEGA.CANONS
+  return ((k - 1) * math.floor(recharge / n) + (id or 0) * 7) % recharge
 end
 
 return B

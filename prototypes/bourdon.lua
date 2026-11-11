@@ -121,6 +121,26 @@ protos[#protos + 1] = {
   },
 }
 
+-- ------------------------------------------------------------------------------------------------ le Méga-Bourdon (lot MEGA-BOURDON, 11/11)
+-- La même cloche, cuirassée et armée (règles et valeurs : shared/robots/bourdon.lua, B.MEGA). Même `spider-vehicle` invisible, mêmes pattes ;
+-- PV doublés (il compte pour deux géants). Son image (corps cuirassé, casemates, anneau magnétique, lueur cyan) : graphics/robots/megabourdon.
+local VEHICULE = protos[#protos]
+assert(VEHICULE.name == "fo-bourdon", "bourdon : le véhicule doit précéder le Méga-Bourdon")
+do
+  local Bm = require("shared.robots.bourdon")
+  local mega = table.deepcopy(VEHICULE)
+  mega.name = Bm.MEGA.NOM
+  mega.localised_name = { "entity-name." .. Bm.MEGA.NOM }
+  mega.localised_description = { "entity-description." .. Bm.MEGA.NOM }
+  mega.icon = nil
+  mega.icons = { { icon = "__factorio-overhaul__/graphics/robots/megabourdon/icone.png", icon_size = 64, icon_mipmaps = 4 } }
+  mega.max_health = Bm.pv_mega(VEHICULE.max_health)
+  mega.healing_per_tick = Bm.pv_mega(VEHICULE.healing_per_tick)
+  mega.map_color = { r = 0.35, g = 0.9, b = 1.0 }
+  mega.friendly_map_color = { r = 0.4, g = 0.95, b = 1.0 }
+  protos[#protos + 1] = mega
+end
+
 -- Poussière de l'onde, levée le long du front ; braises et fumée sur les ruines : trivial-smoke, sans entité.
 local smoke = require("__base__/prototypes/entity/smoke-animations")
 protos[#protos + 1] = {
@@ -259,6 +279,97 @@ do
     effects = { lib.unlock(B.RECETTE) }, prerequisites = B.TECH.prerequisites,
     count = C.tech_count(B.TECH), packs = C.packs(B.TECH.epoch), time = B.TECH.time,
     order = "z[fo]-robots-" .. B.TECH.name,
+  })
+end
+
+-- ------------------------------------------------------------------------------------------------ Méga-Bourdon : images, orbe, fabrication
+do
+  local Bm = require("shared.robots.bourdon")
+  local A = require("shared.content.arsenal")
+  local Ech2 = require("shared.robots.echelle")
+  local Ro = require("shared.content.robots")
+  local C = require("shared.content.crafts")
+  local lib = require("prototypes.lib")
+  -- images (feuilles générées : tools/render/pieces/experimentaux/feuilles_mega.py)
+  local SPRM = require("__factorio-overhaul__/graphics/robots/megabourdon/sprites")
+  local cles_m = {}
+  for k in pairs(SPRM) do if type(SPRM[k]) == "table" and SPRM[k].hr then cles_m[#cles_m + 1] = k end end
+  table.sort(cles_m)
+  for _, k in ipairs(cles_m) do
+    local s = SPRM[k]
+    local pm = bloc(s.lr, s)
+    pm.type = "sprite"
+    pm.name = Bm.MEGA.NOM .. "-" .. k
+    pm.flags = { "group=none" }
+    pm.hr_version = bloc(s.hr, s)
+    protos[#protos + 1] = pm
+  end
+  -- l'orbe des casemates : celle du Bastion d'armement 4, plus grosse, cyan, aux dégâts de l'âge de la cloche
+  local spec = A.age_turret(Bm.MEGA.ARME_AGE)
+  local arme = assert(Bm.arme_mega(spec, Ech2.salve(Bm.AGE, "laser"), Ech2.salve(Bm.AGE, "explosion")), "mega-bourdon : arme")
+  local base = assert(data.raw.projectile[spec.name .. "-orb"], "mega-bourdon : orbe du Bastion absente")
+  local orbe = table.deepcopy(base)
+  orbe.name = Bm.MEGA.ORBE
+  orbe.localised_name = { "entity-name." .. Bm.MEGA.NOM }
+  lib.scale_sprites(orbe.animation, 1.5)
+  local CYAN = { r = 0.35, g = 0.95, b = 1.0, a = 1.0 }
+  local function teinte(a)
+    if type(a) ~= "table" then return end
+    if a.filename or a.stripes then a.tint = CYAN end
+    if a.hr_version then teinte(a.hr_version) end
+    if a.layers then for _, l in ipairs(a.layers) do teinte(l) end end
+  end
+  teinte(orbe.animation)
+  orbe.light = { intensity = 0.9, size = 12, color = CYAN }
+  orbe.action = {
+    type = "direct",
+    action_delivery = {
+      type = "instant",
+      target_effects = {
+        { type = "create-entity", entity_name = "big-explosion" },
+        { type = "damage", damage = { amount = arme.direct, type = "laser" } },
+        { type = "create-entity", entity_name = "medium-scorchmark-tintable", check_buildability = true },
+        { type = "nested-result", action = { type = "area", radius = arme.rayon, force = "enemy",
+          action_delivery = { type = "instant", target_effects = {
+            { type = "damage", damage = { amount = arme.zone_laser, type = "laser" } },
+            { type = "damage", damage = { amount = arme.zone_explosion, type = "explosion" } } } } } },
+      },
+    },
+  }
+  protos[#protos + 1] = orbe
+  -- fabrication : au Portique, après le Bourdon
+  local ICM = { { icon = "__factorio-overhaul__/graphics/robots/megabourdon/icone.png", icon_size = 64, icon_mipmaps = 4 } }
+  local usine = assert(Ro.factory(Bm.USINE), "mega-bourdon : usine inconnue " .. Bm.USINE)
+  local ings = {}
+  for _, g in ipairs(Bm.FAB_MEGA.ingredients) do ings[#ings + 1] = { type = "item", name = g[1], amount = g[2] } end
+  protos[#protos + 1] = {
+    type = "item", name = Bm.MEGA.OBJET,
+    localised_name = { "entity-name." .. Bm.MEGA.NOM }, localised_description = { "item-description." .. Bm.MEGA.OBJET },
+    icons = ICM, subgroup = Ro.SUBGROUP, order = "b[kit]-99[bourdon]-b[mega]", stack_size = 1,
+    place_result = Bm.MEGA.POSE,
+  }
+  protos[#protos + 1] = {
+    type = "simple-entity-with-owner", name = Bm.MEGA.POSE,
+    localised_name = { "entity-name." .. Bm.MEGA.NOM }, localised_description = { "item-description." .. Bm.MEGA.OBJET },
+    icons = ICM,
+    flags = { "placeable-neutral", "player-creation", "placeable-off-grid", "not-blueprintable", "not-deconstructable", "not-on-map" },
+    collision_box = { { -1.9, -1.9 }, { 1.9, 1.9 } }, collision_mask = {},
+    selection_box = { { -2, -2 }, { 2, 2 } },
+    max_health = 100, render_layer = "object",
+    picture = { filename = ICM[1].icon, width = 64, height = 64, scale = 2, shift = { 0, -1 } },
+  }
+  protos[#protos + 1] = {
+    type = "recipe", name = Bm.MEGA.RECETTE, category = usine.category, enabled = false, energy_required = Bm.FAB_MEGA.temps,
+    ingredients = ings, results = { { type = "item", name = Bm.MEGA.OBJET, amount = 1 } }, main_product = Bm.MEGA.OBJET,
+    localised_name = { "entity-name." .. Bm.MEGA.NOM },
+  }
+  protos[#protos + 1] = lib.technology({
+    name = Bm.TECH_MEGA.name,
+    localised_name = { "technology-name." .. Bm.TECH_MEGA.name }, localised_description = { "technology-description." .. Bm.TECH_MEGA.name },
+    icons = ICM,
+    effects = { lib.unlock(Bm.MEGA.RECETTE) }, prerequisites = Bm.TECH_MEGA.prerequisites,
+    count = C.tech_count(Bm.TECH_MEGA), packs = C.packs(Bm.TECH_MEGA.epoch), time = Bm.TECH_MEGA.time,
+    order = "z[fo]-robots-" .. Bm.TECH_MEGA.name,
   })
 end
 

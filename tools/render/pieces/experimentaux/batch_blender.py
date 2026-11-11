@@ -29,6 +29,8 @@ GROUPES = {"ixion": {"plasma": ("ix_plasma",), "soleil": ("ix_soleil",), "hublot
            "bourdon": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},
            "battant": {"battant": ("bo_",)},
            "corps": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},
+           "mega": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo"), "vortex": ("bo_vortex",)},
+           "tourelle": {"vortex": ("bo_vortex",)},
            "ancre": {"ancre": ("bo_halo",)}, "griffes": {}, "chaine": {}}
 
 
@@ -117,6 +119,19 @@ def main():
         kk = 320.0 / 60.0
         cam.location = (cam.location[0], cam.location[1] * kk, cam.location[2] * kk)
         cam.data.clip_end = 900.0
+        canons, canons_sol = [], []
+        if name == "mega":
+            # lot MEGA-BOURDON : pivots des tourelles à l'écran, et le point du sol sous chacun, en tuiles depuis la position au sol
+            import bourdon
+            from bpy_extras.object_utils import world_to_camera_view
+            bpy.context.view_layer.update()
+
+            def ecran(q):
+                u = world_to_camera_view(scene, cam, Vector(q))
+                return [round((u.x * W - ox) / a.px, 3), round(((1.0 - u.y) * H - oy) / a.px, 3)]
+            for q in bourdon.MEGA_PIVOTS:
+                canons.append(ecran(q))
+                canons_sol.append(ecran((q[0], q[1], 0.0)))
         S.setup_world(scene)
         sun = S.add_sun(scene)
         S.add_fill(scene)
@@ -147,7 +162,8 @@ def main():
         for o in objs:
             o.visible_camera = True
         scene.cycles.samples = a.lueur_spp
-        for g, noms in GROUPES[name].items():
+        groupes = GROUPES.get(name) or (GROUPES["tourelle"] if name.startswith("tourelle-") else {})
+        for g, noms in groupes.items():
             def fn(mat, noms=noms):
                 if mat is not None and mat.get("fo_kind") == "emissive" and any(mat.name.startswith(x) for x in noms):
                     return mat
@@ -180,7 +196,8 @@ def main():
             os.remove(path)
         info = {"variant": name, "canvas": [W, H], "origin_px": [ox, oy], "layers": sorted(res), "px": a.px, "ombre_pct": a.ombre_pct, "samples": a.samples,
                 "blender": bpy.app.version_string, "seconds": round(time.time() - t0, 2), "seconds_build": round(t_build, 2), "verts": nverts, "objects": len(objs),
-                "pieces": n_pieces, "count": {k: v for k, v in sorted(info_build.items()) if isinstance(v, (int, float))}}
+                "pieces": n_pieces, "count": {k: v for k, v in sorted(info_build.items()) if isinstance(v, (int, float))}, "canons": canons,
+                "canons_sol": canons_sol}
         with open(os.path.join(d, "render.json"), "w", encoding="utf-8") as f:
             json.dump(info, f, indent=1, sort_keys=True)
         print("[FO-RENDER] %s %dx%d %d sommets, %d pièces, build %.1fs, total %.1fs" % (name, W, H, nverts, n_pieces, t_build, time.time() - t0), flush=True)

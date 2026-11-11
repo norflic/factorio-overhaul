@@ -14,6 +14,9 @@ Date: 2026-11-11
     - Champs (F515) : le cadre d'un champ retient dès sa création la place des colonnes de fours de toutes ses bandes futures ; une ligne de poteaux ou un autre chantier ne la prend plus, et une bande n'est plus refusée en entier pour une seule tuile prise.
   Bugfixes:
     - Chantiers (F512) : le plan directeur sert les équipes à tour de rôle ; avec 4 factions, celles-ci prenaient à chaque passe le seul plan permis par tick, et les plans de votre équipe (bandes de champ comprises) attendaient sans un essai (partie du DC sur la 0.6.89 : bande du fer en « plan » de 29,7 à 82 min).
+    - Méga-Bourdon (F517) : corps en acier sombre irisé, vitraux et anneau de lévitation magnétique cyan, ceinture de plaques taillées, casemates à cœur à vortex ; tourelles rendues en 16 directions.
+  Features:
+    - Le Méga-Bourdon (F517) : variante cuirassée du Bourdon, fabriquée au Portique à partir d'un Bourdon (âge 15, compte pour deux géants). Quatre tourelles à canons jumeaux à plasma qui pivotent vers leur cible (16 directions) et tirent l'orbe du Bastion aux dégâts de l'âge 15 ; il garde Le Glas, les ancres et la télécommande.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10
