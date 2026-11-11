@@ -290,10 +290,12 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     local d, s = pr.dock, pr.src
     local pk = d.key .. ">" .. s.key
     local ok, why, det = Ln.worth({ flow = d.flow, dist = dist_hq(f, d.x, d.y), span = pr.span, fill = api.fill, low = api.low, threat = threat })
-    local last = st.last_try[d.key]
+    -- lot IA-RUPTURE : essais comptés par PAIRE (quai > sortie), comme la confirmation (st.seen[pk]) ; comptés par quai, deux refus vers une
+    -- sortie A verrouillaient 20 min la sortie B confirmée ensuite (partie du DC en 0.6.96 : amber 8:q1 porté à la main 17 min à 16 tuiles de 64:o1)
+    local last = st.last_try[pk]
     local seen = st.seen[pk] or 0
     if st.confirm then seen = seen >= st.confirm and Ln.CONFIRM or 0 end -- (réglage de banc)
-    local inp = { worth = ok, worth_why = why, open = false, open_total = open, free = free, seen = seen, tries = st.tries[d.key] or 0,
+    local inp = { worth = ok, worth_why = why, open = false, open_total = open, free = free, seen = seen, tries = st.tries[pk] or 0,
       since_try = last and (tick - last) or Ln.RETRY_AFTER, threat = threat }
     local deferred = false -- plus de lecture du moteur à ce relevé : la paire attend le suivant, sans raison au journal
     if ok and seen >= Ln.CONFIRM and not threat then
@@ -315,9 +317,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         note(st, f, tick, d.key, string.format("quai %s : pas de liaison (%s)", d.key, not arm and "aucun bras electrique connu des deux modules" or "aucun tapis debloque"))
       else
         asked = true
-        if (st.tries[d.key] or 0) >= Ln.MAX_TRIES then st.tries[d.key] = Ln.MAX_TRIES - 1 end -- essai de plus après Ln.RETRY_AFTER
-        st.tries[d.key] = (st.tries[d.key] or 0) + 1
-        st.last_try[d.key] = tick
+        if (st.tries[pk] or 0) >= Ln.MAX_TRIES then st.tries[pk] = Ln.MAX_TRIES - 1 end -- essai de plus après Ln.RETRY_AFTER
+        st.tries[pk] = (st.tries[pk] or 0) + 1
+        st.last_try[pk] = tick
         local spec = { liaison = { key = d.key, item = d.item, flow = d.flow, arm = arm, pole = pole, belt = belt,
           dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y }, src = { pid = s.pid, idx = s.idx, x = s.x, y = s.y, key = s.key } },
           prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
@@ -329,7 +331,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
           free = math.max(0, free - 1)
           st.said[d.key] = nil
           say(f, tick, string.format("quai %s (%s, %.2f/s, a %.0f tuiles du QG) : liaison demandee (projet %d) depuis la sortie %s a %d tuiles : %s (essai %d/%d)",
-            d.key, d.item, d.flow, dist_hq(f, d.x, d.y), id, s.key, pr.span, why, st.tries[d.key], Ln.MAX_TRIES))
+            d.key, d.item, d.flow, dist_hq(f, d.x, d.y), id, s.key, pr.span, why, st.tries[pk], Ln.MAX_TRIES))
         end
       end
     elseif not deferred then

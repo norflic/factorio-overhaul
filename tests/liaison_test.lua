@@ -475,5 +475,141 @@ mutant("poteau sur le cote d'abord ignore", "{ site%.ax %+ px, site%.ay %+ py },
 mutant_ok("poteau sur tuile prise", "and not %(taken and taken%[c%[1%] %.%. \":\" %.%. c%[2%]%]%) then", "then",
   function(Lm) return Lm.pole_tile(sites[1], open_grid(), { ["9:9"] = true }) == 11 end)
 
+-- §13 lot IA-RUPTURE (partie du DC en 0.6.96, amber, module 8 à 78,2 min) : le compte d'essais est celui de la PAIRE (quai > sortie), pas du
+-- quai. Le script (script/team/liaison.lua) est joué hors jeu sur un relevé injecté. Deux essais vers la sortie A (refusés : « aucun chemin »)
+-- ne verrouillent plus la sortie B, plus proche et apparue ensuite : le quai 8:q1 était porté à la main 17 min à 16 tuiles de sa sortie 64:o1,
+-- reliée ensuite par 9 tapis.
+local SSRC = read("script/team/liaison.lua")
+local LOG13 = {}
+log = function(s) LOG13[#LOG13 + 1] = s end
+settings = { global = {} } -- bus éteint
+game = { tick = 0, item_prototypes = {} }
+defines = defines or { inventory = { chest = 1 } }
+remote = { add_interface = function() end }
+local function skeys(t) local ks = {} for k in pairs(t) do ks[#ks + 1] = k end table.sort(ks) return ks end
+package.loaded["script.faction.state"] = { sorted_keys = skeys, faction = function() return nil end, alive = function() return {} end }
+package.loaded["script.team.convoyeurs"] = { choose = function() return "transport-belt" end, is_belt = function(n) return n == "transport-belt" end,
+  belts = function() return {} end }
+package.loaded["script.ai3.reserve"] = { on = function() return true end }
+package.loaded["script.companion.registry"] = { get = function() return nil end }
+local function load_s(src)
+  local fn, err = load(src, "=script_liaison", "t")
+  assert(fn, err)
+  return fn()
+end
+local SURF13 = { find_nearest_enemy = function() return nil end, count_entities_filtered = function() return 0 end }
+--- Un monde : le quai 8:q1 (débit 1,49/s), la sortie A (57:o1) à 20 tuiles, puis la sortie B (64:o1) à 16 tuiles (coordonnées de la partie).
+local function world13(Lx)
+  local mod = { id = 8, state = "fini", spec = { gen = "x", names = { arm = "inserter", pole = "small-electric-pole" } }, parts = { { kind = "module" } },
+    quais = {}, outs = {}, ents = {} }
+  local b = { projects = { [8] = mod, [57] = { id = 57, state = "fini", spec = { gen = "y" }, parts = {}, quais = {}, outs = {}, ents = {} },
+    [64] = { id = 64, state = "fini", spec = { gen = "y" }, parts = {}, quais = {}, outs = {}, ents = {} } }, order = { 8, 57, 64 }, next_id = 70 }
+  local f = { key = "amber", force = "amber", build = b, hq_pos = { x = -317, y = -336 }, engineers = {} }
+  local reqs = {}
+  local api = { prio = 56, fill = 400, low = 60, request = function(_, spec)
+    local id = b.next_id
+    b.next_id = id + 1
+    b.projects[id] = { id = id, spec = spec, state = "attente", parts = {}, ents = {}, quais = {}, outs = {} }
+    b.order[#b.order + 1] = id
+    reqs[#reqs + 1] = { id = id, spec = spec }
+    return id
+  end }
+  local tick = 0
+  Lx.step(api, f, SURF13, tick) -- crée b.liaison
+  local function releve(srcs)
+    tick = tick + Li.PERIOD
+    game.tick = tick
+    local n0 = #reqs
+    b.liaison.cyc = { units = {}, i = 1, docks = { { key = "8:q1", pid = 8, idx = 1, x = -317, y = -405, item = "iron-plate", flow = 1.49, n = 10 } },
+      srcs = srcs }
+    Lx.step(api, f, SURF13, tick)
+    local out = {}
+    for i = n0 + 1, #reqs do out[#out + 1] = reqs[i] end
+    return out
+  end
+  local A = { key = "57:o1", pid = 57, idx = 1, x = -325, y = -393, item = "iron-plate", n = 300 }
+  local B = { key = "64:o1", pid = 64, idx = 1, x = -325, y = -397, item = "iron-plate", n = 300 }
+  local function refuse(r) b.projects[r.id].state = "refuse"; b.projects[r.id].reason = "liaison: aucun chemin" end
+  return { releve = releve, A = A, B = B, refuse = refuse, st = function() return b.liaison end }
+end
+--- Le scénario du DC : A essayée deux fois (refusée), puis B confirmée. Rend les demandes vues après la confirmation de B.
+local function scenario13(Lx)
+  local w = world13(Lx)
+  w.releve({ w.A })                       -- vue 1 : à confirmer
+  local r1 = w.releve({ w.A })            -- vue 2 : essai 1
+  if r1[1] then w.refuse(r1[1]) end
+  local r2 = w.releve({ w.A })            -- refus suivi, essai 2
+  if r2[1] then w.refuse(r2[1]) end
+  w.releve({ w.A })                       -- refus suivi : essais épuisés pour A
+  w.releve({ w.A, w.B })                  -- B, plus proche : à confirmer
+  local rb = w.releve({ w.A, w.B })       -- B confirmée
+  return rb, w, r1, r2
+end
+local Lx = load_s(SSRC)
+local rb, w13, r1, r2 = scenario13(Lx)
+check(r1[1] and r2[1] and r1[1].spec.liaison.src.key == "57:o1" and r2[1].spec.liaison.src.key == "57:o1", "13.1 (témoin) deux essais vers la sortie A (57:o1)")
+check(#rb == 1 and rb[1].spec.liaison.src.key == "64:o1", "13.2 la sortie B (64:o1), confirmée, est demandée malgré les deux refus de A (avant : laisser, 17 min à la main)")
+local said133 = false
+for _, l in ipairs(LOG13) do if l:find("quai 8:q1", 1, true) and l:find("64:o1", 1, true) and l:find("essai 1/" .. Li.MAX_TRIES, 1, true) then said133 = true end end
+check(said133, "13.3 le journal [FO-LIAISON] compte l'essai 1 de la paire 8:q1 > 64:o1")
+-- la paire A reste bornée : épuisée, elle ne repart qu'après Li.RETRY_AFTER
+do
+  local w = world13(Lx)
+  w.releve({ w.A })
+  local a1 = w.releve({ w.A }); if a1[1] then w.refuse(a1[1]) end
+  local a2 = w.releve({ w.A }); if a2[1] then w.refuse(a2[1]) end
+  local a3 = w.releve({ w.A })
+  check(#a3 == 0, "13.4 la même paire refusée deux fois : laissée (plafond d'essais tenu)")
+  local said = false
+  for _, l in ipairs(LOG13) do if l:find("57:o1 a 20 tuiles : laisser : 2 liaison", 1, true) then said = true end end
+  check(said, "13.5 le journal dit les essais épuisés de la paire 8:q1 > 57:o1")
+  local later
+  for _ = 1, math.ceil(Li.RETRY_AFTER / Li.PERIOD) + 1 do
+    later = w.releve({ w.A })
+    if #later > 0 then break end
+  end
+  check(later and #later == 1 and later[1].spec.liaison.src.key == "57:o1", "13.6 après Li.RETRY_AFTER : un essai de plus pour la même paire")
+end
+-- l'état ne garde que des nombres sous des clés de paire
+do
+  local st = w13.st()
+  check(st.tries["8:q1>57:o1"] == 2 and st.tries["8:q1>64:o1"] == 1 and st.tries["8:q1"] == nil, "13.7 essais comptés par paire (8:q1>57:o1 = 2, 8:q1>64:o1 = 1)")
+  check(type(st.last_try["8:q1>64:o1"]) == "number" and st.last_try["8:q1"] == nil, "13.8 dernier essai daté par paire")
+end
+-- déterminisme : deux parties identiques, mêmes demandes
+do
+  local rb2 = scenario13(load_s(SSRC))
+  check(#rb2 == #rb and rb2[1] ~= nil and rb[1] ~= nil and rb2[1].spec.liaison.src.key == rb[1].spec.liaison.src.key, "13.9 deux parties identiques : mêmes demandes")
+end
+-- mutants du script : chaque retour au compte par quai est vu
+local function smutant(name, from, to)
+  local src, n = SSRC:gsub(from, to)
+  if n == 0 then check(false, "mutant " .. name .. " : motif introuvable") return end
+  local okl, Lm = pcall(load_s, src)
+  if not okl then check(true, "mutant " .. name .. " (ne se charge pas)") return end
+  local okp, rbm = pcall(scenario13, Lm)
+  check(not okp or not (#rbm == 1 and rbm[1].spec.liaison.src.key == "64:o1"), "mutant " .. name .. " vu")
+end
+smutant("essais lus par quai", "tries = st%.tries%[pk%] or 0", "tries = st.tries[d.key] or 0")
+smutant("dernier essai lu par quai", "local last = st%.last_try%[pk%]", "local last = st.last_try[d.key]")
+smutant("essais écrits par quai", "st%.tries%[pk%] = %(st%.tries%[pk%] or 0%) %+ 1", "st.tries[d.key] = (st.tries[d.key] or 0) + 1")
+smutant("dernier essai écrit par quai", "st%.last_try%[pk%] = tick", "st.last_try[d.key] = tick")
+smutant("clé de paire = quai", "local pk = d%.key %.%. \">\" %.%. s%.key(%s+local ok, why, det)", "local pk = d.key%1")
+smutant("clé de paire = sortie", "local pk = d%.key %.%. \">\" %.%. s%.key(%s+local ok, why, det)", "local pk = s.key%1")
+-- le plafond d'essais retiré n'est pas une coupe valable : 13.4 le voit
+do
+  local src, n = SSRC:gsub("tries = st%.tries%[pk%] or 0", "tries = 0")
+  local okl, Lm = pcall(load_s, src)
+  local seen = false
+  if n > 0 and okl then
+    local w = world13(Lm)
+    w.releve({ w.A })
+    local a1 = w.releve({ w.A }); if a1[1] then w.refuse(a1[1]) end
+    local a2 = w.releve({ w.A }); if a2[1] then w.refuse(a2[1]) end
+    seen = #w.releve({ w.A }) > 0
+  end
+  check(n > 0 and seen, "mutant plafond d'essais retiré vu (la paire refusée repartirait sans fin)")
+end
+
 print(string.format("[LIAISON] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
