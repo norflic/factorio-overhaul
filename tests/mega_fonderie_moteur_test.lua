@@ -58,12 +58,14 @@ local function load_mega(src, mf)
   return m
 end
 
+-- (Lot TESTS-VERTS : centre cx, cy de chaque gisement, comme ceux du jeu, script/faction/sites.lua : la règle R3 de PAVAGE-GEANT,
+-- 737d645e, lit la distance du gisement au QG)
 local function deps()
   return {
     [11] = { id = 11, resource = "iron-ore", tiles = 1000, cx = 0, cy = 0 },
-    [12] = { id = 12, resource = "coal", tiles = 3000 },
-    [13] = { id = 13, resource = "iron-ore", tiles = 150 },
-    [14] = { id = 14, resource = "copper-ore", tiles = 1200 },
+    [12] = { id = 12, resource = "coal", tiles = 3000, cx = 40, cy = 0 },
+    [13] = { id = 13, resource = "iron-ore", tiles = 150, cx = -40, cy = 0 },
+    [14] = { id = 14, resource = "copper-ore", tiles = 1200, cx = 0, cy = 40 },
   }
 end
 
