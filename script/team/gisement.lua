@@ -4,8 +4,8 @@
 
   Tâche de FOND bornée (au plus Gis.PER_PASS actions toutes les Gis.EVERY ticks par équipe) sur les foreuses à combustion des
   avant-postes (f.outposts[*].drill_list) :
-    - une foreuse À L'ARRÊT depuis G.IDLE (statut autre que « travaille ») est jugée : « rebrancher » (son four a disparu : un
-      réceptacle du stock est reposé à son dépôt), « ravitailler » (sans combustible, matière en manque ou électrique impossible),
+    - une foreuse À L'ARRÊT depuis G.IDLE (statut autre que « travaille ») est jugée (lot DECOUPLAGE : plus de « rebrancher », aucun
+      four reposé au dépôt d'une foreuse) : « ravitailler » (sans combustible, matière en manque ou électrique impossible),
       « remplacer » (Swap.think s'en charge, remplacement électrique prêt : on attend G.HARD), « retirer » (arrêt de G.RETIRE quand
       l'électrique peut prendre la place, matière non en manque ; ou minerai épuisé sous elle) ;
     - retirer = objets REPRIS au stock (foreuse, combustible, four et son contenu), jamais détruits ; l'avant-poste n'est plus plein
@@ -44,7 +44,7 @@ end
 local function state_of(f)
   local st = f.gisement
   if not st then
-    st = { next = 0, retired = 0, rewired = 0, idle = {}, logs = 0 }
+    st = { next = 0, retired = 0, idle = {}, logs = 0 }
     f.gisement = st
   end
   return st
@@ -142,29 +142,9 @@ function Gis.think(f, surface, tick, book)
             end
             local no_fuel = (s == defines.entity_status.no_fuel) or (sink ~= nil and sink.status == defines.entity_status.no_fuel)
             local verdict, why = G.verdict({ idle = idle, dead = (s == defines.entity_status.no_minable_resources),
-              sink = sink and "ok" or "manque", can_sink = spec ~= nil and Stock.count(f, spec.sink) > 0, ready = ready,
+              sink = sink and "ok" or "manque", ready = ready,
               elec = elec, starved = starved, no_fuel = no_fuel, can_fuel = Stock.count(f, T.fuel) > 0 })
-            if verdict == "rebrancher" then
-              local fits = function(name, p) return surface.can_place_entity({ name = name, position = p, force = f.force }) end
-              local c = { x = pos.x + rx, y = pos.y + ry }
-              local at = surface.find_non_colliding_position(spec.sink, c, 2, 1)
-              -- le réceptacle posé doit RECEVOIR le dépôt de la foreuse (sa boîte contient le point de dépôt)
-              local catches = at and S.inside({ x = at.x, y = at.y, w = sink_proto.tile_width or 1, h = sink_proto.tile_height or 1 }, c.x, c.y)
-              if at and catches and fits(spec.sink, at) and Stock.remove(f, spec.sink, 1) >= 1 then
-                local n = surface.create_entity({ name = spec.sink, position = at, force = f.force })
-                if n then
-                  State.own(n, f.id, "sink", o.id)
-                  o.sinks[#o.sinks + 1] = n
-                  st.rewired = st.rewired + 1
-                  st.idle[u] = nil
-                  seen[u] = nil
-                  actions = actions + 1
-                  say(f, st, string.format("foreuse a combustion en (%.1f, %.1f) rebranchee a un four neuf (%s)", pos.x, pos.y, why), tick)
-                else
-                  Stock.insert(f, spec.sink, 1)
-                end
-              end
-            elseif verdict == "ravitailler" then
+            if verdict == "ravitailler" then
               local put = refuel(f, d) + refuel(f, sink)
               if put > 0 then
                 st.refueled = (st.refueled or 0) + 1

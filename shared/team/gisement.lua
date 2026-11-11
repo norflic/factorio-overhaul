@@ -9,7 +9,8 @@
   G.band(theta)                   -> bande de couverture d'un objet (0 = rien, G.BAND_MAX = couvert).
   G.reorder(list, band_of)        -> les options de matière passent par bande de pénurie, les autres gardent leur place.
   G.site_redundant(site, opened)  -> un gisement voisin du même minerai a encore des places : pas d'avant-poste de plus.
-  G.verdict(d, cfg)               -> foreuse à combustion : garder, remplacer, rebrancher, ravitailler ou retirer.
+  G.verdict(d, cfg)               -> foreuse à combustion : garder, remplacer, ravitailler ou retirer (lot DECOUPLAGE : plus de
+                                   « rebrancher » : aucun four n'est reposé au dépôt d'une foreuse).
   G.lot_for_ore(l, res, min)      -> un lot du treillis porte ce minerai : il sert de gisement, même si son état dit autre chose.
   G.forbid_pairs(s)               -> plus de paire foreuse + four posée sur le minerai quand l'électrique est possible.
   Déterminisme : listes triées, égalités par nom, aucun `pairs` décisionnel, aucun temps mesuré.
@@ -149,8 +150,7 @@ function G.site_redundant(site, opened, near)
   return best ~= nil, best
 end
 
---- d = { idle (ticks à l'arrêt, 0 si elle travaille), dead (plus de minerai), sink ("ok", "manque", "plein"), can_sink (un
---- réceptacle est au stock), ready (un remplacement électrique est prêt), elec (l'électrique est possible : objet et courant), starved
+--- d = { idle (ticks à l'arrêt, 0 si elle travaille), dead (plus de minerai), sink ("ok", "manque", "plein"), ready (un remplacement électrique est prêt), elec (l'électrique est possible : objet et courant), starved
 --- (sa matière manque), no_fuel (elle ou son four sans combustible), can_fuel (combustible au stock) }. Rend (verdict, raison).
 --- DC, 31/10 : « si jamais ils peuvent pas changer, au minimum qu'ils utilisent leur gisement » : on ne retire que si l'électrique peut
 --- prendre la place, jamais une foreuse d'une matière en manque (sauf minerai épuisé) ; sinon elle est remise en marche.
@@ -158,7 +158,6 @@ function G.verdict(d, cfg)
   cfg = cfg or G
   if (d.idle or 0) < cfg.IDLE then return "garder", "travaille ou arret court" end
   if d.dead then return "retirer", "gisement epuise sous la foreuse" end
-  if d.sink == "manque" and d.can_sink then return "rebrancher", "plus de four : reposer un recepteur" end
   local can_change = d.elec or d.ready
   local fuelable = d.no_fuel and d.can_fuel
   if fuelable and d.starved then return "ravitailler", "matiere en manque : combustible du stock" end

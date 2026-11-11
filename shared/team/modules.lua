@@ -669,30 +669,6 @@ local function minimum(t) local m = math.huge; for _, v in ipairs(t) do if v < m
 local function ore_label(ore) return (ore == "iron-ore" and "fer") or (ore == "copper-ore" and "cuivre") or (ore == "coal" and "charbon") or "pierre" end
 local function ore_label_en(ore) return (ore == "iron-ore" and "iron") or (ore == "copper-ore" and "copper") or (ore == "coal" and "coal") or "stone" end
 
---- Avant-poste à combustion (époque 1) : n paires foreuse à combustion → four en pierre (la foreuse dépose dans le
---- four). Pas de bras, pas d'électricité : les porteurs ravitaillent en charbon et collectent les plaques.
-function G.outpost_burner(ore, n)
-  local plate = M.PLATE_OF[ore]
-  if not plate then return fail("avant-poste : minerai « %s » sans plaque", tostring(ore)) end
-  local ok, why = count_ok(n, "avant-poste"); if not ok then return nil, why end
-  local b = new_builder("avant-poste-" .. ore_label(ore), "Avant-poste à combustion (" .. ore_label(ore) .. ")",
-    "Burner outpost (" .. ore_label_en(ore) .. ")")
-  local drill = BASE["burner-mining-drill"]
-  for i = 0, n - 1 do
-    local f = b:put("stone-furnace", 2 * i, 0, N, { recipe = plate, rate = drill.speed, role = "four" })
-    local d = b:put("burner-mining-drill", 2 * i, 2, N, { role = "foreuse" })
-    b:port({ kind = "four", io = "out", ent = f, item = plate })
-    b.g.fuel_ports[#b.g.fuel_ports + 1] = f
-    b.g.fuel_ports[#b.g.fuel_ports + 1] = d
-  end
-  b.g.resource = ore
-  b.g.params = { ore = ore, n = n }
-  b.g.gen, b.g.args = "outpost_burner", { ore, n }
-  -- emprise : 2n de large
-  set_ext(b.g, "n", 2, floor_eps(M.MAX_SIDE / 2))
-  return b:finish()
-end
-
 --- Colonne de fours électrique (époque ≥ 3) : tapis central d'entrée (voie gauche : minerai, voie droite : charbon),
 --- deux rangées de fours, deux tapis de sortie vers le sud. `furnace` : stone-furnace, steel-furnace ou un niveau.
 --- `sortie` (lot AGENCEMENT, retour du DC du 29/10 : coffres « plus proches du centre » pour la source de ressources de la base,
@@ -1633,7 +1609,7 @@ function G.ruban(machine, recettes, kit, barre)
 end
 
 -- Fonctions publiques : enveloppées par pcall (filet). G.row reste brut (pièce interne, rend déjà (nil, raison)).
-M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "simple", "circuits", "engines", "labs",
+M.GENERATORS = { "smelter", "drills", "steam", "gears", "simple", "circuits", "engines", "labs",
   "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic",
   "patron", "bloc", "ruban" }
 local GEN = { row = G.row }
@@ -1736,8 +1712,6 @@ end
 local CATALOGUE, CATALOGUE_ERRORS
 local function build_catalogue()
   local calls = {
-    { "outpost_burner", "iron-ore", 6 },
-    { "outpost_burner", "copper-ore", 6 },
     { "smelter", "stone-furnace", "iron-ore", 8 },
     { "smelter", "stone-furnace", "copper-ore", 8 },
     { "smelter", "steel-furnace", "iron-ore", 5 },

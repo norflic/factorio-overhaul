@@ -75,8 +75,7 @@ do
   local I, R, H = G.IDLE, G.RETIRE, G.HARD
   check(G.verdict({ idle = 0, sink = "ok" }) == "garder" and G.verdict({ idle = I - 1, dead = true }) == "garder", "elle travaille ou l'arrêt est court : gardée")
   check(G.verdict({ idle = I, dead = true }) == "retirer", "minerai épuisé sous elle : retirée")
-  check(G.verdict({ idle = I, sink = "manque", can_sink = true }) == "rebrancher", "four disparu et un réceptacle au stock : rebranchée")
-  check(G.verdict({ idle = I, sink = "manque", can_sink = false }) == "garder", "four disparu, rien au stock : attendre")
+  check(G.verdict({ idle = I, sink = "manque" }) == "garder", "four disparu : jamais rebranchée à un four neuf (lot DECOUPLAGE), elle attend")
   check(G.verdict({ idle = R + 1, sink = "ok", ready = true }) == "remplacer", "remplacement électrique prêt : on le laisse faire")
   check(G.verdict({ idle = H, sink = "ok", ready = true }) == "retirer", "remplacement prêt mais jamais fait : retirée")
   check(G.verdict({ idle = R, sink = "ok", elec = true }) == "retirer", "à l'arrêt, l'électrique peut prendre la place : retirée")
@@ -179,7 +178,6 @@ do
     local rr = G.penurie({ { item = "a", have = 9300, need = 10 }, { item = "b", have = 45, need = 0 } })
     if not rr.starved.b then return false end
     if G.forbid_pairs({ sink_furnace = true, swap_done = 1, starved = true }) then return false end
-    if G.verdict({ idle = G.IDLE, sink = "manque", can_sink = true }) ~= "rebrancher" then return false end
     if G.verdict({ idle = G.RETIRE + 1, sink = "ok", ready = true }) ~= "remplacer" then return false end
     if G.verdict({ idle = 10, dead = true }) ~= "garder" then return false end
     if not G.forbid_pairs({ sink_furnace = true, swap_done = 1 }) or G.forbid_pairs({ sink_furnace = true }) then return false end
@@ -220,10 +218,6 @@ do
   kill("arrêt court déjà jugé", function() G.IDLE = 0 end)
   kill("retrait jamais", function() G.RETIRE = math.huge G.HARD = math.huge end)
   kill("remplacement prêt ignoré", function() G.HARD = 0 end)
-  kill("rebranchement supprimé", function()
-    local f = G.verdict
-    G.verdict = function(d, c) local v, w = f(d, c) if v == "rebrancher" then return "garder", w end return v, w end
-  end)
   kill("interdiction des paires jamais", function() G.forbid_pairs = function() return false end end)
   kill("interdiction des paires toujours", function() G.forbid_pairs = function() return true end end)
   check(G.NEAR == save.NEAR and G.band == save.band, "règles restaurées")
@@ -291,13 +285,13 @@ do
   f, a, b = farm(ES.no_minable_resources, ES.working, true)
   run(f, 0, G.IDLE + 2 * Gis.EVERY)
   check(a.destroyed and b.valid, "b. gisement épuisé sous la foreuse : retirée dès 5 min d'arrêt")
-  -- c. four disparu et un four au stock : rebranchement, rien n'est retiré
+  -- c. four disparu et un four au stock : AUCUN four reposé au dépôt de la foreuse (lot DECOUPLAGE), rien n'est retiré
   stock = { ["stone-furnace"] = 1 }
   created = {}
   f, a, b = farm(ES.waiting_for_space_in_destination, ES.working, false)
   run(f, 0, G.IDLE + 2 * Gis.EVERY)
-  check(a.valid and created[1] == "stone-furnace" and stock["stone-furnace"] == 0 and f.gisement.rewired == 1 and #f.outposts[1].sinks == 2,
-    "c. four disparu : un four du stock est reposé au dépôt, la foreuse reste")
+  check(a.valid and created[1] == nil and stock["stone-furnace"] == 1 and #f.outposts[1].sinks == 1,
+    "c. four disparu : aucun four reposé au dépôt (pas de paire foreuse → four rebâtie), la foreuse reste")
   -- d. remplacement électrique prêt (f.swap.ready) : on laisse faire le remplacement jusqu'à G.HARD
   stock = {}
   f, a = farm(ES.no_fuel, ES.working, true)
