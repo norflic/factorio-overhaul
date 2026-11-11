@@ -13,14 +13,15 @@
 
 local Fx = require("__factorio-overhaul__/shared/content/effets_armes")
 local A = require("__factorio-overhaul__/shared/content/arsenal")
-local T = require("__factorio-overhaul__/shared/robots/titans")
+-- shared/robots/titans.lua charge ses dépendances par chemin relatif (introuvable depuis le mod de test) : le titan de la vitrine
+-- se trouve par les prototypes d'effets du jeu (premier « fo-fx-fo-titan-*-choc », sinon « -onde », dans l'ordre des noms).
 
 local X0, Y0 = 7200, -2800
 local PAS = 18
 local CADENCE = 45
 
 local function pack_de(mode)
-  for _, p in ipairs(Fx.armes(A, T)) do if p.mode == mode then return p end end
+  for _, p in ipairs(Fx.armes(A, nil)) do if p.mode == mode then return p end end
 end
 
 local function existe(n) return n and game.entity_prototypes[n] ~= nil end
@@ -41,7 +42,21 @@ local function sites()
   impact("plasma", "plasma", 1)
   impact("singularite", "singularite", 2)
   impact("orbitale", "orbital", 3)
-  impact("titan", "titan", 4)
+  do
+    local noms = {}
+    for n in pairs(game.entity_prototypes) do
+      if n:find("^fo%-fx%-fo%-titan%-") and (n:find("%-choc$") or n:find("%-onde$")) then noms[#noms + 1] = n end
+    end
+    table.sort(noms)
+    local choc, onde_
+    for _, n in ipairs(noms) do
+      if not choc and n:find("%-choc$") then choc = n end
+      if not onde_ and n:find("%-onde$") then onde_ = n end
+    end
+    local base = (choc or onde_ or ""):gsub("%-choc$", ""):gsub("%-onde$", "")
+    L[#L + 1] = { cle = "titan", genre = "impact", x = X0 + 3 * PAS, y = Y0, nom = choc or onde_,
+      lot = { base .. "-choc", base .. "-brulure", base .. "-distorsion" } }
+  end
   local laser, rail = pack_de("laser"), pack_de("rail")
   L[#L + 1] = { cle = "laser", genre = "faisceau", x = X0 + 0.5 * PAS, y = Y0 + PAS, nom = laser.nom .. "-beam" }
   L[#L + 1] = { cle = "rail", genre = "faisceau", x = X0 + 2.5 * PAS, y = Y0 + PAS,
