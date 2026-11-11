@@ -168,6 +168,8 @@ check(F0.ask_retry == 0, "demande : rien avant la fin du delai apres un refus")
 check(F0.seen_up == 1 and F0.seen_cap == Ac.CONFIRM + 4 and F0.seen_down == 1 and F0.seen_floor == 0, "compteur de pensees : monte, plafonne, decroit, jamais sous 0")
 
 ---------------------------------------------------------------------------------------------------
+-- Lot TESTS-VERTS : F547 (lot COLONNES, f0797071) : une colonne par produit (Ac.ITEMS), état f.team.acier.by[produit], journal
+-- « colonne <produit> : ... » (Ac.line), produits par Ac.items : repères du journal, de l'état et du mutant suivis.
 section("3. runtime sur un monde simule (vraie voie des rangees)")
 local LOG = {}
 _G.log = function(s) LOG[#LOG + 1] = s end
@@ -253,7 +255,7 @@ do
   check(rq.args and rq.args[1] == STEEL and rq.args[3] == FURN2, "a) le meilleur four dont les objets se fabriquent (" .. tostring(rq.args and rq.args[3]) .. ")")
   check(rq.args and rq.args[2] == 1, "a) un seul four au depart : besoin 6/min, un four de rang 2 en fait 7,5 (" .. tostring(rq.args and rq.args[2]) .. ")")
   check(rq.electric == true, "a) bras electriques : le module est electrique")
-  check(logged("[FO-ACIER] fa : bloc DEMANDE : module 101"), "a) journal : bloc demande")
+  check(logged("[FO-ACIER] fa : colonne " .. STEEL .. " : bloc DEMANDE : module 101"), "a) journal : bloc demande")
   -- b) un bloc en chantier : pas de second, meme si le besoin monte au-dela de sa capacite
   f.team.ia3.bilan.items[STEEL].c = 30
   local p3 = plan_of(60)
@@ -285,7 +287,7 @@ do
   rawset(_G, "game", { forces = { fx = fr } })
   think(f, plan_of(60), 1000)
   think(f, plan_of(60), 1300)
-  check(#SUBMITS == 0 and logged("la recette de l'acier est verrouillee"), "b ter) recette verrouillee : aucune demande, cause au journal")
+  check(#SUBMITS == 0 and logged("colonne " .. STEEL .. " : bloc en attente : la recette est verrouillee"), "b ter) recette verrouillee : aucune demande, cause au journal")
   fr.recipes[STEEL].enabled = true
   think(f, plan_of(60), 1600)
   check(#SUBMITS == 1, "b ter) recette ouverte : le bloc est demande")
@@ -298,7 +300,7 @@ do
   MISSING[FURN1], MISSING[FURN2] = { "inserter" }, { "fast-inserter", "inserter" }
   think(f, plan_of(60), 1000)
   think(f, plan_of(60), 1300)
-  check(#SUBMITS == 0 and logged("[FO-ACIER] fa : bloc REFUSE : objets impossibles : fast-inserter,inserter"), "c) objets introuvables : refus avec sa cause (four le plus rapide)")
+  check(#SUBMITS == 0 and logged("[FO-ACIER] fa : colonne " .. STEEL .. " : bloc REFUSE : objets impossibles : fast-inserter,inserter"), "c) objets introuvables : refus avec sa cause (four le plus rapide)")
   think(f, plan_of(60), 1600)
   local n = 0
   for _, l in ipairs(LOG) do if l:find("REFUSE", 1, true) then n = n + 1 end end
@@ -333,7 +335,7 @@ do
   check(has_task(plan, "smelt2") and plan.tasks[#plan.tasks].smelt["stone-brick"] == 10 and plan.tasks[#plan.tasks].smelt[STEEL] == nil,
     "d) une tournee qui fond aussi autre chose reste, sans l'acier")
   check(has_task(plan, "craft:x"), "d) les autres tâches sont intactes")
-  check(logged("[FO-ACIER] fa : taches manuelles d'acier COUPEES"), "d) journal : taches manuelles coupees")
+  check(logged("[FO-ACIER] fa : colonne " .. STEEL .. " : taches manuelles COUPEES"), "d) journal : taches manuelles coupees")
   -- une tournee appelee par une sortie ou un combustible reste
   local f2 = world({ mods = { fini(20) } })
   local plan2 = plan_of(60)
@@ -373,7 +375,7 @@ end
 do
   local f = world({ mods = { fini(20) } })
   think(f, plan_of(60), 1000)
-  check(f.team.acier.cut == true, "f) coupe")
+  check(f.team.acier.by[STEEL].cut == true, "f) coupe")
   f.team.ia3e.mods[1].rate_meas = 4
   local p_hyst = plan_of(60)
   think(f, p_hyst, 1000 + 3 * 3600 + 1)
@@ -385,7 +387,7 @@ do
   local p_res = plan_of(60)
   think(f, p_res, 1000 + 3 * 3600 + 301)
   check(p_res.smelt[STEEL] == 60 and has_task(p_res, "smelt"), "f) debit 2/min < 3 apres la tenue : les taches manuelles reprennent")
-  check(logged("taches manuelles d'acier REPRISES"), "f) journal : reprise")
+  check(logged("colonne " .. STEEL .. " : taches manuelles REPRISES"), "f) journal : reprise")
 end
 
 -- g) mode survie, reglage eteint, equipe du joueur
@@ -421,7 +423,7 @@ do
   think(f, plan_of(60), 1300)
   check(#SUBMITS == 0 and #GROWS == 1, "h) besoin 20/min, capacite 15/min : la rangee finie grandit sur place (aucun module de plus)")
   check(GROWS[1] and GROWS[1].id == 7 and GROWS[1].n > 2, "h) agrandie au-dela de 2 fours (" .. tostring(GROWS[1] and GROWS[1].n) .. ")")
-  check(logged("[FO-ACIER] fa : bloc DEMANDE : module 7"), "h) journal : agrandissement du module 7")
+  check(logged("[FO-ACIER] fa : colonne " .. STEEL .. " : bloc DEMANDE : module 7"), "h) journal : agrandissement du module 7")
 end
 
 -- i) determinisme : deux passages identiques, meme journal
@@ -540,7 +542,7 @@ local MUTANTS = {
   { "demande sans delai de refus", "if num(a.tick) < num(a.retry_at) then", "if false then" },
   { "demande sans marge", "local rate = need * (1 + Ac.MARGIN) - cap", "local rate = need - cap" },
   { "compteur sans decroissance", "return math.max(0, count - 1)", "return count" },
-  { "produit lu sur un autre critere", "if inp and T.smelter_inputs[inp[1]] then return k end", "if inp then return k end" },
+  { "produit lu sur un autre critere", "if inputs[k] and not fielded[inputs[k][1]] then", "if inputs[k] then" },
 }
 local function plain_replace(s, old, new)
   local i, j = s:find(old, 1, true)
