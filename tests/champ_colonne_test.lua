@@ -598,15 +598,15 @@ do
   end
   check(worst > 0 and worst <= 800, string.format("grand champ : bande après report %d entités au plus (<= 800)", worst))
   check(worst_net <= 800, string.format("grand champ : réseau reporté %d entités au plus (<= 800)", worst_net))
-  -- foreuse sautée : seulement une foreuse de bande, refusée « occupe » pour la 3e fois, sous une tourelle de l'équipe et rien d'autre
+  -- foreuse sautée : toute foreuse de bande refusée pour la 3e fois, quoi qu'occupe son emprise (CHAMP-OBSTACLES, 11/11)
   local T1 = { { own_turret = true } }
   check(Sa.skip("champ-foreuse", "occupe", 2, T1, 3) == true, "3e refus sous une tourelle de l'équipe : foreuse sautée")
   check(Sa.skip("champ-foreuse", "occupe", 1, T1, 3) == false, "2e refus : pas encore")
-  check(Sa.skip("champ-foreuse", "occupe", 2, { { own_turret = true }, { own_turret = false } }, 3) == false, "tourelle et autre bâtiment : pas sautée")
-  check(Sa.skip("champ-foreuse", "occupe", 2, { { own_turret = false } }, 3) == false, "tourelle d'une autre force ou bâtiment : pas sautée")
-  check(Sa.skip("champ-foreuse", "occupe", 2, {}, 3) == false, "rien sous l'emprise : pas sautée")
+  check(Sa.skip("champ-foreuse", "occupe", 2, { { own_turret = true }, { own_turret = false } }, 3) == true, "tourelle et autre bâtiment : sautée (CHAMP-OBSTACLES)")
+  check(Sa.skip("champ-foreuse", "occupe", 2, { { own_turret = false } }, 3) == true, "tourelle d'une autre force ou bâtiment : sautée (CHAMP-OBSTACLES)")
+  check(Sa.skip("champ-foreuse", "occupe", 2, {}, 3) == true, "rien de lu sous l'emprise : sautée (CHAMP-OBSTACLES)")
   check(Sa.skip("champ-charbon", "occupe", 2, T1, 3) == false, "foreuse de la ligne de charbon : jamais sautée")
-  check(Sa.skip("champ-foreuse", "obstacle", 2, T1, 3) == false, "arbre (obstacle) : pas sautée (défrichage)")
+  check(Sa.skip("champ-foreuse", "obstacle", 2, T1, 3) == true, "arbre résiduel (obstacle) au 3e refus : sautée (CHAMP-OBSTACLES)")
   -- mutants de la règle
   local sk = Sa.skip
   Sa.skip = function(role, reason, fails, bl, lim) return role == "champ-foreuse" and reason == "occupe" end
