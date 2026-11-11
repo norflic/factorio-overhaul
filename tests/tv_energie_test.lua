@@ -309,8 +309,7 @@ do
     local engines = { { name = "boiler", x = 11, y = 0 }, { name = "steam-engine", x = 12, y = 0 }, { name = "steam-engine", x = 13, y = 0 } }
     f.build.projects[2].ents = engines
     -- F491 : le chantier ouvert compte dans la capacité : 22 800 J/tick sur 30 000 bâtis + 30 000 en chantier = 38 % : rien en parallèle
-    -- lot FIX-P1 : l'avance (retenu de 5 000 kW) n'est plus neutralisée par F491 : le chantier en parallèle passe à 38 %
-    check(kw_run(10, 5000) == true, "F491 E1 : demande 1 368 kW sur 1 800 bâtis + 1 800 en chantier (38 %), avance par le retenu : chantier en parallèle (lot FIX-P1)")
+    check(kw_run(10, 5000) == false, "F491 E1 : demande 1 368 kW sur 1 800 bâtis + 1 800 en chantier (38 %) : AUCUN chantier en parallèle")
     -- centrale finie de 16 machines (14 400 kW) à 97 % : 232 000 J/tick sur 240 000 + 30 000 en chantier = 86 %, déficit de 5 000 kW
     for i = 4, 17 do plant.ents[#plant.ents + 1] = { name = "steam-engine", x = i, y = 0 }; alive["steam-engine:" .. i] = true end
     PROD = 14500

@@ -1,7 +1,7 @@
 -- Lot FIX-P1 : quatre failles de l'audit statique (règles pures, sans API Factorio).
 --   1. shared/team/bilan_charbon.lua (Bc.drill_counts) + script/team/plafond_charbon.lua : seule une foreuse du combustible qui travaille
 --      (ou attend la place de sa sortie) compte dans la capacité ;
---   2. shared/team/centrale.lua : la garde F491 (charge < C.GROW_LOAD) ne neutralise plus l'avance (n.anticipate) ;
+--   2. (écartée : la règle F491 du DC retient aussi l'avance ; vérifié ici qu'elle reste entière) ;
 --   3. shared/team/centrale.lua : plus de borne C.MAX_REQUESTS sur la partie (C.COOL et C.MAX_REFUSED bornent) ;
 --   4. shared/ai3/demande.lua : le puits se ferme net (p = 0) quand le stock ne dort plus.
 -- Lancer : lua5.2 tests/fix_p1_test.lua [racine des sources, défaut .]
@@ -39,17 +39,15 @@ local function t_centrale(csrc)
     for k, v in pairs(t or {}) do o[k] = v end
     return o
   end
-  -- 2. l'avance passe la garde de charge ; les autres déclencheurs restent retenus
+  -- 2. F491 (décision du DC) : aucun déclencheur, avance comprise, ne passe sous C.GROW_LOAD
   local nb, why = C.growth({ saturated = false, sat = 0, def_n = 0 }, n({ load = 0.6, anticipate = true }))
-  check(nb ~= nil and nb > 0, "2. avance à 60 % mesurés : la centrale est demandée (" .. tostring(why) .. ")")
-  nb = C.growth({ saturated = false, sat = 0, def_n = 0 }, n({ load = 0.1, anticipate = true }))
-  check(nb ~= nil and nb > 0, "2. avance à 10 % mesurés : demandée")
+  check(nb == nil and why == C.LOAD_REASON, "2. avance à 60 % mesurés : retenue par F491 (" .. tostring(why) .. ")")
+  nb = C.growth({ saturated = false, sat = 0, def_n = 0 }, n({ load = 0.8, anticipate = true }))
+  check(nb ~= nil and nb > 0, "2. avance à 80 % mesurés : demandée")
   nb, why = C.growth({ saturated = true, sat = 10, def_n = 0 }, n({ load = 0.5 }))
   check(nb == nil and why == C.LOAD_REASON, "2. saturée sans avance à 50 % : toujours retenue par F491")
   nb, why = C.growth({ saturated = false, sat = 0, def_n = 3 }, n({ load = 0.2, deficit_kw = 5000 }))
   check(nb == nil and why == C.LOAD_REASON, "2. déficit sans avance à 20 % : toujours retenu par F491")
-  nb, why = C.growth({ saturated = false, sat = 0, def_n = 0 }, n({ load = 0.6, anticipate = true, cool = true }))
-  check(nb == nil and why ~= C.LOAD_REASON, "2. avance en pause (C.COOL) : retenue par la pause")
   -- 3. plus de borne sur la partie : 1 000 demandes passées n'empêchent pas la suivante
   nb, why = C.growth({ saturated = true, sat = 10, def_n = 0, requests = 1000 }, n({ load = 0.9 }))
   check(nb ~= nil and nb > 0, "3. 1 000 demandes sur la partie : la croissance continue (" .. tostring(why) .. ")")
@@ -92,8 +90,8 @@ local mutants = {
   { "b", "1. toute foreuse compte", "return S ~= nil and status ~= nil and (status == S.working or status == S.waiting_for_space_in_destination)", "return true" },
   { "b", "1. la foreuse à sec compte", "(status == S.working or", "(status == S.working or status == S.no_minable_resources or" },
   { "p", "1. le relevé n'appelle plus le prédicat", " and Bc.drill_counts(e.status, status) then", " then" },
-  { "c", "2. la garde F491 retient de nouveau l'avance", "n.load < C.GROW_LOAD and not n.anticipate then", "n.load < C.GROW_LOAD then" },
-  { "c", "2. la garde F491 tombe pour tous", "n.load ~= nil and n.load < C.GROW_LOAD and not n.anticipate", "false" },
+  { "c", "2. l'avance contourne F491", "n.load < C.GROW_LOAD then", "n.load < C.GROW_LOAD and not n.anticipate then" },
+  { "c", "2. la garde F491 tombe pour tous", "n.load ~= nil and n.load < C.GROW_LOAD then", "false then" },
   { "c", "3. la borne C.MAX_REQUESTS revient", COOL_LINE, COOL_LINE .. "  if (st.requests or 0) >= C.MAX_REQUESTS then return nil, \"trop de demandes\" end\n" },
   { "c", "3. une borne de 15 revient", COOL_LINE, COOL_LINE .. "  if (st.requests or 0) >= 15 then return nil, \"x\" end\n" },
   { "d", "4. la décroissance de 5 % revient", "    p = 0 -- lot FIX-P1", "    p = p * (1000 - Dm.DECAY) / 1000 -- " },
