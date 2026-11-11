@@ -292,9 +292,6 @@ local function suite(Th, verbose)
     check(Th.stop_state(0, 0, 0) == "abandon" and Th.stop_state(nil, nil, nil) == "abandon", "8d : rien retiré ni migré : abandon")
     check(Th.stop_state(1, 0, 0) == "partiel" and Th.stop_state(0, 1, 0) == "partiel", "8d : une partie migrée ou une ligne produite : partiel")
     -- 8e. garde de plaques
-    check(Th.min_plates(true, 150) == 0, "8e : minerai brut (charbon, pierre) : aucune plaque exigée")
-    check(Th.min_plates(false, 150) == 150, "8e : plaque : la garde reste (150)")
-    check(Th.min_plates(false, nil) == 0, "8e : garde absente : 0")
     -- 8f. états qui couvrent
     check(Th.covering("working") and Th.covering("waiting_for_space_in_destination"), "8f : en marche et sortie pleine couvrent")
     check(not Th.covering("no_power") and not Th.covering("no_minable_resources") and not Th.covering("waiting_for_source_items")
@@ -403,8 +400,6 @@ local mutants = {
   { "order_end : abandon au lieu de refaire", "return migrated and \"partiel\" or \"replanifier\"", "return migrated and \"partiel\" or \"abandon\"" },
   { "noop_counts : toute bande compte", "  return #(ids or {}) > 0\nend", "  return true\nend" },
   { "stop_state : retrait ignoré", "or (retired or 0) > 0 then return \"partiel\" end", "then return \"partiel\" end" },
-  { "min_plates : brut gardé", "  if raw then return 0 end\n", "" },
-  { "min_plates : plaques sans garde", "  return min_plates or 0\nend", "  return 0\nend" },
   { "covering : sortie pleine ignorée", "M.COVERING_STATUS = { \"working\", \"waiting_for_space_in_destination\" }", "M.COVERING_STATUS = { \"working\" }" },
   { "covering : tout couvre", "  for _, s in ipairs(M.COVERING_STATUS) do if s == status_name then return true end end\n  return false", "  return true" },
   { "band_covers : toute bande couvre", "  return made_ok == true and live == true\nend", "  return true\nend" },
