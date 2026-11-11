@@ -330,6 +330,31 @@ function Rp.ring(px, py, r)
   return out
 end
 
+--- Points du repli forcé du tampon (lot BUS-FER), par pas de `step` tuiles, quand aucun poteau du réseau n'est à portée du point voulu (px, py) :
+--- vers le QG, puis du QG vers la sortie `src` sans dépasser `reach` tuiles (Manhattan) du QG. Lot PLAQUES (banc pavage-photo-60, graine 2507543475,
+--- 16 refus par partie) : sans sortie au repli, une ligne sans quai consommateur, dont le point voulu EST la tuile du QG, n'avait aucun pas (le
+--- repli allait « vers le QG » depuis le QG) : 50 tuiles libres autour du QG, aucune à portée d'un poteau, ligne refusée à chaque relevé.
+--- hub, src : { x, y } en tuiles. Rend { { x, y } } dans l'ordre d'essai, sans doublon ni le point voulu.
+function Rp.fallback_points(px, py, hub, src, step, reach)
+  local out, seen = {}, { [px .. ":" .. py] = true }
+  local function walk(x0, y0, x1, y1)
+    local dx, dy = x1 - x0, y1 - y0
+    local n = ceil(max(math.abs(dx), math.abs(dy)) / step)
+    for i = 1, n do
+      local x, y = floor(x0 + dx * i / n + 0.5), floor(y0 + dy * i / n + 0.5)
+      local k = x .. ":" .. y
+      if not seen[k] then
+        seen[k] = true
+        out[#out + 1] = { x = x, y = y }
+      end
+    end
+  end
+  walk(px, py, hub.x, hub.y)
+  local tx, ty = Rp.clamp_near(src.x, src.y, hub, reach)
+  walk(hub.x, hub.y, tx, ty)
+  return out
+end
+
 --- Premiers points libres pour un coffre tampon (chaque coffre a au moins un site de bras : Li.sites) autour de (px, py), jusqu'à Rp.SPOT_RADIUS ;
 --- au plus `max` points (défaut Rp.SPOT_TRIES), les plus proches d'abord. free(x, y) -> bool. Rend { { x, y, sites } }.
 function Rp.pick_spots(px, py, free, max_n, radius)

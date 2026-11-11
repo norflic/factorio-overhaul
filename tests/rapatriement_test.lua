@@ -301,6 +301,27 @@ local function suite(Rp, quiet)
   check(#Rp.pick_spots(10, 10, free_isolated, 3) == 0, "8.5 une tuile libre sans place pour un bras et un tapis est ecartee")
   check(#Rp.pick_spots(10, 10, free_all, 100, 0) == 1, "8.6 le rayon de recherche borne la liste")
 
+  -- §8 ter repli forcé du tampon (lot PLAQUES, A4 : le repli « vers le QG » n'avait aucun pas quand le point voulu EST le QG)
+  do
+    local fp = Rp.fallback_points
+    check(type(fp) == "function", "8r.1 la regle du repli force existe (Rp.fallback_points)")
+    if type(fp) == "function" then
+      -- cas du banc : aucune consommation, point voulu = tuile du QG (339, -340), sortie a 90 tuiles
+      local hub, src = { x = 339, y = -340 }, { x = 429, y = -340 }
+      local pts = fp(339, -340, hub, src, 12, 72)
+      local far = 0
+      for _, q in ipairs(pts) do far = math.max(far, math.abs(q.x - hub.x) + math.abs(q.y - hub.y)) end
+      check(#pts == 6 and pts[1].x == 351 and pts[1].y == -340, "8r.2 point voulu au QG : le repli part du QG vers la sortie, par pas de 12 (" .. #pts .. " points)")
+      check(far == 72, "8r.3 le repli ne s'eloigne jamais du QG au-dela de la portee (" .. far .. ")")
+      -- cas de BUS-FER : point voulu a 48 tuiles du QG, hors reseau : d'abord vers le QG
+      local pts2 = fp(48, 0, { x = 0, y = 0 }, { x = 200, y = 0 }, 12, 72)
+      check(pts2[1].x == 36 and pts2[4].x == 0 and pts2[5].x == 60 and #pts2 == 6, "8r.4 point voulu loin du QG : vers le QG d'abord, puis vers la sortie (sans repasser)")
+      local seen, dup = {}, false
+      for _, q in ipairs(pts2) do local k = q.x .. ":" .. q.y; if seen[k] or (q.x == 48 and q.y == 0) then dup = true end; seen[k] = true end
+      check(not dup, "8r.5 aucun point essaye deux fois, ni le point voulu")
+    end
+  end
+
   -- §8 bis bord de rue (constantes du treillis de shared/team/plan.lua)
   local PL = require("shared.team.plan")
   local geom = { pitch = PL.PITCH, lot = PL.LOT, half = PL.HALF }
@@ -613,6 +634,10 @@ local mutants = {
   { "debit : le bras ne borne plus", "if arm and best > arm then best = arm end", "" },
   { "debit : le stock dormant est ignore", "if n >= (at or Rp.COLLECT_BATCH) then", "if false then" },
   { "journal : le compte des trajets lointains disparait", "%.1f lointain(s)", "%.1f proche(s)" },
+  { "repli (PLAQUES) : plus de pas du QG vers la sortie", "  walk(hub.x, hub.y, tx, ty)", "  local _ = tx" },
+  { "repli (PLAQUES) : la sortie n'est plus bornee a la portee", "local tx, ty = Rp.clamp_near(src.x, src.y, hub, reach)", "local tx, ty = src.x, src.y" },
+  { "repli (PLAQUES) : plus de pas vers le QG", "  walk(px, py, hub.x, hub.y)", "  local _ = px" },
+  { "repli (PLAQUES) : les doublons sont repris", "      if not seen[k] then", "      if true then" },
 }
 local refused, total_m = 0, 0
 local survivors = {}

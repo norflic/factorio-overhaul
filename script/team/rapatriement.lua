@@ -677,13 +677,11 @@ local function stage_spots(f, surface, b, p, J)
     if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
     -- lot BUS-FER : REPLI FORCE. Moteur réel (carte max, 2 graines) : « 0 poteau lu dans 21 tuiles » autour du point voulu (le point est ramené à
     -- Rp.NEAR_HUB du QG, hors de tout réseau) : le tampon est déplacé VERS le QG, par pas de Rp.FALLBACK_STEP tuiles, jusqu'au premier point
-    -- où un poteau du réseau est à portée ; la boîte de lecture s'élargit à ce point.
+    -- où un poteau du réseau est à portée ; la boîte de lecture s'élargit à ce point. Lot PLAQUES : puis du QG vers la sortie (Rp.fallback_points).
     local hq = f.hq and f.hq.valid and f.hq.position
     if #J.spots == 0 and hq then
-      local dx, dy = hq.x - J.px, hq.y - J.py
-      local n = math.ceil(math.max(math.abs(dx), math.abs(dy)) / Rp.FALLBACK_STEP)
-      for i = 1, n do
-        local qx, qy = math.floor(J.px + dx * i / n + 0.5), math.floor(J.py + dy * i / n + 0.5)
+      for _, q in ipairs(Rp.fallback_points(J.px, J.py, { x = math.floor(hq.x), y = math.floor(hq.y) }, src, Rp.FALLBACK_STEP, Rp.NEAR_HUB)) do
+        local qx, qy = q.x, q.y
         local bx = J.box
         J.box = { x0 = math.min(bx.x0, qx - Rp.SPOT_RADIUS), y0 = math.min(bx.y0, qy - Rp.SPOT_RADIUS), x1 = math.max(bx.x1, qx + Rp.SPOT_RADIUS), y1 = math.max(bx.y1, qy + Rp.SPOT_RADIUS) }
         local probe = pole_probe(f, surface, qx, qy, Rp.SPOT_RADIUS + near + 4)
