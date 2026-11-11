@@ -150,6 +150,28 @@ do
     "plan_feed : plus de quai de minerai selon le mode ou le seuil")
 end
 
+section("8. Poses du moteur (fours et labos du QG, coffres annexes, tourelles) : même règle (Sm.forbidden)")
+do
+  local Sm = load_mods()
+  local asked = 0
+  local function yes() asked = asked + 1 return true end
+  local function no() asked = asked + 1 return false end
+  check(Sm.forbidden("furnace", yes) == true and Sm.forbidden("ammo-turret", yes) == true and Sm.forbidden("container", yes) == true,
+    "four, tourelle, coffre sur une ressource : interdits")
+  check(Sm.forbidden("furnace", no) == false, "four sur le sol neutre : permis")
+  asked = 0
+  check(Sm.forbidden("mining-drill", yes) == false and Sm.forbidden("electric-pole", yes) == false and asked == 0,
+    "foreuse, poteau : permis sans relever le sol")
+  local q = read("script/ai3/places_qg.lua")
+  check(q:find("can_place_entity({ name = name, position = p, force = force }) or Q.on_resource(surface, name, p)", 1, true) ~= nil,
+    "places_qg : chaque place vérifiée contre la ressource (fours, labos, annexes)")
+  local o = read("script/faction/outposts.lua")
+  local _, n_o = o:gsub("PlacesQG%.on_resource%(surface, T%.turret, q%)", "")
+  check(n_o == 2, "outposts.fortify : les deux places de tourelle vérifiées (" .. n_o .. ")")
+  check(read("script/team/team.lua"):find("if tpos and not PlacesQG.on_resource(surface, T.turret, tpos) then", 1, true) ~= nil,
+    "team : tourelles de départ hors des ressources")
+end
+
 section("5. mutants")
 local MUTANTS = {
   { name = "P.fit : emprise sur la ressource", mod = MODS.p, file = "shared/team/plan.lua",

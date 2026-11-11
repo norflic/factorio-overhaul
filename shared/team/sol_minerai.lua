@@ -35,6 +35,12 @@ function Sm.mining_box(g)
   return m
 end
 
+--- Même règle pour une entité posée seule par le moteur (fours et labos du QG, coffres annexes, tourelles) : interdite si son type n'est
+--- pas de la BOX_MINAGE et que son emprise porte une ressource (`has_res()`, appelé seulement alors).
+function Sm.forbidden(ptype, has_res)
+  return not Sm.MINING_TYPES[ptype or false] and has_res() == true
+end
+
 --- Lot DECOUPLAGE (règle 3 du DC : le minerai brut va de la BOX_MINAGE à la BOX_FONDERIE par un convoyeur collecteur continu, jamais
 --- par un relais de coffres) : la voie `item` d'un port d'entrée doit-elle être servie par foreuses et tapis ? Vrai pour un minerai
 --- (`ores` = { [objet] = valeur }, M.ORES) qui n'est pas le combustible `fuel` (T.fuel : le charbon des fours garde son quai).
