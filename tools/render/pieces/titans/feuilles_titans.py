@@ -47,10 +47,12 @@ LOGS4 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.9
 # TITANS-8DIR (10/11) : Sentinelle et Léviathan animés (8 directions) pris dans leur propre dossier
 LOGS5 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-11_TITANS-16DIR")
 # ART-16DIR (11/11) : Juggernaut, Sentinelle et Ravageur en 16 directions, pris en PREMIER
-SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS5, "rendu"), os.path.join(LOGS4, "rendu"), os.path.join(LOGS3, "rendu"), os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
+LOGS6 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-11_TITANS2")
+# ART-TITANS2 (11/11) : Juggernaut re-modelé d'après les concepts du DC (anneaux flottants, griffes cinétiques, conduits haute densité), pris AVANT tout
+SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS6, "rendu"), os.path.join(LOGS5, "rendu"), os.path.join(LOGS4, "rendu"), os.path.join(LOGS3, "rendu"), os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
 DEST_DEFAUT = os.path.join(MOD, "graphics", "robots", "titans")
 PREFIXE = "__factorio-overhaul__/graphics/robots/titans/"
-COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_TITANS-16DIR/rendu, fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
+COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_TITANS2/rendu, fo-logs/2026-11-11_TITANS-16DIR/rendu, fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
 # alliés à une image (traitement des géants) : stades rendus ; le Léviathan a de plus son drone d'escorte (une image, clé « drone »)
 ALLIES = (("leviathan", ("drone",)),)   # TITANS-8DIR : Sentinelle et Léviathan sont animés ; seul le drone d'escorte reste une image
 # LEVIATHAN-SEG (11/11) : le Léviathan est ARTICULÉ (tête, segments, queue) : ses feuilles sont faites par feuilles_leviathan.py
@@ -244,6 +246,52 @@ def mesure_variantes(dest, entree, stades):
     return out
 
 
+def seul(a):
+    """ART-TITANS2 (11/11) : ne refait QUE le titan animé `a.seul` : ses PNG (hr-, sans préfixe, icône), son entrée de premier niveau de
+    sprites.lua et ses fichiers et son poids dans MANIFEST.json ; les autres entrées (Kaiju, Écorchés, drone du Léviathan...) restent
+    octet pour octet (un autre lot peut les refaire en même temps)."""
+    nom = a.seul
+    ent = [x for x in ANIMES if x[0] == nom]
+    if not ent:
+        raise SystemExit("--seul : %s n'est pas un titan animé (ANIMES)" % nom)
+    _, stades, divs, max_px = ent[0]
+    pre = re.compile(r"^(hr-|icone-)?%s-" % re.escape(nom))
+    for f in os.listdir(a.dest):
+        if f.endswith(".png") and pre.match(f):
+            os.remove(os.path.join(a.dest, f))
+    FX.PREFIXE = PREFIXE
+    S = FX.Sortie(a.dest)
+    nd = directions_de(nom)
+    e = {"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": nd}
+    pd = {"haute": 0.0, "normale": 0.0, "images": 0}
+    for st in stades:
+        e[st] = anime(S, a.src, pd, "%s-anime-%s" % (nom, st), "%s-%s" % (nom, st), "%s-%s" % (nom, st), divs, max_px, nd)
+    p = os.path.join(a.dest, "sprites.lua")
+    with open(p, encoding="utf-8") as f:
+        lignes = f.read().split("\n")
+    i = lignes.index("  %s = {" % nom)
+    j = lignes.index("  },", i)
+    lignes[i:j + 1] = ("  %s = %s," % (nom, FX.lua(e, "  "))).split("\n")
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lignes))
+    pm = os.path.join(a.dest, "MANIFEST.json")
+    with open(pm, encoding="utf-8") as f:
+        man = json.load(f)
+    fichiers = {k: v for k, v in man["fichiers"].items() if not pre.match(k)}
+    for f in sorted(os.listdir(a.dest)):
+        if f.endswith(".png") and pre.match(f):
+            pp = os.path.join(a.dest, f)
+            im = Image.open(pp)
+            fichiers[f] = {"largeur": im.size[0], "hauteur": im.size[1], "taille": os.path.getsize(pp), "sha256": sha(pp)}
+    man["fichiers"] = fichiers
+    man["commande"] = COMMANDE
+    man["poids_mpx"][nom] = {kk: round(vv, 2) for kk, vv in pd.items()}
+    with open(pm, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(man, f, indent=1, sort_keys=True, ensure_ascii=False)
+    print("[FO-FEUILLES-TITANS] --seul %s : %d PNG ; haute %.1f Mpx ; normale %.2f Mpx" % (
+        nom, sum(1 for f in fichiers if pre.match(f)), pd["haute"], pd["normale"]), flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=SRC_DEFAUT)
@@ -251,7 +299,10 @@ def main():
     ap.add_argument("--sans-kaiju", action="store_true")
     ap.add_argument("--sans-allies", action="store_true")
     ap.add_argument("--sans-animes", action="store_true")
+    ap.add_argument("--seul", default="", help="ART-TITANS2 : ne refait que ce titan animé (ses PNG, son entrée de sprites.lua et de MANIFEST.json)")
     a = ap.parse_args()
+    if a.seul:
+        return seul(a)
     os.makedirs(a.dest, exist_ok=True)
     for f in glob.glob(os.path.join(a.dest, "*.png")):
         os.remove(f)

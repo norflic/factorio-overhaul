@@ -93,6 +93,26 @@ def rainure(c, axe, rayon, ep):
     return G.tour([(-ep, rayon), (ep, rayon)], 48, axe, c)
 
 
+def traces(lot, M, a, b, r_in, angs, rt=0.1, jog=0.45):
+    """TITANS2 (11/11) : conduits lumineux HAUTE DENSITÉ gravés sur un membre (concept : circuits cyan à coudes à 45°) ; axe a -> b,
+    r_in : rayon des faces du membre (apothème) en a et en b ; une trace par angle (centre d'une face), coude au milieu."""
+    t, n1, n2 = G._frames([a, b])[0]
+    for i, ang in enumerate(angs):
+        pts = []
+        sg = 1 if i % 2 else -1
+        for f, dj in ((0.06, 0.0), (0.40, 0.0), (0.56, jog * sg), (0.94, jog * sg)):
+            rr = r_in[0] + (r_in[1] - r_in[0]) * f + rt * 0.55
+            aa = ang + dj / max(rr, 0.3)
+            pts.append(G.add(G.lerp(a, b, f), G.add(G.mul(n1, rr * math.cos(aa)), G.mul(n2, rr * math.sin(aa)))))
+        lot.put(M["conduit"], G.tube(pts, rt, 5))
+
+
+def bague(lot, M, c, axe, ra):
+    """TITANS2 : bague articulaire lumineuse (concept : cercles cyan sur genoux et chevilles) : anneau sombre et gorge cyan."""
+    lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", ra, 0.2, 0.14), c, axe))
+    lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", ra - 0.02, 0.1), c, axe))
+
+
 # ------------------------------------------------------------------------------------------------ cinématique (marche)
 def pas(u, amp, levee, appui=0.6):
     """Cycle d'un pied, u dans [0, 1[ : appui (le pied recule au sol de +amp à -amp), puis vol (il revient en l'air). Rend (avance, hauteur)."""
@@ -159,10 +179,21 @@ def jambe(lot, M, s, stage, r, u=None, bob=0.0):
         lot.put(M["turq"], G.oriente(G.tour([(1.2, 0.28), (1.25, 0.0)], 10, "z"), base, (-0.8, 0.0, -0.45)))
     # métatarse et pied : segment incliné vers l'avant, cheville blindée
     lot.put(M["blind"], hexseg(A, T, 1.1, 0.9, 6, 0.2))
-    # griffes (3 avant, 1 arrière) : prismes effilés, ivoire métallique
+    # TITANS2 : griffes CINÉTIQUES (concept : serres articulées) : phalange blindée biseautée, rotule, bague lumineuse, serre recourbée
     for k, (ax, ay) in enumerate(((1.0, 0.0), (0.7, 0.85), (0.7, -0.85))):
         base = G.add(T, (0.3 * ax, ay * 0.6, 0.2))
-        lot.put(M["os"], pointe(base, G.norm((ax, ay * 0.7, -0.22)), 2.6 if k == 0 else 2.1, 0.42, 5))
+        d1 = G.norm((ax, ay * 0.7, 0.18))
+        j1 = G.add(base, G.mul(d1, 1.05 if k == 0 else 0.85))
+        lot.put(M["struct"], hexseg(base, j1, 0.4, 0.32, 6))
+        lot.put(M["blind2"], hexseg(G.add(base, (0.0, 0.0, 0.16)), G.add(j1, (0.0, 0.0, 0.16)), 0.34, 0.26, 4, 0.785))
+        lot.put(M["struct"], G.sphere(j1, 0.3, 8, 4))
+        lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", 0.33, 0.07), G.lerp(base, j1, 0.5), d1))
+        lot.put(M["os"], pointe(j1, G.norm((ax, ay * 0.7, -0.7)), 2.0 if k == 0 else 1.6, 0.34, 5))
+    bague(lot, M, A, (0.0, 1.0, 0.0), 1.15)
+    bague(lot, M, K, (0.0, 1.0, 0.0), 1.45)
+    traces(lot, M, H, K, (2.1 * 0.866, 1.5 * 0.866), [0.3 + G.TAU * j / 6 for j in (0, 1, 2, 4, 5)])
+    traces(lot, M, K, A, (1.2 * 0.924, 0.95 * 0.924), [G.TAU * j / 8 for j in (0, 2, 3, 5, 6)], rt=0.085, jog=0.3)
+    traces(lot, M, A, T, (1.1 * 0.866, 0.9 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 4)], rt=0.08, jog=0.25)
     lot.put(M["os"], pointe(G.add(A, (-0.5, 0.0, -1.2)), (-0.9, 0.0, -0.45), 1.8, 0.36, 5))
     # genouillère (stage 3) et jupe de cuisse (stage 2+)
     if stage >= 2:
@@ -202,6 +233,19 @@ def torse(lot, M, stage, r):
             lot.put(M["blind"], R.pose(G.prisme([(-1.2, -1.1), (1.5, -1.1), (1.8, 0.0), (1.5, 1.1), (-1.2, 1.1)], 0.0, 0.9, 0.8), G.add(c, (0.3, s * 1.6, 2.5)), G.norm((0.2, s * 0.7, 1.0)), (1, 0, 0)))
             for k in range(2):
                 lot.put(M["cristal"], pointe(G.add(c, (-0.6 + 1.2 * k, s * 1.4, 2.9)), G.norm((-0.3 + 0.2 * k, s * 0.5, 1.0)), 2.6 - 0.5 * k, 0.4))
+    # TITANS2 : chevrons lumineux de la poitrine (concept : V cyan au plexus) et traces abdominales
+    for (z0, z1, w) in ((26.6, 24.4, 2.2), (25.4, 23.4, 1.5)):
+        lot.put(M["conduit"], G.tube([(3.32, -w, z0), (3.45, 0.0, z1), (3.32, w, z0)], 0.13, 5))
+    for yy in (-2.2, -1.2, 1.2, 2.2):
+        lot.put(M["conduit"], G.tube([(3.2, yy, 19.6), (3.2, yy, 20.6), (3.25, yy * 0.8, 21.2)], 0.09, 5))
+    # TITANS2 : lames dorsales en croissant (concept : ailerons biseautés au-dessus des épaules)
+    for s in (-1, 1):
+        pts = [(-1.8, s * 3.4, 26.8), (-2.3, s * 4.1, 29.3), (-3.3, s * 4.6, 31.4), (-4.7, s * 4.8, 32.4)]
+        rr = (0.6, 0.46, 0.3, 0.12)
+        for k in range(3):
+            lot.put(M["blind2"], hexseg(pts[k], pts[k + 1], rr[k], rr[k + 1], 4, 0.785))
+        lot.put(M["os"], pointe(pts[3], G.norm(G.sub(pts[3], pts[2])), 1.2, 0.14, 4))
+        lot.put(M["conduit"], G.tube([G.add(pts[0], (0.0, s * 0.45, 0.2)), G.add(pts[1], (0.0, s * 0.36, 0.1)), G.add(pts[2], (0.0, s * 0.24, 0.0))], 0.08, 4))
     # tête : visière angulaire, fente lumineuse, antennes
     lot.put(M["blind2"], G.loft([[(1.2, -1.2, 27.8), (2.4, -0.9, 27.8), (2.4, 0.9, 27.8), (1.2, 1.2, 27.8), (-0.6, 1.0, 27.8), (-0.6, -1.0, 27.8)],
                                 [(1.5, -1.3, 29.3), (2.9, -0.9, 29.3), (2.9, 0.9, 29.3), (1.5, 1.3, 29.3), (-0.8, 1.1, 29.3), (-0.8, -1.1, 29.3)],
@@ -209,6 +253,11 @@ def torse(lot, M, stage, r):
     lot.put(M["conduit"], G.boite((2.85, 0.0, 29.4), (0.2, 1.5, 0.28)))
     for s in (-1, 1):
         lot.put(M["struct"], G.tube([(-0.4, s * 0.8, 30.6), (-1.0, s * 1.4, 32.6)], 0.1, 6))
+    # TITANS2 : capteur-œil sur le crâne (concept : orbe cyan flanqué de deux sphères)
+    lot.put(M["struct"], G.sphere((0.4, 0.0, 31.2), 0.78, 12, 6))
+    lot.put(M["coeur"], G.sphere((1.0, 0.0, 31.3), 0.42, 10, 5))
+    for s in (-1, 1):
+        lot.put(M["struct"], G.sphere((0.3, s * 1.15, 31.1), 0.28, 8, 4))
     # dos : cœur à vortex dans une cage, anneau magnétique flottant autour (axe x), gorge lumineuse
     C = (-3.3, 0.0, 24.2)
     lot.put(M["coeur"], G.sphere(C, 1.35, 16, 8))
@@ -290,6 +339,21 @@ def bras_canon(lot, M, stage, r, swing=0.0, charge=0.0, recul=0.0, eclair=0.0):
         a = G.TAU * q / 6
         off = G.add(G.mul(fr[1], 1.15 * math.cos(a)), G.mul(fr[2], 1.15 * math.sin(a)))
         lot.put(M["cristal"], pointe(G.add(Mz, off), G.norm(G.add(d, G.mul(off, 0.25))), 1.1, 0.22))
+    # TITANS2 : anneaux de focalisation FLOTTANTS détachés devant la bouche (concept : couronnes crénelées, de la plus grande à la plus
+    # petite, gorge cyan, arc d'énergie qui les traverse) ; à la charge ils s'écartent
+    prev = G.add(Mz, G.mul(d, 0.5))
+    for k in range(stage):
+        c = G.add(Mz, G.mul(d, 1.15 + 0.85 * k + (0.2 + 0.15 * k) * charge))
+        ra = 1.75 - 0.35 * k
+        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", ra, 0.3, 0.18), c, d))
+        lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", ra - 0.03, 0.12), c, d))
+        for q in range(8):
+            a = G.TAU * q / 8
+            lot.put(M["blind2"], G.oriente(G.boite((ra + 0.36, 0.0, 0.0), (0.24, 0.2, 0.24), rz=a), c, d))
+        sg = 1 if k % 2 else -1
+        lot.put(M["conduit"], G.tube([prev, G.add(G.lerp(prev, c, 0.5), G.mul(fr[1], 0.3 * sg)), c], 0.06, 4))
+        prev = c
+    traces(lot, M, S_, E, (1.35 * 0.866, 1.05 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.085, jog=0.3)
     # munitions / échangeur sur le dessus du canon
     lot.put(M["blind2"], R.pose(G.prisme([(-1.2, -0.7), (1.6, -0.7), (1.9, 0.0), (1.6, 0.7), (-1.2, 0.7)], 0.0, 0.7, 0.8), G.add(G.lerp(E, Mz, 0.3), (0.0, 0.0, 1.3)), (0, 0, 1), (1, 0, 0)))
 
@@ -306,6 +370,9 @@ def bras_griffes(lot, M, stage, r, swing=0.0):
     lot.put(M["blind2"], hexseg(E, W, 1.1, 0.95, 6, 0.1))
     lot.put(M["conduit"], hexseg(G.add(E, (0.7, s * 0.7, 0.2)), G.add(W, (0.5, s * 0.7, 0.6)), 0.12, 0.12))
     lot.put(M["struct"], G.sphere(W, 0.85, 10, 5))
+    traces(lot, M, S_, E, (1.35 * 0.866, 1.05 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.085, jog=0.3)
+    traces(lot, M, E, W, (1.1 * 0.866, 0.95 * 0.866), [0.1 + G.TAU * j / 6 for j in (0, 1, 3, 4)], rt=0.08, jog=0.25)
+    bague(lot, M, E, G.norm(G.sub(W, E)), 1.15)
     # garde de la main et lames
     lot.put(M["blind"], plaque(G.add(W, (0.5, s * 0.5, 0.2)), G.norm((0.4, s * 1.0, 0.2)), 1.8, 1.6, 0.3, up=(0, 0, 1)))
     d0 = G.norm(G.rot_y((0.75, 0.0, -0.75), swing))

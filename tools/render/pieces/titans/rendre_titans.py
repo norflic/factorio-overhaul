@@ -30,11 +30,12 @@ TMP = os.path.join(LOGS, "tmp")
 
 
 def lancer(args, out, wait):
-    os.makedirs(TMP, exist_ok=True)
+    tmpd = os.environ.get("FO_TITAN_TMP") or TMP     # TITANS2 : temporaires hors de F: (clé USB) si demandé
+    os.makedirs(tmpd, exist_ok=True)
     os.makedirs(out, exist_ok=True)
     cmd = [sys.executable, LOCK, "--wait", str(wait), "--disque", out, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "--python-exit-code", "1",
            "-P", BATCH, "--"] + args
-    env = dict(os.environ, PYTHONIOENCODING="utf-8", TEMP=TMP, TMP=TMP, TMPDIR=TMP)
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", TEMP=tmpd, TMP=tmpd, TMPDIR=tmpd)
     t0 = time.time()
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
     log = []
