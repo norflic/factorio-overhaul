@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.97
+Date: 2026-11-11
+  Graphics:
+    - Juggernaut (F536) : modèle 3D enrichi d'après les concepts (couronnes de focalisation flottantes devant le canon, griffes articulées, conduits lumineux denses sur les membres, bagues aux articulations, chevron au plexus, ailerons, capteur-œil), rendu en 16 directions ; ombre portée lisse (les conduits allumés ne criblent plus l'ombre de points clairs).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.96
 Date: 2026-11-11
   Graphics:
@@ -17,7 +22,6 @@ Date: 2026-11-11
   Bugfixes:
     - Rapatriement (F532) : une ligne de rapatriement ne prend plus au coffre les tapis, les bras ou les poteaux qui manquent à une bande de champ en attente ou en chantier ; le pavage des gisements passe d'abord, la ligne prend le surplus et se construit ensuite.
   Graphics:
-    - Juggernaut (F536) : modèle 3D enrichi d'après les concepts (couronnes de focalisation flottantes devant le canon, griffes articulées, conduits lumineux denses sur les membres, bagues aux articulations, chevron au plexus, ailerons, capteur-œil), rendu en 16 directions ; ombre portée lisse (les conduits allumés ne criblent plus l'ombre de points clairs).
     - Ixion (F525) : le géant à roue tourne son corps vers sa marche (8 poses rendues, 39,4 Mpx) ; les géants expérimentaux et les bourdons ont un torse libre ; Cairn, Stylet, Trombe, Tournesol et les bourdons gardent une image, leur forme ne dépendant pas du sens de marche.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.93
