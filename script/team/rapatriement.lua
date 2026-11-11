@@ -67,6 +67,14 @@ end
 
 local function say(f, tick, text) log(text) end
 
+--- Lot CC-MATIERES (F520) : les lignes de rapatriement ouvertes de l'équipe (Rp.open_lines) : { { key, pid, pile } }.
+function Rap.projects(f)
+  local b = f and f.build
+  local st = b and b.rapatriement
+  if not (st and st.lines) then return {} end
+  return Rp.open_lines(st.lines, b.projects)
+end
+
 Rap.NOTES = 80 -- lignes « laissee » au plus par équipe (le journal d'une partie de 8 h ne se noie pas)
 
 --- Une ligne « laissée » ou « en attente » : écrite quand sa SIGNATURE (action et début de la cause, sans les nombres qui bougent) change.

@@ -566,4 +566,23 @@ function Rp.text(kind, d)
     d.coupees or 0, at)
 end
 
+--- Lot CC-MATIERES (F520) : les lignes de rapatriement encore OUVERTES (demandées, ni finies ni refusées ni abandonnées), triées par clé :
+--- { { key, pid, pile } }. lines : b.rapatriement.lines ({ [clé] = { pid, done } }) ; projects : b.projects ({ [pid] = { state, abandoned,
+--- spec = { pile } } }). Lu par script/ai3/automatisation.lua : les objets qui manquent à leur réserve deviennent des buts du cerveau, comme
+--- la ligne d'une migration de champ et la ligne d'une bande (avant : personne ne les fabriquait, réserve « materiaux » sans fin).
+function Rp.open_lines(lines, projects)
+  local keys = {}
+  for k in next, lines or {} do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local out = {}
+  for _, k in ipairs(keys) do
+    local l = lines[k]
+    local q = l and projects and projects[l.pid]
+    if q and not l.done and q.state ~= "fini" and q.state ~= "refuse" and not q.abandoned then
+      out[#out + 1] = { key = k, pid = l.pid, pile = q.spec and q.spec.pile or nil }
+    end
+  end
+  return out
+end
+
 return Rp
