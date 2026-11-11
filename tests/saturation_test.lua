@@ -271,6 +271,27 @@ local l1 = Cv.loop({ kind = "couvrir", product = "p", saturated = { p = true }, 
 local l2 = Cv.loop({ kind = "couvrir", product = "p", saturated = { p = true }, free = 5 })
 check(l1 == true and l2 == false, "§11 Cv.loop : la saturation passe meme produit sature, l'avance non")
 
+-- 11b. Lot CAPI-RETOUR (graine 2507543475, emerald minute 56 : « ordre ferme (retour 51.3 min > 20.6) » sur un fer à 427 pour mille ; graine
+-- 123456789, amber : 57 fours comptés pour un ordre de 8 foreuses, gain négatif, « gain nul ») : les fours d'un ordre de couverture sont ceux
+-- de SON débit (l'exécutant pose des modules au débit de l'ordre, script/ai3/capitalisation.lua), pas ceux du débit de tout le gisement :
+-- les foreuses déjà posées sont fondues par la fonderie déportée (hors du minerai, classée « loin »), que la fonte sur place ne voyait pas.
+local function deported(over)
+  local inp = scene(over, { smelt = "iron-plate", smelter = "stone-furnace", tiles = 3000 })
+  inp.drills = { { entity = "electric-mining-drill", resource = "iron-ore", n = 40, deposit = "d1" } }
+  inp.machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 64, where = "loin" } }
+  inp.flows = { ["iron-ore"] = { made = 1200 }, ["iron-plate"] = { made = 1200 } }
+  inp.stock["iron-plate"] = 40000
+  inp.sinks = { { item = "iron-plate", rate = 600 } }
+  return inp
+end
+local r11b = Ca.decide(deported(), {})
+local o11b = ordre(r11b)
+local rf11b = refus_of(r11b, "couvrir:d1")
+check(o11b ~= nil and o11b.saturation == true, "§11b fonderie deportee : l'ordre de saturation passe (refus : " .. tostring(rf11b and rf11b.why) .. ")")
+check(o11b and o11b.smelt_n == Ca.fed_max(o11b.n * 30, 0, 18.75), "§11b fours de l'ordre = fours de SON debit (" .. tostring(o11b and o11b.n) .. " foreuses, "
+  .. tostring(o11b and o11b.smelt_n) .. " fours)")
+check(o11b and o11b.T <= r11b.tmax, "§11b retour sous le seuil du caractere (" .. tostring(o11b and o11b.T) .. " <= " .. tostring(r11b.tmax) .. ")")
+
 -- 12. Mutants : le source muté est écrit dans un dossier jetable lu EN PREMIER (FO_CAPI_SRC, comme le témoin A/B) ; la suite complète rejouée dans
 -- un processus fils doit échouer (code de sortie non nul).
 if not os.getenv("FO_SAT_CHILD") and not AB_SRC then
@@ -285,6 +306,9 @@ if not os.getenv("FO_SAT_CHILD") and not AB_SRC then
     { "shared/ai3/couverture.lua", "combustion admise", "if a.electric ~= true then return false,", "if false then return false," },
     { "shared/ai3/couverture.lua", "sans place admise", "if type(a.free) ~= \"number\" or a.free ~= a.free or a.free <= 0 then return false, \"aucune place", "if false then return false, \"aucune place" },
     { "shared/ai3/couverture.lua", "crise ignoree (saturation)", "if a.crisis then return false, \"crise (survie ou QG menace) : le travail de base d'abord\" end\n  if a.electric", "if a.electric" },
+    { "shared/ai3/capitalisation.lua", "CAPI-RETOUR : fours de tout le gisement", "Ca.fed_max(n * rho, 0, Ca.in_per_min", "Ca.fed_max(((plan.drills_on[key] or 0) + n) * rho, 0, Ca.in_per_min" },
+    { "shared/ai3/capitalisation.lua", "CAPI-RETOUR : fours doubles", "Ca.fed_max(n * rho, 0, Ca.in_per_min", "Ca.fed_max(2 * n * rho, 0, Ca.in_per_min" },
+    { "shared/ai3/capitalisation.lua", "CAPI-RETOUR : fours de l'ordre absents", "Ca.fed_max(n * rho, 0, Ca.in_per_min", "Ca.fed_max(0, 0, Ca.in_per_min" },
     { "shared/ai3/couverture.lua", "boucle : saturation sans effet", "and not a.saturation then return false,", "then return false," },
   }
   local tmp = os.getenv("TEMP") or "."

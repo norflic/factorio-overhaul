@@ -1005,11 +1005,6 @@ local function add_machines(ctx, plan, m, r, n, where, fs, fp)
         plan.cons_by[i.name][p.name] = (plan.cons_by[i.name][p.name] or 0) + cpm * i.amount
       end
     end
-  else
-    -- Fonte sur place : ce que les fours d'un gisement mangent de son minerai.
-    local key = tostring(where)
-    plan.cons_at[key] = plan.cons_at[key] or {}
-    for _, i in ipairs(r.ingredients) do plan.cons_at[key][i.name] = (plan.cons_at[key][i.name] or 0) + cpm * i.amount end
   end
   plan.burn = plan.burn + n * Ca.fuel_per_min(ctx.D, m)
   if m.energy == "electric" then plan.kw_used = plan.kw_used + n * (m.kw or 0) end
@@ -1023,7 +1018,6 @@ local function add_drills(ctx, plan, d, item, n, dep, count_cover, mult)
   plan.N[item] = (plan.N[item] or 0) + rate
   if key then
     plan.drills_on[key] = (plan.drills_on[key] or 0) + n
-    plan.rate_on[key] = (plan.rate_on[key] or 0) + rate
     if count_cover then
       local _, cov = Ca.comb(d)
       plan.cover[key] = (plan.cover[key] or 0) + n * cov
@@ -1144,8 +1138,8 @@ end
 
 local function new_plan(ctx)
   local D = ctx.D
-  local plan = { N = {}, cons = {}, cons_by = {}, cons_at = {}, burn = 0, cover = {}, opened = {}, dead = {},
-    drills_on = {}, rate_on = {}, labs = 0, lab_cap = 0, kw_used = 0, kw_have = 0, amorce_left = 0, taken = {}, K = 0, hand = {},
+  local plan = { N = {}, cons = {}, cons_by = {}, burn = 0, cover = {}, opened = {}, dead = {},
+    drills_on = {}, labs = 0, lab_cap = 0, kw_used = 0, kw_have = 0, amorce_left = 0, taken = {}, K = 0, hand = {},
     -- lot VIDEO-L13 : posé NOMINAL de tous les états (P débit, NP nombre) et ordres ouverts (O, NO), par objet
     P = {}, NP = {}, O = {}, NO = {} }
   -- La MAIN n'est pas du capital (consigne du DC : « ils craftent beaucoup à la main ») : elle nourrit les machines
@@ -1620,12 +1614,9 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
     local op = n * fuel * ctx.fuel_mu
     local sr, sm = Ca.smelt_of(ctx, f, item)
     if sr then
-      -- Fours sur place dimensionnés par GISEMENT : débit total de ses foreuses (posées, ouvertes, décidées, plus cet
-      -- ordre) moins ce que ses fours mangent déjà.
-      local k_in = Ca.in_per_min(sm, sr, item)
-      local total = (plan.rate_on[key] or 0) + n * rho
-      local eaten = (plan.cons_at[key] or {})[item] or 0
-      local nf = Ca.fed_max(total, eaten, k_in)
+      -- Fours de l'ordre : ceux de SON débit, comme les modules que l'exécutant pose (lot CAPI-RETOUR : dimensionnés sur tout le gisement
+      -- moins les fours posés SUR lui, ils recomptaient à chaque ordre la fonte des foreuses déjà posées, faite par la fonderie déportée).
+      local nf = Ca.fed_max(n * rho, 0, Ca.in_per_min(sm, sr, item))
       if nf > 0 then
         o.smelt_n, o.smelt_recipe, o.smelt_entity = nf, sr.name, sm.name
         items[#items + 1] = { sm.item, nf }

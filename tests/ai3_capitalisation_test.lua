@@ -582,8 +582,9 @@ local function s3()
   local ox2 = find(rx2, "fours:stone-brick")
   check(ox2 and ox2.n == 5, "§3 X12 : 100 briques/min et 100 pierres réservées : 5 fours de briques, pas 8 ("
     .. tostring(ox2 and ox2.n) .. ")")
-  -- X2 : fonte sur place, une suite de petits ordres (une foreuse par cycle, posée aussitôt) : les fours de l'avant-poste
-  -- suivent le débit TOTAL de ses foreuses (9 fours pour 180 minerais/min), sans entassement.
+  -- X2 : fonte sur place, une suite de petits ordres (une foreuse par cycle, posée aussitôt), sans entassement. Lot CAPI-RETOUR : les fours
+  -- d'un ordre sont ceux de SON débit (1 four pour 30 minerais/min), comme les modules que l'exécutant pose ; dimensionnés sur tout le
+  -- gisement (9 fours pour 180/min), ils recomptaient la fonte des foreuses déjà posées, faite par la fonderie déportée hors du minerai.
   local Dv = D
   local drills, furn, viol = 0, 0, 0
   for c = 1, 6 do
@@ -602,7 +603,7 @@ local function s3()
     end
     if furn * 18.75 > drills * 30 + 1e-9 then viol = viol + 1 end
   end
-  check(drills == 6 and furn == 9 and viol == 0, string.format("§3 X2 fonte sur place : %d foreuses, %d fours (9 attendus), %d entassement(s) refusé(s)",
+  check(drills == 6 and furn == 6 and viol == 0, string.format("§3 X2 fonte sur place : %d foreuses, %d fours (6 attendus), %d entassement(s) refusé(s)",
     drills, furn, viol))
   say(string.format("§3 fours : 300/min et 10 posés -> +%d ; 100 et 200 plaques/min -> %d et %d ; briques %d puis %d",
     o2 and o2.n or 0, o6 and o6.n or 0, o6b and o6b.n or 0, ox and ox.n or 0, ox2 and ox2.n or 0))
