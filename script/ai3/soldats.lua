@@ -28,6 +28,7 @@ local Re = require("shared.ai3.reaction")
 local Sd = require("shared.ai3.soldats")
 local C = require("script.ai3.comportement")
 local Nt = require("shared.ai3.nettoyage") -- lot NETTOYAGE-SITE : priorité au site proche (Nt.filter_threats)
+local Mn = require("script.ai3.menace") -- lot FIX-P5 : unité ennemie la plus proche (menace sur le QG)
 local Nts = require("script.ai3.nettoyage") -- lot NETTOYAGE-SITE : opération de nettoyage du site proche bloqué
 
 local SD = {}
@@ -323,8 +324,8 @@ end
 
 --- Menace sur le QG (C7) : l'ennemi militaire le plus proche à moins de HQ_THREAT_R tuiles ; réponse de l'équipe (shelter).
 local function hq_threat(f, t, surface, tick)
-  local en = surface.find_nearest_enemy({ position = f.hq_pos, max_distance = SD.HQ_THREAT_R, force = f.force })
-  if not (en and (en.type == "unit" or en.type == "character")) then return end
+  local en = Mn.nearest_unit(surface, f.force, f.hq_pos, SD.HQ_THREAT_R) -- lot FIX-P5 : une UNITÉ, pas un ver ou un nid plus proche
+  if not en then return end
   local threat = { x = en.position.x, y = en.position.y }
   -- Force ennemie PESÉE autour de la menace (même mesure que le regard : moyen déchiqueteur = 1).
   local force = 0
@@ -819,8 +820,8 @@ Events.on_nth_tick(120, function(e)
   if not C.enabled() then return end
   local f = State.faction("player")
   if not (f and f.hq and f.hq.valid and f.hq_pos) then return end
-  local en = f.hq.surface.find_nearest_enemy({ position = f.hq_pos, max_distance = SD.HQ_THREAT_R, force = f.force })
-  if en and (en.type == "unit" or en.type == "character") then
+  local en = Mn.nearest_unit(f.hq.surface, f.force, f.hq_pos, SD.HQ_THREAT_R) -- lot FIX-P5 : une UNITÉ, pas un ver ou un nid
+  if en then
     -- Lot CORR-RALLIEMENT : profils d'attaque du groupe (même recherche que hq_threat) : pas de refuge sous une tourelle débordée.
     local seen_foes = { en }
     for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = en.position, radius = 16, force = en.force,

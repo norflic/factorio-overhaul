@@ -50,7 +50,16 @@ end
 
 local function on_damaged(e)
   local ent = e.entity
-  if not (ent and ent.valid) or e.final_health <= 0 then return end
+  if not (ent and ent.valid) then return end
+  if e.final_health <= 0 then
+    -- Lot FIX-P5 (faille 3) : coup mortel : la pièce est laissée à la reconstruction, mais son entrée quitte le relevé (sinon le
+    -- quota Rp.PENDING_MAX se remplit de pièces mortes).
+    local u = ent.unit_number
+    local fd = u and team_of(ent.force.name)
+    local sd = fd and fd.repare
+    if sd and sd.ents[u] then Rp.drop(sd, u) end
+    return
+  end
   local etype = ent.type
   -- Lot PERF4 : tourelles et infrastructure électrique notées dans l'ensemble des endommagées (script/team/abimes.lua), avant
   -- tout le reste (le réglage Rp.ENABLED ne concerne que ce lot-ci). Une seule lecture du type pour les deux.
@@ -215,6 +224,29 @@ function Rep.think(f, surface, tick)
     return 0
   end
   local task = Rp.task(batch)
+  -- Lot FIX-P5 (faille 4) : tâche retirée sans preneur et rouverte à l'identique : rouvertures comptées par pièce ; au-delà de
+  -- Rp.REOPEN_MAX, les pièces du lot repartent pour Rp.CALM ticks (journal), au lieu d'une boucle sans fin toutes les 5 s.
+  if st.last_key == task.key then
+    local worn = false
+    for _, c in ipairs(batch) do
+      local en = st.ents[c.unit]
+      if en then
+        en.ro = (en.ro or 0) + 1
+        if en.ro > Rp.REOPEN_MAX then worn = true end
+      end
+    end
+    if worn then
+      for _, c in ipairs(batch) do
+        local en = st.ents[c.unit]
+        if en then en.t, en.ro = tick, 0 end
+      end
+      st.last_key = nil
+      st.stats.deferred = st.stats.deferred + 1
+      say(f, st, string.format("[FO-REPARE] %s : reparation de %s en (%.1f, %.1f) reportee a %.1f min : %d reouvertures sans preneur",
+        key_of(f), seed.name, seed.x, seed.y, minutes(f, tick), Rp.REOPEN_MAX + 1))
+      return 0
+    end
+  end
   local n = Board.add(f, { task }, tick)
   if n > 0 then
     -- Une tâche libre est retirée par Board.sync à la pensée suivante puis rouverte ici : même clé, ni compte ni ligne de plus.

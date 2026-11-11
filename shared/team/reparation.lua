@@ -30,6 +30,7 @@ Rp.ENABLED = true
 Rp.COST = "gratuit"       -- Q12, option par défaut : aucun paquet de réparation consommé
 -- Entités endommagées gardées par équipe et par classe (des murs criblés ne prennent pas la place des laboratoires).
 Rp.PENDING_MAX = { production = 200, energie = 100, defense = 150, logistique = 150 }
+Rp.REOPEN_MAX = 3          -- lot FIX-P5 : rouvertures sans preneur d'une même tâche avant un report de Rp.CALM
 Rp.CALM = 600             -- 10 s sans coup reçu avant de réparer (attaque locale finie)
 Rp.ATTACK_RADIUS = 24     -- tuiles : une voisine touchée depuis moins de Rp.CALM ticks marque une attaque locale
 Rp.BATCH_RADIUS = 12      -- tuiles : un voyage répare les voisines de la pièce choisie
