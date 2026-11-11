@@ -1,0 +1,37 @@
+{
+ "fichiers": {
+  "icones/fo-copper-plate-r8.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "8537cb950c301b5de4ff6e3b4c1c5c4ba52259bcc6ab831c20c6304a1efaa5fb"
+  },
+  "icones/fo-iron-plate-r8.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "b4d1184137cbd50a5b225466f005d4bb7a0b5a10787fede26a6f07729bc5f8ab"
+  },
+  "icones/fo-magnetic-steel.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "12b0f10d46b660165ebd30340aaf20caed83dbdae85881cd724b64571205bb97"
+  },
+  "icones/fo-titanium-plate.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "2d2205a206ade81dc477a71e18ba037b179d7c8308cce100071cdf1caa30a4d4"
+  },
+  "icones/fo-tungsten-plate-r8.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "fa881b0c87982521467a5ecb41766625f297ae76f95fddb57c853b0a30bd209c"
+  }
+ },
+ "outil": "tools/render/pieces/metaux/icones.py",
+ "samples": 64,
+ "version": 1
+}

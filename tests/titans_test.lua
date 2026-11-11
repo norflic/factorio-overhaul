@@ -322,7 +322,11 @@ if okspr then
     for st = 1, T.STAGES do cles[#cles + 1] = tostring(st) end
     if r.drones then cles[#cles + 1] = "drone" end
     local A = SPR[r.id]
-    check((A and A.anime == true) == (r.anime ~= nil), "§3 " .. r.id .. " : feuilles animées si et seulement si la règle dit `anime`")
+    if r.segmente then
+      cles = r.drones and { "drone" } or {}   -- LEVIATHAN-SEG : la tête et les pièces ont leurs propres feuilles (bloc « articulé » ci-dessous)
+    else
+      check((A and A.anime == true) == (r.anime ~= nil), "§3 " .. r.id .. " : feuilles animées si et seulement si la règle dit `anime`")
+    end
     for _, st in ipairs(cles) do
       local e = A and A[st]
       check(e ~= nil, "§3 " .. r.id .. " : feuille du stade " .. st)
@@ -350,6 +354,57 @@ if okspr then
           verifie(r.id .. " " .. st, c.lr.filename, c.lr.width, c.lr.height)
         end
         check(#e.lueurs >= 1 and e.icone and e.icone.size == 64, "§3 " .. r.id .. " " .. st .. " : lueur fondue et icône")
+      end
+    end
+  end
+  -- LEVIATHAN-SEG (11/11) : titan ARTICULÉ : tête animée (n directions, images = règle), pièces fixes (segment, queue : une image par
+  -- direction et par couche), icône du titan entier ; feuilles dans graphics/robots/titans/<archétype>/ (sprites.lua, MANIFEST.json)
+  for _, r in ipairs(T.ALLIES) do
+    if r.segmente then
+      local base = "graphics/robots/titans/" .. r.id .. "/"
+      local okg, G = pcall(dofile, base .. "sprites.lua")
+      check(okg and type(G) == "table", "§3 " .. r.id .. " articulé : sprites.lua lisible (sinon : py -3.9 tools/render/pieces/titans/feuilles_leviathan.py)")
+      local MS = {}
+      local okm, txt = pcall(read, base .. "MANIFEST.json")
+      if okm then for n in txt:gmatch('"([%w%-_%.]+%.png)"') do MS[n] = true end end
+      local function v2(what, d, w, h)
+        local pth = fichier(d)
+        local pw, ph = png_size(pth)
+        check(pw == w and ph == h, "§3 " .. what .. " : PNG présent, " .. tostring(pw) .. " × " .. tostring(ph) .. " = sprites.lua (" .. w .. " × " .. h .. ")")
+        check(MS[pth:match("([^/]+)$")] == true, "§3 MANIFEST (" .. r.id .. ") cite " .. pth:match("([^/]+)$"))
+      end
+      local nd = r.segmente.directions
+      local function couches(qui, a, n_images)
+        for _, nomc in ipairs({ "main", "glow", "shadow" }) do
+          local c = a.couches[nomc]
+          check(#c.hr == nd and #c.lr == nd and c.ll * c.lpf == n_images and c.dens > 0 and c.dens <= a.densite,
+            "§3 " .. qui .. " " .. nomc .. " : un fichier par direction (" .. nd .. "), grille exacte, densité")
+          check(c.w * c.ll <= 4096 and c.h * c.lpf <= 4096, "§3 " .. qui .. " " .. nomc .. " : feuille ≤ 4 096 px")
+          for k = 1, nd do
+            v2(qui .. " " .. nomc .. " " .. k, c.hr[k], c.w * c.ll, c.h * c.lpf)
+            v2(qui .. " " .. nomc .. " " .. k, c.lr[k], c.lw * c.ll, c.lh * c.lpf)
+          end
+        end
+      end
+      if okg then
+        check(G.tete and G.tete.anime == true and G.tete.directions == nd and r.anime.directions == nd and math.abs(G.tete.foulee - r.anime.foulee) < 1e-6,
+          "§3 " .. r.id .. " articulé : tête animée en " .. nd .. " directions, foulée = règle")
+        for st = 1, T.STAGES do
+          local e = G.tete[tostring(st)]
+          check(e and e.course and e.attaque and e.course.images == r.anime.images.course and e.attaque.images == r.anime.images.attaque,
+            "§3 " .. r.id .. " articulé " .. st .. " : tête, images de marche et de salve = règle")
+          if e and e.course then
+            couches(r.id .. " tête " .. st .. " course", e.course, r.anime.images.course)
+            couches(r.id .. " tête " .. st .. " attaque", e.attaque, r.anime.images.attaque)
+            check(e.icone and e.icone.size == 64 and png_size(fichier(e.icone.filename)) == 64, "§3 " .. r.id .. " articulé " .. st .. " : icône du titan entier (64 px)")
+          end
+          for _, piece in ipairs(r.segmente.pieces) do
+            local P = G[piece]
+            local a = P and P[tostring(st)] and P[tostring(st)].pose
+            check(P and P.directions == nd and a and a.images == 1, "§3 " .. r.id .. " " .. piece .. " " .. st .. " : pièce fixe, une image par direction")
+            if a then couches(r.id .. " " .. piece .. " " .. st, a, 1) end
+          end
+        end
       end
     end
   end
@@ -478,7 +533,7 @@ do
   -- F507 (ART-16DIR, banc titans-marche 11/11 : orientation = 0,000 et torse = 0,375 sur 252 relevés en marche dans 8 directions, corps
   -- toujours dessiné au nord) : sur un spider-vehicle, seul le TORSE suit la marche ; le prototype le laisse tourner (vitesse du torse de
   -- l'araignée vanilla) et le script dessine le corps dans sa direction, jamais dans `orientation`
-  check(scr:find("T.direction(e.torso_orientation, r.anime.directions)", 1, true) ~= nil and not scr:find("e%.orientation%f[^%w_]"),
+  check(scr:find("T.direction(g.e.torso_orientation, r.anime.directions)", 1, true) ~= nil and not scr:find("e%.orientation%f[^%w_]"),
     "§5 script : direction du corps = torse du spider-vehicle (F507), jamais LuaEntity.orientation (toujours 0 en marche)")
   check(proto:find('torso_rotation_speed = ARAIGNEE.torso_rotation_speed', 1, true) ~= nil and proto:find('data.raw["spider-vehicle"]["spidertron"]', 1, true) ~= nil
     and not proto:find("torso_rotation_speed = 0[,%s]"), "§5 prototypes : le torse des titans tourne (vitesse du torse de l'araignée vanilla, F507)")
@@ -588,6 +643,9 @@ local function refuse(T2)
       local a = c[1].anime
       assert(a and a.images.course == c[2].course and a.images.attaque == c[2].attaque and math.abs(a.foulee - c[3]) < 1e-6, "animation de " .. c[1].id .. " = SERIE du modèle")
     end
+    -- LEVIATHAN-SEG : le Léviathan est articulé, tête et pièces dans les directions des feuilles (SERIE du modèle)
+    local sg = T2.LEVIATHAN.segmente
+    assert(sg and sg.n >= 2 and sg.directions == SERIE_LE.dirs and T2.LEVIATHAN.anime.directions == sg.directions, "Léviathan articulé, directions = SERIE")
     for _, kk in ipairs(T2.KAIJUS) do
       local c = T2.kaiju_curve(T2.ERAS, kk)
       assert(c[1][1] < c[2][1] and c[2][1] < c[3][1], "courbe de nid strictement croissante (" .. kk.id .. ")")
@@ -619,7 +677,6 @@ local MUTANTS = {
   { "Juggernaut à 8 directions", "foulee = 6.9, attaque_ticks = 30, directions = 16 }", "foulee = 6.9, attaque_ticks = 30, directions = 8 }" },
   { "Sentinelle à 8 directions", "foulee = 6.0, attaque_ticks = 30, directions = 16 }", "foulee = 6.0, attaque_ticks = 30, directions = 8 }" },
   { "Ravageur à 8 directions", "foulee = 4.472, attaque_ticks = 30, directions = 16 }", "foulee = 4.472, attaque_ticks = 30, directions = 8 }" },
-  { "Léviathan à 16 directions sans feuilles", "foulee = 9.0, attaque_ticks = 30, directions = 8 }", "foulee = 9.0, attaque_ticks = 30, directions = 16 }" },
   { "vitesse d'animation sans la foulée", "return speed * images / foulee", "return speed * images" },
   { "images de course écrites en dur fausses", "images = { course = 8, attaque = 4 }", "images = { course = 4, attaque = 4 }" },
   { "foulée écrite en dur fausse", "foulee = 6.9, attaque_ticks = 30", "foulee = 4, attaque_ticks = 30" },
@@ -644,9 +701,12 @@ local MUTANTS = {
   { "Sentinelle sans corps animé", "anime = { images = { course = 8, attaque = 4 }, foulee = 6.0, attaque_ticks = 30, directions = 16 }", "anime = nil" },
   { "foulée de la Sentinelle fausse", "foulee = 6.0, attaque_ticks = 30", "foulee = 4.0, attaque_ticks = 30" },
   { "salve de la Sentinelle à 2 images", "attaque = 4 }, foulee = 6.0", "attaque = 2 }, foulee = 6.0" },
-  { "Léviathan sans corps animé", "anime = { images = { course = 8, attaque = 4 }, foulee = 9.0, attaque_ticks = 30, directions = 8 }", "anime = nil" },
-  { "foulée du Léviathan fausse", "foulee = 9.0, attaque_ticks = 30", "foulee = 6.9, attaque_ticks = 30" },
-  { "nage du Léviathan à 6 images", "course = 8, attaque = 4 }, foulee = 9.0", "course = 6, attaque = 4 }, foulee = 9.0" },
+  { "Léviathan sans corps animé", "anime = { images = { course = 4, attaque = 4 }, foulee = 4.5, attaque_ticks = 30, directions = 16 }", "anime = nil" },
+  { "foulée du Léviathan fausse", "foulee = 4.5, attaque_ticks = 30", "foulee = 6.9, attaque_ticks = 30" },
+  { "marche de la tête du Léviathan à 6 images", "course = 4, attaque = 4 }, foulee = 4.5", "course = 6, attaque = 4 }, foulee = 4.5" },
+  -- LEVIATHAN-SEG (11/11)
+  { "Léviathan d'un seul tenant (non articulé)", "segmente = { n = 4,", "segmente_ = { n = 4," },
+  { "tête du Léviathan en 8 directions", "attaque_ticks = 30, directions = 16 }", "attaque_ticks = 30, directions = 8 }" },
 }
 local T0 = charger(SRC, nil)
 T0.__src = SRC

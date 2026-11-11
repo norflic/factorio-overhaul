@@ -4322,870 +4322,6 @@
    "sha256": "f55e56b3560d17a9d725996ed8ea9493b72946b06801eab0fdeabc65bae45d9d",
    "taille": 141056
   },
-  "hr-leviathan-1-attaque-glow-0.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "cb26064bddf903c2a45952a17b1f7538627428c8701b62cdb697b6d020f1749d",
-   "taille": 226818
-  },
-  "hr-leviathan-1-attaque-glow-1.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "80c0fd385aaeb35a92ebbe38f4fcc10e06728c5e15cad7a1f2bf881f82ef97be",
-   "taille": 224088
-  },
-  "hr-leviathan-1-attaque-glow-2.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "205a1184c9f4ec65ae0ddade5b3f312c54562414f36ccb0e8f8caab9d40466f9",
-   "taille": 229467
-  },
-  "hr-leviathan-1-attaque-glow-3.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "b0180dac11e2a97e26ee3cc7457dede3ea7606297f98a971bff092a716df71b1",
-   "taille": 221734
-  },
-  "hr-leviathan-1-attaque-glow-4.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "9c7db0c48f58a7060c8c4f21fb90313cd35ee018e3341d53e074d0f2d69cb5cf",
-   "taille": 216035
-  },
-  "hr-leviathan-1-attaque-glow-5.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "7a0f0c04d383a22b3024a962af5bebb094ade65565014bd009027a6cc06da829",
-   "taille": 228787
-  },
-  "hr-leviathan-1-attaque-glow-6.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "1e9a7cca558e80ba8c2f20755a2e56e42c213c10bc9f0efa773ae0b4863173a1",
-   "taille": 239959
-  },
-  "hr-leviathan-1-attaque-glow-7.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "27663f124954637cd44aea1e772a9805e56224a71c3df0a9414637df248b223d",
-   "taille": 236470
-  },
-  "hr-leviathan-1-attaque-main-0.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "b5c20f7d64a0f3a876f1202d74d0b0ed0c27231327b0c71f6f2d242ea1e1086c",
-   "taille": 385364
-  },
-  "hr-leviathan-1-attaque-main-1.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "8526affda04c432e19efb98328e64a98e87faf5f4ed6fb7bfeac27f3347e28ea",
-   "taille": 371661
-  },
-  "hr-leviathan-1-attaque-main-2.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "0e98b9cead3db425c3fb3f4ab9117c816f1cf67d40893abcc79044f3ecdc88e1",
-   "taille": 385263
-  },
-  "hr-leviathan-1-attaque-main-3.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "672ad636a99729391b0d99d2eead3de046768088aba68f9e50474ef113be6125",
-   "taille": 410578
-  },
-  "hr-leviathan-1-attaque-main-4.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "68a31b0a34d5619e25b59f68cb65d33c1d2275440ca0259d2e2598c7918e0482",
-   "taille": 393170
-  },
-  "hr-leviathan-1-attaque-main-5.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "63f104c07184e1e5934294c5815011190b8b00e1ab8f7d2c044ddfa141067f07",
-   "taille": 420207
-  },
-  "hr-leviathan-1-attaque-main-6.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "a91ed2c8e2514925cd567bc164fb2b93bfe4bf077ce66166282e02255be3c1e9",
-   "taille": 409027
-  },
-  "hr-leviathan-1-attaque-main-7.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "934f665e3acec222ae8de398070560c67239d38e4fee0798233b268948557ee9",
-   "taille": 419877
-  },
-  "hr-leviathan-1-attaque-shadow-0.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "99beced846cb1ed3b71d9b259f8875c25da9229675004e896a7e6119c88dbe9a",
-   "taille": 34437
-  },
-  "hr-leviathan-1-attaque-shadow-1.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "bb1b50b07764b4bcff993e44a5e2e5cc3905e93ac9195b8fa096cc4cb70bb408",
-   "taille": 36473
-  },
-  "hr-leviathan-1-attaque-shadow-2.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "59e1327e1342582f9ffa421b45c5355d36f549e321afd4a4c70f1298f9fdc4ce",
-   "taille": 37526
-  },
-  "hr-leviathan-1-attaque-shadow-3.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "49443ae93da917d55b1df649291db909cee0e4aa684c43ffc8154478bac77153",
-   "taille": 34728
-  },
-  "hr-leviathan-1-attaque-shadow-4.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "d3f46ec00cc43da81c9a3cd6524f4383c7ff1fe820378c70488a8af73870ff82",
-   "taille": 33742
-  },
-  "hr-leviathan-1-attaque-shadow-5.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "81f265df87fa7b1708470386ab0c7b89c813b21f96b14955966ced550ee98bc6",
-   "taille": 36458
-  },
-  "hr-leviathan-1-attaque-shadow-6.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "24a6b1e03ecd08232dcb3ee206835d2fd2d84d275d6fa4913551b7944d57c4e9",
-   "taille": 37870
-  },
-  "hr-leviathan-1-attaque-shadow-7.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "c7386cbd92cc9eb6b6920dad227833ee124d1e8c1da054ede6df648ab5e87f45",
-   "taille": 34556
-  },
-  "hr-leviathan-1-course-glow-0.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "fb3a0ae9c214323a4eaa26761be1e4c4538f0c4d3803dcb3a0c7bb04de00b895",
-   "taille": 428561
-  },
-  "hr-leviathan-1-course-glow-1.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "025031835a4b0eac9506914b9cad733e02b38c94da638bde40818f0b4773508d",
-   "taille": 461283
-  },
-  "hr-leviathan-1-course-glow-2.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "cdb3d8f9e36a4789c8cf4b5c7e2f31c23ef8aae36dcb8aff5929f3e40c94502e",
-   "taille": 505401
-  },
-  "hr-leviathan-1-course-glow-3.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "9bf26ef28e0a5371b39208320a1d951949d3cbbb290712142e9d54f7ef8d6d7d",
-   "taille": 486678
-  },
-  "hr-leviathan-1-course-glow-4.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "86a0795a06986282e9156b104dc31bde821444ceee30a5198eb3d0d1c8e2e67c",
-   "taille": 467164
-  },
-  "hr-leviathan-1-course-glow-5.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "0a23d71ba0864069c96c44ca8872b946c5133b532955584f64cca88db5f2f654",
-   "taille": 494078
-  },
-  "hr-leviathan-1-course-glow-6.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "d24fea8861d8976b4524afae158b8eac8816cbd398bc86f35fa1500751c74479",
-   "taille": 491623
-  },
-  "hr-leviathan-1-course-glow-7.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "9f733a04c90fafcdb5c2a45ddc74096ece3d1632db1a1558d807d6679d7863db",
-   "taille": 457685
-  },
-  "hr-leviathan-1-course-main-0.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "d709fda1c788522715d1d10f01be66a23767ff165710ab8b1feb0e12d53962fe",
-   "taille": 769466
-  },
-  "hr-leviathan-1-course-main-1.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "4bf8a948f97b4a783e49cc1085c76b3c8bb330c8a0130bc1588f8151c853c0b3",
-   "taille": 782181
-  },
-  "hr-leviathan-1-course-main-2.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "ae644c2992f2ad1530ee3cf12b2d980b7c738d52302743dd0c0546b5172d6814",
-   "taille": 825879
-  },
-  "hr-leviathan-1-course-main-3.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "2fe0590d63f696c4aac7b589e2284404a96b2538a42dc8a5a3cf50f4958cf102",
-   "taille": 788291
-  },
-  "hr-leviathan-1-course-main-4.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "f06ec1d1e0aba5290bcd0fdd6a7ff7871657d3c8919191557ae976f664b34d1d",
-   "taille": 759776
-  },
-  "hr-leviathan-1-course-main-5.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "12732d4c7c173ba69a178000042a1e7fccdf7214767a75d7c7cdda1c8246d8a9",
-   "taille": 791882
-  },
-  "hr-leviathan-1-course-main-6.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "1184c358d0e0a7e7b13f376cb4e970c530acbdd60cf9e1467c7cd9478d08f142",
-   "taille": 839353
-  },
-  "hr-leviathan-1-course-main-7.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "7fc8cc8c72ba94f3b9035cec121f08fbcd89022475b529779f1215e7b0672a53",
-   "taille": 814989
-  },
-  "hr-leviathan-1-course-shadow-0.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "55015ff1c3eedf988bf04068462d6d45380afd396bf33d235cd322e973df8d4a",
-   "taille": 71497
-  },
-  "hr-leviathan-1-course-shadow-1.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "e35842508b634c4d9dd9cb586bbade477c41f1942ef31f50ade2e7f95e43260e",
-   "taille": 77230
-  },
-  "hr-leviathan-1-course-shadow-2.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "c2dd6c81321acf7742bea031fc78e2e39870006cc1e3168ed6a7fa588a8b43bd",
-   "taille": 75880
-  },
-  "hr-leviathan-1-course-shadow-3.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "a0a0af847e60f0c746d4b82fca5bd90d1fc4706e74950da726e76f82fa5e2205",
-   "taille": 69739
-  },
-  "hr-leviathan-1-course-shadow-4.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "6567d78d495ac12a8297ec4807bcb0d2a54a8dcdb4122839226fadd5c8cddab8",
-   "taille": 66671
-  },
-  "hr-leviathan-1-course-shadow-5.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "3b2709465c306f6100967d7d622c32ff4d459d66be08e02293ebe47ef5ff4825",
-   "taille": 72361
-  },
-  "hr-leviathan-1-course-shadow-6.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "e9a93c43743e75a1cd1739b41686e894f95c94918c134818e689220b95132f22",
-   "taille": 74755
-  },
-  "hr-leviathan-1-course-shadow-7.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "74a1af6a26a7dda0701e9036fa94b2ae0d3e3f9733413a051acc21c5a7326daf",
-   "taille": 69216
-  },
-  "hr-leviathan-2-attaque-glow-0.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "ceffc7d829bee27942ff30e7a494409ea7a14a25f11f79e0c55da4ac0438509a",
-   "taille": 330526
-  },
-  "hr-leviathan-2-attaque-glow-1.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "c1dd04344d3d760fd4ebb390b2d1f47ff104d29ada16af203650ca2ac581c633",
-   "taille": 309434
-  },
-  "hr-leviathan-2-attaque-glow-2.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "5f3624f5016f0b3fc30be2b88259786c9e3439372a82d4b3e9a9fdfa32e964fc",
-   "taille": 326436
-  },
-  "hr-leviathan-2-attaque-glow-3.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "731e59097e6e62be577b9fe9b835247f758671f3fdd6256f38956d1bfdccc8bf",
-   "taille": 323403
-  },
-  "hr-leviathan-2-attaque-glow-4.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "380724ea829a47841db7bfdc526159e89606fcbf2068b229893bc245d933ff00",
-   "taille": 303061
-  },
-  "hr-leviathan-2-attaque-glow-5.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "ed527f2825c3e3f8f12717cc6bcf35b43a5ab4f8599d589ec1d10f357d33084c",
-   "taille": 317934
-  },
-  "hr-leviathan-2-attaque-glow-6.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "34d50c823471ce0c2701c260d39f187a206a1681811572d7fc39822984aa0eb1",
-   "taille": 341902
-  },
-  "hr-leviathan-2-attaque-glow-7.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "62547658abfddaa11d1669ecbca54091f3103e4713f45282ed4b1373dbecfbc0",
-   "taille": 342906
-  },
-  "hr-leviathan-2-attaque-main-0.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "37e2f2cb4648d582b8014845b710fe4514051e32fb6cb7108d30a87bf87e1a35",
-   "taille": 441643
-  },
-  "hr-leviathan-2-attaque-main-1.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "e72a6f95996b7fc7e8d205f6766142d6d48d0f4e476bb044a39f8a6846af0cc7",
-   "taille": 419031
-  },
-  "hr-leviathan-2-attaque-main-2.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "9d572a2b48b860a1891ae9be5dc6369f40103495a2741da5ec57cd5a3771c4a0",
-   "taille": 459024
-  },
-  "hr-leviathan-2-attaque-main-3.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "0cb44754df754a7217e42ae084836a2440698c061f539e0ac3ed424d01c3a1bc",
-   "taille": 462437
-  },
-  "hr-leviathan-2-attaque-main-4.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "082de1387ce423ecf807d16b55c1202a2a7f5f6a79dce52f2709f634c2cbe399",
-   "taille": 431219
-  },
-  "hr-leviathan-2-attaque-main-5.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "09c393542ecca8fc8f18f9d70375de2071a8926af9a8fad12fbbf1cf45f59880",
-   "taille": 455396
-  },
-  "hr-leviathan-2-attaque-main-6.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "5888ac17d7dce98f26f4a7589d27e6f2bea28d2ad41c3923db7478bd395c5a6b",
-   "taille": 474560
-  },
-  "hr-leviathan-2-attaque-main-7.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "05895db1befe7aec69c2870aeb2eae653f78fcea9705ca6a7a0a1062cc1924f3",
-   "taille": 480826
-  },
-  "hr-leviathan-2-attaque-shadow-0.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "a569fcded5b65eed3e31b6832ae43dbcb043ba1aa25cbb8032084c3de318a3f3",
-   "taille": 47927
-  },
-  "hr-leviathan-2-attaque-shadow-1.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "6986e556bbaa5d9bce8dfffcfa06828a09f4a54dfcc36abf87251274b0fd95da",
-   "taille": 52031
-  },
-  "hr-leviathan-2-attaque-shadow-2.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "ce0817263616409b7419eb3df1c723abd65128679c3820e752a72d29f76bd2d4",
-   "taille": 51609
-  },
-  "hr-leviathan-2-attaque-shadow-3.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "3b30538db835b0717d2283ac1623f88205d81a62d8cbdb8acea15750a102b383",
-   "taille": 46770
-  },
-  "hr-leviathan-2-attaque-shadow-4.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "a1eb978063d51204fd62350e29960844d16a119ebd03728fba8af7ce96f695b4",
-   "taille": 46515
-  },
-  "hr-leviathan-2-attaque-shadow-5.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "4a5288a37dbd9422481c0657b249d49e68d975dfc694f33427139d92c071deca",
-   "taille": 49183
-  },
-  "hr-leviathan-2-attaque-shadow-6.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "fa34811bbd9ca3f6e073a1fbcfd0a3d0d452e3c043284a73de65446f306e486d",
-   "taille": 47993
-  },
-  "hr-leviathan-2-attaque-shadow-7.png": {
-   "hauteur": 206,
-   "largeur": 1296,
-   "sha256": "e51f9534fd4607fe751c97264f8e66912c8bcca0a4346299d8548850d32669b5",
-   "taille": 45029
-  },
-  "hr-leviathan-2-course-glow-0.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "a29b104a9c3a8ef8543b7f6d8e99d9debd5dc54b6c7aa8ffb74a7608ed55cbd6",
-   "taille": 591973
-  },
-  "hr-leviathan-2-course-glow-1.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "e114c80c3cd4909c765b5603a3e49cf8d4c261e20431900baf7b711e44d4d175",
-   "taille": 613299
-  },
-  "hr-leviathan-2-course-glow-2.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "77d95c769cf723a83e652c02b25be497e05091f5dd7eb6a34d13fd2738ab42cb",
-   "taille": 660023
-  },
-  "hr-leviathan-2-course-glow-3.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "f7b3d1b279da47284460ea61363c5d1671a41f0dc8bedc31fc0458dd19192816",
-   "taille": 640293
-  },
-  "hr-leviathan-2-course-glow-4.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "1d360e49265a02ea961a1be116978324372cf1c660efafbe6b90c74691428559",
-   "taille": 601698
-  },
-  "hr-leviathan-2-course-glow-5.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "c617e563c87658f9bbcf20a51dd570adeb39420e72ce6cff0ae431fcc2ce517a",
-   "taille": 630274
-  },
-  "hr-leviathan-2-course-glow-6.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "28ae0ab4fbc4a038c2d11ef66a0e999c55ea4f5dd3d8918e2f8afb67f555bcd0",
-   "taille": 658409
-  },
-  "hr-leviathan-2-course-glow-7.png": {
-   "hauteur": 796,
-   "largeur": 2104,
-   "sha256": "90aacb7e77a1acd4408776ca8359ca71bd5fd0bd3c71822946fc76e8d3fc95b0",
-   "taille": 624773
-  },
-  "hr-leviathan-2-course-main-0.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "17d0229a80636aa12b10b7663fd0bd4abd79d4637a173e1ec6cfb41afcb1491b",
-   "taille": 823634
-  },
-  "hr-leviathan-2-course-main-1.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "e73cca19cab22a0154ba2c1f6153d3714804715414adcb69215b29ad942b2d57",
-   "taille": 824650
-  },
-  "hr-leviathan-2-course-main-2.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "cc58e9a7802e65427a1057e16c108cf96042a7c87a32cd7c4e646710588a8f5d",
-   "taille": 890799
-  },
-  "hr-leviathan-2-course-main-3.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "680532f2904129b4f92fc2b2ac7d856990a895dbd63ca4e91bd9fd3d4422b0d5",
-   "taille": 854736
-  },
-  "hr-leviathan-2-course-main-4.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "4f89a9c8ff804ce8e14ecafb55c2cc2462d64ab50b5396e10b128504a6e0808f",
-   "taille": 810661
-  },
-  "hr-leviathan-2-course-main-5.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "f0c301d7b1854f9942d11ad561653d0c1be30ec36bfc8ba5c627793b0e594337",
-   "taille": 838479
-  },
-  "hr-leviathan-2-course-main-6.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "d774712064735e48fc77285461868ec90005e198e10b99f5252cd295cc91261c",
-   "taille": 907832
-  },
-  "hr-leviathan-2-course-main-7.png": {
-   "hauteur": 800,
-   "largeur": 2112,
-   "sha256": "ecb91beb8b3959d776a14033a7e361853a3b73ec69aa1f1046faed2de5985054",
-   "taille": 890979
-  },
-  "hr-leviathan-2-course-shadow-0.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "de24fbeece2aac3c1478a38a448cb8b072cbe0df9c3412d3c718fa80f839aeef",
-   "taille": 88036
-  },
-  "hr-leviathan-2-course-shadow-1.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "6c4a5139a4a06e36fdbe5129495f6a689f6fee03851d4bc25e0879fce53d837d",
-   "taille": 96483
-  },
-  "hr-leviathan-2-course-shadow-2.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "ba92b626a5bfb1f4650ca0e4e04bc024188559ad4286859675af0f0a2be3b1c4",
-   "taille": 94862
-  },
-  "hr-leviathan-2-course-shadow-3.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "5cd8a10e22e226cfdef8650d09b2d3abf9a00075a0b6bad175b91690e0730b5f",
-   "taille": 87123
-  },
-  "hr-leviathan-2-course-shadow-4.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "756d3c2a19e4006de48639167aebd1856086be552db5159b16bf42693f7830af",
-   "taille": 83631
-  },
-  "hr-leviathan-2-course-shadow-5.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "66fadb862ebec7a4b0abbff617e7bb3e721e6e8a77e28d5ceba9f8f0cabb57eb",
-   "taille": 89354
-  },
-  "hr-leviathan-2-course-shadow-6.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "534b04d6a77e69640e8d2b923e5ae42feee47d6beddfa47d09c86bcff2c4512a",
-   "taille": 89496
-  },
-  "hr-leviathan-2-course-shadow-7.png": {
-   "hauteur": 188,
-   "largeur": 2208,
-   "sha256": "aa2e1904b8de2cb4b95280cff263482be00c1c85cce613d59ed19ed8c1c142c3",
-   "taille": 80734
-  },
-  "hr-leviathan-3-attaque-glow-0.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "b52665f7c49db89bd5e700e7602e05c81e0ba231310c573794e666504f93211c",
-   "taille": 417247
-  },
-  "hr-leviathan-3-attaque-glow-1.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "ad8009c9955747525a9ab7fcc24cd6204f33692eee590fe13d33b2bbd31611e6",
-   "taille": 384570
-  },
-  "hr-leviathan-3-attaque-glow-2.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "a5254ca2fe93d4ac9273879274689e63067e08f1508b00c648ad116a0fe2c6e2",
-   "taille": 408508
-  },
-  "hr-leviathan-3-attaque-glow-3.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "2a648d8bcc39c9a3412e42c309fa420f64c9ae9d448035999d4ddb8e8f87f152",
-   "taille": 403828
-  },
-  "hr-leviathan-3-attaque-glow-4.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "43b01ec3d50952d74a1479e6d66832800cbd90a3b8c978e9ad7272095a2f7e7f",
-   "taille": 385599
-  },
-  "hr-leviathan-3-attaque-glow-5.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "6d2afa93ac841a3e85473f68b528038adf5f740fdaec775200cfb656a517ce91",
-   "taille": 400503
-  },
-  "hr-leviathan-3-attaque-glow-6.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "dcb67a378193f7ad867134f961477a0bdb594438c3fff5047d90ab7129392c9c",
-   "taille": 433649
-  },
-  "hr-leviathan-3-attaque-glow-7.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "9424a9bde3fcfd483356131df80c2aea5128e192e5fc35841fe8dcf570d280a6",
-   "taille": 440409
-  },
-  "hr-leviathan-3-attaque-main-0.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "5d9326d486f2afd0c01ef608125e78dfd4d502506d9b6763f8956a4d0741fb9f",
-   "taille": 510525
-  },
-  "hr-leviathan-3-attaque-main-1.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "d24f501725d2004ad8b43f29d892c221206a926b674946d2d3b1923adf7686b0",
-   "taille": 476381
-  },
-  "hr-leviathan-3-attaque-main-2.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "e3da995102226f2fedea7061dccfb88a6de498681d86d4534eda5c34ec73181c",
-   "taille": 508389
-  },
-  "hr-leviathan-3-attaque-main-3.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "40492d5d954d73dd44660dc26851ff7a708972787982de29ad3e252f7e628343",
-   "taille": 506895
-  },
-  "hr-leviathan-3-attaque-main-4.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "ce247c5c43a28216dfcbad53b07fd15b001ca4f85a73a8caf76c4534db568db7",
-   "taille": 478622
-  },
-  "hr-leviathan-3-attaque-main-5.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "0289267eff02e17ed05c7bb224a49c031e5249dd35d1ef820ce7290d23cee06b",
-   "taille": 487528
-  },
-  "hr-leviathan-3-attaque-main-6.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "b7695a4c833b52831ffb2932b44d64dfa8d8f7e4e0e17ff5217b28bd9a434c66",
-   "taille": 524734
-  },
-  "hr-leviathan-3-attaque-main-7.png": {
-   "hauteur": 462,
-   "largeur": 2320,
-   "sha256": "e4c040aa34890c6f1c8247a651f8072593d73ea472b846bf5bea7f111c6242eb",
-   "taille": 540714
-  },
-  "hr-leviathan-3-attaque-shadow-0.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "1d91525759e1736d3d5f38af657d80a4486623f70d8183bf32941bcf9998b09b",
-   "taille": 60581
-  },
-  "hr-leviathan-3-attaque-shadow-1.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "e29dd78c961fec747822fbb5120036d5698e9226b004254125ca85402a3f963a",
-   "taille": 67387
-  },
-  "hr-leviathan-3-attaque-shadow-2.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "83834270996efffbe90e7a257868a93817c5d84f4d2f79f2e09df3503844b131",
-   "taille": 65438
-  },
-  "hr-leviathan-3-attaque-shadow-3.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "a83b9e509f4c3e174e899cde798b3962a04199c63f02d63a870f030112c797b3",
-   "taille": 59668
-  },
-  "hr-leviathan-3-attaque-shadow-4.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "3377d1eec3a3236268fc6f457f20e41f9d4496ae673b72bdce1e6b75d35dff22",
-   "taille": 58894
-  },
-  "hr-leviathan-3-attaque-shadow-5.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "4e75daeceaf883d9cdc85b8ad4f7b195302b1d93a151e8886071f51021702309",
-   "taille": 61260
-  },
-  "hr-leviathan-3-attaque-shadow-6.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "0433592ec53fccead03f71fc27d5d9aa1fb2cca07ec19ee1916b82b07ecba554",
-   "taille": 59140
-  },
-  "hr-leviathan-3-attaque-shadow-7.png": {
-   "hauteur": 206,
-   "largeur": 1288,
-   "sha256": "9980f73fc4edef542b3effdb48a6dbfa9d90bcec9b017f399f51532c880ddc17",
-   "taille": 55439
-  },
-  "hr-leviathan-3-course-glow-0.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "2f85cd0b240642faf50b6d50c316dfe6ab83dbab23cdfca718fb72e3d200e956",
-   "taille": 737038
-  },
-  "hr-leviathan-3-course-glow-1.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "96afeb66d46a48511c2127443ffac09ad79a0c8e1c6b62839a9d35f043b8c8f2",
-   "taille": 734974
-  },
-  "hr-leviathan-3-course-glow-2.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "2ca5ca008a343c9db032cb6119091d555d523df2bead2a02ad2f4b8d4ccd79c8",
-   "taille": 796025
-  },
-  "hr-leviathan-3-course-glow-3.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "f0e34d96448010f414cd46c14fe55de84dfa3babfaaa8119ca246512f6a8ef06",
-   "taille": 774260
-  },
-  "hr-leviathan-3-course-glow-4.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "b3f73607c6ed1c93ec59bbddbd09058da8ff6fb3c1b0f4edd7750145f2cf0868",
-   "taille": 734889
-  },
-  "hr-leviathan-3-course-glow-5.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "e101b21985b958134e5d7d4da1bf6a7ed54e0081d03ace987a380d3ea315d2a7",
-   "taille": 767279
-  },
-  "hr-leviathan-3-course-glow-6.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "bd6564126d21ebd78c67aea3084d401acab2d6b4622a2ca7132a5cf6eaa94ef5",
-   "taille": 807643
-  },
-  "hr-leviathan-3-course-glow-7.png": {
-   "hauteur": 804,
-   "largeur": 2104,
-   "sha256": "465e681eed194b829a8440697c1988b8ac610ff446e49edd64fdc617e3fbd69f",
-   "taille": 786404
-  },
-  "hr-leviathan-3-course-main-0.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "84babba0b3623daa670b3e1b12aa0b7f9d17bf691b1c0e4bfd1bf2d9c34e02c5",
-   "taille": 891375
-  },
-  "hr-leviathan-3-course-main-1.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "5a66e09dec8a5def97ce6e12ba7ae670ed6b2e192712824a943ae4f8d170ce56",
-   "taille": 879747
-  },
-  "hr-leviathan-3-course-main-2.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "30fcf06c1d571609204d6200785d5bc146e8bee966eb3031fdec4b5218b4371f",
-   "taille": 949551
-  },
-  "hr-leviathan-3-course-main-3.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "83c3b0e24af6a922742d518ba32faa455ac0a00a8085bd6278a91454123c3fd9",
-   "taille": 913247
-  },
-  "hr-leviathan-3-course-main-4.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "91dba063850d19f2315af057a10e6ac1b3cec9717cb709859e271922eb3f8608",
-   "taille": 874571
-  },
-  "hr-leviathan-3-course-main-5.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "faf67e5019acc2613f5d4c789c69f53b391ec0fe7431928d416c70adb520fe4e",
-   "taille": 884684
-  },
-  "hr-leviathan-3-course-main-6.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "db87c23f5a457ac7c1d797625b70fae6d9ffd5fd91818cabd42a9b9d7a169a7b",
-   "taille": 962239
-  },
-  "hr-leviathan-3-course-main-7.png": {
-   "hauteur": 808,
-   "largeur": 2112,
-   "sha256": "6c2ff7ea2f0556d4cdef7d950122b1fdc568836d90cf30a7c442e0a3d6c7be8e",
-   "taille": 960670
-  },
-  "hr-leviathan-3-course-shadow-0.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "d7c202be1b7bbaf506f5b8ca3ac282fbb4b6e0e8c29a957403928e3b6efa9c72",
-   "taille": 105828
-  },
-  "hr-leviathan-3-course-shadow-1.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "47431dee37014db16ff783f1f253909c5d598a181154b9045961a0f5e405a29d",
-   "taille": 114892
-  },
-  "hr-leviathan-3-course-shadow-2.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "816806b4880916dca5f777c38a351e92950f34a9e51a509153b69f26437f2f15",
-   "taille": 111509
-  },
-  "hr-leviathan-3-course-shadow-3.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "452e9ded0000a6c76507b9e5977fcbc1a7d7e758daeb993cc1dce55f91d98916",
-   "taille": 105455
-  },
-  "hr-leviathan-3-course-shadow-4.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "3b0d1d1e3cf3c9a31db44ed9ce307e74cc43511dd0f4426a842853c24d7be37d",
-   "taille": 103746
-  },
-  "hr-leviathan-3-course-shadow-5.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "5482014f7e0c81a80da06a6a7bfde6ec12f35a580f48e12908958934229592c1",
-   "taille": 105077
-  },
-  "hr-leviathan-3-course-shadow-6.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "0c7bce37786a713a71d61b3fdce5ca766546d69703f39362c9ff455604dd3b68",
-   "taille": 103097
-  },
-  "hr-leviathan-3-course-shadow-7.png": {
-   "hauteur": 188,
-   "largeur": 2224,
-   "sha256": "658d8a34089241deb39609444715e2592f7c2ae0392cac42275c14be491bedc5",
-   "taille": 94873
-  },
   "hr-leviathan-drone-lueur.png": {
    "hauteur": 71,
    "largeur": 102,
@@ -5205,100 +4341,100 @@
    "taille": 13885
   },
   "hr-ravageur-1-attaque-glow-0.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "0069fd4f2d1a5b7b701657adf9bd83293d0fd636514de639cd4b406d0c7b53fb",
-   "taille": 24755
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "b34a0db9ddf4d1a4988df1cb18d9e026e60d189a0d49e67cfe62b42641dbcf18",
+   "taille": 7811
   },
   "hr-ravageur-1-attaque-glow-1.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "f5353fbadaa235783cadc006b3032ae3e2c5d23584d2402a3a6a4d950f3940a4",
-   "taille": 23459
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "872de14e161a6d19f1c8c3d8324d2072b716a7cc84c7be8970b9b5df3f227406",
+   "taille": 7601
   },
   "hr-ravageur-1-attaque-glow-10.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "04bedd7ea7c02e161925820a13528008eaf49dcc4f1bc2a1026d899a9a2abefd",
-   "taille": 37800
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "d99f2c49c292f5268897b7e9c673b31eb8a0575d2b5d25777f1026b90e573fe6",
+   "taille": 12943
   },
   "hr-ravageur-1-attaque-glow-11.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "f7951e6dd720548081d29c2a5fb3992d0eec883ede7e83b5b38b4bc6c1495d50",
-   "taille": 36481
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "571d53b29d3f6dc61e2c18bbe39a98f4042f97bef2bf913557f4922e3fe5ff58",
+   "taille": 12570
   },
   "hr-ravageur-1-attaque-glow-12.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "aff605819830e0db250667e8839e547c95ee2cc72b49ba4c8077e7d4819dfc64",
-   "taille": 31558
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "3667219ccc25180222ab6d929cd077dd2304f0aaf1b8b643129d64e4106b50c0",
+   "taille": 11070
   },
   "hr-ravageur-1-attaque-glow-13.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "24e51afa4fb10ea09993ad8a0beb26ae80eaf1ac44c6910d203806fd5fbb59c4",
-   "taille": 31675
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "8b867b14b7a81dc07cb04736b4b6d17645e73569be86ba65af3aaf0739f06b45",
+   "taille": 10975
   },
   "hr-ravageur-1-attaque-glow-14.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "044211699b7e56fea2359dd8cabfd63c6cdab7b1fedfaa7fb51cdebee1a38856",
-   "taille": 30482
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "2f23a2a2113778ee6813141b6c9eceb8e10cd2aba097a8eafa1ca0258cafa9e8",
+   "taille": 10244
   },
   "hr-ravageur-1-attaque-glow-15.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "5f2e2538663e702ecc4a83584692200ec8ac12f5ff16b5558802ef846173ab89",
-   "taille": 28566
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "ddb71f979a1006f01d48d846cb3612c80ea777ec837e5d5f5b0def931fa01540",
+   "taille": 9310
   },
   "hr-ravageur-1-attaque-glow-2.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "65322fe5ad42ca67d1119d1935a02c09a169fe8bbc79add6a92396bd6eb65828",
-   "taille": 23143
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "0d2e115e64882a50d813eccfdae678de3956b556294bcf26f6d61a4a633d3854",
+   "taille": 7463
   },
   "hr-ravageur-1-attaque-glow-3.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "7a102515a2e3215eb948e424e421f390d6eba4d786c827607cc27e3e59db4013",
-   "taille": 25577
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "b8cd8c553f5af29eb542a388dd368cc0ced3f3ecf655d4e4a8355613bcc3cd6c",
+   "taille": 8376
   },
   "hr-ravageur-1-attaque-glow-4.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "6d3eeb3721f055f8800c4f99783a1aa3b02f7b55e8620372b3a416e99c22db88",
-   "taille": 27086
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "43a2e09ad17e89f190599cd00aaacf9c91a509a0453e67898d7f9f31f2f0e3b0",
+   "taille": 9411
   },
   "hr-ravageur-1-attaque-glow-5.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "a8bbc3620a529186f9743e9f602e29b0de25a5c5a8e5800e9214d64dcec2c0df",
-   "taille": 32128
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "2ad6e65b7640286a5445d2c50b815ec4d71c1c34023ca7b5f17a43692f42605e",
+   "taille": 11410
   },
   "hr-ravageur-1-attaque-glow-6.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "716dc11299eda6f431fd34a765310652587e268c2ba22b39169c8e89474f7dcb",
-   "taille": 36732
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "fb442e3c24a7b2b3bf964110d60e724dcc0cc84be2773f9f2ac0968555758400",
+   "taille": 12859
   },
   "hr-ravageur-1-attaque-glow-7.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "614db01cff6182454ac722d083d73c8e50cd8565457ab0cef6fa5cc9df5cbf5e",
-   "taille": 38983
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "f373e69da9fd9d51b9a6da7424dce61419f6d87a483de92a208693847c9c2536",
+   "taille": 13915
   },
   "hr-ravageur-1-attaque-glow-8.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "34305e3cd49415932590d72cf99f4d34722d7f264c4c071332235f42975dad34",
-   "taille": 38992
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "a6b4652e239e0304aae6709a45b34254cd698dafb47c8e3cf52b9b8e8db7a5b8",
+   "taille": 14028
   },
   "hr-ravageur-1-attaque-glow-9.png": {
-   "hauteur": 182,
-   "largeur": 848,
-   "sha256": "01047f7dfeee9e5c4a848d70528415ed6d4a835a78cdf89c4433712ea4234975",
-   "taille": 39426
+   "hauteur": 92,
+   "largeur": 424,
+   "sha256": "90bc6df33b7bde555affb1f86458e3d238f8000581456d477c48d13d811005e9",
+   "taille": 13755
   },
   "hr-ravageur-1-attaque-main-0.png": {
    "hauteur": 438,
@@ -5493,100 +4629,100 @@
    "taille": 7972
   },
   "hr-ravageur-1-course-glow-0.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "e05580410908de1018058107bac5c6f7223bb9ec996ee36959f6b0598188e96c",
-   "taille": 55381
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "8ad6202ca6fafa10fb18ffd856692d2d7a51932f1ed9f4602da09d74917b2bc0",
+   "taille": 17605
   },
   "hr-ravageur-1-course-glow-1.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "2866b70b606791b2bd42456eec50f4191ad131d9458bb0e5f3b319b46f31b1d3",
-   "taille": 51212
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "1992b55261c275ba6ccbc81d6c55286e9493fe760f881a04aa4eacb2fdb9263d",
+   "taille": 16490
   },
   "hr-ravageur-1-course-glow-10.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "4926df1b11b9fdd7174add0d626184d63f5f6b5c6876a84607049e1a9cc089e2",
-   "taille": 80678
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "b6344863a63c2a7bcf8bf9600f34472e24382f3f0b5d24284dff2edc4b0bc42a",
+   "taille": 27171
   },
   "hr-ravageur-1-course-glow-11.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "b4ddd240dc3b6ffd7a30b97ee3f4aea8894b4a670a421d7a6bb634b1cb58e356",
-   "taille": 75901
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "10ace633c3930c210f9d0bef0550293687a50c28a29336d2ca9616b0e22e9031",
+   "taille": 25739
   },
   "hr-ravageur-1-course-glow-12.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "f0b5260b949dd3fa0da91e032d3f2cdf01f298f913234486418216062a58f64f",
-   "taille": 67768
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "fa2522e8c1fe9e9ddcaa907967467bd6369fc01b8c1a70340520715fc4911819",
+   "taille": 22379
   },
   "hr-ravageur-1-course-glow-13.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "1c82051a73d5cf1ecb26ec81e868305f99facb3b21c27ee0c0cafb0d571a1afb",
-   "taille": 63696
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "b0a00d2b90a9ddd464d59d4a667cdea844516e2b7acab5bca27701953d1e540f",
+   "taille": 20806
   },
   "hr-ravageur-1-course-glow-14.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "84068524f52c41f42f7f5bc9d8623d55d042e6f0b38c82397a728f662d339c90",
-   "taille": 65926
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "9821f1be2823cdc97e6a55cc32ef7f4e636f440abbee341ac3dd4b30732660b4",
+   "taille": 21302
   },
   "hr-ravageur-1-course-glow-15.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "ff61289ab0cb95780eb8403b6efbe3d9163a29ca799ffa75992f15819348b755",
-   "taille": 60074
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "8e5433794eae9eb89d2a4a1f9519fe28bca2a82dd9643ddba4c7391984147b4c",
+   "taille": 19362
   },
   "hr-ravageur-1-course-glow-2.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "618ff6ed8232a0de0bb757fe06dfb3d87dbd13d469ceccb3729855e7c1795a97",
-   "taille": 49493
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "2db23adf8c989b04be7147bfd6e39b55d1415dc9a98f35d605a31b7ed477f3af",
+   "taille": 16256
   },
   "hr-ravageur-1-course-glow-3.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "b442c986c6d75e3456380d88153baef94d9d8b355c78dbfd54b8cdd2e48b65fe",
-   "taille": 49742
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "9b7434b54f264fbddeee0431eb89c2f5ccfd824fbd134a90ac32b1115cb27cb4",
+   "taille": 16505
   },
   "hr-ravageur-1-course-glow-4.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "ad55209ea86d1428ba15f1c4d2dc192ef4ef087b1fdc7d597242c1b54a257969",
-   "taille": 57839
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "bc01acf5c3b7f6f02a14f38be01475946d5028a406a3243255c419a4c350aba7",
+   "taille": 19516
   },
   "hr-ravageur-1-course-glow-5.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "db648c57b4f6868c10613e1f1a037c3931f43148ad5579b1e2ff47ef5c82a449",
-   "taille": 68506
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "62844a245f1cb5fde4f4a918ba887ed44c867439028cf6106dadf04668316bcf",
+   "taille": 23357
   },
   "hr-ravageur-1-course-glow-6.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "6dac38da7f018fcad4982d68e9eb5699e40fe0ce792ab249536551c92e6303ca",
-   "taille": 79780
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "91289a423505a4d3298ed45c70b35cfcbf0d931294923f0b621722ba5f5b2206",
+   "taille": 26862
   },
   "hr-ravageur-1-course-glow-7.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "9e06255399e6c668ba95589828bf83b17d8c6e16890db81eb10e5cd5ef9e9a53",
-   "taille": 84662
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "9801caac4dba12d634ccda1b66d79952db071c0ff336c244c4d627a8dd856f5e",
+   "taille": 28497
   },
   "hr-ravageur-1-course-glow-8.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "c54b54872f4c05328627f654a6204fd053883a2df5c495786028a4c199f3cf18",
-   "taille": 81181
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "371049a3c338fe1e72404d505f9d72d600046caa5f81cf11964cc8da384f404a",
+   "taille": 27039
   },
   "hr-ravageur-1-course-glow-9.png": {
-   "hauteur": 186,
-   "largeur": 1424,
-   "sha256": "2a7ad9d926e939f1845bc86999fa97c1463813f3a7abd2e60d202dc9997bfd39",
-   "taille": 81915
+   "hauteur": 94,
+   "largeur": 720,
+   "sha256": "0acf0f1aa2f6fb90c1002fa1139f265d8abbc52ea08e36a732acb49bb81c19b1",
+   "taille": 27360
   },
   "hr-ravageur-1-course-main-0.png": {
    "hauteur": 450,
@@ -5781,100 +4917,100 @@
    "taille": 19764
   },
   "hr-ravageur-2-attaque-glow-0.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "61e9c71baa04159d317d61e70e795e9160a674132cd0a294dd60031df2b18543",
-   "taille": 23535
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "d24a7356fa0469d5de03302e0cd86292a56f3488ec1dffa200603a7dda6e75d5",
+   "taille": 7567
   },
   "hr-ravageur-2-attaque-glow-1.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "e9e698cf2105922394271f74f7fa41ae1c614cd61f9a5a03e5ecbfd7cf4a87c7",
-   "taille": 22343
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "5674fd59d351c54e35c158800f4ebda269327fe199e2635d0212579081fa9c0b",
+   "taille": 7286
   },
   "hr-ravageur-2-attaque-glow-10.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "c8275b06be04a2bc4ca26e2d75f0a9c136d96cb3cdca18a3313cec1ebb150f25",
-   "taille": 38301
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "1333606a47057777875f1d42b983be07a825b5b379e979bda3e423699f6d0663",
+   "taille": 13290
   },
   "hr-ravageur-2-attaque-glow-11.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "9c9fd59ba7b4a847bd7017dad3fcd7a81dea2a6e6ebfeb29f16d65e9ff778889",
-   "taille": 36589
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "ec7b26c5559c8f7ae84dfbb099dc2c8d922a69a1e0715f74760068726ef039ed",
+   "taille": 12774
   },
   "hr-ravageur-2-attaque-glow-12.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "95c1517c885221e93863cdce0ac10112ee09618d9c07e121c3a594c1ac856062",
-   "taille": 30938
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "a27718ee38890cb4a963627ec8ec449156539abb67634a8c88031a2adbd0b26c",
+   "taille": 10844
   },
   "hr-ravageur-2-attaque-glow-13.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "4f97e0965b9d563d98efbd3f7eaa4eea5239aa6284a61b64a6d42a0e9cf36035",
-   "taille": 31264
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "84eb075f7a29dae076b54c878319031697a101f916e3c8bb8e96988db2c3e097",
+   "taille": 10765
   },
   "hr-ravageur-2-attaque-glow-14.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "c5e66485c5754c0984fb7f7d8f2f91c279cf3878128d476e9535dc501dfe3bef",
-   "taille": 29854
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "ae69da0241497c0c28925e1608d23b6a22421cdaa103503e73cfea0d39f85bd1",
+   "taille": 10005
   },
   "hr-ravageur-2-attaque-glow-15.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "a24598d71b42662970b52f01d2a814abab92a7ff85792019a84840e0445ae9ab",
-   "taille": 27958
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "892029fd16b8b092c1d20572faa13de08542b80a396e9884692701292a7c47a3",
+   "taille": 9143
   },
   "hr-ravageur-2-attaque-glow-2.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "f3dedc0d38077f0a40c7076fe043bade3fa5b0fd9b46b9fc40a27d30cc180911",
-   "taille": 22972
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "19ba1efad8c5d0361eadba3f7417a12b02f6cb3d8a5d03098521f3d2b920e1ec",
+   "taille": 7376
   },
   "hr-ravageur-2-attaque-glow-3.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "5c8dd6de5362d792dbf32371e8198b91a3bccb9a823cc50f0eab0393f02c5391",
-   "taille": 25049
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "45d410a7ce115dcfb04f993f23cfd71c4f06ee49469596188242eab4a98388b1",
+   "taille": 8238
   },
   "hr-ravageur-2-attaque-glow-4.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "12738f30b19fed0372947b8ec2ec89ea771e24bc6265068dd6329ae5ae925518",
-   "taille": 27236
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "7ef211fde32529c54871fb77095aebafc1a0eb489020b0096417ad8f85c32234",
+   "taille": 9463
   },
   "hr-ravageur-2-attaque-glow-5.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "9fc1b27074dfd2daf3bcca2e4e4102165a56eb8409bb254584075f46453faacb",
-   "taille": 32174
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "5138ee64df5b63787d3e2a2ad221026cb21e4fa9213957a1a76cc7f3e6fa2217",
+   "taille": 11576
   },
   "hr-ravageur-2-attaque-glow-6.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "f55e1e69d79ca437dce6149bb8af4115b731365b955375237038a6a44edd61d2",
-   "taille": 36878
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "6a4317370e7e3a951d187cf11e1a8be43aaf691d1fca1349b87341612cf559b2",
+   "taille": 12940
   },
   "hr-ravageur-2-attaque-glow-7.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "4897ac716ccfef070585dce980e332b2c69eeb6294372e4a0a22f19233cf32f5",
-   "taille": 39101
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "d5e82c45e05af74e05159a23b9be0767fed18905a3294316e13dea4a20b82f13",
+   "taille": 14140
   },
   "hr-ravageur-2-attaque-glow-8.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "5c8bcf17fd7c8283934876f7720a7e4641fb5b235e3dac7c86f9b78fbeb7575f",
-   "taille": 39227
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "b2caa872f2089b57ab409b87905fa9a8b8927fe0b03fef1e1b2b527923168751",
+   "taille": 14398
   },
   "hr-ravageur-2-attaque-glow-9.png": {
-   "hauteur": 192,
-   "largeur": 848,
-   "sha256": "857a7dd7e02af31fde23323f2ec7ef130a6e5f998ab87467253be47ace5803bc",
-   "taille": 39322
+   "hauteur": 98,
+   "largeur": 424,
+   "sha256": "f057c0604e54b8dd64256d643c9834a88a362543387eb0933b9bdd2e816b7dd5",
+   "taille": 13975
   },
   "hr-ravageur-2-attaque-main-0.png": {
    "hauteur": 458,
@@ -6069,100 +5205,100 @@
    "taille": 8148
   },
   "hr-ravageur-2-course-glow-0.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "3412720ce32f798e9c4203d95bb182cb793d42a5fb911ebecdd2117bb8faf99e",
-   "taille": 53407
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "f7f86394919d51dca8d9f9821c77a6049c24172f697e40d55b3d877b42dd1aee",
+   "taille": 16930
   },
   "hr-ravageur-2-course-glow-1.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "9212937ef18fe742f61f7e8dfad6ccf4806de755f2ab8c7ecb5cf2ec92aa17cd",
-   "taille": 49676
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "a6303ca189ce831efcc4143f5beaeddcf98f67a9514c908a6d4ca5d722c3d904",
+   "taille": 15966
   },
   "hr-ravageur-2-course-glow-10.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "0881c7274fc6b7e55b609b4472450f0208e0251ee61bc82bcde91e183c0e959f",
-   "taille": 79479
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "5823cde57eba93fc998fc60d9fa1cc9eeb7bcf399c84684a1b51c3b911f9e94f",
+   "taille": 26998
   },
   "hr-ravageur-2-course-glow-11.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "eb5d455709a078f7f69c165414013b4f7ca41d67323e960cfe354e2bbf84635d",
-   "taille": 74738
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "3f42821f23145a3c22931aa50c961863b0477f3f75625301e5bdfcf6b58b1814",
+   "taille": 25397
   },
   "hr-ravageur-2-course-glow-12.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "a3e16bc05d678d88c2fc706e483f98029e208f98cc3a222378e49e5173edb92e",
-   "taille": 66368
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "51caef012538172b7b81804070fe6e40d40fc7695742cd71a705b65e40819074",
+   "taille": 22130
   },
   "hr-ravageur-2-course-glow-13.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "1cfb1e6655e16220ee62ab5e1ff57174cff23c9edadbb2f1cf85e1c9a0e5457d",
-   "taille": 61496
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "1ea821c93a7681bec50bc06736e5c802a63205d2af710326a5b2e12e7b826d74",
+   "taille": 20319
   },
   "hr-ravageur-2-course-glow-14.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "a099ba0813715336114aade44280ba5b928fc72dcca7d9796cba0bffcc415b2a",
-   "taille": 63321
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "9412353b51e5d0ebe718ac80374c68e48f6655ff86e3dfe75d5645e519b44c74",
+   "taille": 20482
   },
   "hr-ravageur-2-course-glow-15.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "fdd1ea328503689e65fc81e85bdec651de75ce9d8ef7e61f8c9e2d0a0b54b969",
-   "taille": 58561
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "bf71b665d57df6fc083ac71c19f391eb0126577684f7dbd10d8826267f132bf0",
+   "taille": 18832
   },
   "hr-ravageur-2-course-glow-2.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "a40fb46ae0fded6c433d4bf2c9732c204d58404b55394f235dc226e416ba16ca",
-   "taille": 48704
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "0bc1800865241e1eaf2bb2c9e788a38b06dfd36794be04a2f6eca334eb865c80",
+   "taille": 15940
   },
   "hr-ravageur-2-course-glow-3.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "f1c58bb5278b8f5d1e686415b719ae562fc294eb273bf9e7a8d58f680c1c29b2",
-   "taille": 48203
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "6abb98c8cfefe0fdbffb5ff2c2f2cacae8f4bc0897de00dd0ed06eb5a97acde1",
+   "taille": 16049
   },
   "hr-ravageur-2-course-glow-4.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "6eeeca88f94d23394fa3939235c712db74ac20bad5281e94944b838290105657",
-   "taille": 57211
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "53d095be64a422962a7774d9a022c8677bd240e1ba66c1d9c6d9ad7fde65afe7",
+   "taille": 19556
   },
   "hr-ravageur-2-course-glow-5.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "c6fa8de3fa86813146638d2a76bbab2436fac2fcd8b43861fd99618bc5d4dffc",
-   "taille": 68220
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "a5c80a995e7c1d3c1f15d6ef73c42a1bca82349e111f5a3c96823cc62d71fe6f",
+   "taille": 23531
   },
   "hr-ravageur-2-course-glow-6.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "81fbbf1ba241153191cee28bf09e6fb715e8e9fdc0172c820f63713e449e9a29",
-   "taille": 79247
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "ff059c8299ebfabacdc28f7832d946b03e4154da98f787fc88d5ce5a8fa1ac35",
+   "taille": 26929
   },
   "hr-ravageur-2-course-glow-7.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "74f4534b3ee7bf18ba8c1f2154a79052054756f7f3148deb2123b6a8b9f1159b",
-   "taille": 83406
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "fec5a7178689bc6398a4eb8ed258018755fcb3498baf57c8e50e1639b6ddea51",
+   "taille": 28387
   },
   "hr-ravageur-2-course-glow-8.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "02186b0fd4b0a152d94d92654071205369d5652f7f8497f5b952f875159a2fed",
-   "taille": 81184
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "8389f75db460357c1e21da4ed2050fbfb0f8b864fc3d38bb69b6bf5d1f6dc5ff",
+   "taille": 27065
   },
   "hr-ravageur-2-course-glow-9.png": {
-   "hauteur": 196,
-   "largeur": 1424,
-   "sha256": "f8aa23290050ec22ac5a7050abfa27a85e132778f51da94c6115487e344974d5",
-   "taille": 80246
+   "hauteur": 98,
+   "largeur": 720,
+   "sha256": "c2b4099de0d1b1e93a2d0bf3e01c890c42644840ebb9b9855129712a04722b11",
+   "taille": 26887
   },
   "hr-ravageur-2-course-main-0.png": {
    "hauteur": 472,
@@ -6357,100 +5493,100 @@
    "taille": 20328
   },
   "hr-ravageur-3-attaque-glow-0.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "3a23bd4e542eb350cc1c71f31a11d700ee3501bc409639324093c4881218f4e7",
-   "taille": 25501
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "f6043c2f35f865b7c7dbf8adcd4bfd2e1e75efc1c992bf46f45e1fc9a573477d",
+   "taille": 8004
   },
   "hr-ravageur-3-attaque-glow-1.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "0e22291825f3323af146eeb2b29a105881e21464db0374b7dfd055cdf20b7ac4",
-   "taille": 25446
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "530d1e957addf66c712ee715cdacba2d21e6691b0d927235fd2b2055f311f71e",
+   "taille": 8306
   },
   "hr-ravageur-3-attaque-glow-10.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "826f09456b4ee83efcdf61fee370c4cb9f47329eb5567e8174616b7749752615",
-   "taille": 43578
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "861be159d1d0b835e9301c3841080a6a872970f86d9751c880960c4d2585f14c",
+   "taille": 15402
   },
   "hr-ravageur-3-attaque-glow-11.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "f93b2f70bcaf00d2f4d77b2f306c064192f6d9b6896d15643c5b542c40103990",
-   "taille": 41143
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "f66c9d7089ddce620e613ac91247b137150b3a8675865cf51af8ed0c6c9affe4",
+   "taille": 14487
   },
   "hr-ravageur-3-attaque-glow-12.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "07f3445d1b0a79ed45967dc505575816d0e86227910c8e4ee4fd59e93308bc22",
-   "taille": 35450
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "bca12f67c87fe4e7bc4f5b921ab3091f48b5f4d705731fe6d09c7e7010449aef",
+   "taille": 12565
   },
   "hr-ravageur-3-attaque-glow-13.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "8413605e75949d61569ebaa25546d1b2e0880e1567bb73f432404e407a156596",
-   "taille": 35055
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "bda2319bd4fe909ee6db2967b7d01c5f0cffc369a2f9edcc39cb19f9bba0aefa",
+   "taille": 12225
   },
   "hr-ravageur-3-attaque-glow-14.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "73a900b5cc8aa32686f6553f076698a3e8b42270f14983e61f8a166e3cc82012",
-   "taille": 33617
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "ec71a159deeacba56e8d67b605afe03e9ebcbd13d2b323b81a9915db08f7ab51",
+   "taille": 11290
   },
   "hr-ravageur-3-attaque-glow-15.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "c874e314a3c7556cebc7588a7bb4a7213c04ecd8782b4daccec3f4e1aaba76ec",
-   "taille": 30941
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "8113bc4897a72fd17c0359eed4b02ea55e7a85fd1abd24636e093360ed8978b4",
+   "taille": 10062
   },
   "hr-ravageur-3-attaque-glow-2.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "e3be4e428ef3b8acbd74672b20135d99fd2f690a51ceb80e5476aa14bd9ff933",
-   "taille": 26142
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "08ea8d113d17de7b19b200b038574f66bda785219ec160d53ac03ad29be03147",
+   "taille": 8604
   },
   "hr-ravageur-3-attaque-glow-3.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "59e3963400e53d9840eb8cc2595fa7799dea25eb0deed24d612feaab8e6b30a5",
-   "taille": 28221
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "fbb39303cb115e46cb072d905b5ed7cdbf1c978427ea6ab2195bab1a1bfac242",
+   "taille": 9323
   },
   "hr-ravageur-3-attaque-glow-4.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "654a5a2e1beb4e6fc442a49627a55ac980275bc10482e51544b689123d09f62f",
-   "taille": 31459
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "e1d4c32e86548b7950d3879e6c4478ee1fc1d6b2724a75b6bb96b828b3425242",
+   "taille": 11124
   },
   "hr-ravageur-3-attaque-glow-5.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "e665373c625779bfc85cedb025d70ff640d01cfb09550d4ab7e80e8711543771",
-   "taille": 37311
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "77cc13be5122a3fe8ef585d48ebd27461f58ba485c977893ba7534fbb1355655",
+   "taille": 13541
   },
   "hr-ravageur-3-attaque-glow-6.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "1bc6758a7cd5eaf9f314bcc0f1c88f94a47081e55ca713f1c0d311a174a84f15",
-   "taille": 41873
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "ae8089366526e3ecb46aceda3c8b1d67f7a855d52eeed57657a3bf6a9eed575f",
+   "taille": 14697
   },
   "hr-ravageur-3-attaque-glow-7.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "baef179e2a5aed9a130e3fbbb597d660e449bed9e240cc9927d3983bbd237728",
-   "taille": 44115
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "82664b7e9624848ba8c2b7ffb8c5d62f591ad65e2ae2ffd278c2954e986ebc8c",
+   "taille": 15894
   },
   "hr-ravageur-3-attaque-glow-8.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "a038d3c9fccfb636443e7a927d9690b056540bed68cd854dbcf730c0e221aedf",
-   "taille": 44267
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "faef42896696e0cdc09c99c9a6a3126e887694369e6f48f03f312136caa154f1",
+   "taille": 16281
   },
   "hr-ravageur-3-attaque-glow-9.png": {
-   "hauteur": 226,
-   "largeur": 864,
-   "sha256": "073501929757ea43b08b10b48ed619cbe45d03952b387bdb304e0c9780767bfc",
-   "taille": 44174
+   "hauteur": 114,
+   "largeur": 440,
+   "sha256": "912cf8ccc5a9e3a817c50c66a7e32c44c827fd0939ea731ca61a0003bfec402d",
+   "taille": 15701
   },
   "hr-ravageur-3-attaque-main-0.png": {
    "hauteur": 526,
@@ -6645,100 +5781,100 @@
    "taille": 8889
   },
   "hr-ravageur-3-course-glow-0.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "4f1967340787ac00056b5492c10db52d4f9ed46f3a35ecbd0594e947ec3c5a93",
-   "taille": 60333
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "5c66455f76d0905944b27436a24de5d0ce8fd33057b308d2820ab71eff9ff517",
+   "taille": 19242
   },
   "hr-ravageur-3-course-glow-1.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "1dc57010a8468c1201d110ec44f4b0982d747e43c691e9813b5cc3efa1126a0b",
-   "taille": 59176
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "4f135ab01d89050a723e237f875aac61ccd7d6e40b4f16ab82b5694f689afec1",
+   "taille": 19400
   },
   "hr-ravageur-3-course-glow-10.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "1e8d22d2deff4cb3dbd794f8054c48b33257d87760f4e1652b08f806b0a046d5",
-   "taille": 96428
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "2581aa200dca3eb8a47457db113ff026091f8846832da7a4ff0f06607698d8e8",
+   "taille": 33176
   },
   "hr-ravageur-3-course-glow-11.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "23b0b36f333fae195f31ced25c8a06083ed7f0ce7d11d4ee388ff4442ba02176",
-   "taille": 89855
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "e2df79a076cc4655175e0f4b4df66a87617dd814732787c269972ff621522fe3",
+   "taille": 31102
   },
   "hr-ravageur-3-course-glow-12.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "7263ef57f2d94bfc17751f490fc38b88e7572bf563dec2289f1f600f385d5cc8",
-   "taille": 79048
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "84e767431825689c974242fcde4fa3b6abea38cfb8a27701aca5c5636cdbb4ba",
+   "taille": 26517
   },
   "hr-ravageur-3-course-glow-13.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "ee1433c7b060cee90b0bd1a87bb633479e094ff470520985aeb3af4bfee0b5aa",
-   "taille": 69785
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "1c0491d794c66db20d0ffdf7f75ae7f1e3e27615b729443fa4a61b92e730ea37",
+   "taille": 23193
   },
   "hr-ravageur-3-course-glow-14.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "7cc144be9dbef7d0c34ab2c34220070664e64e30d7dcf0c66a48852b6e275722",
-   "taille": 72401
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "696ca1da98c46f4383e1209a2ff4791f8cf6a7d44d06f524a9a546589d1a3ca0",
+   "taille": 23610
   },
   "hr-ravageur-3-course-glow-15.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "b1eb6da35d614cd316455ae04fad6f7e068ce717805f2a0b66f13d012562182c",
-   "taille": 66969
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "1e41b34af550b88e773151f5d9e2e435fb20337c3caf0737e3d8c1a4b65a26d4",
+   "taille": 21637
   },
   "hr-ravageur-3-course-glow-2.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "145adaf40aae2b5639839600e64edff64cc68ff234c564ed72ec9268a48d45dd",
-   "taille": 57602
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "500e33f9c497ed6775d8b70122a21e9f29cd16418a286b86262cb031813bf16d",
+   "taille": 19188
   },
   "hr-ravageur-3-course-glow-3.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "14f0316a93608a95689c54aca5704bb88f7033af8e8d6807adc1874b83a51ec2",
-   "taille": 57903
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "c1b273a08b36e5bdc9f91381e27cd80afa2c4ffda7d09f79b133b59d67a9ce76",
+   "taille": 19351
   },
   "hr-ravageur-3-course-glow-4.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "d734cec323c3f55170cab2535156c2a46b0469f29ca8dab77935064315f2a5ae",
-   "taille": 69679
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "51541fcc29d0860f08b9eff4c20cf6c1e2fb9c825e5c4617531ae10c9e6cf6a7",
+   "taille": 23688
   },
   "hr-ravageur-3-course-glow-5.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "dd83c08ffd9637de4e4ee3778ecb11c0da9c781efd9a52747d3a9cf356632cdb",
-   "taille": 83216
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "dbb4f20076dddbccd03721327fc9062be71c6fb53a6846d7f658a9d9d279ab48",
+   "taille": 28942
   },
   "hr-ravageur-3-course-glow-6.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "42d943ac708bdb1ebd9262cfcacaab3dd8a4392a1d5ac003e765131b5a50e7c5",
-   "taille": 95403
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "b92535a7d0e108bd442b208a993a4c8c56d6bf86c2a5c4bd7a0d33dd25ecb093",
+   "taille": 32563
   },
   "hr-ravageur-3-course-glow-7.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "15860433b83724367e942068b320c820d18c61da96f3e8161060308640d25d2b",
-   "taille": 100514
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "91bfe697c9600f3603b8468bcc2a49f0acefacff29c68eb9207f034507a4842a",
+   "taille": 34495
   },
   "hr-ravageur-3-course-glow-8.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "9b0e64e1ce71ca1d449d93a9c3b79c8c30203326dd3cfef88a7daa5062c1c0b6",
-   "taille": 97660
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "fbda6a1e122f7443b7a23de51119f20f28637e0b166da4927e957eb7ae55d7ef",
+   "taille": 33062
   },
   "hr-ravageur-3-course-glow-9.png": {
-   "hauteur": 230,
-   "largeur": 1472,
-   "sha256": "9a93e7f9459d4301f1ca87693801ee1ffca81fedd552d25ee165aa309b523bbb",
-   "taille": 98531
+   "hauteur": 116,
+   "largeur": 752,
+   "sha256": "c09ca5f1fe5c71390d30ef44d93bac90e972ceb20c5e80d5b15dbee1dc628c2c",
+   "taille": 33600
   },
   "hr-ravageur-3-course-main-0.png": {
    "hauteur": 538,
@@ -6933,100 +6069,100 @@
    "taille": 22804
   },
   "hr-sentinelle-1-attaque-glow-0.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "f3768f1724544883b7164cffd6dd03fef395cf89ebb577359cb77cad185e8c14",
-   "taille": 46100
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "689d2f2f2f0a524758079cce65abdecc3ef4ef641eff19a4ed2f2114002d2041",
+   "taille": 15573
   },
   "hr-sentinelle-1-attaque-glow-1.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "a08cb2865acce07dc4072b72936e192c8682d29315ce7034a2befb891ed77a73",
-   "taille": 47771
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "a1f4d0c12633783f361928a45e3c5fdfab2e64b5524b2e172ba26df991e33ef2",
+   "taille": 16103
   },
   "hr-sentinelle-1-attaque-glow-10.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "bbba3cf223e133ccd4efc5c20bd1ade072e6cd9a884811455dddc00b7a1c7d3b",
-   "taille": 70439
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "e65e51d9a871047fd6e337b9c38da5a45780536ca7807a49fc6affc0bc198f22",
+   "taille": 22508
   },
   "hr-sentinelle-1-attaque-glow-11.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "fd0002bfe4d33d8a813e63d8618db9af2b94c640fbc45f9f1091a058d1dad114",
-   "taille": 66003
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "6b5205c4f6eb72fe738b5459178be0d2bbab60ce2815cf9ccd457d5ebcca9174",
+   "taille": 21117
   },
   "hr-sentinelle-1-attaque-glow-12.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "cbcf8e9b6bd4395640cb06963a1bd8a6fb4f0b71362c133318ef869a3d319794",
-   "taille": 61646
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "3e5a292b22c6aebebc6847248161e773a496447a1f7ff3d78673b15a964426ad",
+   "taille": 19945
   },
   "hr-sentinelle-1-attaque-glow-13.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "7399f14b2f8827d03758bd9c965a1d4b3da68487debd922f98334fb33e9d1a89",
-   "taille": 56319
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "f2173e8004132337806c026f2874cc2c7f1afdba52ec6bd1127d7c72ab11d4fa",
+   "taille": 18388
   },
   "hr-sentinelle-1-attaque-glow-14.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "374763847be7bd302dd58b6b3d48a9ccd7194cc0e768b3644efe3faaa3d129c3",
-   "taille": 53607
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "8e59202c073c26355115529be60d894f2653225df36ebcde4adc17f3548a5245",
+   "taille": 17767
   },
   "hr-sentinelle-1-attaque-glow-15.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "ec006865f12e3235448cfb96fc8a89d1cab4aca564029a528f6aad5763a347ea",
-   "taille": 50105
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "e1f0f698ef97ae559103debf449a22c35f8384c893db86aa80ca712a97238fc6",
+   "taille": 17045
   },
   "hr-sentinelle-1-attaque-glow-2.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "1ee11567b6ec420b6749ed4fd6a41b4876b861fcf91caf320963b409840ee4e8",
-   "taille": 49578
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "114c72954c5795c44d7f546c65dc13ca971981edd0e3bd4c5cae9a9f428ca872",
+   "taille": 16533
   },
   "hr-sentinelle-1-attaque-glow-3.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "77503c5fe56bd7730a4df93415db56bd7d8ba92b42b6c1dc5b53c0f74a4c6338",
-   "taille": 54391
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "d747f9a27ec7b54514011cb5bdbe0297ffd778e4dde7d6b037a4dd2fa0eed66c",
+   "taille": 18278
   },
   "hr-sentinelle-1-attaque-glow-4.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "3e1e4d6ac0b7205e53009d2e577d6ee2724ca911a2325e608ab20788c1de9034",
-   "taille": 57597
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "486ca9dc8168e7a498068fee725415eba1d7fd6ef73eb8859347b552e68b5f98",
+   "taille": 18848
   },
   "hr-sentinelle-1-attaque-glow-5.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "c91c396cb3bdc022ef594ec02632fdcfbcb2c20421243b3fab485de12aad21d2",
-   "taille": 61218
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "395fc7528d2b438065bd8bf613350abc2be9bebfcf453fba713a20a6dd3fa034",
+   "taille": 20143
   },
   "hr-sentinelle-1-attaque-glow-6.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "476659113343d3df4d636e29baf2666d9f627a08481c34bac4531bd5a8d7d07b",
-   "taille": 66865
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "c3bac1ee322595bfc2be6c4bc2e3ce50b11548c3b9c657ff1b6d0b0f7a1e0dc6",
+   "taille": 21442
   },
   "hr-sentinelle-1-attaque-glow-7.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "0b5efbbd577da33ed5cfe9178b0c2710af2e886dfa24413f2d040b319779deb7",
-   "taille": 68632
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "46c8db1cf64323836de94b0b738385815bafe7a77dd622a3d196b049750aa5b6",
+   "taille": 21833
   },
   "hr-sentinelle-1-attaque-glow-8.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "bd6479f215bf98a4dd8ea2c2a0acc37d1645ccb1cb1c9c26b01fbbd3d70293bf",
-   "taille": 69742
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "cd79b660cb93c2148d35c00dcb545535118426879d7e4677c61fc317974aaf88",
+   "taille": 21713
   },
   "hr-sentinelle-1-attaque-glow-9.png": {
-   "hauteur": 198,
-   "largeur": 664,
-   "sha256": "ec5ebc64ad1a3803b6d0d80f90a77c5182e60dcc74d0b578173bc95fdebdc1eb",
-   "taille": 71885
+   "hauteur": 100,
+   "largeur": 336,
+   "sha256": "17564eca932833e9c2fe437c8d1a5073d96369e2d8ae33fd8ad4c255e56c34fb",
+   "taille": 22819
   },
   "hr-sentinelle-1-attaque-main-0.png": {
    "hauteur": 428,
@@ -7221,100 +6357,100 @@
    "taille": 6826
   },
   "hr-sentinelle-1-course-glow-0.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "2f121cdf031f8cd93f65339e7da458e125e30c0d3ab7b624e2934ce683d970a3",
-   "taille": 71043
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "ab132bc148e42b0ed8e6606690087341f091dcb760f6d14952354e4abc366919",
+   "taille": 27996
   },
   "hr-sentinelle-1-course-glow-1.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "bd6b2309d64ab5517358b1f633e60597352b921ba387afcb714aaf45e79399ff",
-   "taille": 72466
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "45c349170383992d574c36ef2b60397060fe15501fa0bc3d7c63d81a42399d38",
+   "taille": 27732
   },
   "hr-sentinelle-1-course-glow-10.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "9c2e410f1cffe4a3a04aa4bcc7a6977fbc94998629d3e2016226a83e5ff37864",
-   "taille": 130356
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "dc883b40ec1ad3850123b66ad9eed577b931f44b3e2f82469570e40b1ee8f83a",
+   "taille": 43969
   },
   "hr-sentinelle-1-course-glow-11.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "6e4085c4d3dd6007f8b91a5343b8c67ec73890cca4d9f1ba34448d374e16ebc2",
-   "taille": 117409
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "1484dce26c8cfed6813db5b2121b69ee4b815b0e31f9511e18bcbbf668c9123d",
+   "taille": 40500
   },
   "hr-sentinelle-1-course-glow-12.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "8f2ccde89b839443deffcf6bec2ef882388927940847a42c1d863d74492e702e",
-   "taille": 108971
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "8aea3ecdd7fceedbe00964a1f3add18b167e09b6a8c69a54f811b0a5f3351c56",
+   "taille": 37639
   },
   "hr-sentinelle-1-course-glow-13.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "15088142c279492cb2093562a8f9f57103fdd4362336eb970c9a3de6ff8cf640",
-   "taille": 94012
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "2538eba46fcb2b31df56ed097c60c20fb7b28afa5c950237490793ef63acc1df",
+   "taille": 33617
   },
   "hr-sentinelle-1-course-glow-14.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "e606aba5204b15c54ed7c8a8f701c25d83e5790e1be4df4b754d1be48c0e7476",
-   "taille": 85208
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "26bbb52f5c1145d67d1edb994c40c9fdac61bf20b70aba55b48518d33ec26e4e",
+   "taille": 31454
   },
   "hr-sentinelle-1-course-glow-15.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "523606a6b4192f721715aa69955b91e87b261233fa7f98d80ca9b9620a29450b",
-   "taille": 78405
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "4504d7713e745389ec25ead98d89c31c0e5e9457be26c44db8fc5fe5e9f45625",
+   "taille": 30105
   },
   "hr-sentinelle-1-course-glow-2.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "d9b6277efcfc2fe5805008f74e68567accccbfe8dc241fb18f25b33a50a3f877",
-   "taille": 75504
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "e9bbb7b9e2ec1e034809bb2338055c08635217b9f2a5bb9261f5ef1f5582d491",
+   "taille": 28473
   },
   "hr-sentinelle-1-course-glow-3.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "7630889a7cbd587f67eeaa4a815182ef68dbf6935f95b179eda3bc0773038f62",
-   "taille": 87500
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "285e26d3a3e3e1c3d39554bcc76c2d402f83366d24b5c2fc14812796a688b7fc",
+   "taille": 31906
   },
   "hr-sentinelle-1-course-glow-4.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "6e29e5e254df5232943ca9b9abb7aaea4daa9a5a27d76220c61799934f6a2c54",
-   "taille": 96380
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "1d8b61285dfc30baa655b549ec2428bdb18912c0ab2a265f6bac307c0a4e5b37",
+   "taille": 34633
   },
   "hr-sentinelle-1-course-glow-5.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "af1c23a93e5abb800eb11ca0099b20ade17c5afcdafeb64a1ae5b563a3bbccce",
-   "taille": 106937
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "cb435cd48c4033fe5874c8ecabd8fdc1522534f26621ffcd8a174f7a0a6139f1",
+   "taille": 37828
   },
   "hr-sentinelle-1-course-glow-6.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "326638bd061fca01e70c97ded51e2ff385467b4495f6dbf199d475045c14d9e9",
-   "taille": 123117
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "0689347b1800ebb7e849110eb6d0c7f4176046c0c13da9a5351a3ca8a7fcf330",
+   "taille": 41974
   },
   "hr-sentinelle-1-course-glow-7.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "bdbf5ffb6ada6b5d0454bc2a24b89a17928c9dfbf89573876d6adf61c03f5491",
-   "taille": 128781
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "5e6292f7ed23face97290d8772d29f64d72eb7a0140c7d9aad6313b52bac3e72",
+   "taille": 42390
   },
   "hr-sentinelle-1-course-glow-8.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "83ccfc10a4e53f19a7d5902108b1027fbe0f51326d641767252919106d224075",
-   "taille": 134223
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "65e24c139aacc3a7c74d2e7ae4c185ba8862eb9664ff0d899d4346cc0fa69d1c",
+   "taille": 44010
   },
   "hr-sentinelle-1-course-glow-9.png": {
-   "hauteur": 202,
-   "largeur": 1328,
-   "sha256": "749e8ac1039d00df7f83cfd6d75c57427f1537407b833f66e525fd59558154a4",
-   "taille": 136967
+   "hauteur": 102,
+   "largeur": 672,
+   "sha256": "87240d8394c2020fab39f4d036ead9425d9528d079d802c5bbb3cc37a535240f",
+   "taille": 45817
   },
   "hr-sentinelle-1-course-main-0.png": {
    "hauteur": 440,
@@ -7509,100 +6645,100 @@
    "taille": 27308
   },
   "hr-sentinelle-2-attaque-glow-0.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "1756f504efe463bc4491dc477cdb60e2662811a5ee66e58dcc73e84b808e521c",
-   "taille": 56333
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "12a339d4976e0e89b5920fd8ce0a349b71c2d731f31ed084056f353a96ae6ce1",
+   "taille": 18210
   },
   "hr-sentinelle-2-attaque-glow-1.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "14a252f398f29aa3552e79da6a862ce8a01b85cffc20e828b0de4bafabd3daf9",
-   "taille": 56772
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "1a04481ee957d0e94101d4fa063ce07f5d6bea9a619bdd3bab11ee2a33c288e9",
+   "taille": 18486
   },
   "hr-sentinelle-2-attaque-glow-10.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "1ceb3cf59c9328586d3b3d8894d8cf5f0468d859dfdd568c0f7a32a80136443c",
-   "taille": 80233
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "22481467b698ea02add85da530340599b85db7d1640b2a817c70f4821966dcd1",
+   "taille": 24662
   },
   "hr-sentinelle-2-attaque-glow-11.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "93c37aa2b6ad9eed1ca74c8eef1ff59c9cd407f6e19d2688c5446950f2adf014",
-   "taille": 74854
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "043eac06a5903451aa021033b0f2c9ad9c83ccf63d0f600d6ad13731e1083075",
+   "taille": 23149
   },
   "hr-sentinelle-2-attaque-glow-12.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "f757ecd2fac7354d388a4a7fa25b4d20b9cef3d55e6b2c1d0aa5c0d2d8595a9c",
-   "taille": 71280
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "e9d515b1ebbe23d9950a072579871a8b7f6dfaf080a3788e95e46f43cf1f2674",
+   "taille": 22111
   },
   "hr-sentinelle-2-attaque-glow-13.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "c08094676445668d93110634278897f078723530d35ba6addf7e7497154061ad",
-   "taille": 66683
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "4abd0938a8a4424f060a10a21ab086e404856f96ed50d0e7e96dc621e7855852",
+   "taille": 20955
   },
   "hr-sentinelle-2-attaque-glow-14.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "237777e8beebcd5c9e0029d9e3cfd5b72e427625fef85b590a2bddc8f35db374",
-   "taille": 62860
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "05ddb0908fbcaed2f4777d70eef624128b8ebc891791b0fc6f7ee0ed4ef108bd",
+   "taille": 20265
   },
   "hr-sentinelle-2-attaque-glow-15.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "2dffff0438f0b52e17946838ecc30ebc5c597f0708f9acb6a5464785f81dcad2",
-   "taille": 59405
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "40ef80e2fb25a2f960efae84a4d72750f33602b3380d1f7c5fece61275810465",
+   "taille": 19438
   },
   "hr-sentinelle-2-attaque-glow-2.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "904b3def4e00b47adc71b2c4b3f76e0acbfec64eac563705d7e7b646f49f5e99",
-   "taille": 58473
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "6369510811e001275df45ae42e1978c80aed7160209d6534222dd414ef4207dd",
+   "taille": 18929
   },
   "hr-sentinelle-2-attaque-glow-3.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "3855d3a029922b87fb751686050af40a94990c20591ed462958a6f43512d8185",
-   "taille": 64270
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "9ae6c3d006fc749db181e01af4e0e2f2a3a6c1a7b3d29fb10505302750ea90ea",
+   "taille": 20686
   },
   "hr-sentinelle-2-attaque-glow-4.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "578868abdd2f2045df44f0979d1d64c41336065404c6d0e9f9cbcaac74fb30a5",
-   "taille": 66826
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "ac9015711a9a4aeb88584b453b935f675a156b1e1e371b8d4284552c0be7765f",
+   "taille": 20915
   },
   "hr-sentinelle-2-attaque-glow-5.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "02181f5f9347b362f29667c33f078935bf43e7f29e4d6191cd8eb93aba2ee170",
-   "taille": 70859
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "c196fbebba0e5e73b6ca4e5f52d88a7536b951d3c3b75ae62c4d08fac5f8a082",
+   "taille": 22248
   },
   "hr-sentinelle-2-attaque-glow-6.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "8cfaaf5d4423908cb98daf681bf7c101fb1d80b94bc545b68f780a3397a2f5c4",
-   "taille": 77043
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "0a2cc0a1e3de718096b0dc60b5c9cc022980742a71df64399c499be6c8aa7d23",
+   "taille": 23979
   },
   "hr-sentinelle-2-attaque-glow-7.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "06525fd373519400c1f6f591f2b7e521fdd67e149da3fbb0bece1d04cc8f9a1e",
-   "taille": 79686
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "bbdbedac391e78888c1df99b99a6fca96f0e9ad40ff965d98258365182cdcaa5",
+   "taille": 24593
   },
   "hr-sentinelle-2-attaque-glow-8.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "6a0eff5fa734071b76231a2d34afefd05ed463d78f2a5396937503079c6ed22d",
-   "taille": 80792
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "5bf78f226ed6a865d356656e75bd5ec8da020cabdb3781cc8c1c3a3a3dcd1ec8",
+   "taille": 24272
   },
   "hr-sentinelle-2-attaque-glow-9.png": {
-   "hauteur": 210,
-   "largeur": 664,
-   "sha256": "40663a6c41072a5fb2b1fd04afb580a23b92b3d010be49627cd168a0f8a8235d",
-   "taille": 82253
+   "hauteur": 106,
+   "largeur": 336,
+   "sha256": "52951d77d0dfd304aaeeb00aad1afb3ac64e7824aeba3992111b4eb6c3a2707c",
+   "taille": 25127
   },
   "hr-sentinelle-2-attaque-main-0.png": {
    "hauteur": 428,
@@ -7797,100 +6933,100 @@
    "taille": 7361
   },
   "hr-sentinelle-2-course-glow-0.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "89245063530342fe883a97da1af6cfec6895c55ddeb4642052b21d7f1e244026",
-   "taille": 105298
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "e10c195c3ec6ec612760836d106002377c49687bcbc17f27a1bd6c07eede8224",
+   "taille": 37700
   },
   "hr-sentinelle-2-course-glow-1.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "6e8ac040ab46bb4a365c272506c2cd6404dea70e296bff7733810df2ed4c46f8",
-   "taille": 104677
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "79ec2afa1c97f206a23b07a2161be5a2724b4bf78c5588b43b623117799ba440",
+   "taille": 36474
   },
   "hr-sentinelle-2-course-glow-10.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "63cf9d78d4e1294a1277e584773f113f0a8b481aab41a1f24492d580678702af",
-   "taille": 174019
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "00a1a23d71f1fd33fdf23282fb9c34747414c1db823af52d579e4b933dd6ddc8",
+   "taille": 54219
   },
   "hr-sentinelle-2-course-glow-11.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "ee5d278691b38fd04f40f9ab59946199ed2daadf751d0b190a9ffa86f60723de",
-   "taille": 155069
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "cb29f0b70ac3971af9a9318b801d8fe4f2f46fd42caba1ec40ddb8b0e1ba4297",
+   "taille": 49294
   },
   "hr-sentinelle-2-course-glow-12.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "288d04ef1c36c3612c0878d251635b3857dda8f1f207022a33a3e07c97b9772e",
-   "taille": 148210
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "3b0097e3cd8f5205de38acee3448114daa7a6704ee5a01081b39be641120018f",
+   "taille": 46999
   },
   "hr-sentinelle-2-course-glow-13.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "1712842664db6bac0745e9de84e9091c816c429a981d6951c9e8e1d4d7e14bf2",
-   "taille": 128280
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "dbba969e9d5bf5ab6a743394799438c7e95f767f5a622608298e762798b063b7",
+   "taille": 42855
   },
   "hr-sentinelle-2-course-glow-14.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "520f503d9011272ae14f4b7c2e2e1c328f9995705e1e7d11ff07d84a2a2cde8e",
-   "taille": 116784
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "b435f15a8ecf834743afa302488085083962f952eeff20d9d5187adb6018ad9c",
+   "taille": 40289
   },
   "hr-sentinelle-2-course-glow-15.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "30725035ea3411472e7b87d899d236cba783440a760efa9fe315b0a5e97d9064",
-   "taille": 111965
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "86febf14325a9c0faf94c08b6697225a99e88f962815f9f1d81676f0a5714266",
+   "taille": 39144
   },
   "hr-sentinelle-2-course-glow-2.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "f80f13bd66a6914b761bcf9c7c9a94a1c7108adb00d5dee67b7e25a1f11e7006",
-   "taille": 105432
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "b3129a616100639de765656c06ce5c0bafb3c2f46f737c6ec4cae9a55a001f52",
+   "taille": 36974
   },
   "hr-sentinelle-2-course-glow-3.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "3475c3414edeebd3e9384360cc35dd8f16b566ae639d2208ffb98a49f12da231",
-   "taille": 121304
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "a9427572dfe201d0c2fad4927a33f1d26c2e4c777827097b066c6f50d026642b",
+   "taille": 41308
   },
   "hr-sentinelle-2-course-glow-4.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "d2036e3c372406731178e12c42dac11f9000ccb51509748a8302a957f13512b7",
-   "taille": 133246
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "874f6ad86f252bfaa7cc7943e011fc92dd448f60d0dbd0b98b1fcacfc01ef202",
+   "taille": 44304
   },
   "hr-sentinelle-2-course-glow-5.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "b5cb6c069c35654a038bec472b36e516cc8feee0faecd0b7fc07b2595fdc3739",
-   "taille": 147210
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "6f632982b443caccffb49713e9e16fe533d4d34450071059dc491571e6076819",
+   "taille": 47735
   },
   "hr-sentinelle-2-course-glow-6.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "f53e9bc5782c93b2c8f12003647734f59fe9ae7ee63b58fa011bd9dbe90e4735",
-   "taille": 165848
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "ad8d6c78a36666569393eb96ccfef88a3b7265ce76f785de5023908c8ec09d01",
+   "taille": 52667
   },
   "hr-sentinelle-2-course-glow-7.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "c67c6aa4c9d906540cfc170cadbe143ccefec237bba7915a191c475d2845707c",
-   "taille": 179910
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "625c11da4eb6e593ebf607e79748afe211d96c2ad84b8aba63c7f089dc5124c2",
+   "taille": 55576
   },
   "hr-sentinelle-2-course-glow-8.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "4f86ca6c31c9b6c05a88b3e66ae4d53baa3b7fd550dd711ccb83144a7ffd4b41",
-   "taille": 187340
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "da6dc8a707272a3304d423858eb9a949389d99e48e23dc2828243509a5d00d54",
+   "taille": 58045
   },
   "hr-sentinelle-2-course-glow-9.png": {
-   "hauteur": 210,
-   "largeur": 1328,
-   "sha256": "02376087d7280e9cb1842af75616ab833d8f43a86eb23ed64f9e7f72b2bac98f",
-   "taille": 186416
+   "hauteur": 106,
+   "largeur": 672,
+   "sha256": "5c32bbdfc8cdaa4faac00941addbd8f909b313096ba8b11434b21907aee32fa7",
+   "taille": 57594
   },
   "hr-sentinelle-2-course-main-0.png": {
    "hauteur": 440,
@@ -8085,100 +7221,100 @@
    "taille": 29790
   },
   "hr-sentinelle-3-attaque-glow-0.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "f5421cf66f55d9566a0be7784fc52a01f7612dc964686972352532cec5327edb",
-   "taille": 68200
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "2c0657c9a7916c80e4021dc6b87c83870bcfecb765d180c1b09b1161723808f6",
+   "taille": 21428
   },
   "hr-sentinelle-3-attaque-glow-1.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "8a2aaaba2ddfa68369fe1a48cabdb1f61b2df295a8058258b2efc542f44ada00",
-   "taille": 68258
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "6cf3b0fc5fe80caf70092a7ddd6ca667f5be7fc78e97f979ae3dea5fb91ec573",
+   "taille": 21547
   },
   "hr-sentinelle-3-attaque-glow-10.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "d761db76acea9c5980c5ce1273fda0029cfb3d795d7086142216d17f00c82008",
-   "taille": 88742
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "81da1d2239814cf240e54187c0b72c7d7757652e01b72c7b2f57e46d1af04a66",
+   "taille": 27255
   },
   "hr-sentinelle-3-attaque-glow-11.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "413121be55b7307c9a88b5507fa18b23126376dd5b142389e7ff652f459a8cbc",
-   "taille": 83459
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "626af5e45ccd0fed355acb542371476c72100423d63d77be4bbae273177c2f07",
+   "taille": 25605
   },
   "hr-sentinelle-3-attaque-glow-12.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "0e668d093c344de49c4c2ca145ca93168bdee0ad42a7f39b8e320f21bbee3ed3",
-   "taille": 80002
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "b85b861d4dc94c4d86b31ae263a879bb0f5c036fe8d257c007a6170908110eef",
+   "taille": 24245
   },
   "hr-sentinelle-3-attaque-glow-13.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "c73a2d25e114c3ff16c7658ac682fd1a9d9060a8e70a1c99a9ea6ce81404598f",
-   "taille": 76977
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "972ca31cab1ae9ca3d45d30f43cd42a201ec8bf819d4f65978969e3a527aaf1c",
+   "taille": 23724
   },
   "hr-sentinelle-3-attaque-glow-14.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "ca35414384cae6ffa6d6ccb8dce2ae5b8860975974e3e7d26117b31b1645ebea",
-   "taille": 74824
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "1519c52ae50bb45654b678e037b92e4d4a3c04b2352698b5d2cdecd5255cc6d3",
+   "taille": 23379
   },
   "hr-sentinelle-3-attaque-glow-15.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "0055b6372e90bdcc74aee02532b585dbe7e2830adc7f31d42b0dac9873e316e2",
-   "taille": 71657
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "2655a28d44777645e88c1fbeab3a41256b40d8ac03b24652c73778f617c6123d",
+   "taille": 22422
   },
   "hr-sentinelle-3-attaque-glow-2.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "54788ea26305ba48777f9943e51c2456259c4c2a89e30919a675897f21defc6a",
-   "taille": 71396
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "5a85d77119b451812d592b985f4cc6f3d52c1ff9d4ee5ed2d65e9ebbd64d5526",
+   "taille": 22410
   },
   "hr-sentinelle-3-attaque-glow-3.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "167f3928873ce2aa909225f22436e801ff1bca887994f5383e40862386d76699",
-   "taille": 75619
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "34fecbfe0e08e4157cd49de6d85f6280128e1e2be73b3a5ca2a0d9e4d0540541",
+   "taille": 23408
   },
   "hr-sentinelle-3-attaque-glow-4.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "f614bf38ef38a198bb69cadb37b03146b1ec378f54cda8a066a5033ab07fb10d",
-   "taille": 76887
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "fc5a13e9b32547c9114b9e717d9fc5b899de96e05c1c0f65d0d61bb48fd8224d",
+   "taille": 23382
   },
   "hr-sentinelle-3-attaque-glow-5.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "20be6b3648cd802738869e6a69bd3a68813fdf8684fb87165cc55fd302043e59",
-   "taille": 80908
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "624a5e81ae77ffcc2f80e90a657c15ccbbda60584dc709bf83721d261b9cf62c",
+   "taille": 24766
   },
   "hr-sentinelle-3-attaque-glow-6.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "1c278f51723fe6ec0c4b11878def583ff0e9db60cbfc57e9c0023dcb16ed5cf7",
-   "taille": 86213
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "9b2f51dc55d80f7ca72e011fb868a666af17f4713934d20450b874a59e9e26dc",
+   "taille": 26609
   },
   "hr-sentinelle-3-attaque-glow-7.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "55e5ac26fc83166781acd0155d9f6c6147a3d9540721ef1bc8e921c50837a058",
-   "taille": 89524
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "9779b366fde54ed79ef01f405b9a18f6b15daeebd4bee923b2d90103180d6702",
+   "taille": 27088
   },
   "hr-sentinelle-3-attaque-glow-8.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "a030ebef1575299e28e1170fa82d593811f7e02fe09a3449284d8113e9fbccb4",
-   "taille": 89601
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "af51d5119655e9d15a9c643cbc555f3565cd87fcb047c03759489fd024604fb5",
+   "taille": 26998
   },
   "hr-sentinelle-3-attaque-glow-9.png": {
-   "hauteur": 210,
-   "largeur": 696,
-   "sha256": "299a1b1e9d5fcd54b709cc589fa0687b385c52c6df280933d69271007082b4f9",
-   "taille": 92208
+   "hauteur": 106,
+   "largeur": 352,
+   "sha256": "f451643099a0865950a89d19150cfcc1f169f461826204686bb835bd8b148507",
+   "taille": 27907
   },
   "hr-sentinelle-3-attaque-main-0.png": {
    "hauteur": 428,
@@ -8373,100 +7509,100 @@
    "taille": 8469
   },
   "hr-sentinelle-3-course-glow-0.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "c459ce7db1735e4905ece6d42d603910e8a058690bc432497c3ebdc8644ab999",
-   "taille": 154464
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "e4e5f1641213c0dd75c84cdf8c341add4cd2523ecb3da1b3fb6168eeaef94c0d",
+   "taille": 51188
   },
   "hr-sentinelle-3-course-glow-1.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "b63423f88d2b0f07bac614b177128a8d3afd8c7c09e985dc74d7aa4125291b4a",
-   "taille": 150872
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "6a5e4321a368dfd3ddc26c4fd544a9f820ac090ed96901c678395bae9376b360",
+   "taille": 49237
   },
   "hr-sentinelle-3-course-glow-10.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "fa345f535835dba5c3b4e18d14ea26b90d12ebd3c84ee31dffdfcc8b68b6cdeb",
-   "taille": 204580
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "634f6bb32b050b6b669352731214444660de3eecacab1d1c18f212b5bb44433e",
+   "taille": 62803
   },
   "hr-sentinelle-3-course-glow-11.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "61d62070dae9b4749c1b628c5ac15e7984df922a155814caf8932779b74d9dd4",
-   "taille": 184934
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "62d53dedd1bbc6c5e58f671a531a77900416f513efeb42b47f11e69029c06a51",
+   "taille": 57190
   },
   "hr-sentinelle-3-course-glow-12.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "33646407fdb21a36732673c23ef022c2a646ef2f82accc173419f06fb5cdf9f6",
-   "taille": 177261
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "992f664d8d3a7c0ce0f60d4826bd629eb523f04492e2f4e83892f5ace5cd5090",
+   "taille": 54455
   },
   "hr-sentinelle-3-course-glow-13.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "c18a6e12b5ec0ab032934d9476bd533aa5adfa074e31f97802799673ba77ef68",
-   "taille": 160951
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "35c63abaa5697b862e096ad11c4f9b5dae8e4570588df3480b0cbae78e9a6814",
+   "taille": 52163
   },
   "hr-sentinelle-3-course-glow-14.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "643e55b2942c3ad781b72a8f6284d90805ed7c3f4caf39754b45f17a88dc413d",
-   "taille": 158467
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "03b95d705c9ffdbb5255c6f5c5d110cd39448c12502176e3652c43ab61f688b0",
+   "taille": 52224
   },
   "hr-sentinelle-3-course-glow-15.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "9c7f474a64e6b60614650b51d50da4ecc7b15d2f957f7eb27b9e144676a67d1a",
-   "taille": 158458
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "252ff26aa7d833ac75b487a07d8a7045e7f84dd6f23b4eaff08e48ce467d1748",
+   "taille": 52098
   },
   "hr-sentinelle-3-course-glow-2.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "468b2f97063b2ea9da8513e761195707965e6ecb50734e2c16e4cc3c0078ceb9",
-   "taille": 150214
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "6b33ed8f50b7469eaee5811b177ce894c833c75b1167e8d0924c439fe74cb3af",
+   "taille": 49554
   },
   "hr-sentinelle-3-course-glow-3.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "1728aedc8046cb48072c833194e98aede49465c291c64268ec6ad6c7eb64bbac",
-   "taille": 156976
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "d3c1c61782190f4bb84b7a1789738f78633d1d72cd9b47b097ec374e487ab351",
+   "taille": 51026
   },
   "hr-sentinelle-3-course-glow-4.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "4af8356dc8d23073befde20e756855d3339f98948cf2c3c0a9527c22cebd8e95",
-   "taille": 165159
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "c6683717049322158aaf1b4df0c77d7ecf3a41550661e8b0b16051d1bd817336",
+   "taille": 52386
   },
   "hr-sentinelle-3-course-glow-5.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "9fddbd5da8b74bceabe57b819c99a02229da941e2d9834164bb4a3880de2ce31",
-   "taille": 178945
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "cb4f1ce45904f06764e3c738a910423559c8c650ab65fcdd0551013c715717bc",
+   "taille": 55260
   },
   "hr-sentinelle-3-course-glow-6.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "33c1b951b9b3f569d6e969f9cfda9092c2f5df7ddbcabdb53831aaf153a93793",
-   "taille": 201058
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "61dd2004af596a926a8d8daf8f835a49ec998a9c75ac7bc211fb4b940208da51",
+   "taille": 61915
   },
   "hr-sentinelle-3-course-glow-7.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "4ee50adc500c7b731edb93b7e67324e624b62e99c165b16a3db46fe311b15e14",
-   "taille": 216729
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "43b99954d753647913e2e294b5e40631645c10119e2a6299911c98ecded99634",
+   "taille": 65680
   },
   "hr-sentinelle-3-course-glow-8.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "64395d4d6946274af510508778b83adc87b7f2e648657d7370c5dcc7cc8fe464",
-   "taille": 221030
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "36f6a0b060fd2c56a661b7bdcc2bb293c40190412036feb15df60cb3c0f206f8",
+   "taille": 67282
   },
   "hr-sentinelle-3-course-glow-9.png": {
-   "hauteur": 214,
-   "largeur": 1392,
-   "sha256": "569d6125d35f7736fb52b11872e5c68d1c8952fa5dfe9d6bb42a3455d0306447",
-   "taille": 220743
+   "hauteur": 108,
+   "largeur": 704,
+   "sha256": "a2bf247cc91334a947e9f6f42564b8217fabbedcb107a6c96f612efdc2071f0d",
+   "taille": 67172
   },
   "hr-sentinelle-3-course-main-0.png": {
    "hauteur": 440,
@@ -8707,24 +7843,6 @@
    "largeur": 64,
    "sha256": "5a4dd253782e15a2c8201eadc82b8140faf48a822d7360de233be152a4457020",
    "taille": 4195
-  },
-  "icone-leviathan-1.png": {
-   "hauteur": 64,
-   "largeur": 64,
-   "sha256": "27688be023afcc787e1a37f55b78076886c2a1c71fed28249fbc1fd44dab9056",
-   "taille": 4023
-  },
-  "icone-leviathan-2.png": {
-   "hauteur": 64,
-   "largeur": 64,
-   "sha256": "0fef8c43a5dce0203b04d40b76a81b4e0bd3c29601ea4a05aa4f874b737459b5",
-   "taille": 4103
-  },
-  "icone-leviathan-3.png": {
-   "hauteur": 64,
-   "largeur": 64,
-   "sha256": "7cf60f4f88f04e25db16bce1bc4a1c4f4c620c23bc017a62cc4b179246fdbe7d",
-   "taille": 4276
   },
   "icone-leviathan-drone.png": {
    "hauteur": 64,
@@ -10784,870 +9902,6 @@
    "sha256": "d8eec64c8390caf24562fe16663af40e74cb2d134437f4f6f65eddbd5229f658",
    "taille": 88919
   },
-  "leviathan-1-attaque-glow-0.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "ec1ce8910046edcd625aa6585d5715c9387d42cbf323fd99df38457da9591774",
-   "taille": 71276
-  },
-  "leviathan-1-attaque-glow-1.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "7799278c82fb42ed026661691aa9bd10b916e680d588d1d3033fd828e323aeac",
-   "taille": 66908
-  },
-  "leviathan-1-attaque-glow-2.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "fa89ca7dfb80d2be5bb48c66e8f3aa1a7e9618cb50f0bea19807f97de4df6935",
-   "taille": 68084
-  },
-  "leviathan-1-attaque-glow-3.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "b1aaebd9dd45bc39c2863f3dca73797cdbd139753c0519a3c406a176a2ceb9cb",
-   "taille": 66614
-  },
-  "leviathan-1-attaque-glow-4.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "c60a9f390ceda92c44a6adf59c165ceb52077cde3ad54bd0d3fd3e5f499b413b",
-   "taille": 66151
-  },
-  "leviathan-1-attaque-glow-5.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "15a4f4f819b489cc8dbb88679fd354eb26c71c86f5a955065f3d7c1d44cfd0e1",
-   "taille": 68934
-  },
-  "leviathan-1-attaque-glow-6.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "54eb602b4e098c83b27975f00e71bee783cb2da58b89347ccbab40b7b16c1586",
-   "taille": 71725
-  },
-  "leviathan-1-attaque-glow-7.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "51a7d98345bc74c242063403ba9e41a94668449e646c6f793536c4fce907bea2",
-   "taille": 72374
-  },
-  "leviathan-1-attaque-main-0.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "7a47113fd855c248593cc8f0d922ff422ee8685f326dda047021167c7f55726a",
-   "taille": 114415
-  },
-  "leviathan-1-attaque-main-1.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "bf90536f2abf6c0c9fab82d1773e746c7dd800d4b5432a82dfe59a685a7998d6",
-   "taille": 111452
-  },
-  "leviathan-1-attaque-main-2.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "b0f84f05323b8032fca7ed2590f06c954e2df07aef412f83fc77b01d9e006187",
-   "taille": 115117
-  },
-  "leviathan-1-attaque-main-3.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "cf5f8a0bd64c3af3cf50418f06e41203c36c99312937b218cbfabb916b7d5781",
-   "taille": 121462
-  },
-  "leviathan-1-attaque-main-4.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "e94b24092292dd743811aa7aa0809cc9c448173edb1701b08fb6cba33ed1edbe",
-   "taille": 116295
-  },
-  "leviathan-1-attaque-main-5.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "223c5771895829f2ae829db97ff6c8cb6aedc659cd1c131a5167cabea7d34a06",
-   "taille": 125426
-  },
-  "leviathan-1-attaque-main-6.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "c9d73a23dd3713e2618a1c32edc33f691d3012f28da647fa1c21703d00f03fee",
-   "taille": 122575
-  },
-  "leviathan-1-attaque-main-7.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "38ba471150aa6291efa537779fca344db6ff3cf97473a828460cdc654c0a06d5",
-   "taille": 125536
-  },
-  "leviathan-1-attaque-shadow-0.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "ee8d499942618ab11194af4bb3cc65fae09811ddc7184a93a1446306983701d7",
-   "taille": 16206
-  },
-  "leviathan-1-attaque-shadow-1.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "1480d65fdfba89f41c35f7584dc855046f420e816f167ed874cdf4dc9d3a48b2",
-   "taille": 17162
-  },
-  "leviathan-1-attaque-shadow-2.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "051821ffc0133ee63900a8e0e21ed88a3dc6c5c110daf2dfbf3ef88e53dae1b4",
-   "taille": 16660
-  },
-  "leviathan-1-attaque-shadow-3.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "fec528d87e635caf8971353f499d008f5404eaa9ef108c6c2a44bb5245d49bb8",
-   "taille": 16154
-  },
-  "leviathan-1-attaque-shadow-4.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "a2dd1605f3b58d4e5ea6bb4579242d9bf768ad9f37569f21c44de75496d35730",
-   "taille": 15510
-  },
-  "leviathan-1-attaque-shadow-5.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "03d32cc2feb3f647da88593a9c6142b186228b2578e28e7f542b37c25c7ff47c",
-   "taille": 16459
-  },
-  "leviathan-1-attaque-shadow-6.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "e5addfa9ea2e6964299c8d5591d37c3e96c44a5d1a2b4c64d7bd2d258afa217c",
-   "taille": 16292
-  },
-  "leviathan-1-attaque-shadow-7.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "d75f41a5e044e76a3be5529b3a6155bfa0f8f8ef2dc055e05d1154af2e000916",
-   "taille": 15894
-  },
-  "leviathan-1-course-glow-0.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "844130cf921e1b541dd75b02e02a82d5d086ef63825605412247da3902100b39",
-   "taille": 123142
-  },
-  "leviathan-1-course-glow-1.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "86ab41c0fd289bfb0345fa0f5cb41f87bcd0faff1ed5d6f1ad6ffb9f91b821a8",
-   "taille": 127806
-  },
-  "leviathan-1-course-glow-2.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "803c4f0894096c5d4b16977204d834f1651f8cd5f3dfbf8c4f2ff9c5d2500e1a",
-   "taille": 137459
-  },
-  "leviathan-1-course-glow-3.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "c37d0da0b44bed47030b1d252557bd939fbeaab81369a6d6ce7068de7afde96b",
-   "taille": 137161
-  },
-  "leviathan-1-course-glow-4.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "48eb79cf69b0637b79ffa29ed3e901cb51431a4f9f1d615afec70b2e27d46638",
-   "taille": 131675
-  },
-  "leviathan-1-course-glow-5.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "1f6bcd0454a807ca71fb531b719c0af0e3fb88ffb3595173faadb949db9dbc91",
-   "taille": 135501
-  },
-  "leviathan-1-course-glow-6.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "3e3136ed4dd59c29fbcd160439baca18b9e71f1e0f905afbaecec33b5b29b926",
-   "taille": 133614
-  },
-  "leviathan-1-course-glow-7.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "943a0137e6e51c7a7c1e455da016e272b81cedee9e7c6c42fb72861165e8d4ff",
-   "taille": 129348
-  },
-  "leviathan-1-course-main-0.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "38335b2b8a3c7484697a8d5c47ff043e87974c74e213a876a43c17d8483f806b",
-   "taille": 231642
-  },
-  "leviathan-1-course-main-1.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "d0c5931f8ba7e21487f6ab34e04475b2f97c1418cf27114fd75ade391ae59471",
-   "taille": 234896
-  },
-  "leviathan-1-course-main-2.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "934c9880831c780f84a25a42fbfbfb4170adebc079af72ddde251ae114723da3",
-   "taille": 249647
-  },
-  "leviathan-1-course-main-3.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "5168190b69ceac30ba15aa3ba58e4e191575c88b271f0ce8607899bfdce4bd78",
-   "taille": 239113
-  },
-  "leviathan-1-course-main-4.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "86da4fd04de346dd96b7e80a26bd95915bb82059171c1fef83c44c9f7c2a0416",
-   "taille": 227703
-  },
-  "leviathan-1-course-main-5.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "bcad86134f4fab99d41cb1e29295c7aa1221c675046ab684fc69d184e5fddd40",
-   "taille": 237973
-  },
-  "leviathan-1-course-main-6.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "77f1c074fe155093f037311f4c511852811cf7706a276044bbb016d6e650f434",
-   "taille": 254150
-  },
-  "leviathan-1-course-main-7.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "ac382bcdfdaae9aaa5c95fd71e2e6884b8ec0d6f8a9dea9ae8151a7ceedf5d22",
-   "taille": 247520
-  },
-  "leviathan-1-course-shadow-0.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "8fd8e0fe41a807796ff27ed282abe4ca091198917efd68d2aa834c0b4d790cab",
-   "taille": 31129
-  },
-  "leviathan-1-course-shadow-1.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "9c742c7a8c731bfaad1907228670c71b896964c39a4c9c9e097fabc81160a61e",
-   "taille": 33097
-  },
-  "leviathan-1-course-shadow-2.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "b1929921bfe06a237282d10e2ccaefc5d493967f53263a2c2e7b3cffb88868bd",
-   "taille": 30917
-  },
-  "leviathan-1-course-shadow-3.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "1d276c611e081f5f4b506973d843aa5a93a55bbb5dd6f1d80fdf66229121aaea",
-   "taille": 29232
-  },
-  "leviathan-1-course-shadow-4.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "798b9316ffbe34f0b216a4acfc5a1fbddf8701cc4f2f98e7949ae7e26bf33bfa",
-   "taille": 29021
-  },
-  "leviathan-1-course-shadow-5.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "4ea8aecd391c55251ccb51e10b91be4b6339bb8afc30eb27ca5242f761bf731b",
-   "taille": 31130
-  },
-  "leviathan-1-course-shadow-6.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "ccb608cba95a68c6e334ba30423c7bcae5e38a261bacb77bc37dfe9a57ccc0fd",
-   "taille": 30367
-  },
-  "leviathan-1-course-shadow-7.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "634cc7ae7579d7e06f8bcade69a9877f2462c2a1568371060b8d6d5aced1190a",
-   "taille": 29824
-  },
-  "leviathan-2-attaque-glow-0.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "371b01192ca27b34319f852111025c659469117bf3989f980d2b23e69535e8de",
-   "taille": 102141
-  },
-  "leviathan-2-attaque-glow-1.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "2c61cbe22b19514b535a770d555238e9f8ec3687d6f2541d47343d930a58191c",
-   "taille": 96443
-  },
-  "leviathan-2-attaque-glow-2.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "8d9e9768033fe1be57f3a85407f811a78cda29718ef76fbfe81c7f4dbdec6484",
-   "taille": 101224
-  },
-  "leviathan-2-attaque-glow-3.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "75295f5dc5695a0e65e0b0c6ed427eb67655b732b8c5e08035f4fc91a1649cd8",
-   "taille": 102689
-  },
-  "leviathan-2-attaque-glow-4.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "c9e325b6988ae347cb0dc299e06222b4547234b3965b64c7464225a292c141a8",
-   "taille": 96015
-  },
-  "leviathan-2-attaque-glow-5.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "d865ee981dd4863dc2e4ff0eecbe807cb8d1eaf84418c4b6144127760db02ac2",
-   "taille": 99349
-  },
-  "leviathan-2-attaque-glow-6.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "59d60e748aa909d25c654f829c7ed427b9e6575341385c66123c2f8fbdd39470",
-   "taille": 105496
-  },
-  "leviathan-2-attaque-glow-7.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "37eaa16b9a4865cbbcc6ff5a579205d003d07598fa2858e1147ae1540fce99f2",
-   "taille": 107249
-  },
-  "leviathan-2-attaque-main-0.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "699ea598f61c45c5ba0a2527b3b6d682d647ee5db45c58404a041c9fcf4d2ab8",
-   "taille": 131656
-  },
-  "leviathan-2-attaque-main-1.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "317dff60c37f868559a58895b2c8385076e0f475038c947c91011fe76431c9b4",
-   "taille": 125519
-  },
-  "leviathan-2-attaque-main-2.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "7290dcec2fbd2220bee1226a1a75a55574c43145765d54d758c2d5a29926810a",
-   "taille": 138055
-  },
-  "leviathan-2-attaque-main-3.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "d3f4bdcb0bede8c76dd566906fc204c1715f41198c9ba7bd5c780c6e8e06b1fc",
-   "taille": 138428
-  },
-  "leviathan-2-attaque-main-4.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "6a09081a09bdf9845fbb5b169dc0ada367467c2e55d208d944ed7edbe697069f",
-   "taille": 128069
-  },
-  "leviathan-2-attaque-main-5.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "45b3d5302595a7747b434b55bf72c1e4f1210d94a3549b29f9050f0ddfdf351c",
-   "taille": 136539
-  },
-  "leviathan-2-attaque-main-6.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "e9c7b810d1f5b65ea869093fc78701a683fd7263fd07ff9a937bc3c0e7f7d1b1",
-   "taille": 142960
-  },
-  "leviathan-2-attaque-main-7.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "d4112a5811ac62d31ee0813efea0c5d229520df8d1dd1c2ef756746a4a15784a",
-   "taille": 145216
-  },
-  "leviathan-2-attaque-shadow-0.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "90992fe1d126ebcc28f76d36388a17c735be700dca52f5f24f856f16100fced3",
-   "taille": 20191
-  },
-  "leviathan-2-attaque-shadow-1.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "5ca1962aefeac0797f174d57d491b31f017532f24ddb4146a7757437d8c39029",
-   "taille": 21421
-  },
-  "leviathan-2-attaque-shadow-2.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "781502874c69e7797c6648e9421ff9e41149ac7fa879985eb3dc7def70604e08",
-   "taille": 19690
-  },
-  "leviathan-2-attaque-shadow-3.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "bef51b42893f720f16fed5359906e520b77d0e02116173d67d2e638a120e2d9a",
-   "taille": 18718
-  },
-  "leviathan-2-attaque-shadow-4.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "0a3e16d27cd0ed5cc3a924fed8e0d0d621a24ccb540f5a3839bc897e23cf023a",
-   "taille": 19417
-  },
-  "leviathan-2-attaque-shadow-5.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "d6ba8024c5dac392266c729806b5c920b21703bed40dbfd60b4fb83f3263ff40",
-   "taille": 19781
-  },
-  "leviathan-2-attaque-shadow-6.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "a34133e33b680408262d162ebbef451d6ea8475b17ba44ca94bb3f959ea1b240",
-   "taille": 18384
-  },
-  "leviathan-2-attaque-shadow-7.png": {
-   "hauteur": 103,
-   "largeur": 648,
-   "sha256": "9effb4c4570e6caccfe1e17eadd0fa6f251ded2cffd3c09ec53e620f8c4e4c23",
-   "taille": 18287
-  },
-  "leviathan-2-course-glow-0.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "86225b86f98e78fbc857fd7be1a43f1784977848f7f8804d68bbd370d6ea3e76",
-   "taille": 170995
-  },
-  "leviathan-2-course-glow-1.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "274e5b7ec798be5082f58df8aab8d747291654124b137fbe21778fcdb37cf9fa",
-   "taille": 175330
-  },
-  "leviathan-2-course-glow-2.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "fa6bc65304fada770670c419b870d74917fc4b29e731463c450a9e716b631b57",
-   "taille": 186349
-  },
-  "leviathan-2-course-glow-3.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "b9270a962eee71405a76d2be7ab7991bb7ad9190bf1859f8473248fa8c291618",
-   "taille": 184212
-  },
-  "leviathan-2-course-glow-4.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "038841b6ea9bc969581c5639dd6871928354e98916512ba60d716ec4373fd2f3",
-   "taille": 172621
-  },
-  "leviathan-2-course-glow-5.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "63efc3b79bc6e0a3c145317ac73ce54d71962e43cbfe26ac55d1e7dd34ce9d38",
-   "taille": 178651
-  },
-  "leviathan-2-course-glow-6.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "1c36149456a8e26a9eecb0326cef0b78a91a085e91bee44f645ebe2103bc8f73",
-   "taille": 185980
-  },
-  "leviathan-2-course-glow-7.png": {
-   "hauteur": 398,
-   "largeur": 1052,
-   "sha256": "b789e289f5ac09522074227939a86b9f404ae6f7be0c696ff8ea672c8dd53e96",
-   "taille": 180155
-  },
-  "leviathan-2-course-main-0.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "1ef1dba007a4f568685acd133dcce880f2ad9a29acc17b40f60b5f36e7bfe54f",
-   "taille": 247083
-  },
-  "leviathan-2-course-main-1.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "86d0dd3bc10c3c2676f42588aae6012284033be679464f6a81f17482339f2525",
-   "taille": 247852
-  },
-  "leviathan-2-course-main-2.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "cee0af1ff5aa1180a0c4e8efc908cc2464cad34d35ec0f89b8c5b5af56146c16",
-   "taille": 268976
-  },
-  "leviathan-2-course-main-3.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "1374f0667e5b3f72a5d8357362e81bc4cad56beb3d2039190d42c6ddf88f5d96",
-   "taille": 258431
-  },
-  "leviathan-2-course-main-4.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "b3d6568b7e5c8e7440e58da7d80cf1282d99c8b910266f06d5557089f8f00c18",
-   "taille": 241594
-  },
-  "leviathan-2-course-main-5.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "287bd11485e6ebea8294459d9aee5b18d6429e3cf20c6467c88330cd5da95d7b",
-   "taille": 250687
-  },
-  "leviathan-2-course-main-6.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "74cfcb8bf1743f10e0823d33d96f93e43eca02b8d4ba257fd6a90b9d872e8bd2",
-   "taille": 274761
-  },
-  "leviathan-2-course-main-7.png": {
-   "hauteur": 400,
-   "largeur": 1056,
-   "sha256": "33a57335f4a0511656c1b4003297ff0d15b0d528fd668ffc009522cbdb110a40",
-   "taille": 270584
-  },
-  "leviathan-2-course-shadow-0.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "003fac5de6488ade1d83112c757c5d35f11d2e60aa45533c0cec76787a97baf4",
-   "taille": 36410
-  },
-  "leviathan-2-course-shadow-1.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "456c0bafe522a2701b747b245e6ca6e8ac35ff73085547efd4aba8e1bf7b095e",
-   "taille": 37792
-  },
-  "leviathan-2-course-shadow-2.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "0b78412c1936dbb3e072eb2e5f8e07f3467e59fbfefa3445434190977f36100f",
-   "taille": 34280
-  },
-  "leviathan-2-course-shadow-3.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "d25af0df193a3d94d271b069faa4cbff33a9ada1def207894441782cdbdf517c",
-   "taille": 33355
-  },
-  "leviathan-2-course-shadow-4.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "3ae59d8bc8defcd1d512b533d2e68e4b44366f5fcdbff80f106d712b834bb82d",
-   "taille": 34886
-  },
-  "leviathan-2-course-shadow-5.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "de818f2ea88b1646c2c980da15549487b907325e552f0313e41bf20ce2fc9c30",
-   "taille": 35467
-  },
-  "leviathan-2-course-shadow-6.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "baed5311dc3083f05159d550fe1273c5e9f906be59e891175365f68e611b6c5a",
-   "taille": 33407
-  },
-  "leviathan-2-course-shadow-7.png": {
-   "hauteur": 94,
-   "largeur": 1104,
-   "sha256": "395761830c63137083e0b9cda3b4296561d247745f091b84fad240edb2f3917f",
-   "taille": 32611
-  },
-  "leviathan-3-attaque-glow-0.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "5866502f16c9b3ce91d234d219bfb5a48b0c07c9c5422ddb8581b71b9a7fc47e",
-   "taille": 122931
-  },
-  "leviathan-3-attaque-glow-1.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "51415ca232a43036bfaa9bcc34dbc27a3ae5bd26742b224bd2dea8b29ca13b9c",
-   "taille": 113169
-  },
-  "leviathan-3-attaque-glow-2.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "a739f826876910f14aa1728d993a44635b102db9ed2865c93a05058e181404b7",
-   "taille": 123280
-  },
-  "leviathan-3-attaque-glow-3.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "134e2dfbd710a6bb0015831e9d2f3090ea98356e7847808537adf5521a6d1e12",
-   "taille": 122241
-  },
-  "leviathan-3-attaque-glow-4.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "8268fcd00a825dda0a1080238d32c8d60186e3debe46f6ce5b224564c04b8ec3",
-   "taille": 116111
-  },
-  "leviathan-3-attaque-glow-5.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "751b32f27e6729be64f90e8f7d0e7e55998c343103b3c19a0f0bf4695e0b52a0",
-   "taille": 119769
-  },
-  "leviathan-3-attaque-glow-6.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "bd571e60f2d177f1fa05c573f72b3a67b2d036183724310b8e8b278573b7f5ef",
-   "taille": 129356
-  },
-  "leviathan-3-attaque-glow-7.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "4ab23f8834442a11a224179c7e459045e3985db1ce0e3a3d5fb46dbae51e7b42",
-   "taille": 133486
-  },
-  "leviathan-3-attaque-main-0.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "7de45be1e787003af767747fb155386d3a2ac61bc09f5476734b329301763cae",
-   "taille": 152660
-  },
-  "leviathan-3-attaque-main-1.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "488c5d26b67da6c3187524629331b4d4a230b478f70b5f990da833980d8c43d7",
-   "taille": 143026
-  },
-  "leviathan-3-attaque-main-2.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "a521cdac257089ee349be26e443dbfa554c8dbcbb418807ee10de531dd227ff6",
-   "taille": 153669
-  },
-  "leviathan-3-attaque-main-3.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "2e30e978fa5d0917c625d08824fb79e76b2a828191160686f52abdfb2d2ad8fd",
-   "taille": 151508
-  },
-  "leviathan-3-attaque-main-4.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "8819bbc3933cbf790a3548baa1f32dd65d6b33e44e4899fbada3eb3c425a2621",
-   "taille": 142100
-  },
-  "leviathan-3-attaque-main-5.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "91c6d432d41690b1d27e3082840a1bb7052ebdcc45d1c8635427fbe7b79922cc",
-   "taille": 145381
-  },
-  "leviathan-3-attaque-main-6.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "71125a7a4c96b8da6a60b8fef4acc60c158dfe3d3d186405650af3373c8e0ead",
-   "taille": 158820
-  },
-  "leviathan-3-attaque-main-7.png": {
-   "hauteur": 231,
-   "largeur": 1160,
-   "sha256": "26865ce9b0d9566246f407c577d453d953fa5fa25fbda7d304044b54c26f3673",
-   "taille": 162254
-  },
-  "leviathan-3-attaque-shadow-0.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "3e202806d344433fe9d53a89877ab5baaa4ef56a75c6f2fa362cd946cc256482",
-   "taille": 22335
-  },
-  "leviathan-3-attaque-shadow-1.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "90be7ced799c4ef35dc6feb75b66b21edc79e60b10a57e9874f872daf549b145",
-   "taille": 23726
-  },
-  "leviathan-3-attaque-shadow-2.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "421e6138f6a7892868a63b221a20efdcea99e38fded6e16351031fce9563903e",
-   "taille": 21722
-  },
-  "leviathan-3-attaque-shadow-3.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "3ca3894c17eefedabaf5f51a6aa0666b06cf76e29a45dfdb78448c7fc8eb0594",
-   "taille": 20418
-  },
-  "leviathan-3-attaque-shadow-4.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "7e284469db8e83a7f40100b51de131cb67ecf3000b97e12eff6347d4d8f60b15",
-   "taille": 21466
-  },
-  "leviathan-3-attaque-shadow-5.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "bdb43a0c596a030f7c1693e70232a6144ba6e506365cebf520328c7f486042a4",
-   "taille": 21472
-  },
-  "leviathan-3-attaque-shadow-6.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "853c6a8f0bcaa0890de4c7525e35a9b1f5efe5147598dc6ff6d7a9f5d8d7815f",
-   "taille": 20377
-  },
-  "leviathan-3-attaque-shadow-7.png": {
-   "hauteur": 103,
-   "largeur": 644,
-   "sha256": "51b05fca4932395acf7b58dbc892e759c9fb34debc0a853d21b6be3e8b7cf16d",
-   "taille": 19803
-  },
-  "leviathan-3-course-glow-0.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "1599a349d1a54a0819ab015697f4a4af89b1273eeb4e9e9d978adaba77215a24",
-   "taille": 208637
-  },
-  "leviathan-3-course-glow-1.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "55665a121c876825bb1772b28de01ac36f622016cd16fe141b7ae06d6888612c",
-   "taille": 204597
-  },
-  "leviathan-3-course-glow-2.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "dc0a37f49e6b6236a2dcc22a2551c606807292a9536f5c4ffb79ec21570a946d",
-   "taille": 225203
-  },
-  "leviathan-3-course-glow-3.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "daf5840fd0eddc3cf055e2d7ce5cbae845a6cea755808c0b707c95676f2d3dee",
-   "taille": 222189
-  },
-  "leviathan-3-course-glow-4.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "34082f93dcde1adf48e95f779ea3405f4e90bdddd94201b026b3158ace31ea1e",
-   "taille": 210094
-  },
-  "leviathan-3-course-glow-5.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "43af0384e89f3e59b304a52640409b9b238a038a6fb2aea653156fc58c416bc3",
-   "taille": 217609
-  },
-  "leviathan-3-course-glow-6.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "212a12595e42fdc3f07c19592714ef9954d5a5c621d96d2d21454ccc44b3a1a8",
-   "taille": 230365
-  },
-  "leviathan-3-course-glow-7.png": {
-   "hauteur": 402,
-   "largeur": 1052,
-   "sha256": "29d35a9ec9462a0b02920783ae5fdc92e4e57c26e7eb6462e9fcec5e5979e289",
-   "taille": 227591
-  },
-  "leviathan-3-course-main-0.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "daa72c919690fcb46fbe9be6867fba54287cbe69bfc7f47b48da9cd22490a956",
-   "taille": 266138
-  },
-  "leviathan-3-course-main-1.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "0312c181130e5fafc675389937baf5fa21baabbea57d953911fa4b93f5882f67",
-   "taille": 263059
-  },
-  "leviathan-3-course-main-2.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "969f21c1f2aa2604427849e455e9d49c21a01c69e38ded66584325004fe8b221",
-   "taille": 285036
-  },
-  "leviathan-3-course-main-3.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "bbfafbde79879fec3cea506dfe1fa66b6fd6a17c7b1aca8388f1d246351ffc85",
-   "taille": 275076
-  },
-  "leviathan-3-course-main-4.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "f3734b0696592be72fad35f07aacb4c3a7246a0f940e8e60cd9ebbe95b62d473",
-   "taille": 260020
-  },
-  "leviathan-3-course-main-5.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "a179ec8a222fb49d623153b8cf05df56e7a33fdd8ee6e0ae2b3517ab0c0e8c05",
-   "taille": 263807
-  },
-  "leviathan-3-course-main-6.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "9e68cc35ada615405a42fce0bb27e5bb7756151dc37c0ce0d89831603467b17a",
-   "taille": 290631
-  },
-  "leviathan-3-course-main-7.png": {
-   "hauteur": 404,
-   "largeur": 1056,
-   "sha256": "290bcfb43af361cce4b06827e3f2a221311b10eee2136fa918c9c5ef273b3a11",
-   "taille": 290265
-  },
-  "leviathan-3-course-shadow-0.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "19e0a0c0a33baabf0503975e524185512b626ee9ae0fe5ca7ecbd7a6f0ec3429",
-   "taille": 38946
-  },
-  "leviathan-3-course-shadow-1.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "dfe6dd6054b6d1f78f000a3e9265a02f5fc65bda3ad6c35a18f388d5a3411bc3",
-   "taille": 40616
-  },
-  "leviathan-3-course-shadow-2.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "97ad898e222c7e054ac1fefbe75d7a8096bdf9f6ce421bde7c9a941c2156554e",
-   "taille": 36696
-  },
-  "leviathan-3-course-shadow-3.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "ff3dec416f85aabdf5990ecb5a8df8e35ebe3f59a515c2fdd83e31122ea7f8f1",
-   "taille": 35802
-  },
-  "leviathan-3-course-shadow-4.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "45208a40153cdcf96ff7c6d8749614a9925e615a29849b3a66ad74464777d033",
-   "taille": 37959
-  },
-  "leviathan-3-course-shadow-5.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "586214759e21e084791d95e0b8642499082cd9a8413f7cd1f64706e75540ee51",
-   "taille": 38053
-  },
-  "leviathan-3-course-shadow-6.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "873b646697dcd0255a074805ec5ddc114a1966b4e3d014f36092a34215be22c9",
-   "taille": 35899
-  },
-  "leviathan-3-course-shadow-7.png": {
-   "hauteur": 94,
-   "largeur": 1112,
-   "sha256": "79ab2eeaf26f2d9d92ca22b95fc7a4c94d42d15d35ed079acb77176ad991a768",
-   "taille": 35034
-  },
   "leviathan-drone-lueur.png": {
    "hauteur": 36,
    "largeur": 51,
@@ -11667,100 +9921,100 @@
    "taille": 4705
   },
   "ravageur-1-attaque-glow-0.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "9e06bae58be57c78f5544f943576fe9567bf320b9090870a8f0577b7e6cf7bdf",
-   "taille": 7806
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "5b19428a1f4d4aa8b1bb9d0ffe6a0abd936d476fdcad73cd12838301899bd884",
+   "taille": 2733
   },
   "ravageur-1-attaque-glow-1.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "87361b31c0b8eca6f2291ee0fc497d2c2cadc5e4caec6bd8fdb08e846afc0c4f",
-   "taille": 7596
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "644b317d6b694fbc05c0572a64b5c7e043de33523f5233fd02f38a2f717e2eb3",
+   "taille": 2608
   },
   "ravageur-1-attaque-glow-10.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "4fab49834f1430bef04023c38d63dca16a82b15d46175c68d4aa73a600fa3f18",
-   "taille": 12937
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "c5f1f0aefbc70ee61a188fb69a708c6e9ef6fb5b3007d157152265daa44035f9",
+   "taille": 4348
   },
   "ravageur-1-attaque-glow-11.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "9f3e846f6511c834362a2f40c6ab2f230a0621875506924fab1d21f8dc69cf59",
-   "taille": 12563
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "45b4444a00a00b51c38904130a95f2e2c9f7232948cb9e72ed96398f2bac9d94",
+   "taille": 4251
   },
   "ravageur-1-attaque-glow-12.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "a02bdcf2352544d8b748eb3b288ea0a1295ce3f2f38ad6963891ba1692c5c39c",
-   "taille": 11063
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "5dda6faa7f7e27679642d0e8cd08d676d65cef0b872dfe1ea918d91c5f3417c0",
+   "taille": 3955
   },
   "ravageur-1-attaque-glow-13.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "fa362b213cdc542149f403281ea795872fd70726bd71f6ea44c6bc787d88f13a",
-   "taille": 10970
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "ffcb3e032786ea42daf856e2bef9037f151dfdd43363faf02a798069d36e995f",
+   "taille": 3996
   },
   "ravageur-1-attaque-glow-14.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "b088abd426b2fbfa6c038d024eea3b6d1bf0b34e469d89a0aecce5180d3e6b83",
-   "taille": 10239
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "e97fd033201e405e6798fee18a397c0fecdd37abc720722b08aa73e011f99c0d",
+   "taille": 3547
   },
   "ravageur-1-attaque-glow-15.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "edfbfa6a15a7f55e235fc66aa3897775a9aeee2d159cc0aec246e756afd4dcce",
-   "taille": 9308
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "51b5e2fb9ff01fcb0aca02f75cd9020ab39a25c9295f2fd5e164da96dd3d46ed",
+   "taille": 3208
   },
   "ravageur-1-attaque-glow-2.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "d4153a0976582f32e3963b870f321a098d8ec4cf8a8a84a6f1117fc1fcfd1e37",
-   "taille": 7459
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "c454aaf0f03695b2de3896f9ff6438235bf2d576b3179356a3d9c55085e3af8c",
+   "taille": 2509
   },
   "ravageur-1-attaque-glow-3.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "6d19d13803d067874f767099702092db94863d0c02fa4c4a260a2be292ffa18a",
-   "taille": 8371
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "aa3a84cbd8091681c4b55c2e11457d839bb5cd5d985e276aca72d85d163ebebe",
+   "taille": 2913
   },
   "ravageur-1-attaque-glow-4.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "37ec6cce9ce39e388a7d264c4fd237914ae27b35a56b4fbd345378b3d32efb64",
-   "taille": 9406
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "74f7544a442c27b40fefcffc6e5e9233cf8ce6e936e6c909e4ec60ba923d70bc",
+   "taille": 3257
   },
   "ravageur-1-attaque-glow-5.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "132128ce5cea1fd67cb4c1e7a075a6ad5527228685cccc6d2cbd650f0b35d41d",
-   "taille": 11403
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "fe4525e4a28157a9c7dc1bd12e124b1f1846bc706c2779189a73614f6d740b7f",
+   "taille": 3988
   },
   "ravageur-1-attaque-glow-6.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "180cb764ebcc734df77c3fc5adee7670edce17abed96b989f5e2372dec3a6ae0",
-   "taille": 12852
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "578fc536af6cadac15acdd6719f97cdab50073741bfa646256819e92adde44ab",
+   "taille": 4487
   },
   "ravageur-1-attaque-glow-7.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "48720f56a035d6260a2b4618243c0889ecf186fe42a0e757291bd5bdf87ef325",
-   "taille": 13909
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "4ebc98233d09c4281cb3cbf6d4164244df2ed2f59d446088c8ce92f919989944",
+   "taille": 4764
   },
   "ravageur-1-attaque-glow-8.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "1b4f91c6ec9751590f7e9cbc9be07ca797664a5b3d96cb33376f78cb1ffa9ef4",
-   "taille": 14021
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "fa16d36e58d46e1c489d12e6840e1f6745f163e2eff75cb75dab5e7da5e0086e",
+   "taille": 4859
   },
   "ravageur-1-attaque-glow-9.png": {
-   "hauteur": 91,
-   "largeur": 424,
-   "sha256": "707381e406b5395979a9f62c2222dd5c08d7770fce87c6b5fd46722d02a025fd",
-   "taille": 13748
+   "hauteur": 46,
+   "largeur": 212,
+   "sha256": "6a6448311b516f643fcd0e0049df68329a03e5e906e32bda436441a52fee40ac",
+   "taille": 4715
   },
   "ravageur-1-attaque-main-0.png": {
    "hauteur": 219,
@@ -11955,100 +10209,100 @@
    "taille": 3360
   },
   "ravageur-1-course-glow-0.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "8fd152d681875b645d77c061a66dfdfbab9b78d441a2dadccb9cba24a04da254",
-   "taille": 17588
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "a18cf5bec0f1ba09f5ad2ff5bdfa6ef4b1b323193fec821861d28c74b1836834",
+   "taille": 6046
   },
   "ravageur-1-course-glow-1.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "3685f206411e44ab8b65acdea15e682aa9c24d594c8feda9c75dc5bb560a3a1f",
-   "taille": 16473
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "f869acc512c0abb1efd9cf78c8f22b164810bf5042bd88d2264c9b1b2ea7065c",
+   "taille": 5763
   },
   "ravageur-1-course-glow-10.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "651da73ea450844c03a30d1bfd6883ca265a730d417c32191d98493914f05084",
-   "taille": 27151
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "1174d21c1ea81290f1e734df23027a99b4401804c5313b4f8c0298fbee0e8ff3",
+   "taille": 9222
   },
   "ravageur-1-course-glow-11.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "2d87dd7658b4ea16905802e8b01c6d4ab15f09c848bf54500348216719887237",
-   "taille": 25719
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "da6182e16b1306aa0498ed1d882853b9d42eadc3cee86a453ebdd13ba01cd3b1",
+   "taille": 8735
   },
   "ravageur-1-course-glow-12.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "c5b0d30fabf66d901bbba7900859726908535baf830965be84ae7e2348ecf744",
-   "taille": 22358
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "a98a456fb6e67aee8b8fc92b508d593d9056a856bc5fcddee0736397a5b3e935",
+   "taille": 7571
   },
   "ravageur-1-course-glow-13.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "a16eff81198ac746d962ab18b7fce242fd6400e24dab89022122dd94a976e2b3",
-   "taille": 20791
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "5bd54da268afc55d7e499636bfc2c6f0d8dff68d42320872d12386ed5036e8c4",
+   "taille": 7094
   },
   "ravageur-1-course-glow-14.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "3a866980556e0a4084b55594d0d1b2c651d301385001f3b406a0f6178492388b",
-   "taille": 21280
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "c199043eb53d8add8a7e23ddc8917f1a274469ffa0aef89f6921e6d3a01b2dc0",
+   "taille": 7117
   },
   "ravageur-1-course-glow-15.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "6c829c575846f74ccab1038fa397e0521d10303fe8d9d508544f0ebf1abf091b",
-   "taille": 19342
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "710c3c7b6e0afdd8a0f3daaf64361bbcbd2fc2c7fce6549c7166e5b596596cec",
+   "taille": 6536
   },
   "ravageur-1-course-glow-2.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "18a77fa8717beaf6462e31950e065ccf3296d6d2a64a084bee0f25d57ca9aaae",
-   "taille": 16243
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "a9633242f5d39bf9b173eb89d3a8e82941822992ed6a4d5f9156684b539ba3c3",
+   "taille": 5655
   },
   "ravageur-1-course-glow-3.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "21dc05e54cbb47e81579d119ec0b838eeccac0b3997e55c540349a2e8558099a",
-   "taille": 16500
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "952ec3367bd4b71783de9c200afbc94dec8861c34701c79cf9f4327ef6a94e5b",
+   "taille": 5805
   },
   "ravageur-1-course-glow-4.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "9fb7617bcfcaac79475ec019a5552ae28676bae0991e29535a012bcfd9c5fd74",
-   "taille": 19489
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "99a2fe23d621cc7e84b81a0347df50050e54f0966c9a98fdfe53e8f50f425db1",
+   "taille": 6702
   },
   "ravageur-1-course-glow-5.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "744c488b15f625b7a54596cb7097a4cbf8d1278c3e7c8f03eac651375bc600ce",
-   "taille": 23330
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "18ca01d1d6872a113d4763096485de18af9b46b74d3763fe933ed22b68663b64",
+   "taille": 7970
   },
   "ravageur-1-course-glow-6.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "cfa7b4558ef602bade69d4e4d156db0ce029b4f4238c31663b3162d2ac686dcc",
-   "taille": 26847
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "6db43fdd1935c806df8e9aa26e43b6cf7d4de8038092ebbb50fb060c71062b54",
+   "taille": 9069
   },
   "ravageur-1-course-glow-7.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "42d26ae78fa5857fabeb95c8a6b6938dc82c7a0974d2f512cf2b04ed30dcfe1e",
-   "taille": 28483
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "4e9425645203a185b968e80f4e38831f8da04fee23ff9622ca033ddfea21a145",
+   "taille": 9689
   },
   "ravageur-1-course-glow-8.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "7ea944ce0d2e7edfdc14ba5d2a7f99576abe8aec7a8856b6243b8fcec3aaf8b4",
-   "taille": 27019
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "21712dc14d5ab4bfda7ebea7a2df71c406d4208fe3c10253e6c09222f9a4f29c",
+   "taille": 9104
   },
   "ravageur-1-course-glow-9.png": {
-   "hauteur": 93,
-   "largeur": 712,
-   "sha256": "30deac4f305ea1ab76979895240fc451121715e426c9234c6670728a51c888d5",
-   "taille": 27343
+   "hauteur": 47,
+   "largeur": 360,
+   "sha256": "f1af9d946220e28a3553767d6f09a32297a1c510178a32288d87fa6628b2f968",
+   "taille": 9290
   },
   "ravageur-1-course-main-0.png": {
    "hauteur": 225,
@@ -12243,100 +10497,100 @@
    "taille": 7589
   },
   "ravageur-2-attaque-glow-0.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "16c514655c21151cce7aa572ec7ad4c60c13f9138706e6a2306b857940c9040c",
-   "taille": 7559
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "60a63d8adc7610f7fc4a23729b1e954afd5ae60ca1d8024af2664bb380cc082f",
+   "taille": 2576
   },
   "ravageur-2-attaque-glow-1.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "d4181d4e1ba19f04b6a994cd20c409f753d29ee6a1ae09c616162f4b89214913",
-   "taille": 7276
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "8afc8fa1f57f133c66b4e4a071eb32b3798ecb187a318347f2f3ec0d115ee780",
+   "taille": 2577
   },
   "ravageur-2-attaque-glow-10.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "5ac9b5917db64c3e9413892e76a0d51c0fa627982d20ca7764fbf81b10651501",
-   "taille": 13276
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "03b34f1de692b04b4a2fad8e89dafcba0c292b45a81a564569f6e3b93b356b37",
+   "taille": 4493
   },
   "ravageur-2-attaque-glow-11.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "33c057caf3bb0ab79295dc9b8608f42066915448808a3e983bb5db9b35e9816b",
-   "taille": 12760
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "728dda35c1443e66a71821cbe52934e03a1e2a4c8e867967befc85c2160d8d33",
+   "taille": 4445
   },
   "ravageur-2-attaque-glow-12.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "23e9f5ba42ac2d1dcf46781ae6339ccf07360f7d287bd642e508bfec115df367",
-   "taille": 10832
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "d802df053fd4cb6eea4f1a4a3551cd8c128236e3d82f0d8b3ea04c4aaf1c84fb",
+   "taille": 3936
   },
   "ravageur-2-attaque-glow-13.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "2cfe2e0cefe550196727517a3f9bbbe9b67fd15556a1fab0f30388d2665bb23b",
-   "taille": 10754
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "79270210af30492b42350ef8e3d0ba3d1c5369fcb1d13ff909e027f6833cfad1",
+   "taille": 3958
   },
   "ravageur-2-attaque-glow-14.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "c856d92c5b4208e96a76fc5a4e9d386b9155a7d4578f35dd96baba10b9cb7287",
-   "taille": 9997
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "c237ef8fa4b5c5b6bfb01e4626110c410645a7e5599716adee7ede04123ef69c",
+   "taille": 3483
   },
   "ravageur-2-attaque-glow-15.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "f35d00b2ecce0c983f2819ffbe977d1f703a787ffcb14a810c548bd7670cd77a",
-   "taille": 9133
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "12a0ed47cb5fb100e83a76c353581566a104f56b323d143a8e44e808c55e2af0",
+   "taille": 3151
   },
   "ravageur-2-attaque-glow-2.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "3bd81643250bb4c1a8c5e51409e974eb08efefbd12371c3ef33ebc6e2e03c03b",
-   "taille": 7368
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "6573fba9eef1d9da85f6d58ee1a5b65986d2ababbd9d5cc53560f8485c9468c2",
+   "taille": 2465
   },
   "ravageur-2-attaque-glow-3.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "a99deb657f395446bad8f126ddd7d2bade7f46675caa7587fbe84cf45468a368",
-   "taille": 8229
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "dc41fe3da6dd4f1b6ffb0f60a7af34ebb49a0727612af3adbd07a33c4b1da466",
+   "taille": 2843
   },
   "ravageur-2-attaque-glow-4.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "78cbae74f504d41746ed9d2872b35b62e8946cd8265d318b6f3cf344f570ddef",
-   "taille": 9452
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "07100696b30897b780ece5a0244e22f4197d50db00c11a2fd94fdb3d0fc1cfe0",
+   "taille": 3347
   },
   "ravageur-2-attaque-glow-5.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "3cb08d63029a2b0c704779b75963350d95fcc66974a2c41b78c3fc9ae6165106",
-   "taille": 11562
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "a7ee1ea92ed36b7bcd474acd3b9bef057865528e1cd2182622d9584e7dc39fe3",
+   "taille": 4106
   },
   "ravageur-2-attaque-glow-6.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "fc6a89d54adcc0e47a0f0ce6f374a5c33598651ad49d5d45e347a032e123752d",
-   "taille": 12926
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "7028a7e9db2328da24d89d4027f8f9e45df898064076a5aea4668e9a6245393d",
+   "taille": 4529
   },
   "ravageur-2-attaque-glow-7.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "7e2cf318fd16c2fb2a741b72e9de30129bf77da1a04187a28fe3678760b43345",
-   "taille": 14128
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "3a36bf3a5d851850ea2e3c8b51b9fa84593e99cb3d163287761770ebe6c77a98",
+   "taille": 4943
   },
   "ravageur-2-attaque-glow-8.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "acbdf8d462d31db27d83c8dc7d7c25f4591a5a67fdeab8e85ff4a55f3aac7019",
-   "taille": 14384
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "d33aaf58179672f419ce7f1668f795a235d506f3f4da158b45432d603107b743",
+   "taille": 5061
   },
   "ravageur-2-attaque-glow-9.png": {
-   "hauteur": 96,
-   "largeur": 424,
-   "sha256": "1c6ff024c4fa0d366d84e33ed398e44146adfe2aec9d887ac1fbf7224dc47929",
-   "taille": 13962
+   "hauteur": 49,
+   "largeur": 212,
+   "sha256": "db87805ce33faa9829c0857a0f5d1786130a151a130e0adb75eef8015b7836e3",
+   "taille": 4885
   },
   "ravageur-2-attaque-main-0.png": {
    "hauteur": 229,
@@ -12531,100 +10785,100 @@
    "taille": 3513
   },
   "ravageur-2-course-glow-0.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "c32febcbcc3eee54eec49eda04233d781005faecb9b46c815145765876839bec",
-   "taille": 16919
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "ab96aef15255ec5a80ad4ec3988ea0a339fcf8f2b115a3e84a1d9c20b6e017eb",
+   "taille": 5817
   },
   "ravageur-2-course-glow-1.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "2d97e43fff4b1bdbbbaad3f2d497016f680a288c0a8653986b8ecf6041dd0b67",
-   "taille": 15958
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "1e9f6b899b586b3736aaa24bc50c63b0460b8db283376635870ed95f0e3c6e8a",
+   "taille": 5625
   },
   "ravageur-2-course-glow-10.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "09078b8ae8bd24beb72f5887cb52338f60ca33112b26be04c826d4f6a59ac6ab",
-   "taille": 26985
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "7096e3dc4995db571efcb8932443cad2fce7ba2dfdce757b860b7d3c53436310",
+   "taille": 9233
   },
   "ravageur-2-course-glow-11.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "f118fe51a281e3441b54deac41958407085e1f2bd6cc86cdf12adad3715d07e0",
-   "taille": 25390
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "efa429f0d5fe740f1f5172b3592d517812acd5d6e22ffaf37b99a5fd7024ad0d",
+   "taille": 8711
   },
   "ravageur-2-course-glow-12.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "fb0a346f807f673ae52f8a9845ab1011b526eadf0b54bea2eb76defe2a6b1315",
-   "taille": 22119
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "d79ae6f6167f97a055683b4da9a5766ec9be157124311ebe3fc43180ee03f95a",
+   "taille": 7553
   },
   "ravageur-2-course-glow-13.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "a50e3540739a003762ecf3d8972d58549a32b3e0a3e906e920a8b6d8665fa07a",
-   "taille": 20315
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "85d808f6841d10a12011a494b56b75a9473f8bd3a0f6e35b114252290e45b85c",
+   "taille": 7010
   },
   "ravageur-2-course-glow-14.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "191121bbcd37b14d835a5cbe13ed49b263fd0c7167151fa3b7bcd094b680c0ab",
-   "taille": 20467
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "d7a0036c2e5b57ed96f5027bc71e0c4f73e851b95cb72d28d190235d8c88c1ed",
+   "taille": 6837
   },
   "ravageur-2-course-glow-15.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "5140a37c6a54407de1519c5a0b591d69d0e1372b6455502e421adf14f18c35cc",
-   "taille": 18827
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "9bdd47ae1c8478be50c264b8dff8a99b73563c0942043d80a6a56d53aebc3055",
+   "taille": 6364
   },
   "ravageur-2-course-glow-2.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "213458b7fd0c2bb467817f29e9d07c98fb8970a4c047cc53e03477f100f91e8b",
-   "taille": 15936
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "c43daf177d763d14512b9e4fcbd2674bc2ea824fe69647426e299a0f6c94d0e2",
+   "taille": 5637
   },
   "ravageur-2-course-glow-3.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "4df616dc482b3d117d1e4fae1138ff47c43579e15175246049f72f9cfc6c906a",
-   "taille": 16042
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "85b0e6a665f8b8225bc5e8409c969a2b2b63ebfbb1f2e8c632904e18bedc4ec4",
+   "taille": 5602
   },
   "ravageur-2-course-glow-4.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "05ede291af7a06b3a8f02ef8fa88c147484147d4221244940e293476449ae1e1",
-   "taille": 19533
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "750ab5c49d6f8f2cc29dcbe2cbda4b693962f2d74fafc03f6261168c9d99eabc",
+   "taille": 6782
   },
   "ravageur-2-course-glow-5.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "7ba6f51e7431013ec1fd7faf742b2874bc186c95fa403e3f9e9a77d83a54026d",
-   "taille": 23513
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "08e6d2b296144e1c513f68f104f3b75550345cd5bf36440d202938484c4bff02",
+   "taille": 8041
   },
   "ravageur-2-course-glow-6.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "4cd2f9eeeb92a40e81484280167a51044bb4bf35d312805625a248e11b387745",
-   "taille": 26926
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "b2c58da4c1684f735acddaf51e57b4c0ee98593947a710cc58cf48f16039bb2d",
+   "taille": 9121
   },
   "ravageur-2-course-glow-7.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "8a20d7be7ca1370f6d5099e7b4aa65473056ee503c720ba5aff80575cc8be8da",
-   "taille": 28384
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "7741c5aaaac26d3bcaba968662421c033ffa55fb175b89153f20bf9198649de6",
+   "taille": 9726
   },
   "ravageur-2-course-glow-8.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "cca3f4f74df41d4a6a3469186d7196c83d2bbf8e6dc3595d9131f0ccac536fbe",
-   "taille": 27058
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "b4d252f0a1554bde14251ec0163d0b77801a06f03dda4e1a8cfce5c770c27134",
+   "taille": 9171
   },
   "ravageur-2-course-glow-9.png": {
-   "hauteur": 98,
-   "largeur": 712,
-   "sha256": "c6ead37debc0a23e249761ac8254fcca7fd6a2c4a4ded83f109198a85f220df0",
-   "taille": 26888
+   "hauteur": 49,
+   "largeur": 360,
+   "sha256": "30d9d47dae07462b12d0f4aa83100bd8917ba8127303ab05006692d6042bab1e",
+   "taille": 9099
   },
   "ravageur-2-course-main-0.png": {
    "hauteur": 236,
@@ -12819,100 +11073,100 @@
    "taille": 7876
   },
   "ravageur-3-attaque-glow-0.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "8714a6414469898c2a53fd3b05d3668e431311b9d4ab43b0fc6d00e8ddafd2d0",
-   "taille": 8001
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "6a8cbb3bf3a2ce112e42e54c451a09e3cbadba5f867b2b76e373f06173133e89",
+   "taille": 2723
   },
   "ravageur-3-attaque-glow-1.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "44af772ab6f7f3204b693743f93b5b8b237f4e7b626d75843ec13850929165c0",
-   "taille": 8292
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "2d3fb301ec7b7d6c220960fe653e32a1e48a8acf05ef07721ba4bd95b7aa0962",
+   "taille": 2932
   },
   "ravageur-3-attaque-glow-10.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "93f964fd759bf26018196f26a6711d5ec693ac052cd8bcf3410423dbd0494ab1",
-   "taille": 15380
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "1fdac68a12f3782b96a96ddeea0308af63af76a62f2f845ac2c397ad7a9d5154",
+   "taille": 5359
   },
   "ravageur-3-attaque-glow-11.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "97284616eb0f83266513f6063341211a3a7efae1bfc67040562064a72c83f168",
-   "taille": 14460
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "28330cc0c431198de227fa3020aa26c59f30a842c8956fdff5d003ba5874e9be",
+   "taille": 4975
   },
   "ravageur-3-attaque-glow-12.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "e6e664265eb8512dcb31c7fd462db2cc46a6af3bb01457f43a0a1caf009e6914",
-   "taille": 12546
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "3e4bfe747ccf0eebb4c5eba3bf20e8ca55445833344878ad29788ec2bef098aa",
+   "taille": 4581
   },
   "ravageur-3-attaque-glow-13.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "e36f345d8888001bb11ce18a905c0a311d1ffd8b9bacd53cba0a70d0126817d9",
-   "taille": 12216
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "d5e42c5bc9716f75c622e61dd22aa68961bece49106043e489a6cf8e28c71362",
+   "taille": 4494
   },
   "ravageur-3-attaque-glow-14.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "125f1a9e1261f6a3588204f70d044d2634c0b9e43856c7fca85663469087872d",
-   "taille": 11277
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "97186cf31fff49303834cf3aac16d68331b29dcdf4a3f5a826b1962e6db00957",
+   "taille": 3924
   },
   "ravageur-3-attaque-glow-15.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "de9f1a8c8d70f72846662c73dabe2e3a14ee433ab720867e75845166ae9271ce",
-   "taille": 10043
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "9553b1ffc05b2e120a82006a5acfe9fec86e694af99a5af794707fcc905a3723",
+   "taille": 3386
   },
   "ravageur-3-attaque-glow-2.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "a2cc38454c961dff884f6a009297794dc75876693bf22ff056701e1609b0e192",
-   "taille": 8583
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "87b164627c6e6713aa206113010208b419a492276737a3bf8a3ff2e4bd087afa",
+   "taille": 2877
   },
   "ravageur-3-attaque-glow-3.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "85f15b682648256df36dc661f365d9a4ef3be72f1c900769de97363ddfeaf064",
-   "taille": 9307
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "5ae0d5331795588bb0a3cb227512c82c6f3e131fc0abfdd74c888caa8dd8de0a",
+   "taille": 3283
   },
   "ravageur-3-attaque-glow-4.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "ebe1ca8fd23b04404fd1d80c793b28bc3f631df6d3521f06ad7e55e5439ff11e",
-   "taille": 11110
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "864a9afd6714d78538be1776a74f543c8f8d0e5c4b2e03454766148ab0b94371",
+   "taille": 4020
   },
   "ravageur-3-attaque-glow-5.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "748b46e51686ee5178e571785ada8c41f4ff8b1a50058e3533884e3767cb3f1c",
-   "taille": 13530
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "4e7476c4ec3eb9a82860f4eb301e30d5557768e5a8fe2c0814d7c6a95ed9980f",
+   "taille": 4762
   },
   "ravageur-3-attaque-glow-6.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "9f52920cbb254f7ef3eedc767a48dfae87864bc8a394b2b7b2f390801162fc61",
-   "taille": 14669
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "d9bd0c41be37878528ea28391c49e9f8a1886a0e5cf7ce1ca0078e09c3cbc2b9",
+   "taille": 5271
   },
   "ravageur-3-attaque-glow-7.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "fd4f3ecff002189bd99f7ba564a10645986fe2f3a79d1bd1a0c6408d81ad5978",
-   "taille": 15864
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "68cde71dae18b8b31e4c11b0f8999c46375a6148d64f97d86e09d12ddcdf298e",
+   "taille": 5615
   },
   "ravageur-3-attaque-glow-8.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "4c036e70e210f398afda27d66c36b2ed0af8e11c0fc68582c5a223da583dba92",
-   "taille": 16253
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "9ed9ddbf09349940bf1079c62abb23d71590741ac26c995284fe7fb72fd3aba1",
+   "taille": 5620
   },
   "ravageur-3-attaque-glow-9.png": {
-   "hauteur": 113,
-   "largeur": 432,
-   "sha256": "39885fdc3d8ff21dfa0465fd7416fbb5ef2fa0d14893dbca1d9605da5c35a519",
-   "taille": 15668
+   "hauteur": 57,
+   "largeur": 220,
+   "sha256": "ead020c379a85f376ec35ef31b676e67bd038c86d95cc60ce6e0d54f6f6a1a13",
+   "taille": 5595
   },
   "ravageur-3-attaque-main-0.png": {
    "hauteur": 263,
@@ -13107,100 +11361,100 @@
    "taille": 3763
   },
   "ravageur-3-course-glow-0.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "3139cec7a7fd446c50c4db38265c4cd4a998e3a1c52450f0f7a34b2618fdf64c",
-   "taille": 19217
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "5e88a281de6592a1236a511c58c9cb82a430d814ac324f7cc586df5e37001fa5",
+   "taille": 6552
   },
   "ravageur-3-course-glow-1.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "3665665f2ad3b5d8dc5ca1c190697f2f7a6b54036aa9670e2db7e20c70070795",
-   "taille": 19376
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "1fe34cb2d4c7694146233c059294246bf87c47af84f28e8125f897c1a59bc376",
+   "taille": 6947
   },
   "ravageur-3-course-glow-10.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "ee3d8680251a01fd527d7cd94fbd15143bab48739745f2b77468e3c79e40bb83",
-   "taille": 33133
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "eb4fac62351ae03e5ca8018c5c3dd4c07a94e749cae192a6150bc6b4f03fbf24",
+   "taille": 11432
   },
   "ravageur-3-course-glow-11.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "2074881cf581effefdeb584680e9f3be37642d383059a3ae9449503ddacd9a64",
-   "taille": 31075
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "023dd69f9edf27a059a23893efedcf4176a57e3e9336d637e91844dda2c61360",
+   "taille": 10672
   },
   "ravageur-3-course-glow-12.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "16d5568f797302b0e8e2002c0b63ff86321c2e78460cac93022a051633043402",
-   "taille": 26502
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "dbcc3415306c15dbe3d1225abd04d91f61135d0951afabd8d7e103bb2fbb51ad",
+   "taille": 9183
   },
   "ravageur-3-course-glow-13.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "e6d67752cf3db65aa07fbb11522929855c35eec9ee577716fe104cbcca09793d",
-   "taille": 23181
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "a68cafe27632182d9e758b5102a311b6e5b400f1040396b22683bfb78d45e10d",
+   "taille": 8002
   },
   "ravageur-3-course-glow-14.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "0896d8e3c6ed13613e5d0a93c3bdd44b1fc30fbcbbc02289d70200e95e1caeba",
-   "taille": 23586
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "f7add09ff3a7ba2f604435c0367071f9e9bffaa43efd269ffc4276e420b97fa5",
+   "taille": 7916
   },
   "ravageur-3-course-glow-15.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "5c07f21022ba93e3964bff6755ccaf04e692d75958f46c3c50b38cf38a13a4d7",
-   "taille": 21612
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "c5e76c9c3bb7321584fbc70f8d95c649de3d916eaa9d88309fbdf974c4656f45",
+   "taille": 7309
   },
   "ravageur-3-course-glow-2.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "caf39774995f034375eb4c19ad430cf2c56f4a6f8a325572cb2e3f56255cdebd",
-   "taille": 19174
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "4187dbf82e98a5ae96e2d2464a0a77e9521a81806233073eee99184de34b2518",
+   "taille": 6782
   },
   "ravageur-3-course-glow-3.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "a83e5d81529c2a68a52b4034948541e8973ecee465ebabfafc9445372a5a4a26",
-   "taille": 19348
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "04896f969071d40380a3018e1741292880f46ffc81dbe7d3227d07eb30eace30",
+   "taille": 6840
   },
   "ravageur-3-course-glow-4.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "90835eb34f634c304035728fdd7b7a1d831ebf4734676cde8c75ae18f9862183",
-   "taille": 23659
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "8ac1991d41514ce46a010c986b72f68554f744b0f4b2c57e6f068864b3f3ae1d",
+   "taille": 8318
   },
   "ravageur-3-course-glow-5.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "7e6d17ef88dd086ab1123a95d5f86b55bad2843c5dbbc17046cba88a9b01f106",
-   "taille": 28912
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "2cdf53c62e15e51f8fb9f99a33ede1555bd7fe176d5a732d7660ca72c368c6db",
+   "taille": 9861
   },
   "ravageur-3-course-glow-6.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "ee26c5467f0bda197618482a0b91f80c592a308073007db16a707ac524fc5fc6",
-   "taille": 32528
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "eddeefd5f760636bf0b0222e5e4edfb143895f0b27432214680e5906f109d9d2",
+   "taille": 11291
   },
   "ravageur-3-course-glow-7.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "b880195d99d0ee5f8e102ac2d30ff835ae297f005d471811b3e577876ccc4c89",
-   "taille": 34457
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "e56d5a2243db1fd468403993d5ecc55912188bdbb059acba123d0d2647606b35",
+   "taille": 11786
   },
   "ravageur-3-course-glow-8.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "11fc498ffca257c0c44cc8861a6cacff9308545b1eb7f4d95fecbe3749cd1848",
-   "taille": 33025
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "64a3a39013eff6bab4ef4e92b86b6cda919b1ca0f2a11d9d18ef1ffe5333b6b1",
+   "taille": 11357
   },
   "ravageur-3-course-glow-9.png": {
-   "hauteur": 115,
-   "largeur": 736,
-   "sha256": "3ad6e70674cc41b84a14df7852fb975a6abc5f24308ebf44d4011ec4588ff7c2",
-   "taille": 33561
+   "hauteur": 58,
+   "largeur": 376,
+   "sha256": "e970caf00e2008b4115c8018640b5b2f0846eba548ed73fa6fdaf51cbac1dd41",
+   "taille": 11416
   },
   "ravageur-3-course-main-0.png": {
    "hauteur": 269,
@@ -13395,100 +11649,100 @@
    "taille": 8785
   },
   "sentinelle-1-attaque-glow-0.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "14e438a11f0e69cc67e18babb8b8b9257d82e689cde4f386ed80179bdc2b4454",
-   "taille": 15565
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "906c508c4286e06245a17318b3477cae7a9725ea51122bb87d057bd7be4d4c26",
+   "taille": 5349
   },
   "sentinelle-1-attaque-glow-1.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "e0b2172db89ed062b13c85461ed34dee2d568369e6fd4e31f289014a1d1ce90f",
-   "taille": 16090
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "b42f2f7353aaac12143ae955db6dd7da64313c21753271b27cfc516117da3331",
+   "taille": 5669
   },
   "sentinelle-1-attaque-glow-10.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "aba4355935c8ef5f5b8f2570fdcf306418fe1359c699509e53121b396a437152",
-   "taille": 22482
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "9f59a36e2105e3ffc87eac80eba8101f63518a713c412e1e03ac466c8c2268b5",
+   "taille": 7340
   },
   "sentinelle-1-attaque-glow-11.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "f6fae706cb4a17ba068e6dd4b82a5cc9890cff92433464bf14908e9fec31c9e0",
-   "taille": 21096
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "91434059db6336a8c088b73c5eb86c7d81a17bc80cb9f2bd8a63d912253056d7",
+   "taille": 7005
   },
   "sentinelle-1-attaque-glow-12.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "4a6e69419be22da2ecdf624c07ff7bdf7232cfea676afef7144c3dd936be3ccc",
-   "taille": 19928
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "666eea6877a35f3ee401c9126de8471fe5d193c9fbc39d9bb5434bfc50482661",
+   "taille": 6708
   },
   "sentinelle-1-attaque-glow-13.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "28aedb8d61548ea438a8eaa1f1d4309ce8b80e6dcd029b29dd6aa9bcdfbf5bee",
-   "taille": 18369
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "b4245193a52c31d75889ca5e945a675bb9bc04327df2535d31a51f1e547e9d74",
+   "taille": 6259
   },
   "sentinelle-1-attaque-glow-14.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "672602c82854eb4a495a2aad80c2e3b4dee1ccf5de552719e8c2837e7ae7b1c6",
-   "taille": 17746
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "3edaeeaf682d2a8ebdaca75deac0200cde3fc79becee6043227eb3a5c7711730",
+   "taille": 6114
   },
   "sentinelle-1-attaque-glow-15.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "befcb003f5b20b32abb64599c69e9a2468cf9b781e112ed74db29ffe144a4afd",
-   "taille": 17027
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "a53ad55554db1dfbaa3d00a9b7937701bfb58fea610df995149780e54df4f91e",
+   "taille": 5867
   },
   "sentinelle-1-attaque-glow-2.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "625a4642ae6dce2e6414975f0d689e63b0649709d7283cec91a8cd4c5ed0661f",
-   "taille": 16518
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "6bd03b6ae6116f54d8f456911a14b9a1d8aca26c9825a5b73f198e1e96c65c54",
+   "taille": 5776
   },
   "sentinelle-1-attaque-glow-3.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "674e36fa25f0ddd8adcf59e801f510a018e80671fe87d01b3248aca4f65c3ad7",
-   "taille": 18262
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "bfaf7c1ea6ed2b9cca65403fd40da1e1e92d520cd3ee943175b9aaf0724d9b90",
+   "taille": 6272
   },
   "sentinelle-1-attaque-glow-4.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "d69929ec1148236aa4ed7b173bc01d05c6e34808bb78ceeff6022348e61d3ae9",
-   "taille": 18835
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "d74802f8cbdc12fef5f204fbd2fa180b02838055146fe205b6f3ecc0cf8bc655",
+   "taille": 6593
   },
   "sentinelle-1-attaque-glow-5.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "bb83fbc14b89add9a875bc13feb4d8305974c71dcfcbd8649fed1a5b6d644348",
-   "taille": 20132
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "30da7dfb1c5d8abf780f08ad7d686299135e271c584c33b1478316f167f884a6",
+   "taille": 6743
   },
   "sentinelle-1-attaque-glow-6.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "076abe9642caaf5a7a40b740e882793ef43c2b2a5bcbe0cd993f85305484a11b",
-   "taille": 21424
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "788fd3f56d34907299ce8ac06c2e386235d56b188441546c132cecc44d33cd1b",
+   "taille": 7170
   },
   "sentinelle-1-attaque-glow-7.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "1a46bfab2c0029d78c9fc4c6255f94473bb36ded2b6f928c8f772f8fa14ae9ea",
-   "taille": 21820
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "63b9705871754d5878355ef60ff31ba246fbf803f32fa71fe504a2e209afd4dc",
+   "taille": 7092
   },
   "sentinelle-1-attaque-glow-8.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "22a5dcfd740c1e4b2a8596161ab8d44601f720fc99ae216cab6373817868e345",
-   "taille": 21697
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "43eb022f8730e753406ab7a5c8bc367f1636494f783afc90b1355fe86b0c342e",
+   "taille": 6982
   },
   "sentinelle-1-attaque-glow-9.png": {
-   "hauteur": 99,
-   "largeur": 332,
-   "sha256": "fcd2f8c30776cd64d0fa07e9457d8b9b208a01ba6133d91bf05400c3e40a23a1",
-   "taille": 22801
+   "hauteur": 50,
+   "largeur": 168,
+   "sha256": "31e1ae62151b868f162789268a265e303756b701d90435827127dd2a3fd2a913",
+   "taille": 7328
   },
   "sentinelle-1-attaque-main-0.png": {
    "hauteur": 214,
@@ -13683,100 +11937,100 @@
    "taille": 2730
   },
   "sentinelle-1-course-glow-0.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "8e8fdf7e081cc30419541ee29fbe98c3462219c7f7509a58c29a27df75f5750c",
-   "taille": 27964
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "39eccef3aaf1c6203bf4763220903fecdb176263a333404e4e3de93c0b8a0923",
+   "taille": 10951
   },
   "sentinelle-1-course-glow-1.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "f06766d73ba71caf6034e67eec29577210a36385077768289adee8fa593fbabd",
-   "taille": 27702
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "21e016d961bfd6c1330f11b7f95f0e6d9b31734e1d1123d054146bc14468395e",
+   "taille": 10532
   },
   "sentinelle-1-course-glow-10.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "f3a86a62709a71cbc6cfc9178f79ef5a5e2b0a9fe9d067b7b69f0413ae4c45a1",
-   "taille": 43935
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "3be5ed7ea7c41505bbe0c2a2c66b4f6e4aa42c45e5fadda93048da750570d7f7",
+   "taille": 15084
   },
   "sentinelle-1-course-glow-11.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "096c2d1fe382fa091c2f34a3339333bdc0af687c5b0d06a8684216658cbb45e3",
-   "taille": 40468
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "287c14e41ced95819ea667c9950c7501999c6d702bed63059d069643209e39e8",
+   "taille": 13961
   },
   "sentinelle-1-course-glow-12.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "3ac4cec35e892f6c08273b80b7ca14c8f55bab508dd7c7e51e237b86fa66099e",
-   "taille": 37611
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "d9d23309b5cc97237570a63e852de02b27f2fad719d6a29a799644d6b4d13165",
+   "taille": 13365
   },
   "sentinelle-1-course-glow-13.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "4f7ad8b62941118e88d963451107b9c53f6373dca8163807d4cae0e2683f81f5",
-   "taille": 33584
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "d3e37ed7c64748990a62352cb38c165c6f9b066d4b05f9e22476191b5eb293b6",
+   "taille": 12248
   },
   "sentinelle-1-course-glow-14.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "df7ddd3b18127d55a7b2ddc284fe84494bb5609ce6f9d2cc25117abdfec38ed0",
-   "taille": 31419
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "abdd197232f923838d871be29e3b82d9a40834cd16a9737845e2e2dc56630a92",
+   "taille": 12002
   },
   "sentinelle-1-course-glow-15.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "7fd957dec3a96a0a03b59b07b07e4ffebe7da3b1d9d2750e178f84adf5a6346d",
-   "taille": 30085
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "1be76ec746e5270e4764e54777d2cbeb2aad00d14b9d98518d38b0913818896e",
+   "taille": 11276
   },
   "sentinelle-1-course-glow-2.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "97f3fec19c89511167cbb3825df9b44f68fc664f6f13c76e6b2c522cb712ae17",
-   "taille": 28448
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "b25bc9d75fb6e69feee981b862fba549ea31551237aa28e16a42e6df35a0868f",
+   "taille": 10704
   },
   "sentinelle-1-course-glow-3.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "2275787d030523ab2502cb5794fe77081aa1d2d63610d4c0fb7c7d531d093502",
-   "taille": 31876
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "8972c9b8336f7fb17ca76b4effbaa98ae33a51be1232bd842ecfe2dd49448ea0",
+   "taille": 11819
   },
   "sentinelle-1-course-glow-4.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "d6c4fe2d88a039a2985a60fab264db84e51b24efd3f5acfa7622ca8cc776a4dc",
-   "taille": 34591
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "97613668c3c1d7d9b5b8fb95877c5ca140890fbb487bd6ab6e239b7b31f2db48",
+   "taille": 12881
   },
   "sentinelle-1-course-glow-5.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "761c6417f60701e90d7e727ada4dd202d1294b4c23e779b110f7f2786f074e77",
-   "taille": 37794
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "27168f9e380c78e726f1cbd03003deb23c8498a71474fec7a85cfc11b856c677",
+   "taille": 13718
   },
   "sentinelle-1-course-glow-6.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "0011fbed61bb0ec89658acd14ca4e0587d938ab25978aab69178b280c6733f33",
-   "taille": 41944
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "6ccaf43489305249c15f8d8cd1148a47b6d7cb617ed458976f44e2acc6a3a8e7",
+   "taille": 14529
   },
   "sentinelle-1-course-glow-7.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "605ef339e249952a1087407a654f67b2d3436a12f9efdfd7a477b149b56935ab",
-   "taille": 42363
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "5955d4305047308548cdf9f10328dbe696aed2ba4add5574c678be7ed1440753",
+   "taille": 14473
   },
   "sentinelle-1-course-glow-8.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "a305d90a1429da43417be83a4a38a802bf044182eebb53076bf103de5141b242",
-   "taille": 43960
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "5a637a4d9dc35d16c294ffff8260e43cd43cb3b9e7654327ef628082b313299e",
+   "taille": 14321
   },
   "sentinelle-1-course-glow-9.png": {
-   "hauteur": 101,
-   "largeur": 664,
-   "sha256": "4819cb75e312c41b54796d8646891b229f6ad5258df2c613e2bce6df9ced742b",
-   "taille": 45780
+   "hauteur": 51,
+   "largeur": 336,
+   "sha256": "4eb18f81d2318efe1f2b4d1a1567bcc10936429907d46c9e1e92043ec2d94722",
+   "taille": 15404
   },
   "sentinelle-1-course-main-0.png": {
    "hauteur": 220,
@@ -13971,100 +12225,100 @@
    "taille": 9677
   },
   "sentinelle-2-attaque-glow-0.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "e06bba72d281ba97a1f7f94ffcb2de1cd641b9aec1eb0bb154233085f40b1da2",
-   "taille": 18191
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "2ac627a6fa578ae7132d9501ac0945216f893566ecadf6d017e44f1c53a3174f",
+   "taille": 6109
   },
   "sentinelle-2-attaque-glow-1.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "84b4371d2e17bcbb6db70012613f5210ef4c010c3dbe6dbb22e5301e429df579",
-   "taille": 18477
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "94fdc6d0aa178436277da4192b8432164262c4a8a8eac3fdb5d7cce95bf2a243",
+   "taille": 6244
   },
   "sentinelle-2-attaque-glow-10.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "09aa704717cb51d4385e9087d1d85e82351035261d3659d20bb1769a5292cd0d",
-   "taille": 24646
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "02398a7a52d938b6a150137dc1a8d8ada3691a19614e6ba1515b0c7da2a6e133",
+   "taille": 7902
   },
   "sentinelle-2-attaque-glow-11.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "cbf97ae10fc134eee67ffbd57c94638352724f5e1a864992ef036b2dc2d160fa",
-   "taille": 23129
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "27529a978833c91ad0abd64a2d6d48cb92e36ec61b71086deefc0d74771ae1b9",
+   "taille": 7296
   },
   "sentinelle-2-attaque-glow-12.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "eb044a4cd1308409610e0c1488ffea4fd519edbb0810d60161c9d9664b483e54",
-   "taille": 22092
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "37c62b68f9edee6291bc49a975581de80941838259c1bdb19c194ebcba08ea55",
+   "taille": 7112
   },
   "sentinelle-2-attaque-glow-13.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "c999ce4fc6ce96361ae057e38841aeda78e49b8dfb9bff370264c4670d9faf06",
-   "taille": 20937
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "50a50b5aabe78bd0e4f6b68f0bb1728088bedad55df879c230a061000c666136",
+   "taille": 6898
   },
   "sentinelle-2-attaque-glow-14.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "294ef46d730297e04bc0d15ba4198da602f8cfad0ef2b6ba5afea2401a5c01f9",
-   "taille": 20233
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "c44473f4de4f18b4da696f5372a3cae74e58700c12c62c6560de9f20478b0bcb",
+   "taille": 6624
   },
   "sentinelle-2-attaque-glow-15.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "53dacaa5ac3786cdd486619d5b74a425ed6910613ea1a0c2b1bc16cb4112bac2",
-   "taille": 19413
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "8e907cfd6998ce51bd08342254042e2d30d77e3d8fdb44b960b6af033d092ecf",
+   "taille": 6487
   },
   "sentinelle-2-attaque-glow-2.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "d3ff129071f86b60e43ed2bafa2fb0379d6023aa1c4cc067765e92c3a5006dae",
-   "taille": 18906
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "5398043772ef4f113689cd3944c86472d8ff659c72a88ce9e8fba8c6d33ddafe",
+   "taille": 6284
   },
   "sentinelle-2-attaque-glow-3.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "27da1e8f3cb5b56f4f66caa169faaac790c1906e38cd0673fb8c47eb0ae30c0e",
-   "taille": 20675
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "0b1b431ede7bab75d56c808c69423b983b49b3021e01c97eaaf7a4b4a04b3f6f",
+   "taille": 6837
   },
   "sentinelle-2-attaque-glow-4.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "9aae79c66834855f1168674d222ef24032e44926f67d8d1b35f151432d8a7a74",
-   "taille": 20895
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "b23288121297bd551a8d9c2e73bba96cc4fd3d2d73f8ed89a747e7f7a616cd89",
+   "taille": 6981
   },
   "sentinelle-2-attaque-glow-5.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "66fc192893d06d8d6cd99f2f0568c1ddb2dd05f4cd687f918a545136b3e487d2",
-   "taille": 22237
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "52057e9beb72e7d4f06e7bb470c32ed386e750c4ee666c8115e2fc63eb624dd0",
+   "taille": 7147
   },
   "sentinelle-2-attaque-glow-6.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "d34b6baa8188770b8485d78b6079259b6bfba563003e5dedd1d52df0117f8fd3",
-   "taille": 23962
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "5922b4be74361e6671f6f38272ffdcc435cd143217034c5cdaf52a986428e7eb",
+   "taille": 7730
   },
   "sentinelle-2-attaque-glow-7.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "ec46a728d00ea32d5c919820d2b13fde307c51aae5843bb9777f08bfad6bb01c",
-   "taille": 24574
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "8bcd7fe13cd40e434bfbdcf34c8e6437fb304dd23855e309ae70aa958fa1f341",
+   "taille": 7734
   },
   "sentinelle-2-attaque-glow-8.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "dfd8ffff987fb3d4a18f7ce2b92d59fa7ec6687d133b3c16ff1ab7443c35fded",
-   "taille": 24255
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "9ccf51183e8ecaadd7613995c640b3b5cc5ad2ff8c4b1f2ca846a53cc2b25f50",
+   "taille": 7657
   },
   "sentinelle-2-attaque-glow-9.png": {
-   "hauteur": 105,
-   "largeur": 332,
-   "sha256": "1e4b894a99532a12c1b03d7190bb195e42af00bfe721bc8a087016c99527a36b",
-   "taille": 25102
+   "hauteur": 53,
+   "largeur": 168,
+   "sha256": "befeb0e659571ab446e2ce2e46fb4f4659510e85093210582ee999299a147371",
+   "taille": 7888
   },
   "sentinelle-2-attaque-main-0.png": {
    "hauteur": 214,
@@ -14259,100 +12513,100 @@
    "taille": 2886
   },
   "sentinelle-2-course-glow-0.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "966e0df20bec04240e134f3f3bd4076408e84ea17b7fa0d9a0b48a70e7a769e2",
-   "taille": 37657
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "4534da2854244937292c3cc0c9dea46bcfa25eed2555aa52b6778160d3aedf6d",
+   "taille": 13272
   },
   "sentinelle-2-course-glow-1.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "455e0c31f3d7afb03230d753f2e0da8671fc471accbe9310e55eceaf972f524b",
-   "taille": 36446
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "a69065cb26f84465db88dc3b4345cd04e6575d0ea9c4700c8b3919082ea577ce",
+   "taille": 12757
   },
   "sentinelle-2-course-glow-10.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "e2d15dd7de5e26913cd6f1a122790c0be0f150fb2d4d5d179d993673acad311a",
-   "taille": 54197
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "1f38ccf9846473a351b3cf4df6a68131b7efd4baf6ee07619b3682388fec03cc",
+   "taille": 17196
   },
   "sentinelle-2-course-glow-11.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "1f471a01f3131cafd85767e378ecccaa85baa5429e3218c10f50aceddb9f3617",
-   "taille": 49262
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "1ae9267ddff0b92bda74d5ccee83f48c03fddf3c38960a2540b003c315a9e072",
+   "taille": 15761
   },
   "sentinelle-2-course-glow-12.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "a9118ab541dfe1f6c890b345f1c307e9cd748852423b35db4fb9721d09cfdf08",
-   "taille": 46973
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "a97c04ba4e641ad3efbe6d050a961ef4404ffa9ab5b88cedff824288a3080253",
+   "taille": 15277
   },
   "sentinelle-2-course-glow-13.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "2d20429c29b1f4bef471f9fe3136df4e6706d2b73d76c937ed0c3e667ec0ffad",
-   "taille": 42809
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "10a3676aa91cc86a7df4631f1ba59d1d76b534713216016c34e10d87c923f5aa",
+   "taille": 14351
   },
   "sentinelle-2-course-glow-14.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "01782091df4a12027d29c22fe53539b7ed58c1ee5b91a91ef246503ce860c6a5",
-   "taille": 40251
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "3104dc8bc08cffecff3cd73518b53c0b851d6ff3bce676366534bf0def2450ad",
+   "taille": 13705
   },
   "sentinelle-2-course-glow-15.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "79dfba38ce3355877a54354a17165afd24d9f7b0c3f00fbe7aee2db193c98c20",
-   "taille": 39113
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "b317aa60abbd902c9107c4d88183187602a4813e2d63ae278383bcb27c6980cf",
+   "taille": 13428
   },
   "sentinelle-2-course-glow-2.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "2883d09e6dcc5952eccb919ca896cec4fdef754c0f94a6dcf777114ba8fb2d04",
-   "taille": 36949
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "38a9dad908d01375cea3229e3cf7c7aa81f7e65b6fc0e907f824f0dbc98f962f",
+   "taille": 12639
   },
   "sentinelle-2-course-glow-3.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "82d147bd439cdc50027d7cc38928852081da7418c479626c6cccc588a12e892f",
-   "taille": 41289
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "e89237c070490c87019094fc768b891c6b0b5581cd7b09c193341f7a9624a51f",
+   "taille": 13850
   },
   "sentinelle-2-course-glow-4.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "0473540648d550652f57298fb8045c0818fcbc1d63050a71bd3830a7664cd7c0",
-   "taille": 44267
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "67e2b32ae4339ef2d805be2e407beaf931c070b5868a896c7e4f987eb7c656df",
+   "taille": 14859
   },
   "sentinelle-2-course-glow-5.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "ff69c63b98370efb29caf4658fd2eed6f74a41aea480bc106ebdee40d77fee9a",
-   "taille": 47704
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "1efc0e959233b0a4d69328b263a946f7fa0d0ab9c628d348963fd3ebac20671c",
+   "taille": 15306
   },
   "sentinelle-2-course-glow-6.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "c10cbbc1779eb442d01ee84bb295d7c47c0f9a38318673b9fd743d9dfd0cc7a9",
-   "taille": 52608
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "abaec14cb55b6f37f0aba4f27d1a74e14b89b623754dc1f3510bfe8736356332",
+   "taille": 16667
   },
   "sentinelle-2-course-glow-7.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "d7ba668a8fc084bbc71e4c0fff316b218643a66bb6e3a9f74e5423720ddc3ae4",
-   "taille": 55546
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "5f470c2439a687ba69252d41b439b3551984296e4589310958c04a3dd6970cc1",
+   "taille": 17358
   },
   "sentinelle-2-course-glow-8.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "ad94223e45f7b2b3c8d1465c8762446f6d8ed412fe5fc08f1ca4e94e2979e472",
-   "taille": 57981
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "f16696cd73aa0d3060a0e59b848e70aa1689c81e870adeac1dfe012ab9183a8d",
+   "taille": 17582
   },
   "sentinelle-2-course-glow-9.png": {
-   "hauteur": 105,
-   "largeur": 664,
-   "sha256": "351973dee80e5458cfdde826f70339a8e4482703ab4677b9e7e252377e83a137",
-   "taille": 57561
+   "hauteur": 53,
+   "largeur": 336,
+   "sha256": "90bbf85ff7f0d41643b253fdd2127288acb0c972b231f2fd9328d1e6a053b5fe",
+   "taille": 17879
   },
   "sentinelle-2-course-main-0.png": {
    "hauteur": 220,
@@ -14547,100 +12801,100 @@
    "taille": 10056
   },
   "sentinelle-3-attaque-glow-0.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "a21293034daf36c330abab85a753881a136580dc20cac215a3c189a029ea2c07",
-   "taille": 21411
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "ad538c999f4ad853c0fb3758fbd27142dd8fc80968ec7c0a97cb9916fabb6146",
+   "taille": 6815
   },
   "sentinelle-3-attaque-glow-1.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "e6d04d82cd87cb600bb877fcf05daf47fc62cffc86810d3693d660d670235863",
-   "taille": 21522
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "eeed67d40c5e898b24abb69907b4100910b8a95614d2ad09b6da7c3d48fb0a04",
+   "taille": 6835
   },
   "sentinelle-3-attaque-glow-10.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "3f97e52c42ffc4615edc0439b219b51f94152555816487b452f8c326222fa223",
-   "taille": 27242
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "ce3ee31c2c6aeb887b1150b8508ca8da84fc9729a9a60f5fe5b166289ca84779",
+   "taille": 8587
   },
   "sentinelle-3-attaque-glow-11.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "3dd2f39869eb9167bc5e7a679f6e00b0cec1e6fe16143ead19403b9956645712",
-   "taille": 25593
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "3566a1ab7f7ccc3a69aad4f92c4958c6b9d287fb8a7d5984dd8d03c2c0cd4195",
+   "taille": 8062
   },
   "sentinelle-3-attaque-glow-12.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "372409b3517b8cce36a6a2e30172bb99ccbc1684d6c48814b5acb09b2897813e",
-   "taille": 24230
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "f829e1bb0726b0d027a7d4bce7fad45c1c6d389b748d5c552522774e880e244e",
+   "taille": 7646
   },
   "sentinelle-3-attaque-glow-13.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "5ecc73d5678db15a7b3252eb7c23978b84433a82014685062626d6be272a6037",
-   "taille": 23706
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "b1ae5708da284ef4ed8411dbf1fa7081211d7db4f34f3e45e1f14e32b69f1761",
+   "taille": 7606
   },
   "sentinelle-3-attaque-glow-14.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "48250ac6a4483f7384c0b0c9bd29f2b335d425f75e0a2323c0a72fb4b273b3b8",
-   "taille": 23356
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "d970652ac7881fa521696c90f97f645b7b0396de43658f7e15541f775adee250",
+   "taille": 7408
   },
   "sentinelle-3-attaque-glow-15.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "14b1aa4987f1c453971dcf167e6a47d53edb9a711b19b9da3defefcf0574b297",
-   "taille": 22403
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "05b813115f2a748666812d619b144a285df6b5e399d864aca15b353d07897178",
+   "taille": 7169
   },
   "sentinelle-3-attaque-glow-2.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "2f84b305d55a7b1c3baa666d6044e7cfe878891886a801a07e2df25cdb4a30e2",
-   "taille": 22393
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "8d4bc7b2e3b22185a812c344bab550020f804fc307f793d564d28523958f1e80",
+   "taille": 7178
   },
   "sentinelle-3-attaque-glow-3.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "b83f5f4b3cb8be44127b76d77acb08ca55d1319d35fca46becd318738db5dfa5",
-   "taille": 23400
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "472772103fe02899c602a13cc2cae4bbe0a378524775387d97bf10015f76a51a",
+   "taille": 7569
   },
   "sentinelle-3-attaque-glow-4.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "217e7a348caaebadd261be08e699c0f164e4ce890d5546830c42f6e4a5d9c757",
-   "taille": 23367
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "7b0cadafb010b9a763b6631c01052c9eb31f6ae9f3cf3eb63c1aab2d0965d0eb",
+   "taille": 7542
   },
   "sentinelle-3-attaque-glow-5.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "46b1516731d31b961b0647df73c31169710e13051153420c56c69acad22fc218",
-   "taille": 24755
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "b7412874b140a2c9f505ff43b5ba13f7d5dd33a94c274689d4d931082ae43fc1",
+   "taille": 7802
   },
   "sentinelle-3-attaque-glow-6.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "44dd5f4bda44219b505c263e762010e31dfe9957c9167abe0b5dd5812d59d45e",
-   "taille": 26598
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "91832daee24ee337b1ec2efa5bcc4f7bb197d01e28d284e6a1c54b240b512d9d",
+   "taille": 8284
   },
   "sentinelle-3-attaque-glow-7.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "a47ca147a8cbe53470970c7fd7a44fe0f758e69256f2c30c03af060a2236b256",
-   "taille": 27082
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "b1387e5c67ae7df5dd83bcd255b3a0caf13006a4e61b5d2de86b2193c1a9c381",
+   "taille": 8419
   },
   "sentinelle-3-attaque-glow-8.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "fb2a62a8fc6885fc3933ef2222579162c013727def29e2dc2af8efc7e798a4ca",
-   "taille": 26985
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "3ca1fe08105077914c0bf98f816e4df7e86d9645ec4dbb04d2f4511d21326227",
+   "taille": 8370
   },
   "sentinelle-3-attaque-glow-9.png": {
-   "hauteur": 105,
-   "largeur": 348,
-   "sha256": "01d7ec5ca7fff2436edf8f4c14d4b983464858d058ef0ba12ffef293a1c7e02f",
-   "taille": 27890
+   "hauteur": 53,
+   "largeur": 176,
+   "sha256": "c970e80cc4f2840ebdf7d96cd3815a9131731920b0c14c59a6d3ba7d602e5547",
+   "taille": 8636
   },
   "sentinelle-3-attaque-main-0.png": {
    "hauteur": 214,
@@ -14835,100 +13089,100 @@
    "taille": 3128
   },
   "sentinelle-3-course-glow-0.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "949d53df2cffecc637e45746be99cb00b14c08c22aa32eb7e89ca29c3b9a41e8",
-   "taille": 51164
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "c8e29a0b2e20f5d777596e282a04330ac09870d7aeccb0ffcede797c899db63a",
+   "taille": 16780
   },
   "sentinelle-3-course-glow-1.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "4aa0a24db23ccef8229ce2faa18f3c027fa8c5d700bcf1ab15ec2310d3f92ec3",
-   "taille": 49212
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "ccd6c56d2945d520914201233c331c8e2e1800ee21e741b19aaa63cc34be2b4a",
+   "taille": 16081
   },
   "sentinelle-3-course-glow-10.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "368260be704d5db2d9a9cffebf4e361e8a0c297b63f0c1dd502e2e0db72ccc31",
-   "taille": 62776
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "abda64dbf380eb054a8ce741f0064cc8a5751c4e4b781df53dd05067b7ac1927",
+   "taille": 19459
   },
   "sentinelle-3-course-glow-11.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "a9fa1a91e6673ca5e44c3ade2fc8460df8a446a230d7c0bfe8cc13bac81e1c44",
-   "taille": 57156
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "d489075562228a38410bd37caeefa468fd0f98e28147e04221f607ad4863931b",
+   "taille": 18036
   },
   "sentinelle-3-course-glow-12.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "2b7edb4dcc401356199a4e8c69e0c9160b5c2d753aafa5f4a9cd89b7721422e2",
-   "taille": 54409
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "024478d3dd34e632cea1bfd11fc969370715d4cbd35897e93b289b51e408d983",
+   "taille": 17281
   },
   "sentinelle-3-course-glow-13.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "4615266d2a4cf70d63bee182f96a031a422b3d671232a66da97f6953a270eb01",
-   "taille": 52139
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "ffe7118a2d7d3c43b031cdad93dbacd83a4c078a1f0cb239435e226f4e5f7f37",
+   "taille": 17105
   },
   "sentinelle-3-course-glow-14.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "1ae3eb1e880a7ca4a3c32efdfdef94913cc21873dc22f46d73857370b664a6d1",
-   "taille": 52176
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "75d6fd04c2b0f09034edac03c7a2d10820862ac3e5459e3ce8c3e956264a42d6",
+   "taille": 16962
   },
   "sentinelle-3-course-glow-15.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "29174b1f90eb2c0202af365db932728e5d62d118d0bd2f450061799a896745f4",
-   "taille": 52058
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "376f45aff2387df1cfd14ad3768337c9290e70fb5f263ed4ef8a7e8708f567ba",
+   "taille": 16771
   },
   "sentinelle-3-course-glow-2.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "b74150485f3a7b0068d6232d02ad3749bb69e0ec5b9fb6de0639f1f83fc3a376",
-   "taille": 49528
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "df02d681b0d06134f43b2cab71b0ddc025d804d8891b934eadd903bd617af0a4",
+   "taille": 16316
   },
   "sentinelle-3-course-glow-3.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "35e4a62c97f64d4f279126aa2763ee4a8b16cf0788dd8a83208a749f4ac85678",
-   "taille": 50997
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "a175adae408ede7839d91ae48b748e075543ac4c0c216306d5d911fee2c72093",
+   "taille": 16574
   },
   "sentinelle-3-course-glow-4.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "8ad0ae677dc47857973d4ef93bb25a6ca7625eddc1f8f94a57fb12879c4c1dde",
-   "taille": 52360
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "89269355b495908dd4b42fb622d724541ca4d83e530062c03936dd5a0f4d61f5",
+   "taille": 16897
   },
   "sentinelle-3-course-glow-5.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "f4f3150f6c06c422d5ddb00709011c80ceb1838e24552019c933a4f63e46b621",
-   "taille": 55217
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "2f584e0cdf3eddbeda8c5b85225b44842efd2b075a4fd74320ad2f6858cdf6c8",
+   "taille": 17365
   },
   "sentinelle-3-course-glow-6.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "120b27e9f37d862d24ed8ca578b6ace5403c93df6373850cccc86f9e2c7eddb6",
-   "taille": 61885
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "aeb3cde7adf7464645f36ec63ce22ff0bb2cd8575008b51b626adc168c854774",
+   "taille": 19194
   },
   "sentinelle-3-course-glow-7.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "89bcf6c5d53bd954383180c239de9cb72c5a5244b9963769d8525dffa0bc36a0",
-   "taille": 65652
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "079b3241dc0aef30be4816677f70113ca8f055ad95086ca64b1380fda2687dda",
+   "taille": 19974
   },
   "sentinelle-3-course-glow-8.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "a4d37448bf8ccc6e10d5d299a8e37ee46d890d29ac0598b606d9de6c4be208b5",
-   "taille": 67238
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "1f2eae06d4cd20fd2ff780f41a81445b022c216f7465408b98d0bcaea0bdd1da",
+   "taille": 20281
   },
   "sentinelle-3-course-glow-9.png": {
-   "hauteur": 107,
-   "largeur": 696,
-   "sha256": "ad87c29bca4784f357246195e2c10726004c2146599371a4ed367bc86b792b25",
-   "taille": 67132
+   "hauteur": 54,
+   "largeur": 352,
+   "sha256": "4a0961373699f4b332e0f4c6d50cbe07ddd46c9bcd96842b55068a48d1d1aa5c",
+   "taille": 20597
   },
   "sentinelle-3-course-main-0.png": {
    "hauteur": 220,
@@ -15145,19 +13399,19 @@
    "normale": 9.57
   },
   "leviathan": {
-   "haute": 67.47,
-   "images": 289,
-   "normale": 16.87
+   "haute": 0.02,
+   "images": 1,
+   "normale": 0.01
   },
   "ravageur": {
-   "haute": 80.24,
+   "haute": 70.41,
    "images": 576,
-   "normale": 20.06
+   "normale": 17.6
   },
   "sentinelle": {
-   "haute": 80.6,
+   "haute": 69.7,
    "images": 576,
-   "normale": 20.15
+   "normale": 17.42
   }
  }
 }

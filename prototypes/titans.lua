@@ -24,6 +24,12 @@ local Ro = require("shared.content.robots")
 local C = require("shared.content.crafts")
 local SPR = require("__factorio-overhaul__/graphics/robots/titans/sprites")
 local XSPR = require("__factorio-overhaul__/graphics/robots/experimentaux/sprites")
+-- LEVIATHAN-SEG (11/11) : un titan ARTICULÉ (règle `segmente`) a ses propres feuilles (tools/render/pieces/titans/feuilles_leviathan.py) :
+-- `tete` (animée, 16 directions), une entrée par pièce fixe (segment, queue), icône du titan entier composée.
+local SEG = {}
+for _, r in ipairs(T.ALLIES) do
+  if r.segmente then SEG[r.id] = require("__factorio-overhaul__/graphics/robots/titans/" .. r.id .. "/sprites") end
+end
 
 local out = {}
 
@@ -35,6 +41,7 @@ end
 
 local function feuille(id, stage)
   local f = SPR[id]
+  if SEG[id] and stage ~= "drone" then f = SEG[id].tete end   -- LEVIATHAN-SEG : la tête porte les feuilles animées et l'icône
   local s = f and (f[tostring(stage)] or f[stage])
   assert(s, "titans : feuille absente pour " .. tostring(id) .. " stade " .. tostring(stage) .. " (py -3.9 tools/render/pieces/titans/feuilles_titans.py)")
   return s
@@ -70,7 +77,7 @@ end
 -- lueur, ombre), dessinée par `rendering.draw_animation` (script/robots/titans.lua choisit la direction et la vitesse) ; un fichier par
 -- direction (grille ll × lpf = images, lecture continue), densité propre à chaque couche (`dens`, l'ombre à demi-densité).
 local function animations_de(r, stage, s)
-  local A = SPR[r.id]
+  local A = SEG[r.id] and SEG[r.id].tete or SPR[r.id]
   for _, anim in ipairs({ "course", "attaque" }) do
     local a = s[anim]
     for dir = 0, A.directions - 1 do
@@ -92,6 +99,33 @@ local function animations_de(r, stage, s)
   end
 end
 
+--- LEVIATHAN-SEG : pièces FIXES d'un titan articulé (segment, queue) : un `sprite` par stade, direction et couche, posé par
+--- script/robots/titans_serpent.lua (rendering.draw_sprite) ; nom T.piece_name(r, pièce, stade, direction, couche).
+local function pieces_de(r, stage)
+  local F = SEG[r.id]
+  for _, piece in ipairs(r.segmente.pieces) do
+    local P = F[piece]
+    local a = P[tostring(stage)].pose
+    for dir = 0, P.directions - 1 do
+      for _, c in ipairs({ { "corps", a.couches.main, {} }, { "lueur", a.couches.glow, { draw_as_glow = true, blend_mode = "additive" } },
+        { "ombre", a.couches.shadow, { draw_as_shadow = true } } }) do
+        local cc, extra = c[2], c[3]
+        local function une(f, w, h, dens)
+          local t = { filename = f, width = w, height = h, scale = 32 / dens, shift = { cc.sx, cc.sy }, priority = "medium" }
+          for k, v in pairs(extra) do t[k] = v end
+          return t
+        end
+        local t = une(cc.lr[dir + 1], cc.lw, cc.lh, cc.dens / P.reduc)
+        t.hr_version = une(cc.hr[dir + 1], cc.w, cc.h, cc.dens)
+        t.type = "sprite"
+        t.name = T.piece_name(r, piece, stage, dir, c[1])
+        t.flags = { "group=none" }
+        out[#out + 1] = t
+      end
+    end
+  end
+end
+
 --- Gabarit d'un stade (largeur et haut de l'image en tuiles, depuis la position au sol), feuille fixe ou animée.
 local function gabarit(s)
   if s.course then
@@ -105,6 +139,7 @@ for _, r in ipairs(T.ALLIES) do
   for stage = 1, T.STAGES do
     local s = feuille(r.id, stage)
     if s.course then animations_de(r, stage, s) else sprites_de(T.PREFIX .. r.id .. "-" .. stage, s) end
+    if r.segmente then pieces_de(r, stage) end
   end
 end
 -- drone d'escorte du Léviathan (une image, sans ombre : il vole ; la lueur suit)

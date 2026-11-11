@@ -36,9 +36,9 @@ local function ecart(a, b)
   local d = math.abs(a - b) % 1
   return math.min(d, 1 - d)
 end
--- directions des feuilles de chaque titan (ART-16DIR : 16 pour Juggernaut, Sentinelle, Ravageur ; 8 pour le Léviathan, et pour tous avant
+-- directions des feuilles de chaque titan (ART-16DIR : 16 pour Juggernaut, Sentinelle, Ravageur ; LEVIATHAN-SEG : 16 pour la tête ; 8 pour tous avant
 -- ce lot : la table est mise à 8 partout quand on mesure une source à 8 directions)
-local NDIRS = { juggernaut = 16, sentinelle = 16, ravageur = 16, leviathan = 8 }
+local NDIRS = { juggernaut = 16, sentinelle = 16, ravageur = 16, leviathan = 16 }   -- LEVIATHAN-SEG : tête en 16 directions
 
 --- Animation du corps dessinée par le mod principal sur l'entité : nom, vitesse d'images.
 local function corps_de(e)
