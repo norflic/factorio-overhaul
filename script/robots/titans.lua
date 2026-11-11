@@ -135,9 +135,16 @@ end
 --- Corps ANIMÉ (FINITIONS 10/11 : Juggernaut, r.anime) : trois `rendering.draw_animation` (ombre, corps, lueur) sur l'animation de marche de
 --- la direction de l'entité ; `animer` les tient à jour à chaque balayage (direction, vitesse = celle du véhicule, salve). Les rendus meurent
 --- avec l'entité (remplacement de palier : `corps` les refait).
+--- Direction du corps animé : le CAP de la trajectoire pour un titan articulé (LEVIATHAN-SEG : g.seg.dir, titans_serpent ; `orientation`
+--- d'un spider-vehicle sans rotation du torse reste à 0), sinon l'orientation de l'entité (16 directions si la règle le dit, 8 sinon).
+local function direction_corps(g, r)
+  if r.segmente and g.seg and g.seg.dir then return g.seg.dir end
+  return T.direction(g.e.orientation, r.anime.directions)
+end
+
 local function corps_anime(g, r)
   local e = g.e
-  local dir = T.direction(e.orientation, r.anime.directions)   -- LEVIATHAN-SEG : 16 directions si la règle le dit, 8 sinon
+  local dir = direction_corps(g, r)
   g.anim = { dir = dir, mode = "course", v = 0, ids = {} }
   for _, c in ipairs(T.COUCHES_ANIM) do
     g.anim.ids[#g.anim.ids + 1] = rendering.draw_animation({ animation = T.anim_name(r, g.stage, "course", dir, c[1]), target = e, surface = e.surface,
@@ -249,7 +256,7 @@ local function animer(g, r, tick)
   local e = g.e
   local a = g.anim
   if a.mode == "attaque" and tick < (a.fin or 0) then return end
-  local dir = T.direction(e.orientation, r.anime.directions)
+  local dir = direction_corps(g, r)
   if a.mode ~= "course" or dir ~= a.dir then
     a.mode, a.dir, a.v = "course", dir, nil
     anim_set(g, r, "course")
@@ -265,6 +272,10 @@ local function animer(g, r, tick)
     end
   end
 end
+
+-- LEVIATHAN-SEG : la tête d'un titan articulé prend l'image de son nouveau cap dès que titans_serpent le voit changer (5 ticks), sans
+-- attendre le balayage (30 ticks)
+Serp.hooks.orienter = function(g, r) animer(g, r, game.tick) end
 
 local function rendre(player, e, name)
   if player and player.valid and player.insert({ name = name, count = 1 }) == 1 then return end

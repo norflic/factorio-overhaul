@@ -3,7 +3,8 @@
   Léviathan). Règle pure : shared/robots/serpent.lua (historique en distance, pose et orientation des pièces, ordre de dessin) ;
   prototypes : sprites fixes <préfixe><archétype>-<pièce>-<stade>-<direction>-<couche> (prototypes/titans.lua, feuilles
   graphics/robots/titans/<archétype>/).
-  - La TÊTE est l'entité ; son corps animé est dessiné par script/robots/titans.lua (M.hooks.tete : corps_anime, ou le même corps refait
+  - La TÊTE est l'entité ; elle regarde le CAP de sa trajectoire (Se.cap, g.seg.dir), jamais `orientation` (figée à 0 pour un
+    spider-vehicle sans rotation du torse) ; son corps animé est dessiné par script/robots/titans.lua (M.hooks.tete : corps_anime, ou le même corps refait
     avec la même animation, la même vitesse et la même phase). Les SEGMENTS et la QUEUE sont des `rendering.draw_sprite` (aucune entité :
     UPS), trois couches chacun (ombre, corps, lueur), ciblés sur l'entité avec un décalage : entre deux mises à jour ils suivent la tête
     au tick près, sans aucun calcul.
@@ -27,7 +28,7 @@ local Se = require("shared.robots.serpent")
 local M = {}
 
 --- Crochets posés par script/robots/titans.lua au chargement du module (comme Armee.hooks) : `tete(g, r)` (re)dessine le corps animé de
---- la tête à cet instant de l'ordre de dessin.
+--- la tête à cet instant de l'ordre de dessin ; `orienter(g, r)` lui fait prendre l'image de son cap (g.seg.dir) dès qu'il change.
 M.hooks = {}
 
 local function couche_sprite(r, k, stage, dir, couche)
@@ -86,16 +87,25 @@ end
 --- Dessine le corps articulé d'un titan segmenté `g` (archétype `r`) : historique en ligne droite derrière la tête, pièces posées, tête
 --- (crochet) à sa place dans l'ordre de dessin. Appelé par corps() à la pose et au remplacement de palier.
 function M.dessiner(g, r)
+  local ancien = g.seg
   M.detruire(g)
   local spec = r.segmente
   if not spec then return end
   local e = g.e
   local pos = e.position
   local n = spec.directions
-  local dir = Se.direction_orientation(e.orientation, n)
-  local hist = Se.init(pos, dir, n, Se.points_max(spec), spec.pas)
+  local hist, dir
+  if ancien and ancien.hist and #ancien.hist > 0 then
+    -- remplacement de palier (même position) : la chaîne garde son chemin et la tête son cap
+    hist, dir = ancien.hist, ancien.dir
+    Se.avancer(hist, pos, spec.pas, Se.points_max(spec), dir or 0, n)
+  else
+    dir = Se.direction_orientation(e.orientation, n)
+    hist = Se.init(pos, dir, n, Se.points_max(spec), spec.pas)
+  end
+  dir = Se.cap(hist, pos, spec.pas, n, dir)
   local P = Se.placer(hist, pos, spec.pas, Se.abscisses(spec), n, dir)
-  local sg = { hist = hist, ids = {}, dirs = {}, cran = 0 }
+  local sg = { hist = hist, ids = {}, dirs = {}, cran = 0, dir = dir }
   g.seg = sg
   poser(g, r, sg, P, Se.ordre(ordonnees(pos, P)))
 end
@@ -114,10 +124,15 @@ function M.maj(g, r)
   end
   local pos = e.position
   local n = spec.directions
-  local dir_t = Se.direction_orientation(e.orientation, n)
-  Se.avancer(sg.hist, pos, spec.pas, Se.points_max(spec), dir_t, n)
+  Se.avancer(sg.hist, pos, spec.pas, Se.points_max(spec), sg.dir or 0, n)
+  local dir_t = Se.cap(sg.hist, pos, spec.pas, n, sg.dir)
   local P = Se.placer(sg.hist, pos, spec.pas, Se.abscisses(spec), n, dir_t)
   sg.cran = (sg.cran + 1) % #Se.ONDE
+  if dir_t ~= sg.dir then
+    -- la tête tourne : son corps animé prend tout de suite l'image du nouveau cap (titans.lua, crochet `orienter`)
+    sg.dir = dir_t
+    if M.hooks.orienter then M.hooks.orienter(g, r) end
+  end
   local ys = ordonnees(pos, P)
   if not Se.ordre_valide(sg.ordre, ys, spec.tol) then
     poser(g, r, sg, P, Se.ordre(ys))

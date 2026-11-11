@@ -146,6 +146,20 @@ function Se.placer(hist, pos, pas, abscisses, n, dir_tete)
   return out
 end
 
+--- CAP de la tête : direction (parmi `n`) de sa trajectoire, du point à `pas` tuiles derrière elle vers elle (la tête d'un titan
+--- articulé regarde où elle va, quelle que soit l'orientation de l'entité) ; `defaut` si l'historique est dégénéré (points confondus).
+function Se.cap(hist, pos, pas, n, defaut)
+  local nh = #hist
+  local d0 = 0
+  if nh > 0 then
+    local p = hist[nh]
+    local dx, dy = p[1] - pos.x, p[2] - pos.y
+    d0 = math.sqrt(dx * dx + dy * dy)
+  end
+  local bx, by = point(hist, pos, d0, pas, pas)
+  return Se.direction(pos.x - bx, pos.y - by, n) or defaut
+end
+
 --- Abscisses d'arc des pièces : `n` segments (le premier à `premier` tuiles de la tête, puis tous les `espacement`) et la queue
 --- (`queue` derrière le dernier segment).
 function Se.abscisses(spec)

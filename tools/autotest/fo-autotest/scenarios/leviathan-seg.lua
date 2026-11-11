@@ -42,6 +42,37 @@ end
 
 local function direction_de(sprite) return tonumber(sprite:match("%-(%d+)%-corps$")) end
 
+--- Direction de l'image du corps animé de la TÊTE (animation <préfixe>leviathan-<stade>-<anim>-<dir>-corps ciblée sur l'entité).
+local function direction_tete(e)
+  for _, id in ipairs(rendering.get_all_ids("factorio-overhaul")) do
+    if rendering.is_valid(id) and rendering.get_type(id) == "animation" then
+      local tg = rendering.get_target(id)
+      local a = rendering.get_animation(id)
+      if tg and tg.entity == e and a and a:find("%-corps$") then return tonumber(a:match("%-(%d+)%-corps$")) end
+    end
+  end
+end
+
+-- 16 directions (0 = nord, sens horaire, y vers le sud) : direction d'un déplacement par produit scalaire maximal
+local DIRS16 = {
+  { 0.0, -1.0 }, { 0.38268, -0.92388 }, { 0.70711, -0.70711 }, { 0.92388, -0.38268 }, { 1.0, 0.0 }, { 0.92388, 0.38268 },
+  { 0.70711, 0.70711 }, { 0.38268, 0.92388 }, { 0.0, 1.0 }, { -0.38268, 0.92388 }, { -0.70711, 0.70711 }, { -0.92388, 0.38268 },
+  { -1.0, 0.0 }, { -0.92388, -0.38268 }, { -0.70711, -0.70711 }, { -0.38268, -0.92388 },
+}
+local function direction16(dx, dy)
+  local best, bi = nil, nil
+  for i, v in ipairs(DIRS16) do
+    local d = dx * v[1] + dy * v[2]
+    if best == nil or d > best then best, bi = d, i - 1 end
+  end
+  return bi
+end
+
+local function ecart16(a, b)
+  local d = math.abs(a - b) % 16
+  return math.min(d, 16 - d)
+end
+
 return {
   description = "LEVIATHAN-SEG : le Leviathan articule (tete, segments, queue) suit sa trajectoire dans quatre virages",
   check_tick = CHECK,
@@ -107,9 +138,25 @@ return {
       end
       if n >= 2 then st.virage = (st.virage or 0) + 1 end
       for _, d in ipairs(dirs) do st.vus[d] = true end
+      -- la tête regarde où elle va : image de la tête contre direction du déplacement sur 30 ticks, en ligne droite (même direction de
+      -- déplacement deux relevés de suite), à un cran près
+      local dt = direction_tete(g)
+      local p0 = st.p0
+      st.p0 = { x = g.position.x, y = g.position.y }
+      if p0 then
+        local dx, dy = g.position.x - p0.x, g.position.y - p0.y
+        local dm = (dx * dx + dy * dy > 1.0) and direction16(dx, dy) or nil
+        if dm and dm == st.dm and dt then
+          if ecart16(dt, dm) <= 1 then st.tete_ok = (st.tete_ok or 0) + 1 else
+            st.tete_ko = (st.tete_ko or 0) + 1
+            ctx.log(string.format("t%d tete : image %d, deplacement %d", t, dt, dm))
+          end
+        end
+        st.dm = dm
+      end
       if t % 150 == 0 then
-        ctx.log(string.format("t%d tete (%.1f, %.1f) %s vitesse %.3f directions des pieces [%s]", t, g.position.x - X0, g.position.y - Y0, g.name, g.speed,
-          table.concat(dirs, " ")))
+        ctx.log(string.format("t%d tete (%.1f, %.1f) %s vitesse %.3f orientation %.3f direction de la tete %s, des pieces [%s]", t, g.position.x - X0,
+          g.position.y - Y0, g.name, g.speed, g.orientation, tostring(dt), table.concat(dirs, " ")))
       end
     end
   end,
@@ -122,6 +169,8 @@ return {
     ctx.check((st.virage or 0) >= 3, "dans les virages, les pieces de devant ont tourne et celles de derriere pas encore (directions differentes)",
       tostring(st.virage or 0) .. " releves")
     ctx.check(n >= 6, "les pieces prennent au moins 6 directions differentes sur le parcours", tostring(n) .. " directions vues")
+    ctx.check((st.tete_ok or 0) >= 10 and (st.tete_ko or 0) == 0, "en ligne droite, la tete regarde ou elle va (direction de son deplacement, a un cran pres)",
+      string.format("%d releves justes, %d faux", st.tete_ok or 0, st.tete_ko or 0))
     ctx.check(game.tick >= CHECK, "la partie joue jusqu'au controle", "tick " .. game.tick)
   end,
 

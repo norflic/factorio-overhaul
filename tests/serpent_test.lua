@@ -125,6 +125,16 @@ h = Se.init({ x = 0, y = 0 }, 2, 8, 40, pas)
 P = Se.placer(h, { x = 0, y = 0 }, pas, { 5 }, 8, 2)
 check(P[1].dir == 2, "§3 huit directions : même règle")
 
+-- cap de la tête : sens de la trajectoire, quelle que soit l'orientation de l'entité
+h = Se.init({ x = 0, y = 0 }, 0, 16, 80, pas)   -- posée vers le nord
+pos = { x = 0, y = 0 }
+for _ = 1, 12 do pos = { x = pos.x, y = pos.y + 0.4 }; Se.avancer(h, pos, pas, 80, 0, 16) end
+check(Se.cap(h, pos, pas, 16, 0) == 8, "§3 cap : la tête qui descend vers le sud regarde le sud (orientation de l'entité ignorée)")
+for _ = 1, 12 do pos = { x = pos.x + 0.3, y = pos.y + 0.3 }; Se.avancer(h, pos, pas, 80, 0, 16) end
+check(Se.cap(h, pos, pas, 16, 0) == 6, "§3 cap : en diagonale vers le sud-est, le sud-est")
+check(Se.cap(Se.init({ x = 3, y = 3 }, 12, 16, 10, pas), { x = 3, y = 3 }, pas, 16, 12) == 12, "§3 cap : tête immobile depuis la pose, direction de la pose")
+check(Se.cap({}, { x = 0, y = 0 }, pas, 16, 5) == 5, "§3 cap : historique vide, défaut")
+
 -- ordre de dessin : la plus au nord d'abord, la plus au sud par-dessus ; tolérance
 local o = Se.ordre({ 3.0, -2.0, 5.0, -2.0, 0.0 })
 check(o[1] == 2 and o[2] == 4 and o[3] == 5 and o[4] == 1 and o[5] == 3, "§3 ordre : y croissant, à y égal l'indice le plus petit")
@@ -215,6 +225,10 @@ local function refuse(M)
     assert(#a == 4 and a[1] == 6 and a[3] == 16 and a[4] == 20, "abscisses")
     assert(M.ondulation(5, 2, 1) == M.ondulation(3, 1, 1), "déphasage de l'ondulation")
     assert(M.avancer(M.init({ x = 0, y = 0 }, 4, 16, 10, 0.5), { x = 300, y = 0 }, 0.5, 10, 4, 16) == -1, "saut refait")
+    local hc = M.init({ x = 0, y = 0 }, 0, 16, 40, 0.5)
+    local pc = { x = 0, y = 0 }
+    for _ = 1, 12 do pc = { x = pc.x, y = pc.y + 0.4 }; M.avancer(hc, pc, 0.5, 40, 0, 16) end
+    assert(M.cap(hc, pc, 0.5, 16, 0) == 8, "cap de la tête")
     local oo = M.ordre({ 3.0, -2.0, 5.0, -2.0, 0.0 })
     assert(oo[1] == 2 and oo[2] == 4 and oo[5] == 3, "ordre de dessin")
     assert(M.ordre_valide(oo, { 3.0, -2.0, 5.0, -2.0, 3.8 }, 1.0) and not M.ordre_valide(oo, { 3.0, -2.0, 5.0, -2.0, 4.2 }, 1.0), "tolérance de l'ordre")
@@ -232,6 +246,7 @@ local mutants = {
   { "abscisses : queue collée au dernier segment", "a[spec.n + 1] = a[spec.n] + spec.queue", "a[spec.n + 1] = a[spec.n]" },
   { "ondulation : pas de déphasage", "local i = (cran - 2 * k) % #Se.ONDE + 1", "local i = cran % #Se.ONDE + 1" },
   { "saut : jamais refait", "if k > max then", "if false then" },
+  { "cap : la tête regarde derrière elle", "return Se.direction(pos.x - bx, pos.y - by, n) or defaut", "return Se.direction(bx - pos.x, by - pos.y, n) or defaut" },
   { "ordre : le sud d'abord", "if ys[a] ~= ys[b] then return ys[a] < ys[b] end", "if ys[a] ~= ys[b] then return ys[a] > ys[b] end" },
   { "ordre : tolérance ignorée", "if yp > ys[ordre[q]] + tol then return false end", "if yp > ys[ordre[q]] then return false end" },
   { "ordre : jamais refait", "      if yp > ys[ordre[q]] + tol then return false end", "      if false then return false end" },
