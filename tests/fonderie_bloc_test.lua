@@ -200,7 +200,7 @@ do
   check(build:find('Build.FonderieBloc = require%("script.team.fonderie_bloc"%)') ~= nil, "build.lua : Build.FonderieBloc est un champ de Build (pas une locale)")
   check(build:find("spec%.alimquai") ~= nil, "build.lua : plan_project dispatche spec.alimquai")
   check(build:find("Build%.FonderieBloc%.step") ~= nil, "build.lua : la passe appelle Build.FonderieBloc.step")
-  check(build:find("p.spec.alimquai then mode, legs = Cv.reach", 1, true) ~= nil, "build.lua : le tapis de l'alimentation de quai passe par relais comme celui de la centrale")
+  check(build:find("(p.spec.alim or p.spec.alimquai) then mode = Cv.reach", 1, true) ~= nil, "build.lua : le tapis de l'alimentation de quai passe par le tapis long comme celui de la centrale")
   check(build:find("flow = q%.flow") ~= nil, "build.lua : les quais d'un site gardent leur debit")
   check(champ_s:find("need = g%.info%.need") ~= nil, "shared/team/champ.lua : le coffre de tete porte son besoin")
   check(champ:find("flow = e%.need") ~= nil, "script/team/champ.lua : le quai de combustible porte son debit")
