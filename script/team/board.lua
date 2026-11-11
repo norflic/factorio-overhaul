@@ -43,6 +43,7 @@ local State = require("script.faction.state") -- lot AGEBLOCAGE : interrupteur d
 local Profiler = require("script.core.profiler") -- lot DANGER-ACTIF : mesure [FO-PRISE-VIDE] seulement avec le profileur
 local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant pour une tâche dont le chemin échoue de suite (règle pure)
 local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : plus de paire thermique quand l'électrique est possible
+local Mi = require("shared.team.main_inventaire") -- lot PURGE-MINE : plus de pioche après l'ère électrique (Mi.gone)
 
 local Board = {}
 
@@ -362,7 +363,7 @@ function Board.sync(f, planned, tick, plan, view, book)
     for _, key in ipairs(sorted_keys(keep)) do
       keys[key] = true
       local t = keep[key]
-      if t.kind == "mine" and t.resource and not t.safe then -- (la file sûre ne remplace pas ce minage, intégration 0.6.30)
+      if t.kind == "mine" and t.resource then
         mines[t.resource] = (mines[t.resource] or 0) + 1
         if t.worker then taken[t.resource] = (taken[t.resource] or 0) + 1 end
       end
@@ -392,6 +393,9 @@ function Board.sync(f, planned, tick, plan, view, book)
     if #held > 0 then bump(f, "flux_held", #held) end
     b.hold_left = left
   end
+  -- Lot PURGE-MINE : après l'ère électrique, les minages libres sortent de la file de sélection (Mi.gone ; une tâche prise finit)
+  local era = Elec.era(f)
+  for _, key in ipairs(sorted_keys(keep)) do if Mi.gone(keep[key], era, Elec.drillable) then keep[key] = nil end end
   b.tasks = keep
   b.born = born
   rebuild_list(b)
@@ -416,9 +420,10 @@ function Board.add(f, tasks, tick)
       bump(f, "flux_held", #held)
     end
   end
+  local era = Elec.era(f)
   for _, t in ipairs(tasks) do
     local cd = b.cooldown[t.key]
-    if not b.tasks[t.key] and not (cd and tick < cd) then
+    if not b.tasks[t.key] and not (cd and tick < cd) and not Mi.gone(t, era, Elec.drillable) then -- lot PURGE-MINE
       t.created = born[t.key] or tick
       b.tasks[t.key] = t
       n = n + 1
