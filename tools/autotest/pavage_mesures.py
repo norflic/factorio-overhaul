@@ -54,8 +54,10 @@ def main():
     ap.add_argument("--minute", type=int)
     ap.add_argument("--min-tuiles", type=int, default=0)
     ap.add_argument("--touches", action="store_true")
+    ap.add_argument("--phase", default="T", help="T (mesure au tick T, défaut) ou capture (re-mesure au tick de chaque capture)")
     a = ap.parse_args()
     rows, teams, real = parse(a.journal)
+    rows = [r for r in rows if r.get("phase", "T") == a.phase]
     if not rows:
         sys.exit("aucune ligne gisement dans " + real)
     minute = a.minute if a.minute is not None else max(int(r["minute"]) for r in rows)
@@ -71,7 +73,7 @@ def main():
         print(f'| {r["equipe"]} | {r["ressource"]} | {r["n"]} | {r["tuiles"]} | {r["distance_qg"]} | {r["foreuses_elec"]} | '
               f'{r["foreuses_comb"]} | {r["couverture"].rstrip("%")} | {inter} | {r["sortie_tapis"]} | {r["etats"]} | {r["capture"]} |')
     print()
-    for t in [t for t in teams if int(t["minute"]) == minute]:
+    for t in [t for t in teams if int(t["minute"]) == minute]:  # équipes : relevé du tick T
         mine = [r for r in alls if r["equipe"] == t["equipe"]]
         tiles = sum(int(r["tuiles"]) for r in mine)
         cov = sum(int(r["couvertes"]) for r in mine)

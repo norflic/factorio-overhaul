@@ -290,6 +290,26 @@ end
 
 local function safe(s) return (tostring(s):gsub("[^%w%-_]", "_")) end
 
+--- Ligne « gisement ». `phase` : « T » (mesure au tick T, et aux minutes 10, 20...) ou « capture » (même gisement re-mesuré au
+--- tick même de sa capture, session avec images : les IA construisent pendant les quelques centaines de ticks entre T et la
+--- capture ; c'est cette ligne qui décrit l'image).
+local function log_gisement(phase, tick, key, cl, n, m, file)
+  local tiles = #cl.list
+  log(TAG .. string.format("gisement minute=%d phase=%s tick=%d equipe=%s ressource=%s n=%d tuiles=%d centre=%.1f,%.1f distance_qg=%.0f boite=%d,%d,%d,%d tronque=%d"
+    .. " foreuses_elec=%d foreuses_comb=%d foreuses_autres_equipes=%d couvertes=%d couverture=%.1f%% interdites=%d interdits=%s"
+    .. " tapis_sur=%d sortie_tapis=%s sortie=%s fin_chaine=%s minerai_sortie=%s etats=%s capture=%s",
+    math.floor(tick / 3600), phase, tick, key, cl.name, n, tiles, cl.cx, cl.cy, math.sqrt(cl.d2), cl.x0, cl.y0, cl.x1 + 1, cl.y1 + 1, cl.tronque and 1 or 0,
+    m.elec, m.comb, m.autres, m.couvertes, 100 * m.couvertes / tiles, m.n_interdits, kv(m.interdits),
+    m.tapis_sur, m.sortie and "oui" or "non",
+    m.sortie_pos and string.format("%.1f,%.1f", m.sortie_pos.x, m.sortie_pos.y) or "-",
+    m.fin_pos and string.format("%.1f,%.1f(%d)", m.fin_pos.x, m.fin_pos.y, m.fin_long or 0) or "-",
+    tostring(m.minerai_sortie or "-"), kv(m.etats), file or "-"))
+end
+
+-- Gisements photographiés (nom de capture sans .png -> { force, clé, grappe, n }) : hors de `global` (grappes volumineuses) ;
+-- rempli au tick T, lu pendant les captures de la même session.
+local CACHE = {}
+
 return function(T_MIN)
   local MIN = 3600
   local T = T_MIN * MIN
@@ -334,23 +354,15 @@ return function(T_MIN)
           idx[cl.name] = (idx[cl.name] or 0) + 1
           local n = idx[cl.name]
           local m = measure(s, force, cl)
-          local tiles = #cl.list
           local file = string.format("pav-%s-%s-%d.png", safe(row.key), safe(cl.name), n)
-          log(TAG .. string.format("gisement minute=%d equipe=%s ressource=%s n=%d tuiles=%d centre=%.1f,%.1f distance_qg=%.0f boite=%d,%d,%d,%d tronque=%d"
-            .. " foreuses_elec=%d foreuses_comb=%d foreuses_autres_equipes=%d couvertes=%d couverture=%.1f%% interdites=%d interdits=%s"
-            .. " tapis_sur=%d sortie_tapis=%s sortie=%s fin_chaine=%s minerai_sortie=%s etats=%s capture=%s",
-            minute, row.key, cl.name, n, tiles, cl.cx, cl.cy, math.sqrt(cl.d2), cl.x0, cl.y0, cl.x1 + 1, cl.y1 + 1, cl.tronque and 1 or 0,
-            m.elec, m.comb, m.autres, m.couvertes, 100 * m.couvertes / tiles, m.n_interdits, kv(m.interdits),
-            m.tapis_sur, m.sortie and "oui" or "non",
-            m.sortie_pos and string.format("%.1f,%.1f", m.sortie_pos.x, m.sortie_pos.y) or "-",
-            m.fin_pos and string.format("%.1f,%.1f(%d)", m.fin_pos.x, m.fin_pos.y, m.fin_long or 0) or "-",
-            tostring(m.minerai_sortie or "-"), kv(m.etats), tick == T and file or "-"))
+          log_gisement("T", tick, row.key, cl, n, m, tick == T and file or nil)
           if tick == T then
             local w, h = cl.x1 + 1 - cl.x0 + 8, cl.y1 + 1 - cl.y0 + 8
             local zoom = math.min(SHOT_W / (w * 32), SHOT_H / (h * 32))
             zoom = math.max(0.08, math.min(1.5, zoom))
             local mx, my = (cl.x0 + cl.x1 + 1) / 2, (cl.y0 + cl.y1 + 1) / 2
             shoot(ctx, p, file, mx, my, zoom)
+            CACHE[(file:gsub("%.png$", ""))] = { force = force, key = row.key, cl = cl, n = n }
             shots = shots + 1
             if zoom < MIN_ZOOM then
               local vw, vh = SHOT_W / (32 * SUB_ZOOM), SHOT_H / (32 * SUB_ZOOM)
@@ -386,6 +398,21 @@ return function(T_MIN)
       if p then
         local want = (e.tick >= T - 120) and 1 or 8
         if game.speed ~= want then game.speed = want end
+      end
+      -- Session avec images : le pilote (shots.lua, appelé après ce crochet dans le même on_tick) prend la capture
+      -- gs.list[gs.i] à ce tick : on re-mesure son gisement au même tick.
+      local gs = global.shots
+      if p and gs and not gs.finished and not gs.flush_at and e.tick >= (gs.next or math.huge) then
+        -- liste pas encore construite : elle l'est à ce tick et sa première capture est prise aussitôt (plan[1])
+        local plan = ctx.state().plan
+        local sp = gs.list and gs.list[gs.i] or (not gs.list and plan and plan[1]) or nil
+        local c = sp and CACHE[sp.name]
+        if c then
+          local ok, err = pcall(function()
+            log_gisement("capture", e.tick, c.key, c.cl, c.n, measure(ctx.surface(), c.force, c.cl), sp.name .. ".png")
+          end)
+          if not ok then ctx.state().erreur = tostring(err); log(TAG .. "ERREUR " .. tostring(err)) end
+        end
       end
       if IS_MEASURE[e.tick] then
         local ok, err = pcall(run_all, ctx, e.tick, p)
