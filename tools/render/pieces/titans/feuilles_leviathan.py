@@ -83,6 +83,13 @@ def icone_composee(S, src, st, seg):
     vues.append(couche_main(src, "%s-anime-%s" % (NOM, st), "%s-%s" % (NOM, st), "course", 0, ICONE_DIR))
     offs.append(0.0)
     D = vues[-1][2]
+    # LEVIATHAN2 : une pièce peut garder des rendus d'une autre densité (pièce non re-rendue) : ramenée à la densité de la tête
+    for j, (mn, org, dens) in enumerate(vues):
+        if abs(dens - D) > 1e-6:
+            f = D / dens
+            u8 = np.round(np.clip(mn, 0, 1) * 255).astype(np.uint8)
+            r = FX.lanczos(u8, max(1, int(round(mn.shape[1] * f))), max(1, int(round(mn.shape[0] * f))))
+            vues[j] = (r.astype(np.float64) / 255.0, np.array([org[0] * f, org[1] * f]), D)
     pos = []
     for (mn, org, dens), s in zip(vues, offs):
         pos.append((int(round(-v[0] * s * D - org[0])), int(round(-v[1] * s * D - org[1]))))

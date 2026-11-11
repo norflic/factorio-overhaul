@@ -130,7 +130,10 @@ for _, c in ipairs({ { T.SENTINELLE, SERIE_SE, FOULEE_SE, "Sentinelle" }, { T.LE
     "§1 " .. nom .. " animé(e) : images de marche et de salve = SERIE du modèle")
   check(fo and math.abs(r.anime.foulee - fo) < 1e-6, "§1 " .. nom .. " animé(e) : foulée de la règle = FOULEE du modèle (" .. tostring(fo) .. ")")
   check(r.anime.attaque_ticks > 0 and r.anime.attaque_ticks % 1 == 0, "§1 " .. nom .. " animé(e) : durée de salve entière, positive")
-  check(se.densite and se.R and se.zmax and se.densite <= 16, "§1 " .. nom .. " : série à densité bornée (≤ 16 px par unité : ≤ 80 Mpx)")
+  -- LEVIATHAN2 (11/11) : le DC lève le plafond du Léviathan (détail jugé pauvre) : 22 px par unité, borne 24 (feuilles : 32 Mpx HR en
+  -- 0.6.94 à 15 px, environ 70 attendus quand tête, segments et queue seront tous rendus à 22 px)
+  local dmax = (nom == "Léviathan") and 24 or 16
+  check(se.densite and se.R and se.zmax and se.densite <= dmax, "§1 " .. nom .. " : série à densité bornée (≤ " .. dmax .. " px par unité)")
 end
 for _, r in ipairs(T.ALLIES) do check(r.anime ~= nil, "§1 " .. r.id .. " : corps animé (les quatre alliés)") end
 local SCR = read("script/robots/titans.lua")
