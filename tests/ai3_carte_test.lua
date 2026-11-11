@@ -44,8 +44,6 @@ do
   check(K.due(m, key(1, 2), 600, 3600) == false and K.due(m, key(1, 2), 4100, 3600) and K.due(m, key(5, 5), 0, 3600),
     "regard dû : jamais vu, ou trop ancien")
   check(m.s[key(1, 2)].sp == nil, "nids : le dernier regard fait foi (le nid détruit disparaît)")
-  local list = K.known_resources(m)
-  check(#list == 2 and list[1] == "coal" and list[2] == "iron-ore", "ressources connues triées")
 end
 
 -- 2. Gisements triés, nids, chemin, voisinage, risque.

@@ -988,24 +988,6 @@ function A.decide(input)
   return out
 end
 
---- Interface STABLE pour un appelant qui pèse UN objet (étapes « produce » et « extract » du dépliage d'IA-G) : même
---- décision que A.decide (même contexte : ordre du graphe, modules ouverts, refus), l'objet étant pesé même sans charge
---- mesurée. Rend le verdict de l'objet { product, verdict, why, L, D, T, C, G, depth, generic } et sa demande (ou nil) :
---- le runtime (script/ai3/automatisation.lua) reste seul à appliquer les demandes au plan directeur.
-function A.decide_item(input, item)
-  local items = {}
-  for _, it in ipairs(input.items or {}) do items[#items + 1] = it end
-  items[#items + 1] = item
-  local copy = {}
-  for k, x in pairs(input) do copy[k] = x end
-  copy.items = items
-  local res = A.decide(copy)
-  local verdict, request = nil, nil
-  for _, v in ipairs(res.verdicts) do if v.product == item then verdict = v end end
-  for _, r in ipairs(res.requests) do if r.product == item then request = r end end
-  return verdict, request, res
-end
-
 ---------------------------------------------------------------------------------------------------
 -- Projet du cerveau (IA3-c) : un module demandé est un PROJET compté dans les K projets ouverts
 ---------------------------------------------------------------------------------------------------

@@ -14,7 +14,7 @@
        des avant-postes qu'il remplace ;
     2 bis. graphe des recettes et objets quelconques (consigne du DC du 27/10, 7 h 10) : profondeurs, module GÉNÉRÉ depuis
        la recette (tuyau), limites écrites (3 ingrédients, objet brut, recette de four), un objet attend SES entrées
-       (tapis derrière les engrenages ; le cuivre ne retient plus les chargeurs), interface A.decide_item ;
+       (tapis derrière les engrenages ; le cuivre ne retient plus les chargeurs) ;
     5. déterminisme (deux décisions identiques) ;
     6. mutants : chaque règle retirée fait échouer au moins un contrôle.
 ]]
@@ -241,11 +241,6 @@ do
   local sorted = true
   for i = 2, #rc.verdicts do if (rc.verdicts[i].depth or 0) < (rc.verdicts[i - 1].depth or 0) then sorted = false end end
   check(sorted, "verdicts pesés par profondeur croissante")
-  -- Interface d'un objet (IA-G) : pesé même sans charge mesurée.
-  local v1, q1 = A.decide_item({ window = win(10, {}, {}), obtainable = all_ok, book = book }, "pipe")
-  check(v1 and v1.product == "pipe" and v1.verdict == "non" and q1 == nil, "A.decide_item : tuyau sans charge, verdict « non » (" .. tostring(v1 and v1.why) .. ")")
-  local v2, q2 = A.decide_item({ window = wp, obtainable = all_ok, book = book, has_plant = true }, "pipe")
-  check(v2 and v2.verdict == "demande" and q2 and q2.gen == "simple", "A.decide_item : tuyau chargé, demande rendue")
 end
 
 ---------------------------------------------------------------------------------------------------

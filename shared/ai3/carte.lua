@@ -223,9 +223,6 @@ end
 --- Nombre de GISEMENTS vus de la ressource (secteurs voisins fusionnés) (tenu à chaque regard : aucun parcours).
 function K.count(m, res) return (m.cnt and m.cnt[res]) or 0 end
 
---- Ressources connues (au moins un gisement vu), triées.
-function K.known_resources(m) return sorted_keys(m.found) end
-
 --- Nids et vers VUS à moins de r tuiles de (x, y).
 function K.enemies_near(m, x, y, r)
   local nests, worms = 0, 0
