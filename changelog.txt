@@ -7,6 +7,7 @@ Date: 2026-11-11
 Version: 0.6.92
 Date: 2026-11-11
   Graphics:
+    - Géants expérimentaux (F525) : Ixion, la roue de feu, ne glisse plus : son corps suit sa marche (8 vues rendues en 3D, une par cap de 22,5°, servent ses 16 directions : une roue est la même à 180° près) ; Cairn, Stylet, Trombe, Tournesol, le Bourdon et le Méga-Bourdon gardent leur image unique, symétrique par dessin.
     - Icônes (F505) : la tôle magnétique, les billettes de fer, de cuivre et de tungstène et la plaque de titane ne copient plus la plaque d'acier teintée ; chacune a sa silhouette rendue en 3D : tôles feuilletées à liserés cyan, lingots moulés gris acier et cuivre orangé, barreau carré sombre fretté, plaques hexagonales polies.
   Bugfixes:
     - Mall (F504) : un bloc du mall n'attend plus le bois de ses petits poteaux quand l'équipe peut le récolter ; le choix du poteau et l'achat du bloc lisent la même règle (partie du DC sur la 0.6.89 : Ambre gardait 5 007 fer et une seule rangée de mall, tous ses blocs en attente de bois de 30 à 82 min).

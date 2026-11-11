@@ -100,13 +100,49 @@ end
 local ecouteurs = {}
 function G.ecoute(f) ecouteurs[#ecouteurs + 1] = f end
 
+-- couche du corps -> couche de dessin (Xp.CORPS_COUCHES, dans l'ordre de dessin)
+local COUCHE_RENDU = { ombre = "lower-object", corps = "air-object", ["lueur-1"] = "air-object" }
+
 local function corps(g, r)
   if Xp.GIANT_BODY ~= "rendering" then return end
   local e = g.e
   local s = e.surface
-  rendering.draw_sprite({ sprite = Xp.PREFIX .. r.id .. "-ombre", target = e, surface = s, render_layer = "lower-object" })
-  rendering.draw_sprite({ sprite = Xp.PREFIX .. r.id .. "-corps", target = e, surface = s, render_layer = "air-object" })
-  rendering.draw_sprite({ sprite = Xp.PREFIX .. r.id .. "-lueur-1", target = e, surface = s, render_layer = "air-object" })
+  -- F525 : un géant au corps orienté (Xp.CORPS_DIRS) est posé dans la pose de son TORSE et garde les ids de ses couches (g.rid) pour la
+  -- changer quand il tourne ; un géant à une image garde ses sprites fixes
+  local pose = Xp.pose(r.id, e.torso_orientation)
+  local rid = {}
+  for _, c in ipairs(Xp.CORPS_COUCHES) do
+    rid[c] = rendering.draw_sprite({ sprite = Xp.sprite_corps(r.id, c, pose), target = e, surface = s, render_layer = COUCHE_RENDU[c] })
+  end
+  if pose then g.rid, g.pose = rid, pose end
+end
+
+--- F525 : un géant au corps orienté suit son torse (balayage de SCAN ticks). Un géant d'une partie d'avant F525 (sans g.rid) a ses sprites fixes
+--- d'une image : ils sont retirés (lecture bornée aux ids du mod qui visent cette entité, une fois) et le corps est reposé, orienté.
+local function orienter(g, r)
+  local e = g.e
+  if not g.rid then
+    for _, id in ipairs(rendering.get_all_ids(script.mod_name)) do
+      if rendering.is_valid(id) and rendering.get_type(id) == "sprite" then
+        local t = rendering.get_target(id)
+        if t and t.entity == e then
+          local nom = rendering.get_sprite(id)
+          for _, c in ipairs(Xp.CORPS_COUCHES) do
+            if nom == Xp.sprite_corps(r.id, c) then rendering.destroy(id) break end
+          end
+        end
+      end
+    end
+    corps(g, r)
+    return
+  end
+  local pose = Xp.pose(r.id, e.torso_orientation)
+  if pose == g.pose then return end
+  for _, c in ipairs(Xp.CORPS_COUCHES) do
+    local id = g.rid[c]
+    if id and rendering.is_valid(id) then rendering.set_sprite(id, Xp.sprite_corps(r.id, c, pose)) end
+  end
+  g.pose = pose
 end
 
 local function rendre(player, e, name)
@@ -611,6 +647,7 @@ local function scan(ev)
   for _, g in ipairs(s.giants) do
     if g.e.valid then
       keep[#keep + 1] = g
+      if Xp.GIANT_BODY == "rendering" and Xp.CORPS_DIRS[g.id] then orienter(g, Xp.robot(g.id)) end
       if ev.tick >= g.next and not G.zone_active(g.un) then
         local r = Xp.robot(g.id)
         local t = cible(g, r)
