@@ -330,11 +330,12 @@ do
     f.build.extra_plants = { 2 }
     f.build.projects[2].ents = {}
   end
-  -- borne écrite : au plus C.MAX_REQUESTS demandes sur la partie
+  -- lot FIX-P1 : plus de borne C.MAX_REQUESTS sur la partie (C.COOL et C.MAX_REFUSED bornent)
   f.build.extra_plants, f.build.projects[2] = nil, nil
   f.build.grow.requests = C0.MAX_REQUESTS
   f.build.grow.cool_until = 0
-  check(run(10, 5000) == false, "C.MAX_REQUESTS atteint : plus de demande, même avec un déficit (demande mesurée 76 %)")
+  check(run(10, 5000) == true, "C.MAX_REQUESTS atteint : la demande passe encore (lot FIX-P1), déficit, demande mesurée 76 %")
+  f.build.extra_plants, f.build.projects[2] = nil, nil
   PROD = 3000
   tick = tick + PA.WATCH_EVERY -- (F491 : un relevé à 20 % sans retenu remet à zéro l'avance comptée pendant les phases à 76-100 %)
   f.team.capi.kw_blocked = nil

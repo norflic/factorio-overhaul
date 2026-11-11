@@ -217,7 +217,7 @@ local function run_all(M)
     -- le stock ne dort plus : décroît
     local awake = { stock_mu = 1500, free_mu = 500, Y = 500, cands = c, research = true }
     local o = Dm.step(st, awake)
-    check(not o.dormant and o.p < cap and o.p > 0, "stock éveillé : le débit visé décroît sans s'effondrer d'un coup")
+    check(not o.dormant and o.p == 0, "stock éveillé : puits fermé net (lot FIX-P1)")
     for _ = 1, 400 do o = Dm.step(st, awake) end
     check(o.p == 0 and #o.sinks == 0, "stock éveillé longtemps : puits fermé, plus aucun puits")
     check(o.cause:find("ferme", 1, true) ~= nil, "cause écrite : puits fermé")
@@ -507,7 +507,7 @@ local MUTANTS = {
   { "Dm", "le puits ne croît plus", { "Dm.GROW = 100 ", "Dm.GROW = 0 " } },
   { "Dm", "le plafond de la production disparaît", { "if by_prod < cap then cap, cap_why = by_prod, Dm.Y_MULT .. \" x production\" end", "" } },
   { "Dm", "le plafond du stock libre disparaît", { "local cap, cap_why = by_stock, \"stock libre / \" .. Dm.DRAIN_H .. \" min\"", "local cap, cap_why = by_prod, \"x\"" } },
-  { "Dm", "le puits ne décroît jamais", { "p = p * (1000 - Dm.DECAY) / 1000", "p = p" } },
+  { "Dm", "le puits ne décroît jamais", { "    p = 0 -- lot FIX-P1", "    p = p -- " } },
   { "Dm", "la science est toujours visée", { "if inp.research and #(cands.science or {}) > 0 then", "if #(cands.science or {}) > 0 then" } },
   { "Dm", "l'équipement n'est plus candidat", { "if #(cands.equipement or {}) > 0 then classes", "if false then classes" } },
   { "Dm", "le sommeil n'allonge pas Tmax", { "return math.max(tmax, math.min(Dm.TMAX_CAP, sleep_min))", "return tmax" } },

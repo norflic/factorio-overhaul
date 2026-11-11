@@ -22,7 +22,7 @@ function Cap.read(f, surface)
     end
     local t = e.type == "mining-drill" and e.mining_target
     local mp = t and t.valid and t.prototype.mineable_properties
-    if mp and mp.products and mp.products[1] and mp.products[1].name == T.fuel then
+    if mp and mp.products and mp.products[1] and mp.products[1].name == T.fuel and Bc.drill_counts(e.status, status) then
       drills[#drills + 1] = p.mining_speed / math.max(mp.mining_time or 1, 1e-6)
     end
   end

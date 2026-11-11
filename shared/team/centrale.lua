@@ -146,7 +146,7 @@ function C.growth(st, n)
   if (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end
   if n.hold and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end
   if n.cool then return nil, "pause apres une centrale refusee ou abandonnee" end
-  if (st.requests or 0) >= C.MAX_REQUESTS then return nil, "trop de demandes" end
+  -- lot FIX-P1 : plus de borne C.MAX_REQUESTS sur la partie (elle bloquait la croissance électrique pour toujours) ; C.COOL et C.MAX_REFUSED bornent
   -- lot TV-ENERGIE (G65) : en crise, l'unité de secours (la plus petite), jamais le champ ; plafonnée par crise (n.secours_n)
   if C.crisis(st, n) then
     if (n.secours_n or 0) >= C.SECOURS_MAX then return nil, "unites de secours epuisees pour cette crise" end
