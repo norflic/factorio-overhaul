@@ -111,7 +111,7 @@ end
 local function ac_facts(Ac)
   local f = {}
   local H = Ac.HOLD
-  f.item = Ac.item()
+  f.item = Ac.ITEMS[1] -- (lot COLONNES : produits des colonnes dédiées, triés ; l'acier passe avant les briques)
   -- coupure
   f.no_block = Ac.decide_cut(nil, { finished = 0, flow = 50, need = 6, short = 60, tick = 1e6 })
   f.low = Ac.decide_cut(nil, { finished = 1, flow = 5, need = 6, short = 60, tick = 1e6 })

@@ -10,6 +10,14 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-11, 14 h 25 : version 0.7.0 (directive du DC de 13 h 55 : ablation pure, « delete-first »)
+
+- **F546 · [0.7.0]** Purge fer et charbon (lot PURGE-FER-CHARBON) : porte des 150 plaques de fer libres pour ouvrir une bande de fer SUPPRIMÉE (`Th.min_plates` et ses tests) ; sur-allocation de foreuses de charbon remplacée par un plafond unique au besoin des centrales et des fours actifs (`script/team/plafond_charbon.lua`). Coupe reprise par l'intégrateur à l'arrêt de l'agent (non mesurée en moteur au-delà du banc de chargement).
+- **F544 · [0.7.0]** Purge du minage à la main (lot PURGE-MINE) : coupe partielle à l'arrêt de l'agent (72 lignes ajoutées, 70 supprimées) ; le chemin `mine` de `board.lua` n'est pas entièrement radié. Reste à finir.
+- **F547 · [0.7.0]** Colonnes de fonderie (lot COLONNES) : `script/team/briques.lua` supprimé au profit des colonnes par produit ; coupe partielle à l'arrêt de l'agent (souterrains systématiques non finis).
+- **F545 · NON FUSIONNÉ** Purge des navettes et de la rentabilité (lot PURGE-NAVETTE, branche `purge-navette` 2ee38ff7) : la réécriture de `shared/team/liaison.lua` laisse 21 constantes `Li.*` lues ailleurs (piquage, rapatriement, réseau) sans définition ; `run.lua` plante. Hors de la 0.7.0.
+- Bilan de lignes 0.6.99 → 0.7.0 sur `script/ai3`, `shared/ai3`, `script/team`, `shared/team` : +262 / −468, net −206. Tests : run 114, iag 559, thermique 204, anti_dispersion 77, liaison 189, L6 35, debug 134, harness code 0, banc de chargement 618 OK code 0. Aucun banc de partie.
+
 ## 2026-11-11, 13 h 35 : version 0.6.99 (sprints du DC de 12 h 40 et 13 h 03 : chirurgies IA fusionnées sans banc long sur ordre du DC, Méga-Bourdon lourd, Léviathan et Ravageur)
 
 - **F539 · FAIT · [0.6.99]** Fer du spawn « plein » (lot IA-SPAWN, d2ac1ebd ; partie du DC 0.6.96, `[FO-ZERO-IDLE] player minute 114 ... iron=plein(x7)` alors que `[FO-GISEMENT]` met iron-ore et iron-plate en manque) : le champ de fer du spawn n'était couvert qu'à 177 ‰ ; sa migration restait en veille parce que les 2 créneaux de bande étaient tenus par le charbon (p21 puis p46) et le cuivre (p22) de 30 à 114 min, et `script/team/migration_champ.lua:2014` (`busy.total >= Th.CFG.slots`) s'arrêtait avant `start_next`. Coupe : `shared/team/thermique.lua:369` `Th.free_slot` rend la « voie-clé » à la plaque clé sans bande à elle même quand les créneaux sont pris, et `Mig.think` la demande avant de s'arrêter. Test `thermique_test` rouge (créneaux) puis vert (209 OK, 67 mutants). Banc graine 2507543475, 60 min : avant = après (le fer y garde toujours un créneau : pas de régression, gain non montré en moteur). Vus, non traités : la porte de 150 plaques de fer libres pour ouvrir une bande de fer (qui a laissé le charbon p46 prendre le créneau à 72,2 min) ; le charbon à 26-46 foreuses.

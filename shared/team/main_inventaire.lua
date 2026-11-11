@@ -1,5 +1,6 @@
 --[[
   Lot MAIN-INVENTAIRE (retour du DC du 31/10, points 4 et 5) : règles PURES du minage à la main.
+    0. La pioche existe-t-elle encore ? (Mi.gone) : plus après l'ère électrique de l'équipe (lot PURGE-MINE).
     1. Mine-t-on à la main ? (Mi.hand_verdict) : jamais quand le stock (coffre du QG + annexes) couvre déjà la tâche ;
        jamais de combustible à la main quand un coffre en a (constat : 3e à 7e heure, minage de charbon seul, coffres garnis).
        Le mode survie reste exempté (il minait déjà faute de tout), comme les crises injectées par les bancs. Une tâche qui porte
@@ -29,16 +30,11 @@ Mi.SERVICE_KINDS = { smelt = true, smelters = true } -- tâches de fonte au QG (
 
 local function num(v) return type(v) == "number" and v or 0 end
 
---- a = { stock = objets en coffre, count = fournée de la tâche, fuel = bool, survie = bool, crisis = bool, short = manque mesuré par le demandeur,
---- electrique = cause (chaîne) de l'exclusion mutuelle de l'arbre de décision pour une ressource que la foreuse électrique sait extraire }.
---- Rend ok (miner à la main), raison ("survie" | "crise" | "manque" | "stock" | "electrique").
---- Lot CC-MAIN (mandat du DC, 10/11 22 h 20 : « dès que la première foreuse électrique est en place ou au stock, le minage au sol est radié ») :
---- quand des foreuses électriques dorment au coffre hors phase early (Dt.thermal_allowed, la règle qui interdit déjà les paires thermiques),
---- jamais de pioche sur ce qu'elles extraient, manque mesuré, survie et combustible compris : les PNJ libres posent le stock dormant.
---- Seule une crise injectée par un banc passe.
+--- a = { stock = objets en coffre, count = fournée de la tâche, fuel = bool, survie = bool, crisis = bool, short = manque mesuré par le demandeur }.
+--- Rend ok (miner à la main), raison ("survie" | "crise" | "manque" | "stock"). Ne juge que le démarrage : après l'ère électrique, la tâche
+--- n'arrive plus jusqu'ici (Mi.gone).
 function Mi.hand_verdict(a)
   if a.crisis then return true, "crise" end
-  if type(a.electrique) == "string" then return false, "electrique" end
   if a.survie then return true, "survie" end
   if num(a.short) > 0 then return true, "manque" end
   local need
@@ -49,6 +45,15 @@ function Mi.hand_verdict(a)
   end
   if num(a.stock) >= need then return false, "stock" end
   return true, "manque"
+end
+
+--- Lot PURGE-MINE (DC, 11/11 13 h 55 : « supprime la tâche kind == "mine" de la file de sélection dès que la technologie des foreuses
+--- électriques est débloquée ou craftable ») : la tâche `t` sort-elle de la file de sélection ? Oui pour un minage LIBRE (pas encore pris)
+--- d'un objet que la foreuse électrique extrait (`drillable(objet)`, lu aux prototypes par l'appelant), dès que l'ère électrique de l'équipe
+--- est datée (`era`, tick ; nil avant). Seul cas gardé : le démarrage, où la pioche est le seul moyen d'extraire. Le bois des arbres n'est
+--- pas extractible par la foreuse : il reste.
+function Mi.gone(t, era, drillable)
+  return era ~= nil and t.kind == "mine" and t.worker == nil and drillable(t.resource) == true
 end
 
 --- a = { room = place pour l'objet, got = déjà miné dans cette étape, count = demandé, trips = voyages faits }.

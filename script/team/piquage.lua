@@ -9,7 +9,7 @@
   2. DÉCISION : tuiles retenues (Pq.tile_verdict : dense, droite, alimentée, prolongée), côtés libres, Pq.rank contre les sorties de module que la
      liaison voit déjà (b.liaison.seen : la liaison garde sa place si elle paie mieux) ; Li.decide ; une demande par relevé.
   3. PROJET : Build.request({ liaison = { piquage = true, ... } }) : même famille que la liaison (rôles liaison-*, pile « capital », garde de
-     la centrale), tracé de la sortie du répartiteur au bras du quai (P.belt_route), un bras, un poteau. Le RÉPARTITEUR n'est pas une entité du
+     la centrale), tracé de la sortie du répartiteur au bras du quai (Trav.route, souterrains), un bras, un poteau. Le RÉPARTITEUR n'est pas une entité du
      projet : son objet est compté aux besoins du projet (build.lua, needs_of) pour que le cerveau le fabrique et que la réserve le retienne.
   4. FIN : le script remplace le tapis par le répartiteur SUR PLACE (surface.create_entity{fast_replace}, comme l'amélioration des tapis,
      script/team/convoyeurs.lua), écrit tout de suite la priorité de sortie sur le tapis PRINCIPAL (l'aval n'est jamais affamé : la branche ne
@@ -21,6 +21,7 @@
 ]]
 
 local Pq = require("shared.team.piquage")
+local Tv = require("shared.team.traversee") -- lot COLONNES : tracé virtuel et preuve des paires souterraines
 local Li = require("shared.team.liaison")
 local M = require("shared.team.modules")
 local P = require("shared.team.plan")
@@ -792,8 +793,8 @@ function Piquage.plan(api, f, surface, p)
   if not start_ok(g.branch.x, g.branch.y) then return false, "piquage: la sortie du repartiteur n'est pas libre" end
   -- COÛT BORNÉ (8/11, gels de 50 à 400 ms mesurés dans la partie du DC) : UNE recherche de branche par appel et par tick, sur UN site (celui que
   -- demande lc.site_i ; les autres attendent le relevé suivant, qui tourne le site), un A* pondéré (Piquage.ROUTE_WEIGHT) plafonné en noeuds
-  -- (Piquage.ROUTE_NODES), sortie au premier « aucun chemin » ou « trop long ». Trav.route n'est PAS appelé : avec un gisement sur le tracé il lance
-  -- jusqu'à 5 recherches (mesuré hors jeu : 5,4 millions d'instructions contre 0,13 million sans gisement, tests/piquage_script_test.lua §7).
+  -- (Piquage.ROUTE_NODES). Lot COLONNES (chantier 6 du DC) : le tracé des lignes de rapatriement et de liaison (Trav.route), sans gisement ni
+  -- détour (une seule recherche) : un obstacle sur le vecteur (tapis perpendiculaire, bâtiment) est franchi par une paire de souterrains.
   if LAST_SEARCH == game.tick then return false, "piquage: une recherche de branche par tick, la suivante au prochain passage", "calcul" end
   local site = sites[((lc.site_i or 1) - 1) % #sites + 1]
   planned = { [P.tkey(site.ax, site.ay)] = true }
@@ -807,11 +808,11 @@ function Piquage.plan(api, f, surface, p)
     return cst
   end
   LAST_SEARCH = game.tick
-  local tiles, why = P.belt_route({ x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost,
-    { weight = Piquage.ROUTE_WEIGHT, max = Piquage.ROUTE_NODES })
+  local tiles, why, tn = api.trav.route(f, surface, p, { x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost,
+    { belt = lc.belt, sd = g.dir, weight = Piquage.ROUTE_WEIGHT, max = Piquage.ROUTE_NODES, no_ore = true, no_detour = true, no_diag = true, kind = "piquage" })
   if not tiles then return false, "piquage: " .. tostring(why) end
   do
-    local ok, w2 = Li.route_ok(#tiles, Li.manhattan(g.branch.x, g.branch.y, site.bx, site.by))
+    local ok, w2 = Li.route_ok(#Tv.virtual_belts(tiles), Li.manhattan(g.branch.x, g.branch.y, site.bx, site.by))
     if not ok then return false, "piquage: " .. w2 end
     -- lot PURETE-TAPIS : preuve de pureté de la branche (causes a, b, c, d) contre une lecture fraîche du monde ; la dernière tuile verse sur le bras du quai
     local pok, pwhy = Pur.check_route(f, surface, p, "piquage", tiles, lc.item, { [P.tkey(site.ax, site.ay)] = true }, nil)
@@ -825,8 +826,12 @@ function Piquage.plan(api, f, surface, p)
   for _, t in ipairs(tiles) do planned[P.tkey(t.x, t.y)] = true; taken[t.x .. ":" .. t.y] = true end
   local px, py = Li.pole_tile(site, free, taken)
   if not px then return false, "piquage: aucune place pour un poteau contre le bras" end
-  local ents = Pq.entities({ geo = g, dst = site, route = tiles, names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, pole = { px, py } })
-  local bad = Pq.verify(g, ents, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  -- preuve sur le tracé VIRTUEL (une paire souterraine = des tapis droits), puis celle des paires (Tv.verify), comme la liaison
+  local names = { arm = lc.arm, belt = lc.belt, pole = lc.pole, ug = tn and tn.ug }
+  local ents = Pq.entities({ geo = g, dst = site, route = tiles, names = names, pole = { px, py } })
+  local bad = Pq.verify(g, Pq.entities({ geo = g, dst = site, route = Tv.virtual_belts(tiles), names = names, pole = { px, py } }), D,
+    function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+  if #bad == 0 then bad = Tv.verify(tiles, { x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), tn and tn.maxd or 0, nil) end
   if #bad > 0 then return false, "piquage: geometrie fausse (" .. bad[1] .. ")" end
   for _, x in ipairs(ents) do x.part = 1 end
   if not api.reserve_tiles(b, p, ents) then return false, "place" end

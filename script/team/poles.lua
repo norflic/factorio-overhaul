@@ -28,7 +28,7 @@ local Events = require("script.core.events")
 local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
-local Elec = require("script.team.electrique") -- lot CC-MAIN : le fond ne propose pas la pioche que la garde du minage refuserait
+local Elec = require("script.team.electrique") -- lot PURGE-MINE : le fond ne propose plus la pioche après l'ère électrique
 local Sur = require("shared.team.travail_sur") -- lot INDUSTRIE I2 : file sûre des PNJ sans tâche
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE : le réglage maître (fo-war-industrie)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : le fond ne propose pas ce que les coffres couvrent
@@ -129,13 +129,6 @@ function Poles.set_orientation(f, o)
   return O.normalize(o, false)
 end
 
--- Minerai -> plaque fondue (même table que script/ai3/cerveau.lua, Ia3.after_poles : minage d'une plaque couverte par un module).
-local PLATE_OF_RES = {}
-for _, kind in ipairs(T.OUTPOST_ORDER) do
-  local spec = T.outposts[kind]
-  if T.smelter_inputs[spec.product] then PLATE_OF_RES[spec.resource] = spec.product end
-end
-
 -- Lot FLUX : minerai -> { plaque, minerai par plaque } : le minage à la main de remplissage (fond, file sûre, renfort de fer) compte les
 -- plaques du coffre ET celles qui dorment dans les sorties des avant-postes (shared/team/flux.lua, Fx.equiv).
 local PLATE_MAP = Fx.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)
@@ -194,10 +187,6 @@ function Poles.task_done(f, task, ok, tick)
   if task.safe and org.sur then -- lot INDUSTRIE I2 : fin d'une tâche de la file sûre
     Sur.done(org.sur.acc, ok)
     Sur.done(org.sur.tot, ok)
-    if task.kind == "mine" and task.resource then
-      org.sur.bad = org.sur.bad or {}
-      if ok then Sur.success(org.sur.bad, task.resource) else Sur.fail(org.sur.bad, task.resource, tick, task.fail) end
-    end
   end
   -- Minage : la ressource qui vient de réussir sert à la crise d'un banc ; celle dont le programme a échoué (aucune
   -- tuile libre à 96 tuiles du QG) est écartée du minage de fond pendant 2 min (essai 5 : tâches perdues en pause).
@@ -394,8 +383,8 @@ function Poles.think(f, view, book, tick, plan)
   -- Lot MAIN-INVENTAIRE (relecture) : F.MINE_TARGETS (charbon 400 d'abord) est la vraie source du charbon à la main : une ressource que
   -- les coffres couvrent n'occupe plus les places du fond (sinon Worker.program la refuse et le cuivre attend son tour).
   for _, m in ipairs(Fond.MINE_TARGETS) do
-    if not Mi.hand_verdict({ stock = view.stock[m[1]] or 0, count = Fond.MINE_BATCH, fuel = m[1] == T.fuel,
-      electrique = Elec.hand_blocked(f, tick, m[1]) }) then skip[m[1]] = true end
+    if not Mi.hand_verdict({ stock = view.stock[m[1]] or 0, count = Fond.MINE_BATCH, fuel = m[1] == T.fuel })
+      or Mi.gone({ kind = "mine", resource = m[1] }, Elec.era(f), Elec.drillable) then skip[m[1]] = true end
   end
   -- Lot STOCKAGE-VITAL (relecture revue-0659, (b)) : pas de minage de fond de ce que le dépôt refuserait (non vitale saturée, ou toute
   -- non vitale au-delà de T.stockage.stop_at : Stock.skip_fn) ; sinon le PNJ la mine et la garde dans son sac.
@@ -658,8 +647,8 @@ function Poles.think(f, view, book, tick, plan)
   end
 
   -- 4 bis. Lot INDUSTRIE I2 : file sûre. Un PNJ resté sans tâche à Sur.STARVE_THINKS pensées de suite (la marge du fond ci-dessus
-  -- lui a laissé sa chance) reçoit du travail qui ne coûte aucun objet du coffre : tournée d'un avant-poste proche, minage près
-  -- du coffre de ce que les coffres n'ont pas déjà. Aucune construction, aucune sortie lointaine (F241). Journal [FO-INACTIF].
+  -- lui a laissé sa chance) reçoit du travail qui ne coûte aucun objet du coffre : tournée d'un avant-poste proche (lot PURGE-MINE : plus
+  -- aucun minage). Aucune construction, aucune sortie lointaine (F241). Journal [FO-INACTIF].
   do
     local sur = org.sur
     if not sur then
@@ -681,7 +670,7 @@ function Poles.think(f, view, book, tick, plan)
     local starved, fresh
     sur.streaks, starved, fresh = Sur.track(sur.streaks, idle_ids)
     local on = not org.sur_off and Rsv.on()
-    local r = { tasks = {}, want = 0, service = 0, mine = 0, left = 0 }
+    local r = { tasks = {}, want = 0, service = 0, left = 0 }
     if on and starved + fresh > 0 and not view.hq_threat and not (org.sur_hold and tick < org.sur_hold) then
       local undef = Planner.no_go(view, block_turrets)
       -- Intégration 0.6.30 : Ia3.after_poles retire à cette même pensée le fond d'une matière saturée ou couverte par un module : une
@@ -694,24 +683,15 @@ function Poles.think(f, view, book, tick, plan)
           outs[#outs + 1] = { id = o.id, output = o.output, d2 = o.d2, danger = danger[o.id], undefended = undef[o.id], has_task = o.has_task }
         end
       end
-      local resources = {}
-      for _, m in ipairs(Fond.MINE_TARGETS) do
-        local have = Fx.equiv(m[1], PLATE_MAP, free, view.repat) -- lot FLUX : minerai + plaques (coffre et sorties) en minerai
-        local gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2])
-        resources[#resources + 1] = { res = m[1], gap = gap,
-          ok = gap > 0 and not skip[m[1]] and (not m[3] or (view.smelters or 0) > 0) and not Sur.blocked(sur.bad, m[1], tick)
-            and not Sur.withdrawn(ia3, m[1], PLATE_OF_RES[m[1]]) }
-      end
       r = Sur.plan({ starved = starved, fresh = fresh, open = open_safe, threat = view.hq_threat, prudent = prudent, floor_ok = n >= floor0,
-        keys = keys, also = add, batch = Fond.MINE_BATCH, radius = T.near_mine, outposts = outs, near_d2 = T.transport_near * T.transport_near,
-        resources = resources })
+        keys = keys, also = add, outposts = outs, near_d2 = T.transport_near * T.transport_near })
       if #r.tasks > 0 then Board.add(f, r.tasks, tick) end
     end
     local note = { n = #agents, idle = #idle_ids, starved = starved, cause = Sur.cause(view.hq_threat, free_n),
-      opened_service = r.service, opened_mine = r.mine, kinds = free_kinds }
+      opened_service = r.service, kinds = free_kinds }
     Sur.note(sur.acc, note)
     Sur.note(sur.tot, note)
-    sur.last = { starved = starved, want = r.want, service = r.service, mine = r.mine, left = r.left, on = on }
+    sur.last = { starved = starved, want = r.want, service = r.service, left = r.left, on = on }
     if not sur.t then sur.t = tick end
     if tick - sur.t >= Sur.REPORT_EVERY then
       sur.t = tick
