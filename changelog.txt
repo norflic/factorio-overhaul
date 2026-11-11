@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.1
+Date: 2026-11-11
+  Changes:
+    - IA (F548) : trois bandes de fonderie en même temps au lieu de deux ; les colonnes 2 et 3 ne sont plus bloquées par le charbon.
+    - IA (F549) : une foreuse gênée par un poteau, un arbre ou un bâtiment est sautée, la bande continue.
+    - IA (F545) : la liaison de quai ne passe plus par le calcul de rentabilité.
+    - Débogage (F550) : décision active et taille des tables de chaque équipe dans l'onglet Décisions ; purge des relevés des factions disparues.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.0
 Date: 2026-11-11
   Changes:

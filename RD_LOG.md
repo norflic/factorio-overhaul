@@ -10,6 +10,14 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-11, 15 h 00 : version 0.7.1 (sprint du DC de 14 h 31 : 4 agents)
+
+- **F545 · FAIT · [0.7.1]** Navettes (purge-navette, 91988a8e) : la réécriture de `shared/team/liaison.lua` est fusionnée ; les 13 constantes `Li.*` réellement manquantes sont rétablies, `Li.worth` et `Li.bar` restent (lus par le piquage et le coffre de quai) ; la liaison de quai ne calcule plus ni prix ni confirmation ni essais. liaison_test 139 OK (sections prix, barre, essais par paire retirées), piquage 109, rapatriement 145.
+- **F548 · FAIT · [0.7.1]** Réinvestissement (reinvest, a053e3c6) : `shared/team/thermique.lua:57` `Th.CFG.slots` valait 2 alors que la migration a 3 créneaux réels (`migration_champ.lua:129`) : une bande de charbon et une de fer tenaient tout, les colonnes 2 et 3 attendaient ; passé à 3. reinvest_test rouge sur 2, vert sur 3, 6 mutants. Non vu en partie.
+- **F549 · FAIT · [0.7.1]** Obstacles des champs (champ-obst, 514f8d66) : une foreuse gênée par autre chose qu'une tourelle de l'équipe bloquait sa bande entière au 3e refus ; `shared/team/champ_saut.lua:40` : les branches d'exception supprimées, la foreuse est sautée et la bande continue ; `script/team/build.lua:3979` compte l'arbre comme obstacle. champ_obstacles_test 9 OK (2 échecs sur l'ancienne règle), 6 mutants ; champ_colonne 222 OK.
+- **F550 · FAIT · [0.7.1]** Télémétrie (telemetrie, c2506b19) : l'onglet Décisions du panneau de débogage montre par équipe la décision active (DÉFENSE, ATTENTE_RESSOURCE, EXPANSION_MINE, RÉINVESTISSEMENT), sa raison et la taille de ses 7 tables de décision (comptées, bornées à 1 000) ; purge toutes les 3 600 ticks des anneaux et relevés du débogage d'une faction disparue (seules orphelines trouvées). telemetrie_test 15 OK, 8 mutants. Non vu en partie.
+- Constat : 40 environ des suites `tests/*_test.lua` hors garde-fous échouaient déjà en 0.7.0 (attendus périmés : chef, craft_bg, need_mult, migration_champ, ia1_scale, front, decoupage_pensee…) ; la 0.7.1 n'en ajoute aucune (levels_test : 6 échecs en 0.7.0, 1 en 0.7.1). Garde-fous : run 114, iag 559, harness code 0, banc de chargement 618 OK code 0.
+
 ## 2026-11-11, 14 h 25 : version 0.7.0 (directive du DC de 13 h 55 : ablation pure, « delete-first »)
 
 - **F546 · [0.7.0]** Purge fer et charbon (lot PURGE-FER-CHARBON) : porte des 150 plaques de fer libres pour ouvrir une bande de fer SUPPRIMÉE (`Th.min_plates` et ses tests) ; sur-allocation de foreuses de charbon remplacée par un plafond unique au besoin des centrales et des fours actifs (`script/team/plafond_charbon.lua`). Coupe reprise par l'intégrateur à l'arrêt de l'agent (non mesurée en moteur au-delà du banc de chargement).
