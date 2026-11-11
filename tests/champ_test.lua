@@ -126,15 +126,18 @@ local pg, rg = run("geant 200 x 200 (3 tapis)", rect(0, 0, 200, 200))
 print(string.format("  geant : %.2f s", os.clock() - t0))
 local py, ry = run("geant 200 x 200 (tapis jaune seul)", rect(0, 0, 200, 200), { belts = { { lane = 7.5 } }, min_cov = 0.40 })
 if py then
-  check(py.stats.capped > 0, "géant au tapis jaune : des foreuses attendent un tapis plus rapide (" .. py.stats.capped .. ")")
+  -- F555 : le nombre de foreuses ne dépend que du minerai couvert, jamais du débit du tapis ni de la fonderie
+  check(py.stats.capped == 0, "géant au tapis jaune : aucune foreuse des rangées écartée (" .. py.stats.capped .. ")")
   local both = { [1] = 0, [-1] = 0 }
-  for _, bd in ipairs(py.bands) do for _, g in ipairs(bd.groups) do both[g.side] = both[g.side] + 1; check(g.per_side <= 15, "voie jaune : 15 foreuses par côté au plus") end end
+  for _, bd in ipairs(py.bands) do for _, g in ipairs(bd.groups) do
+    both[g.side] = both[g.side] + 1
+    check(g.flow <= 2 * 7.5 + 1e-9, "voie jaune : la fonderie dimensionnée sur le débit livré par le tapis (" .. g.flow .. ")")
+  end end
   check(both[1] > 0 and both[-1] > 0, "géant au tapis jaune : les bandes sortent par les deux bouts, jamais par le milieu")
-  print(string.format("  ECART ECRIT : geant au tapis jaune seul, couverture %.0f %% (le milieu des rangees attend un tapis plus rapide)", 100 * ry.elec))
 end
 local pm, rm = run("cercle, 4 foreuses par cote au plus", disc(0, 0, 20), { max_side = 4, min_cov = 0.5 })
 if pm then
-  for _, bd in ipairs(pm.bands) do for _, g in ipairs(bd.groups) do check(g.per_side <= 4, "max_side respecté") end end
+  check(pm.stats.capped == 0, "F555 : max_side ne borne plus les foreuses (" .. pm.stats.capped .. " écartée(s))")
 end
 -- dimensionnement : un groupe de 15 + 15 foreuses à 0,5/s = 15/s, four à 0,3125/s -> 48 fours ; voie jaune -> 15 foreuses par côté
 check(Fd.furnaces_for(15, 0.3125) == 48 and Fd.furnaces_for(0.3125, 0.3125) == 1 and Fd.furnaces_for(0.32, 0.3125) == 2, "N = plafond(débit / débit d'un four)")
@@ -220,7 +223,7 @@ local rule_muts = {
     function(r) return r.starved > 0 end },
   { "aucune foreuse (seuil de minerai impossible)", function() local o = Ch.CFG.min_ore; Ch.CFG.min_ore = 26; return function() Ch.CFG.min_ore = o end end,
     function(r) return r.elec < 0.85 end },
-  { "voie ignoree (une voie pour 40 foreuses)", function() local o = Ch.lane_drills; Ch.lane_drills = function(l, r) return 40 end; return function() Ch.lane_drills = o end end,
+  { "fours sur un debit nul (F555, Ch.delivered)", function() local o = Ch.delivered; Ch.delivered = function() return 0 end; return function() Ch.delivered = o end end,
     function(r) return r.starved > 0 end, { belts = { { lane = 7.5 } }, long = true } },
 }
 for _, m in ipairs(rule_muts) do

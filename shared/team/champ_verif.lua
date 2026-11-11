@@ -397,15 +397,22 @@ function Cv.verify(plan, spec)
     for gi, g in ipairs(bd.groups) do
       local k = bi .. ":" .. gi
       local p = per[k] or { [0] = 0, [2] = 0, [4] = 0, [6] = 0 }
-      local side_max = math.max(p[0], p[2], p[4], p[6])
-      local flow = (p[0] + p[2] + p[4] + p[6]) * d.rate
       local rate = spec.furnace and spec.furnace.rate or ((spec.inserter and spec.inserter.rate) or 1)
       local bt = spec.belts[g.belt]
+      -- F555 : les fours absorbent ce que le tapis LIVRE (voie relue ici, pas par Ch.delivered : le contrôle ne partage pas la règle qu'il
+      -- juge) ; des foreuses au-delà du débit du tapis le plus rapide ne sont pas un défaut de la fonderie. Lot FONDERIE : colonne à
+      -- combustible, tout le minerai du groupe sur UNE voie après la tête ; sinon une voie par sens de sortie des foreuses
+      local flow = 0
+      if bt then
+        if plan.design == "colonne" and spec.furnace and spec.furnace.fuel then
+          flow = math.min((p[0] + p[2] + p[4] + p[6]) * d.rate, bt.lane)
+        else
+          for _, dd in ipairs({ 0, 2, 4, 6 }) do flow = flow + math.min(p[dd] * d.rate, bt.lane) end
+        end
+      end
+      -- un tapis plus lent que le plus rapide doit porter tout le groupe
+      if not bt or (g.belt ~= #spec.belts and flow + 1e-9 < (p[0] + p[2] + p[4] + p[6]) * d.rate) then rep.starved = rep.starved + 1 end
       if (count[k] or 0) * rate + 1e-9 < flow then rep.starved = rep.starved + 1 end
-      -- (voie relue ici, pas par Ch.lane_drills : le contrôle ne partage pas la règle qu'il juge ; lot FONDERIE : colonne à combustible,
-      -- tout le minerai du groupe sur UNE voie après la tête)
-      local lane_need = (plan.design == "colonne" and spec.furnace and spec.furnace.fuel) and (p[0] + p[2] + p[4] + p[6]) or side_max
-      if not bt or math.floor(bt.lane / d.rate + 1e-9) < lane_need then rep.starved = rep.starved + 1 end
     end
   end
   local fl = Cv.flow(plan, spec)
