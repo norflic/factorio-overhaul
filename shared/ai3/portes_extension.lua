@@ -8,10 +8,12 @@
   libre(s) » : la base ajoute des chantiers et des tournées que personne ne peut servir ; la collecte du fer (priorité 52) perd.
 
   Trois portes, évaluées dans l'ordre sur la liste des ordres d'UNE décision (déjà triée par l'appelant, Ca.before) :
-    (c) TRANSPORT SATURÉ (G13 « libres < total ÷ 10 » : « logistic shock ») : `tendu` quand la part de PNJ libres passe SOUS Pe.IDLE_PM ‰
-        de l'effectif, OU quand les tâches libres dépassent Pe.BACKLOG_PER × PNJ + Pe.BACKLOG_BASE (seuil qui suit l'effectif). La porte se
-        FERME après Pe.SAT_THINKS mesures tendues de suite et ne se rouvre qu'après Pe.SAT_THINKS mesures DÉTENDUES de suite (part libre
-        au moins Pe.IDLE_EXIT_PM ‰ ET tâches libres au plus Pe.BACKLOG_EXIT_PER × PNJ + Pe.BACKLOG_BASE) : hystérésis, pas de clignotement.
+    (c) TRANSPORT SATURÉ (G13 « logistic shock ») : `tendu` quand les tâches libres dépassent Pe.BACKLOG_PER × PNJ + Pe.BACKLOG_BASE
+        (seuil qui suit l'effectif). La porte se FERME après Pe.SAT_THINKS mesures tendues de suite et ne se rouvre qu'après Pe.SAT_THINKS
+        mesures DÉTENDUES de suite (tâches libres au plus Pe.BACKLOG_EXIT_PER × PNJ + Pe.BACKLOG_BASE) : hystérésis, pas de clignotement.
+        Lot IA-CAPI (partie du DC 0.6.96) : la part de PNJ LIBRES ne compte plus. Les règles I2 (file sûre) et ZERO-IDLE donnent une tâche
+        à tout PNJ sans tâche (le DC, 31/10 : « ils ne devraient jamais attendre ») : 0 ou 1 PNJ libre par construction, la porte fermait
+        de la minute 16 à la 114 avec 4 tâches libres pour un seuil de 68 et retenait toutes les rangées d'assembleurs.
         Fermée : aucun ordre de rang >= 2 qui AJOUTE des tournées (o.tours) ; un tapis (o.belt) reste permis (il RETIRE des tournées).
         Lot VIDEO-COUVERTURE 3 (G73) : la RECHERCHE est coupée EXPLICITEMENT : un ordre qui la nourrit (o.research : sortes Pe.RESEARCH_KINDS,
         packs et laboratoires) est retenu porte fermée, qu'il compte ou non parmi les tournées de l'appelant, avec sa raison (« recherche coupee »).
@@ -32,8 +34,6 @@
 
 local Pe = {}
 
-Pe.IDLE_PM = 100          -- ‰ : transport tendu sous 10 % de PNJ libres (G13 : total ÷ 10)
-Pe.IDLE_EXIT_PM = 200     -- ‰ : détendu à partir de 20 % de PNJ libres
 Pe.BACKLOG_PER = 3        -- tendu au-delà de 3 tâches libres par PNJ (+ base) ; 2 PNJ : 8 ; 30 PNJ : 92
 Pe.BACKLOG_EXIT_PER = 2   -- détendu à 2 tâches libres par PNJ au plus (+ base)
 Pe.BACKLOG_BASE = 2
@@ -56,8 +56,8 @@ function Pe.measure(a)
   if w <= 0 then return true, false, "aucun PNJ" end
   local y = Pe.BACKLOG_PER * w + Pe.BACKLOG_BASE
   local y_exit = Pe.BACKLOG_EXIT_PER * w + Pe.BACKLOG_BASE
-  local tense = idle * 1000 < w * Pe.IDLE_PM or free > y
-  local calm = idle * 1000 >= w * Pe.IDLE_EXIT_PM and free <= y_exit
+  local tense = free > y
+  local calm = free <= y_exit
   return tense, calm, string.format("%d PNJ libre(s) sur %d, %d tache(s) libre(s) (tendu au-dela de %d)", idle, w, free, y)
 end
 

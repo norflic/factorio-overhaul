@@ -146,7 +146,15 @@ do
     end
   end
   local probe_d1 = probe_with(D1)
-  local probe_idle = probe_with({ workers = 2, workers_waiting = 0, backlog = 0 })      -- tendu par les PNJ libres seulement
+  -- Lot IA-CAPI : les PNJ libres ne ferment plus la porte ; ils restent dans la raison écrite (« 0 PNJ libre(s) sur 2 »).
+  local function probe_idle()
+    W.settings["fo-war-portes"] = true
+    local fx, cx = { key = "m" }, { slots = { batis = 10, open_sites = 0 } }
+    Capi.portes(fx, cx, { orders = orders() }, D1, 300)
+    local w = Capi.portes(fx, cx, { orders = orders() }, D1, 600)
+    W.settings["fo-war-portes"] = nil
+    return not (w and tostring(w["chaine:a"]):find("0 PNJ libre(s) sur 2", 1, true))
+  end
   local probe_backlog = probe_with({ workers = 10, workers_waiting = 3, backlog = 40 }) -- tendu par les tâches libres seulement
   local function probe_off()
     W.settings["fo-war-portes"] = nil
