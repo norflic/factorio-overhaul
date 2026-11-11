@@ -135,6 +135,7 @@ Build.Agents = require("script.companion.registry") -- lot MESURE-MODULE : l'age
 Build.Sites = require("shared.team.sites_dedup") -- lot MESURE-MODULE : copies de coffres de p.quais / p.outs (champ de Build, pas une locale)
 -- Lot REMPLISSAGE : cible des coffres d'entrée quand le stock est abondant (colle de shared/team/remplissage.lua) ; champ de Build, même raison.
 Build.Rempl = require("script.team.remplissage_glue")
+Build.Elec = require("script.team.electrique") -- lot RETROFIT : ère électrique datée (Elec.era), reliques thermiques démontées par le chantier d'une bande
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
 Build.Vg = require("script.team.vapeur_glue")
@@ -3830,6 +3831,60 @@ local function move_turrets_off(f, surface, p, e)
   return true
 end
 
+--- Lot RETROFIT (F556) : les entités de l'ÉQUIPE à brûleur (foreuses thermiques, fours en pierre du début) qui occupent l'emprise d'une pièce
+--- d'une BANDE de champ, une fois l'ère électrique datée (Elec.era), sont DÉMONTÉES par le chantier lui-même : contenus de tous leurs
+--- inventaires et objet de minage rendus au stock (rien si le stock ne tient pas tout), registre de l'avant-poste lâché (State.disown) avant
+--- la destruction. Règle pure : Saut.relics (shared/team/champ_saut.lua). Partie du DC (0.7.3, projet 70, bande 40) : 4 paires thermiques sous
+--- la bande, la foreuse sautée et le reste refusé « occupe », la bande restait en chantier. Rend le nombre d'entités démontées.
+Build.relics_off = function(f, surface, p, e)
+  local era = Build.Elec.era(f)
+  if not (era and p.spec) then return 0 end
+  local found = surface.find_entities_filtered({ area = footprint(e), collision_mask = "object-layer" })
+  local bl = {}
+  for i, x in ipairs(found) do
+    local pr = x.valid and x.prototype or nil
+    bl[i] = { own = pr ~= nil and x.force.name == f.force, burner = pr ~= nil and pr.burner_prototype ~= nil,
+      power = pr ~= nil and ((x.fluidbox ~= nil and #x.fluidbox > 0) or pr.electric_energy_source_prototype ~= nil) }
+  end
+  local n = 0
+  for _, i in ipairs(Saut.relics(p.spec.site, era, bl)) do
+    local x = found[i]
+    if x.valid then
+      local want, invs = {}, {}
+      for k = 1, (x.get_max_inventory_index() or 0) do
+        local inv = x.get_inventory(k)
+        if inv and not inv.is_empty() then
+          invs[#invs + 1] = inv
+          local c = inv.get_contents()
+          local names = {}
+          for name in pairs(c) do names[#names + 1] = name end
+          table.sort(names)
+          for _, name in ipairs(names) do want[#want + 1] = { name, c[name] } end
+        end
+      end
+      for _, pd in ipairs(x.prototype.mineable_properties.products or {}) do
+        if pd.type ~= "fluid" then want[#want + 1] = { pd.name, pd.amount or pd.amount_max or 1 } end
+      end
+      if Stock.can_take and not Stock.can_take(f, want) then break end -- STOCKAGE-VITAL : rien au sol, la pièce attend
+      for _, w in ipairs(want) do
+        local put = Stock.insert(f, w[1], w[2])
+        if put < w[2] then surface.spill_item_stack(f.hq_pos, { name = w[1], count = w[2] - put }, true, f.force, false) end
+      end
+      local d = string.format("%s en (%.1f, %.1f)", x.name, x.position.x, x.position.y)
+      if x.unit_number then State.disown(x.unit_number) end
+      x.destroy()
+      n = n + 1
+      local st = f.build.stats
+      st.relics = (st.relics or 0) + 1
+      if st.relics <= Build.REFUSAL_LOGS then
+        log(string.format("[FO-RETROFIT] %s : projet %d : relique thermique %s demontee (emprise de %s en (%g, %g), ere electrique depuis %.1f min), contenu et objet au stock",
+          f.key or "player", p.id, d, tostring(e.name), e.x, e.y, era / 3600))
+      end
+    end
+  end
+  return n
+end
+
 --- Refus passager (un personnage sur l'emprise) : compté à part ; Build.NPC_BLOCKS_PER_FAIL refus valent un échec.
 local function npc_block(f, p, e, surface)
   local st = f.build.stats
@@ -3986,6 +4041,8 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
     if r == "deja" then e.built = true return true end
     if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
+    if r == "occupe" and Build.relics_off(f, surface, p, e) > 0 then r = place_ghost(surface, f, e) end -- lot RETROFIT : relique démontée, place libre
+    if r == "deja" then e.built = true return true end
     -- lot FONDERIE : une foreuse de BANDE refusée « occupe » pour la 3e fois, quand tout ce qui occupe son emprise est une tourelle de l'équipe
     -- posée après le plan (que move_turrets_off n'a pas pu déplacer), est SAUTÉE : la bande finit et produit sans elle, la tourelle reste
     -- (lot6-20261020 : emerald, bande 329, 551 entités bâties sur 552 jusqu'à la fin)

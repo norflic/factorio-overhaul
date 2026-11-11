@@ -126,5 +126,58 @@ local function m6(sp)
 end
 check(not plan_ok(m6), "mutant M6 (rangée abandonnée derrière une tuile prise) refusé")
 
+print("== reliques thermiques (lot RETROFIT)")
+-- Lot RETROFIT (partie du DC, 0.7.3, projet 70 bande 40 : 4 paires thermiques de l'équipe sous la bande, chantier figé) : une entité de
+-- l'équipe à brûleur sur l'emprise d'une pièce de BANDE, une fois l'ère électrique datée, est démontée par le chantier lui-même.
+-- blockers : { own = force de l'équipe, burner = source d'énergie à brûleur, power = produit de l'énergie (chaudière : jamais une relique) }
+local OWN_TH, OWN_EL, FOE_TH, OWN_PW = { own = true, burner = true }, { own = true, burner = false }, { own = false, burner = true },
+  { own = true, burner = true, power = true }
+local function relics_ok(rel)
+  local function same(a, b) if #a ~= #b then return false end for i = 1, #a do if a[i] ~= b[i] then return false end end return true end
+  local ok = true
+  ok = ok and same(rel("champ", 600, { OWN_TH }), { 1 })                          -- la relique de l'équipe, ère datée : démontée
+  ok = ok and same(rel("champ", 600, { OWN_EL, OWN_TH, FOE_TH, OWN_TH }), { 2, 4 }) -- seulement les reliques de l'équipe, dans l'ordre
+  ok = ok and same(rel("champ", nil, { OWN_TH }), {})                             -- avant l'ère électrique : rien
+  ok = ok and same(rel("module", 600, { OWN_TH }), {})                            -- hors d'une bande de champ : rien
+  ok = ok and same(rel("champ", 600, { FOE_TH }), {})                             -- une autre force : jamais
+  ok = ok and same(rel("champ", 600, { OWN_EL }), {})                             -- une électrique : jamais
+  ok = ok and same(rel("champ", 600, { OWN_PW }), {})                             -- une chaudière de l'équipe : jamais
+  return ok
+end
+-- bande simulée : 30 pièces dont 4 sous une relique ; une pièce refusée FAIL_LIMIT fois bloque la bande (Build.FAIL_LIMIT)
+local function band_ok(rel)
+  local relic = { [3] = true, [11] = true, [12] = true, [27] = true }
+  local fails = {}
+  for pass = 1, 10 do
+    local left = 0
+    for i = 1, 30 do
+      if relic[i] and #rel("champ", 600, { OWN_TH }) == 1 then relic[i] = nil end -- démontée, la place est libre
+      if relic[i] then
+        fails[i] = (fails[i] or 0) + 1
+        if fails[i] >= LIMIT then return false end
+        left = left + 1
+      end
+    end
+    if left == 0 then return true end
+  end
+  return false
+end
+check(Sa.relics ~= nil and relics_ok(Sa.relics), "relique thermique de l'equipe sur une bande, ere datee : demontee ; ni avant l'ere, ni hors bande, ni autre force, ni electrique, ni chaudiere")
+check(Sa.relics ~= nil and band_ok(Sa.relics), "bande a 4 reliques dessous : finie, jamais bloquee")
+if Sa.relics then
+  local M7 = function(site, era, bl) return Sa.relics(site, 600, bl) end -- l'ère ignorée
+  check(not relics_ok(M7), "mutant M7 (relique demontee avant l'ere electrique) refuse")
+  local M8 = function(site, era, bl) local o = {} if site == "champ" and era then for i, b in ipairs(bl) do if b.burner and not b.power then o[#o + 1] = i end end end return o end
+  check(not relics_ok(M8), "mutant M8 (relique d'une autre force demontee) refusee")
+  local M9 = function(site, era, bl) local o = {} if site == "champ" and era then for i, b in ipairs(bl) do if b.own and not b.power then o[#o + 1] = i end end end return o end
+  check(not relics_ok(M9), "mutant M9 (electrique de l'equipe demontee) refuse")
+  local M10 = function(site, era, bl) local o = {} if site == "champ" and era then for i, b in ipairs(bl) do if b.own and b.burner then o[#o + 1] = i end end end return o end
+  check(not relics_ok(M10), "mutant M10 (chaudiere de l'equipe demontee) refuse")
+  local M11 = function() return {} end -- l'ancien chantier : il attend la relique
+  check(not relics_ok(M11) and not band_ok(M11), "mutant M11 (aucune relique demontee : la bande attend) refuse")
+  local M12 = function(site, era, bl) return Sa.relics("champ", era, bl) end -- hors bande aussi
+  check(not relics_ok(M12), "mutant M12 (relique demontee hors d'une bande de champ) refuse")
+end
+
 print(string.format("champ_obstacles_test : %d passes, %d echecs", passes, failures))
 if failures > 0 then os.exit(1) end
