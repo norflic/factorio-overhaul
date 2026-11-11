@@ -214,9 +214,11 @@ do
   local P = read("script/team/poles.lua"):gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")
   local bad = {}
   for _, need in ipairs({
-    'require("shared.team.travail_sur")', "Sur.blocked(", "Sur.fail(", "Sur.success(", "Sur.track(", "Sur.plan(", "Sur.cause(", "Sur.note(", "Sur.report_line(", "Sur.done(",
+    -- (F544, PURGE-MINE 77c26cc8 : la file sûre ne mine plus : Sur.blocked, Sur.fail, Sur.success et le retrait des minages d'une plaque
+    -- couverte, Sur.withdrawn(ia3, m[1], ...), ne sont plus branchés ; la ligne « mine » de board.lua ne distingue plus la file sûre)
+    'require("shared.team.travail_sur")', "Sur.track(", "Sur.plan(", "Sur.cause(", "Sur.note(", "Sur.report_line(", "Sur.done(",
     "not view.hq_threat", "floor_ok = n >= floor0", "if #r.tasks > 0 then Board.add(f, r.tasks, tick) end", "function Poles.set_sur(",
-    "org.sur_off", "not org.sur_off and Rsv.on()", "function Poles.sur_hold(f, tick)", "not (org.sur_hold and tick < org.sur_hold)", "function Poles.sur_stops(f)", "Sur.recall_n(", "Sur.withdrawn(ia3, m[1], PLATE_OF_RES[m[1]])", "Sur.withdrawn(ia3, spec and spec.product)",
+    "org.sur_off", "not org.sur_off and Rsv.on()", "function Poles.sur_hold(f, tick)", "not (org.sur_hold and tick < org.sur_hold)", "function Poles.sur_stops(f)", "Sur.recall_n(", "Sur.withdrawn(ia3, spec and spec.product)",
   }) do
     if not P:find(need, 1, true) then bad[#bad + 1] = need end
   end
@@ -228,7 +230,6 @@ do
   end
   -- … et les autres lecteurs des PNJ libres et des minages ouverts aussi.
   for _, p in ipairs({ { "script/team/survie.lua", 'if t.kind == "mine" and t.resource and not t.safe then' },
-    { "script/team/board.lua", 'if t.kind == "mine" and t.resource and not t.safe then' },
     { "script/team/board.lua", "if not t.worker and not t.safe and Board.prenable(f, t) then n = n + 1 end" },
     { "script/ai3/exploration.lua", "Poles.sur_hold(f, game.tick)" }, { "script/ai3/exploration.lua", "a.task and a.task.safe then n = n + 1 end" } }) do
     if not read(p[1]):find(p[2], 1, true) then bad[#bad + 1] = p[2] end
