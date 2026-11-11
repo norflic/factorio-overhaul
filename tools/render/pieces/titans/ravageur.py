@@ -21,7 +21,7 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
-from juggernaut import hexseg, pointe, plaque, anneau, rainure, pas, ik2  # noqa: E402
+from juggernaut import hexseg, pointe, plaque, anneau, rainure, pas, ik2, traces, bague  # noqa: E402
 
 PREFIX = "ra_"
 GRIS = os.environ.get("FO_GRIS", "") == "1"
@@ -70,8 +70,21 @@ def jambe(lot, M, s, stage, u, bob):
         lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.3), (0.7, 0.42), (1.1, 0.36), (1.15, 0.25)], 10, "z", cap0=True), base, (-0.8, 0.0, -0.45)))
         lot.put(M["turq"], G.oriente(G.tour([(1.0, 0.24), (1.05, 0.0)], 10, "z"), base, (-0.8, 0.0, -0.45)))
     lot.put(M["blind"], hexseg(A, T, 1.0, 0.8, 6, 0.2))
+    # TITANS2 (11/11) : griffes CINÉTIQUES (concept : serres articulées) : phalange blindée biseautée, rotule, gorge cyan, serre recourbée
     for k, (ax, ay) in enumerate(((1.0, 0.0), (0.7, 0.8), (0.7, -0.8))):
-        lot.put(M["os"], pointe(G.add(T, (0.25 * ax, ay * 0.5, 0.15)), G.norm((ax, ay * 0.7, -0.22)), 2.2 if k == 0 else 1.8, 0.34, 5))
+        base = G.add(T, (0.25 * ax, ay * 0.5, 0.15))
+        d1 = G.norm((ax, ay * 0.7, 0.18))
+        j1 = G.add(base, G.mul(d1, 0.9 if k == 0 else 0.72))
+        lot.put(M["struct"], hexseg(base, j1, 0.34, 0.27, 6))
+        lot.put(M["blind2"], hexseg(G.add(base, (0.0, 0.0, 0.14)), G.add(j1, (0.0, 0.0, 0.14)), 0.29, 0.22, 4, 0.785))
+        lot.put(M["struct"], G.sphere(j1, 0.26, 8, 4))
+        lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", 0.28, 0.06), G.lerp(base, j1, 0.5), d1))
+        lot.put(M["os"], pointe(j1, G.norm((ax, ay * 0.7, -0.7)), 1.75 if k == 0 else 1.4, 0.29, 5))
+    bague(lot, M, A, (0.0, 1.0, 0.0), 0.95)
+    bague(lot, M, K, (0.0, 1.0, 0.0), 1.2)
+    traces(lot, M, H, K, (1.9 * 0.866, 1.3 * 0.866), [0.3 + G.TAU * j / 6 for j in (0, 1, 2, 4, 5)], rt=0.09, jog=0.4)
+    traces(lot, M, K, A, (1.1 * 0.924, 0.85 * 0.924), [G.TAU * j / 8 for j in (0, 2, 3, 5, 6)], rt=0.075, jog=0.28)
+    traces(lot, M, A, T, (1.0 * 0.866, 0.8 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 4)], rt=0.07, jog=0.22)
     lot.put(M["os"], pointe(G.add(A, (-0.4, 0.0, -1.0)), (-0.9, 0.0, -0.45), 1.5, 0.3, 5))
     if stage >= 2:
         lot.put(M["blind2"], plaque(G.add(H, (0.8, s * 0.9, 1.3)), G.norm((0.7, s * 0.9, 0.5)), 2.2, 1.8, 0.28, up=(0, 0, 1)))
@@ -96,6 +109,9 @@ def torse(lot, M, stage, lean):
         lot.put(M["conduit"], G.boite((2.8 + 0.5 * lean, s * 1.1, 19.6), (0.18, 0.7, 0.14)))
     lot.put(M["conduit"], G.boite((2.9 + 0.6 * lean, 0.0, 21.0), (0.2, 0.3, 1.6)))
     lot.put(M["blind2"], plaque((2.5 + 0.3 * lean, 0.0, 18.4), (1.0, 0.0, 0.2), 3.0, 1.6, 0.26))
+    # TITANS2 : traces abdominales haute densité sous la plaque (concept : circuits cyan du ventre)
+    for yy in (-1.6, -0.8, 0.8, 1.6):
+        lot.put(M["conduit"], G.tube([(2.62 + 0.3 * lean, yy, 17.0), (2.7 + 0.3 * lean, yy, 17.7), (2.8 + 0.35 * lean, yy * 0.75, 18.0)], 0.07, 5))
     # épaulières (stage 2 : étagées, stage 3 : cristaux)
     for s in (-1, 1):
         c = (0.3 + 0.7 * lean, s * 5.6, 24.4)
@@ -176,6 +192,21 @@ def bras_gatling(lot, M, stage, swing, charge, recul, eclair):
         lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", ra, 0.38, 0.14), c, d))
         lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", ra + 0.2, 0.06), c, d))
     lot.put(M["halo"], G.sphere(G.add(Mz, G.mul(d, 0.3)), 0.9 + 0.6 * charge, 12, 6))
+    # TITANS2 : couronnes de focalisation FLOTTANTES détachées devant la bouche (1, 2, 3 selon le stade ; créneaux, gorge cyan, arc d'énergie)
+    prev = G.add(Mz, G.mul(d, 0.4))
+    for k in range(stage):
+        c = G.add(Mz, G.mul(d, 1.0 + 0.75 * k + (0.2 + 0.15 * k) * charge))
+        ra = 1.4 - 0.28 * k
+        lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", ra, 0.26, 0.15), c, d))
+        lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", ra - 0.03, 0.1), c, d))
+        for q in range(8):
+            a = G.TAU * q / 8
+            lot.put(M["blind2"], G.oriente(G.boite((ra + 0.3, 0.0, 0.0), (0.2, 0.17, 0.2), rz=a), c, d))
+        sg = 1 if k % 2 else -1
+        lot.put(M["conduit"], G.tube([prev, G.add(G.lerp(prev, c, 0.5), G.mul(fr[1], 0.25 * sg)), c], 0.05, 4))
+        prev = c
+    traces(lot, M, S_, E, (1.15 * 0.866, 0.9 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.075, jog=0.25)
+    bague(lot, M, E, G.norm(G.sub(E, S_)), 1.0)
     if eclair > 0:
         lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.1, 0.7), (2.2 * eclair, 0.35), (3.2 * eclair, 0.0)], 10, "z", cap0=True), G.add(Mz, G.mul(d, 0.2)), d))
     lot.put(M["blind2"], R.pose(G.prisme([(-1.0, -0.6), (1.3, -0.6), (1.6, 0.0), (1.3, 0.6), (-1.0, 0.6)], 0.0, 0.6, 0.8), G.add(G.lerp(E, Mz, 0.25), (0.0, 0.0, 1.1)), (0, 0, 1), (1, 0, 0)))
@@ -194,6 +225,9 @@ def bras_lames(lot, M, stage, swing, tendu):
     lot.put(M["conduit"], hexseg(G.add(E, (0.6, s * 0.6, 0.2)), G.add(W, (0.4, s * 0.6, 0.5)), 0.1, 0.1))
     lot.put(M["conduit"], G.boite(G.add(G.lerp(E, W, 0.5), (0.9, s * 0.2, 0.0)), (0.45, 0.1, 0.1)))
     lot.put(M["struct"], G.sphere(W, 0.72, 10, 5))
+    traces(lot, M, S_, E, (1.15 * 0.866, 0.9 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.075, jog=0.25)
+    traces(lot, M, E, W, (0.95 * 0.866, 0.8 * 0.866), [0.1 + G.TAU * j / 6 for j in (0, 1, 3, 4)], rt=0.07, jog=0.2)
+    bague(lot, M, E, G.norm(G.sub(W, E)), 0.98)
     lot.put(M["blind"], plaque(G.add(W, (0.4, s * 0.4, 0.2)), G.norm((0.4, s * 1.0, 0.2)), 1.5, 1.4, 0.26, up=(0, 0, 1)))
     d0 = G.norm(G.rot_y((0.75 + 0.3 * tendu, 0.0, -0.75 + 0.3 * tendu), swing))
     n_l = 3 if stage < 3 else 4

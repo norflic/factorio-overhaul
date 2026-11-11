@@ -3,6 +3,7 @@ Version: 0.6.94
 Date: 2026-11-11
   Graphics:
     - Juggernaut (F536) : modèle 3D enrichi d'après les concepts (couronnes de focalisation flottantes devant le canon, griffes articulées, conduits lumineux denses sur les membres, bagues aux articulations, chevron au plexus, ailerons, capteur-œil), rendu en 16 directions ; ombre portée lisse (les conduits allumés ne criblent plus l'ombre de points clairs).
+    - Ravageur (F536) : griffes articulées, conduits lumineux denses sur les membres, bagues aux articulations, couronnes de focalisation flottantes devant le gatling ; ombre portée lisse.
     - Ixion (F525) : le géant à roue tourne son corps vers sa marche (8 poses rendues, 39,4 Mpx) ; les géants expérimentaux et les bourdons ont un torse libre ; Cairn, Stylet, Trombe, Tournesol et les bourdons gardent une image, leur forme ne dépendant pas du sens de marche.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.93
