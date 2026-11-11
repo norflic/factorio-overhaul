@@ -40,7 +40,6 @@ local Rappel = require("script.team.rappel_urgent") -- lot COLLECTE : rappel d'u
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
-local BriquesLog = require("script.team.briques") -- lot BRIQUES : journal [FO-BRIQUES] (lecture seule)
 local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qui dorment et des brûleurs vitaux à sec
 local SortiesLog = require("script.team.sorties") -- lot CHARBON-MAIN : journal [FO-SEC] (brûleurs à sec et état de leur tournée)
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
@@ -987,7 +986,6 @@ TT.e1c = function(f, surface, tick, et)
     end
   end
   Acier.apply(f, view, book_for(f), plan, tick) -- lot ACIER : bloc de fours d'acier demandé ; l'acier quitte le plan (tournées manuelles) quand un bloc fini produit assez
-  local tasks_avant_filtre = plan.tasks
   -- Lot FOURS (remarque 13 du DC) : une tournée de fonte ne part que si elle sert (shared/team/chaine_main.lua) : minerai à
   -- charger dans un four libre ou à compléter, sortie qui vaut le déplacement, four à ravitailler avec du charbon au coffre.
   if view.four_rule then
@@ -997,7 +995,6 @@ TT.e1c = function(f, surface, tick, et)
   end
   Profiler.stop("team:plan")
   Profiler.fstart("tt:journaux") -- lot PERF3 : portées fines de la partie non découpée de Team.think (mesure seulement)
-  BriquesLog.think(f, view, plan, tasks_avant_filtre, tick)
   DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
   FluxLog.think(f, view, tick) -- lot FLUX : journal [FO-FLUX] (lecture seule, toutes les 5 min)
   SortiesLog.report(f, view, tick) -- lot CHARBON-MAIN : journal [FO-SEC] (lecture seule, toutes les 5 min)

@@ -243,8 +243,8 @@ end
 --- route = { {x, y, dir} } de geo.branch à dst.bx/by, names = { arm, belt, pole }, pole = { tx, ty } }.
 function Pq.entities(inp)
   local out = {}
-  for _, t in ipairs(inp.route) do
-    out[#out + 1] = { name = inp.names.belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = "liaison-tapis" }
+  for _, t in ipairs(inp.route) do -- (lot COLONNES : t.ug = "input" | "output" : pièce souterraine du tracé de Trav.route)
+    out[#out + 1] = { name = t.ug and inp.names.ug or inp.names.belt, type = t.ug, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, role = "liaison-tapis" }
   end
   local d = inp.dst
   out[#out + 1] = { name = inp.names.arm, x = d.ax + 0.5, y = d.ay + 0.5, dir = d.dir, role = "liaison-bras" }

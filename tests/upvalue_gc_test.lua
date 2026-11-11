@@ -27,7 +27,6 @@ local ALLOW = {
   ["script/ai3/industrie.lua"] = { LEC = "lecteur des données, posé une fois" },
   ["script/ai3/petrole.lua"] = { pack_rows = "cache paresseux, posé une fois" },
   ["script/ai3/prevision.lua"] = { POLLUTER_TYPES = "tables de types, posées une fois", TURRET_TYPES = "idem", SITE_TYPES = "idem" },
-  ["script/team/briques.lua"] = { STATUS = "table des états du moteur, posée une fois" },
   ["script/team/front.lua"] = { LAB_TYPES = "tables de types, posées une fois", ASSET_TYPES = "idem" },
   ["script/team/plant_arms.lua"] = { STATUS_NAME = "table des états du moteur, posée une fois" },
   ["shared/content/guarantee.lua"] = { SPECS = "données des sites garantis, posées une fois" },
