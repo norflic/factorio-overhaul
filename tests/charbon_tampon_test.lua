@@ -137,7 +137,7 @@ local env = {
   Stock = { count = function() return W.stock end },
   -- lot BRULEURS-A-SEC : reserve des bruleurs (burner_fuel_reserve) ; doublure sans bruleur : aucune reserve, le stock juste
   T = T,
-  Outposts = { smelters = function() return {} end, coal_needed_for = function() return 0 end, coal_needed = function() return 0 end },
+  Outposts = { smelters = function() return {} end, burners = function() return {} end, fuel_levels = function(list) return list end }, -- lot CHAUDIERES : réserve des tournées dues (Cc.tour_reserve)
   Sante = { tasks = function() end },
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,

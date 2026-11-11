@@ -942,6 +942,13 @@ function Outposts.coal_needed_for(burners, fill)
   return n
 end
 
+--- Lot CHAUDIERES : charbon de chaque brûleur d'une liste (règle pure Cc.tour_reserve, shared/team/charbon_centrale.lua).
+function Outposts.fuel_levels(burners)
+  local out = {}
+  for _, b in ipairs(burners) do out[#out + 1] = fuel_of(b) end
+  return out
+end
+
 function Outposts.coal_needed(o, fill)
   return Outposts.coal_needed_for(Outposts.burners(o), fill)
 end

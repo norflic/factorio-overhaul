@@ -4576,14 +4576,16 @@ local function quai_tasks(f, p, surface, out)
   --- ses sorties, Sm.carry_fuel). Avant le lot, quai_tasks lisait le stock BRUT : à 36,3 min, 400 charbons au coffre et 46 brûleurs de fer
   --- à sec sur 60 (besoin 588), la centrale (prio 91, cible 1080) prenait les 400 ; les brûleurs sont restés à sec 45 min.
   --- (somme d'entiers : l'ordre de `pairs` n'y change rien ; locale de quai_tasks : le bloc principal de build.lua est à sa limite de locales)
+  --- Lot CHAUDIERES : seulement les tournées DUES (un brûleur du groupe sous T.fuel_low), Cc.tour_reserve ; le complément des brûleurs qui
+  --- n'attendent aucune tournée n'est plus retenu à la centrale (banc CHAUDIERES : libre 0 avec 23 à 70 charbons au coffre, 11 min).
   local function burner_fuel_reserve()
-    local n = Outposts.coal_needed_for(Outposts.smelters(f))
-    local fill = f.team and f.team.flux_fill
+    local fill = f.team and f.team.flux_fill or T.fuel_refill_to
+    local groups = { { fill = T.fuel_refill_to, levels = Outposts.fuel_levels(Outposts.smelters(f)) } }
     for _, o in pairs(f.outposts) do
       local spec = T.outposts[o.kind]
-      if not (spec and spec.product == T.fuel) then n = n + Outposts.coal_needed(o, fill) end
+      if not (spec and spec.product == T.fuel) then groups[#groups + 1] = { fill = fill, levels = Outposts.fuel_levels(Outposts.burners(o)) } end
     end
-    return n
+    return Cc.tour_reserve(groups, T.fuel_low)
   end
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale

@@ -156,10 +156,11 @@ local env = {
   Cc = Cc0, M = M, P = P, Build = Build,
   Sweep = require("shared.team.rebuild_sweep"), -- lot FUITES-PILE : « rouvert » = reconstruction (Sweep.rebuilding) ou murs, pas un agrandissement
   Stock = { count = function() return W.stock end },
-  -- lot BRULEURS-A-SEC : reserve des bruleurs (burner_fuel_reserve) : fours de l'equipe (W.smelter_need) et brûleurs des avant-postes (o.need)
+  -- lot BRULEURS-A-SEC : reserve des bruleurs (burner_fuel_reserve) : fours de l'equipe (W.smelter_levels) et brûleurs des avant-postes (o.levels) ;
+  -- lot CHAUDIERES : la doublure rend le charbon de chaque brûleur (Outposts.fuel_levels), la règle pure Cc.tour_reserve fait la somme des tournées dues
   T = require("shared.team.config"),
-  Outposts = { smelters = function() return {} end, coal_needed_for = function() return W.smelter_need or 0 end,
-    coal_needed = function(o) return o.need or 0 end },
+  Outposts = { smelters = function() return W.smelter_levels or {} end, burners = function(o) return o.levels or {} end,
+    fuel_levels = function(list) return list end },
   Sante = { tasks = function() end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,
@@ -239,9 +240,12 @@ end
 do
   section("6 bis. Le charbon des bruleurs n'est pas a la centrale (lot BRULEURS-A-SEC)")
   local f, plant = team()
-  f.outposts[1] = { id = 1, kind = "iron", need = 588 } -- avant-poste de fer : produit iron-plate, ses bruleurs manquent de 588
-  f.outposts[2] = { id = 2, kind = "coal", need = 130 } -- avant-poste de charbon : se sert sur ses sorties, pas dans la reserve
-  W.logs, W.smelter_need = {}, 0
+  -- (charbon de chaque brûleur : 48 à 0 et 12 à 1, niveau 10 : il en manque 588 ; lot CHAUDIERES, Cc.tour_reserve)
+  local function levels(spec) local l = {} for _, s in ipairs(spec) do for _ = 1, s[1] do l[#l + 1] = s[2] end end return l end
+  local IRON_DRY = levels({ { 48, 0 }, { 12, 1 } })
+  f.outposts[1] = { id = 1, kind = "iron", levels = IRON_DRY } -- avant-poste de fer : produit iron-plate, ses bruleurs manquent de 588
+  f.outposts[2] = { id = 2, kind = "coal", levels = levels({ { 13, 0 } }) } -- avant-poste de charbon : se sert sur ses sorties, pas dans la reserve
+  W.logs, W.smelter_levels = {}, {}
   W.stock, W.chests[1] = 400, 0
   local out = {}
   X.quai_tasks(f, plant, surface, out)
@@ -251,18 +255,32 @@ do
   out = {}
   X.quai_tasks(f, plant, surface, out)
   check(#out == 1 and out[1].kind == "carry" and out[1].items[1][2] == 412, "1000 au coffre : la centrale prend ce qui depasse la reserve (412), pas la cible 540")
-  W.smelter_need = 200
+  W.smelter_levels = levels({ { 20, 0 } })
   out = {}
   X.quai_tasks(f, plant, surface, out)
   check(#out == 1 and out[1].items[1][2] == 212, "les fours de l'equipe comptent dans la reserve (1000 - 588 - 200 = 212)")
-  f.outposts[1].need = 0
-  W.smelter_need = 0
+  f.outposts[1].levels = levels({ { 60, 10 } })
+  W.smelter_levels = {}
   out = {}
   X.quai_tasks(f, plant, surface, out)
   check(#out == 1 and out[1].items[1][2] == 540, "bruleurs pleins : la centrale est servie jusqu'a sa cible (540), l'avant-poste de charbon ne reserve rien")
+  -- lot CHAUDIERES (banc graine 2507543475, player de 8 à 19 min : 23 à 70 charbons au QG, réserve 28 à 99, libre 0, centrale sous son seuil
+  -- 11 min) : 60 brûleurs à 5 charbons et 20 fours à 4, aucun sous T.fuel_low : aucune tournée due, rien n'est retenu à la centrale
+  f.outposts[1].levels = levels({ { 60, 5 } })
+  W.smelter_levels = levels({ { 20, 4 } })
+  W.stock = 50
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 1 and out[1].kind == "carry" and out[1].items[1][2] == 50, "brûleurs à 4-5, aucune tournée due : les 50 du QG vont à la centrale à sec")
+  W.smelter_levels = levels({ { 19, 4 }, { 1, 2 } }) -- un four sous le seuil : la tournée des fours est due, son complément (6 × 19 + 8 = 122) est retenu
+  out = {}
+  X.quai_tasks(f, plant, surface, out)
+  check(#out == 0, "un four sous le seuil : sa tournée (122) retient les 50 du QG")
+  W.smelter_levels = {}
+  W.stock = 1000
   -- un quai qui n'est pas du combustible ne connait pas cette reserve
   local mod = { id = 8, spec = { gen = "smelter" }, state = "fini", prio = 55, ents = {}, parts = {}, outs = {}, quais = { { x = 1.5, y = 1.5, item = "iron-ore" } } }
-  f.outposts[1].need = 588
+  f.outposts[1].levels = IRON_DRY
   W.stock, W.chests[1] = 1000, 59
   out = {}
   X.quai_tasks(f, mod, surface, out)
