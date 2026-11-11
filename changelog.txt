@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.2
+Date: 2026-11-11
+  Bugfixes:
+    - IA (F552) : deux appels vers des fonctions supprimées en 0.7.0 (ère électrique, minage à la main) pouvaient interrompre la partie.
+  Changes:
+    - IA (F551) : 19 failles corrigées sur les 50 de l'audit : centrale et charbon, exploration (grappes, trajets sûrs, gisements riches), recherche (menace, défense, logistique), flux des foreuses et des quais, menace du QG et réparations.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.1
 Date: 2026-11-11
   Changes:

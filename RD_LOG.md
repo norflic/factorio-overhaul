@@ -10,6 +10,11 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-11, 15 h 25 : version 0.7.2 (mandat du DC de 15 h : 50 angles morts)
+
+- **F551 · FAIT · [0.7.2]** Audit statique des 50 angles morts du cerveau des IA (`AUDIT_50_ANGLES_MORTS.md`, 5 piliers × 10, chaque point prouvé par fichier:ligne). 19 corrigés et livrés, chacun par un test pur rouge→vert avec mutants : pilier 1 (fix-p1 fdad0f75 : foreuses de charbon comptées par état, borne de 15 demandes de centrale supprimée, puits de demande fermé net ; l'avance au-delà de F491 écartée car elle contournait la règle du DC), pilier 2 (fix-p2 ae353aa5 : gisements comptés en grappes, trajet de l'éclaireur et couloir du minage lointain contrôlés, gisements connus classés par quantité/distance), pilier 3 (fix-p3 34322ece : armée ×1,5 sous menace, la recherche en cours n'empêche plus la bascule vers la tourelle, V_OTHER 0, V_LOG 30), pilier 4 (fix-p4 a733ea11 : arrivée latérale bornée à une voie, quai de repli refusé signalé, deux voies sourcées au-delà d'une voie de débit, tapis rapide choisi selon la longueur), pilier 5 (fix-p5 97f093be : menace du QG et mise à l'abri sur la plus proche UNITÉ ennemie, pièce détruite retirée du relevé de réparation, réparation rouverte sans preneur reportée après 3). Aucun banc de partie.
+- **F552 · FAIT · [0.7.2]** Appels morts du lot PURGE-MINE fusionné en 0.7.0 (trouvés par l'agent FIX-P2) : `script/team/electrique.lua` appelait `date_era` avant sa définition locale (nil dans Elec.think) et `script/team/worker.lua:758` appelait `Elec.hand_blocked`, supprimé : erreurs à l'exécution possibles en 0.7.0 et 0.7.1. Corrigé (déclaration anticipée ; argument retiré).
+
 ## 2026-11-11, 15 h 00 : version 0.7.1 (sprint du DC de 14 h 31 : 4 agents)
 
 - **F545 · FAIT · [0.7.1]** Navettes (purge-navette, 91988a8e) : la réécriture de `shared/team/liaison.lua` est fusionnée ; les 13 constantes `Li.*` réellement manquantes sont rétablies, `Li.worth` et `Li.bar` restent (lus par le piquage et le coffre de quai) ; la liaison de quai ne calcule plus ni prix ni confirmation ni essais. liaison_test 139 OK (sections prix, barre, essais par paire retirées), piquage 109, rapatriement 145.
