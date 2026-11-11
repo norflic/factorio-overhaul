@@ -40,6 +40,7 @@ Date: 2026-11-11
   Bugfixes:
     - Rapatriement (F532) : une ligne de rapatriement ne prend plus au coffre les tapis, les bras ou les poteaux qui manquent à une bande de champ en attente ou en chantier ; le pavage des gisements passe d'abord, la ligne prend le surplus et se construit ensuite.
   Graphics:
+    - Sentinelle (F536) : cœur à vortex lumineux en spirale, gemmes bleu glacier taillées, crête de lames, échappements d'énergie sous le corps et les pattes, conduits lumineux denses ; ombre portée lisse.
     - Ravageur (F536) : griffes articulées, conduits lumineux denses sur les membres, bagues aux articulations, couronnes de focalisation flottantes devant le gatling ; ombre portée lisse.
     - Ixion (F525) : le géant à roue tourne son corps vers sa marche (8 poses rendues, 39,4 Mpx) ; les géants expérimentaux et les bourdons ont un torse libre ; Cairn, Stylet, Trombe, Tournesol et les bourdons gardent une image, leur forme ne dépendant pas du sens de marche.
 ---------------------------------------------------------------------------------------------------

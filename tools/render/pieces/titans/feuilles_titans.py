@@ -246,6 +246,14 @@ def mesure_variantes(dest, entree, stades):
     return out
 
 
+def _stade(job):
+    """Feuilles d'UN stade d'un titan animé (processus fils de seul()) : rend (entrée, poids)."""
+    src, dest, nom, st, divs, max_px, nd = job
+    FX.PREFIXE = PREFIXE
+    p = {"haute": 0.0, "normale": 0.0, "images": 0}
+    return anime(FX.Sortie(dest), src, p, "%s-anime-%s" % (nom, st), "%s-%s" % (nom, st), "%s-%s" % (nom, st), divs, max_px, nd), p
+
+
 def seul(a):
     """ART-TITANS2 (11/11) : ne refait QUE le titan animé `a.seul` : ses PNG (hr-, sans préfixe, icône), son entrée de premier niveau de
     sprites.lua et ses fichiers et son poids dans MANIFEST.json ; les autres entrées (Kaiju, Écorchés, drone du Léviathan...) restent
@@ -264,8 +272,14 @@ def seul(a):
     nd = directions_de(nom)
     e = {"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": nd}
     pd = {"haute": 0.0, "normale": 0.0, "images": 0}
-    for st in stades:
-        e[st] = anime(S, a.src, pd, "%s-anime-%s" % (nom, st), "%s-%s" % (nom, st), "%s-%s" % (nom, st), divs, max_px, nd)
+    # un processus par stade (les stades sont indépendants : fichiers distincts) ; poids sommés après
+    import multiprocessing as mp
+    with mp.Pool(len(stades)) as pool:
+        res = pool.map(_stade, [(a.src, a.dest, nom, st, divs, max_px, nd) for st in stades])
+    for st, (ent, p_) in zip(stades, res):
+        e[st] = ent
+        for k in pd:
+            pd[k] += p_[k]
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, encoding="utf-8") as f:
         lignes = f.read().split("\n")
