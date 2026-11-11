@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.20
+Date: 2026-11-12
+  Changes:
+    - IA (F568) : colonnes de fonderie à deux rangées de fours autour d'une ligne de plaques centrale.
+    - IA (F567) : le charbon d'une centrale lointaine arrive par un tapis continu avec souterrains, sans relais.
+  Bugfixes:
+    - IA (F569) : la ligne de rapatriement des plaques trouve la place de son tampon entre le QG et le champ.
+    - IA (F570) : un PNJ qui fabrique en arrière-plan prend aussi les tâches longues au lieu d'attendre au QG.
+    - IA (F571) : l'extension d'un gisement n'est plus refusée par un coût de fonte calculé sur tout le gisement.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.10
 Date: 2026-11-11
   Changes:
