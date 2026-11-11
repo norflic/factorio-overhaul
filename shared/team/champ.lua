@@ -52,12 +52,12 @@ Ch.CFG = {
   both_ends = true,   -- une bande trop longue pour un tapis sort aussi par l'autre bout
   -- (lot FONDERIE, 3/11, le DC en 0.6.41 : « rien n'est automatique, rien n'est scalable ») une colonne d'un cadre neuf SANS voie de charbon
   -- (tracé sans chemin, pas de place pour le tronc) est REFUSÉE au lieu de retomber sur un coffre de tête à remplir ; le plan est refait
-  -- sans elle (ses foreuses peuvent aller à l'autre bout de la bande), au plus refuse_passes fois
+  -- sans elle (lot DECOUPLAGE : ses foreuses restent, tapis collecteur seul), au plus refuse_passes fois
   refuse_coffre = true,
   refuse_passes = 4,
-  -- (lot FONDERIE, 3/11, décision du lead) le refus ne vaut que s'il garde au moins cette part des foreuses du champ (ligne de charbon
-  -- exclue) ; sinon le cadre garde ses colonnes au coffre de tête (champ-longue 20261020 : le refus réduisait un champ d'azure de 41
-  -- foreuses à 4, de 97 % à 3 % du gisement)
+  -- (lot FONDERIE, 3/11, décision du lead) le refus ne vaut que s'il garde au moins cette part des FOURS du champ (lot DECOUPLAGE : les
+  -- foreuses restent toujours ; avant, la part des foreuses : le refus réduisait un champ d'azure de 41 foreuses à 4) ; sinon le cadre garde
+  -- ses colonnes au coffre de tête (combustible)
   refuse_min = 0.5,
   -- (revue-fonderie, 3/11) un cadre neuf qui garde un coffre de tête ou refuse une colonne est aussi essayé dans l'autre ordre des côtés
   both_orders = true,
@@ -653,21 +653,25 @@ local function plan_once(spec)
         else
           list, len, s_edge, count = Fd.place(spec, bd.b, side, edge, flow, Ch.CFG.gap, Ch.CFG.shift, c.free, c.is_resource)
         end
+        -- lot DECOUPLAGE (directive du DC du 11/11) : une foreuse ne dépend QUE du minerai. Un groupe sans place de fonderie au bout de
+        -- sa bande garde ses foreuses et son tapis collecteur jusqu'au bord du champ (g.bare : aucune fonderie dans ce plan, la fonderie se
+        -- pose ailleurs sur le sol neutre, au bout du tapis) ; avant, ses foreuses étaient retirées du plan (émeraude fer : 37 sur 42).
+        for _, a in ipairs(g.n) do used[a .. "n"] = true end
+        for _, a in ipairs(g.s) do used[a .. "s"] = true end
         if list then
-          for _, a in ipairs(g.n) do used[a .. "n"] = true end
-          for _, a in ipairs(g.s) do used[a .. "s"] = true end
           for _, e in ipairs(list) do for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end end
           g.side, g.flow, g.s_edge, g.len, g.count, g.list, g.info = side, flow, s_edge, len, count, list, info
-          g.belt = #spec.belts
-          local need_lane = fuelled and (#g.n + #g.s) or math.max(#g.n, #g.s)
-          for i, bt in ipairs(spec.belts) do
-            if Ch.lane_drills(bt.lane, d.rate) >= need_lane then g.belt = i break end
-          end
-          groups[#groups + 1] = g
-          limit = g.cut
         else
           no_smelter = no_smelter + 1
+          g.side, g.flow, g.s_edge, g.len, g.count, g.list, g.bare = side, flow, edge + side * (colonne and 2 or 1), 1, 0, {}, true
         end
+        g.belt = #spec.belts
+        local need_lane = fuelled and (#g.n + #g.s) or math.max(#g.n, #g.s)
+        for i, bt in ipairs(spec.belts) do
+          if Ch.lane_drills(bt.lane, d.rate) >= need_lane then g.belt = i break end
+        end
+        groups[#groups + 1] = g
+        limit = g.cut
       end
     end
     local bo = { pr = bd.pr, b = bd.b, groups = {} }
@@ -685,7 +689,11 @@ local function plan_once(spec)
         emit("tapis", u, bd.b, 1, g.side, 0, bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
         nb = nb + 1
       end
-      if colonne then
+      if g.bare then
+        -- (lot DECOUPLAGE) tapis collecteur seul : aucune fonderie émise ; la tuile devant sa sortie reste libre (rien n'y passe, le
+        -- minerai ne tombe sur aucun autre tapis : l'entrée de la fonderie posée ailleurs)
+        c.take(s_end + g.side, bd.b)
+      elseif colonne then
         pending[#pending + 1] = { bi = bi, gi = gi, pr = bd.pr, b = bd.b, g = g }
       else
         for _, e in ipairs(g.list) do emit(e.kind, e.u, e.v, e.size, e.du, e.dv, bi, gi, bd.pr, e.role, nil, e.module) end
@@ -694,8 +702,8 @@ local function plan_once(spec)
       flow_all, cap_all = flow_all + g.flow, cap_all + capa
       bo.groups[#bo.groups + 1] = { side = g.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = g.flow, belt = g.belt,
         count = g.count, capacity = capa, belt_tiles = nb, s_edge = g.s_edge, len = g.len, cut = g.cut,
-        pole_u = g.s_edge + g.side * (colonne and g.info.head_pole or Fd.pole_col(spec)),
-        pole_u2 = colonne and g.s_edge or nil } -- (lot FONDERIE) poteau de liaison de tête, rejoint par la rangée pr + pas
+        pole_u = g.bare and s_end or (g.s_edge + g.side * (colonne and g.info.head_pole or Fd.pole_col(spec))),
+        pole_u2 = colonne and (g.bare and s_end or g.s_edge) or nil, bare = g.bare } -- (lot FONDERIE) poteau de liaison de tête, rejoint par la rangée pr + pas
     end
     out_bands[#out_bands + 1] = bo
   end
@@ -914,12 +922,19 @@ function Ch.field_drills(p)
   return n
 end
 
---- Règle pure (lot FONDERIE, 3/11) : le refus des colonnes sans voie de charbon est-il gardé ? before / after : foreuses du champ avec le
---- coffre de tête / avec le refus. Rend (gardé, coût en % des foreuses perdues, arrondi).
+--- Règle pure (lot FONDERIE, 3/11) : le refus des colonnes sans voie de charbon est-il gardé ? before / after : fours du champ avec le
+--- coffre de tête / avec le refus (lot DECOUPLAGE : les fours, plus les foreuses, qui restent). Rend (gardé, coût en % perdu, arrondi).
 function Ch.refuse_keeps(before, after, min)
   if before <= 0 then return true, 0 end
   local cost = math.floor((1 - after / before) * 100 + 0.5)
   return after >= (min or Ch.CFG.refuse_min) * before - 1e-9, cost
+end
+
+--- Fours d'un plan.
+function Ch.furnaces(p)
+  local n = 0
+  for _, e in ipairs(p and p.ents or {}) do if e.kind == "four" then n = n + 1 end end
+  return n
 end
 
 local function plan_order(spec)
@@ -940,9 +955,9 @@ local function plan_order(spec)
     p, why = plan_once(sp)
     if not p then break end
   end
-  -- refus impossible (plan vide, ou replis encore là après les passes) : il coûte tout le champ
-  local after = (p and not (p.fallback and #p.fallback > 0)) and Ch.field_drills(p) or 0
-  local keep, cost = Ch.refuse_keeps(Ch.field_drills(p0), after)
+  -- refus impossible (plan vide, ou replis encore là après les passes) : il coûte toute la fonderie
+  local after = (p and not (p.fallback and #p.fallback > 0)) and Ch.furnaces(p) or 0
+  local keep, cost = Ch.refuse_keeps(Ch.furnaces(p0), after)
   if not keep then
     p0.coffre_cost, p0.coffre_cols = cost, #p0.fallback
     return p0, why0
