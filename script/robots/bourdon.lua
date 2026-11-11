@@ -60,6 +60,13 @@ local function spr_de(b, cle)
   return nom(cle), SPR[cle]
 end
 
+--- Lot ART-MEGA2 : échelle de la cloche b. Le Méga-Bourdon prend celle de ses feuilles (graphics/robots/megabourdon/sprites.lua, « echelle »,
+--- rendue à B.MEGA.ECHELLE) : chaînes, ancres, battant et griffes du Bourdon y sont agrandis ; des feuilles sans échelle valent 1.
+local function ech(b)
+  if b and b.v == "mega" then return tonumber(SPRM.echelle) or 1 end
+  return 1
+end
+
 local function dessine(surface, cle, cible, decal, couche, opts)
   local t = opts or {}
   return rendering.draw_sprite({ sprite = nom(cle), surface = surface, target = cible, target_offset = decal, render_layer = couche,
@@ -89,28 +96,30 @@ local function creer_corps(b)
   end
   b.o_ombre = retient(dessine_v("corps-ombre", { sh("corps-ombre")[1], sh("corps-ombre")[2] }, COUCHE_OMBRE))
   b.ancres = {}
+  local k = ech(b)
   for i = 1, #B.ANCRES do
-    local bx, by = B.bas_chaine(i, 0)
-    local cx, cy = B.centre_chaine(i, bx, by)
-    local ax, ay = B.ancre_depuis_bas(bx, by)
+    local bx, by = B.bas_chaine(i, 0, k)
+    local cx, cy = B.centre_chaine(i, bx, by, k)
+    local ax, ay = B.ancre_depuis_bas(bx, by, k)
     local a = B.ANCRES[i]
+    local gx, gy = B.sol(i, k)
     local sc = SPR["ancre"].shift
     local sl = SPR["ancre-lueur"].shift
     local so = SPR["ancre-ombre"].shift
     b.ancres[i] = {
       e = 0.0, pose = false,
-      chaine = retient(dessine(s, "chaine", e, { cx, cy }, COUCHE_DERRIERE, { orientation = a.o, x_scale = 1.25 })),
-      corps = retient(dessine(s, "ancre", e, { ax + sc[1], ay + sc[2] }, COUCHE_DERRIERE)),
-      lueur = retient(dessine(s, "ancre-lueur", e, { ax + sl[1], ay + sl[2] }, COUCHE_DERRIERE)),
-      ombre = retient(dessine(s, "ancre-ombre", e, { a.sol[1] + so[1], a.sol[2] + so[2] }, COUCHE_OMBRE, { visible = false })),
-      o_chaine = retient(dessine(s, "chaine-ombre", e, { a.sol[1] + a.ombre_u[1] * a.ombre_long / 2, a.sol[2] + a.ombre_u[2] * a.ombre_long / 2 }, COUCHE_OMBRE,
-        { orientation = a.ombre_o, y_scale = a.ombre_long / B.CHAINE_OMBRE_LONG, visible = false })),
+      chaine = retient(dessine(s, "chaine", e, { cx, cy }, COUCHE_DERRIERE, { orientation = a.o, x_scale = 1.25 * k, y_scale = k })),
+      corps = retient(dessine(s, "ancre", e, { ax + sc[1] * k, ay + sc[2] * k }, COUCHE_DERRIERE, { x_scale = k, y_scale = k })),
+      lueur = retient(dessine(s, "ancre-lueur", e, { ax + sl[1] * k, ay + sl[2] * k }, COUCHE_DERRIERE, { x_scale = k, y_scale = k })),
+      ombre = retient(dessine(s, "ancre-ombre", e, { gx + so[1] * k, gy + so[2] * k }, COUCHE_OMBRE, { visible = false, x_scale = k, y_scale = k })),
+      o_chaine = retient(dessine(s, "chaine-ombre", e, { gx + a.ombre_u[1] * a.ombre_long * k / 2, gy + a.ombre_u[2] * a.ombre_long * k / 2 }, COUCHE_OMBRE,
+        { orientation = a.ombre_o, x_scale = k, y_scale = a.ombre_long * k / B.CHAINE_OMBRE_LONG, visible = false })),
     }
   end
   b.o_lueur_sol = retient(dessine(s, "lueur-sol", e, { 0, 0 }, "ground-patch-higher2", { tint = { r = 0, g = 0, b = 0, a = 0 } }))
   local sb, sbl = SPR["battant"].shift, SPR["battant-lueur"].shift
-  b.o_battant = retient(dessine(s, "battant", e, { sb[1], sb[2] }, COUCHE_DERRIERE))
-  b.o_battant_l = retient(dessine(s, "battant-lueur", e, { sbl[1], sbl[2] }, COUCHE_DERRIERE))
+  b.o_battant = retient(dessine(s, "battant", e, { sb[1] * k, sb[2] * k }, COUCHE_DERRIERE, { x_scale = k, y_scale = k }))
+  b.o_battant_l = retient(dessine(s, "battant-lueur", e, { sbl[1] * k, sbl[2] * k }, COUCHE_DERRIERE, { x_scale = k, y_scale = k }))
   local sc, sv, sr = sh("corps"), sh("vitrail"), sh("cristal")
   b.o_corps = retient(dessine_v("corps", { sc[1], sc[2] }, COUCHE_AIR))
   b.o_vit, b.o_cri = {}, {}
@@ -140,7 +149,7 @@ local function creer_corps(b)
     end
   end
   -- lumière de nuit : la cloche éclaire le sol sous elle
-  b.o_lum = retient(rendering.draw_light({ sprite = "utility/light_medium", surface = s, target = e, target_offset = { 0, -12 }, scale = 28, intensity = 0.7, color = OR, minimum_darkness = 0.2 }))
+  b.o_lum = retient(rendering.draw_light({ sprite = "utility/light_medium", surface = s, target = e, target_offset = { 0, -12 * k }, scale = 28 * k, intensity = 0.7, color = OR, minimum_darkness = 0.2 }))
 end
 
 --- Lot MEGA-BOURDON : la tourelle k (feuille de sa direction t.d) sur le pied de son pivot, à la hauteur courante de la cloche (b.dh).
@@ -180,8 +189,9 @@ local function place_corps(b, d, om)
   end
   local o = b.bat_o or 0
   local sb, sl = SPR["battant"].shift, SPR["battant-lueur"].shift
-  local x1, y1 = B.centre_battant(sb[1], sb[2], o)
-  local x2, y2 = B.centre_battant(sl[1], sl[2], o)
+  local k = ech(b)
+  local x1, y1 = B.centre_battant(sb[1] * k, sb[2] * k, o, k)
+  local x2, y2 = B.centre_battant(sl[1] * k, sl[2] * k, o, k)
   rendering.set_target(b.o_battant, e, { x1, y1 - d })
   rendering.set_target(b.o_battant_l, e, { x2, y2 - d })
   rendering.set_orientation(b.o_battant, o)
@@ -192,14 +202,15 @@ end
 local function place_ancre(b, i, ex, ox, oy)
   local a = b.ancres[i]
   local e = b.e
-  local bx, by = B.bas_chaine(i, ex)
+  local k = ech(b)
+  local bx, by = B.bas_chaine(i, ex, k)
   bx, by = bx + ox, by + oy
-  local cx, cy = B.centre_chaine(i, bx, by)
+  local cx, cy = B.centre_chaine(i, bx, by, k)
   rendering.set_target(a.chaine, e, { cx, cy })
-  local ax, ay = B.ancre_depuis_bas(bx, by)
+  local ax, ay = B.ancre_depuis_bas(bx, by, k)
   local sc, sl = SPR["ancre"].shift, SPR["ancre-lueur"].shift
-  rendering.set_target(a.corps, e, { ax + sc[1], ay + sc[2] })
-  rendering.set_target(a.lueur, e, { ax + sl[1], ay + sl[2] })
+  rendering.set_target(a.corps, e, { ax + sc[1] * k, ay + sc[2] * k })
+  rendering.set_target(a.lueur, e, { ax + sl[1] * k, ay + sl[2] * k })
   a.e = ex
 end
 
@@ -212,7 +223,9 @@ end
 local function impact(b, i)
   local a = b.ancres[i]
   local e = b.e
-  local x, y = e.position.x + B.ANCRES[i].sol[1], e.position.y + B.ANCRES[i].sol[2]
+  local k = ech(b)
+  local gx, gy = B.sol(i, k)
+  local x, y = e.position.x + gx, e.position.y + gy
   local s = e.surface
   mets_couche_ancre(a, COUCHE_ANCRE)
   rendering.set_visible(a.ombre, true)
@@ -222,19 +235,20 @@ local function impact(b, i)
     if rendering.is_valid(a.griffes_o) then rendering.destroy(a.griffes_o) end
   end
   local sg, so = SPR["griffes"].shift, SPR["griffes-ombre"].shift
-  a.griffes_o = dessine(s, "griffes-ombre", { x + so[1], y + so[2] }, nil, COUCHE_OMBRE)
-  a.griffes = dessine(s, "griffes", { x + sg[1], y + sg[2] }, nil, "lower-object-above-shadow")
+  a.griffes_o = dessine(s, "griffes-ombre", { x + so[1] * k, y + so[2] * k }, nil, COUCHE_OMBRE, { x_scale = k, y_scale = k })
+  a.griffes = dessine(s, "griffes", { x + sg[1] * k, y + sg[2] * k }, nil, "lower-object-above-shadow", { x_scale = k, y_scale = k })
   s.create_entity({ name = "big-explosion", position = { x, y } })
   s.play_sound({ path = "fo-bourdon-ancre", position = { x, y } })
   for k = 0, 11 do
     local c, sn = B.dir(k / 12 + i * 0.03)
-    s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { x + c * 3.2, y + sn * 2.4 } })
+    s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { x + c * 3.2 * k, y + sn * 2.4 * k } })
   end
 end
 
 local function peut_poser(b, i)
   local e = b.e
-  local x, y = e.position.x + B.ANCRES[i].sol[1], e.position.y + B.ANCRES[i].sol[2]
+  local gx, gy = B.sol(i, ech(b))
+  local x, y = e.position.x + gx, e.position.y + gy
   local t = e.surface.get_tile(x, y)
   return t and t.valid and not t.collides_with("water-tile")
 end

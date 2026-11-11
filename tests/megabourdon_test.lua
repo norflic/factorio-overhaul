@@ -12,6 +12,10 @@
      Méga-Bourdon, casemates appelées une fois posée, plafond pondéré) et les textes FR et EN existent.
   5. FEUILLES : graphics/robots/megabourdon/sprites.lua a le corps, ses lueurs (dont le vortex cyan), l'ombre et 4 bouches.
   6. MUTANTS : chaque altération des règles ou du branchement fait échouer au moins un contrôle.
+  Lot ART-MEGA2 (ordre du DC du 11/11, 9 h 47 : « une taille strictement 2 fois supérieure, minimum 200 % à 250 % de l'échelle du Bourdon ») :
+  ÉCHELLE dans les règles (B.MEGA.ECHELLE entre 2 et 2,5 ; chaînes, ancres, battant et boîtes homothétiques), dans le branchement (le script
+  prend l'échelle des feuilles) et dans les feuilles (corps à l'échelle écrite dans sprites.lua, 1 sans elle ; aucun fichier au-delà de
+  4096 px, les tuiles pavent leur image). Les feuilles ×2,2 et le prototype en tuiles ne sont pas encore livrés (F534 : rendu inachevé).
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -118,6 +122,33 @@ local function regles(B, muet)
   ck(meme, "matière du Bourdon une seconde fois (au plus 100 de chaque, RB0-1)")
   ck(B.TECH_MEGA.count == 2 * B.TECH.count and B.TECH_MEGA.epoch == B.AGE and B.TECH_MEGA.time == B.TECH.time, "technologie : deux fois le coût, même âge")
   ck(B.TECH_MEGA.prerequisites[1] == B.TECHNO and #B.TECH_MEGA.prerequisites == 1, "technologie après celle du Bourdon")
+  -- échelle (lot ART-MEGA2)
+  local k = B.MEGA.ECHELLE
+  ck(type(k) == "number" and k >= 2.0 and k <= 2.5, "échelle du Méga-Bourdon : de 200 à 250 % du Bourdon (ordre du DC)")
+  ck(B.echelle("mega") == k and B.echelle("bourdon") == 1 and B.echelle(nil) == 1, "échelle par variante")
+  local function pres(a, b) return math.abs(a - b) < 1e-6 end
+  local homo = true
+  for i = 1, #B.ANCRES do
+    local gx, gy = B.sol(i, k)
+    if not (pres(gx, B.ANCRES[i].sol[1] * k) and pres(gy, B.ANCRES[i].sol[2] * k)) then homo = false end
+    for _, ex in ipairs({ 0, 0.5, 1 }) do
+      local x1, y1 = B.bas_chaine(i, ex)
+      local xk, yk = B.bas_chaine(i, ex, k)
+      if not (pres(xk, x1 * k) and pres(yk, y1 * k)) then homo = false end
+      local c1x, c1y = B.centre_chaine(i, x1, y1)
+      local ckx, cky = B.centre_chaine(i, xk, yk, k)
+      if not (pres(ckx, c1x * k) and pres(cky, c1y * k)) then homo = false end
+      local a1x, a1y = B.ancre_depuis_bas(x1, y1)
+      local akx, aky = B.ancre_depuis_bas(xk, yk, k)
+      if not (pres(akx, a1x * k) and pres(aky, a1y * k)) then homo = false end
+    end
+  end
+  ck(homo, "ancres, chaînes et sol homothétiques à l'échelle du Méga-Bourdon")
+  local bx1, by1 = B.centre_battant(1.5, -10, 0.03)
+  local bxk, byk = B.centre_battant(1.5 * k, -10 * k, 0.03, k)
+  ck(pres(bxk, bx1 * k) and pres(byk, by1 * k), "battant : pivot et feuille à l'échelle")
+  local bo = B.boite_mega({ { -11, -44 }, { 11, 0 } })
+  ck(pres(bo[1][1], -11 * k) and pres(bo[1][2], -44 * k) and pres(bo[2][1], 11 * k) and bo[2][2] == 0, "boîte du Méga-Bourdon : celle du Bourdon à l'échelle")
   return failures - avant
 end
 
@@ -148,6 +179,11 @@ local function branche(proto, script, muet)
   ck(script:find("if tick >= b.canons_t[k] and t.d == t.vise then", 1, true) ~= nil, "script : une tourelle tire une fois alignée")
   ck(script:find("t.d = B.pas_tourelle(t.d, t.vise)", 1, true) ~= nil, "script : la tourelle tourne d'un cran vers sa cible")
   ck(script:find("for k, t in ipairs(b.tourelles) do place_tourelle(b, k, t) end", 1, true) ~= nil, "script : les tourelles suivent la cloche")
+  -- lot ART-MEGA2 : échelle
+  ck(script:find("if b and b.v == \"mega\" then return tonumber(SPRM.echelle) or 1 end", 1, true) ~= nil, "script : échelle prise des feuilles")
+  ck(script:find("local bx, by = B.bas_chaine(i, ex, k)", 1, true) ~= nil, "script : ancres placées à l'échelle")
+  ck(script:find("B.centre_battant(sb[1] * k, sb[2] * k, o, k)", 1, true) ~= nil, "script : battant à l'échelle")
+  ck(script:find("{ orientation = a.o, x_scale = 1.25 * k, y_scale = k }", 1, true) ~= nil, "script : chaînes agrandies")
   return failures - avant
 end
 branche(PROTO, SCRIPT)
@@ -179,9 +215,44 @@ if okS and type(SPRM) == "table" then
   if type(SPRM.canons) == "table" then
     local hauts = true
     for _, c in ipairs(SPRM.canons) do
-      if not (type(c[1]) == "number" and type(c[2]) == "number" and c[2] < -10 and math.abs(c[1]) < 25) then hauts = false end
+      if not (type(c[1]) == "number" and type(c[2]) == "number" and c[2] < -10) then hauts = false end
     end
     check(hauts, "pivots sur les épaules de la cloche (au-dessus du sol, dans sa largeur)")
+  end
+  -- lot ART-MEGA2 : échelle et tuiles
+  local k = SPRM.echelle or 1
+  local SPRB = dofile("graphics/robots/bourdon/sprites.lua")
+  local function haut(e) return e.hr.height * e.hr.scale / 32 end
+  local r = haut(SPRM.corps) / haut(SPRB.corps)
+  print(string.format("  corps : %.1f tuiles de haut, Bourdon %.1f : %.0f %%", haut(SPRM.corps), haut(SPRB.corps), 100 * r))
+  check(math.abs(r - k) < 0.15 * k, "corps à l'échelle des feuilles (hauteur mesurée)")
+  local tuiles_ok, n_t = true, 0
+  for cle, e in pairs(SPRM) do
+    if type(e) == "table" and e.hr then
+      for _, res in ipairs({ "hr", "lr" }) do
+        local f = e[res]
+        if f.tuiles then
+          local aire = 0
+          for _, t in ipairs(f.tuiles) do
+            n_t = n_t + 1
+            if not (t.width <= 4096 and t.height <= 4096 and t.scale == f.scale and type(t.decal) == "table") then tuiles_ok = false end
+            aire = aire + t.width * t.height
+          end
+          if aire ~= f.width * f.height then tuiles_ok = false end
+          if #e.hr.tuiles ~= #e.lr.tuiles then tuiles_ok = false end
+        elseif not (f.width <= 4096 and f.height <= 4096) then
+          tuiles_ok = false
+        end
+      end
+    end
+  end
+  check(tuiles_ok, "aucun fichier au-delà de 4096 px ; les tuiles pavent leur image (" .. n_t .. " tuiles)")
+  if type(SPRM.canons) == "table" then
+    local larges = true
+    for _, c in ipairs(SPRM.canons) do
+      if not (math.abs(c[1]) < 25 * k) then larges = false end
+    end
+    check(larges, "pivots dans la largeur de la cloche à l'échelle")
   end
 end
 
@@ -201,6 +272,12 @@ local MUTANTS = {
   { "tourelle : sens inversé", "local v = dx * sn - dy * c", "local v = dx * sn + dy * c" },
   { "tourelle : bouche non raccourcie", "return sn * B.MEGA.CANON_L, -c * B.MEGA.CANON_L * B.COS45", "return sn * B.MEGA.CANON_L, -c * B.MEGA.CANON_L" },
   { "quinconce perdu", "return ((k - 1) * math.floor(recharge / n) + (id or 0) * 7) % recharge", "return ((id or 0) * 7) % recharge" },
+  { "échelle du Bourdon gardée", "ECHELLE = 2.2,", "ECHELLE = 1.0," },
+  { "Méga-Bourdon sans échelle", "if v == \"mega\" then return B.MEGA.ECHELLE end", "" },
+  { "ancre posée à l'échelle 1", "local qx, qy = a.sol[1] * k, (a.sol[2] - B.ANCRE_TETE) * k", "local qx, qy = a.sol[1], a.sol[2] - B.ANCRE_TETE" },
+  { "chaîne courte", "local h = B.CHAINE_LONG * (k or 1) / 2", "local h = B.CHAINE_LONG / 2" },
+  { "pivot du battant fixe", "local px, py = B.PIVOT[1] * k, B.PIVOT[2] * k", "local px, py = B.PIVOT[1], B.PIVOT[2]" },
+  { "boîte non agrandie", "local k = B.MEGA.ECHELLE\n  return", "local k = 1\n  return" },
 }
 local refuses = 0
 for _, m in ipairs(MUTANTS) do
@@ -223,6 +300,8 @@ local MUTANTS_BR = {
   { "script", "casemates jamais appelées", "if b.v == \"mega\" and b.e.valid and b.phase == \"pose\" then tir_canons(b, tick) end", "" },
   { "script", "tir sans alignement", "if tick >= b.canons_t[k] and t.d == t.vise then", "if tick >= b.canons_t[k] then" },
   { "proto", "PV du Bourdon", "mega.max_health = Bm.pv_mega(VEHICULE.max_health)", "mega.max_health = VEHICULE.max_health" },
+  { "script", "ancres du Bourdon", "local bx, by = B.bas_chaine(i, ex, k)", "local bx, by = B.bas_chaine(i, ex)" },
+  { "script", "échelle oubliée", "if b and b.v == \"mega\" then return tonumber(SPRM.echelle) or 1 end", "" },
 }
 for _, m in ipairs(MUTANTS_BR) do
   local quoi, nom, de, vers = m[1], m[2], m[3], m[4]

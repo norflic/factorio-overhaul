@@ -125,6 +125,26 @@ def main():
         if os.environ.get("FO_DENOISE"):
             scene.cycles.use_denoising = True
             scene.cycles.denoiser = "OPENIMAGEDENOISE"
+        gpu = os.environ.get("FO_GPU", "")
+        if gpu:
+            # lot ART-MEGA2 : essai du GPU (FO_GPU=HIP pour la RX 6900 XT) ; tout échec retombe sur le CPU de setup_render
+            try:
+                pr = bpy.context.preferences.addons["cycles"].preferences
+                pr.compute_device_type = gpu
+                try:
+                    pr.refresh_devices()
+                except Exception:
+                    pr.get_devices()
+                devs = [x for x in pr.devices if x.type == gpu]
+                for x in pr.devices:
+                    x.use = x.type == gpu
+                if devs:
+                    scene.cycles.device = "GPU"
+                    print("[FO-GPU] %s : %s" % (gpu, ", ".join(x.name for x in devs)), flush=True)
+                else:
+                    print("[FO-GPU] aucun périphérique %s : CPU" % gpu, flush=True)
+            except Exception as ex:
+                print("[FO-GPU] échec %s : %r : CPU" % (gpu, ex), flush=True)
         cam = S.setup_camera(scene, W, H, center_px=(ox, oy))
         # recul de la caméra (projection orthographique : l'image ne change pas), sans quoi le haut du géant est coupé
         kk = 320.0 / 60.0
@@ -186,7 +206,7 @@ def main():
             res["glow_" + g] = p
             S._restore(saved)
             print("[FO-RENDER] %s glow_%s %.1fs" % (name, g, time.time() - t2), flush=True)
-        if not a.sans_ombre:
+        if not a.sans_ombre and not name.startswith("tourelle-"):  # lot ART-MEGA2 : les tourelles n'ont pas d'ombre en jeu (feuilles_mega.py)
             rd.use_border = False
             scene.cycles.samples = a.ombre_spp
             scene.render.resolution_percentage = a.ombre_pct
@@ -208,7 +228,7 @@ def main():
         info = {"variant": name, "canvas": [W, H], "origin_px": [ox, oy], "layers": sorted(res), "px": a.px, "ombre_pct": a.ombre_pct, "samples": a.samples,
                 "blender": bpy.app.version_string, "seconds": round(time.time() - t0, 2), "seconds_build": round(t_build, 2), "verts": nverts, "objects": len(objs),
                 "pieces": n_pieces, "count": {k: v for k, v in sorted(info_build.items()) if isinstance(v, (int, float))}, "canons": canons,
-                "canons_sol": canons_sol}
+                "canons_sol": canons_sol, "device": scene.cycles.device}
         with open(os.path.join(d, "render.json"), "w", encoding="utf-8") as f:
             json.dump(info, f, indent=1, sort_keys=True)
         print("[FO-RENDER] %s %dx%d %d sommets, %d pièces, build %.1fs, total %.1fs" % (name, W, H, nverts, n_pieces, t_build, time.time() - t0), flush=True)
