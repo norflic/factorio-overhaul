@@ -20,7 +20,7 @@ local Im = {}
 
 local min = math.min
 
-Im.STALL = 8 * 3600   -- sans unité payée depuis 8 min (comme la garde du joueur)
+Im.STALL = 3 * 3600   -- sans unité payée depuis 3 min (audit point 29 : les labos ne restent plus 8 à 10 min à l'arrêt)
 Im.PAUSE = 30 * 3600  -- les autres recherches passent 30 min au plus
 Im.UNITS = 5          -- unités de pack au stock pour revenir avant la fin de la pause
 
