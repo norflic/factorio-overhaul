@@ -284,6 +284,58 @@ do
   Rp.ENABLED = true
 end
 
+-- §7 Lot FIX-P5 (faille 3) : coup mortel sur une pièce relevée : l'entrée quitte le relevé (quota Rp.PENDING_MAX) ---------------
+do
+  local f = new_team("p5mort", false)
+  local a = new_ent("labo-x", "lab", 100, 100, "p5mort", 40, 100)
+  local b = new_ent("labo-x", "lab", 104, 100, "p5mort", 40, 100)
+  hit(a, 100)
+  hit(b, 100)
+  local st = f.repare
+  check(st and st.count == 2 and st.per.production == 2, "FIX-P5 : deux labos relevés")
+  a.health = 0
+  hit(a, 200)
+  check(st.ents[a.unit_number] == nil and st.count == 1 and st.per.production == 1,
+    "FIX-P5 : coup mortel : entrée retirée, compte et quota de la classe rendus")
+  check(st.ents[b.unit_number] ~= nil, "FIX-P5 : l'autre pièce reste relevée")
+  local c = new_ent("four-x", "furnace", 108, 100, "p5mort", 0, 100)
+  hit(c, 200)
+  check(st.count == 1 and st.ents[c.unit_number] == nil, "FIX-P5 : pièce jamais relevée tuée d'un coup : rien noté")
+end
+
+-- §8 Lot FIX-P5 (faille 4) : tâche sans preneur rouverte au plus Rp.REOPEN_MAX fois, puis report de Rp.CALM journalisé ------------
+do
+  local f = new_team("p5zombie", false)
+  local a = new_ent("labo-x", "lab", 200, 200, "p5zombie", 40, 100)
+  hit(a, 100)
+  local st = f.repare
+  local t = 100 + Rp.CALM
+  check(Rep.think(f, surface, t) == 1, "FIX-P5 : tâche ouverte")
+  local opened = 0
+  for i = 1, Rp.REOPEN_MAX do
+    f.team.board.tasks = {} -- Board.sync : retirée sans preneur
+    t = t + 300
+    opened = opened + Rep.think(f, surface, t)
+  end
+  check(opened == Rp.REOPEN_MAX, "FIX-P5 : rouverte " .. Rp.REOPEN_MAX .. " fois à l'identique")
+  f.team.board.tasks = {}
+  t = t + 300
+  local before = grep("p5zombie : reparation de labo-x")
+  check(Rep.think(f, surface, t) == 0 and next(f.team.board.tasks) == nil, "FIX-P5 : rouverture suivante refusée")
+  check(grep("p5zombie : reparation de labo-x") == before + 1 and grep("reouvertures sans preneur") >= 1, "FIX-P5 : report journalisé")
+  check(st.ents[a.unit_number] and st.ents[a.unit_number].t == t, "FIX-P5 : la pièce repart pour Rp.CALM ticks (reportée, pas retirée)")
+  check(Rep.think(f, surface, t + 300) == 0, "FIX-P5 : rien avant Rp.CALM")
+  check(Rep.think(f, surface, t + Rp.CALM) == 1, "FIX-P5 : après Rp.CALM, tâche rouverte")
+  -- Boucle longue : sans preneur, au plus Rp.REOPEN_MAX + 1 tâches par fenêtre de Rp.CALM (jamais une tous les 5 s sans fin)
+  local adds, tt = 0, t + Rp.CALM
+  for i = 1, 40 do
+    f.team.board.tasks = {}
+    tt = tt + 300
+    adds = adds + Rep.think(f, surface, tt)
+  end
+  check(adds <= 40 * (Rp.REOPEN_MAX + 1) / (Rp.REOPEN_MAX + 1 + Rp.CALM / 300) + 2, "FIX-P5 : boucle zombie bornée (" .. adds .. " sur 40 pensées)")
+end
+
 for _, l in ipairs(logs) do if os.getenv("FO_VERBOSE") then print(l) end end -- FO_VERBOSE=1 : journal simulé
 print(string.format("[PD-REPARATION] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
