@@ -140,13 +140,13 @@ local function project(f, surface, s, pid, p, res)
   local tot, lines = {}, {}
   local removed0 = s.removed
   for _, e in ipairs(p.ents) do
-    if e.built and not e.dropped and e.role == "champ-foreuse" and not e.mel_ok then
+    if e.built and not e.dropped and e.role == "champ-foreuse" and e.mel_ok ~= e.name then
       local ent = surface.find_entity(e.name, { e.x, e.y })
-      if ent and ent.valid then
+      if ent and ent.valid and Mel.needs_check(e.mel_ok, ent.name) then
         s.checked = s.checked + 1
         local v, list = zone_of(surface, ent, res)
         if v == "ok" then
-          e.mel_ok = true
+          e.mel_ok = ent.name -- point 40 : retenu par NOM d'entité, relu quand le nom change
         else
           s.mixed = s.mixed + 1
           local what = "laissee"
@@ -207,14 +207,14 @@ end
 local function gabarit(f, surface, s, pid, p)
   for _, e in ipairs(p.ents) do
     local part = e.part and p.parts and p.parts[e.part]
-    if e.built and not e.dropped and not e.mel_ok and part and part.kind == "foreuses" and part.ore and not e.role then
+    if e.built and not e.dropped and part and part.kind == "foreuses" and part.ore and not e.role then
       local ents = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.5, type = "mining-drill", limit = 1 })
       local ent = ents[1]
-      if ent and ent.valid then
+      if ent and ent.valid and Mel.needs_check(e.mel_ok, ent.name) then
         s.checked = s.checked + 1
         local v, list = zone_of(surface, ent, part.ore)
         if v == "ok" then
-          e.mel_ok = true -- (comme les bandes du champ : une seule lecture ; risque R2 de la revue, le niveau qui agrandit la zone, noté)
+          e.mel_ok = ent.name -- point 40 : relu quand un niveau agrandit la foreuse (nom change) (comme les bandes du champ : une seule lecture ; risque R2 de la revue, le niveau qui agrandit la zone, noté)
         else
           s.mixed = s.mixed + 1
           local what = "laissee"
