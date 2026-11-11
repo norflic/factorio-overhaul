@@ -2,13 +2,14 @@
   Lot DEBUG-CERVEAU (demande du DC, 8/11) : état RÉEL d'une zone, règle PURE (testée hors jeu : tests/debug_cerveau_test.lua).
   Une zone est un projet du plan directeur (module, fonderie, laboratoires, centrale, bande du champ...) ou un avant-poste. Le
   runtime (script/debug/lecture.lua) compte les statuts des machines de la zone ; ce fichier en tire la couleur et la cause :
-    vert    en marche (au moins Zn.OK_RATIO des machines travaillent, aucune pièce manquante, aucun bras sans courant) ;
-    orange  dégradé (une partie seulement travaille, une pièce manque, un bras est sans courant) ou chantier bloqué qui reprendra ;
+    vert    en marche (au moins Zn.OK_RATIO des machines travaillent, aucune pièce manquante) ;
+    orange  dégradé (une partie seulement travaille, une pièce manque) ou chantier bloqué qui reprendra ;
+  Cause « courant » : SEULEMENT des machines du module sans alimentation (règle du DC, 11/11, lot DBG-COURANT) ; un bras sans courant n'en est pas une.
     rouge   arrêté (aucune machine ne travaille) ;
     gris    prévu, en construction, refusé, ou fini mais sans machine à mesurer. JAMAIS vert sans mesure.
   Entrée z : { state = état du projet (attente, plan, reserve, defrichage, fantomes, chantier, raccordement, fini, refuse, bloque),
     machines = { [cause] = n } ou nil (cause « marche » pour les machines qui travaillent ; sinon une clé de Zn.CAUSES),
-    aux = { courant = n } (bras ou autres pièces sans courant, hors machines), lost = pièces posées qui ont disparu }.
+    lost = pièces posées qui ont disparu }.
   Sortie : { color, cause (clé de Zn.CAUSES ou d'un état), ratio (0..1 ou nil), n (machines mesurées), top = { { cause, n }... } triées }.
   Fermé par défaut : un état inconnu ou une entrée absente rend gris. Aucun nom du jeu ici. Aucun hasard, aucun temps.
 ]]
@@ -28,11 +29,10 @@ for i, c in ipairs(Zn.CAUSES) do ORDER[c] = i end
 local function num(v) return type(v) == "number" and v == v and v >= 0 and v or 0 end
 
 --- Causes triées par effectif décroissant, puis par ordre de Zn.CAUSES (déterminisme).
-local function ranked(machines, aux, lost)
+local function ranked(machines, lost)
   local list = {}
   for _, c in ipairs(Zn.CAUSES) do
     local n = num(machines and machines[c])
-    if c == "courant" then n = n + num(aux and aux.courant) end
     if c == "pieces" then n = n + num(lost) end
     if n > 0 then list[#list + 1] = { cause = c, n = n } end
   end
@@ -54,14 +54,14 @@ function Zn.classify(z)
   local run, total = num(m and m[Zn.RUN]), 0
   for _, c in ipairs(Zn.CAUSES) do total = total + num(m and m[c]) end
   total = total + run
-  local top = ranked(m, z.aux, z.lost)
+  local top = ranked(m, z.lost)
   if total == 0 then
-    -- aucune machine mesurée : pièces manquantes ou bras sans courant se voient quand même, jamais un vert
+    -- aucune machine mesurée : des pièces manquantes se voient quand même, jamais un vert
     if #top > 0 then return { color = "orange", cause = top[1].cause, n = 0, top = top } end
     return { color = "gris", cause = "non_mesure", n = 0, top = {} }
   end
   local ratio = run / total
-  local degraded = num(z.lost) + num(z.aux and z.aux.courant) > 0 -- une pièce manquante ou un bras sans courant dégrade même si les machines tournent
+  local degraded = num(z.lost) > 0 -- une pièce manquante dégrade même si les machines tournent
   if ratio == 0 then return { color = "rouge", cause = top[1] and top[1].cause or "autre", ratio = 0, n = total, top = top } end
   if ratio >= Zn.OK_RATIO and not degraded then return { color = "vert", ratio = ratio, n = total, top = {} } end
   return { color = "orange", cause = top[1] and top[1].cause or "autre", ratio = ratio, n = total, top = top }

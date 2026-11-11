@@ -131,7 +131,7 @@ local function new_cycle(f, s)
   for _, z in ipairs(skel) do
     local old = s.zones[z.key]
     if old and old.state == z.state and old.mtick then
-      z.machines, z.aux, z.color, z.cause, z.ratio, z.n, z.top, z.mtick, z.run = old.machines, old.aux, old.color, old.cause, old.ratio, old.n, old.top, old.mtick, old.run
+      z.machines, z.color, z.cause, z.ratio, z.n, z.top, z.mtick, z.run = old.machines, old.color, old.cause, old.ratio, old.n, old.top, old.mtick, old.run
     end
     zones[z.key] = z
     order[#order + 1] = z.key

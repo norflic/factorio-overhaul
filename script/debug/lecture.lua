@@ -35,9 +35,6 @@ Lec.ENT_MAX = 120      -- entités comptées au plus par zone et par relevé
 Lec.DECISIONS_MAX = 24
 Lec.OUTPOST_ENTS = 60  -- foreuses et réceptacles lus au plus pour l'emprise d'un avant-poste
 local MACHINE_TYPES = { "furnace", "assembling-machine", "lab", "mining-drill", "pumpjack", "boiler", "generator" }
-local ALL_TYPES = { "furnace", "assembling-machine", "lab", "mining-drill", "pumpjack", "boiler", "generator", "inserter" }
-local IS_MACHINE = {}
-for _, t in ipairs(MACHINE_TYPES) do IS_MACHINE[t] = true end
 
 local STATUS_NAME -- défini au premier relevé : table locale dérivée de defines (constantes), jamais dans global
 
@@ -173,29 +170,27 @@ end
 -- Relevé de l'état réel d'une zone (UNE zone par appel)
 ---------------------------------------------------------------------------------------------------
 local function count_entities(surface, force_name, rect_list, filter_fn, cap)
-  local machines, aux, n = {}, { courant = 0 }, 0
+  local machines, n = {}, 0
   for _, r in ipairs(rect_list) do
-    local found = surface.find_entities_filtered({ area = { { r[1], r[2] }, { r[3], r[4] } }, force = force_name, type = ALL_TYPES })
+    -- lot DBG-COURANT : les MACHINES seules (règle du DC : « sans courant » seulement si une machine du module en manque) ; un bras hors
+    -- portée d'un poteau ne fait plus passer un module qui tourne à plein pour « sans courant » (partie du DC, 0.7.3 : ~15 fausses alertes)
+    local found = surface.find_entities_filtered({ area = { { r[1], r[2] }, { r[3], r[4] } }, force = force_name, type = MACHINE_TYPES })
     for _, e in ipairs(found) do
       if e.valid and n < cap then
         local pos = e.position
         -- F96 : une entité qui TOUCHE seulement le bord de la zone n'en fait pas partie
         if pos.x > r[1] and pos.x < r[3] and pos.y > r[2] and pos.y < r[4] and (filter_fn == nil or filter_fn(e)) then
           local cause = Zn.cause_of_status(status_name(e.status))
-          if IS_MACHINE[e.type] then
-            machines[cause] = (machines[cause] or 0) + 1
-            n = n + 1
-          elseif cause == "courant" then
-            aux.courant = aux.courant + 1
-          end
+          machines[cause] = (machines[cause] or 0) + 1
+          n = n + 1
         end
       end
     end
   end
-  return machines, aux, n
+  return machines, n
 end
 
---- Relève l'état réel de la zone `z` (table du recensement) et y écrit : machines, aux, color, cause, ratio, n, top, mtick.
+--- Relève l'état réel de la zone `z` (table du recensement) et y écrit : machines, color, cause, ratio, n, top, mtick.
 function Lec.measure(f, z, tick)
   local surface = surface_of(f)
   z.mtick = tick
@@ -215,10 +210,10 @@ function Lec.measure(f, z, tick)
   elseif z.oid and z.x0 then
     rects[1] = { z.x0, z.y0, z.x1, z.y1 }
   end
-  local machines, aux, n = {}, { courant = 0 }, 0
-  if z.state == "fini" and #rects > 0 then machines, aux, n = count_entities(surface, f.force, rects, nil, Lec.ENT_MAX) end
-  z.machines, z.aux = machines, aux
-  local r = Zn.classify({ state = z.state, machines = machines, aux = aux })
+  local machines, n = {}, 0
+  if z.state == "fini" and #rects > 0 then machines, n = count_entities(surface, f.force, rects, nil, Lec.ENT_MAX) end
+  z.machines = machines
+  local r = Zn.classify({ state = z.state, machines = machines })
   z.color, z.cause, z.ratio, z.n, z.top = r.color, r.cause, r.ratio, r.n, r.top
   z.run = machines[Zn.RUN] or 0
   return z
