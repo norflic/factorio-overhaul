@@ -190,7 +190,7 @@ local function suite(Th, verbose)
     busy = { total = 1, fer = 1, key = "fer", stuck = {} }
     s, w = Th.free_slot("fer", busy)
     check(not s and w == "minerai-occupe", "4 : fer clé, chantier qui avance : pas de 2e")
-    busy = { total = 2, fer = 2, key = "fer", stuck = { fer = 2 } }
+    busy = { total = C.slots, fer = 2, key = "fer", stuck = { fer = 2 } }
     s, w = Th.free_slot("fer", busy)
     check(not s and w == "creneaux", "4 : tous les créneaux pris : pas de 3e")
     busy = { total = 1, cuivre = 1, key = "fer", stuck = { cuivre = 1 } }
