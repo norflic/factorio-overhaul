@@ -891,7 +891,8 @@ function Build.Pave.try_serie(f, surface, g, c, fopts, states, scan)
   end
   local fo = {}
   for kk, v in pairs(fopts) do fo[kk] = v end -- (copie des options : l'ordre est sans effet)
-  fo.free, fo.res, fo.within, fo.fed, fo.rot = masks.free, masks.res, sr.within, { [g.ruban.port] = true }, { sr.k } -- (rot : l'orientation de la série, lot MALL-DIRECTIONS)
+  fo.free, fo.within, fo.fed, fo.rot = masks.free, sr.within, { [g.ruban.port] = true }, { sr.k } -- (rot : l'orientation de la série, lot MALL-DIRECTIONS)
+  fo.res = masks.res -- (lot DECOUPLAGE : ressources du lot de la section, P.fit)
   local fit, fwhy = P.fit(g, sr.rect2, fo)
   if not fit then return nil, "serie : " .. tostring(fwhy) .. " dans le lot " .. sr.k2 end
   local r = fit.k == 0 and g or M.rotate(g, fit.k)
