@@ -30,8 +30,6 @@ local Tokens = require("script.team.tokens")
 local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
--- lot DECOUPLAGE : le type de prototype d'une entité de gabarit (BOX_MINAGE / BOX_FONDERIE de P.fit), lu dans les données du jeu
-require("shared.team.sol_minerai").type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
 local RevueObst = require("shared.team.revue_obstacles") -- lot AGEBLOCAGE : curseur de la revue des obstacles
 local M = require("shared.team.modules")
 local Saut = require("shared.team.champ_saut") -- lot FONDERIE : foreuse de bande sautée quand une tourelle de l'équipe a pris son emprise
@@ -72,6 +70,9 @@ local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pur
 local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors du treillis, ligne de poteaux
 
 local Build = {}
+-- lot DECOUPLAGE : le type de prototype d'une entité de gabarit (BOX_MINAGE / BOX_FONDERIE de P.fit), lu dans les données du jeu
+Build.Sm = require("shared.team.sol_minerai")
+Build.Sm.type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
 
 Build.RADIUS = 3              -- carré de lots évalué au départ (7 × 7)
 Build.RADIUS_MAX = 5
@@ -1801,13 +1802,14 @@ local function plan_feed(f, surface, p, place, part)
         if item and not (split and not split[lane]) then
           sources[lane] = "quai"
           local flow = split and split[lane] or (g.inputs and g.inputs[item] or 0)
-          -- Lot IA3-e : feed = "tapis" (fonderie de l'automatisation) : sa voie de minerai est servie par foreuses et
-          -- tapis, JAMAIS par un quai (il se remplit depuis le coffre, où il n'y a pas de minerai : e7 et e10-usine,
-          -- fours « no_ingredients », 0 plaque sans PNJ) ; sinon le plan est refusé, raison « gisement : … ».
-          local need_belt = p.spec.feed == "tapis" and M.ORES[item] and item ~= "coal"
+          -- Lot IA3-e, étendu par le lot DECOUPLAGE (directive du DC du 11/11 : « le minerai brut quitte la box de minage par un
+          -- convoyeur collecteur continu jusqu'à l'entrée de la box de fonderie », relais par coffre interdit) : la voie de minerai
+          -- d'une fonderie est servie par foreuses et tapis, JAMAIS par un quai, quel que soit le mode d'alimentation demandé et sous
+          -- le seuil du tapis compris ; sinon le plan est refusé, raison « gisement : … ». Le charbon (combustible) garde son quai.
+          local need_belt = Build.Sm.belt_only(item, M.ORES, T.fuel)
           -- Lot C2 : seuil du tapis par le coût réel de la voie (f.team.ia3e.belt_flow, shared/ai3/demande.lua) ; à défaut, la constante P.AUTO_FLOW
           local belt_thr = (f.team and f.team.ia3e and f.team.ia3e.belt_flow) or P.AUTO_FLOW
-          if M.ORES[item] and flow >= belt_thr and p.spec.feed ~= "quai" then
+          if need_belt or (M.ORES[item] and flow >= belt_thr and p.spec.feed ~= "quai") then
             local dt = deposit_toward(b, item)
             if not dt and need_belt then -- lot GISEMENTS
               scan_ore_lots(f, surface, item)
@@ -1817,7 +1819,7 @@ local function plan_feed(f, surface, p, place, part)
             local d = dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) or nil
             if d and d <= reach * P.PITCH then
               sources[lane] = "tapis"
-              drills[lane] = { item = item, flow = flow, dist = d }
+              drills[lane] = { item = item, flow = flow, dist = d, need = need_belt }
             elseif need_belt then
               -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change). Lot INDUSTRIE I3 : d'un coup
               -- jusqu'au gisement que la sonde a vu, au plus RADIUS_ORE, et jamais pour rien (l'ancien +1 par refus, borné à RADIUS_MAX,
@@ -1827,8 +1829,6 @@ local function plan_feed(f, surface, p, place, part)
               if not dt then Build.drill_diag(f, item, 0, { x = place.ox, y = place.oy }, "hors du treillis", nil) end
               return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
             end
-          elseif need_belt then
-            return false, string.format("gisement : %s %.2f/s, sous le seuil du tapis (%.2f/s)", item, flow, belt_thr)
           end
         end
       end
@@ -1867,7 +1867,7 @@ local function plan_feed(f, surface, p, place, part)
         if d then
           local ok, why, wait = Build.plan_drills(f, surface, p, d.item, d.flow, a, head_belt)
           if wait then return false, why, wait end -- lot TRANCHES-FOREUSES : le tracé du tapis continue à la pensée suivante (ni refus ni repli sur un quai)
-          if not ok and p.spec.feed == "tapis" then
+          if not ok and d.need then
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
             return false, "gisement : tapis des foreuses (" .. tostring(why) .. ")"
           end

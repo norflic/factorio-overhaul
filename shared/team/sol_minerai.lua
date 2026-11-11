@@ -35,4 +35,11 @@ function Sm.mining_box(g)
   return m
 end
 
+--- Lot DECOUPLAGE (règle 3 du DC : le minerai brut va de la BOX_MINAGE à la BOX_FONDERIE par un convoyeur collecteur continu, jamais
+--- par un relais de coffres) : la voie `item` d'un port d'entrée doit-elle être servie par foreuses et tapis ? Vrai pour un minerai
+--- (`ores` = { [objet] = valeur }, M.ORES) qui n'est pas le combustible `fuel` (T.fuel : le charbon des fours garde son quai).
+function Sm.belt_only(item, ores, fuel)
+  return item ~= nil and ores[item] ~= nil and item ~= fuel
+end
+
 return Sm
