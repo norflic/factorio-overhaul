@@ -1057,12 +1057,19 @@ function Ch.head_chests(p)
 end
 
 --- Règle pure (revue-fonderie, 3/11) : des deux ordres des côtés du réseau du charbon, le meilleur plan : le moins de coffres de tête,
---- puis le plus de foreuses du champ ; à égalité, le premier (ordre habituel). Rend vrai si `b` est meilleur que `a`.
+--- puis le plus de fours, puis le plus de foreuses du champ ; à égalité, le premier (ordre habituel). Rend vrai si `b` est meilleur que `a`.
+--- Lot FONDERIE-BOUT (banc default 20 min, graine 2507543475 : fer d'azur 58 fours -> 10) : le plan qui a moins de coffres ne gagne que
+--- s'il garde la part des fours que le refus exige (Ch.refuse_keeps, la même règle que le refus d'une colonne).
 function Ch.better_order(a, b)
   if not b then return false end
   if not a then return true end
   local ca, cb = Ch.head_chests(a), Ch.head_chests(b)
-  if ca ~= cb then return cb < ca end
+  local fa, fb = Ch.furnaces(a), Ch.furnaces(b)
+  if ca ~= cb then
+    if cb < ca then return (Ch.refuse_keeps(fa, fb)) end
+    return not (Ch.refuse_keeps(fb, fa))
+  end
+  if fa ~= fb then return fb > fa end
   return Ch.field_drills(b) > Ch.field_drills(a)
 end
 
