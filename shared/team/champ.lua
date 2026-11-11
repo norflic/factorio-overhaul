@@ -601,6 +601,22 @@ local function plan_once(spec)
   local offsets = {}
   local pending = {} -- (lot FONDERIE) colonnes posées, émises après le choix de leur charbon
   local bare_todo = {} -- (lot DECOUPLAGE) bouts de bande sans place de fonderie : groupes « tapis collecteur seul », formés après les fonderies
+  -- lot COLONNE-DOUBLE (DC, 11/11) : une bande sur deux (parité de son rang dans le cadre) porte la demi-colonne d'en face, ses fours vers
+  -- ceux de sa voisine ; les deux demi-colonnes d'un même bout partagent la ligne de plaques centrale (plate_dir : tuile -> sens, posée une fois)
+  local double = colonne and Co.half(spec, pitch, false) ~= nil
+  local band_at = {} -- pr -> vrai : la demi-colonne d'en face n'est posée que si la bande de sa voisine existe (sinon ses poteaux sans voisin)
+  for _, bd in ipairs(bands) do band_at[bd.pr] = true end
+  local plate_dir = {}
+  local function shared_plate(u, v, e) return plate_dir[Co.tk(u, v)] == e.du end
+  local function note_plates(list)
+    for _, e in ipairs(list) do if e.kind == "tapis" and e.role == "sortie" then plate_dir[Co.tk(e.u, e.v)] = e.du end end
+  end
+  local function half_of(pr, fixed)
+    -- cadre figé : la forme qu'il a posée (cadres d'avant le lot : demi-colonnes seules)
+    if fixed then return fixed.double and Co.half(spec, pitch, fixed.mirror) or nil end
+    local i = math.floor((pr - (box.v0 - phase)) / pitch + 0.5)
+    return double and Co.half(spec, pitch, Co.is_facing(i) and band_at[pr - Co.SF * pitch] == true) or nil
+  end
   local function belt_for(g) -- tapis du groupe : le plus lent qui porte ses foreuses
     local need_lane = fuelled and (#g.n + #g.s) or math.max(#g.n, #g.s)
     for i, bt in ipairs(spec.belts) do if Ch.lane_drills(bt.lane, d.rate) >= need_lane then return i end end
@@ -630,7 +646,7 @@ local function plan_once(spec)
       if g then
         local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
         local list, len, s_edge, count, info
-        local refused
+        local refused, half
         if colonne then
           local fixed = F and F.cols and F.cols[tostring(bd.pr)] and F.cols[tostring(bd.pr)][tostring(side)]
           refused = (fixed and fixed.mode == "refusee") or (spec.refuse and spec.refuse[tostring(bd.pr) .. ":" .. tostring(side)])
@@ -638,15 +654,16 @@ local function plan_once(spec)
             list = nil -- (lot FONDERIE) colonne refusée : pas de voie de charbon
           elseif not (F and F.cols) or fixed then
             local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
+            half = half_of(bd.pr, fixed)
             list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
-              c.is_resource, mode, fixed)
+              c.is_resource, mode, fixed, half, shared_plate)
             if not list and not no_smelter_at then
               -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
               local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
               local pu, pv
               for u = edge + side, s0 - side, side do if not pu and not c.free(u, bd.b) then pu, pv = u, bd.b end end
               if not pu then
-                local lay = Co.layout(spec, bd.b, side, s0, fixed and fixed.count or Fd.count(spec, flow), mode)
+                local lay = Co.layout(spec, bd.b, side, s0, fixed and fixed.count or Fd.count(spec, flow), mode, half)
                 for _, e in ipairs(lay or {}) do
                   for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do if not pu and not c.free(u, v) then pu, pv = u, v end end end
                 end
@@ -664,7 +681,8 @@ local function plan_once(spec)
           for _, a in ipairs(g.n) do used[a .. "n"] = true end
           for _, a in ipairs(g.s) do used[a .. "s"] = true end
           for _, e in ipairs(list) do for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end end
-          g.side, g.flow, g.s_edge, g.len, g.count, g.list, g.info = side, flow, s_edge, len, count, list, info
+          if colonne then note_plates(list) end
+          g.side, g.flow, g.s_edge, g.len, g.count, g.list, g.info, g.half = side, flow, s_edge, len, count, list, info, half
           g.belt = belt_for(g)
           groups[#groups + 1] = g
           limit = g.cut
@@ -699,7 +717,8 @@ local function plan_once(spec)
       bo.groups[#bo.groups + 1] = { side = g.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = g.flow, belt = g.belt,
         count = g.count, capacity = capa, belt_tiles = nb, s_edge = g.s_edge, len = g.len, cut = g.cut,
         pole_u = g.s_edge + g.side * (colonne and g.info.head_pole or Fd.pole_col(spec)),
-        pole_u2 = colonne and g.s_edge or nil } -- (lot FONDERIE) poteau de liaison de tête, rejoint par la rangée pr + pas
+        pole_u2 = colonne and g.s_edge or nil, -- (lot FONDERIE) poteau de liaison de tête, rejoint par la rangée pr + pas
+        col_b = g.half and (bd.b + g.half.jog) or nil } -- (lot COLONNE-DOUBLE) demi-colonne d'en face : son tapis sur la rangée de son minerai
     end
     out_bands[#out_bands + 1] = bo
   end
@@ -735,7 +754,8 @@ local function plan_once(spec)
         local cols = {}
         for _, it in ipairs(pending) do
           if it.g.side == side then
-            cols[#cols + 1] = { key = tostring(it.pr), b = it.b, s_edge = it.g.s_edge, far = it.g.info.far, need = it.g.info.need }
+            cols[#cols + 1] = { key = tostring(it.pr), coal_v = it.g.info.b_coal, link_v = it.g.info.b_link, s_edge = it.g.s_edge,
+              far = it.g.info.far, need = it.g.info.need }
           end
         end
         if #cols > 0 then
@@ -801,8 +821,13 @@ local function plan_once(spec)
       end
       if mode == "coffre" and g.info.mode == "voie" then
         -- repli : le coffre de tête (ses tuiles sont dans celles de la voie, déjà prises)
-        local list, len, info = Co.layout(spec, it.b, g.side, g.s_edge, g.count, "coffre")
-        g.list, g.info = list, info
+        local list, len, info = Co.layout(spec, it.b, g.side, g.s_edge, g.count, "coffre", g.half)
+        -- (lot COLONNE-DOUBLE) la ligne de plaques commune n'est rendue que par la demi-colonne qui l'a posée la première
+        local kept = {}
+        for _, e in ipairs(g.list) do if e.kind == "tapis" and e.role == "sortie" then kept[Co.tk(e.u, e.v)] = true end end
+        local own = {}
+        for _, e in ipairs(list) do if not (e.kind == "tapis" and e.role == "sortie") or kept[Co.tk(e.u, e.v)] then own[#own + 1] = e end end
+        g.list, g.info = own, info
         g.len = math.min(g.len, len)
       end
       for _, e in ipairs(g.list) do
@@ -813,7 +838,7 @@ local function plan_once(spec)
       end
       if mode == "voie" and nt and nt.uT then
         local cf = (F and F.cols) and nt or coal_frame[tostring(g.side)]
-        local col = { b = it.b, s_edge = g.s_edge, far = g.info.far, last = (cf and cf.last) == key }
+        local col = { coal_v = g.info.b_coal, link_v = g.info.b_link, s_edge = g.s_edge, far = g.info.far, last = (cf and cf.last) == key }
         for _, e in ipairs(Co.branch(col, nt, g.side, spec.pole.wire)) do
           for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
           emit_e(e, it.bi, it.gi, it.pr, e.kind == "tapis" and 1 or nil)
@@ -829,7 +854,8 @@ local function plan_once(spec)
         end
       end
       cols_frame[key] = cols_frame[key] or {}
-      cols_frame[key][tostring(g.side)] = { s_edge = g.s_edge, count = g.count, mode = mode }
+      cols_frame[key][tostring(g.side)] = { s_edge = g.s_edge, count = g.count, mode = mode, double = g.half and true or nil,
+        mirror = (g.half and g.half.mirror) or nil }
       g.mode = mode
       local og = out_bands[it.bi] and out_bands[it.bi].groups[it.gi]
       if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
@@ -853,7 +879,8 @@ local function plan_once(spec)
         for _, sk in ipairs({ "1", "-1" }) do
           local fc = F.cols[k][sk]
           if fc and fc.mode ~= "refusee" and not (F.only and F.only[tonumber(k)]) then
-            local l = Co.layout(spec, tonumber(k) + d.size + 1, tonumber(sk), fc.s_edge, fc.count, fc.mode)
+            local l = Co.layout(spec, tonumber(k) + d.size + 1, tonumber(sk), fc.s_edge, fc.count, fc.mode,
+              fc.double and Co.half(spec, pitch, fc.mirror) or nil)
             for _, e in ipairs(l or {}) do
               for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
             end
