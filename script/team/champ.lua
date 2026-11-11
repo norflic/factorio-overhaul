@@ -418,6 +418,7 @@ local function spec_of(f, surface, o, frame, only)
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
     design = data.design, logistics = data.logistics,
+    window = { x0, y0, x1, y1 }, -- lot FONDERIE-BOUT : tuiles lues (obstacles connus) ; une colonne ailleurs ne sort pas de ce rectangle
   }
   if coal then
     spec.coal = { tiles = coal, rate = data.coal_rate }
@@ -531,6 +532,8 @@ function Champ.frame(f, surface, o)
     plan.stats.poles, plan.stats.belts, "verification du plan : ligne suivante") .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
     .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
+    .. string.format(" ; colonnes posees ailleurs %d, tapis collecteurs seuls %d%s", plan.stats.away or 0, plan.stats.bare or 0,
+      plan.stats.away_why and (" (" .. plan.stats.away_why .. ")") or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
       spec.coal and spec.coal.nforeign or 0))
   -- (revue-fonderie, 3/11) réseau du charbon calculé dans l'autre ordre des côtés : moins de coffres de tête

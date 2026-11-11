@@ -630,9 +630,10 @@ local function plan_once(spec)
       if g then
         local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
         local list, len, s_edge, count, info
+        local refused
         if colonne then
           local fixed = F and F.cols and F.cols[tostring(bd.pr)] and F.cols[tostring(bd.pr)][tostring(side)]
-          local refused = (fixed and fixed.mode == "refusee") or (spec.refuse and spec.refuse[tostring(bd.pr) .. ":" .. tostring(side)])
+          refused = (fixed and fixed.mode == "refusee") or (spec.refuse and spec.refuse[tostring(bd.pr) .. ":" .. tostring(side)])
           if refused then
             list = nil -- (lot FONDERIE) colonne refusée : pas de voie de charbon
           elseif not (F and F.cols) or fixed then
@@ -669,7 +670,7 @@ local function plan_once(spec)
           limit = g.cut
         else
           no_smelter = no_smelter + 1
-          bare_todo[#bare_todo + 1] = { bi = bi, bd = bd, used = used, side = side, edge = edge }
+          bare_todo[#bare_todo + 1] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }
         end
       end
     end
@@ -866,6 +867,15 @@ local function plan_once(spec)
   -- formé plus tôt, son tapis barrait le tracé du charbon, banc 2507543475 : azure fer 58 fours -> 10), les
   -- foreuses qu'aucun groupe n'a prises au bout d'une bande sans place de fonderie forment un groupe « tapis collecteur seul » (g.bare :
   -- tapis jusqu'au bord du champ, tuile devant sa sortie réservée, aucune fonderie dans ce plan : elle se pose ailleurs sur le sol neutre).
+  -- lot FONDERIE-BOUT : tuiles lues (spec.window, repère x, y) et souterrains déjà posés, dans le repère (u, v) du plan
+  local win, away_why -- away_why : première raison d'un bout resté sans colonne (journal du plan)
+  if spec.window then
+    local wu0, wv0 = c.uv(spec.window[1], spec.window[2])
+    local wu1, wv1 = c.uv(spec.window[3], spec.window[4])
+    win = { u0 = math.min(wu0, wu1), v0 = math.min(wv0, wv1), u1 = math.max(wu0, wu1), v1 = math.max(wv0, wv1) }
+  end
+  local ug_uv = {}
+  for _, k in ipairs(spec.ug_tiles or {}) do local u, v = c.uv(k[1], k[2]); ug_uv[Co.tk(u, v)] = true end
   for _, t in ipairs(bare_todo) do
     local bd, bo = t.bd, out_bands[t.bi]
     local g = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
@@ -887,12 +897,44 @@ local function plan_once(spec)
         emit("tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
         nb = nb + 1
       end
-      c.take(e_end + t.side, bd.b)
       local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
       flow_all = flow_all + flow
-      bo.groups[gi] = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = 0,
+      -- lot FONDERIE-BOUT : un bout SANS PLACE de colonne dans son prolongement la reçoit AILLEURS sur le sol neutre (Co.away), son tapis
+      -- prolonge le collecteur depuis la tuile devant sa sortie ; combustible : coffre de tête (le réseau du charbon est déjà tracé ; le
+      -- coffre est servi par FONDERIE-BLOC). Une colonne REFUSÉE (place trouvée, aucune voie de charbon) n'est pas déplacée : le coffre
+      -- de tête que le refus écarte reviendrait.
+      local aw, aw_why
+      if colonne and not t.refused then
+        -- recul : jusqu'au bord des tuiles lues le long de l'axe (sans rectangle connu, celui de Co.place)
+        local u0 = e_end + t.side
+        local reach = win and math.max(0, t.side > 0 and (win.u1 - u0) or (u0 - win.u0)) or (Ch.CFG.shift + Ch.CFG.gap)
+        aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, Fd.count(spec, flow), fuelled and "coffre" or nil,
+          c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
+            span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win })
+        if not aw and not away_why then away_why = string.format("bande %d : %s", bd.pr, tostring(aw_why)) end
+      end
+      local og = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = 0,
         capacity = 0, belt_tiles = nb, s_edge = e_end + t.side, len = 0, cut = g.cut, pole_u = e_end, pole_u2 = colonne and e_end or nil,
         bare = true }
+      if aw then
+        for _, r in ipairs(aw.route) do
+          c.take(r.u, r.v)
+          local dv = Co.D4[r.d]
+          emit_e({ kind = r.kind, u = r.u, v = r.v, size = 1, du = dv[1], dv = dv[2], role = "lien", ug = r.ug }, t.bi, gi, bd.pr, g.belt)
+        end
+        for _, e in ipairs(aw.list) do
+          for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
+          emit_e(e, t.bi, gi, bd.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil)
+          if e.kind == "coffre" and e.role == "combustible" then ents[#ents].need = aw.info.need end
+        end
+        local capa = Fd.capacity(spec, aw.count)
+        cap_all = cap_all + capa
+        og.bare, og.away, og.col_b, og.count, og.capacity, og.s_edge, og.len = nil, true, aw.b, aw.count, capa, aw.s_edge, aw.len
+        og.mode = aw.info.mode
+      else
+        c.take(e_end + t.side, bd.b)
+      end
+      bo.groups[gi] = og
     end
   end
   -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
@@ -937,7 +979,11 @@ local function plan_once(spec)
     stats = { tiles = #c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
       chests = n.coffre, capped = capped, flow = flow_all, capacity = cap_all, umin = umin, umax = umax, no_smelter = no_smelter, no_smelter_at = no_smelter_at,
       undergrounds = n.souterrain, splitters = n.repartiteur, coal = coal_stats,
-      band_drills = (function() local k = 0; for _, bd in ipairs(bands) do k = k + #bd.n + #bd.s end; return k end)() },
+      band_drills = (function() local k = 0; for _, bd in ipairs(bands) do k = k + #bd.n + #bd.s end; return k end)(),
+      -- lot FONDERIE-BOUT : groupes dont la colonne est posée ailleurs / tapis collecteurs seuls (sans fonderie dans ce plan)
+      away = (function() local k = 0; for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.away then k = k + 1 end end end; return k end)(),
+      away_why = away_why,
+      bare = (function() local k = 0; for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.bare then k = k + 1 end end end; return k end)() },
   }
 end
 
@@ -1011,12 +1057,19 @@ function Ch.head_chests(p)
 end
 
 --- Règle pure (revue-fonderie, 3/11) : des deux ordres des côtés du réseau du charbon, le meilleur plan : le moins de coffres de tête,
---- puis le plus de foreuses du champ ; à égalité, le premier (ordre habituel). Rend vrai si `b` est meilleur que `a`.
+--- puis le plus de fours, puis le plus de foreuses du champ ; à égalité, le premier (ordre habituel). Rend vrai si `b` est meilleur que `a`.
+--- Lot FONDERIE-BOUT (banc default 20 min, graine 2507543475 : fer d'azur 58 fours -> 10) : le plan qui a moins de coffres ne gagne que
+--- s'il garde la part des fours que le refus exige (Ch.refuse_keeps, la même règle que le refus d'une colonne).
 function Ch.better_order(a, b)
   if not b then return false end
   if not a then return true end
   local ca, cb = Ch.head_chests(a), Ch.head_chests(b)
-  if ca ~= cb then return cb < ca end
+  local fa, fb = Ch.furnaces(a), Ch.furnaces(b)
+  if ca ~= cb then
+    if cb < ca then return (Ch.refuse_keeps(fa, fb)) end
+    return not (Ch.refuse_keeps(fb, fa))
+  end
+  if fa ~= fb then return fb > fa end
   return Ch.field_drills(b) > Ch.field_drills(a)
 end
 

@@ -704,12 +704,21 @@ section("9. ordre des cotes du reseau du charbon (revue-fonderie, 3/11)")
 ---------------------------------------------------------------------------------------------------
 do
   -- règle pure du choix
-  local function fake(chests, drills)
+  local function fake(chests, drills, fours)
     local ents = {}
     for _ = 1, chests do ents[#ents + 1] = { kind = "coffre", role = "combustible" } end
     for _ = 1, drills do ents[#ents + 1] = { kind = "foreuse" } end
+    for _ = 1, fours or 0 do ents[#ents + 1] = { kind = "four" } end
     return { ents = ents }
   end
+  -- lot FONDERIE-BOUT (banc default 20 min, graine 2507543475 : la fonderie de fer d'azur passait de 58 fours à 10, l'autre ordre gardé
+  -- pour son coffre de tête en moins) : le plan sans coffre ne gagne que s'il garde la part des fours que le refus exige (Ch.refuse_keeps)
+  check(not Ch.better_order(fake(1, 35, 58), fake(0, 35, 10)) and Ch.better_order(fake(0, 35, 10), fake(1, 35, 58)),
+    "moins de coffres, mais 10 fours contre 58 : le plan aux 58 fours")
+  check(Ch.better_order(fake(1, 35, 20), fake(0, 35, 12)) and not Ch.better_order(fake(0, 35, 12), fake(1, 35, 20)),
+    "moins de coffres et 12 fours sur 20 (au moins la moitié) : le plan sans coffre")
+  check(Ch.better_order(fake(0, 35, 20), fake(0, 35, 21)) and not Ch.better_order(fake(0, 35, 21), fake(0, 34, 20)),
+    "à coffres égaux, plus de fours d'abord")
   check(Ch.better_order(fake(4, 38), fake(0, 33)) and not Ch.better_order(fake(0, 33), fake(4, 38)), "moins de coffres de tete d'abord (0 contre 4, meme avec moins de foreuses)")
   check(Ch.better_order(fake(0, 30), fake(0, 31)) and not Ch.better_order(fake(0, 31), fake(0, 31)), "a coffres egaux, plus de foreuses ; egalite : l'ordre habituel")
   check(Ch.better_order(nil, fake(0, 1)) and not Ch.better_order(fake(0, 1), nil), "plan absent")
