@@ -248,6 +248,12 @@ local PLAN_API = {
   wood_of = function() return {} end, free_spot = function(b, masks, x, y) return x, y end,
   add_obstacle = function(p, o) p.obstacles[#p.obstacles + 1] = o end, item_of = function(name) return name end,
   seg_passable = function() return function() return true end end, REACH = 10,
+  -- lot COLONNES : le tracé des lignes de rapatriement et de liaison (règle pure Tv.route), souterrains de portée 5, sans gisement
+  trav = { route = function(f, surface, p, s, t, td, bounds, cost, o)
+    local tiles, info = require("shared.team.traversee").route(s, t, td, bounds, cost, { maxd = 5, sd = o.sd, weight = o.weight, max = o.max, no_detour = o.no_detour })
+    if not tiles then return nil, info end
+    return tiles, info, { ug = "UG", maxd = 5 }
+  end },
 }
 game.tick = game.tick + 1
 local ok_plan, why_plan = Piquage.plan(PLAN_API, FACTION, SURF, P2)
@@ -285,17 +291,19 @@ do
   dock.linked = (({})[key] ~= nil) or (b_sim.piquage ~= nil and b_sim.piquage.links["7:q9"] ~= nil)
   check(dock.linked == false and #Li.pairs({ dock }, { src }) == 1, "3.0 ter un quai non piqué reste apparié")
 end
--- COÛT BORNÉ : Trav.route n'est jamais appelé (jusqu'à 5 recherches avec un gisement sur le tracé), une seule recherche par appel et par tick
+-- COÛT BORNÉ : une seule recherche par appel et par tick, sans gisement ni détour (lot COLONNES : le tracé de Trav.route, souterrains compris)
 do
   local called = 0
   local api2 = {}
   for k, v in pairs(PLAN_API) do api2[k] = v end
-  api2.trav = { route = function() called = called + 1 return nil, "x" end, entities = function() return {} end }
+  local seen_o
+  api2.trav = { route = function(f, surface, p, s, t, td, bounds, cost, o) called = called + 1; seen_o = o return PLAN_API.trav.route(f, surface, p, s, t, td, bounds, cost, o) end }
   P2.abandoned = true -- (le projet 2 planifié plus haut ne doit pas compter comme tapis voisin dans ce second plan)
   game.tick = game.tick + 1
   local p4 = { id = 11, spec = REQ[1].spec, ents = {}, parts = {}, obstacles = {} }
   local ok4, w4 = Piquage.plan(api2, FACTION, SURF, p4)
-  check(ok4 == true and called == 0, "3.7 le plan réussit sans appeler Trav.route (appels : " .. called .. ")" .. (ok4 and "" or (" : " .. tostring(w4))))
+  check(ok4 == true and called == 1 and seen_o and seen_o.no_ore and seen_o.no_detour and seen_o.max == Piquage.ROUTE_NODES,
+    "3.7 le plan réussit en UNE recherche de Trav.route, sans gisement ni détour, noeuds plafonnés (appels : " .. called .. ")" .. (ok4 and "" or (" : " .. tostring(w4))))
   local p5 = { id = 12, spec = REQ[1].spec, ents = {}, parts = {}, obstacles = {} }
   local ok5, w5, wait5 = Piquage.plan(api2, FACTION, SURF, p5) -- même tick : pas de seconde recherche
   check(ok5 == false and wait5 == "calcul" and tostring(w5):find("une recherche de branche par tick", 1, true),
@@ -409,11 +417,11 @@ WALL_API.read_masks = function()
   for y = -80, 80 do blocked[P.tkey(40, y)] = true end -- un mur sans passage entre le tapis source et le quai : la recherche explore tout ce qu'elle peut
   return { water = {}, blocked = blocked, clear = {} }
 end
--- instructions du seul A* (P.belt_route enveloppé) : le reste du plan dépend du moteur fictif de ce test, pas du mod
+-- instructions du seul A* (le tracé de l'API enveloppé) : le reste du plan dépend du moteur fictif de ce test, pas du mod
 local function instructions(mod, api, p)
   local n = 0
-  local real = P.belt_route
-  P.belt_route = function(...)
+  local real = api.trav.route
+  api.trav.route = function(...)
     local m = 0
     debug.sethook(function() m = m + 1000 end, "", 1000)
     local a, b = real(...)
@@ -423,7 +431,7 @@ local function instructions(mod, api, p)
   end
   game.tick = game.tick + 1
   local ok, why = mod.plan(api, FACTION, SURF, p)
-  P.belt_route = real
+  api.trav.route = real
   return n, ok, why
 end
 do

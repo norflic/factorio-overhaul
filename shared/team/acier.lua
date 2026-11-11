@@ -1,6 +1,9 @@
 --[[
   Lot ACIER (directive du DC, 8/11, 17 h 20) : REGLE PURE (aucune API Factorio, aucun nom d'objet écrit : l'acier est le produit de fonte
   dont l'ENTREE est elle-même un produit de fonte, lu dans T.smelter_inputs).
+  Lot COLONNES (chantier 6 du DC, 11/11) : la même règle sert CHAQUE produit d'une colonne dédiée (Ac.items) : tout produit de fonte dont
+  l'entrée n'est pas le minerai d'un avant-poste à four (la colonne du champ le fond sur place) : l'acier (entrée : une plaque) et les
+  briques (entrée : un minerai que l'avant-poste met en coffre). Chaque produit a son bloc, sa demande et sa transition.
 
   Constat : l'acier se faisait par les tournées « smelt » des PNJ (fours du QG chargés à la main de plaques) ; sans PNJ libre pour le trajet,
   la production tombait à zéro. Solution : un bloc « fonderie d'acier » = une rangée DYNAMIQUE de fours (gabarit G.simple avec un four,
@@ -18,6 +21,7 @@
 ]]
 
 local T = require("shared.team.config")
+local M = require("shared.team.modules")
 
 local Ac = {}
 
@@ -32,18 +36,21 @@ Ac.OFF = 0.5            -- reprise sous la moitié du seuil
 Ac.HOLD = 3 * 3600      -- ticks : une décision de coupure ne s'inverse pas avant (bruit de la mesure à la minute)
 Ac.RETRY = 3 * 3600     -- ticks : après un refus, on ne redemande pas avant
 
---- Produit de l'acier : le produit de fonte dont l'entrée est elle-même un produit de fonte (T.smelter_inputs), ou nil.
-function Ac.item()
-  local ks = {}
-  for k in pairs(T.smelter_inputs) do ks[#ks + 1] = k end
+--- Produits des colonnes dédiées, triés : chaque produit de `inputs` (produit -> { entrée, quantité }) dont l'entrée n'est pas la ressource
+--- d'un avant-poste de `outposts` dont le récepteur est un four (is_furnace(nom)). Défaut : T.smelter_inputs, T.outposts, M.BASE.
+function Ac.items(inputs, outposts, is_furnace)
+  inputs, outposts = inputs or T.smelter_inputs, outposts or T.outposts
+  is_furnace = is_furnace or function(n) return (M.BASE[n] or {}).kind == "furnace" end
+  local fielded, ks, out = {}, {}, {}
+  for k in pairs(outposts) do ks[#ks + 1] = k end
+  for _, k in ipairs(ks) do if is_furnace(outposts[k].sink) then fielded[outposts[k].resource] = true end end
+  ks = {}
+  for k in pairs(inputs) do ks[#ks + 1] = k end
   table.sort(ks)
-  for _, k in ipairs(ks) do
-    local inp = T.smelter_inputs[k]
-    if inp and T.smelter_inputs[inp[1]] then return k end
-  end
-  return nil
+  for _, k in ipairs(ks) do if inputs[k] and not fielded[inputs[k][1]] then out[#out + 1] = k end end
+  return out
 end
-Ac.ITEM = Ac.item()
+Ac.ITEMS = Ac.items()
 
 local function num(x)
   if type(x) ~= "number" or x ~= x then return 0 end
@@ -103,9 +110,9 @@ function Ac.decide_cut(prev, a)
   return false, "debit mesure sous le seuil"
 end
 
---- Ligne de journal [FO-ACIER] (une par changement).
-function Ac.line(who, text, minutes)
-  return string.format("[FO-ACIER] %s : %s a %.1f min", tostring(who), tostring(text), minutes or 0)
+--- Ligne de journal [FO-ACIER] (une par changement), avec le produit de la colonne.
+function Ac.line(who, text, minutes, item)
+  return string.format("[FO-ACIER] %s : %s%s a %.1f min", tostring(who), item and ("colonne " .. item .. " : ") or "", tostring(text), minutes or 0)
 end
 
 return Ac
