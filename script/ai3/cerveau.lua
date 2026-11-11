@@ -800,7 +800,7 @@ function Ia3.plan_a(f, view, book, surface, tick)
   local t = f.team
   local st = t.ia3
   Profiler.start("ia3:research")
-  local w = B.weights(f.chef and f.chef.mix, f.traits)
+  local w = B.weights(f.chef and f.chef.mix, f.traits, (view and view.threatened) or false) -- FIX-P3 : menace
   -- Lot IA-G : gisements relus AVANT la recherche (le cerveau général en a besoin dès la première pensée).
   Profiler.fstart("ia3:reach")
   local harvest = Harvest.arbres_on(f) and harvest_items(book) or {} -- lot KIT : les factions ; lot ELECTRIQUE (d) : votre équipe aussi (Harvest.PLAYER_WOOD)
