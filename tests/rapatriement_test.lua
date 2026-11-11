@@ -182,13 +182,13 @@ local function suite(Rp, quiet)
   check(far and near(far.covered, 1.0) and far.consumers == 2, "6.3 deux quais a portee : le tampon n'en sert qu'un (liaison ordinaire), covered = le plus gros (1,0), pas la somme (2,0)")
   check(far and far.d_src == 140 and far.d_tam == 30 and far.span == 110, "6.4 distances source -> QG, tampon -> QG et source -> tampon")
   check(cands[1].net >= cands[2].net, "6.5 tri par economie decroissante")
-  local with_reuse = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, docks, H, { tampons = { { x = 26, y = 12, item = "A", lines = 1 } } })
-  check(with_reuse[1].reuse ~= nil and with_reuse[1].point.x == 26 and with_reuse[1].point.y == 12, "6.6 un tampon voisin du meme objet est reutilise")
-  local no_reuse_item = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, docks, H, { tampons = { { x = 26, y = 12, item = "B", lines = 1 } } })
+  local with_reuse = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, {}, H, { tampons = { { x = 6, y = 2, item = "A", lines = 1 } } })
+  check(with_reuse[1].reuse ~= nil and with_reuse[1].point.x == 6 and with_reuse[1].point.y == 2, "6.6 un tampon voisin du meme objet est reutilise")
+  local no_reuse_item = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, {}, H, { tampons = { { x = 6, y = 2, item = "B", lines = 1 } } })
   check(no_reuse_item[1].reuse == nil, "6.7 un tampon d'un autre objet n'est pas reutilise")
-  local no_reuse_full = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, docks, H, { tampons = { { x = 26, y = 12, item = "A", lines = Rp.REUSE_MAX } } })
+  local no_reuse_full = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, {}, H, { tampons = { { x = 6, y = 2, item = "A", lines = Rp.REUSE_MAX } } })
   check(no_reuse_full[1].reuse == nil, "6.8 un tampon deja alimente par Rp.REUSE_MAX lignes n'est pas reutilise")
-  local no_reuse_far = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, docks, H, { tampons = { { x = 60, y = 50, item = "A", lines = 1 } } })
+  local no_reuse_far = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, {}, H, { tampons = { { x = 60, y = 50, item = "A", lines = 1 } } })
   check(no_reuse_far[1].reuse == nil, "6.9 un tampon trop loin du point voulu n'est pas reutilise")
   local no_docks = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, {}, H)
   check(#no_docks == 1 and no_docks[1].point.x == 0 and no_docks[1].point.y == 0 and no_docks[1].covered == 0, "6.10 aucun quai : le tampon est au QG")
@@ -214,6 +214,21 @@ local function suite(Rp, quiet)
   check(sat_dock[1].ok == true, "6.16 objet sature au QG mais des quais le consomment : la ligne reste possible")
   local unsat = Rp.candidates({ { key = "u", pid = 1, idx = 1, x = 120, y = 20, item = "A", rate = 0.8, nature = "mesure", saturated = false } }, {}, H)
   check(unsat[1].why ~= Rp.WHY_SATURATED, "6.17 objet non sature : la cause n'est pas la saturation")
+  -- lot BUS-SORTIE (partie du DC 0.7.3) : le quai consommateur au point voulu EST l'arrivee de la ligne (le dernier bras y depose) ; un tampon pose a cote
+  -- (3:o6 -> tampon (-63, 13) -> liaison de 12 tuiles -> quai 8:q1 (-58, 13)) empilait un second relais coffre -> bras -> tapis -> bras -> coffre
+  local q1 = dock("q1", 20, 10, "A", 1.0)
+  local direct = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, { q1 }, H)
+  check(direct[1].reuse == q1 and direct[1].point.x == 20 and direct[1].point.y == 10, "6.18 un seul quai : la ligne arrive dans le quai, aucun tampon pose")
+  local qa, qb = dock("qa", 20, 14, "A", 1.0), dock("qb", 24, 10, "A", 1.0) -- point voulu (20, 10), a 4 tuiles de chaque quai
+  local over_tam = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, { qa, qb }, H, { tampons = { { x = 21, y = 10, item = "A", lines = 1 } } })
+  check(over_tam[1].reuse == qa or over_tam[1].reuse == qb, "6.19 un tampon voisin ne s'intercale pas entre la ligne et le quai")
+  local q2 = dock("q2", 24, 12, "A", 1.0)
+  local nearest = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, { q1, q2 }, H)
+  check(nearest[1].reuse == q1, "6.20 deux quais : la ligne arrive dans le plus proche du point voulu")
+  local far_q = Rp.candidates({ src("s-far", 200, 20, "A", 0.8) }, { dock("dz", 400, 400, "A", 1.0) }, H)
+  check(far_q[1].reuse == nil, "6.21 quai loin du point ramene pres du QG : tampon ordinaire")
+  local served_q = Rp.candidates({ src("s-far", 120, 20, "A", 0.8) }, { dock("qs", 20, 10, "A", 1.0, true) }, H)
+  check(served_q[1].reuse == nil, "6.22 un quai deja servi n'est pas l'arrivee")
 
   -- lot CC-ROUTE (F518, A6) : le QG est donné par sa POSITION (centre d'entité, x,5 pour un coffre 1 x 1) ; le tampon et les bouts du tapis sont des TUILES.
   -- Partie du DC (graine 1618033988, banc CC-ROUTE-SONDE) : les 5 lignes du joueur visaient le bout (-3,5 ; 4,5) et cherchaient 2 000 appels et plus sans fin.
@@ -552,6 +567,10 @@ local mutants = {
   { "candidats : une sortie liee est reprise", "if s.item and not s.linked and", "if s.item and" },
   { "candidats : un quai deja servi est consommateur", "if d.item and not d.served and", "if d.item and" },
   { "candidats : le debit minimal est oublie", "(s.rate or 0) >= Rp.MIN_RATE and d_src", "true and d_src" },
+  { "bus-sortie : le quai n'est plus l'arrivee", "then reuse = d end", "then end" },
+  { "bus-sortie : le tampon passe avant le quai", "if not reuse then for _, t in ipairs(o.tampons or {}) do", "if true then for _, t in ipairs(o.tampons or {}) do" },
+  { "bus-sortie : le quai le plus loin", "manhattan(d.x, d.y, px, py) < manhattan(reuse.x, reuse.y, px, py)", "manhattan(d.x, d.y, px, py) > manhattan(reuse.x, reuse.y, px, py)" },
+  { "bus-sortie : quai a toute distance", "if manhattan(d.x, d.y, px, py) <= Rp.REUSE_R and", "if true and" },
   { "candidats : le QG reste au centre d'entite (demi-tuile)", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = hub.x, y = hub.y }" },
   { "candidats : seul x est ramene a la tuile", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = floor(hub.x), y = hub.y }" },
   { "candidats : seul y est ramene a la tuile", "hub = { x = floor(hub.x), y = floor(hub.y) }", "hub = { x = hub.x, y = floor(hub.y) }" },
