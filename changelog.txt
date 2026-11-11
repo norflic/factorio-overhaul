@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.99
+Date: 2026-11-11
+  Graphics:
+    - Léviathan (F535) : la tête blindée massive à gueule d'impulsion est en jeu, et les segments et la queue des trois stades sont tous redessinés (480 vues rendues en 3D, 58,8 Mpx).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.98
 Date: 2026-11-11
   Bugfixes:
