@@ -35,8 +35,9 @@ function M.item_prototypes(recipes)
   local out = {}
   local function add(n)
     if not out[n] then
+      -- Lot TESTS-VERTS : catégorie de combustible (LuaItemPrototype.fuel_category), lue par script/team/plafond_charbon.lua (F546).
       out[n] = { name = n, type = ITEM_TYPE[n] or "item", fuel_value = FUEL_VALUE[n] or 0,
-        localised_name = { "item-name." .. n } }
+        fuel_category = FUEL_VALUE[n] and "chemical" or nil, localised_name = { "item-name." .. n } }
     end
   end
   local names = {}
@@ -132,6 +133,13 @@ local function new_force(name)
   end
   f._friends = {}
   f.set_friend = function(other, v) f._friends[type(other) == "string" and other or other.name] = v end
+  -- Lot TESTS-VERTS : LuaForce.is_enemy (lue par script/ai3/menace.lua, FIX-P5) : ni elle-même, ni « neutral », ni amie, ni en
+  -- cessez-le-feu (comme le moteur : toujours faux pour la force neutre).
+  f.is_enemy = function(other)
+    local n = type(other) == "string" and other or other.name
+    if n == name or n == "neutral" or name == "neutral" then return false end
+    return not (f._friends[n] or f._cease[n])
+  end
   f._tags = {}
   f.add_chart_tag = function(surface, tag)
     assert(surface and tag and tag.position, "add_chart_tag : arguments")
@@ -1031,10 +1039,10 @@ function M.new_world(opts)
     -- Lot IA-G : objet qui pose, source d'énergie, catégories (relevé du cerveau général, comme le moteur).
     ["burner-mining-drill"] = { type = "mining-drill", max_health = 150, collision_box = box(-0.7, -0.7, 0.7, 0.7),
       collision_mask = MASK_BUILDING, items_to_place_this = { { name = "burner-mining-drill", count = 1 } },
-      resource_categories = { ["basic-solid"] = true }, burner_prototype = { effectivity = 1 }, mining_speed = 0.25 },
+      resource_categories = { ["basic-solid"] = true }, burner_prototype = { effectivity = 1, fuel_categories = { chemical = true } }, mining_speed = 0.25 },
     ["stone-furnace"] = { type = "furnace", max_health = 200, collision_box = box(-0.7, -0.7, 0.7, 0.7),
       collision_mask = MASK_BUILDING, items_to_place_this = { { name = "stone-furnace", count = 1 } },
-      crafting_categories = { smelting = true }, burner_prototype = { effectivity = 1 }, crafting_speed = 1 },
+      crafting_categories = { smelting = true }, burner_prototype = { effectivity = 1, fuel_categories = { chemical = true } }, crafting_speed = 1 },
     ["iron-chest"] = { type = "container", max_health = 200, collision_box = box(-0.35, -0.35, 0.35, 0.35),
       collision_mask = MASK_BUILDING, items_to_place_this = { { name = "iron-chest", count = 1 } } },
     ["fo-team-chest"] = { type = "container", max_health = 800, collision_box = box(-0.35, -0.35, 0.35, 0.35),
