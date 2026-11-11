@@ -4,6 +4,9 @@ Date: 2026-11-11
   Graphics:
     - Icônes (F505) : la tôle magnétique, les billettes de fer, de cuivre et de tungstène et la plaque de titane ne copient plus la plaque d'acier teintée ; chacune a sa silhouette rendue en 3D : tôles feuilletées à liserés cyan, lingots moulés gris acier et cuivre orangé, barreau carré sombre fretté, plaques hexagonales polies.
     - Léviathan (F513) : le titan serpentin n'est plus une image rigide ; sa tête est suivie de quatre segments et d'une queue qui épousent sa trajectoire dans les virages (16 directions, rotules aux joints, ondulation), et sa tête regarde où elle va.
+    - Titans (F506) : le Juggernaut, la Sentinelle et le Ravageur sont dessinés en 16 directions (8 avant) ; blindage plus sombre et iridescent, conduits et anneaux cyan plus lumineux ; poids des feuilles en haute qualité ramené sous 80 Mpx par titan.
+  Bugfixes:
+    - Titans (F507) : un titan allié qui marche se tourne dans la direction de sa marche ; avant, son corps restait tourné vers le nord et glissait sur la carte.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10
