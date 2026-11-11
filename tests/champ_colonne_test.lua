@@ -779,8 +779,10 @@ do
   local pp2 = Ch.plan(player())
   local voies = 0
   for _, cs in ipairs(pp2 and pp2.stats.coal or {}) do if cs.voie then voies = voies + 1 end end
-  check(pp2 and Ch.head_chests(pp2) == 0 and voies == 2 and not (pp2.refused and #pp2.refused > 0) and Ch.field_drills(pp2) == 63,
-    string.format("joueur 271828182 : charbon par tapis des deux cotes, 0 coffre de tete, 63 foreuses (%s, %d voie(s))", tostring(pp2 and Ch.head_chests(pp2)), voies))
+  check(pp2 and Ch.head_chests(pp2) == 0 and voies == 2 and not (pp2.refused and #pp2.refused > 0) and Ch.field_drills(pp2) == 66,
+    -- F555 : 66 (63 avant : le second bout prend tout le reste, le premier les foreuses que le second ne joint pas)
+    string.format("joueur 271828182 : charbon par tapis des deux cotes, 0 coffre de tete, 66 foreuses (%s, %d voie(s), %d)", tostring(pp2 and Ch.head_chests(pp2)), voies,
+      pp2 and Ch.field_drills(pp2) or -1))
   local r2 = pp2 and Cv.verify(pp2, player())
   check(r2 and r2.no_coal == 0 and r2.no_ore == 0 and r2.no_plate == 0, "joueur : chaque four a minerai et charbon (" .. (r2 and Cv.line(r2) or "?") .. ")")
   -- mutant : sans la préférence pour une sortie ouverte (Co.coal_line d'origine), les 5 coffres de tête reviennent
@@ -815,6 +817,45 @@ do
   -- déterminisme du diagnostic
   local p10b = Ch.plan(spec_of(ore10, { blocked = wall10 }))
   check(p10b.stats.no_smelter_at.x == at.x and p10b.stats.no_smelter_at.y == at.y, "diagnostic déterministe")
+end
+
+---------------------------------------------------------------------------------------------------
+section("11. F555 : la boite d'extraction couvre le minerai, la fonderie se dimensionne a part (DC, partie 0.7.3)")
+---------------------------------------------------------------------------------------------------
+do
+  -- partie du DC en 0.7.3 : « 2 foreuses sur toute la largeur d'un gisement géant » ; maillon : take_group bornait chaque groupe au
+  -- débit d'une colonne de fours (max_side par côté, une voie du tapis pour la colonne à combustible) et la bande n'a que deux bouts : le
+  -- milieu d'un gisement large restait nu (156 foreuses posées sur 527 possibles ici)
+  local Fd = require("shared.team.champ_fonderie")
+  local wide = {}
+  for x = 0, 149 do for y = 0, 39 do wide[#wide + 1] = x; wide[#wide + 1] = y end end
+  local spw = spec_of(wide, { coal = disc(-60, 20, 10), belts = { { lane = 7.5 } } })
+  local pw = Ch.plan(spw)
+  local possible = pw and pw.stats.band_drills or 0
+  check(pw ~= nil and possible > 0 and pw.stats.capped == 0 and Ch.field_drills(pw) == possible,
+    string.format("F555 : gisement de 150 x 40, toutes les foreuses des rangees posees (%d sur %d)", pw and Ch.field_drills(pw) or -1, possible))
+  -- les fours : dimensionnés sur ce que le tapis livre (une voie jaune, le charbon sur l'autre), jamais sur le nombre de foreuses
+  local cap24, ok_f, groups = Fd.furnaces_for(7.5, spw.furnace.rate), true, 0
+  for _, bd in ipairs(pw and pw.bands or {}) do for _, g in ipairs(bd.groups) do
+    groups = groups + 1
+    if g.count ~= Fd.count(spw, math.min(g.drills * spw.drill.rate, 7.5)) or g.count > cap24 then ok_f = false end
+  end end
+  check(groups > 0 and ok_f, "F555 : fours de chaque groupe = debit livre par le tapis (" .. cap24 .. " au plus a la voie jaune)")
+  -- aucun four, coffre ou bras de la fonderie sur le minerai (F500)
+  local ore_set, on_ore = {}, 0
+  for i = 1, #wide - 1, 2 do ore_set[Ch.key(wide[i], wide[i + 1])] = true end
+  for _, e in ipairs(pw and pw.ents or {}) do
+    if e.kind == "four" and ore_set[Ch.key(math.floor(e.x - e.size / 2), math.floor(e.y - e.size / 2))] then on_ore = on_ore + 1 end
+  end
+  check(on_ore == 0, "F555 : aucun four sur le minerai (" .. on_ore .. ")")
+  -- un mur en travers des tapis près du second bout (ligne posée, x = 6) : le second bout ne joint que les foreuses d'avant le mur ; le
+  -- premier prend TOUTES celles d'après, au-delà de son partage habituel
+  local wall6 = {}
+  for y = -20, 60 do wall6[Ch.key(6, y)] = true end
+  local spm = spec_of(wide, { coal = disc(-60, 20, 10), belts = { { lane = 7.5 } }, blocked = wall6 })
+  local pm = Ch.plan(spm)
+  check(pm ~= nil and pm.stats.band_drills > 0 and pm.stats.capped == 0,
+    string.format("F555 : mur en travers des tapis, aucune foreuse ecartee (%d sur %d)", pm and Ch.field_drills(pm) or -1, pm and pm.stats.band_drills or 0))
 end
 
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))

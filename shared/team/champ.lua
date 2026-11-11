@@ -29,7 +29,7 @@
     belts    { { lane = objets/s }, ... } du plus lent au plus rapide
     furnace  { size, rate, fuel } ou nil (coffres) ; inserter { rate } (mode coffres)
     target   { x, y }   site de fonderie (QG) : bout de sortie
-    max_side foreuses par côté et par groupe au plus (nil : la voie la plus rapide)
+    max_side foreuses par côté que le premier bout d'une bande prend (nil : la voie la plus rapide) ; le second bout prend le reste
     frame    cadre figé d'un plan précédent (plan.frame) : mêmes axe, phase, sortie, bords, décalages ; only = { [pr] = true } : ces
              bandes seulement (avec frame)
   plan = { axis, exit, frame, ents = { { kind, x, y, size, dir, band, group, pr, role, belt, module } }, bands, stats }
@@ -67,6 +67,13 @@ Ch.CFG = {
 function Ch.key(x, y) return (x + 50000) * 100000 + (y + 50000) end
 Ch.BRIDGE_TRIES = 24 -- (lot FONDERIE) paires de poteaux essayées pour relier deux réseaux (bridge)
 Ch.furnaces_for = Fd.furnaces_for
+
+--- F555 : débit (objets/s) qu'un tapis de voie `lane` livre à la fonderie d'un groupe de n + s foreuses à `rate` : tout sur une voie
+--- (colonne à combustible : l'autre voie porte le charbon), sinon une voie par côté. Les fours se dimensionnent sur ce débit.
+function Ch.delivered(n, s, rate, lane, one_lane)
+  if one_lane then return math.min((n + s) * rate, lane) end
+  return math.min(n * rate, lane) + math.min(s * rate, lane)
+end
 
 --- Foreuses par côté qu'une voie porte.
 function Ch.lane_drills(lane, rate)
@@ -237,9 +244,12 @@ local function bands_for(c, spec, phase, box, origin, frame)
   return bands, total
 end
 
---- Groupe d'une bande du côté `side` : foreuses prises depuis le bord, au plus `cap` par côté, tant que le tapis est libre jusqu'au
---- bord et (second groupe) en deçà de la coupe `limit` du premier. Rend { n, s, cut } (cut : centre de la foreuse la plus loin).
-local function take_group(c, spec, band, side, cap, edge, used, limit, total)
+--- Groupe d'une bande du côté `side` : foreuses prises depuis le bord tant que le tapis est libre jusqu'au bord et en deçà de la coupe
+--- `limit`. Rend { n, s, cut } (cut : centre de la foreuse la plus loin).
+--- F555 (DC, partie 0.7.3 : « 2 foreuses sur toute la largeur d'un gisement géant ») : le NOMBRE de foreuses ne dépend que du minerai
+--- couvert (la boîte d'extraction) ; aucun plafond tiré de la fonderie (`side`, voie du charbon) : les fours se dimensionnent à part,
+--- sur le débit que le tapis livre (Ch.delivered).
+local function take_group(c, spec, band, side, edge, used, limit)
   local half = math.floor(spec.drill.size / 2)
   local all = {}
   for _, a in ipairs(band.n) do if not used[a .. "n"] then all[#all + 1] = { a = a, cu = a + half, side = "n" } end end
@@ -261,19 +271,10 @@ local function take_group(c, spec, band, side, cap, edge, used, limit, total)
   end
   local g, cnt = { n = {}, s = {} }, { n = 0, s = 0 }
   for i, it in ipairs(all) do
-    -- (lot FONDERIE) `total` : foreuses du groupe au plus, deux côtés compris (la colonne charge tout le minerai sur une voie)
-    if (stop and beyond(it.cu, stop)) or cnt[it.side] >= cap or (total and cnt.n + cnt.s >= total) then break end
+    if stop and beyond(it.cu, stop) then break end
     cnt[it.side] = cnt[it.side] + 1
     g[it.side][#g[it.side] + 1] = it.a
     g.cut = it.cu
-    -- l'autre côté au même centre ne passe plus : la coupe recule (deux tapis ne partagent jamais une tuile)
-    local nx = all[i + 1]
-    if nx and nx.cu == it.cu and (cnt[nx.side] >= cap or (total and cnt.n + cnt.s >= total)) then
-      g[it.side][#g[it.side]] = nil
-      g.cut = nil
-      for j = i - 1, 1, -1 do if all[j].cu ~= it.cu then g.cut = all[j].cu break end end
-      break
-    end
   end
   if #g.n + #g.s == 0 or not g.cut then return nil end
   return g
@@ -569,13 +570,14 @@ local function plan_once(spec)
     local tu = c.uv(spec.target.x, spec.target.y)
     if math.abs(tu - umin) < math.abs(tu - umax) then exit = -1 end
   end
-  local cap = Ch.lane_drills(spec.belts[#spec.belts].lane, d.rate)
+  local lane = spec.belts[#spec.belts].lane
+  local cap = Ch.lane_drills(lane, d.rate)
   if spec.max_side then cap = math.min(cap, spec.max_side) end
   if cap < 1 then return nil, "tapis trop lent pour une foreuse" end
-  -- lot FONDERIE : avec du combustible, la tête charge tout le minerai sur UNE voie (l'autre porte le charbon) : le groupe entier tient
-  -- dans une voie du tapis le plus rapide
+  -- lot FONDERIE : avec du combustible, la tête charge tout le minerai sur UNE voie (l'autre porte le charbon)
   local fuelled = colonne and spec.furnace.fuel
-  local total = fuelled and Ch.lane_drills(spec.belts[#spec.belts].lane, d.rate) or nil
+  -- F555 : foreuses que le PREMIER bout d'une bande prend (partage entre les deux bouts, jamais un plafond de la bande)
+  local first_k = fuelled and math.min(2 * cap, Ch.lane_drills(lane, d.rate)) or 2 * cap
   local ents, out_bands = {}, {}
   local capped, flow_all, cap_all, no_smelter = 0, 0, 0, 0
   local no_smelter_at -- 9/11 : première tuile prise qui empêche la colonne de fonderie d'un groupe (diagnostic du refus « sans place de fonderie »)
@@ -600,12 +602,27 @@ local function plan_once(spec)
   local pending = {} -- (lot FONDERIE) colonnes posées, émises après le choix de leur charbon
   for bi, bd in ipairs(bands) do
     offsets[tostring(bd.pr)] = { bd.on, bd.os }
-    local used, groups, limit = {}, {}, nil
+    local used, groups = {}, {}
+    -- F555 : le premier bout prend `first_k` foreuses (les plus près de son bord), le second bout TOUT le reste, sans plafond ; premier
+    -- groupe sans fonderie : le second prend toute la bande
+    local cus = {}
+    for _, l in ipairs({ bd.n, bd.s }) do for _, a in ipairs(l) do cus[#cus + 1] = a + math.floor(d.size / 2) end end
+    table.sort(cus)
+    local k = first_k
+    local limit = nil
+    if Ch.CFG.both_ends and #cus > k then
+      -- les foreuses que le second bout ne joint pas (son tapis barré avant elles) restent au premier
+      local far = exit > 0 and umin or umax
+      local u2 = far
+      while u2 >= umin and u2 <= umax and c.free(u2, bd.b) do u2 = u2 + exit end
+      if exit > 0 then limit = math.min(cus[#cus - k], u2 - 1) else limit = math.max(cus[k + 1], u2 + 1) end
+    end
     for _, side in ipairs(Ch.CFG.both_ends and { exit, -exit } or { exit }) do
       local edge = side > 0 and umax or umin
-      local g = take_group(c, spec, bd, side, cap, edge, used, limit, total)
+      local g = take_group(c, spec, bd, side, edge, used, limit)
+      limit = nil
       if g then
-        local flow = (#g.n + #g.s) * d.rate
+        local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
         local list, len, s_edge, count, info
         if colonne then
           local fixed = F and F.cols and F.cols[tostring(bd.pr)] and F.cols[tostring(bd.pr)][tostring(side)]
