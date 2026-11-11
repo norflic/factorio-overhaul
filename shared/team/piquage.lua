@@ -302,8 +302,21 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 6. Décision et suivi
 ---------------------------------------------------------------------------------------------------
---- Même décision que la liaison (confirmation, essais bornés, menace, ennemi, plafond d'ouvertes) : Li.decide, tel quel.
-function Pq.decide(inp) return Li.decide(inp) end
+--- Décision du piquage (confirmation, essais bornés, prix, menace, ennemi, plafond d'ouvertes) : l'ancienne Li.decide, la liaison de quai n'en a plus l'usage.
+function Pq.decide(inp)
+  if inp.open then return "attendre", "liaison deja en cours" end
+  if not inp.worth then return "laisser", "ne se paie pas : " .. tostring(inp.worth_why) end
+  if (inp.seen or 0) < Li.CONFIRM then return "attendre", string.format("a confirmer (%d releve(s) sur %d)", inp.seen or 0, Li.CONFIRM) end
+  if (inp.tries or 0) >= Li.MAX_TRIES and (inp.since_try or 0) < Li.RETRY_AFTER then
+    return "laisser", string.format("%d liaison(s) tentee(s) sans effet (nouvel essai %d min apres le dernier)", inp.tries, Li.RETRY_AFTER / 3600)
+  end
+  if inp.threat then return "attendre", "QG menace : le PNJ reste au QG, la liaison attend" end
+  if (inp.enemies or 0) > 0 then return "attendre", string.format("ennemi a moins de %d tuiles", Li.ENEMY_R) end
+  if (inp.open_total or 0) >= Li.max_open(inp.free) then
+    return "attendre", string.format("%d liaison(s) deja ouverte(s), %d PNJ libre(s)", inp.open_total, inp.free or 0)
+  end
+  return "relier", "quai servi a la main, liaison rentable"
+end
 
 --- Le piquage livre-t-il ? stock_n = objets au coffre du quai, low = Build.QUAI_LOW, branch = objets vus sur le tapis de la branche.
 function Pq.delivers(stock_n, low, branch)

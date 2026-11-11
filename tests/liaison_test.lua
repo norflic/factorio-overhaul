@@ -30,38 +30,7 @@ local A = require("shared.ai3.automatiser")
 check(Li.WALK == A.WALK and Li.HANDLE_S == A.HANDLE_S and Li.POSE_S == A.POSE_S and Li.BATCH == A.BATCH,
   "1.1 marche, prise, pose et lot de chantier comme shared/ai3/automatiser.lua")
 
--- §2 prix
-local function winp(t)
-  local base = { flow = 2.0, dist = 56, span = 28, fill = 400, low = 60 }
-  for k, v in pairs(t or {}) do base[k] = v end
-  return base
-end
-local ok, why, det = Li.worth(winp())
-check(ok == true and det.payback_min > 0 and det.payback_min <= det.tmax, "2.1 gros debit, quai loin : la liaison se paie (" .. why .. ")")
-check(Li.worth(winp({ flow = 0.1 })) == false, "2.2 petit debit : ne se paie pas")
-check(Li.worth(winp({ flow = 0 })) == false and Li.worth(winp({ flow = Li.MIN_FLOW / 2 })) == false, "2.3 debit nul ou sous Li.MIN_FLOW : refuse")
-local _, _, d_near = Li.worth(winp({ dist = 20 }))
-local _, _, d_far = Li.worth(winp({ dist = 120 }))
-check(d_far.payback_min < d_near.payback_min, "2.4 un quai plus loin du QG se paie plus vite (aller-retour plus long)")
-local _, _, d_short = Li.worth(winp({ span = 10 }))
-local _, _, d_long = Li.worth(winp({ span = 38 }))
-check(d_short.payback_min < d_long.payback_min, "2.5 un tapis plus court se paie plus vite")
-local _, _, d_flow1 = Li.worth(winp({ flow = 1 }))
-local _, _, d_flow2 = Li.worth(winp({ flow = 2 }))
-check(math.abs(d_flow1.payback_min / d_flow2.payback_min - 2) < 1e-9, "2.6 retour inversement proportionnel au debit")
-check(Li.worth(winp({ threat = true })) == false or select(3, Li.worth(winp({ threat = true }))).tmax == Li.TMAX / Li.THREAT_DIV,
-  "2.7 menace : retour accepte divise par Li.THREAT_DIV")
-local _, _, d_thr = Li.worth(winp({ threat = true }))
-check(d_thr.tmax == Li.TMAX / Li.THREAT_DIV, "2.8 tmax sous menace")
-local o_cheap = Li.worth(winp({ flow = 1.2, price = { belt = 0.1, arm = 0.1, pole = 0.1 } }))
-local o_dear = Li.worth(winp({ flow = 1.2, price = { belt = 50, arm = 50, pole = 50 } }))
-check(o_cheap == true and o_dear == false, "2.9 le prix des pieces compte")
-local _, _, d_t = Li.worth(winp({ tiles = 20 }))
-local _, _, d_t2 = Li.worth(winp({ tiles = 60 }))
-check(d_t2.cost > d_t.cost and d_t2.build_s > d_t.build_s, "2.10 le tapis reel remplace l'estimation (cout et pose)")
-check(Li.worth(winp({ tmax = 1 })) == false and Li.worth(winp({ tmax = 100000, flow = 0.05 })) == true, "2.11 Tmax passe en argument")
--- le prix du travail est positif meme quand tous les bras sont libres : aucune entree n'est « 0 »
-check(Li.LABOR_VALUE > 0, "2.12 prix du travail toujours positif")
+-- §2 prix : supprimé (11/11, ablation des navettes : toute paire à portée est reliée, sans rentabilité)
 
 -- §3 sites et bouts
 local function open_grid(blocked)
@@ -288,7 +257,6 @@ check(#Li.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 2, Li.MAX_SPAN + 1, 0
 check(#Li.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 2, Li.MAX_SPAN, 0, "X") }) == 1, "6.6 a Li.MAX_SPAN : une paire")
 check(#Li.pairs({ dock("d", 1, 0, 0, "X", 1, true) }, { src("s", 2, 5, 0, "X") }) == 0, "6.7 quai deja relie : rien")
 check(#Li.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 2, 5, 0, "X", true) }) == 0, "6.8 coffre de sortie deja pris : rien")
-check(#Li.pairs({ dock("d", 1, 0, 0, "X", Li.MIN_FLOW / 2) }, { src("s", 2, 5, 0, "X") }) == 0, "6.9 debit sous le minimum : rien")
 local two = Li.pairs({ dock("a", 1, 0, 0, "X", 1), dock("b", 2, 0, 10, "X", 1) }, { src("s", 3, 5, 5, "X") })
 check(#two == 1 and two[1].dock.key == "a", "6.10 une source pour deux quais egaux : le premier par cle, un seul")
 local tie = Li.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s2", 2, 5, 0, "X"), src("s1", 3, 0, 5, "X") })
@@ -302,14 +270,7 @@ local function dinp(t)
   return base
 end
 check(Li.decide(dinp()) == "relier", "7.1 cas nominal : relier")
-check(Li.decide(dinp({ worth = false, worth_why = "retour 99 min" })) == "laisser", "7.2 ne se paie pas : laisser (a la main)")
-local _, why72 = Li.decide(dinp({ worth = false, worth_why = "retour 99 min" }))
-check(why72:find("retour 99") ~= nil, "7.3 la raison du prix est ecrite")
 check(Li.decide(dinp({ open = true })) == "attendre", "7.4 liaison deja en cours : attendre")
-check(Li.decide(dinp({ seen = Li.CONFIRM - 1 })) == "attendre", "7.5 pas confirme : attendre")
-check(Li.decide(dinp({ tries = Li.MAX_TRIES })) == "laisser", "7.6 essais epuises : laisser")
-check(Li.decide(dinp({ tries = Li.MAX_TRIES, since_try = Li.RETRY_AFTER - 1 })) == "laisser", "7.7 dernier essai recent : laisser")
-check(Li.decide(dinp({ tries = Li.MAX_TRIES, since_try = Li.RETRY_AFTER })) == "relier", "7.8 essais epuises depuis Li.RETRY_AFTER : un de plus")
 check(Li.decide(dinp({ enemies = 1 })) == "attendre", "7.9 ennemi : attendre")
 check(Li.decide(dinp({ open_total = 1, free = 0 })) == "attendre", "7.10 une liaison ouverte, aucun PNJ libre : attendre")
 check(Li.decide(dinp({ open_total = 0, free = 0 })) == "relier", "7.10b aucun PNJ libre mais rien d'ouvert : une liaison reste permise")
@@ -318,13 +279,6 @@ check(Li.decide(dinp({ open_total = 5, free = 5 })) == "attendre", "7.10d autant
 check(Li.max_open(0) == 1 and Li.max_open(nil) == 1 and Li.max_open(1) == 1 and Li.max_open(12) == 12, "7.10e Li.max_open : au moins 1, sinon les PNJ libres")
 check(Li.decide(dinp({ threat = true })) == "attendre", "7.11 QG menace : attendre")
 check(Li.decide(dinp({ worth = false, open = true })) == "attendre", "7.12 en cours avant le prix")
-
--- §8 barre
-check(Li.bar(400, 100) == 5, "8.1 400 objets de pile 100 : 4 cases, barre 5")
-check(Li.bar(400, 50) == 9, "8.2 pile 50 : 8 cases, barre 9")
-check(Li.bar(400, 1000) == 2, "8.3 pile enorme : une case, barre 2")
-check(Li.bar(401, 100) == 6, "8.4 arrondi au-dessus")
-check(Li.bar(400, 1) == 401, "8.5 pile de 1 : 400 cases")
 
 -- §9 déterminisme : l'ordre des listes ne change rien
 local function shuffle(list)
@@ -395,20 +349,6 @@ end
 local function mutant_ok(name, from, to, probe)
   mutant(name, from, to, function(Lm) return not probe(Lm) end)
 end
-mutant_ok("debit minimum oublie", "if flow < Li%.MIN_FLOW then", "if false then",
-  function(Lm) return Lm.worth(winp({ flow = Li.MIN_FLOW / 2, tmax = 1e9 })) == false end)
-mutant_ok("retour sans plafond", "if payback > tmax then", "if false then",
-  function(Lm) return Lm.worth(winp({ flow = 0.1 })) == false end)
-mutant("menace sans effet", "if inp%.threat then tmax = tmax / Li%.THREAT_DIV end", "",
-  function(Lm) local _, _, d = Lm.worth(winp({ threat = true })); return d.tmax ~= Li.TMAX / Li.THREAT_DIV end)
-mutant_ok("allers-retours sans marche", "local trip_s = 2 %* %(inp%.dist or 56%) / Li%.WALK %+ Li%.HANDLE_S", "local trip_s = Li.HANDLE_S",
-  function(Lm) local _, _, a = Lm.worth(winp({ dist = 20 })); local _, _, b = Lm.worth(winp({ dist = 120 })); return a.payback_min ~= b.payback_min end)
-mutant("charge portee = pile entiere", "local per_trip = math%.max%(1, %(inp%.fill or 400%) %- %(inp%.low or 60%)%)", "local per_trip = 400",
-  function(Lm) local _, _, a = Lm.worth(winp({ fill = 200, low = 100 })); local _, _, b = Li.worth(winp({ fill = 200, low = 100 })); return a.payback_min ~= b.payback_min end)
-mutant("pose non comptee", "local pay_s = cost / labor %+ build_s", "local pay_s = cost / labor",
-  function(Lm) local _, _, a = Lm.worth(winp()); local _, _, b = Li.worth(winp()); return a.payback_min ~= b.payback_min end)
-mutant("cout des bras oublie", "2 %* price%.arm %+ 2 %* price%.pole", "0",
-  function(Lm) local _, _, a = Lm.worth(winp()); local _, _, b = Li.worth(winp()); return a.cost ~= b.cost end)
 mutant_ok("site sans tuile de tapis", "if free%(ax, ay%) and free%(bx, by%) then", "if free(ax, ay) then",
   function(Lm) return #Lm.sites(10, 10, open_grid({ ["10:8"] = true })) == 3 end)
 mutant_ok("bras sur bras admis", "local clash = %(s%.ax == d%.ax and s%.ay == d%.ay%) or ", "local clash = false and ",
@@ -452,18 +392,12 @@ mutant_ok("plus proche non retenue", "if span <= Li%.MAX_SPAN and %(not bspan or
   function(Lm) return Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s1", 2, 30, 0, "X"), src("s2", 3, 5, 0, "X") })[1].src.key == "s2" end)
 mutant_ok("gros debit non prioritaire", "if %(a%.flow or 0%) ~= %(b%.flow or 0%) then return %(a%.flow or 0%) > %(b%.flow or 0%) end", "",
   function(Lm) return Lm.pairs({ dock("a", 1, 0, 0, "X", 1), dock("b", 2, 0, 10, "X", 5) }, { src("s", 3, 5, 5, "X") })[1].dock.key == "b" end)
-mutant("sans confirmation", "if %(inp%.seen or 0%) < Li%.CONFIRM", "if false",
-  function(Lm) return Lm.decide(dinp({ seen = 0 })) == "relier" end)
-mutant("essais sans plafond", "if %(inp%.tries or 0%) >= Li%.MAX_TRIES", "if false",
-  function(Lm) return Lm.decide(dinp({ tries = 99 })) == "relier" end)
 mutant("ennemi ignore", "if %(inp%.enemies or 0%) > 0", "if false",
   function(Lm) return Lm.decide(dinp({ enemies = 1 })) == "relier" end)
 mutant("menace du QG ignoree", "if inp%.threat then return", "if false then return",
   function(Lm) return Lm.decide(dinp({ threat = true })) == "relier" end)
 mutant("plafond de liaisons ouvertes", "if %(inp%.open_total or 0%) >= Li%.max_open%(inp%.free%)", "if false",
   function(Lm) return Lm.decide(dinp({ open_total = 9 })) == "relier" end)
-mutant("prix ignore", "if not inp%.worth then", "if false then",
-  function(Lm) return Lm.decide(dinp({ worth = false })) == "relier" end)
 mutant("liaison en cours ignoree", "if inp%.open then return", "if false then return",
   function(Lm) return Lm.decide(dinp({ open = true })) == "relier" end)
 mutant_ok("barre sans le un", "return slots %+ 1", "return slots",
@@ -475,141 +409,7 @@ mutant("poteau sur le cote d'abord ignore", "{ site%.ax %+ px, site%.ay %+ py },
 mutant_ok("poteau sur tuile prise", "and not %(taken and taken%[c%[1%] %.%. \":\" %.%. c%[2%]%]%) then", "then",
   function(Lm) return Lm.pole_tile(sites[1], open_grid(), { ["9:9"] = true }) == 11 end)
 
--- §13 lot IA-RUPTURE (partie du DC en 0.6.96, amber, module 8 à 78,2 min) : le compte d'essais est celui de la PAIRE (quai > sortie), pas du
--- quai. Le script (script/team/liaison.lua) est joué hors jeu sur un relevé injecté. Deux essais vers la sortie A (refusés : « aucun chemin »)
--- ne verrouillent plus la sortie B, plus proche et apparue ensuite : le quai 8:q1 était porté à la main 17 min à 16 tuiles de sa sortie 64:o1,
--- reliée ensuite par 9 tapis.
-local SSRC = read("script/team/liaison.lua")
-local LOG13 = {}
-log = function(s) LOG13[#LOG13 + 1] = s end
-settings = { global = {} } -- bus éteint
-game = { tick = 0, item_prototypes = {} }
-defines = defines or { inventory = { chest = 1 } }
-remote = { add_interface = function() end }
-local function skeys(t) local ks = {} for k in pairs(t) do ks[#ks + 1] = k end table.sort(ks) return ks end
-package.loaded["script.faction.state"] = { sorted_keys = skeys, faction = function() return nil end, alive = function() return {} end }
-package.loaded["script.team.convoyeurs"] = { choose = function() return "transport-belt" end, is_belt = function(n) return n == "transport-belt" end,
-  belts = function() return {} end }
-package.loaded["script.ai3.reserve"] = { on = function() return true end }
-package.loaded["script.companion.registry"] = { get = function() return nil end }
-local function load_s(src)
-  local fn, err = load(src, "=script_liaison", "t")
-  assert(fn, err)
-  return fn()
-end
-local SURF13 = { find_nearest_enemy = function() return nil end, count_entities_filtered = function() return 0 end }
---- Un monde : le quai 8:q1 (débit 1,49/s), la sortie A (57:o1) à 20 tuiles, puis la sortie B (64:o1) à 16 tuiles (coordonnées de la partie).
-local function world13(Lx)
-  local mod = { id = 8, state = "fini", spec = { gen = "x", names = { arm = "inserter", pole = "small-electric-pole" } }, parts = { { kind = "module" } },
-    quais = {}, outs = {}, ents = {} }
-  local b = { projects = { [8] = mod, [57] = { id = 57, state = "fini", spec = { gen = "y" }, parts = {}, quais = {}, outs = {}, ents = {} },
-    [64] = { id = 64, state = "fini", spec = { gen = "y" }, parts = {}, quais = {}, outs = {}, ents = {} } }, order = { 8, 57, 64 }, next_id = 70 }
-  local f = { key = "amber", force = "amber", build = b, hq_pos = { x = -317, y = -336 }, engineers = {} }
-  local reqs = {}
-  local api = { prio = 56, fill = 400, low = 60, request = function(_, spec)
-    local id = b.next_id
-    b.next_id = id + 1
-    b.projects[id] = { id = id, spec = spec, state = "attente", parts = {}, ents = {}, quais = {}, outs = {} }
-    b.order[#b.order + 1] = id
-    reqs[#reqs + 1] = { id = id, spec = spec }
-    return id
-  end }
-  local tick = 0
-  Lx.step(api, f, SURF13, tick) -- crée b.liaison
-  local function releve(srcs)
-    tick = tick + Li.PERIOD
-    game.tick = tick
-    local n0 = #reqs
-    b.liaison.cyc = { units = {}, i = 1, docks = { { key = "8:q1", pid = 8, idx = 1, x = -317, y = -405, item = "iron-plate", flow = 1.49, n = 10 } },
-      srcs = srcs }
-    Lx.step(api, f, SURF13, tick)
-    local out = {}
-    for i = n0 + 1, #reqs do out[#out + 1] = reqs[i] end
-    return out
-  end
-  local A = { key = "57:o1", pid = 57, idx = 1, x = -325, y = -393, item = "iron-plate", n = 300 }
-  local B = { key = "64:o1", pid = 64, idx = 1, x = -325, y = -397, item = "iron-plate", n = 300 }
-  local function refuse(r) b.projects[r.id].state = "refuse"; b.projects[r.id].reason = "liaison: aucun chemin" end
-  return { releve = releve, A = A, B = B, refuse = refuse, st = function() return b.liaison end }
-end
---- Le scénario du DC : A essayée deux fois (refusée), puis B confirmée. Rend les demandes vues après la confirmation de B.
-local function scenario13(Lx)
-  local w = world13(Lx)
-  w.releve({ w.A })                       -- vue 1 : à confirmer
-  local r1 = w.releve({ w.A })            -- vue 2 : essai 1
-  if r1[1] then w.refuse(r1[1]) end
-  local r2 = w.releve({ w.A })            -- refus suivi, essai 2
-  if r2[1] then w.refuse(r2[1]) end
-  w.releve({ w.A })                       -- refus suivi : essais épuisés pour A
-  w.releve({ w.A, w.B })                  -- B, plus proche : à confirmer
-  local rb = w.releve({ w.A, w.B })       -- B confirmée
-  return rb, w, r1, r2
-end
-local Lx = load_s(SSRC)
-local rb, w13, r1, r2 = scenario13(Lx)
-check(r1[1] and r2[1] and r1[1].spec.liaison.src.key == "57:o1" and r2[1].spec.liaison.src.key == "57:o1", "13.1 (témoin) deux essais vers la sortie A (57:o1)")
-check(#rb == 1 and rb[1].spec.liaison.src.key == "64:o1", "13.2 la sortie B (64:o1), confirmée, est demandée malgré les deux refus de A (avant : laisser, 17 min à la main)")
-local said133 = false
-for _, l in ipairs(LOG13) do if l:find("quai 8:q1", 1, true) and l:find("64:o1", 1, true) and l:find("essai 1/" .. Li.MAX_TRIES, 1, true) then said133 = true end end
-check(said133, "13.3 le journal [FO-LIAISON] compte l'essai 1 de la paire 8:q1 > 64:o1")
--- la paire A reste bornée : épuisée, elle ne repart qu'après Li.RETRY_AFTER
-do
-  local w = world13(Lx)
-  w.releve({ w.A })
-  local a1 = w.releve({ w.A }); if a1[1] then w.refuse(a1[1]) end
-  local a2 = w.releve({ w.A }); if a2[1] then w.refuse(a2[1]) end
-  local a3 = w.releve({ w.A })
-  check(#a3 == 0, "13.4 la même paire refusée deux fois : laissée (plafond d'essais tenu)")
-  local said = false
-  for _, l in ipairs(LOG13) do if l:find("57:o1 a 20 tuiles : laisser : 2 liaison", 1, true) then said = true end end
-  check(said, "13.5 le journal dit les essais épuisés de la paire 8:q1 > 57:o1")
-  local later
-  for _ = 1, math.ceil(Li.RETRY_AFTER / Li.PERIOD) + 1 do
-    later = w.releve({ w.A })
-    if #later > 0 then break end
-  end
-  check(later and #later == 1 and later[1].spec.liaison.src.key == "57:o1", "13.6 après Li.RETRY_AFTER : un essai de plus pour la même paire")
-end
--- l'état ne garde que des nombres sous des clés de paire
-do
-  local st = w13.st()
-  check(st.tries["8:q1>57:o1"] == 2 and st.tries["8:q1>64:o1"] == 1 and st.tries["8:q1"] == nil, "13.7 essais comptés par paire (8:q1>57:o1 = 2, 8:q1>64:o1 = 1)")
-  check(type(st.last_try["8:q1>64:o1"]) == "number" and st.last_try["8:q1"] == nil, "13.8 dernier essai daté par paire")
-end
--- déterminisme : deux parties identiques, mêmes demandes
-do
-  local rb2 = scenario13(load_s(SSRC))
-  check(#rb2 == #rb and rb2[1] ~= nil and rb[1] ~= nil and rb2[1].spec.liaison.src.key == rb[1].spec.liaison.src.key, "13.9 deux parties identiques : mêmes demandes")
-end
--- mutants du script : chaque retour au compte par quai est vu
-local function smutant(name, from, to)
-  local src, n = SSRC:gsub(from, to)
-  if n == 0 then check(false, "mutant " .. name .. " : motif introuvable") return end
-  local okl, Lm = pcall(load_s, src)
-  if not okl then check(true, "mutant " .. name .. " (ne se charge pas)") return end
-  local okp, rbm = pcall(scenario13, Lm)
-  check(not okp or not (#rbm == 1 and rbm[1].spec.liaison.src.key == "64:o1"), "mutant " .. name .. " vu")
-end
-smutant("essais lus par quai", "tries = st%.tries%[pk%] or 0", "tries = st.tries[d.key] or 0")
-smutant("dernier essai lu par quai", "local last = st%.last_try%[pk%]", "local last = st.last_try[d.key]")
-smutant("essais écrits par quai", "st%.tries%[pk%] = %(st%.tries%[pk%] or 0%) %+ 1", "st.tries[d.key] = (st.tries[d.key] or 0) + 1")
-smutant("dernier essai écrit par quai", "st%.last_try%[pk%] = tick", "st.last_try[d.key] = tick")
-smutant("clé de paire = quai", "local pk = d%.key %.%. \">\" %.%. s%.key(%s+local ok, why, det)", "local pk = d.key%1")
-smutant("clé de paire = sortie", "local pk = d%.key %.%. \">\" %.%. s%.key(%s+local ok, why, det)", "local pk = s.key%1")
--- le plafond d'essais retiré n'est pas une coupe valable : 13.4 le voit
-do
-  local src, n = SSRC:gsub("tries = st%.tries%[pk%] or 0", "tries = 0")
-  local okl, Lm = pcall(load_s, src)
-  local seen = false
-  if n > 0 and okl then
-    local w = world13(Lm)
-    w.releve({ w.A })
-    local a1 = w.releve({ w.A }); if a1[1] then w.refuse(a1[1]) end
-    local a2 = w.releve({ w.A }); if a2[1] then w.refuse(a2[1]) end
-    seen = #w.releve({ w.A }) > 0
-  end
-  check(n > 0 and seen, "mutant plafond d'essais retiré vu (la paire refusée repartirait sans fin)")
-end
+-- §13 (essais comptés par paire) : supprimé avec les essais (11/11, ablation des navettes)
 
 print(string.format("[LIAISON] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

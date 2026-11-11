@@ -24,6 +24,9 @@ local Li = {}
 Li.PERIOD = 1800            -- ticks entre deux débuts de relevé (30 s)
 Li.UNITS_PER_PULSE = 2      -- projets relevés par passe de Build (Build.PULSE = 5 ticks)
 Li.MIN_OPEN = 1             -- liaison en construction toujours permise (les PNJ occupés finissent par se libérer) ; au-delà : Li.max_open
+Li.CONFIRM = 2              -- relevés de suite où la paire est vue avant d'agir (lu par script/team/piquage.lua)
+Li.MAX_TRIES = 2            -- essais au plus pour un même quai (lu par le piquage)
+Li.RETRY_AFTER = 20 * 3600  -- ticks : essais épuisés, un essai de plus après 20 min (lu par le piquage)
 Li.ENEMY_R = 28             -- tuiles : jamais de pose avec un ennemi à cette portée de l'un des deux coffres
 Li.LOG_EVERY = 5 * 3600     -- une synthèse au plus par équipe et par 5 min (hors changement)
 
@@ -33,6 +36,18 @@ Li.MAX_LEN = 48             -- tuiles de tapis au plus
 Li.DETOUR = 1.5             -- un tracé ne dépasse pas DETOUR x (Manhattan + 1) + DETOUR_SLACK tuiles
 Li.DETOUR_SLACK = 6
 Li.ROUTE_TRIES = 4          -- paires de bouts essayées au plus par plan
+Li.EST_FACTOR = 1.3         -- longueur de tapis ESTIMÉE avant tracé : EST_FACTOR x distance + 2
+
+-- Économie partagée (lue par le piquage, le rapatriement, le réseau de bus et le placement ; la liaison de quai n'en calcule plus)
+Li.TMAX = 90                -- minutes : retour accepté (la menace divise par Li.THREAT_DIV)
+Li.THREAT_DIV = 4
+Li.WALK = 8                 -- tuiles par seconde
+Li.HANDLE_S = 10            -- s de prise et de dépôt par aller-retour
+Li.POSE_S = 1.5             -- s de pose par entité
+Li.BATCH = 12               -- entités par aller-retour de chantier
+Li.LABOR_VALUE = 1.0        -- plaques par PNJ-seconde (NON MESURÉ)
+Li.PRICE = { belt = 1.5, arm = 5.5, pole = 2.0 }   -- plaques-équivalent par pièce (tapis, bras électrique, poteau 1 x 1)
+Li.MIN_FLOW = 0.02          -- objets/s : sous ce débit un quai ne vaut aucune ligne
 
 local DV = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
 Li.DV = DV
@@ -285,6 +300,44 @@ function Li.decide(inp)
     return "attendre", string.format("%d liaison(s) deja ouverte(s), %d PNJ libre(s)", inp.open_total, inp.free or 0)
   end
   return "relier", "sortie a portee de tapis"
+end
+
+--- Barre du coffre d'entrée d'une liaison finie : la charge d'un aller-retour (fill objets) en cases, plus une ; le tapis ne le remplit pas en entier.
+function Li.bar(fill, stack)
+  local slots = math.max(1, math.ceil((fill or 400) / math.max(1, stack or 1)))
+  return slots + 1
+end
+
+-- Prix d'un tapis en tournées économisées : la liaison de quai ne l'appelle plus ; lu par le piquage (shared/team/piquage.lua) et le réseau de bus.
+--- Prix d'une liaison, en PNJ-secondes, contre le travail qu'elle économise.
+--- inp = { flow (objets/s que consomme le quai), dist (tuiles du QG au quai), span (Manhattan des deux coffres), tiles (tapis ; nil :
+---   estimé sur span), fill, low (Build.QUAI_FILL, Build.QUAI_LOW), tmax (minutes ; nil : Li.TMAX), threat (bool), labor (nil : Li.LABOR_VALUE),
+---   price (nil : Li.PRICE) }.
+--- Rend ok, raison, détail { trips_min, trip_s, labor_s_min, cost, build_s, pay_s, payback_min, tiles, tmax }.
+function Li.worth(inp)
+  local flow = inp.flow or 0
+  if flow < Li.MIN_FLOW then return false, string.format("debit du quai %.3f/s : rien a economiser", flow), { payback_min = math.huge } end
+  local span = inp.span or 0
+  local tiles = inp.tiles or math.ceil(span * Li.EST_FACTOR + 2)
+  local price = inp.price or Li.PRICE
+  local labor = inp.labor or Li.LABOR_VALUE
+  local per_trip = math.max(1, (inp.fill or 400) - (inp.low or 60))
+  local trips_min = flow * 60 / per_trip
+  local trip_s = 2 * (inp.dist or 56) / Li.WALK + Li.HANDLE_S
+  local labor_s_min = trips_min * trip_s
+  local cost = tiles * price.belt + 2 * price.arm + 2 * price.pole
+  local n_ent = tiles + 4
+  local build_s = n_ent * Li.POSE_S + math.ceil(n_ent / Li.BATCH) * trip_s
+  local pay_s = cost / labor + build_s
+  local payback = pay_s / labor_s_min
+  local tmax = inp.tmax or Li.TMAX
+  if inp.threat then tmax = tmax / Li.THREAT_DIV end
+  local det = { trips_min = trips_min, trip_s = trip_s, labor_s_min = labor_s_min, cost = cost, build_s = build_s, pay_s = pay_s,
+    payback_min = payback, tiles = tiles, tmax = tmax }
+  if payback > tmax then
+    return false, string.format("retour %.0f min > %.0f min (%.2f PNJ-s/min economisees, %d tuiles, cout %.0f)", payback, tmax, labor_s_min, tiles, cost), det
+  end
+  return true, string.format("retour %.0f min <= %.0f min (%.2f PNJ-s/min economisees, %d tuiles, cout %.0f)", payback, tmax, labor_s_min, tiles, cost), det
 end
 
 return Li
