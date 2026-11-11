@@ -32,7 +32,7 @@
 local Sa = {}
 
 Sa.PERIOD = 3600   -- ticks entre deux relevés (1 min, comme Bi.PERIOD)
-Sa.WINDOW = 10     -- pentes dans la moyenne (10 min, comme Dm.SAT_H) ; autant avant de croire la fonte
+Sa.WINDOW = 4      -- pentes dans la moyenne (10 min, comme Dm.SAT_H) ; autant avant de croire la fonte
 Sa.MIN_RATE = 2    -- objets par minute : en dessous, la pente est du bruit (comme Bi.MIN_RATE)
 Sa.H = 20          -- minutes : horizon de la projection (délai d'une capacité nouvelle, SUPPOSÉ : à mesurer, PLAN_SATURATION.md §3)
 
