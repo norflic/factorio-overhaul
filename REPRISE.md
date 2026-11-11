@@ -1,5 +1,7 @@
 # REPRISE : état du projet pour l'orchestrateur suivant
 
+> **11/11, 04 h 25 : 0.6.94 = 0.6.93 + Ixion orienté (F525, 48 PNG hors git graphics/robots/experimentaux/*ixion-d*). 0.6.93 validée au panel (F529). Décisions du DC en attente : lignes de rapatriement contre bandes (F526), remise de la matière d'un module à chaque retenue (F527), défense des avant-postes hors fer dont la tourelle meurt à chaque vague (F528), réglage « ouvriers au plus » à 8 dans ses parties (F510).**
+
 > **11/11, 02 h 55 : 0.6.93 = titans en 16 directions qui s'orientent enfin en marchant (F506, F507 : corps face au nord avant, 100 % des relevés dans la marche après), Léviathan articulé tête + 4 segments + queue (F513), Méga-Bourdon (F517), impacts refaits (F514). Feuilles hors git : graphics/robots/titans (2 520 PNG) et leviathan (1 155), robots/megabourdon (77), effets (10 nouveaux). Arbitrage DC : lignes de rapatriement (cc-route, cc-matieres) contre bandes (F526).**
 
 > **11/11, 01 h 30 : 0.6.92 (mandat de 10 h) = icônes distinctes (F505), bois des poteaux (F504), plus de pioche quand les foreuses dorment (F511), paires thermiques hors minerai (F509), rang des tranches (F503), tour des équipes au jeton de plan (F512), cadre figé réservé (F515). Panel : 156 881 fer / 53 bandes contre 109 998 / 55 (F519). ATTENTION DC : vos 3 parties du 10/11 avaient « Factions : ouvriers au plus » à 8 (défaut 30) : factions IA saturées (F510). En cours : titans 16 directions, Léviathan articulé, Méga-Bourdon, impacts, tracés sans fin (CC-ROUTE).**
