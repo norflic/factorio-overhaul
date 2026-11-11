@@ -76,18 +76,53 @@ end
 -- ---------------------------------------------------------------------------------------- construction
 local ORDRE_CHUTE = { 2, 1, 3, 6, 4, 5 } -- les ancres de devant d'abord
 
+-- Lot ART-MEGA2 : une couche du corps du Méga-Bourdon peut être en TUILES (feuille de plus de 4096 px : un sprite par tuile,
+-- fo-mega-bourdon-<cle>-t<i>, prototypes/bourdon.lua) ; son identifiant est alors une table d'identifiants, un par tuile, que ces aides
+-- traitent comme un seul.
+local function tuiles_de(f) return f and f.hr and f.hr.tuiles end
+local function chaque(id, fn)
+  if type(id) == "table" then
+    for _, x in ipairs(id) do fn(x) end
+  else
+    fn(id)
+  end
+end
+
+--- Pose la couche id (feuille f) au décalage (x, y) de l'entité e : chaque tuile à son propre décalage.
+local function cible_couche(id, f, e, x, y)
+  local tu = tuiles_de(f)
+  if tu and type(id) == "table" then
+    for i, x1 in ipairs(id) do rendering.set_target(x1, e, { x + tu[i].decal[1], y + tu[i].decal[2] }) end
+  else
+    rendering.set_target(id, e, { x, y })
+  end
+end
+
 local function couleurs_intensite(id, teinte, v)
   v = v < 0 and 0 or (v > 1 and 1 or v)
-  rendering.set_color(id, { r = teinte.r * v, g = teinte.g * v, b = teinte.b * v, a = v })
+  local c = { r = teinte.r * v, g = teinte.g * v, b = teinte.b * v, a = v }
+  chaque(id, function(x) rendering.set_color(x, c) end)
 end
 
 local function creer_corps(b)
   local s, e = b.e.surface, b.e
   b.ids = {}
-  local function retient(id) b.ids[#b.ids + 1] = id; return id end
+  local function retient(id)
+    chaque(id, function(x) b.ids[#b.ids + 1] = x end)
+    return id
+  end
   local function dessine_v(cle, decal, couche, opts)
-    local n = spr_de(b, cle)
+    local n, f = spr_de(b, cle)
     local t = opts or {}
+    local tu = tuiles_de(f)
+    if tu then
+      local ids = {}
+      for i, tt in ipairs(tu) do
+        ids[i] = rendering.draw_sprite({ sprite = n .. "-t" .. i, surface = s, target = e, target_offset = { decal[1] + tt.decal[1], decal[2] + tt.decal[2] },
+          render_layer = couche, tint = t.tint })
+      end
+      return ids
+    end
     return rendering.draw_sprite({ sprite = n, surface = s, target = e, target_offset = decal, render_layer = couche, tint = t.tint })
   end
   local function sh(cle)
@@ -170,7 +205,7 @@ local function place_corps(b, d, om)
   local function p(id, cle)
     local _, f = spr_de(b, cle)
     local sh = f.shift
-    rendering.set_target(id, e, { sh[1], sh[2] - d })
+    cible_couche(id, f, e, sh[1], sh[2] - d)
   end
   p(b.o_corps, "corps")
   for k = 1, 3 do
@@ -185,7 +220,7 @@ local function place_corps(b, d, om)
   if om then
     local _, fo = spr_de(b, "corps-ombre")
     local sh = fo.shift
-    rendering.set_target(b.o_ombre, e, { sh[1] + d * B.OMBRE_PAR_Z / B.COS45, sh[2] })
+    cible_couche(b.o_ombre, fo, e, sh[1] + d * B.OMBRE_PAR_Z / B.COS45, sh[2])
   end
   local o = b.bat_o or 0
   local sb, sl = SPR["battant"].shift, SPR["battant-lueur"].shift

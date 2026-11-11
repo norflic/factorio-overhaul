@@ -177,7 +177,13 @@ def main():
         rd.border_min_y = max(0.0, 1.0 - (corps[3] - top + m) / float(H))
         rd.border_max_y = min(1.0, 1.0 - (corps[1] - top - m) / float(H))
         t1 = time.time()
-        res = S.render_passes(scene, d, name, ["main"], sun, ground)
+        reprise = os.path.join(d, "%s-main.png" % name)
+        if os.environ.get("FO_REPRISE_MAIN") == "1" and os.path.exists(reprise):
+            # lot ART-MEGA2 : passe principale déjà rendue (même modèle, même graine, même cadre) : reprise telle quelle
+            res = {"main": reprise}
+            print("[FO-RENDER] %s main repris (%s)" % (name, reprise), flush=True)
+        else:
+            res = S.render_passes(scene, d, name, ["main"], sun, ground)
         print("[FO-RENDER] %s main %dx%d %.1fs" % (name, W, H, time.time() - t1), flush=True)
         # lueurs par groupe : tout le reste en noir (il occulte), ciel et soleil coupés, sol caché
         world = scene.world

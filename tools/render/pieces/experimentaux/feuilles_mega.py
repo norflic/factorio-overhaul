@@ -11,10 +11,10 @@ Noms de sprite : fo-mega-bourdon-<cle>.
 
 Lot ART-MEGA2 (ordre du DC du 11/11, 9 h 47) : le Méga-Bourdon est rendu à l'échelle MEGA_ECHELLE (bourdon.py, 2,2) : rendre.py --px 88
 (40 × 2,2) ; une tuile du jeu vaut px / MEGA_ECHELLE pixels du rendu, décalages et pivots sont multipliés par l'échelle, écrite dans
-sprites.lua (« echelle »). Une feuille plus grande que LIMITE_PX de côté est découpée en TUILES (fichiers -t<ligne><colonne>), qui
-deviennent les `layers` d'un même sprite (chaque couche à son décalage, hr_version couche par couche) : la limite par fichier ne borne
-plus la taille ; pour un sprite fixe (une image), c'est l'équivalent des `stripes` des animations, qui découpent la suite des images
-mais jamais une image.
+sprites.lua (« echelle »). Une feuille plus grande que LIMITE_PX de côté est découpée en TUILES (fichiers -t<ligne><colonne>) : la
+limite par fichier ne borne plus la taille. En 1.1 les prototypes `sprite` et `animation` n'ont ni `layers` ni `stripes` (schéma 1.1.91) :
+chaque tuile est son propre sprite (fo-mega-bourdon-<cle>-t<i>, hr_version tuile par tuile), et le script dessine les tuiles d'une couche
+ensemble, chacune à son décalage. (Les `stripes` ne découpent de toute façon que la suite des images d'une animation, jamais une image.)
 """
 import argparse
 import json
@@ -188,7 +188,7 @@ def main():
         f.write("-- Images hors de git (D-6), sauf l'icône : MANIFEST.json, « commande ». shift : centre de l'image depuis la position au sol, en tuiles ;\n")
         f.write("-- canons : pivots des 4 tourelles à l'écran ; canons_sol : le sol sous chacun (origine des feuilles de tourelle), en tuiles.\n")
         f.write("-- echelle : MEGA_ECHELLE du rendu (bourdon.py) ; hr.tuiles / lr.tuiles : feuille découpée (decal : centre de la tuile depuis\n")
-        f.write("-- celui de l'image, en tuiles), une couche par tuile (prototypes/bourdon.lua).\n")
+        f.write("-- celui de l'image, en tuiles), un sprite par tuile (prototypes/bourdon.lua), dessinées ensemble par le script.\n")
         f.write("return " + F.lua(S.spr) + "\n")
     fichiers = {}
     total = 0

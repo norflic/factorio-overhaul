@@ -23,7 +23,8 @@ import fo_post as P  # noqa: E402
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
-TMP = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-31_ROBOTS\experimentaux\tmp"
+# lot ART-MEGA2 : FO_RENDER_TMP met les fichiers temporaires de Blender ailleurs (F: est une clé USB, lente)
+TMP = os.environ.get("FO_RENDER_TMP", r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-31_ROBOTS\experimentaux\tmp")
 
 
 def etalonne(img, grade):

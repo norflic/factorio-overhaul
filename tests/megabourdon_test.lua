@@ -14,8 +14,8 @@
   6. MUTANTS : chaque altération des règles ou du branchement fait échouer au moins un contrôle.
   Lot ART-MEGA2 (ordre du DC du 11/11, 9 h 47 : « une taille strictement 2 fois supérieure, minimum 200 % à 250 % de l'échelle du Bourdon ») :
   ÉCHELLE dans les règles (B.MEGA.ECHELLE entre 2 et 2,5 ; chaînes, ancres, battant et boîtes homothétiques), dans le branchement (le script
-  prend l'échelle des feuilles) et dans les feuilles (corps à l'échelle écrite dans sprites.lua, 1 sans elle ; aucun fichier au-delà de
-  4096 px, les tuiles pavent leur image). Les feuilles ×2,2 et le prototype en tuiles ne sont pas encore livrés (F534 : rendu inachevé).
+  prend l'échelle des feuilles, le prototype agrandit ses boîtes et déclare un sprite par tuile, que le script dessine ensemble) et dans les feuilles (sprites.lua à
+  l'échelle des règles, corps à cette échelle mesuré contre le Bourdon, aucun fichier au-delà de 4096 px, les tuiles pavent leur image).
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -184,6 +184,12 @@ local function branche(proto, script, muet)
   ck(script:find("local bx, by = B.bas_chaine(i, ex, k)", 1, true) ~= nil, "script : ancres placées à l'échelle")
   ck(script:find("B.centre_battant(sb[1] * k, sb[2] * k, o, k)", 1, true) ~= nil, "script : battant à l'échelle")
   ck(script:find("{ orientation = a.o, x_scale = 1.25 * k, y_scale = k }", 1, true) ~= nil, "script : chaînes agrandies")
+  ck(proto:find("mega.selection_box = Bm.boite_mega(VEHICULE.selection_box)", 1, true) ~= nil, "prototype : boîte de sélection à l'échelle")
+  ck(proto:find("mega.drawing_box = Bm.boite_mega(VEHICULE.drawing_box)", 1, true) ~= nil, "prototype : boîte de dessin à l'échelle")
+  ck(proto:find("pm.hr_version = bloc(th, s)", 1, true) ~= nil and proto:find("pm.name = Bm.MEGA.NOM .. \"-\" .. k .. \"-t\" .. i", 1, true) ~= nil,
+    "prototype : un sprite par tuile, hr compris")
+  ck(script:find("ids[i] = rendering.draw_sprite({ sprite = n .. \"-t\" .. i", 1, true) ~= nil, "script : les tuiles d'une couche dessinées ensemble")
+  ck(script:find("cible_couche(id, f, e, sh[1], sh[2] - d)", 1, true) ~= nil, "script : les tuiles suivent la cloche")
   return failures - avant
 end
 branche(PROTO, SCRIPT)
@@ -221,6 +227,7 @@ if okS and type(SPRM) == "table" then
   end
   -- lot ART-MEGA2 : échelle et tuiles
   local k = SPRM.echelle or 1
+  check(SPRM.echelle == B.MEGA.ECHELLE, "feuilles rendues à l'échelle des règles (sprites.lua, echelle = B.MEGA.ECHELLE)")
   local SPRB = dofile("graphics/robots/bourdon/sprites.lua")
   local function haut(e) return e.hr.height * e.hr.scale / 32 end
   local r = haut(SPRM.corps) / haut(SPRB.corps)
@@ -302,6 +309,9 @@ local MUTANTS_BR = {
   { "proto", "PV du Bourdon", "mega.max_health = Bm.pv_mega(VEHICULE.max_health)", "mega.max_health = VEHICULE.max_health" },
   { "script", "ancres du Bourdon", "local bx, by = B.bas_chaine(i, ex, k)", "local bx, by = B.bas_chaine(i, ex)" },
   { "script", "échelle oubliée", "if b and b.v == \"mega\" then return tonumber(SPRM.echelle) or 1 end", "" },
+  { "proto", "sélection du Bourdon", "mega.selection_box = Bm.boite_mega(VEHICULE.selection_box)", "" },
+  { "proto", "tuiles sans hr", "pm.hr_version = bloc(th, s)", "" },
+  { "script", "tuiles immobiles", "cible_couche(id, f, e, sh[1], sh[2] - d)", "rendering.set_target(id, e, { sh[1], sh[2] - d })" },
 }
 for _, m in ipairs(MUTANTS_BR) do
   local quoi, nom, de, vers = m[1], m[2], m[3], m[4]

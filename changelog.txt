@@ -2,7 +2,7 @@
 Version: 0.6.94
 Date: 2026-11-11
   Graphics:
-    - Méga-Bourdon ×2,2 préparé (F534) : blindage lourd en lames, double paire de réacteurs à impulsion cyan, échelle 2,2 (220 % du Bourdon mesurés), feuilles en tuiles au-delà de 4096 px ; pas encore en jeu (rendu complet à relancer).
+    - Méga-Bourdon ×2,2 (F534, pour la 0.6.96) : 220 % du Bourdon (117 tuiles de haut), blindage lourd en lames, double paire de réacteurs à impulsion cyan ; chaînes, ancres, battant et boîtes à l'échelle ; feuilles de plus de 4096 px découpées en tuiles (un sprite par tuile).
     - Ixion (F525) : le géant à roue tourne son corps vers sa marche (8 poses rendues, 39,4 Mpx) ; les géants expérimentaux et les bourdons ont un torse libre ; Cairn, Stylet, Trombe, Tournesol et les bourdons gardent une image, leur forme ne dépendant pas du sens de marche.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.93
