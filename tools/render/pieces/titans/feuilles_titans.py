@@ -56,10 +56,12 @@ ALLIES = (("leviathan", ("drone",)),)   # TITANS-8DIR : Sentinelle et Léviathan
 # alliés ANIMÉS : (nom, stades, diviseur de densité par couche, feuille la plus large) ; KAIJUS-MUTANTS : Ravageur (allié) et Écorchés
 # (ennemis : le « stade » est la VARIANTE, rôdeur / porteur / hurleur)
 # ART-16DIR (11/11) : Juggernaut, Ravageur et Sentinelle à 16 directions (SERIE["dirs"] du module) ; lueur à demi-densité (halo diffus),
-# ombre au quart : budget de 80 Mpx HR par titan
-ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 2, "shadow": 4}, 4096),
-          ("ravageur", ("1", "2", "3"), {"main": 1, "glow": 2, "shadow": 4}, 4096),
-          ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 2, "shadow": 4}, 4096),
+# ombre au quart : budget de 80 Mpx HR par titan. Lueur au QUART de la densité du rendu (assemblage du 11/11 à demi-densité : Juggernaut
+# 83,9, Ravageur 80,2, Sentinelle 80,6 Mpx) : la lueur est le halo additif, les conduits nets restent dans le corps (comparaison à
+# l'échelle du jeu : fo-logs/2026-11-11_TITANS-16DIR/essai/lueur-div2-div4.png, sans différence visible)
+ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
+          ("ravageur", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
+          ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
           ("leviathan", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur

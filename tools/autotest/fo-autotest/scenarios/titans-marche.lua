@@ -71,7 +71,7 @@ return {
     st.sites, st.pret = {}, false
     game.map_settings.enemy_expansion.enabled = false
     game.map_settings.pollution.enabled = false
-    ctx.prepare_area(X0 - 60, Y0 - 60, X0 + PISTE * (#IDS - 1) + 60, Y0 + 60, "lab-dark-1")
+    ctx.prepare_area(X0 - 60, Y0 - 70, X0 + PISTE * (#IDS - 1) + 120, Y0 + 70, "lab-dark-1")   -- les vues débordent de 47 tuiles autour du centre de piste
     C.sans_ennemis(s, X0 - 200, Y0 - 200, X0 + PISTE * #IDS + 200, Y0 + 200)
     for k, id in ipairs(IDS) do
       local nom = "fo-titan-" .. id .. "-1"
