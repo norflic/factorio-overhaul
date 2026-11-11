@@ -684,6 +684,16 @@ function Auto.think(f, view, book, tick, research)
         pile = "couverture", line = true }
     end
   end
+  -- Lot CC-MATIERES (F520, banc CC-ROUTE-VERIF graine 1618033988 : lignes 11 et 12 planifiées à 25 min, « reserve:materiaux », 0 entité bâtie sur 101
+  -- à 45 min) : une LIGNE DE RAPATRIEMENT est un projet du cerveau comme la ligne d'une bande : les objets qui manquent à sa réserve (tapis, bras,
+  -- poteaux, coffre) deviennent des buts « auto:rapatriement » (fabriquer, fondre). Famille de la pile : celle du projet (spec.pile).
+  for i, rp in ipairs(Build.Rapatriement.projects(f)) do
+    local ps = Build.brief(f, rp.pid)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
+      mods[#mods + 1] = { product = (i == 1) and "rapatriement" or ("rapatriement-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason,
+        gain = 0, pile = rp.pile, line = true }
+    end
+  end
   local feeds = {}
   local stock = view.stock or {}
   MallRt.contexte(f, mods, feeds, stock, book, Auto.FEED_STOCK) -- lot MALL : manques des sections en chantier, objets des quais de tête

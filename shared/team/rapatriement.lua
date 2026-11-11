@@ -225,11 +225,15 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 4. Candidats
 ---------------------------------------------------------------------------------------------------
---- srcs = { { key, pid, idx, x, y, item, rate (objets/s), linked } }, docks = { { key, x, y, item, flow, served } }, hub = { x, y }.
+--- srcs = { { key, pid, idx, x, y, item, rate (objets/s), linked } }, docks = { { key, x, y, item, flow, served } } (TUILES), hub = { x, y } : la POSITION du QG
+--- (centre d'entité : x,5 pour un coffre 1 x 1), ramenée une fois à sa tuile.
 --- o = { price, labor, tmax, threat, tampons = { { x, y, item, lines } } } (facultatifs). Rend la liste des candidats triée par valeur nette décroissante
 --- (puis clé) : { src, item, flow, d_src, point = { x, y }, reuse (tampon réutilisé ou nil), d_tam, covered, d_fill, consumers (n), ok, why, det, net }.
 function Rp.candidates(srcs, docks, hub, o)
   o = o or {}
+  -- lot CC-ROUTE (F518) : toute la règle travaille en tuiles (sorties, quais, tampon, bouts du tapis) ; le centre du QG gardé tel quel donnait un tampon
+  -- et un bout d'arrivée en demi-tuiles, une cible que le tracé (tuiles entières) n'atteint jamais : la ligne cherchait jusqu'à épuiser ses réparations
+  hub = { x = floor(hub.x), y = floor(hub.y) }
   local by_item = {}
   for _, d in ipairs(docks) do
     if d.item and not d.served and (d.flow or 0) >= Li.MIN_FLOW then
@@ -560,6 +564,53 @@ function Rp.text(kind, d)
   return string.format("[FO-RAPATRIEMENT] %s : releve : %d sortie(s) lointaine(s) vue(s), %d candidate(s) rentable(s) ; lignes finies %d, en construction %d ; "
     .. "demandes %d, finies %d, refusees %d, coupees %d %s", who, d.far or 0, d.worth or 0, d.done or 0, d.open or 0, d.demandes or 0, d.finis or 0, d.refuses or 0,
     d.coupees or 0, at)
+end
+
+--- Lot CC-MATIERES (F520) : les lignes de rapatriement encore OUVERTES (demandées, ni finies ni refusées ni abandonnées), triées par clé :
+--- { { key, pid, pile } }. lines : b.rapatriement.lines ({ [clé] = { pid, done } }) ; projects : b.projects ({ [pid] = { state, abandoned,
+--- spec = { pile } } }). Lu par script/ai3/automatisation.lua : les objets qui manquent à leur réserve deviennent des buts du cerveau, comme
+--- la ligne d'une migration de champ et la ligne d'une bande (avant : personne ne les fabriquait, réserve « materiaux » sans fin).
+function Rp.open_lines(lines, projects)
+  local keys = {}
+  for k in next, lines or {} do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  local out = {}
+  for _, k in ipairs(keys) do
+    local l = lines[k]
+    local q = l and projects and projects[l.pid]
+    if q and not l.done and q.state ~= "fini" and q.state ~= "refuse" and not q.abandoned then
+      out[#out + 1] = { key = k, pid = l.pid, pile = q.spec and q.spec.pile or nil }
+    end
+  end
+  return out
+end
+
+--- Lot CC-PRIO-LIGNES (F532, règle du DC « le pavage des gisements passe d'abord ») : stock LIBRE pour la réserve d'une LIGNE DE RAPATRIEMENT.
+--- Le coffre est servi au premier lecteur (Build.reserve relit chaque projet en réserve une fois par seconde, chacun à sa phase) : une ligne,
+--- objectif d'investissement, prenait les tapis et les bras qui manquaient à une bande de champ (banc C4, graine 271828182 : 10 lignes dont
+--- 2 demandées avant les bandes 21, 26, 28 ; à 31 min la bande manque 145 tapis contre 29 sans les lignes, 1 348 plaques livrées de 31 à
+--- 40 min contre 6 803). La famille « bande de champ » (spec.champ) passe avant la famille « rapatriement » (spec.rapatriement) : pour une
+--- ligne, chaque objet libre est diminué de ce qui MANQUE aux bandes de champ actives (réserve ou chantier, p.missing frais). Pour tout autre
+--- projet, `free` est rendu tel quel. Ne modifie pas `free` (vue qui le lit, objets gardés seuls réécrits). Ni nom d'objet ni quantité :
+--- tout vient des manques (ipairs seulement : objets dans l'ordre des listes de manques).
+Rp.BANDE_ACTIVE = { reserve = true, defrichage = true, fantomes = true, chantier = true }
+
+function Rp.libre_pour(spec, free, projects, order)
+  if not (type(spec) == "table" and spec.rapatriement ~= nil) then return free end
+  local owed, keys = {}, {}
+  for _, pid in ipairs(order or {}) do
+    local q = projects and projects[pid]
+    if q and q.spec and q.spec.champ and Rp.BANDE_ACTIVE[q.state] and q.missing then
+      for _, m in ipairs(q.missing) do
+        if owed[m[1]] == nil then keys[#keys + 1] = m[1] end
+        owed[m[1]] = (owed[m[1]] or 0) + (m[2] or 0)
+      end
+    end
+  end
+  if #keys == 0 then return free end
+  local out = setmetatable({}, { __index = free })
+  for _, it in ipairs(keys) do out[it] = math.max(0, (free[it] or 0) - owed[it]) end
+  return out
 end
 
 return Rp

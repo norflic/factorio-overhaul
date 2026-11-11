@@ -1,6 +1,8 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.94
 Date: 2026-11-11
+  Bugfixes:
+    - Rapatriement (F532) : une ligne de rapatriement ne prend plus au coffre les tapis, les bras ou les poteaux qui manquent à une bande de champ en attente ou en chantier ; le pavage des gisements passe d'abord, la ligne prend le surplus et se construit ensuite.
   Graphics:
     - Ixion (F525) : le géant à roue tourne son corps vers sa marche (8 poses rendues, 39,4 Mpx) ; les géants expérimentaux et les bourdons ont un torse libre ; Cairn, Stylet, Trombe, Tournesol et les bourdons gardent une image, leur forme ne dépendant pas du sens de marche.
 ---------------------------------------------------------------------------------------------------
@@ -15,6 +17,7 @@ Date: 2026-11-11
     - Géants expérimentaux (F525) : Ixion, la roue de feu, ne glisse plus : son corps suit sa marche (8 vues rendues en 3D, une par cap de 22,5°, servent ses 16 directions : une roue est la même à 180° près) ; Cairn, Stylet, Trombe, Tournesol, le Bourdon et le Méga-Bourdon gardent leur image unique, symétrique par dessin.
     - Icônes (F505) : la tôle magnétique, les billettes de fer, de cuivre et de tungstène et la plaque de titane ne copient plus la plaque d'acier teintée ; chacune a sa silhouette rendue en 3D : tôles feuilletées à liserés cyan, lingots moulés gris acier et cuivre orangé, barreau carré sombre fretté, plaques hexagonales polies.
   Bugfixes:
+    - Rapatriement (F520) : ce qui manque à une ligne de rapatriement (tapis, souterrains, bras, poteaux, coffre) est fabriqué par l'équipe ; les lignes restaient en attente de matériaux sans fin, faute de souterrains que personne ne fabriquait.
     - Mall (F504) : un bloc du mall n'attend plus le bois de ses petits poteaux quand l'équipe peut le récolter ; le choix du poteau et l'achat du bloc lisent la même règle (partie du DC sur la 0.6.89 : Ambre gardait 5 007 fer et une seule rangée de mall, tous ses blocs en attente de bois de 30 à 82 min).
   Bugfixes:
     - Minage (F511) : plus aucun PNJ ne pioche une ressource que les foreuses électriques savent extraire quand des foreuses électriques dorment au coffre (même règle que les paires thermiques) ; dans la partie du DC sur la 0.6.88, 14 PNJ piochaient le fer à côté de 50 foreuses au coffre.
@@ -28,6 +31,7 @@ Date: 2026-11-11
     - Méga-Bourdon (F517) : corps en acier sombre irisé, vitraux et anneau de lévitation magnétique cyan, ceinture de plaques taillées, casemates à cœur à vortex ; tourelles rendues en 16 directions.
   Features:
     - Le Méga-Bourdon (F517) : variante cuirassée du Bourdon, fabriquée au Portique à partir d'un Bourdon (âge 15, compte pour deux géants). Quatre tourelles à canons jumeaux à plasma qui pivotent vers leur cible (16 directions) et tirent l'orbe du Bastion aux dégâts de l'âge 15 ; il garde Le Glas, les ancres et la télécommande.
+    - Lignes de rapatriement (F518) : le tampon et les bouts du tapis sont posés sur des tuiles entières (la position du QG, centre de l'entité, était lue comme une tuile) ; les lignes, qui cherchaient leur tracé sans jamais l'atteindre, le trouvent.
     - Léviathan (F513) : le titan serpentin n'est plus une image rigide ; sa tête est suivie de quatre segments et d'une queue qui épousent sa trajectoire dans les virages (16 directions, rotules aux joints, ondulation), et sa tête regarde où elle va.
     - Titans (F506) : le Juggernaut, la Sentinelle et le Ravageur sont dessinés en 16 directions (8 avant) ; blindage plus sombre et iridescent, conduits et anneaux cyan plus lumineux ; poids des feuilles en haute qualité ramené sous 80 Mpx par titan.
   Bugfixes:
