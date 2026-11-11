@@ -32,7 +32,8 @@ RAYON = 17.0 * KE
 ZC = 16.5                    # centre de la singularité
 # ANIMÉE (TITANS-8DIR, 10/11) : 8 directions × 8 images de marche (flottement, pattes qui ondulent) + 4 de salve (la singularité gonfle
 # puis se libère) ; même contrat que juggernaut.py / ravageur.py (SERIE, AO, GLOW_BLANC, FOULEE, build_anime) pour batch_titans.anime.
-SERIE = {"course": 8, "attaque": 4, "densite": 14.0, "R": 17.5, "zmax": 32.5, "sol": 400.0}
+# ART-16DIR (11/11) : 16 directions réelles ; densité 12 pour tenir 80 Mpx HR (lueur à demi-densité, ombre au quart)
+SERIE = {"course": 8, "attaque": 4, "densite": 12.0, "R": 17.5, "zmax": 32.5, "sol": 400.0, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False
 FOULEE = 6.0                 # tuiles par cycle de flottement (distance_per_frame du script : FOULEE / images)

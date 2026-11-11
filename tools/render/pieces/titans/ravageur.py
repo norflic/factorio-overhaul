@@ -26,7 +26,8 @@ from juggernaut import hexseg, pointe, plaque, anneau, rainure, pas, ik2  # noqa
 PREFIX = "ra_"
 GRIS = os.environ.get("FO_GRIS", "") == "1"
 KE = 0.86                    # 30 unités de modèle -> 26 tuiles
-SERIE = {"course": 8, "attaque": 4, "densite": 18.0, "R": 12.5, "zmax": 28.0, "sol": 400.0}
+# ART-16DIR (11/11) : 16 directions réelles ; densité 17 pour tenir 80 Mpx HR (lueur à demi-densité, ombre au quart)
+SERIE = {"course": 8, "attaque": 4, "densite": 17.0, "R": 12.5, "zmax": 28.0, "sol": 400.0, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False
 AMP = 2.6

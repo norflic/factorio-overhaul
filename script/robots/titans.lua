@@ -30,6 +30,7 @@ local G = require("script.robots.experimentaux_geants")
 local Rg = require("shared.tirs.regles")   -- Rg.decalage : image 0 d'une animation au tick voulu (image = floor(tick × vitesse + décalage) mod n)
 local Fx = require("shared.content.effets_armes")   -- POLISSAGE-FX : pulsation de la singularité (table précalculée, couleur de la règle du titan)
 require("script.robots.kaijus")   -- KAIJUS-MUTANTS : la ponte de l'Écorcheur (ennemi), abonnée ici (control.lua intact)
+local Serp = require("script.robots.titans_serpent")   -- LEVIATHAN-SEG : corps articulé (segments, queue) des titans serpentins
 
 local M = {}
 
@@ -134,9 +135,17 @@ end
 --- Corps ANIMÉ (FINITIONS 10/11 : Juggernaut, r.anime) : trois `rendering.draw_animation` (ombre, corps, lueur) sur l'animation de marche de
 --- la direction de l'entité ; `animer` les tient à jour à chaque balayage (direction, vitesse = celle du véhicule, salve). Les rendus meurent
 --- avec l'entité (remplacement de palier : `corps` les refait).
+--- Direction du corps animé : le CAP de la trajectoire pour un titan articulé (LEVIATHAN-SEG : g.seg.dir, titans_serpent : la tête suit la
+--- même trajectoire que ses segments), sinon celle du TORSE du spider-vehicle (F507 : `orientation` d'un spider-vehicle reste à 0 en marche ;
+--- le torse tourne vers la marche, prototypes/titans.lua), parmi les directions de la règle (16 : Juggernaut, Sentinelle, Ravageur).
+local function direction_corps(g, r)
+  if r.segmente and g.seg and g.seg.dir then return g.seg.dir end
+  return T.direction(g.e.torso_orientation, r.anime.directions)
+end
+
 local function corps_anime(g, r)
   local e = g.e
-  local dir = T.direction8(e.orientation)
+  local dir = direction_corps(g, r)
   g.anim = { dir = dir, mode = "course", v = 0, ids = {} }
   for _, c in ipairs(T.COUCHES_ANIM) do
     g.anim.ids[#g.anim.ids + 1] = rendering.draw_animation({ animation = T.anim_name(r, g.stage, "course", dir, c[1]), target = e, surface = e.surface,
@@ -181,7 +190,9 @@ local function corps(g)
   local s = e.surface
   local r = archetype(g)
   singularite_dessiner(g, r)
-  if r.anime then
+  if r.segmente then
+    Serp.dessiner(g, r)   -- LEVIATHAN-SEG : pièces et tête (crochet Serp.hooks.tete) dans l'ordre de dessin
+  elseif r.anime then
     corps_anime(g, r)
   else
     local st = T.PREFIX .. r.id .. "-" .. g.stage
@@ -190,6 +201,31 @@ local function corps(g)
     rendering.draw_sprite({ sprite = st .. "-lueur-1", target = e, surface = s, render_layer = "air-object" })
   end
   drones_dessiner(g, T.allie(r, g.age))
+end
+
+--- LEVIATHAN-SEG : (re)dessine le corps animé de la tête d'un titan articulé à sa place dans l'ordre de dessin (titans_serpent) : neuf
+--- (pose, remplacement de palier : les anciens rendus sont morts avec l'entité) ou refait avec la même animation, la même vitesse et
+--- la même phase (la chaîne a changé d'ordre : rien ne se voit).
+Serp.hooks.tete = function(g, r)
+  local a = g.anim
+  local ids = a and a.ids
+  if not (ids and ids[1] and rendering.is_valid(ids[1])) then
+    corps_anime(g, r)
+    return
+  end
+  local e = g.e
+  local nouveaux = {}
+  for i, c in ipairs(T.COUCHES_ANIM) do
+    local id = ids[i]
+    local nom, v, off = T.anim_name(r, g.stage, "course", a.dir, c[1]), 0, 0
+    if id and rendering.is_valid(id) then
+      nom, v, off = rendering.get_animation(id), rendering.get_animation_speed(id), rendering.get_animation_offset(id)
+      rendering.destroy(id)
+    end
+    nouveaux[i] = rendering.draw_animation({ animation = nom, target = e, surface = e.surface, render_layer = c[2], animation_speed = v,
+      animation_offset = off })
+  end
+  a.ids = nouveaux
 end
 
 local function anim_set(g, r, anim)
@@ -214,14 +250,14 @@ local function anim_attaque(g, r, tick)
   end
 end
 
---- À chaque balayage : direction de l'entité (8 secteurs), marche à la vitesse du véhicule (images par tick = vitesse × images / foulée ;
+--- À chaque balayage : direction de l'entité (r.anime.directions secteurs), marche à la vitesse du véhicule (images par tick = vitesse × images / foulée ;
 --- 0 et image 0 à l'arrêt), retour en marche à la fin d'une salve.
 local function animer(g, r, tick)
   if not (r.anime and g.anim) then return end
   local e = g.e
   local a = g.anim
   if a.mode == "attaque" and tick < (a.fin or 0) then return end
-  local dir = T.direction8(e.orientation)
+  local dir = direction_corps(g, r)
   if a.mode ~= "course" or dir ~= a.dir then
     a.mode, a.dir, a.v = "course", dir, nil
     anim_set(g, r, "course")
@@ -237,6 +273,10 @@ local function animer(g, r, tick)
     end
   end
 end
+
+-- LEVIATHAN-SEG : la tête d'un titan articulé prend l'image de son nouveau cap dès que titans_serpent le voit changer (5 ticks), sans
+-- attendre le balayage (30 ticks)
+Serp.hooks.orienter = function(g, r) animer(g, r, game.tick) end
 
 local function rendre(player, e, name)
   if player and player.valid and player.insert({ name = name, count = 1 }) == 1 then return end

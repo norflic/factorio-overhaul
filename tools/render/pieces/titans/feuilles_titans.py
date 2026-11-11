@@ -16,6 +16,7 @@ densite ; batch_titans.py).
   BLANCHE (batch_titans) : le prototype la teinte par ère ; celle du Juggernaut garde ses couleurs.
 """
 import argparse
+import ast
 import glob
 import hashlib
 import json
@@ -44,18 +45,25 @@ LOGS3 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.9
 # VISUELS-DISTINCTS (10/11) : les Écorchés re-rendus (chair, peau, silhouette et collerette par variante) sont pris en PREMIER
 LOGS4 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-10_TITANS-8DIR")
 # TITANS-8DIR (10/11) : Sentinelle et Léviathan animés (8 directions) pris dans leur propre dossier
-SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS4, "rendu"), os.path.join(LOGS3, "rendu"), os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
+LOGS5 = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-11_TITANS-16DIR")
+# ART-16DIR (11/11) : Juggernaut, Sentinelle et Ravageur en 16 directions, pris en PREMIER
+SRC_DEFAUT = os.pathsep.join((os.path.join(LOGS5, "rendu"), os.path.join(LOGS4, "rendu"), os.path.join(LOGS3, "rendu"), os.path.join(LOGS, "rendu"), os.path.join(LOGS2, "rendu")))
 DEST_DEFAUT = os.path.join(MOD, "graphics", "robots", "titans")
 PREFIXE = "__factorio-overhaul__/graphics/robots/titans/"
-COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
+COMMANDE = "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_TITANS-16DIR/rendu, fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)"
 # alliés à une image (traitement des géants) : stades rendus ; le Léviathan a de plus son drone d'escorte (une image, clé « drone »)
 ALLIES = (("leviathan", ("drone",)),)   # TITANS-8DIR : Sentinelle et Léviathan sont animés ; seul le drone d'escorte reste une image
+# LEVIATHAN-SEG (11/11) : le Léviathan est ARTICULÉ (tête, segments, queue) : ses feuilles sont faites par feuilles_leviathan.py
+# (graphics/robots/titans/leviathan/) ; il n'a plus de feuille d'un seul tenant ici, seul son drone d'escorte reste.
 # alliés ANIMÉS : (nom, stades, diviseur de densité par couche, feuille la plus large) ; KAIJUS-MUTANTS : Ravageur (allié) et Écorchés
 # (ennemis : le « stade » est la VARIANTE, rôdeur / porteur / hurleur)
-ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
-          ("ravageur", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
-          ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
-          ("leviathan", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 2}, 4096),
+# ART-16DIR (11/11) : Juggernaut, Ravageur et Sentinelle à 16 directions (SERIE["dirs"] du module) ; lueur à demi-densité (halo diffus),
+# ombre au quart : budget de 80 Mpx HR par titan. Lueur au QUART de la densité du rendu (assemblage du 11/11 à demi-densité : Juggernaut
+# 83,9, Ravageur 80,2, Sentinelle 80,6 Mpx) : la lueur est le halo additif, les conduits nets restent dans le corps (comparaison à
+# l'échelle du jeu : fo-logs/2026-11-11_TITANS-16DIR/essai/lueur-div2-div4.png, sans différence visible)
+ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
+          ("ravageur", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
+          ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
 ENNEMIS = ("kaiju", "ecorcheur")
@@ -112,6 +120,13 @@ def foulee_de(module):
     return round(float(eval(m.group(1), {"__builtins__": {}})), 4)
 
 
+def directions_de(module):
+    """Nombre de directions de la série du module (SERIE["dirs"], 8 par défaut), lu dans son texte (il importe bpy)."""
+    src = open(os.path.join(HERE, module + ".py"), encoding="utf-8").read()
+    m = re.search(r"^SERIE\s*=\s*(\{.*\})\s*$", src, re.M)
+    return int(ast.literal_eval(m.group(1)).get("dirs", DIRS)) if m else DIRS
+
+
 def dossier(src, sub):
     """Le sous-dossier `sub` dans le premier des dossiers de sources (séparés par os.pathsep) qui le contient."""
     for s in src.split(os.pathsep):
@@ -121,15 +136,18 @@ def dossier(src, sub):
     raise SystemExit("MANQUE : " + sub + " dans " + src)
 
 
-def anime(S, src, poids, sub, base, cle, divs, max_px):
+def anime(S, src, poids, sub, base, cle, divs, max_px, ndirs=None):
     """Feuilles d'un titan animé : npz de <src>/<sub>/<base>-<anim>-<image>-<dir>.npz -> hr-<cle>-<anim>-<couche>-<dir>.png (et sans hr-).
-    divs : diviseur de densité par couche (hr = densité du rendu / div). Rend { course, attaque, icone }."""
+    divs : diviseur de densité par couche (hr = densité du rendu / div). Rend { course, attaque, icone }.
+    ndirs : directions des feuilles ; à défaut, DIRS du module LU À L'APPEL (feuilles_leviathan.py fixe FT.DIRS = 16 avant d'appeler : une
+    valeur par défaut liée à la définition le ramenait à 8, vu à la fusion ART-16DIR + LEVIATHAN-SEG du 11/11)."""
+    ndirs = ndirs or DIRS
     d = dossier(src, sub)
     out = {}
     icone = None
     for anim, nb in ANIMS:
         images = {}
-        for k in range(DIRS):
+        for k in range(ndirs):
             for i in range(nb):
                 p = os.path.join(d, "%s-%s-%02d-%02d.npz" % (base, anim, i, k))
                 if not os.path.exists(p):
@@ -171,7 +189,7 @@ def anime(S, src, poids, sub, base, cle, divs, max_px):
             assert ll is not None, (sub, anim, c, cw, ch, nb)
             lpf = nb // ll
             fichiers_hr, fichiers_lr = [], []
-            for k in range(DIRS):
+            for k in range(ndirs):
                 feuille = np.zeros((ch * div * lpf, cw * div * ll, 4), np.uint8)
                 for i in range(nb):
                     t = images[(k, i)][idx][y0:y1, x0:x1]
@@ -193,12 +211,12 @@ def anime(S, src, poids, sub, base, cle, divs, max_px):
                 nom_lr = "%s-%s-%s-%d.png" % (cle, anim, c, k)
                 fichiers_hr.append(S.ecrit(hr, nom_hr))
                 fichiers_lr.append(S.ecrit(reduit2(hr, additif=(c == "glow")), nom_lr))
-                if c == "main" and k == 3 and icone is None:
+                if c == "main" and k == (3 * ndirs) // 8 and icone is None:   # sud-est
                     icone = images[(k, 0)][0][y0:y1, x0:x1]
             sft = ((x0 + x1) / 2.0 - ox, (y0 + y1) / 2.0 - oy)
             couches[c] = {"hr": fichiers_hr, "lr": fichiers_lr, "w": int(cw), "h": int(ch), "lw": int(cw // REDUC), "lh": int(ch // REDUC),
                           "ll": int(ll), "lpf": int(lpf), "dens": D / div, "sx": round(sft[0] / D, 5), "sy": round(sft[1] / D, 5)}
-            poids["images"] += nb * DIRS if c == "main" else 0
+            poids["images"] += nb * ndirs if c == "main" else 0
         out[anim] = {"images": nb, "densite": D, "couches": couches}
     # icône : direction sud-est, image 0 de la course, tenue dans 60 px
     k = 60.0 / max(icone.shape[0], icone.shape[1])
@@ -258,12 +276,13 @@ def main():
             poids[nom]["images"] += 1
     for nom, stades, divs, max_px in ANIMES:
         # le Léviathan garde son drone (ALLIES) : on complète l'entrée au lieu de la remplacer
-        spr.setdefault(nom, {}).update({"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS})
+        nd = directions_de(nom)
+        spr.setdefault(nom, {}).update({"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": nd})
         poids.setdefault(nom, {"haute": 0.0, "normale": 0.0, "images": 0})
         if a.sans_animes:
             continue
         for st in stades:
-            spr[nom][st] = anime(S, a.src, poids[nom], "%s-anime-%s" % (nom, st), "%s-%s" % (nom, st), "%s-%s" % (nom, st), divs, max_px)
+            spr[nom][st] = anime(S, a.src, poids[nom], "%s-anime-%s" % (nom, st), "%s-%s" % (nom, st), "%s-%s" % (nom, st), divs, max_px, nd)
         if nom == "ecorche":
             spr[nom]["mesure"] = mesure_variantes(a.dest, spr[nom], stades)
     if not a.sans_kaiju:

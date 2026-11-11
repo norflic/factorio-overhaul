@@ -145,6 +145,15 @@ local FOULEE_RA = py_num(RA:match("\nFOULEE = ([^#\n]+)"))
 check(type(T.RAVAGEUR.anime) == "table" and T.RAVAGEUR.anime.images.course == SERIE_RA.course and T.RAVAGEUR.anime.images.attaque == SERIE_RA.attaque,
   "§1 Ravageur animé : images = SERIE du modèle (ravageur.py)")
 check(FOULEE_RA and math.abs(T.RAVAGEUR.anime.foulee - FOULEE_RA) < 1e-3, "§1 Ravageur animé : foulée de la règle = FOULEE du modèle (" .. tostring(FOULEE_RA) .. ")")
+-- ART-16DIR (11/11, mandat du DC : « 16 directions d'orientation réelles ») : Juggernaut, Sentinelle et Ravageur en 16 directions, le Léviathan
+-- en 8 ; la règle (r.anime.directions) = SERIE["dirs"] du modèle = directions des feuilles (§3) ; T.direction au secteur le plus proche
+for _, x in ipairs({ { T.JUGGERNAUT, SERIE }, { T.SENTINELLE, SERIE_SE }, { T.RAVAGEUR, SERIE_RA }, { T.LEVIATHAN, SERIE_LE } }) do
+  check(x[1].anime.directions == (x[2].dirs or 8), "§1 " .. x[1].id .. " : directions de la règle = SERIE du modèle (" .. tostring(x[2].dirs or 8) .. ")")
+end
+check(T.JUGGERNAUT.anime.directions == 16 and T.SENTINELLE.anime.directions == 16 and T.RAVAGEUR.anime.directions == 16,
+  "§1 ART-16DIR : Juggernaut, Sentinelle et Ravageur en 16 directions (demande du DC)")
+check(T.direction(0, 16) == 0 and T.direction(0.0625, 16) == 1 and T.direction(0.5, 16) == 8 and T.direction(0.97, 16) == 0 and T.direction(0.94, 16) == 15
+  and T.direction(0.03, 16) == 0 and T.direction(nil, 16) == 0, "§1 direction à 16 secteurs : secteur le plus proche, 1 revient à 0")
 local r1, r2, r6 = T.allie(T.RAVAGEUR, T.AGE_MIN), T.allie(T.RAVAGEUR, T.AGE_MIN + 1), T.allie(T.RAVAGEUR, T.AGE_MAX)
 check(r1.armes.mitraille and not r1.armes.lames and r2.armes.lames and not r1.armes.canon and r6.armes.salve, "§1 Ravageur : mitraille d'abord, lames au palier 2, jamais de canon annulaire, salve plus tard")
 check(r1.mitraille and r1.mitraille.n > 1 and r1.mitraille.part > 0 and r1.mitraille.part <= 1 and r1.lames and r1.lames.radius > 0, "§1 Ravageur : rafale de plusieurs projectiles, part de salve bornée, lames à rayon")
@@ -285,6 +294,22 @@ local MAN = {}
 if okspr then
   local okm, txt = pcall(read, "graphics/robots/titans/MANIFEST.json")
   if okm then for n in txt:gmatch('"([%w%-_%.]+%.png)"') do MAN[n] = true end end
+  -- ART-16DIR (11/11) : budget de mémoire vidéo de chaque allié animé, 80 Mpx de feuilles HR (poids_mpx du MANIFEST : aire utile des images,
+  -- lueur et ombre à leur densité) ; 16 directions ne passent qu'avec la densité réduite et la lueur à demi-densité, l'ombre au quart
+  local function hors_budget(t)
+    local l = {}
+    for nom, h in (t or ""):gmatch('"(%a+)": {%s*"haute": ([%d%.]+)') do
+      for _, r in ipairs(T.ALLIES) do
+        if r.id == nom and r.anime and tonumber(h) > 80 then l[#l + 1] = nom .. " " .. h end
+      end
+    end
+    return l
+  end
+  local hb = hors_budget(okm and txt)
+  check(okm and txt:find('"poids_mpx"', 1, true) ~= nil and #hb == 0, "§3 budget : chaque allié animé ≤ 80 Mpx HR (" .. table.concat(hb, ", ") .. ")")
+  check(#hors_budget([["poids_mpx": {
+  "sentinelle": {
+   "haute": 90.27,]]) == 1, "§3 mutant refusé : Sentinelle à 90,27 Mpx (avant ART-16DIR)")
   local function fichier(name) return (name:gsub("^__factorio%-overhaul__/", "")) end
   local function verifie(what, d, w, h)
     local p = fichier(d)
@@ -297,21 +322,26 @@ if okspr then
     for st = 1, T.STAGES do cles[#cles + 1] = tostring(st) end
     if r.drones then cles[#cles + 1] = "drone" end
     local A = SPR[r.id]
-    check((A and A.anime == true) == (r.anime ~= nil), "§3 " .. r.id .. " : feuilles animées si et seulement si la règle dit `anime`")
+    if r.segmente then
+      cles = r.drones and { "drone" } or {}   -- LEVIATHAN-SEG : la tête et les pièces ont leurs propres feuilles (bloc « articulé » ci-dessous)
+    else
+      check((A and A.anime == true) == (r.anime ~= nil), "§3 " .. r.id .. " : feuilles animées si et seulement si la règle dit `anime`")
+    end
     for _, st in ipairs(cles) do
       local e = A and A[st]
       check(e ~= nil, "§3 " .. r.id .. " : feuille du stade " .. st)
       if e and e.course then
-        -- FINITIONS : stade animé (8 directions × images, un fichier par direction et par couche, densité propre à chaque couche)
-        check(A.directions == 8 and e.course.images == r.anime.images.course and e.attaque.images == r.anime.images.attaque and math.abs(A.foulee - r.anime.foulee) < 1e-6,
-          "§3 " .. r.id .. " " .. st .. " : 8 directions, images et foulée = règle")
+        -- FINITIONS : stade animé (directions × images, un fichier par direction et par couche, densité propre à chaque couche) ;
+        -- ART-16DIR : directions des feuilles = directions de la règle (16 pour Juggernaut, Sentinelle, Ravageur)
+        check(A.directions == (r.anime.directions or 8) and e.course.images == r.anime.images.course and e.attaque.images == r.anime.images.attaque and math.abs(A.foulee - r.anime.foulee) < 1e-6,
+          "§3 " .. r.id .. " " .. st .. " : " .. tostring(A.directions) .. " directions (règle " .. tostring(r.anime.directions) .. "), images et foulée = règle")
         for _, anim in ipairs({ "course", "attaque" }) do
           local a = e[anim]
           for _, nomc in ipairs({ "main", "glow", "shadow" }) do
             local c = a.couches[nomc]
-            check(#c.hr == 8 and #c.lr == 8 and c.ll * c.lpf == a.images and c.dens > 0 and c.dens <= a.densite, "§3 " .. r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " : un fichier par direction, grille exacte, densité")
+            check(#c.hr == A.directions and #c.lr == A.directions and c.ll * c.lpf == a.images and c.dens > 0 and c.dens <= a.densite, "§3 " .. r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " : un fichier par direction, grille exacte, densité")
             check(c.w * c.ll <= 4096 and c.h * c.lpf <= 4096, "§3 " .. r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " : feuille ≤ 4 096 px")
-            for k = 1, 8 do
+            for k = 1, A.directions do
               verifie(r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " " .. k, c.hr[k], c.w * c.ll, c.h * c.lpf)
               verifie(r.id .. " " .. st .. " " .. anim .. " " .. nomc .. " " .. k, c.lr[k], c.lw * c.ll, c.lh * c.lpf)
             end
@@ -324,6 +354,57 @@ if okspr then
           verifie(r.id .. " " .. st, c.lr.filename, c.lr.width, c.lr.height)
         end
         check(#e.lueurs >= 1 and e.icone and e.icone.size == 64, "§3 " .. r.id .. " " .. st .. " : lueur fondue et icône")
+      end
+    end
+  end
+  -- LEVIATHAN-SEG (11/11) : titan ARTICULÉ : tête animée (n directions, images = règle), pièces fixes (segment, queue : une image par
+  -- direction et par couche), icône du titan entier ; feuilles dans graphics/robots/titans/<archétype>/ (sprites.lua, MANIFEST.json)
+  for _, r in ipairs(T.ALLIES) do
+    if r.segmente then
+      local base = "graphics/robots/titans/" .. r.id .. "/"
+      local okg, G = pcall(dofile, base .. "sprites.lua")
+      check(okg and type(G) == "table", "§3 " .. r.id .. " articulé : sprites.lua lisible (sinon : py -3.9 tools/render/pieces/titans/feuilles_leviathan.py)")
+      local MS = {}
+      local okm, txt = pcall(read, base .. "MANIFEST.json")
+      if okm then for n in txt:gmatch('"([%w%-_%.]+%.png)"') do MS[n] = true end end
+      local function v2(what, d, w, h)
+        local pth = fichier(d)
+        local pw, ph = png_size(pth)
+        check(pw == w and ph == h, "§3 " .. what .. " : PNG présent, " .. tostring(pw) .. " × " .. tostring(ph) .. " = sprites.lua (" .. w .. " × " .. h .. ")")
+        check(MS[pth:match("([^/]+)$")] == true, "§3 MANIFEST (" .. r.id .. ") cite " .. pth:match("([^/]+)$"))
+      end
+      local nd = r.segmente.directions
+      local function couches(qui, a, n_images)
+        for _, nomc in ipairs({ "main", "glow", "shadow" }) do
+          local c = a.couches[nomc]
+          check(#c.hr == nd and #c.lr == nd and c.ll * c.lpf == n_images and c.dens > 0 and c.dens <= a.densite,
+            "§3 " .. qui .. " " .. nomc .. " : un fichier par direction (" .. nd .. "), grille exacte, densité")
+          check(c.w * c.ll <= 4096 and c.h * c.lpf <= 4096, "§3 " .. qui .. " " .. nomc .. " : feuille ≤ 4 096 px")
+          for k = 1, nd do
+            v2(qui .. " " .. nomc .. " " .. k, c.hr[k], c.w * c.ll, c.h * c.lpf)
+            v2(qui .. " " .. nomc .. " " .. k, c.lr[k], c.lw * c.ll, c.lh * c.lpf)
+          end
+        end
+      end
+      if okg then
+        check(G.tete and G.tete.anime == true and G.tete.directions == nd and r.anime.directions == nd and math.abs(G.tete.foulee - r.anime.foulee) < 1e-6,
+          "§3 " .. r.id .. " articulé : tête animée en " .. nd .. " directions, foulée = règle")
+        for st = 1, T.STAGES do
+          local e = G.tete[tostring(st)]
+          check(e and e.course and e.attaque and e.course.images == r.anime.images.course and e.attaque.images == r.anime.images.attaque,
+            "§3 " .. r.id .. " articulé " .. st .. " : tête, images de marche et de salve = règle")
+          if e and e.course then
+            couches(r.id .. " tête " .. st .. " course", e.course, r.anime.images.course)
+            couches(r.id .. " tête " .. st .. " attaque", e.attaque, r.anime.images.attaque)
+            check(e.icone and e.icone.size == 64 and png_size(fichier(e.icone.filename)) == 64, "§3 " .. r.id .. " articulé " .. st .. " : icône du titan entier (64 px)")
+          end
+          for _, piece in ipairs(r.segmente.pieces) do
+            local P = G[piece]
+            local a = P and P[tostring(st)] and P[tostring(st)].pose
+            check(P and P.directions == nd and a and a.images == 1, "§3 " .. r.id .. " " .. piece .. " " .. st .. " : pièce fixe, une image par direction")
+            if a then couches(r.id .. " " .. piece .. " " .. st, a, 1) end
+          end
+        end
       end
     end
   end
@@ -445,9 +526,17 @@ check(read("script/td/director.lua"):find("TD.compose(st.wave, RNG.float, Armee.
 do
   local proto, scr = read("prototypes/titans.lua"), read("script/robots/titans.lua")
   check(proto:find("T.anim_name(", 1, true) ~= nil and proto:find('type = "animation"', 1, true) ~= nil, "§5 prototypes : animations de corps déclarées par T.anim_name")
-  check(scr:find("T.anim_name(", 1, true) ~= nil and scr:find("rendering.draw_animation(", 1, true) ~= nil and scr:find("T.direction8(", 1, true) ~= nil and scr:find("T.vitesse_anim(", 1, true) ~= nil,
+  check(scr:find("T.anim_name(", 1, true) ~= nil and scr:find("rendering.draw_animation(", 1, true) ~= nil and scr:find("T.direction(", 1, true) ~= nil
+    and scr:find("r.anime.directions", 1, true) ~= nil and scr:find("T.vitesse_anim(", 1, true) ~= nil,
     "§5 script : corps animé par rendering.draw_animation, direction et vitesse par la règle pure")
   check(not scr:find("math%.atan") and not scr:find("math%.sin") and not scr:find("math%.cos"), "§5 script : aucune trigonométrie")
+  -- F507 (ART-16DIR, banc titans-marche 11/11 : orientation = 0,000 et torse = 0,375 sur 252 relevés en marche dans 8 directions, corps
+  -- toujours dessiné au nord) : sur un spider-vehicle, seul le TORSE suit la marche ; le prototype le laisse tourner (vitesse du torse de
+  -- l'araignée vanilla) et le script dessine le corps dans sa direction, jamais dans `orientation`
+  check(scr:find("T.direction(g.e.torso_orientation, r.anime.directions)", 1, true) ~= nil and not scr:find("e%.orientation%f[^%w_]"),
+    "§5 script : direction du corps = torse du spider-vehicle (F507), jamais LuaEntity.orientation (toujours 0 en marche)")
+  check(proto:find('torso_rotation_speed = ARAIGNEE.torso_rotation_speed', 1, true) ~= nil and proto:find('data.raw["spider-vehicle"]["spidertron"]', 1, true) ~= nil
+    and not proto:find("torso_rotation_speed = 0[,%s]"), "§5 prototypes : le torse des titans tourne (vitesse du torse de l'araignée vanilla, F507)")
 end
 -- F-TITANS (banc content V0677) : une RotatedAnimation à `filenames` exige `slice` et `lines_per_file` (prototype-api.json : « Mandatory if
 -- filenames is defined » ; le schéma du harness les voit facultatifs : il ne l'attrape pas). Contrôle textuel sur TOUT prototypes/ : chaque
@@ -530,6 +619,9 @@ local function refuse(T2)
     assert(not T2.allie(T2.LEVIATHAN, T2.AGE_MIN).armes.canon and T2.allie(T2.LEVIATHAN, T2.AGE_MAX).armes.canon, "canon du Léviathan plus tard")
     assert(T2.allie(T2.SENTINELLE, T2.AGE_MIN).speed < T2.allie(T2.JUGGERNAUT, T2.AGE_MIN).speed, "la Sentinelle plus lente que le Juggernaut")
     assert(T2.direction8(0.07) == 1 and T2.direction8(0.99) == 0, "direction8 au plus proche")
+    assert(T2.direction(0.97, 16) == 0 and T2.direction(0.94, 16) == 15 and T2.direction(0.0625, 16) == 1, "direction au plus proche à 16 secteurs")
+    assert(T2.JUGGERNAUT.anime.directions == (SERIE.dirs or 8) and T2.SENTINELLE.anime.directions == (SERIE_SE.dirs or 8)
+      and T2.RAVAGEUR.anime.directions == (SERIE_RA.dirs or 8) and T2.LEVIATHAN.anime.directions == (SERIE_LE.dirs or 8), "directions = SERIE des modèles")
     assert(math.abs(T2.vitesse_anim(0.12, 6.9, 8) - 0.12 * 8 / 6.9) < 1e-12, "vitesse d'animation par la foulée")
     assert(T2.JUGGERNAUT.anime.images.course == SERIE.course and math.abs(T2.JUGGERNAUT.anime.foulee - FOULEE) < 1e-6, "animation = SERIE du modèle")
     -- KAIJUS-MUTANTS
@@ -551,6 +643,9 @@ local function refuse(T2)
       local a = c[1].anime
       assert(a and a.images.course == c[2].course and a.images.attaque == c[2].attaque and math.abs(a.foulee - c[3]) < 1e-6, "animation de " .. c[1].id .. " = SERIE du modèle")
     end
+    -- LEVIATHAN-SEG : le Léviathan est articulé, tête et pièces dans les directions des feuilles (SERIE du modèle)
+    local sg = T2.LEVIATHAN.segmente
+    assert(sg and sg.n >= 2 and sg.directions == SERIE_LE.dirs and T2.LEVIATHAN.anime.directions == sg.directions, "Léviathan articulé, directions = SERIE")
     for _, kk in ipairs(T2.KAIJUS) do
       local c = T2.kaiju_curve(T2.ERAS, kk)
       assert(c[1][1] < c[2][1] and c[2][1] < c[3][1], "courbe de nid strictement croissante (" .. kk.id .. ")")
@@ -576,7 +671,12 @@ local MUTANTS = {
   { "drones figés à 2", "return d.base + (palier >= d.plus_palier and 1 or 0)", "return d.base" },
   { "canon du Léviathan dès le palier 1", '{ id = "canon", palier = 3 }', '{ id = "canon", palier = 1 }' },
   { "Sentinelle aussi rapide que le Juggernaut", 'dtype = "laser", speed = 0.10, effect = "titan", armes = T.ARMES_SENTINELLE', 'dtype = "laser", speed = 0.12, effect = "titan", armes = T.ARMES_SENTINELLE' },
-  { "direction8 sans arrondi au plus proche", "return math.floor(o * 8 + 0.5) % 8", "return math.floor(o * 8) % 8" },
+  { "direction sans arrondi au plus proche", "return math.floor(o * n + 0.5) % n", "return math.floor(o * n) % n" },
+  -- ART-16DIR
+  { "direction à 8 secteurs en dur", "return math.floor(o * n + 0.5) % n", "return math.floor(o * 8 + 0.5) % 8" },
+  { "Juggernaut à 8 directions", "foulee = 6.9, attaque_ticks = 30, directions = 16 }", "foulee = 6.9, attaque_ticks = 30, directions = 8 }" },
+  { "Sentinelle à 8 directions", "foulee = 6.0, attaque_ticks = 30, directions = 16 }", "foulee = 6.0, attaque_ticks = 30, directions = 8 }" },
+  { "Ravageur à 8 directions", "foulee = 4.472, attaque_ticks = 30, directions = 16 }", "foulee = 4.472, attaque_ticks = 30, directions = 8 }" },
   { "vitesse d'animation sans la foulée", "return speed * images / foulee", "return speed * images" },
   { "images de course écrites en dur fausses", "images = { course = 8, attaque = 4 }", "images = { course = 4, attaque = 4 }" },
   { "foulée écrite en dur fausse", "foulee = 6.9, attaque_ticks = 30", "foulee = 4, attaque_ticks = 30" },
@@ -596,14 +696,17 @@ local MUTANTS = {
   { "courbe de nid d'avant (0,98 et 1 : l'Écorcheur de l'ère V donnait 0,97, 1, 1, refusé par le moteur)",
     "local e0 = math.min(0.96, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(0.99, e0 + 0.03)",
     "local e0 = math.min(0.98, T.KAIJU_EVO0 + T.KAIJU_EVO_PAS * (era - 1) + 0.01 * (rang - 1))\n  return { { e0, 0.0 }, { math.min(1.0, e0 + 0.03)" },
-  { "images du Ravageur écrites en dur fausses", "anime = { images = { course = 8, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }", "anime = { images = { course = 6, attaque = 4 }, foulee = 4.472, attaque_ticks = 30 }" },
+  { "images du Ravageur écrites en dur fausses", "anime = { images = { course = 8, attaque = 4 }, foulee = 4.472, attaque_ticks = 30, directions = 16 }", "anime = { images = { course = 6, attaque = 4 }, foulee = 4.472, attaque_ticks = 30, directions = 16 }" },
   -- TITANS-8DIR
-  { "Sentinelle sans corps animé", "anime = { images = { course = 8, attaque = 4 }, foulee = 6.0, attaque_ticks = 30 }", "anime = nil" },
+  { "Sentinelle sans corps animé", "anime = { images = { course = 8, attaque = 4 }, foulee = 6.0, attaque_ticks = 30, directions = 16 }", "anime = nil" },
   { "foulée de la Sentinelle fausse", "foulee = 6.0, attaque_ticks = 30", "foulee = 4.0, attaque_ticks = 30" },
   { "salve de la Sentinelle à 2 images", "attaque = 4 }, foulee = 6.0", "attaque = 2 }, foulee = 6.0" },
-  { "Léviathan sans corps animé", "anime = { images = { course = 8, attaque = 4 }, foulee = 9.0, attaque_ticks = 30 }", "anime = nil" },
-  { "foulée du Léviathan fausse", "foulee = 9.0, attaque_ticks = 30", "foulee = 6.9, attaque_ticks = 30" },
-  { "nage du Léviathan à 6 images", "course = 8, attaque = 4 }, foulee = 9.0", "course = 6, attaque = 4 }, foulee = 9.0" },
+  { "Léviathan sans corps animé", "anime = { images = { course = 4, attaque = 4 }, foulee = 4.5, attaque_ticks = 30, directions = 16 }", "anime = nil" },
+  { "foulée du Léviathan fausse", "foulee = 4.5, attaque_ticks = 30", "foulee = 6.9, attaque_ticks = 30" },
+  { "marche de la tête du Léviathan à 6 images", "course = 4, attaque = 4 }, foulee = 4.5", "course = 6, attaque = 4 }, foulee = 4.5" },
+  -- LEVIATHAN-SEG (11/11)
+  { "Léviathan d'un seul tenant (non articulé)", "segmente = { n = 4,", "segmente_ = { n = 4," },
+  { "tête du Léviathan en 8 directions", "attaque_ticks = 30, directions = 16 }", "attaque_ticks = 30, directions = 8 }" },
 }
 local T0 = charger(SRC, nil)
 T0.__src = SRC

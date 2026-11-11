@@ -17,6 +17,10 @@ Date: 2026-11-11
     - Méga-Bourdon (F517) : corps en acier sombre irisé, vitraux et anneau de lévitation magnétique cyan, ceinture de plaques taillées, casemates à cœur à vortex ; tourelles rendues en 16 directions.
   Features:
     - Le Méga-Bourdon (F517) : variante cuirassée du Bourdon, fabriquée au Portique à partir d'un Bourdon (âge 15, compte pour deux géants). Quatre tourelles à canons jumeaux à plasma qui pivotent vers leur cible (16 directions) et tirent l'orbe du Bastion aux dégâts de l'âge 15 ; il garde Le Glas, les ancres et la télécommande.
+    - Léviathan (F513) : le titan serpentin n'est plus une image rigide ; sa tête est suivie de quatre segments et d'une queue qui épousent sa trajectoire dans les virages (16 directions, rotules aux joints, ondulation), et sa tête regarde où elle va.
+    - Titans (F506) : le Juggernaut, la Sentinelle et le Ravageur sont dessinés en 16 directions (8 avant) ; blindage plus sombre et iridescent, conduits et anneaux cyan plus lumineux ; poids des feuilles en haute qualité ramené sous 80 Mpx par titan.
+  Bugfixes:
+    - Titans (F507) : un titan allié qui marche se tourne dans la direction de sa marche ; avant, son corps restait tourné vers le nord et glissait sur la carte.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.91
 Date: 2026-11-10
