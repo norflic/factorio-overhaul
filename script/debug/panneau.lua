@@ -15,6 +15,9 @@ local Lg = require("shared.debug.lignes")
 
 local Panneau = {}
 
+-- Boutons des lignes de zone : « fo_dbg_zone_<rang> » (nom unique par ligne, la clé de la zone est dans tags.key).
+Panneau.ZONE_PREFIX = "fo_dbg_zone_"
+
 local FRAME = "fo_dbg_frame"
 local COLORS = {
   vert = { r = 0.35, g = 0.9, b = 0.4 }, orange = { r = 1, g = 0.7, b = 0.2 }, rouge = { r = 1, g = 0.3, b = 0.3 }, gris = { r = 0.75, g = 0.75, b = 0.75 },
@@ -215,9 +218,10 @@ end
 
 local function fill_list(list, ctx)
   list.clear()
-  for _, r in ipairs(ctx.rows) do
+  for i, r in ipairs(ctx.rows) do
     local z = r.z
-    local b = list.add({ type = "button", name = "fo_dbg_zone", style = "list_box_item", tags = { key = r.key },
+    -- Un nom par ligne : le moteur refuse deux enfants de même nom (crash du DC en 0.6.96 dès 2 zones) ; la clé reste dans tags.
+    local b = list.add({ type = "button", name = Panneau.ZONE_PREFIX .. i, style = "list_box_item", tags = { key = r.key },
       caption = { "fo-dbg-cerveau.ligne-zone", SEV_MARK[r.sev] or "", tostring(r.key), { "fo-dbg-cerveau.sorte-" .. tostring(z.kind) }, cause_text(r) } })
     b.style.horizontally_stretchable = true
     b.style.font_color = COLORS[r.color] or COLORS.gris

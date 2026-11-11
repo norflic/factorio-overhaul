@@ -316,7 +316,7 @@ Events.on(defines.events.on_gui_click, function(e)
   elseif name == "fo_dbg_pnj_close" then
     v.npc = nil
     Panneau.close_npc(player)
-  elseif name == "fo_dbg_zone" then
+  elseif name:sub(1, #Panneau.ZONE_PREFIX) == Panneau.ZONE_PREFIX then
     v.sel = el.tags and el.tags.key or nil
     v.sig = {}
     Cv.refresh_one(player, st, v, game.tick)

@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.98
+Date: 2026-11-11
+  Bugfixes:
+    - Débogage (F538) : activer « fo-debug-render » ne plante plus la partie quand la vue des zones liste deux zones ou plus (« fo_dbg_zone already present »).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.97
 Date: 2026-11-11
   Graphics:
