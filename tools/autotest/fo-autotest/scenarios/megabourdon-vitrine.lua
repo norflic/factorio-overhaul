@@ -4,7 +4,10 @@
 local C = require("scenarios/bourdon_commun")
 
 local Y = 3000
-local XM, XB = 4000, 4075 -- Méga-Bourdon, Bourdon (côte à côte)
+-- lot ART-MEGA2 : le Méga-Bourdon est 2,2 fois plus grand (B.MEGA.ECHELLE, échelle de ses feuilles) : le Bourdon s'écarte au-delà de ses
+-- ancres (67 tuiles), les vues du Méga-Bourdon reculent et montent d'autant.
+local K = 2.2
+local XM, XB = 4000, 4120 -- Méga-Bourdon, Bourdon (côte à côte)
 local ALLER = 1500         -- le Méga-Bourdon part vers l'est
 local XM2 = XM + 45
 
@@ -12,14 +15,14 @@ local PLAN = {}
 local function vue(tick, nom, x, y, zoom, res, nuit)
   PLAN[#PLAN + 1] = { tick = tick, nom = nom, x = x, y = y, zoom = zoom, res = res, nuit = nuit }
 end
-for _, t in ipairs({ 150, 300 }) do vue(t, string.format("descente-t%04d", t), XM, Y - 24, 0.35, { 1600, 1400 }) end
-vue(430, "pose", XM, Y - 20, 0.4, { 1600, 1500 })
-for k = 0, 7 do vue(470 + k * 30, string.format("casemates-t%04d", 470 + k * 30), XM, Y - 14, 0.45, { 1600, 1400 }) end
-vue(760, "casemates-nuit", XM, Y - 14, 0.45, { 1600, 1400 }, true)
-vue(800, "detail-casemate", XM - 9, Y - 16, 1.0, { 1600, 1000 })
-vue(860, "cote-a-cote", (XM + XB) / 2, Y - 22, 0.28, { 1600, 1000 })
-for _, t in ipairs({ 1540, 1640, 1800, 2000 }) do vue(t, string.format("vol-t%04d", t), XM + 22, Y - 18, 0.35, { 1600, 1300 }) end
-vue(2600, "repose", XM2, Y - 18, 0.4, { 1600, 1400 })
+for _, t in ipairs({ 150, 300 }) do vue(t, string.format("descente-t%04d", t), XM, Y - 24 * K, 0.35 / K, { 1600, 1400 }) end
+vue(430, "pose", XM, Y - 20 * K, 0.4 / K, { 1600, 1500 })
+for k = 0, 7 do vue(470 + k * 30, string.format("casemates-t%04d", 470 + k * 30), XM, Y - 40, 0.3, { 1600, 1400 }) end
+vue(760, "casemates-nuit", XM, Y - 40, 0.3, { 1600, 1400 }, true)
+vue(800, "detail-casemate", XM - 16, Y - 60, 0.8, { 1600, 1000 })
+vue(860, "cote-a-cote", (XM + XB) / 2, Y - 50, 0.19, { 1600, 1000 })
+for _, t in ipairs({ 1540, 1640, 1800, 2000 }) do vue(t, string.format("vol-t%04d", t), XM + 22, Y - 18 * K, 0.35 / K, { 1600, 1300 }) end
+vue(2600, "repose", XM2, Y - 18 * K, 0.4 / K, { 1600, 1400 })
 table.sort(PLAN, function(a, b) return a.tick < b.tick end)
 
 return {

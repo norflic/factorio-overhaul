@@ -8,6 +8,13 @@ Sources par défaut (à GARDER) : fo-logs/2026-11-11_MEGA-BOURDON/rendu (spec.js
 (« canons » : bouches des casemates, en tuiles depuis la position au sol). Résolutions : celles du Bourdon (feuilles.py) : corps et lueurs hr
 40 px/tuile, normale 16 ; ombre hr 16, normale 8. Le reste de la cloche (battant, chaînes, ancres, Glas) est celui du Bourdon.
 Noms de sprite : fo-mega-bourdon-<cle>.
+
+Lot ART-MEGA2 (ordre du DC du 11/11, 9 h 47) : le Méga-Bourdon est rendu à l'échelle MEGA_ECHELLE (bourdon.py, 2,2) : rendre.py --px 88
+(40 × 2,2) ; une tuile du jeu vaut px / MEGA_ECHELLE pixels du rendu, décalages et pivots sont multipliés par l'échelle, écrite dans
+sprites.lua (« echelle »). Une feuille plus grande que LIMITE_PX de côté est découpée en TUILES (fichiers -t<ligne><colonne>) : la
+limite par fichier ne borne plus la taille. En 1.1 les prototypes `sprite` et `animation` n'ont ni `layers` ni `stripes` (schéma 1.1.91) :
+chaque tuile est son propre sprite (fo-mega-bourdon-<cle>-t<i>, hr_version tuile par tuile), et le script dessine les tuiles d'une couche
+ensemble, chacune à son décalage. (Les `stripes` ne découpent de toute façon que la suite des images d'une animation, jamais une image.)
 """
 import argparse
 import json
@@ -24,14 +31,35 @@ import feuilles as F  # noqa: E402  (lanczos, lua, sha : mêmes réductions et m
 RENDER = os.path.normpath(os.path.join(HERE, "..", ".."))
 MOD = os.path.dirname(os.path.dirname(RENDER))
 LOGS = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs")
-SRC_DEFAUT = os.path.join(LOGS, "2026-11-11_MEGA-BOURDON", "rendu")
-CACHE_DEFAUT = os.path.join(LOGS, "2026-11-11_MEGA-BOURDON", "cache")
+SRC_DEFAUT = os.path.join(LOGS, "2026-11-11_MEGA2", "rendu")
+CACHE_DEFAUT = os.path.join(LOGS, "2026-11-11_MEGA2", "cache")
 DEST_DEFAUT = os.path.join(MOD, "graphics", "robots", "megabourdon")
 PREFIXE = "__factorio-overhaul__/graphics/robots/megabourdon/"
-COMMANDE = ("py -3.9 tools/render/pieces/experimentaux/feuilles_mega.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_MEGA-BOURDON/rendu "
-            "et cache/mega/render.json, à GARDER)")
+COMMANDE = ("py -3.9 tools/render/pieces/experimentaux/feuilles_mega.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_MEGA2/rendu "
+            "et cache/mega/render.json, à GARDER ; rendu : rendre.py --names mega --px 88 --samples 32 --denoise --ombre-pct 40, puis "
+            "tourelle-00..15 --px 88 --samples 32 --denoise --sans-ombre)")
 PX_RENDU = 40.0
 PPT = 32.0
+LIMITE_PX = 4096  # côté maximal d'un fichier ; au-delà, tuiles (Factorio 1.1 refuse plus de 8192)
+
+
+def _echelle():
+    """MEGA_ECHELLE de bourdon.py (lu dans le texte : bourdon.py importe Blender)."""
+    import re
+    t = open(os.path.join(HERE, "bourdon.py"), encoding="utf-8").read()
+    return float(re.search(r"^MEGA_ECHELLE = ([0-9.]+)", t, re.M).group(1))
+
+
+ECH = _echelle()
+
+
+def _coupes(n, morceaux, pas):
+    """Bornes de `morceaux` tranches de n pixels, sur des multiples de `pas` (les tuiles hr et normales se recouvrent exactement)."""
+    b = [0]
+    for i in range(1, morceaux):
+        b.append(int(round(n * i / morceaux / pas)) * pas)
+    b.append(n)
+    return b
 
 
 class Sortie:
@@ -39,14 +67,46 @@ class Sortie:
         self.dest = dest
         self.spr = {}
 
+    def tuiles(self, a, ppt, nom, ys, xs):
+        """Découpe a aux bornes ys (lignes) et xs (colonnes) ; rend la liste des tuiles (fichier, taille, échelle, décalage du centre de
+        la tuile depuis le centre de l'image, en tuiles du jeu)."""
+        h, w = a.shape[0], a.shape[1]
+        out = []
+        for i in range(len(ys) - 1):
+            for j in range(len(xs) - 1):
+                t = a[ys[i]:ys[i + 1], xs[j]:xs[j + 1]]
+                assert t.shape[0] <= LIMITE_PX and t.shape[1] <= LIMITE_PX, nom
+                f = F.ecrit(np.ascontiguousarray(t), self.dest, "%s-t%d%d.png" % (nom, i, j))
+                dx = ((xs[j] + xs[j + 1]) / 2.0 - w / 2.0) / ppt
+                dy = ((ys[i] + ys[i + 1]) / 2.0 - h / 2.0) / ppt
+                out.append({"filename": PREFIXE + f, "width": int(t.shape[1]), "height": int(t.shape[0]), "scale": PPT / ppt,
+                            "decal": [round(dx, 4), round(dy, 4)]})
+        return out
+
     def pose(self, cle, hr, hr_ppt, lr, lr_ppt, shift=(0.0, 0.0), blend=None, ombre=False, lueur=False):
-        for a in (hr, lr):
-            assert a.shape[0] <= 4096 and a.shape[1] <= 4096, cle
-        fh = F.ecrit(hr, self.dest, "hr-%s.png" % cle)
-        fl = F.ecrit(lr, self.dest, "%s.png" % cle)
-        e = {"hr": {"filename": PREFIXE + fh, "width": hr.shape[1], "height": hr.shape[0], "scale": PPT / hr_ppt},
-             "lr": {"filename": PREFIXE + fl, "width": lr.shape[1], "height": lr.shape[0], "scale": PPT / lr_ppt},
-             "shift": [round(float(shift[0]), 4), round(float(shift[1]), 4)]}
+        lignes = -(-hr.shape[0] // LIMITE_PX)
+        colonnes = -(-hr.shape[1] // LIMITE_PX)
+        if lignes * colonnes > 1:
+            # même découpe aux deux résolutions : bornes hr sur des multiples de ph pixels, bornes normales = bornes hr × pl / ph
+            import math
+            g = math.gcd(int(hr_ppt), int(lr_ppt))
+            ph, pl = int(hr_ppt) // g, int(lr_ppt) // g
+            ys, xs = _coupes(hr.shape[0], lignes, ph), _coupes(hr.shape[1], colonnes, ph)
+            ysl = [min(lr.shape[0], y * pl // ph) for y in ys[:-1]] + [lr.shape[0]]
+            xsl = [min(lr.shape[1], x * pl // ph) for x in xs[:-1]] + [lr.shape[1]]
+            th = self.tuiles(hr, hr_ppt, "hr-%s" % cle, ys, xs)
+            tl = self.tuiles(lr, lr_ppt, cle, ysl, xsl)
+            e = {"hr": {"tuiles": th, "width": int(hr.shape[1]), "height": int(hr.shape[0]), "scale": PPT / hr_ppt},
+                 "lr": {"tuiles": tl, "width": int(lr.shape[1]), "height": int(lr.shape[0]), "scale": PPT / lr_ppt},
+                 "shift": [round(float(shift[0]), 4), round(float(shift[1]), 4)]}
+        else:
+            for a in (hr, lr):
+                assert a.shape[0] <= LIMITE_PX and a.shape[1] <= LIMITE_PX, cle
+            fh = F.ecrit(hr, self.dest, "hr-%s.png" % cle)
+            fl = F.ecrit(lr, self.dest, "%s.png" % cle)
+            e = {"hr": {"filename": PREFIXE + fh, "width": hr.shape[1], "height": hr.shape[0], "scale": PPT / hr_ppt},
+                 "lr": {"filename": PREFIXE + fl, "width": lr.shape[1], "height": lr.shape[0], "scale": PPT / lr_ppt},
+                 "shift": [round(float(shift[0]), 4), round(float(shift[1]), 4)]}
         if blend:
             e["blend"] = blend
         if ombre:
@@ -57,15 +117,19 @@ class Sortie:
 
     def rendu(self, src, couche, cle, hr_ppt=PX_RENDU, lr_ppt=16.0, **kw):
         s = json.load(open(os.path.join(src, "spec.json"), encoding="utf-8"))
-        assert float(s["px"]) == PX_RENDU, "rendu à %s px/tuile, attendu %s" % (s["px"], PX_RENDU)
+        px = float(s["px"])
+        if abs(px - PX_RENDU * ECH) > 1e-6:
+            print("[FO-FEUILLES-MEGA] %s : rendu à %s px par unité au lieu de %s : agrandi" % (cle, px, PX_RENDU * ECH), flush=True)
         info = s["layers"][couche]
         a = np.asarray(Image.open(os.path.join(src, info["file"])).convert("RGBA"))
         w, h = a.shape[1], a.shape[0]
-        k = hr_ppt / PX_RENDU
-        hr = a if k == 1.0 else F.lanczos(a, max(1, int(round(w * k))), max(1, int(round(h * k))))
-        k2 = lr_ppt / PX_RENDU
+        ppt_src = px / ECH  # pixels du rendu par tuile du jeu
+        k = hr_ppt / ppt_src
+        hr = a if abs(k - 1.0) < 1e-9 else F.lanczos(a, max(1, int(round(w * k))), max(1, int(round(h * k))))
+        k2 = lr_ppt / ppt_src
         lr = F.lanczos(a, max(1, int(round(w * k2))), max(1, int(round(h * k2))))
-        self.pose(cle, hr, hr_ppt, lr, lr_ppt, shift=info["shift"], **kw)
+        sh = (info["shift"][0] * ECH, info["shift"][1] * ECH)
+        self.pose(cle, hr, hr_ppt, lr, lr_ppt, shift=sh, **kw)
         return info
 
 
@@ -92,6 +156,7 @@ def main():
     ap.add_argument("--src", default=SRC_DEFAUT)
     ap.add_argument("--cache", default=CACHE_DEFAUT)
     ap.add_argument("--dest", default=DEST_DEFAUT)
+    ap.add_argument("--src-tourelles", default=None)  # dossier des rendus de tourelles, s'il diffère de --src
     a = ap.parse_args()
     src = os.path.join(a.src, "mega")
     os.makedirs(a.dest, exist_ok=True)
@@ -107,20 +172,23 @@ def main():
     # les tourelles : 16 directions rendues à part (variantes tourelle-00 à tourelle-15), sans ombre (celle du corps suffit)
     for k in range(16):
         nom = "tourelle-%02d" % k
-        st = os.path.join(a.src, nom)
+        st = os.path.join(a.src_tourelles or a.src, nom)
         S.rendu(st, "main", nom)
         S.rendu(st, "glow_vortex", "tourelle-lueur-%02d" % k, blend="additive", lueur=True)
     info = json.load(open(os.path.join(a.cache, "mega", "render.json"), encoding="utf-8"))
     canons, sols = info.get("canons") or [], info.get("canons_sol") or []
     assert len(canons) == 4 and len(sols) == 4, "4 pivots attendus, %d et %d" % (len(canons), len(sols))
-    S.spr["canons"] = [[round(float(c[0]), 3), round(float(c[1]), 3)] for c in canons]
-    S.spr["canons_sol"] = [[round(float(c[0]), 3), round(float(c[1]), 3)] for c in sols]
+    S.spr["canons"] = [[round(float(c[0]) * ECH, 3), round(float(c[1]) * ECH, 3)] for c in canons]
+    S.spr["canons_sol"] = [[round(float(c[0]) * ECH, 3), round(float(c[1]) * ECH, 3)] for c in sols]
+    S.spr["echelle"] = ECH
     icone(src, a.dest)
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("-- FICHIER GÉNÉRÉ par tools/render/pieces/experimentaux/feuilles_mega.py (lot MEGA-BOURDON) : ne pas modifier à la main.\n")
         f.write("-- Images hors de git (D-6), sauf l'icône : MANIFEST.json, « commande ». shift : centre de l'image depuis la position au sol, en tuiles ;\n")
         f.write("-- canons : pivots des 4 tourelles à l'écran ; canons_sol : le sol sous chacun (origine des feuilles de tourelle), en tuiles.\n")
+        f.write("-- echelle : MEGA_ECHELLE du rendu (bourdon.py) ; hr.tuiles / lr.tuiles : feuille découpée (decal : centre de la tuile depuis\n")
+        f.write("-- celui de l'image, en tuiles), un sprite par tuile (prototypes/bourdon.lua), dessinées ensemble par le script.\n")
         f.write("return " + F.lua(S.spr) + "\n")
     fichiers = {}
     total = 0

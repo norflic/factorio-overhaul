@@ -23,7 +23,8 @@ import fo_post as P  # noqa: E402
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
-TMP = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-31_ROBOTS\experimentaux\tmp"
+# lot ART-MEGA2 : FO_RENDER_TMP met les fichiers temporaires de Blender ailleurs (F: est une clé USB, lente)
+TMP = os.environ.get("FO_RENDER_TMP", r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-31_ROBOTS\experimentaux\tmp")
 
 
 def etalonne(img, grade):
@@ -97,6 +98,7 @@ def main():
     ap.add_argument("--gris", action="store_true")
     ap.add_argument("--denoise", action="store_true")
     ap.add_argument("--post-only", action="store_true")
+    ap.add_argument("--sans-ombre", action="store_true")  # lot ART-MEGA2 : les tourelles du Méga-Bourdon n'ont pas d'ombre en jeu
     ap.add_argument("--grade", default="")
     a = ap.parse_args()
     names = [n for n in a.names.split(",") if n]
@@ -105,7 +107,7 @@ def main():
         os.makedirs(TMP, exist_ok=True)
         cmd = [sys.executable, LOCK, "--disque", a.cache, "--", BLENDER, "-b", "--factory-startup", "-noaudio", "--python-exit-code", "1", "-P", BATCH, "--", "--names",
                ",".join(names), "--out", a.cache, "--samples", str(a.samples), "--px", str(a.px), "--ombre-spp", str(a.ombre_spp), "--ombre-pct", str(a.ombre_pct),
-               "--lueur-spp", str(a.lueur_spp)]
+               "--lueur-spp", str(a.lueur_spp)] + (["--sans-ombre"] if a.sans_ombre else [])
         env = dict(os.environ, PYTHONIOENCODING="utf-8", TEMP=TMP, TMP=TMP, TMPDIR=TMP)
         if a.gris:
             env["FO_GRIS"] = "1"

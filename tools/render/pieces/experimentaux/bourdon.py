@@ -654,12 +654,117 @@ def tourelle(lot, M, k):
         lot.put(M["vortex"], G.oriente(G.tour([(6.18, 0.24), (6.24, 0.24)], 14, "z", cap0=True, cap1=True), o, d), xf)
 
 
+# Lot ART-MEGA2 (11/11, ordre du DC de 9 h 47) : « une taille strictement 2 fois supérieure (minimum 200 % à 250 % de l'échelle du Bourdon) ;
+# plaques de blindage angulaires lourdes et une double paire de réacteurs à impulsion cyan ». Le modèle reste celui du Bourdon (même lèvre) ;
+# l'ÉCHELLE est celle du rendu : rendre.py --px (MEGA_ECHELLE × 40) rend la même géométrie 2,2 fois plus grande à 40 px par tuile du jeu
+# (feuilles_mega.py lit px / MEGA_ECHELLE), et le jeu multiplie par shared/robots/bourdon.lua B.MEGA.ECHELLE (même valeur, vérifiée par
+# tests/megabourdon_test.lua sur sprites.lua) tout ce qu'il emprunte au Bourdon : chaînes, ancres, battant, boîtes.
+MEGA_ECHELLE = 2.2
+# réacteurs : (azimut, hauteur du bas de la tuyère, écart radial du profil de la cloche, rayon, longueur) ; deux paires, est et ouest
+MEGA_REACTEURS = [(-0.06, Z_LEVRE + 1.2, 7.4, 1.75, 6.4), (math.pi + 0.06, Z_LEVRE + 1.2, 7.4, 1.75, 6.4),
+                  (-0.10, Z_LEVRE + 12.5, 6.6, 1.4, 5.2), (math.pi + 0.10, Z_LEVRE + 12.5, 6.6, 1.4, 5.2)]
+
+
+def reacteur(lot, M, az, z0, ecart, ray, lon):
+    """Réacteur à impulsion : nacelle sombre à axe vertical, tuyère vers le sol, frettes et anneaux d'impulsion cyan sous la tuyère,
+    capot taillé, deux mâts jusqu'à la cloche."""
+    ca, sa = math.cos(az), math.sin(az)
+    zm = z0 + lon * 0.55
+    r0 = rz(zm) + ecart
+    c = (r0 * ca, r0 * sa, z0)
+
+    def xf(q):
+        return (q[0] + c[0], q[1] + c[1], q[2] + c[2])
+    prof = [(0.0, ray * 0.62), (0.35, ray * 0.86), (1.1, ray), (lon * 0.78, ray), (lon * 0.92, ray * 0.74), (lon, ray * 0.3), (lon + 0.12, 0.0)]
+    lot.put(M["aimant"], G.tour(prof, 28, "z"), xf)
+    for zf in (lon * 0.32, lon * 0.55):
+        lot.put(M["blindage2"], G.tour([(zf, ray + 0.02), (zf, ray + 0.16), (zf + 0.42, ray + 0.16), (zf + 0.42, ray + 0.02)], 28, "z"), xf)
+        lot.put(M["vortex"], G.tour([(zf + 0.14, ray + 0.17), (zf + 0.28, ray + 0.17)], 28, "z"), xf)
+    # tuyère : bouche cyan et deux anneaux d'impulsion détachés dessous
+    lot.put(M["vortex"], G.tour([(0.02, 0.0), (0.02, ray * 0.6)], 28, "z"), xf)
+    lot.put(M["canon"], G.tour([(0.0, ray * 0.6), (-0.5, ray * 0.78), (-0.5, ray * 0.7), (0.0, ray * 0.52)], 28, "z"), xf)
+    for k, (dz, rr) in enumerate(((-1.25, 0.95), (-2.5, 0.78))):
+        e = 0.16 - 0.04 * k
+        lot.put(M["vortex"], G.tour([(dz - e, ray * rr - e), (dz - e, ray * rr + e), (dz + e, ray * rr + e), (dz + e, ray * rr - e), (dz - e, ray * rr - e)],
+                                    28, "z"), xf)
+    # capot taillé sur le dessus
+    lot.put(M["blindage"], G.prisme(R.octo((0.0, 0.0), ray * 1.12, 6), lon * 0.7, lon + 0.5, top_scale=0.45), xf)
+    # deux mâts jusqu'à la cloche, et une lame de blindage sur le mât haut
+    for k, zz in enumerate((zm - lon * 0.25, zm + lon * 0.2)):
+        a = S_pt(az, zz + 1.5 * (1 - k), -0.3)
+        b = (c[0] - ca * ray * 0.7, c[1] - sa * ray * 0.7, zz)
+        lot.put(M["aimant"], G.tube([a, b], 0.5 - 0.1 * k, 8))
+        lot.put(M["vortex"], G.tube([G.lerp(a, b, 0.15), G.lerp(a, b, 0.85)], 0.14, 6))
+    t = (-sa, ca, 0.0)
+    pa = S_pt(az, zm + lon * 0.2 + 0.6, -0.2)
+    pb = (c[0] - ca * ray * 0.5, c[1] - sa * ray * 0.5, zm + lon * 0.2 + 1.0)
+    tip = G.add(pb, (ca * 1.2, sa * 1.2, 2.6))
+    v, f, u = [], [], []
+    w = 0.45
+    q = [pa, pb, tip, S_pt(az, zm + lon * 0.2 + 3.2, -0.2)]
+    qa = [G.add(x, G.mul(t, -w)) for x in q]
+    qb = [G.add(x, G.mul(t, w * 0.6)) for x in q]
+    _quad(v, f, u, qa[0], qa[1], qa[2], qa[3])
+    _quad(v, f, u, qb[3], qb[2], qb[1], qb[0])
+    for i in range(4):
+        j = (i + 1) % 4
+        _quad(v, f, u, qa[i], qb[i], qb[j], qa[j])
+    lot.put(M["blindage2"], (v, f, u))
+
+
+def lame(lot, M, az, z0, z1, saillie, montee, ep, mat):
+    """Plaque de blindage lourde en lame : chevron taillé qui sort de la cloche (de z0 à z1 sur la surface) jusqu'à une pointe à saillie
+    tuiles de la surface et montee tuiles au-dessus de z1 ; épaisse de ep, face extérieure chanfreinée."""
+    ca, sa = math.cos(az), math.sin(az)
+    n = (ca, sa, 0.0)
+    t = (-sa, ca, 0.0)
+    pts = [S_pt(az, z0, 0.1), G.add(S_pt(az, z0 + (z1 - z0) * 0.3, 0.1), G.mul(n, saillie * 0.42)),
+           G.add(S_pt(az, z1, 0.1), G.add(G.mul(n, saillie), (0.0, 0.0, montee))),
+           G.add(S_pt(az, z1, 0.1), G.mul(n, saillie * 0.32)), S_pt(az, z1, 0.1)]
+    v, f, u = [], [], []
+    a = [G.add(p, G.mul(t, -ep / 2)) for p in pts]
+    b = [G.add(p, G.mul(t, ep / 2)) for p in pts]
+    m = [G.add(p, G.mul(n, ep * 0.35)) for p in pts]
+    k = len(pts)
+    for i in range(k):
+        j = (i + 1) % k
+        _quad(v, f, u, a[i], a[j], m[j], m[i])
+        _quad(v, f, u, m[i], m[j], b[j], b[i])
+    base = len(v)
+    v += a
+    u += [(0.0, 0.0)] * k
+    f.append(tuple(range(base + k - 1, base - 1, -1)))
+    base = len(v)
+    v += b
+    u += [(0.0, 0.0)] * k
+    f.append(tuple(range(base, base + k)))
+    lot.put(mat, (v, f, u))
+
+
+def blindage_lourd(lot, M):
+    """Ceinture haute de 16 plaques épaisses (1,5 tuile) sur l'épaule, et 6 lames de blindage en chevron dressées autour du cerveau."""
+    n = 16
+    for k in range(n):
+        a0 = G.TAU * (k + 0.25) / n + 0.02
+        a1 = G.TAU * (k + 1.25) / n - 0.02
+        if not vu((a0 + a1) / 2, 0.8):
+            continue
+        lot.put(M["blindage"] if k % 2 == 0 else M["blindage2"], plaque(a0, a1, Z_LEVRE + 13.6, Z_LEVRE + 19.4, 0.3, 1.5, 0.2))
+        if k % 2 == 0:
+            lot.put(M["vortex"], G.tube([S_pt((a0 + a1) / 2, Z_LEVRE + 14.4, 1.5), S_pt((a0 + a1) / 2, Z_LEVRE + 18.4, 1.35)], 0.09, 6))
+    for az in (-math.pi / 2 - 0.62, -math.pi / 2 + 0.62, -math.pi / 2 - 1.3, -math.pi / 2 + 1.3, -math.pi / 2 - 2.05, -math.pi / 2 + 2.05):
+        lame(lot, M, az, Z_LEVRE + 19.0, Z_LEVRE + 24.2, 6.2, 5.0, 0.8, M["blindage2"])
+
+
 def mega(lot, M):
     del MEGA_PIVOTS[:]
     blindage(lot, M)
+    blindage_lourd(lot, M)
     for az in MEGA_CANONS:
         casemate(lot, M, az)
         MEGA_PIVOTS.append(pivot(az))
+    for (az, z0, ecart, ray, lon) in MEGA_REACTEURS:
+        reacteur(lot, M, az, z0, ecart, ray, lon)
     anneau_magnetique(lot, M)
 
 
