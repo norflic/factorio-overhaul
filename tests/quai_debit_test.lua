@@ -96,7 +96,8 @@ local function suite(Qd, quick, out)
         end
       end
     end
-    check(before >= 20, "3.1 le défaut de l'audit est là au départ (" .. before .. " gabarits)")
+    -- (ILOTS-COLONNES F463, 073d7102 : circuits rouges et moteurs-n7 refaits en îlots à liaisons par colonne ne sont plus en écart : 21 -> 19)
+    check(before >= 19, "3.1 le défaut de l'audit est là au départ (" .. before .. " gabarits)")
     check(fixed >= 1 and fewer >= 1, "3.2 des gabarits sont refaits à un n plus petit et tiennent (" .. fixed .. " tiennent, " .. fewer .. " refaits, " .. still .. " ne tiennent pas, " .. noext .. " sans extension)")
     print(string.format("[QUAI-DEBIT] sur %d gabarits : %d en écart avant ; avec le bras choisi par le débit et n borné : %d tiennent, %d ne tiennent pas même à n = 1, %d sans extension", #list, before, fixed, still, noext))
     -- un gabarit qui tient d'emblée n'est pas touché
