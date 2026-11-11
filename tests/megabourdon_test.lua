@@ -101,6 +101,10 @@ local function regles(B, muet)
   ck(pres9(B.degat_effectif(100, nil), 100), "dégât sans résistance")
   ck(pres9(B.degat_effectif(100, { decrease = 20, percent = 50 }), 40), "réduction fixe, puis pourcentage")
   ck(pres9(B.degat_effectif(10, { decrease = 20, percent = 0 }), 1 / 12), "sous la réduction : 1 / (2 + réduction - d)")
+  -- marge de précision (simple précision du moteur) : infliger tout juste les PV ne suffit pas
+  ck(type(B.MEGA.MARGE) == "number" and B.MEGA.MARGE >= 2 ^ -16 and B.MEGA.MARGE <= 2 ^ -8, "marge de précision du moteur")
+  ck(not B.direct_tue(1000, { pv = 1000, res = {} }) and B.direct_tue(1001, { pv = 1000, res = {} }), "coup direct : les PV tout juste ne tuent pas")
+  ck(not B.zone_tue(500, 500, { pv = 1000, res = {} }) and B.zone_tue(501, 500, { pv = 1000, res = {} }), "zone : les PV tout juste ne tuent pas")
   -- dégâts dérivés de l'essaim (fictif : un petit, un blindé, un gros)
   local essaim = {
     { nom = "petit", pv = 15, res = {} },
@@ -379,7 +383,9 @@ local MUTANTS = {
   { "zone sans la plus forte", "      k = hi\n", "" },
   { "zone d'explosion non relevée", "a.zone_laser, a.zone_explosion = math.ceil(k * zl), math.ceil(k * ze)", "a.zone_laser = math.ceil(k * zl)" },
   { "coup direct non relevé", "if d > a.direct then a.direct, a.plus_blindee = d, c.nom end", "" },
-  { "coup direct sans réduction fixe", "local d = math.ceil(c.pv / (1 - pct / 100) + (r and r.decrease or 0))", "local d = math.ceil(c.pv / (1 - pct / 100))" },
+  { "marge de précision retirée (zone)", "B.degat_effectif(ze, c.res.explosion) >= c.pv * (1 + B.MEGA.MARGE)", "B.degat_effectif(ze, c.res.explosion) >= c.pv" },
+  { "marge de précision retirée (direct)", "return B.degat_effectif(d, c.res.laser) >= c.pv * (1 + B.MEGA.MARGE) end", "return B.degat_effectif(d, c.res.laser) >= c.pv end" },
+  { "coup direct sans réduction fixe", "(1 - pct / 100) + (r and r.decrease or 0))", "(1 - pct / 100))" },
   { "explosion non agrandie", "if c.echelle then c.echelle = c.echelle * k end", "" },
   { "onde de choc non agrandie", "if c[q] then c[q].echelle = c[q].echelle * k end", "if c[q] then c[q].echelle = c[q].echelle end" },
   { "lumière non agrandie", "c.lumiere.taille = c.lumiere.taille * k", "c.lumiere.taille = c.lumiere.taille" },

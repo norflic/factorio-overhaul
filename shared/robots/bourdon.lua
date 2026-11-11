@@ -424,6 +424,10 @@ B.MEGA = {
   -- Tout ce que le Méga-Bourdon emprunte au Bourdon en est multiplié : chaînes, ancres, battant, griffes, boîtes, lumière.
   ECHELLE = 2.2,
   RAYON_X = 4,    -- lot MEGA-BALISTIQUE : rayon de zone de l'orbe = rayon de l'orbe Bastion × 4 (ordre du DC)
+  -- marge de précision : le moteur calcule dégâts et résistances en simple précision (24 bits de mantisse, 2^-24 perdu par opération) ;
+  -- un tir « au plus juste » laissait la plus forte à une fraction de PV (banc megabourdon-vitrine du 11/11 : 8 des 9 survivent au
+  -- premier impact). Tuer, c'est infliger au moins PV × (1 + 2^-10).
+  MARGE = 2 ^ -10,
 }
 
 --- Échelle d'une variante de cloche : B.MEGA.ECHELLE pour « mega », 1 sinon.
@@ -489,11 +493,11 @@ end
 
 --- La zone (zl laser, ze explosion) tue-t-elle d'un coup la cible c = { nom, pv, res = { laser = r, explosion = r } } ?
 function B.zone_tue(zl, ze, c)
-  return B.degat_effectif(zl, c.res.laser) + B.degat_effectif(ze, c.res.explosion) >= c.pv
+  return B.degat_effectif(zl, c.res.laser) + B.degat_effectif(ze, c.res.explosion) >= c.pv * (1 + B.MEGA.MARGE)
 end
 
 --- Le coup direct (laser) seul tue-t-il d'un coup la cible c ?
-function B.direct_tue(d, c) return B.degat_effectif(d, c.res.laser) >= c.pv end
+function B.direct_tue(d, c) return B.degat_effectif(d, c.res.laser) >= c.pv * (1 + B.MEGA.MARGE) end
 
 --- Arme des casemates. spec : A.age_turret(B.MEGA.ARME_AGE) (range, min_range, cooldown, plasma = { direct, radius, speed, area = { laser,
 --- explosion } }) ; salve_laser, salve_explosion : Ech.salve(B.AGE, « laser » / « explosion »). cibles (lot MEGA-BALISTIQUE, facultatif) :
@@ -540,7 +544,7 @@ function B.arme_mega(spec, salve_laser, salve_explosion, cibles)
     local r = c.res.laser
     local pct = r and r.percent or 0
     if pct >= 100 then return nil end
-    local d = math.ceil(c.pv / (1 - pct / 100) + (r and r.decrease or 0))
+    local d = math.ceil(c.pv * (1 + B.MEGA.MARGE) / (1 - pct / 100) + (r and r.decrease or 0))
     for _ = 1, 8 do
       if B.direct_tue(d, c) then break end
       d = d + 1
