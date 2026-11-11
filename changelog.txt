@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.3
+Date: 2026-11-11
+  Changes:
+    - IA (F553) : 7 angles morts de plus corrigés (fonte de stock vue plus tôt, puits fermé sans production, labos et recherches bloquées plus réactifs, anti-mélange après agrandissement, purge des fenêtres refusées, menace comptée sans doublon) ; 26 sur 50 au total, 23 restent.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.2
 Date: 2026-11-11
   Bugfixes:

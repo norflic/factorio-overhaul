@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-11, 15 h 45 : version 0.7.3 (blitz du DC de 15 h 31 : 30 angles morts restants)
+
+- **F553 · FAIT · [0.7.3]** 7 des 30 angles morts restants corrigés, chacun par un test pur et un mutant (blitz-a d5eb9976 : n° 8 `Sa.WINDOW` 4, n° 9 `Dm.Y_FLOOR` 0 avec garde de division ; blitz-b a8fda301 : n° 29 `Im.STALL` 3 min, n° 28 `LAB_WINDOW_S` 180 s ; blitz-c 72b3a754 : n° 40 contrôle anti-mélange refait quand la foreuse change de nom ; blitz-d 5e617d98 : n° 48 purge des fenêtres refusées, n° 50 profil de menace sans doublon). Le n° 5 a été annulé (2 attendus de gisement_test cassés). 23 points restent à faire (`AUDIT_50_ANGLES_MORTS.md`) : les 50 ne sont PAS tous résolus. Garde-fous : run 114, iag 560, harness 0, banc de chargement 618 OK code 0.
+
 ## 2026-11-11, 15 h 25 : version 0.7.2 (mandat du DC de 15 h : 50 angles morts)
 
 - **F551 · FAIT · [0.7.2]** Audit statique des 50 angles morts du cerveau des IA (`AUDIT_50_ANGLES_MORTS.md`, 5 piliers × 10, chaque point prouvé par fichier:ligne). 19 corrigés et livrés, chacun par un test pur rouge→vert avec mutants : pilier 1 (fix-p1 fdad0f75 : foreuses de charbon comptées par état, borne de 15 demandes de centrale supprimée, puits de demande fermé net ; l'avance au-delà de F491 écartée car elle contournait la règle du DC), pilier 2 (fix-p2 ae353aa5 : gisements comptés en grappes, trajet de l'éclaireur et couloir du minage lointain contrôlés, gisements connus classés par quantité/distance), pilier 3 (fix-p3 34322ece : armée ×1,5 sous menace, la recherche en cours n'empêche plus la bascule vers la tourelle, V_OTHER 0, V_LOG 30), pilier 4 (fix-p4 a733ea11 : arrivée latérale bornée à une voie, quai de repli refusé signalé, deux voies sourcées au-delà d'une voie de débit, tapis rapide choisi selon la longueur), pilier 5 (fix-p5 97f093be : menace du QG et mise à l'abri sur la plus proche UNITÉ ennemie, pièce détruite retirée du relevé de réparation, réparation rouverte sans preneur reportée après 3). Aucun banc de partie.

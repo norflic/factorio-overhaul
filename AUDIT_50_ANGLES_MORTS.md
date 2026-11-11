@@ -1,6 +1,6 @@
 # Audit : 50 angles morts du cerveau des IA (v0.7.1, 11/11/2026, 15 h)
 
-Audit statique en lecture seule, un agent par pilier, chaque point prouvé par un `fichier:ligne` lu. Aucun point ne reprend un fait F488 à F550 de RD_LOG. Bilan : 19 points corrigés et livrés en 0.7.2 (n° 1, 6, 7, 11, 12, 13, 17, 21, 23, 24, 26, 31, 32, 33, 38, 41, 42, 43, 45), 1 écarté (n° 2), 30 à faire. Colonne « État » : **0.7.2** = corrigé, testé et livré dans la 0.7.2 ; **à faire** = documenté, non corrigé.
+Audit statique en lecture seule, un agent par pilier, chaque point prouvé par un `fichier:ligne` lu. Aucun point ne reprend un fait F488 à F550 de RD_LOG. Bilan 0.7.3 : 26 points corrigés (19 en 0.7.2, plus 8, 9, 28, 29, 40, 48, 50 en 0.7.3), 1 écarté, 23 à faire. Bilan 0.7.2 : 19 points corrigés et livrés en 0.7.2 (n° 1, 6, 7, 11, 12, 13, 17, 21, 23, 24, 26, 31, 32, 33, 38, 41, 42, 43, 45), 1 écarté (n° 2), 30 à faire. Colonne « État » : **0.7.2** = corrigé, testé et livré dans la 0.7.2 ; **à faire** = documenté, non corrigé.
 
 Format : n° · composant · faille · impact · correction proposée · état.
 
@@ -13,8 +13,8 @@ Format : n° · composant · faille · impact · correction proposée · état.
 5. `shared/team/gisement.lua:23,68-76` · plancher de besoin à 50 % du plus grand besoin pour toute matière · foreuses vers des minerais que rien ne consomme · plancher à 10 % · à faire (S)
 6. `shared/ai3/demande.lua:170` · le puits de demande décroît de 5 %/min seulement après le réveil · pénuries artificielles · fermeture nette · **0.7.2**
 7. `shared/team/centrale.lua:29,149` · 15 demandes de centrale au plus sur toute la partie · croissance électrique arrêtée en partie longue · garde supprimée · **0.7.2**
-8. `shared/ai3/saturation.lua:35,84` · aucune fonte de stock reconnue avant 10 relevés · 10 min d'aveuglement · fenêtre 4 · à faire (S)
-9. `shared/ai3/demande.lua:54,158` · plancher de puits à 10/min avec une production nulle · le stock dormant est drainé pendant un effondrement · plancher 0 · à faire (S)
+8. `shared/ai3/saturation.lua:35,84` · aucune fonte de stock reconnue avant 10 relevés · 10 min d'aveuglement · fenêtre 4 · **0.7.3**
+9. `shared/ai3/demande.lua:54,158` · plancher de puits à 10/min avec une production nulle · le stock dormant est drainé pendant un effondrement · plancher 0 · **0.7.3**
 10. `shared/team/bilan_charbon.lua:14,18` · le besoin de charbon ignore les recettes qui le consomment · extraction structurellement courte · ajouter la consommation en recettes · à faire (M)
 
 ## Pilier 2 : exploration, reconnaissance, cartographie
@@ -39,8 +39,8 @@ Format : n° · composant · faille · impact · correction proposée · état.
 25. `shared/ai3/general.lua:334-348` · la règle « défense d'abord » s'arrête à la recette de tourelle · tourelles restées aux dégâts de base · étendre aux bonus militaires sous menace · à faire (M)
 26. `script/ai3/general.lua:625-629` · la recherche en cours, tant que payable, court-circuite `Gen.choose` · une recherche chère bloque la tourelle · laisser choisir si la tourelle est fermée · **0.7.2**
 27. `script/ai3/cerveau.lua:75,667-675` · réserve de 10 packs de chaque sorte, même sans recherche qui les lit · fer et cuivre gaspillés · réserve limitée aux packs utiles · à faire (S)
-28. `script/ai3/cerveau.lua:72-73,588` · un seul labo sous 10 min de recherche restante · paliers lents · fenêtre 180 s, 2 labos dès le pack vert · à faire (S)
-29. `shared/ai3/impayable.lua:23-24` · une recherche impayable garde les labos 8 à 10 min · labos à l'arrêt · 3 min, lâcher si l'ingrédient n'est pas fabricable · à faire (S)
+28. `script/ai3/cerveau.lua:72-73,588` · un seul labo sous 10 min de recherche restante · paliers lents · fenêtre 180 s, 2 labos dès le pack vert · **0.7.3**
+29. `shared/ai3/impayable.lua:23-24` · une recherche impayable garde les labos 8 à 10 min · labos à l'arrêt · 3 min, lâcher si l'ingrédient n'est pas fabricable · **0.7.3**
 30. `shared/team/planner.lua:1272`, `shared/ai3/recherche.lua:108-159` · `A.plan`, `A.priority`, `A.lean` jamais appelés : règle documentée morte · ancien cerveau sans plancher d'économie · brancher ou supprimer · à faire (M)
 
 ## Pilier 4 : topologie, flux, deadlocks
@@ -54,7 +54,7 @@ Format : n° · composant · faille · impact · correction proposée · état.
 37. `script/team/stock.lua:1026-1031`, `script/team/bus.lua:113` · un tampon de rapatriement plein compte encore à plein débit dans le bus · bus bâti sur un débit fictif · débit 0 à la barre · à faire (M)
 38. `shared/team/convoyeurs.lua:63-67` · le tapis rapide « au stock » est choisi sans regarder la longueur du tracé · chantier bloqué faute de tapis · exiger la longueur · **0.7.2**
 39. `script/team/bus.lua:31,124` · débit supposé de 120/min pour toute source du bus · tronc pour un produit lent · estimer le débit · à faire (S)
-40. `script/team/melange.lua:148,212` · le contrôle anti-mélange n'est jamais refait après un agrandissement de foreuse · tapis pollué par un autre minerai · relire au changement d'entité · à faire (S)
+40. `script/team/melange.lua:148,212` · le contrôle anti-mélange n'est jamais refait après un agrandissement de foreuse · tapis pollué par un autre minerai · relire au changement d'entité · **0.7.3**
 
 ## Pilier 5 : résilience militaire, tactique, santé du système
 
@@ -65,6 +65,6 @@ Format : n° · composant · faille · impact · correction proposée · état.
 45. `script/team/reparation.lua:155,221-224` · tâche de réparation sans preneur rouverte à l'identique toutes les 5 s · boucle zombie · compter, reporter après 3 · **0.7.2**
 46. `script/team/rebuild_rapide.lua:84` · `subst_fail` posé pour toute la partie · plus jamais de foreuse de secours · tick et nouvel essai · à faire (S)
 47. `script/team/rebuild_rapide.lua:100` · `find_nearest_enemy` (nids et vers compris) à chaque pensée · foreuse thermique jamais reprise, appel répété · filtrer ou mémoriser · à faire (S)
-48. `shared/team/repli_place.lua:61,118` · la table des fenêtres refusées grossit sans fin · `global` gonfle en partie longue · purger au-delà de `RETRY` · à faire (S)
+48. `shared/team/repli_place.lua:61,118` · la table des fenêtres refusées grossit sans fin · `global` gonfle en partie longue · purger au-delà de `RETRY` · **0.7.3**
 49. `script/team/qg_tourelle.lua:72` · la vague n'est cherchée que dans la force `enemy` · diagnostic aveugle entre factions · forces ennemies de l'entité · à faire (S)
-50. `script/ai3/soldats.lua:331-336` · l'unité la plus proche est comptée deux fois dans les profils de menace · ralliement biaisé · liste vide au départ · à faire (S)
+50. `script/ai3/soldats.lua:331-336` · l'unité la plus proche est comptée deux fois dans les profils de menace · ralliement biaisé · liste vide au départ · **0.7.3**
