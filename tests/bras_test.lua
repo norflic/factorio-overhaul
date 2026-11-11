@@ -220,7 +220,8 @@ local mutants = {
   { "machines non bridées : la cadence de la machine ignore M.arm_f", "modules",
     sub(mod_src, "local rate = m.rate * M.arm_f", "local rate = m.rate") },
   { "liaisons non bridées : le débit des liaisons ignore M.arm_f", "modules",
-    sub(mod_src, "side_pick(l.flow * M.arm_f, false, g.slots_n, g.rs.east)", "side_pick(l.flow, false, g.slots_n, g.rs.east)") },
+    -- (ILOTS-COLONNES, 073d7102 : la marge de la liaison vient de Bl.link, g.link.reach - 1, et non plus de g.rs.east)
+    sub(mod_src, "side_pick(l.flow * M.arm_f, false, g.slots_n, g.link.reach - 1)", "side_pick(l.flow, false, g.slots_n, g.link.reach - 1)") },
   { "plus de tuile libre pour un poteau (bras jusqu'à la dernière tuile)", "modules",
     sub(mod_src, "g.slots_n = M.current_arms and math.max(1, mw - 1) or mw", "g.slots_n = mw") },
   { "plancher de cadence supprimé", "modules",
