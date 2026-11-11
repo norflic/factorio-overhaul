@@ -243,7 +243,7 @@ function C.think(view, book, st, ctx)
   end
   table.sort(capi_open, function(x, y) return tostring(x.key) < tostring(y.key) end)
   for _, o in ipairs(capi_open) do ups[#ups + 1] = { key = "capi:" .. tostring(o.key), cost = o.missing } end
-  local sig = Pi.signals(view, base, ctx.pile, s, ctx, R.PILE_BUDGET and { book = book, avail = avail0, upgrades = ups } or nil)
+  local sig = Pi.signals(view, base, ctx.pile, s, ctx, R.PILE_BUDGET and { book = book, avail = avail0, upgrades = ups, held = view.pile_held } or nil)
   local pile = Pi.update(st.pile, sig, tick)
   -- Lot INDUSTRIE I1 (réglage fo-war-industrie, ctx.industrie) : le BESOIN de cette pensée est évalué sur le stock que voit la
   -- capitalisation (view.stock) ; elle investit le reste (shared/ai3/reserve.lua). Lu à la pensée suivante (Capi.think précède C.think).

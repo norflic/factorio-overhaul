@@ -3429,6 +3429,25 @@ local function pile_family(f, p)
   return fam
 end
 
+--- Lot CC-PILE (F522) : matière retirée du coffre par les chantiers en « reserve » que la pile suspendrait (pile_family : modules neufs
+--- de l'automatisation et de la capitalisation, ligne d'une migration du champ), { [objet] = n }. Lue par le budget de la pile
+--- (shared/ai3/budget.lua, Bg.assess, `held`) : la retenue leur ferait rendre cette matière, elle couvre donc le noyau tant que la
+--- pile est déjà en parallèle (sinon la réserve d'un module admis rendait le noyau « non couvert » et la retenue la lui reprenait).
+function Build.pile_held(f)
+  local out = {}
+  local b = f.build
+  if not b then return out end
+  for _, id in ipairs(b.order or {}) do
+    local p = b.projects and b.projects[id]
+    if p and p.state == "reserve" and p.stock and pile_family(f, p) then
+      for _, it in ipairs(sorted_keys(p.stock)) do
+        if (p.stock[it] or 0) > 0 then out[it] = (out[it] or 0) + p.stock[it] end
+      end
+    end
+  end
+  return out
+end
+
 local function reserve(f, p)
   local need = needs_of(p)
   local missing = {}
