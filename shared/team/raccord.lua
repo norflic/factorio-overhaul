@@ -152,16 +152,18 @@ function R.best_pair(starts, targets, max_dist)
   return bs, bt, math.sqrt(bd2)
 end
 
---- Tuiles candidates d'un poteau NEUF contre une machine sans réseau : l'anneau d'une tuile autour de sa boîte
---- { x0, y0, x1, y1 } (bords de tuiles entiers), centres de tuile, triés par distance à `toward`, puis y, puis x.
---- Un poteau 1 × 1 sur cet anneau couvre la machine (rayon d'alimentation >= 2,5 tuiles pour tous les poteaux du jeu).
-function R.ring_tiles(box, toward)
+--- Tuiles candidates d'un poteau NEUF contre une machine sans réseau : l'anneau autour de sa boîte { x0, y0, x1, y1 } (bords de tuiles
+--- entiers) aussi large que la distance d'alimentation `supply` du poteau posé (prototype, supply_area_distance) : un poteau 1 × 1 à d tuiles
+--- de la boîte l'alimente tant que d - 0,5 < supply (au moins l'anneau d'une tuile). Centres de tuile, triés par distance à `toward`, puis y,
+--- puis x. Lot POTEAUX (F560) : l'anneau d'une seule tuile était tout entier sur la bande ou sur le couloir d'accès (2 tuiles) qui la longe.
+function R.ring_tiles(box, toward, supply)
   local x0, y0 = math.floor(box[1]), math.floor(box[2])
   local x1, y1 = math.ceil(box[3]) - 1, math.ceil(box[4]) - 1
+  local depth = math.max(1, math.ceil((supply or 0) + 0.5) - 1)
   local out = {}
-  for ty = y0 - 1, y1 + 1 do
-    for tx = x0 - 1, x1 + 1 do
-      if tx == x0 - 1 or tx == x1 + 1 or ty == y0 - 1 or ty == y1 + 1 then out[#out + 1] = { x = tx + 0.5, y = ty + 0.5 } end
+  for ty = y0 - depth, y1 + depth do
+    for tx = x0 - depth, x1 + depth do
+      if tx < x0 or tx > x1 or ty < y0 or ty > y1 then out[#out + 1] = { x = tx + 0.5, y = ty + 0.5 } end
     end
   end
   table.sort(out, function(a, b)

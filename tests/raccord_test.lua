@@ -118,6 +118,32 @@ check(ring[1].x == 13.5 and ring[1].y == 11.5, "5.2 premiere tuile : cote de la 
 local inside = false
 for _, c in ipairs(ring) do if c.x > 10 and c.x < 13 and c.y > 10 and c.y < 13 then inside = true end end
 check(not inside, "5.3 aucune tuile sous la machine")
+-- Lot POTEAUX (F560, banc etape1-guide graine 2507543475, 52 min) : 4 foreuses d'une bande finie sous aucun poteau, longees par le
+-- couloir d'acces (2 tuiles) ; l'anneau d'UNE tuile etait tout entier sur la bande ou le couloir : 3 refus « aucune place libre », pour
+-- toujours. L'anneau va jusqu'a la distance d'alimentation du poteau pose (prototype, supply_area_distance) : au-dela du couloir.
+local function covers(c, box, supply)
+  return c.x + supply > box[1] and c.x - supply < box[3] and c.y + supply > box[2] and c.y - supply < box[4]
+end
+local box = { 10, 10, 13, 13 }
+local deep = R.ring_tiles(box, { x = 30, y = 11.5 }, 3.5)
+local d3, d4, all_cover = false, false, true
+for _, c in ipairs(deep) do
+  if c.x == 7.5 and c.y == 11.5 then d3 = true end
+  if c.x == 6.5 then d4 = true end
+  if not covers(c, box, 3.5) then all_cover = false end
+  if c.x > 10 and c.x < 13 and c.y > 10 and c.y < 13 then all_cover = false end
+end
+check(d3, "5.4 poteau d'alimentation 3,5 : tuile a 3 de la machine candidate (au-dela d'un couloir de 2)")
+check(not d4 and all_cover, "5.5 toute tuile candidate alimente la machine (aucune a 4 tuiles, aucune dessous)")
+local small = R.ring_tiles(box, { x = 30, y = 11.5 }, 2.5)
+local s2, s3 = false, false
+for _, c in ipairs(small) do
+  if c.x == 8.5 then s2 = true end
+  if c.x == 7.5 then s3 = true end
+end
+check(s2 and not s3, "5.6 poteau d'alimentation 2,5 : 2 tuiles au plus")
+check(#R.ring_tiles(box, { x = 30, y = 11.5 }, 0.5) == 16, "5.7 alimentation 0,5 : l'anneau d'une tuile (16)")
+check(deep[1].x == 15.5 and deep[1].y == 11.5, "5.8 la tuile la plus proche de la cible passe devant (chaine plus courte)")
 
 -- §6 portée
 check(R.chain_reach(9, 30, 9) == 9, "6.1 la plus courte des trois portees")
@@ -153,6 +179,8 @@ check(SCRIPT:find("%[FO%-RACCORD%]") ~= nil and BUILD:find("%[FO%-RACCORD%]") ~=
 local spec_block = SCRIPT:match("local spec = (%b{})")
 check(spec_block ~= nil and not spec_block:find("ent"), "9.6 la demande ne porte aucune entite")
 check(BUILD:find("p%.counted = true %-%- un raccordement n'est pas un module") ~= nil, "9.7 un raccordement n'est pas compte comme module")
+check(SCRIPT:find("R%.ring_tiles%(g%.mbox, t, proto and proto%.supply_area_distance") ~= nil,
+  "9.8 l'anneau du poteau neuf lit la distance d'alimentation du prototype pose")
 
 -- §10 mutants
 local function mutant(name, from, to, probe)
@@ -183,6 +211,10 @@ mutant("portee du depart oubliee", "return math%.min%(start_reach or new_reach, 
   function(Rm) return Rm.chain_reach(5, 30, 9) ~= 5 end)
 mutant("attente derriere un poteau perdu sans borne", 'if %(inp%.lost or 0%) > 0 and %(inp%.waited_lost or 0%) < R%.WAIT_LOST then', 'if (inp.lost or 0) > 0 then',
   function(Rm) return Rm.decide(inp({ lost = 1, waited_lost = Rm.WAIT_LOST })) == "laisser" end)
+mutant("anneau d'une tuile seulement", "local depth = math%.max%(1, math%.ceil%(%(supply or 0%) %+ 0%.5%) %- 1%)", "local depth = 1",
+  function(Rm) for _, c in ipairs(Rm.ring_tiles({ 10, 10, 13, 13 }, { x = 30, y = 11.5 }, 3.5)) do if c.x == 7.5 then return false end end return true end)
+mutant("anneau trop large", "local depth = math%.max%(1, math%.ceil%(%(supply or 0%) %+ 0%.5%) %- 1%)", "local depth = math.max(1, math.ceil((supply or 0) + 0.5))",
+  function(Rm) for _, c in ipairs(Rm.ring_tiles({ 10, 10, 13, 13 }, { x = 30, y = 11.5 }, 3.5)) do if c.x == 6.5 then return true end end return false end)
 mutant("fenetre qui ne tourne pas", 'return idxs, %(start %+ max%) %% n', 'return idxs, 0',
   function(Rm) local _, nr = Rm.window(8, 0, 6); return nr == 0 end)
 mutant("fenetre sans retour au debut", '%(start %+ i%) %% n %+ 1', 'math.min(start + i + 1, n)',
