@@ -159,7 +159,7 @@ local MUTANTS = {
   { name = "P.fit : BOX_MINAGE refusée", mod = MODS.p, file = "shared/team/plan.lua",
     from = "opts%.res and not Sm%.mining_box%(g%)", to = "opts.res" },
   { name = "Ch.plan : groupe sans fonderie retiré (0.7.5)", mod = MODS.ch, file = "shared/team/champ.lua",
-    from = "        groups%[#groups %+ 1%] = g\n        limit = g%.cut\n", to = "        if not g.bare then groups[#groups + 1] = g end\n        limit = g.cut\n" },
+    from = "bare_todo%[#bare_todo %+ 1%] = { bi = bi, bd = bd, used = used, side = side, edge = edge }", to = "" },
   { name = "Co.place : cadre figé sur la ressource", mod = MODS.co, file = "shared/team/champ_colonne.lua",
     from = "if not free%(u, v%) or is_ore%(u, v%) then return false end", to = "if not free(u, v) then return false end" },
 }

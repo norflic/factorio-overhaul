@@ -770,12 +770,11 @@ do
   -- un cadre sans repli ne change pas (pas d'autre ordre essayé)
   local pv = Ch.plan(spec_of(ORE, { coal = COAL_NEAR }))
   check(pv and pv.order_swapped == nil and Ch.head_chests(pv) == 0, "cadre en voie des deux cotes : ordre habituel garde")
-  -- (lot DECOUPLAGE : le mutant « un seul ordre » ne se voit plus sur ce cadre : le refus ne retire plus de foreuse, le premier ordre garde
-  -- déjà 0 coffre de tête et 40 foreuses ; 0.7.5 : 4 coffres de tête sans l'échange)
+  -- mutant : option coupée -> les 4 coffres de tête reviennent
   Ch.CFG.both_orders = false
   local pm = Ch.plan(scarlet())
   Ch.CFG.both_orders = true
-  check(Ch.head_chests(pm) == 0 and Ch.field_drills(pm) == Ch.field_drills(ps), "un seul ordre : même plan (" .. Ch.head_chests(pm) .. " coffre(s) de tete)")
+  check(Ch.head_chests(pm) == 4, "mutant « un seul ordre » vu : 4 coffres de tete (" .. Ch.head_chests(pm) .. ")")
   -- cadre réel du joueur (avant-poste 1, fer, verif-guide 271828182 sur 0.6.43 : côté - « aucun chemin » dans les deux ordres, 5 coffres de
   -- tête, refus à 84 %) : la sortie de sa ligne de charbon était enfermée (ses foreuses de chaque côté, une case bloquée devant)
   local pp2 = Ch.plan(player())
