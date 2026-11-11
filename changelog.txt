@@ -1,8 +1,16 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.99
 Date: 2026-11-11
+  Changes:
+    - Méga-Bourdon (F543) : zone d'impact ×4 (20 tuiles au lieu de 5) et dégâts relevés pour tuer d'un tir la plus forte unité d'essaim ; onde de choc et plasma à l'échelle.
+    - IA, anti-dispersion (F542) : sous 2 colonnes de fonderie et 6 assembleurs actifs, ni exploration lointaine, ni pétrole, ni sur-stockage de charbon ou de pierre.
+    - IA, capital (F540) : les rangées d'assembleurs ne sont plus bloquées par une fausse « saturation du transport ».
+  Bugfixes:
+    - IA, fer du spawn (F539) : un champ de fer en manque reprend sa bande même quand le charbon et le cuivre tiennent les deux créneaux.
+    - IA, navettes (F541) : deux refus vers une sortie ne verrouillent plus la liaison par tapis vers une autre sortie confirmée.
   Graphics:
     - Léviathan (F535) : la tête blindée massive à gueule d'impulsion est en jeu, et les segments et la queue des trois stades sont tous redessinés (480 vues rendues en 3D, 58,8 Mpx).
+    - Ravageur (F536) : modèle enrichi d'après les concepts, 576 vues re-rendues, ombre lisse.
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.98
 Date: 2026-11-11
