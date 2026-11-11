@@ -176,8 +176,6 @@ local function pop(h)
   return top
 end
 
-local NB = { { 1, 0, 10 }, { -1, 0, 10 }, { 0, 1, 10 }, { 0, -1, 10 }, { 1, 1, 14 }, { 1, -1, 14 }, { -1, 1, 14 }, { -1, -1, 14 } }
-
 local function octile(ax, ay, bx, by)
   local dx, dy = math.abs(ax - bx), math.abs(ay - by)
   local mn, mx = dx < dy and dx or dy, dx < dy and dy or dx

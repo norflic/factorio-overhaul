@@ -72,7 +72,6 @@ M.RETARGET_PERIOD = 600 -- un minage refusé cherche un autre site au plus toute
 -- Lot DEFENSE-FACTIONS D6 (audit tourelles-danger du 29/10, « boucle Trop dangereux » d'Émeraude ; AUCUN seuil de la porte ne change) :
 M.PASS_TICKS = 18000    -- 5 min : une destination dont l'escalade a été accordée garde son PASSE-DROIT (au lieu de repartir à 0 refus : 4 refus de
                         -- 30 s, un départ, puis encore 4 refus, à chaque tâche), tant que son but n'est pas à portée d'une menace
-M.LABEL_AFTER = 2       -- l'étiquette « Trop dangereux » ne s'affiche qu'au 2e refus de suite pour la même destination (sauf morts)
 M.REPORT_EVERY = 18000  -- 5 min : une ligne de bilan de la porte par équipe (M.gate_report), sans profileur
 M.MACHINE = "worker"
 

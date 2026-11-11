@@ -43,7 +43,6 @@ P.MARGE = 1         -- tuiles libres entre l'emprise et les rues (P.fit)
 P.TETE = 3          -- profondeur d'une tête d'alimentation derrière un port d'entrée (plan.lua, P.FEED_DEPTH)
 P.TETE_LARGEUR = 2  -- tuiles de chaque côté de l'axe d'un port d'entrée que la tête réserve (bras et coffre du quai)
 P.SORTIE = 2        -- tuiles réservées devant un port de sortie en tapis (le quai de sortie)
-P.MAX_LOT = P.LOT - 2 * P.MARGE  -- emprise la plus grande qu'un lot reçoive, sans têtes
 P.MAX_N = 64        -- nombre de machines d'une rangée au plus (même plafond que shared/team/modules.lua)
 P.SORTIES = { "tapis", "coffre", "unite" }
 P.BLOC_VOIES = 4    -- 2 tapis communs × 2 voies

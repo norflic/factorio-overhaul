@@ -54,7 +54,6 @@ Tv.NEAR_DETOUR = 8               -- détour (tuiles) au-delà duquel la recherch
 Tv.GAME_WEIGHT = 1.25            -- heuristique des tracés EN JEU (script/team/traversee.lua) : un peu plus long que le meilleur, bien moins d'états
 Tv.PLAN_BUDGET = 4000            -- états développés au plus par plan (tous les appels d'un même projet au même tick)
 Tv.CAP = 24000                   -- états développés au plus par recherche (8 états possibles par tuile)
-Tv.ORE_DIAG_MAX = 80             -- tuiles de gisement listées au plus dans un diagnostic
 
 --- Compteurs de diagnostic (jamais lus par une décision).
 Tv.STATS = { routes = 0, searches = 0, expanded = 0, jumps = 0, ore_detours = 0, ore_crossed = 0, refused = 0 }

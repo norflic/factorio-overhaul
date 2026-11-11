@@ -50,7 +50,6 @@ General.AUTO_PAUSE = 20 * 3600 -- … les autres passent 20 min
 -- Lot RB-FLUIDE : la même garde vaut pour les FACTIONS (partie de 4 h, C4 : `military-3` tient le laboratoire 157 min sans pack) ; règle pure
 -- shared/ai3/impayable.lua, qui porte ces deux durées.
 General.PLAYER_STALL = Im.STALL
-General.PLAYER_STALL_PAUSE = Im.PAUSE
 General.ARMY_FIRST = B.ARMY_FIRST_N
 General.AMMO_STOCK = B.AMMO_STOCK
 

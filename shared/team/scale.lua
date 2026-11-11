@@ -152,7 +152,6 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Valeurs exactes de (cos a × 46, sin a × 46) pour les angles 0,35 ; 1,9 ; 3,45 ; 5,0 ; 2,7 ; 4,2 ; 5,8 ; 1,1 rad
 -- (calculées une fois en Lua 5.2, 17 chiffres significatifs : les gisements tombent aux mêmes tuiles qu'avant).
-S.SEED_DIST = 46
 S.SEED_OFFSETS = {
   { 43.211144790979432, 15.773299142950762 },
   { -14.871320075721155, 43.529804033621069 },

@@ -19,7 +19,6 @@ local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
 local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
 local Scale = require("shared.team.scale")
-local O = require("shared.team.org")
 local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
 local Valeur = require("shared.faction.valeur") -- lot IA2-b : éventail des gisements de départ
 local Tr = require("shared.faction.traits")

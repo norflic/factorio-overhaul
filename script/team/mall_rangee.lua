@@ -22,7 +22,6 @@ local Liq = require("shared.team.mall_liquidation") -- lot MALL-LIQUIDATION : le
 local Cat = require("shared.team.motifs.catalogue")
 local P = require("shared.team.plan")
 local Pu = require("shared.team.purete")
-local M = require("shared.team.modules")
 local A = require("shared.ai3.automatiser")
 local Id = require("shared.ai3.industrie")
 local T = require("shared.team.config")

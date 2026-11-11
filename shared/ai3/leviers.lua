@@ -41,7 +41,6 @@ Lv.REPLI_REFUS = 3        -- refus de leviers gardés dans le compte rendu du re
 -- demande, un levier qui se rembourse avant la durée de vie d'un gisement (Ca.H_LIFE) vaut mieux que rien ; sous menace,
 -- divisé comme T_max (Ca.THREAT_DIV). Hors repli : T_max du caractère, comme les machines.
 Lv.REPLI_TMAX = nil       -- nil : Ca.H_LIFE
-Lv.POSE_PER_MODULE = nil  -- nil : la pose d'un module compte comme celle d'une entité (work_of de la règle)
 -- Lot VIDEO-COUVERTURE 3 (C05, TODO_VIDEO « valeur logistique des modules de productivité ») : un module de productivité fait la même
 -- sortie avec MOINS d'ingrédients, donc avec moins de voyages de PNJ qui les portent. Ces voyages évités valent leur travail (le prix du
 -- travail de la capitalisation, lambda) ; le terme s'ajoute au gain du module SEULEMENT s'il dépasse Lv.LOGI_MIN_PCT % du gain sans lui :

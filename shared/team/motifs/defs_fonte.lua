@@ -17,8 +17,6 @@ local N, E, S, W = D.N, D.E, D.S, D.W
 
 local SRC_FONTE = { "https://forums.factorio.com/viewtopic.php?p=15569", "https://forums.factorio.com/viewtopic.php?p=46359",
   "https://forums.factorio.com/viewtopic.php?p=194325" }
-local SRC_BRAS = "https://wiki.factorio.com/Inserters"
-local SRC_TAPIS = "https://wiki.factorio.com/Transport_belts/Physics"
 
 local L = {}
 

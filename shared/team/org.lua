@@ -995,7 +995,6 @@ end
 -- XP = minutes de travail utile ; une tâche de conception compte double ; une victime rapporte 2.
 O.XP_THRESHOLDS = { 0, 30, 120, 360, 900 } -- rang 2 : 30 min ; 3 : 2 h ; 4 : 6 h ; 5 : 15 h de travail
 O.XP_DESIGN_MULT = 2
-O.XP_KILL = 2
 O.RANK_MAX = #O.XP_THRESHOLDS
 
 -- Profil « léger » (défaut ❔). craft et mine : bonus ajouté au modificateur (×(1 + bonus)) ; run : +x de

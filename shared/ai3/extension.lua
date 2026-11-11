@@ -66,8 +66,6 @@ Ex.PER_KIND_MAX = 6
 Ex.TOTAL_MAX = 30
 
 -- 5. Veille.
-Ex.PUSH_INTERVAL_DIV = 3   -- la veille poussée part 3 fois plus souvent
-Ex.PUSH_IDLE_MIN = 1       -- … avec un PNJ libre de moins exigé
 Ex.BLOCK_R, Ex.BLOCK_TTL = 128, 30 * 3600 -- région bloquée par un chemin raté (script/ai3/exploration.lua : BLOCK_R, BLOCK_TTL)
 Ex.BLOCK_FREE = 4          -- régions bloquées tolérées au rayon et à la durée pleins
 Ex.BLOCK_R_MIN, Ex.BLOCK_TTL_MIN = 64, 10 * 3600

@@ -127,7 +127,6 @@ Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes ref
                              -- Les MODULES du plan directeur (fonderies à foreuses, chaînes) n'utilisent plus ce repli depuis
                              -- le lot CAPI-REPLI (29/10) : ils passent par shared/ai3/repli.lua, par (produit, gisement).
 Capi.COUV_EVERY = 5 * 3600   -- lot CAPI-MESURE : une ligne [FO-CAPI-COUV] par gisement toutes les 5 min
-Capi.EQUIP_BATCH = 6         -- lot LEVIERS : machines équipées par tâche de PNJ (Equip.BATCH)
 Capi.UNITS_MAX = 48          -- lot LEVIERS : machines gardées par groupe au relevé (positions, pour la tâche « equiper »)
 Capi.MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : les ordres « chaine » vont dans une rangée du mall (champ, pas une locale)
 Capi.RaRt = require("script.ai3.rangees_asm") -- lot RANGEES-ASM : rangées agrandies au lieu d'îlots (champ, pas une locale)
