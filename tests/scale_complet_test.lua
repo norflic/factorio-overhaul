@@ -410,7 +410,9 @@ local function pview(coal, over)
     incoming = {}, pending = {}, sites = { coal = 1 }, smelters = 2, smelters_pending = 0, smelter_task = false, smelter_output = 0,
     smelter_fuel_low = false, smelter_coal = 0, turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 8, workers_max = 30,
     workers_idle = 0, threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = T.player_ladder,
-    hq_turrets = T.defend_hq, defend_first = false, build_burn = 3.0, -- le brûlé dépasse la production : le bilan du charbon s'ouvre
+    hq_turrets = T.defend_hq, defend_first = false,
+    -- le besoin dépasse l'extraction : le bilan du charbon s'ouvre (F546, b55b8e5f : plafond mesuré view.coal_cap, build_burn supprimé)
+    coal_cap = { need = 1.5, capacity = 1.0 },
     outposts = { { id = 1, kind = COAL, drills = 4, full = false, turrets = 1, coal_needed = 0, fuel_low = false, output = 0, idle_ticks = 0,
       has_task = true, has_fortify = false } },
   }
