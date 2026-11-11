@@ -292,10 +292,16 @@ local function projectile(p, pack, nom_impact)
 end
 
 --- ART-IMPACTS : faisceau DENSE : corps (feuille FAISCEAU, raccordable, 8 images qui défilent) et éclats aux deux bouts,
---- teints de la couleur de l'arme, en lumière aussi (light_animations) ; épaisseur `f.epaisseur` (1 = feuille de 0,75 tuile).
+--- teints de la couleur de l'arme, en lumière aussi (light_animations). Le CORPS garde l'échelle 1 (une image = UNE tuile de
+--- long, comme le faisceau vanilla) : le moteur pose les maillons à ~0,93 tuile ; plus court, chaque jointure laissait un trou
+--- (captures du 11/11) ; l'épaisseur `f.epaisseur` règle les éclats des bouts. Filtrage du faisceau vanilla (trilinéaire).
 local function faisceau_dense(b, pack)
   local f, c = pack.faisceau, pack.couleur
-  local function corps() return anim_feuille("faisceau", c, f.epaisseur, 16) end
+  local function corps()
+    local a = anim_feuille("faisceau", c, 1, 16)
+    a.flags, a.hr_version.flags = { "trilinear-filtering" }, { "trilinear-filtering" }
+    return a
+  end
   local function bout() return feuille_anim("eclat", c, 1.6 * f.epaisseur, 16) end
   b.head, b.tail, b.body = corps(), bout(), { corps() }
   b.start, b.ending = nil, nil

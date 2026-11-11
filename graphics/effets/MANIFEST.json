@@ -16,8 +16,8 @@
   "faisceau.png": {
    "hauteur": 24,
    "largeur": 256,
-   "sha256": "a108f5052e502d3ac56d0c40699561cac80df6e1ce6b77ccfea01c719509ac6e",
-   "taille": 4095
+   "sha256": "72c1d98bbaa9fa5c6cf21cab4ca8deca8b3ce906301abfdfd13017bb339a009a",
+   "taille": 6153
   },
   "hr-choc.png": {
    "hauteur": 1024,
@@ -34,8 +34,8 @@
   "hr-faisceau.png": {
    "hauteur": 48,
    "largeur": 512,
-   "sha256": "a6d9239fce56315c560a1443ffdbe703c70d0be96ee1f76402c777307a4001a1",
-   "taille": 9921
+   "sha256": "f4913f0cbb9f2757846121255f0428493445e8b5c79f8a3d1a2b3b91739a454c",
+   "taille": 14055
   },
   "hr-onde.png": {
    "hauteur": 256,

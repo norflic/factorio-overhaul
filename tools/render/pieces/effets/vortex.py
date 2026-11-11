@@ -144,20 +144,26 @@ def singularite_ombre(n, k):
     return np.zeros_like(a), a
 
 
+JOINT = 0.07   # part de l'image, à chaque bout, en fondu : le moteur pose les maillons d'un faisceau à ~0,93 tuile l'un de
+               # l'autre (mesuré sur capture, 11/11) ; une image d'UNE tuile les fait se chevaucher de ~0,07 : fondus
+               # complémentaires, ni trou (image plus courte : jointures sombres) ni carré brillant (chevauchement additif).
+
+
 def faisceau(w, h, k):
     """Corps de FAISCEAU DENSE, raccordable le long du trait (fréquences entières le long de u) : cœur blanc épais,
-    gaine lumineuse, filaments d'énergie qui défilent d'un huitième de période par image."""
+    gaine lumineuse large, filaments d'énergie qui défilent d'un huitième de période par image ; fondu aux deux bouts."""
     u = (np.arange(w) + 0.5) / w                     # le long du faisceau, 0..1 (raccord à 1)
     v = (np.arange(h) + 0.5) / h * 2.0 - 1.0         # en travers, -1..1
     U, V = np.meshgrid(u, v)
     ph = 2.0 * np.pi * k / N_FAISCEAU
-    coeur = np.exp(-(V / 0.16) ** 2) * 1.3
-    gaine = np.exp(-(V / 0.50) ** 2) * 0.55
+    coeur = np.exp(-(V / 0.24) ** 2) * 1.5
+    gaine = np.exp(-(V / 0.62) ** 2) * 0.80
     fil = 0.5 + 0.5 * np.cos(2.0 * np.pi * 2.0 * U - ph + 5.0 * V)
     fil2 = 0.5 + 0.5 * np.cos(2.0 * np.pi * 3.0 * U + ph - 4.0 * V)
-    L = coeur + gaine * (0.55 + 0.30 * fil + 0.15 * fil2)
+    L = coeur + gaine * (0.45 + 0.35 * fil + 0.20 * fil2)
     L = L * np.clip(1.0 - np.abs(V) ** 6, 0.0, 1.0)
-    L = np.clip(L, 0.0, 1.0)
+    fondu = np.clip(np.minimum(U, 1.0 - U) / JOINT, 0.0, 1.0)
+    L = np.clip(L, 0.0, 1.0) * (0.5 + 0.5 * fondu)
     return L, np.clip(L * 1.15, 0.0, 1.0)
 
 

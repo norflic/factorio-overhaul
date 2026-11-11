@@ -169,6 +169,8 @@ check(P:find("se[#se + 1] = { type = \"create-entity\", entity_name = ni }", 1, 
   not P:find('entity_name = Fx.nom(pack, "onde") }\n        d.source_effects = se', 1, true),
   "§4 frappe orbitale : le porteur de l'impact (onde de choc) est créé")
 check(P:find("if b and pack.faisceau then faisceau_dense(b, pack) end", 1, true) ~= nil, "§4 le laser de la lignée prend le faisceau dense")
+check(P:find('local a = anim_feuille("faisceau", c, 1, 16)', 1, true) ~= nil,
+  "§4 corps du faisceau à l'échelle 1 (une tuile par image : aucune jointure trouée)")
 check(P:find("e.ground_patch_fade_out_start = b.tenue", 1, true) ~= nil and P:find("e.time_before_removed = b.tenue", 1, true) ~= nil,
   "§4 la brûlure s'efface (éphémère)")
 
