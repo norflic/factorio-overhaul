@@ -2011,7 +2011,7 @@ function Mig.think(f, surface, book, free, tick, hold)
       if not (ms.o[id] and ms.o[id].frame) then return did end
     end
   end
-  if busy.total >= Th.CFG.slots then return did end
+  if not Th.free_slot(busy.key, busy) and busy.total >= Th.CFG.slots then return did end -- (lot IA-SPAWN : la voie de la plaque clé, Th.free_slot)
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
   Profiler.fstart("mig:depart")
