@@ -799,6 +799,15 @@ function Sites.census(surface, name, pos, hint)
   return out
 end
 
+--- R3 (lot PAVAGE-GEANT) : gisements recensés de l'équipe (f.team.capi.deps, écrits par script/ai3/capitalisation.lua : tuiles couvertes
+--- mesurées, verdict « plein »), en liste triée par identifiant. Lecture seule.
+function Sites.deposits(f)
+  local deps = f.team and f.team.capi and f.team.capi.deps or {}
+  local out = {}
+  for _, id in ipairs(State.sorted_keys(deps)) do out[#out + 1] = deps[id] end
+  return out
+end
+
 --- Sites VALIDES de la réserve (ni revendiqués, ni injoignables : un injoignable est retenu comme bloqué) avec leur
 --- verdict d'admission : liste { site, value, d_hq, ok, why, block }, `ctx` de la carte de valeur. `resource` nil : toutes.
 --- Réservé aux factions (la réserve du joueur garde la règle d'avant).
@@ -816,13 +825,15 @@ local function admit(f, tick, resource)
   end
   local ctx = Sites.value_ctx(f, tick)
   local blocked = {}
+  local deps = Sites.deposits(f) -- R3 (lot PAVAGE-GEANT) : gisements recensés par la capitalisation, couverture mesurée et verdict « plein »
   for _, e in ipairs(list) do
     local res = e.site.resource
     if blocked[res] == nil then blocked[res] = blocked_nearest(f, res, tick) or false end
     local comp = V.components(e.site, ctx)
     e.value, e.d_hq = comp.value, comp.d_hq
     local b = blocked[res] or nil
-    e.ok, e.why = V.admissible({ value = comp.value, d_hq = comp.d_hq, seeded = e.site.seeded }, b and b.d or nil)
+    e.ok, e.why = V.admissible({ value = comp.value, d_hq = comp.d_hq, seeded = e.site.seeded }, b and b.d or nil,
+      V.unfull_distance(deps, res, f.hq_pos, e.site))
     e.block = b
   end
   return list, ctx
@@ -837,6 +848,13 @@ local function report(f, resource, list, tick)
       if e.why == "suspendu" then
         n = n + 1
         if not first or e.d_hq < first.d_hq then first = e end
+      elseif e.why == "proche" then
+        if not e.site.near_logged and (f.stats.site_block_logged or 0) < BLOCK_LOG_MAX then
+          e.site.near_logged = true
+          f.stats.site_block_logged = (f.stats.site_block_logged or 0) + 1
+          log(string.format("[FO-SITES] proche tick %d %s %s : (%d, %d), %d tuiles du QG, refuse : un gisement ouvert plus proche n'est pas plein (R3)",
+            tick, f.key, resource, math.floor(e.site.x), math.floor(e.site.y), e.d_hq))
+        end
       elseif not e.site.floor_logged then
         e.site.floor_logged = true
         f.stats.plancher = (f.stats.plancher or 0) + 1
@@ -1025,10 +1043,15 @@ function Sites.find(f, surface, tick, resource)
   local war = State.war()
   local list = f.prospects or {}
   local i = 1
+  local deps = Sites.deposits(f)
   local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
   while i <= #list do
     local site = list[i]
-    if resource == nil or site.resource == resource then
+    -- R3 (lot PAVAGE-GEANT) : un site plus lointain qu'un gisement ouvert pas plein reste en réserve (plancher de valeur : règle d'avant, aucun)
+    if not V.admissible({ seeded = true, d_hq = math.sqrt((site.x - f.hq_pos.x) ^ 2 + (site.y - f.hq_pos.y) ^ 2) }, nil,
+      V.unfull_distance(deps, site.resource, f.hq_pos, site)) then
+      i = i + 1
+    elseif resource == nil or site.resource == resource then
       -- Lot IA2-0 : rang du site choisi par distance au QG (journal seul, métrique M1 « plus proche d'abord »).
       local ok = valid(site) and note_handout(f, site, tick)
       if ok then

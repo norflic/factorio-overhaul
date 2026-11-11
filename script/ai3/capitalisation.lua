@@ -704,7 +704,8 @@ local function census_one(f, cs, tick)
         cs.deps[c.id] = { id = c.id, resource = s.res, tiles = c.tiles, amount = c.amount, x0 = c.x0, y0 = c.y0, x1 = c.x1,
           y1 = c.y1, cx = c.cx, cy = c.cy, tick = tick, cut = c.cut, danger = hostile or nil,
           covered = old and old.covered or (cs.deps[c.id] and cs.deps[c.id].covered) or nil,
-          cov_tick = (old and old.cov_tick) or (cs.deps[c.id] and cs.deps[c.id].cov_tick) or nil }
+          cov_tick = (old and old.cov_tick) or (cs.deps[c.id] and cs.deps[c.id].cov_tick) or nil,
+          full = (old and old.full) or (cs.deps[c.id] and cs.deps[c.id].full) or nil } -- (lot PAVAGE-GEANT : verdict gardé jusqu'à la décision suivante)
         -- au plus Capi.DEP_MAX gisements : les plus lointains sont oubliés
         local ids = sorted_keys(cs.deps)
         if #ids > Capi.DEP_MAX then
@@ -2217,6 +2218,12 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   end
   for _, r in ipairs(res.refus or {}) do rlog[#rlog + 1] = { tostring(r.key), tostring(r.why) } end -- lot DEBUG-CERVEAU : refus de la règle, avec leur raison (lecture seule de res.refus)
   Capi.Anneau.note(f, tick, sent, rlog) -- lot DEBUG-CERVEAU : un seul appel, écrit dans l'anneau de la vue, jamais relu par la décision
+  -- Lot PAVAGE-GEANT (règle R3 du DC, 11/11) : verdict de la règle par gisement recensé, « plein » sans place libre ou couvert à Ca.KAPPA pour mille
+  -- (le verdict de la porte de l'ouverture, all_covered) ; lu par script/faction/sites.lua (admission d'un site) et la méga-fonderie (V.unfull_distance)
+  for _, c in ipairs(res.coverage or {}) do
+    local d = cs.deps[c.id]
+    if d then d.full = (c.free or 0) <= 0 or (c.kappa or 0) >= Ca.KAPPA end
+  end
   couv_report(f, cs, res, input, D, tick) -- lot CAPI-MESURE
   Ind.think(f, cs, res, view, book, tick) -- lot INDUSTRIE I6 : demande non servie -> patron (rangée ou bloc de mall) -> module
   -- couverture relue et dépôts suivis (journal : critères (1) et (3))

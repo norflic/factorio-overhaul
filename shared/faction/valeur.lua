@@ -362,10 +362,31 @@ end
 --- R2 : un site (`entry` = { value, d_hq, seeded }) peut-il être puisé ? `d_blocked` = distance au QG du site le plus proche
 --- de la MÊME ressource connu mais bloqué (hostile, injoignable, perte récente), nil s'il n'y en a pas. Renvoie
 --- (vrai) ou (faux, motif) : "plancher" (valeur < V.FLOOR ; un gisement de départ garanti n'y est pas soumis) ou "suspendu".
-function V.admissible(entry, d_blocked)
+--- R3 (règle du DC du 11/11, lot PAVAGE-GEANT : « interdiction de planifier un avant-poste distant tant que les gisements majeurs adjacents à
+--- la base ne sont pas exploités au maximum ») : `d_unfull` = distance au QG du plus proche gisement OUVERT et PAS PLEIN de la même ressource
+--- (V.unfull_distance) ; un site plus lointain que lui est refusé, motif "proche".
+function V.admissible(entry, d_blocked, d_unfull)
   if not entry.seeded and entry.value < V.FLOOR then return false, "plancher" end
   if d_blocked ~= nil and entry.d_hq > V.suspend_limit(d_blocked) then return false, "suspendu" end
+  if d_unfull ~= nil and entry.d_hq > d_unfull then return false, "proche" end
   return true
+end
+
+--- R3 : distance au QG `hq` (tuiles, nil si aucun) du plus proche gisement de la ressource `res` OUVERT (une foreuse au moins dessus :
+--- `covered` > 0, tuiles sous une foreuse, mesurées en jeu) et PAS PLEIN (`full` : verdict de la capitalisation, plus aucune place libre ou
+--- couverture au plafond ; absent = pas plein), hors danger, et qui ne contient pas le point `at` (le gisement du site lui-même s'agrandit).
+--- deps = liste { resource, covered, full, danger, cx, cy, x0, y0, x1, y1 } (gisements recensés, ordre quelconque : le minimum ne dépend
+--- pas de l'ordre).
+function V.unfull_distance(deps, res, hq, at)
+  local best = nil
+  for _, d in ipairs(deps or {}) do
+    local inside = at ~= nil and d.x0 ~= nil and at.x >= d.x0 and at.x <= d.x1 and at.y >= d.y0 and at.y <= d.y1
+    if d.resource == res and (d.covered or 0) > 0 and not d.full and not d.danger and not inside and d.cx and d.cy then
+      local dd = math.sqrt((d.cx - hq.x) ^ 2 + (d.cy - hq.y) ^ 2)
+      if best == nil or dd < best then best = dd end
+    end
+  end
+  return best
 end
 
 --- R1 : faut-il renoncer à agrandir un avant-poste à `d_outpost` tuiles du QG parce qu'un site admissible de la même

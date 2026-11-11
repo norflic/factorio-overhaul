@@ -29,6 +29,7 @@ local Stock = require("script.team.stock")
 local Champ = require("script.team.champ")
 local Mp = require("shared.team.mega_pose")
 local MigChamp = require("script.team.migration_champ")
+local V = require("shared.faction.valeur") -- lot PAVAGE-GEANT : règle R3 (gisement ouvert plus proche pas plein)
 
 local Mega = {}
 
@@ -127,8 +128,12 @@ local function consider(f, st, dep, tick, ctx, on)
         inserter = data.inserter, pole = data.pole })
     end
   end
+  -- R3 (lot PAVAGE-GEANT) : un gisement ouvert plus proche du QG, du même minerai, pas plein (shared/faction/valeur.lua, V.unfull_distance)
+  local hq = f.hq_pos or { x = 0, y = 0 }
+  local d_unfull = V.unfull_distance(ctx.deps, dep.resource, hq, { x = dep.cx, y = dep.cy })
+  local nearer = not V.admissible({ seeded = true, d_hq = math.sqrt((dep.cx - hq.x) ^ 2 + (dep.cy - hq.y) ^ 2) }, nil, d_unfull)
   local action, cause = Mf.decide({ on = on, smeltable = kind ~= nil, size = z, size_why = zwhy, power = ctx.power == true,
-    crisis = ctx.crisis == true, sig = rec and rec.sig or nil })
+    crisis = ctx.crisis == true, sig = rec and rec.sig or nil, nearer = nearer })
   local extra = nil
   if action == "decider" then
     -- taille de départ au budget, puis plan d'un échantillon contrôlé : un plan faux ne se décide pas
@@ -216,6 +221,8 @@ function Mega.think(f, cs, tick, ctx)
   local ids = State.sorted_keys(cs.deps)
   if #ids == 0 then return 0 end
   local power = Mega.power(f, ctx)
+  local deps = {} -- R3 (lot PAVAGE-GEANT) : gisements recensés, couverture mesurée et verdict « plein » de la capitalisation
+  for _, id in ipairs(ids) do deps[#deps + 1] = cs.deps[id] end
   -- le curseur avance sur la liste ENTIÈRE et saute les gisements « statiques » (minerai sans four) : il lit Mega.PER_THINK gisements vivants
   local n, scanned = 0, 0
   while n < Mega.PER_THINK and scanned < #ids do
@@ -224,7 +231,7 @@ function Mega.think(f, cs, tick, ctx)
     local dep = cs.deps[ids[st.cursor]]
     local known = st.deps[dep.id]
     if not (known and known.static) then
-      consider(f, st, dep, tick, { power = power, crisis = ctx and ctx.crisis }, on)
+      consider(f, st, dep, tick, { power = power, crisis = ctx and ctx.crisis, deps = deps }, on)
       local rec = st.deps[dep.id]
       if rec and rec.state == "decide" then order_field(f, st, dep, rec, tick) end
       n = n + 1
