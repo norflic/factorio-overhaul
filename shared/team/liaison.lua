@@ -7,7 +7,7 @@
   rentabilité. Le COFFRE DE SORTIE du module de départ disparaît : sa tuile devient la première tuile du tapis (le bras de sortie du
   module y dépose), puis tapis -> bras -> coffre du quai d'entrée.
 
-  1. SITE (Li.belt_sites, Li.pick_ends) : la tuile du coffre de sortie et une voisine libre ; contre le quai, un bras et un tapis dans le
+  1. SITE (Li.sites, Li.pick_ends) : la tuile du coffre de sortie et une voisine libre ; contre le quai, un bras et un tapis dans le
      prolongement ; les paires de bouts les plus courtes d'abord.
   2. TRACÉ (Li.route_ok) : jamais plus de Li.MAX_LEN tuiles ni de détour au-delà de Li.DETOUR fois la distance ; un tracé coupé passe par
      une paire de souterrains (script/team/traversee.lua).
@@ -83,20 +83,9 @@ function Li.sites(tx, ty, free)
   return out
 end
 
---- Sites du coffre de SORTIE (tuile tx, ty) : sa tuile devient le premier tapis, tourné vers une voisine libre (free(x, y) -> bool), où
---- le tracé commence. Rend { dir, ax = tx, ay = ty, bx, by } dans l'ordre N, E, S, O.
-function Li.belt_sites(tx, ty, free)
-  local out = {}
-  for _, d in ipairs(DIRS) do
-    local v = DV[d]
-    if free(tx + v[1], ty + v[2]) then out[#out + 1] = { dir = d, ax = tx, ay = ty, bx = tx + v[1], by = ty + v[2] } end
-  end
-  return out
-end
-
 --- Paires de bouts (site du coffre de départ S, site du coffre d'arrivée D), les plus courtes d'abord (Manhattan des deux tuiles de
 --- tapis), départage par directions ; au plus `max`. Une paire où un bras tombe sur l'autre bras ou sur le tapis de l'autre est écartée.
---- src_sites : sites du départ (Li.sites par défaut ; la liaison de quai passe Li.belt_sites).
+--- src_sites : sites du départ (Li.sites par défaut).
 function Li.pick_ends(S, D, free, max, src_sites)
   local ss, ds = (src_sites or Li.sites)(S.x, S.y, free), Li.sites(D.x, D.y, free)
   local out = {}

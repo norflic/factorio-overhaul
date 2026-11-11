@@ -25,7 +25,7 @@
   champ ai3f), son programme n'a que des étapes existantes (goto, wait, home) ; la voie le surveille et réécrit ses
   étapes (FSM.set de sa machine).
 
-  Interface lue par le cerveau (nouveau ou ancien) : X.seen, X.known_sectors, X.deposits (avec risque d'expédition,
+  Interface lue par le cerveau (nouveau ou ancien) : X.seen, X.deposits (avec risque d'expédition,
   E.risk), X.request, X.status, X.cancel, X.knowledge.
   Bascule (bancs avant / après sur la même source) : interface distante « fo-ia3f », set_fog(false) = comportement
   d'avant le lot (prospection sans brouillard, aucune exploration, aucun regard).
@@ -1224,12 +1224,6 @@ function X.knowledge(f) return f and f.ai3f and f.ai3f.m or nil end
 function X.seen(f, x, y)
   local m = X.knowledge(f)
   return m and K.seen_xy(m, x, y) or nil
-end
-
---- Nombre de secteurs vus.
-function X.known_sectors(f)
-  local m = X.knowledge(f)
-  return m and m.n or 0
 end
 
 --- Gisements CONNUS d'une ressource, du plus proche du QG au plus lointain, avec leur danger :

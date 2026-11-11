@@ -17,7 +17,7 @@
            machines manquantes) + temps de laboratoire + le laboratoire s'il n'y en a pas ;
          inertie : la technologie en cours garde + 20 % (comme les projets) ;
     2. DÉPLIE le but (Gen.summary) en étapes du graphe (prendre, main, machine, extraire, explorer, rechercher,
-       construire) et les range par EXÉCUTANT (Gen.dispatch) ;
+       construire) ;
     3. REGARDE SES RESSOURCES (Gen.key_resources) : le besoin BRUT de chaque ressource sur les buts de l'équipe (dépliage
        sans le stock consommable : ce que les buts mangent en tout) donne l'ordre des avant-postes, la ressource la plus
        demandée, le combustible et les ressources sans besoin (avant-poste seulement si son produit manque) ;
@@ -581,18 +581,6 @@ function Gen.lookahead(cat, ev, state, next, depth)
   local out = {}
   for _, p in ipairs(sorted_keys(packs)) do out[#out + 1] = { p, packs[p] } end
   return out
-end
-
---- Étapes rangées par EXÉCUTANT (le travail que l'équipe sait faire aujourd'hui) :
----   main      -> tâches « craft » du tableau (script/team/board.lua) : objets fabriqués à la main ;
----   machine   -> fonderie du QG et machines posées : objets produits par une machine ;
----   extraire  -> minage à la main et avant-postes : ressources ;
----   construire-> pose d'une machine (laboratoire du QG, fours, foreuses ; plan directeur d'IA1-d pour le reste) ;
----   explorer  -> éclaireurs d'IA3-f ;
----   rechercher-> laboratoire du QG.
-function Gen.dispatch(sum)
-  return { main = sum.hand, machine = sum.produce, extraire = sum.extract, construire = sum.build,
-    explorer = sum.explore, rechercher = sum.research, prendre = sum.take, causes = sum.causes }
 end
 
 --- CE QUE RAPPORTERAIT chaque ressource INCONNUE qu'un exécutant saurait extraire (« quelles ressources peuvent

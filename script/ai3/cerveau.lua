@@ -16,7 +16,7 @@
   - Mesures (journal [FO-IA3C], les deux cerveaux) : paliers de recherche (§6.1), projets par minute, saturations,
     explorations demandées ; « objectif atteint 'iron2' » (critère K12, même ligne que l'ancien cerveau).
   - Exploration : une ressource dont l'équipe a besoin et qu'elle ne sait trouver nulle part est demandée
-    (f.site_needs pour la prospection d'aujourd'hui ; Ia3.explore_requests(f) pour le lot IA3-f).
+    (f.site_needs pour la prospection d'aujourd'hui).
 
   Déterminisme : le catalogue (technologies, packs, laboratoires, livre complet) est un cache LOCAL tiré des seuls
   PROTOTYPES, construit au premier usage dans un événement ; tout ce qui vient de l'état de partie est lu et consommé
@@ -1098,12 +1098,6 @@ end
 --- Lot C1 : la cause d'une amélioration décidée mais retenue hors de la pensée (pile, reconstruction), dite au journal.
 function Ia3.capital_attente(f, cause, tick)
   return Capital.attente(f, cause, tick)
-end
-
---- Demandes d'exploration (ressource -> priorité) : pour le lot IA3-f (carte de connaissance, éclaireurs).
-function Ia3.explore_requests(f)
-  local st = f.team and f.team.ia3
-  return st and st.explore or {}
 end
 
 --- Interface distante de LECTURE (bancs) : état du cerveau d'une équipe (« player » ou clé de faction).
