@@ -250,12 +250,17 @@ function Rp.candidates(srcs, docks, hub, o)
       if #cons > 0 then px, py = Rp.tampon_point(cons) end
       if not px then px, py = hub.x, hub.y end
       px, py = Rp.clamp_near(px, py, hub, Rp.NEAR_HUB)
+      -- lot BUS-SORTIE (partie du DC 0.7.3) : le quai consommateur le plus proche du point voulu EST l'arrivée (le dernier bras y dépose, aucun coffre posé) ;
+      -- un tampon posé à côté du quai empilait un second relais coffre -> bras -> tapis -> bras -> quai (3:o6 -> (-63, 13) -> liaison -> 8:q1 (-58, 13))
       local reuse
-      for _, t in ipairs(o.tampons or {}) do
+      for _, d in ipairs(cons) do
+        if manhattan(d.x, d.y, px, py) <= Rp.REUSE_R and (not reuse or manhattan(d.x, d.y, px, py) < manhattan(reuse.x, reuse.y, px, py)) then reuse = d end
+      end
+      if not reuse then for _, t in ipairs(o.tampons or {}) do
         if t.item == s.item and (t.lines or 1) < Rp.REUSE_MAX and manhattan(t.x, t.y, px, py) <= Rp.REUSE_R then
           if not reuse or manhattan(t.x, t.y, px, py) < manhattan(reuse.x, reuse.y, px, py) then reuse = t end
         end
-      end
+      end end
       local tx, ty = px, py
       if reuse then tx, ty = reuse.x, reuse.y end
       local covered, fill_w, fill_sum = 0, 0, 0
