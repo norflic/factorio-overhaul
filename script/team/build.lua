@@ -30,6 +30,8 @@ local Tokens = require("script.team.tokens")
 local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
+-- lot DECOUPLAGE : le type de prototype d'une entité de gabarit (BOX_MINAGE / BOX_FONDERIE de P.fit), lu dans les données du jeu
+require("shared.team.sol_minerai").type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
 local RevueObst = require("shared.team.revue_obstacles") -- lot AGEBLOCAGE : curseur de la revue des obstacles
 local M = require("shared.team.modules")
 local Saut = require("shared.team.champ_saut") -- lot FONDERIE : foreuse de bande sautée quand une tourelle de l'équipe a pris son emprise
@@ -514,9 +516,13 @@ end
 
 local function read_masks(f, surface, x0, y0, x1, y1)
   local b = f.build
-  local water, blocked, clear = {}, {}, {}
+  local water, blocked, clear, res = {}, {}, {}, {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
     water[P.tkey(math.floor(t.position.x), math.floor(t.position.y))] = true
+  end
+  -- lot DECOUPLAGE : tuiles de toutes les ressources (P.fit : une BOX_FONDERIE n'en couvre aucune, shared/team/sol_minerai.lua)
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = "resource" })) do
+    res[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
   end
   for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
     local bb = e.bounding_box
@@ -545,7 +551,7 @@ local function read_masks(f, surface, x0, y0, x1, y1)
   f.stats = f.stats or {}
   local st = f.stats
   return {
-    water = water, blocked = blocked, clear = clear,
+    water = water, blocked = blocked, clear = clear, res = res,
     rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
     free = function(tx, ty)
       local k = P.tkey(tx, ty)
@@ -884,7 +890,7 @@ function Build.Pave.try_serie(f, surface, g, c, fopts, states, scan)
   end
   local fo = {}
   for kk, v in pairs(fopts) do fo[kk] = v end -- (copie des options : l'ordre est sans effet)
-  fo.free, fo.within, fo.fed, fo.rot = masks.free, sr.within, { [g.ruban.port] = true }, { sr.k } -- (rot : l'orientation de la série, lot MALL-DIRECTIONS)
+  fo.free, fo.res, fo.within, fo.fed, fo.rot = masks.free, masks.res, sr.within, { [g.ruban.port] = true }, { sr.k } -- (rot : l'orientation de la série, lot MALL-DIRECTIONS)
   local fit, fwhy = P.fit(g, sr.rect2, fo)
   if not fit then return nil, "serie : " .. tostring(fwhy) .. " dans le lot " .. sr.k2 end
   local r = fit.k == 0 and g or M.rotate(g, fit.k)
@@ -1068,7 +1074,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
     -- lot AGENCEMENT : `opts.cache` (scan_cache) garde les relevés d'un lot entre deux tailles essayées
     local masks, ores = lot_scan(f, surface, c, rect, res, opts and opts.cache)
-    local fopts = { free = masks.free, toward = toward, margin = (opts and opts.margin) or 1 }
+    local fopts = { free = masks.free, res = masks.res, toward = toward, margin = (opts and opts.margin) or 1 }
     -- lot FONDERIES : la tête d'alimentation regarde le gisement (shared/team/plan.lua, P.fit)
     if opts and opts.head_toward then fopts.head_toward = opts.head_toward end
     -- lot AGENCEMENT : couverture visée des foreuses (80 % d'abord) et bras de sortie par quai (P.fit : place du second bras)
@@ -1741,7 +1747,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
       local masks, ores = lot_scan(f, surface, c, rect, prm.ore, cache)
       for n = ub, pairs_dep + 1, -1 do
         local gd2 = M.GEN.drills(prm.ore, n)
-        if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, foreign = ores and ores.foreign or nil, cover_min = cfg.cover }) then pairs_dep = n break end
+        if gd2 and P.fit(gd2, rect, { free = masks.free, res = masks.res, ore = ores, foreign = ores and ores.foreign or nil, cover_min = cfg.cover }) then pairs_dep = n break end
       end
     end
   end

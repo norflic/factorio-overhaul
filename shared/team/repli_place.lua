@@ -113,7 +113,7 @@ function Rp.pick(g, center, ctx)
       local masks, ores = ctx.read(rect)
       local fopts = {}
       for k, v in pairs(ctx.fopts or {}) do fopts[k] = v end -- copie de table : l'ordre n'a aucun effet
-      fopts.free = masks.free
+      fopts.free, fopts.res = masks.free, masks.res
       fopts.margin = Rp.MARGIN
       fopts.toward = fopts.toward or center
       if ctx.res then fopts.ore = ores; fopts.foreign = ores and ores.foreign or nil end
