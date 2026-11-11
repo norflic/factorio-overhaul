@@ -18,6 +18,11 @@
        (cas des modules du plan directeur et des ordres dont le coût n'est pas une liste d'objets) ;
     5. hystérésis d'ÉTAT : si la pile était déjà en parallèle et que le noyau reste couvert, elle le reste (les améliorations en
        cours ne sont pas coupées en deux par un stock qui descend). Aucune horloge.
+       Lot CC-PILE (F522) : « reste couvert » se lit sur le stock libre PLUS ce que les améliorations en cours retiennent au coffre
+       (`held`, objets retirés du coffre par leurs chantiers en réserve, que la retenue leur ferait rendre) ; on n'ENTRE en parallèle
+       que sur le stock libre seul. Avant, la réserve d'un module admis vidait le coffre, le noyau passait « non couvert », la retenue
+       faisait rendre la matière, le noyau redevenait couvert, et ainsi de suite (partie de banc 1618033988 : 39 bascules en 49 relevés
+       de 30 à 44 min, « noyau non couvert (manque iron-plate 45 à 410) » une fois sur deux, modules 5, 6 et 21 à 0 posé).
   Déterminisme : listes dans l'ordre donné (le cerveau les trie), entiers, aucun hasard, aucun temps mesuré.
 ]]
 
@@ -43,6 +48,16 @@ function Bg.scaled(list, pct)
   return out
 end
 
+--- Lot CC-PILE : stock libre + matière retenue par les améliorations en cours ({ [objet] = n } chacun) ; copie, entrées <= 0 ignorées.
+function Bg.with_held(stock, held)
+  local out = {}
+  for _, k in ipairs(sorted_keys(stock)) do out[k] = stock[k] end
+  for _, k in ipairs(sorted_keys(held)) do
+    if (held[k] or 0) > 0 then out[k] = (out[k] or 0) + held[k] end
+  end
+  return out
+end
+
 local function concat(a, b)
   local out = {}
   for _, it in ipairs(a or {}) do out[#out + 1] = it end
@@ -58,15 +73,23 @@ end
 
 --- Le budget. book : livre de recettes (Book:plan) ; stock : { [objet] = n } (stock libre : ce que les tâches en cours ont
 --- déjà pris est retiré par l'appelant) ; claims = { defense = { {objet, n} }, rebuild = { {objet, n} },
---- upgrades = { { key, cost = { {objet, n} } } } (l'ordre est celui de l'appelant) } ; prev : la pile était en parallèle.
+--- upgrades = { { key, cost = { {objet, n} } } } (l'ordre est celui de l'appelant) } ; prev : la pile était en parallèle ;
+--- held : { [objet] = n } retenu au coffre par les améliorations en cours (lot CC-PILE, facultatif ; lu seulement si prev).
 --- Rend { covered, core_ok, admitted = { clés }, skipped = { clés }, missing = { [matière] = n }, why }.
-function Bg.assess(book, stock, claims, prev)
+function Bg.assess(book, stock, claims, prev, held)
   claims = claims or {}
   local out = { covered = false, core_ok = true, admitted = {}, skipped = {}, missing = {}, n_up = #(claims.upgrades or {}) }
   if not book or not book.plan then out.why = "pas de livre" return out end
   local core = Bg.scaled(concat(claims.defense, claims.rebuild), Bg.MARGIN_PCT)
   local base = book:plan(core, stock or {})
   if next(base.raw) ~= nil then
+    if prev and next(held or {}) ~= nil then
+      local kept = book:plan(core, Bg.with_held(stock, held))
+      if next(kept.raw) == nil then
+        out.covered, out.why = true, "maintenu (noyau couvert avec la matiere retenue par les ameliorations en cours)"
+        return out
+      end
+    end
     out.core_ok, out.missing = false, base.raw
     out.why = "noyau non couvert (manque " .. missing_text(base.raw) .. ")"
     return out
