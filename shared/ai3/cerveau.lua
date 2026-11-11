@@ -626,7 +626,7 @@ function C.think(view, book, st, ctx)
     emergency_unarmed = base.emergency_unarmed, emergency_recruit = base.emergency_recruit,
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
     grow_short = base.grow_short, -- lot FER-EQUIPE : la réserve de fer a retenu une recrue (journal [FO-FER])
-    coal_rate = base.coal_rate, burn_rate = base.burn_rate, defend = base.defend, priorite = base.priorite,
+    defend = base.defend, priorite = base.priorite,
     -- Intégration 0.6.33 : lus par SurvieQg.note_plan (Team.think) ; absents du plan du cerveau, allumé par défaut, les attentes de protection du
     -- lot S1 (reconstruction, agrandissement de survie) ne s'allumaient jamais.
     turret_ok = base.turret_ok, turret_payable = base.turret_payable,

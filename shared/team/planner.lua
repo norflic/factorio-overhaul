@@ -38,8 +38,7 @@ local Ga = require("shared.team.garde_ap") -- lot DEFENSE-AP : garde d'avant-pos
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
-local Bc = require("shared.team.bilan_charbon") -- lot CHARBON-CAPACITE (F485) : cadences du bilan du combustible lues aux données
-local Mach = require("shared.team.modules") -- table des machines (M.spec, M.COAL_J), la même que le reste du cerveau
+local Bc = require("shared.team.bilan_charbon") -- lot PURGE-FER-CHARBON : plafond du combustible (Bc.room)
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, partielle, des tourelles (règle pure)
 local Sp = require("shared.team.spirale") -- EFFONDREMENT (décision du DC, 7/11) : recrue gratuite sous l'effectif de départ
@@ -631,19 +630,10 @@ function P.plan(view, book)
       end
     end
   end
-  -- Bilan du charbon (AVANT la réserve de tournée : sans production de charbon, rien ne tourne) : production des avant-postes de charbon contre consommation des brûleurs. Moteur :
-  -- foreuse à combustible 150 kW (0,0375 charbon/s) et 0,25 minerai/s, four en pierre 90 kW (0,0225/s).
-  -- Si la marge passe sous 40 %, un avant-poste de charbon de plus devient prioritaire.
+  -- Lot PURGE-FER-CHARBON (DC 11/11) : un avant-poste de charbon de plus seulement sous le besoin réel des chaudières et des brûleurs actifs, lu en
+  -- jeu (view.coal_cap, shared/team/bilan_charbon.lua) ; il remplace le bilan à cadences et sa marge de 40 %. Avant la réserve de tournée.
   do
-    -- Lot CHARBON-CAPACITE (F485) : cadences lues aux données (Bc.rates : vitesse de minage / temps de minage de la ressource du
-    -- combustible, puissance du brûleur / valeur du combustible), avant-poste de combustible = son produit est le combustible.
-    -- Temps de minage publié par la vue depuis les prototypes (script/team/team.lua) ; une vue de banc pur sans lui garde 1 s.
-    local rates = Bc.rates({ spec = Mach.spec, drill = T.DRILL, fuel_kj = Mach.COAL_J, mining_time = view.fuel_mining_time or 1 })
-    local coal_rate, burn_rate = Bc.balance(view.outposts, T.outposts, T.fuel, rates, view.smelters, T.SMELTER, view.build_burn)
-    out.coal_rate, out.burn_rate = coal_rate, burn_rate
-    -- Lot THERMIQUE2 (essai 3) : banc thermique-garde (moteur réel) : ce bilan, qui ne lit que des cadences, ajoutait 4 brûleurs de charbon
-    -- toutes les 2 à 3 min avec 3 200 à 3 800 charbons au stock (chaque paire de fer ou de cuivre posée relève le brûlé) : plus au-delà du seuil.
-    if #view.outposts > 0 and Bc.need_more(coal_rate, burn_rate) and (view.pending.coal or 0) == 0
+    if #view.outposts > 0 and Bc.room(view.coal_cap) and (view.pending.coal or 0) == 0
       and not Th.raw_full(T.outposts.coal, view.stock) then
       local items = outpost_items("coal")
       local ext = extendable(view, "coal", undefended)

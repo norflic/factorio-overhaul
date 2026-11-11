@@ -6,7 +6,7 @@
 
   Tâche de FOND, une pensée toutes les CFG.every ticks par équipe, UN avant-poste à la fois. Un avant-poste de PAIRES foreuse thermique +
   four (celui de T.outposts dont le réceptacle est un four) est migré PAR PARTIES. Pour chaque partie :
-    1. (veille)   l'équipe a le plan directeur, un réseau qui produit, l'objet de foreuse électrique, des plaques libres, aucun ennemi à
+    1. (veille)   l'équipe a le plan directeur, un réseau qui produit, l'objet de foreuse électrique, aucun ennemi à
                   CFG.safe tuiles : la règle choisit une partie du champ (paires voisines d'un même lot de gisement du treillis dont le
                   retrait libère la place d'une ligne de foreuses) ;
     2. (projet)   une demande au PLAN DIRECTEUR (Build.request) : la fonderie à tapis de 0.6.17 (gabarit « smelter », voie de minerai servie
@@ -49,14 +49,15 @@ local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile 
 
 local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
 local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (shared/ai3/anti_dispersion.lua)
+local Bc = require("shared.team.bilan_charbon") -- lot PURGE-FER-CHARBON : plafond du combustible (Bc.room)
+local Cap = require("script.team.plafond_charbon") -- (sa mesure en jeu)
 local Mig = {}
 
 local CFG = Mg.CFG
 -- Lot CHAMP : règles de la migration en BANDES du champ (la règle de shared/team/migration_champ.lua, ces seuils changés) :
 --   min_pairs 1    une seule paire suffit (un avant-poste neuf de paires passe au champ dès que le courant et les objets le permettent) ;
 --   keep_pairs 0   la bande qui remplace les paires produit plus qu'elles : un petit avant-poste n'est plus bloqué par la garde
---                  (« garde » annulait la demande : un champ d'une seule bande ne migrait jamais) ;
---   EXT_PLATES     une bande SANS paire (agrandissement du champ) n'est demandée que si la plaque du champ est sous ce stock libre.
+--                  (« garde » annulait la demande : un champ d'une seule bande ne migrait jamais).
 local CHAMP_CFG = {}
 for _, k in ipairs(State.sorted_keys(CFG)) do CHAMP_CFG[k] = CFG[k] end
 CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
@@ -66,13 +67,6 @@ CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
 CHAMP_CFG.gate_wait, CHAMP_CFG.retry = 90 * 3600, 3 * 3600
 CHAMP_CFG.pause = 5 * 3600 -- lot RACCORD-BANDE : une bande du champ abandonnée sur des refus du plan repart d'un état neuf après 5 min (au lieu de CFG.revive : 30 min)
 CHAMP_CFG.block_max = 15 * 3600 -- une bande bloquée (fantôme refusé) est laissée au plan après 15 min : la suivante part (step_build)
--- Lot THERMIQUE5 (revue du 3/11, cause 4) : une bande d'un minerai porté BRUT au coffre (charbon, pierre) n'exige plus de plaques de fer libres
--- (Th.min_plates) : la demande fait fabriquer ses matières (Mig.projects) ; Azure 20261020 ne demandait ni charbon ni pierre de 41 à 150 min
-local CHAMP_RAW_CFG = {}
-for _, k in ipairs(State.sorted_keys(CHAMP_CFG)) do CHAMP_RAW_CFG[k] = CHAMP_CFG[k] end
-CHAMP_RAW_CFG.min_plates = Th.min_plates(true, CHAMP_CFG.min_plates)
-CHAMP_CFG.min_plates = Th.min_plates(false, CHAMP_CFG.min_plates)
-local EXT_PLATES = 3000
 
 --- Lot SATURATION (directive du DC du 9/11) : pièces d'une bande planifiée, par nom : { { name, n, machine } } (machine : rôle de foreuse ou de
 --- four du plan du champ). Nombres, chaînes et booléens seulement : gardé dans l'état de la migration (st.band_need) pour la porte des bandes en
@@ -895,23 +889,8 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
       end
     end
   end
-  -- une bande voulue par la capitalisation (Mig.want) n'attend pas que la plaque manque : la règle a déjà jugé l'agrandissement rentable
   local wanted = (st.want_until or 0) > tick
-  -- lot SATURATION (DC 9/11) : une bande dont les foreuses et les fours DORMENT déjà au coffre n'attend ni que la plaque manque, ni qu'une
-  -- capitalisation la veuille : le stock dormant est la décision (mesuré : 52 à 68 foreuses électriques et 104 à 170 fours au coffre à 90 min,
-  -- champ du joueur à 48 % ; fo-logs/2026-11-09_VOIE-AVANT-FOURS)
   st.band_need = band_list(bd)
-  local sat = Mp.saturation(st.band_need, free)
-  if sat.starts and #ids == 0 then
-    say_why(f, ms, st, "dormant:" .. pr, string.format("avant-poste %d : bande %d PAYEE PAR LE STOCK DORMANT (%d machine(s) sur %d au coffre, seuil %d %%, %d piece(s) a fabriquer) : elle part sans attendre que %s manque",
-      o.id, pr, sat.dormant, sat.want, Mp.CFG.start_pct, #sat.net, product), true)
-  end
-  if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted and not sat.starts then
-    say_why(f, ms, st, "ext:" .. pr, string.format("avant-poste %d : bande %d sans paire en attente (%d %s libres, agrandissement sous %d)", o.id, pr,
-      free[product] or 0, product, EXT_PLATES))
-    st.retry = tick + CFG.retry
-    return false
-  end
   local cx, cy, n = 0, 0, 0
   for _, e in ipairs(bd.ents) do cx, cy, n = cx + e.x, cy + e.y, n + 1 end
   cx, cy = cx / math.max(1, n), cy / math.max(1, n)
@@ -1588,33 +1567,17 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
   for _, oid in ipairs(sorted_keys(f.outposts)) do add(oid, f.outposts[oid]) end
   for _, fid in ipairs(sorted_keys(ms.fields)) do add(fid, ms.fields[fid]) end
   cand = Th.order(cand) -- voulus d'abord, puis le plus d'extraction thermique en jeu, puis la plaque la plus en manque, puis le numéro
-  local iron_waiting = false -- lot FER-D-ABORD : une bande de plaques attend le stock de fer (Th.iron_waits) : pas de bande brute neuve avant elle
-  local burn -- (lot FER-D-ABORD : combustible brûlé par les générateurs, lu une fois par pensée et seulement si une bande de combustible est en jeu)
+  local cap -- lot PURGE-FER-CHARBON : plafond du combustible (Cap.read), lu une fois par pensée et seulement si une bande de combustible est candidate
   for _, it in ipairs(cand) do
     local oid = it.id
     local o = Champ.target(f, oid)
     local st = ms.o[oid]
-    if Th.FER_D_ABORD and iron_waiting and (it.tier or 0) == 1 and not it.wanted then
-      local spec = T.outposts[o.kind]
-      local is_fuel = spec.resource == T.fuel
-      local short = false
-      if is_fuel then
-        burn = burn or fuel_burn(f, surface)
-        short = Th.fuel_short(free[spec.product] or 0, burn)
-      end
-      local held, why_hold = Th.raw_holds({ tier = it.tier, wanted = it.wanted, iron_waiting = iron_waiting, fuel = is_fuel, fuel_short = short,
-        since = ms.iron_since, now = tick })
-      if held then
-        if st then say_why(f, ms, st, "fer-d-abord", string.format("avant-poste %d (%s) : bande brute neuve retenue, une bande de plaques attend le fer", o.id, o.kind)) end
+    -- lot PURGE-FER-CHARBON (DC 11/11) : une bande de combustible, voulue ou non, ne part que sous le besoin réel (Bc.room)
+    if T.outposts[o.kind].resource == T.fuel then
+      cap = cap or Cap.read(f, surface)
+      if not Bc.room(cap) then
+        if st then say_why(f, ms, st, "plafond", string.format("avant-poste %d (%s) : bande retenue au plafond (extraction %.2f/s pour un besoin de %.2f/s)", o.id, o.kind, cap.capacity, cap.need)) end
         goto next_outpost
-      elseif why_hold == "expire" and ms.iron_note ~= "expire" then
-        ms.iron_note = "expire"
-        say(f, ms, string.format("fer d'abord : retenue des bandes brutes levee apres %d min sans depart d'une bande de fer (plaques de fer libres : %d)",
-          (tick - (ms.iron_since or tick)) / 3600, free[T.outposts.iron.product] or 0), true)
-      elseif why_hold == "combustible" and ms.iron_note ~= "combustible" then
-        ms.iron_note = "combustible"
-        say(f, ms, string.format("fer d'abord : avant-poste %d (%s) non retenu, le combustible manque (stock %d, %.2f/s brules)", o.id, o.kind,
-          free[spec.product] or 0, burn or 0), true)
       end
     end
     -- lot THERMIQUE : charbon et pierre n'existent que par le champ (le gabarit de fonderie du treillis ne sait pas poser un coffre)
@@ -1648,8 +1611,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       local list = champ and survey_field(f, o) or survey(o)
       local rects = champ and {} or lots_of(f, o, list)
       local product = T.outposts[o.kind].product
-      local raw = product == T.outposts[o.kind].resource -- (lot THERMIQUE5 : minerai porté brut, sans four)
-      local cfg = champ and (raw and CHAMP_RAW_CFG or CHAMP_CFG) or CFG
+      local cfg = champ and CHAMP_CFG or CFG
       local npairs = #list
       if champ and st.frame and npairs == 0 then npairs = 1 end -- bandes sans paire : agrandissement du champ (begin_band)
       if champ and it.wanted and npairs == 0 then npairs = 1 end -- voulu par la capitalisation : un gisement sans paire se pose aussi
@@ -1657,18 +1619,8 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       -- la recherche d'ennemi (coûteuse) seulement quand le reste est réuni
       local enemy = false
       if npairs >= cfg.min_pairs and lattice and tick >= (st.retry or 0) then enemy = enemy_near(f, surface, o.pos.x, o.pos.y) end
-      -- lot CHAMP : la bande coûte surtout du FER (foreuses, bras, tapis) : la garde de stock lit les plaques de fer ; elle lisait la plaque
-      -- du champ, et un champ de cuivre ne migrait jamais quand le cuivre manquait (le cas même du DC)
-      local plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
-      local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates,
+      local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable,
         lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
-      if Th.iron_waits(it.tier, why) then -- lot FER-D-ABORD
-        iron_waiting = true
-        ms.iron_since, ms.iron_last = Th.iron_clock(ms.iron_since, ms.iron_last, true, tick)
-      end
-      -- Lot THERMIQUE2 : la garde de fer du lot THERMIQUE (Th.financed : fer libre >= coût des foreuses de remplacement) est retirée : une force
-      -- dont le fer est tout consommé ne lançait jamais la bande qui lui rendrait du fer (« migration en veille (fer) », champ-longue 20261020) ;
-      -- la garde de plaques de Mg.start_ok (comme sur main) reste.
       -- lot THERMIQUE5 : pendant une retenue de la pile, une bande neuve ne part que si la porte laisse passer sa plaque (comme sa réserve au
       -- plan directeur, Build.reserve_suspended, famille « capi ») ; lu au moment du départ seulement (les causes de veille restent au journal)
       -- décision du DC du 8/11 (« Oui, toujours ») : la bande d'un gisement VOULU par la capitalisation (couvrir, ouvrir) part toujours
@@ -1678,10 +1630,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
         local began
         if champ then began = begin_band(f, surface, ms, o, st, list, tick, free)
         else began = begin_part(f, surface, ms, o, st, list, rects, tick) end
-        if began then
-          if (it.tier or 0) == 0 then ms.iron_since, ms.iron_last, ms.iron_note = nil, nil, nil end -- lot FER-D-ABORD : une bande de plaques part, l'attente est finie
-          return true
-        end
+        if began then return true end
       elseif o.migr == "en cours" and (why == "paires" or why == "treillis") and st.done > 0 and not (champ and st.frame) then
         -- plus assez de paires pour une partie de plus : le reste est laissé tel quel
         finish(f, ms, o, st, (#list == 0) and "fini" or "partiel",
@@ -1691,10 +1640,6 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       end
     end
     ::next_outpost::
-  end
-  if not iron_waiting then -- lot FER-D-ABORD : rien n'attend le fer ; l'horloge de retenue s'éteint après cfg.iron_hold_gap
-    ms.iron_since, ms.iron_last = Th.iron_clock(ms.iron_since, ms.iron_last, false, tick)
-    if ms.iron_since == nil then ms.iron_note = nil end
   end
   return false
 end

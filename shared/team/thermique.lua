@@ -33,8 +33,7 @@
   M.order(cands)                        -> liste triée (voulus, puis les plus productifs)
   M.free_slot(res, busy, cfg)           -> vrai/faux, raison ; M.band_stuck(état, raison, âge, cfg) -> vrai/faux (bande bloquée par ses matières)
   M.shares(fields, order)               -> part électrique par minerai (journal et critères)
-  Lot THERMIQUE5 : M.band_covers(état du projet), M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...),
-  M.min_plates(brut, seuil) ; fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
+  Lot THERMIQUE5 : M.band_covers(état du projet), M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...); fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
   fl = { id, res, tier (0 : plaques, 1 : sans plaque), pairs (paires thermiques debout), th_rate (ore/s d'une foreuse thermique), working (foreuses électriques en marche),
          el_rate (ore/s d'une foreuse électrique), busy (une bande de ce gisement est en chantier), wanted, have }
   ctx = { power, iron (fer libre au stock), drill_cost (fer d'une foreuse électrique), floor = { [res] }, stock = { [res] }, critical = { [res] } }
@@ -42,8 +41,6 @@
 ]]
 
 local M = {}
-
-M.FER_D_ABORD = true -- faux : la règle d'avant (banc témoin) ; lot FER-D-ABORD
 
 -- Réglages propres au lot (ni dans shared/team/config.lua, ni de nom d'objet).
 M.CFG = {
@@ -63,8 +60,6 @@ M.CFG = {
   raw_stock_max = 3000,   -- lot THERMIQUE2 (essai 3, décision du lead) : stock libre d'un minerai BRUT au-delà duquel plus aucun brûleur n'est posé
   cover_by_output = true, -- lot THERMIQUE6 (essai 3) : couverture lue à la production de la bande (bloquée qui a produit, sortie pleine si elle produit)
   dry_wait = 10 * 3600,   -- lot THERMIQUE6, règle B : ticks à sec avant qu'un brûleur d'un gisement à bande finie soit retiré seul
-  iron_hold_max = 20 * 3600, -- lot FER-D-ABORD : ticks de retenue des bandes brutes au plus, depuis le premier refus « plaques » d'une bande de fer (jamais une impasse)
-  iron_hold_gap = 10 * 3600, -- lot FER-D-ABORD : ticks sans refus « plaques » après lesquels l'horloge de retenue repart de zéro
 }
 
 local EPS = 1e-9
@@ -176,14 +171,6 @@ end
 function M.stop_state(done, produced, retired)
   if (done or 0) > 0 or (produced or 0) > 0 or (retired or 0) > 0 then return "partiel" end
   return "abandon"
-end
-
---- Lot THERMIQUE5 (revue du 3/11, cause 4) : plaques de FER libres exigées pour lancer une bande. Une bande d'un minerai porté BRUT au coffre
---- (produit = ressource : charbon, pierre ; `raw`) fait fabriquer ses matières par la demande elle-même (Mig.projects) : la garde de plaques
---- ne la retient plus (Azure 20261020 : charbon 20 et pierre 8 jamais demandés de 41 à 150 min). Les plaques gardent la leur. Rend le seuil.
-function M.min_plates(raw, min_plates)
-  if raw then return 0 end
-  return min_plates or 0
 end
 
 --- Le gisement est-il couvert par une bande électrique qui produit ? Rend (vrai/faux, raison).
@@ -310,50 +297,6 @@ function M.order(cands)
   end)
   return out
 end
-
--- Lot FER-D-ABORD (9/11, graine 123456789, votre équipe ; fo-logs/2026-11-09_COLLECTE-CHAMP/off-123456789) : la bande de FER (tier 0, plaques) est refusée
--- « plaques » (stock libre sous min_plates) pendant toute la partie, mais les bandes de charbon et de pierre (tier 1, sans garde de plaques : Th.min_plates)
--- partent et dépensent le fer qu'elle attend : 10 foreuses de fer sur 1 935 tuiles à 60 et 100 min, 91 + 80 + 102 foreuses de charbon et de pierre planifiées.
--- Règle : tant qu'un gisement qui fournit les matières des bandes (tier 0) attend les plaques, un gisement brut (tier 1) que la capitalisation n'a pas voulu
--- n'ouvre pas de bande neuve ; le fer d'abord. Pure : aucun nom d'objet.
-function M.iron_waits(tier, why)
-  return (tier or 0) == 0 and why == "plaques"
-end
-
---- Horloge de la retenue (bornée, ticks) : since = début de l'attente du fer, last = dernier refus « plaques » vu. waiting : une bande de plaques
---- attend le fer à cette pensée. Rend (since, last) : l'attente continue si un refus a été vu il y a moins de cfg.iron_hold_gap ticks, sinon elle
---- repart de zéro (since = last = nil sans attente).
-function M.iron_clock(since, last, waiting, tick, cfg)
-  cfg = cfg_of(cfg)
-  local live = since ~= nil and last ~= nil and tick - last <= cfg.iron_hold_gap
-  if waiting then
-    if live then return since, tick end
-    return tick, tick
-  end
-  if live then return since, last end
-  return nil, nil
-end
-
---- Le combustible manque-t-il (mesuré) ? stock libre du minerai critique et son plancher (ore/s brûlés par les générateurs) : le stock doit pouvoir
---- ponter cfg.horizon secondes de consommation (même seuil que M.cut_ok). Sans consommation lue : pas de manque mesuré.
-function M.fuel_short(stock, floor, cfg)
-  cfg = cfg_of(cfg)
-  if (floor or 0) <= EPS then return false end
-  return (stock or 0) + EPS < floor * cfg.horizon
-end
-
---- Un gisement de ce rang attend-il le fer (un gisement tier 0 attend déjà les plaques) ? Rend (retenu, raison).
---- c = { tier, wanted (voulu par la capitalisation : jamais retenu), iron_waiting, fuel (ce minerai est le combustible), fuel_short (mesuré),
---- since (début de l'attente), now }. Raisons : "retenue", "expire" (retenue levée après cfg.iron_hold_max ticks sans départ de la bande de fer),
---- "combustible" (le combustible manque : sa bande n'est pas retenue), "libre".
-function M.raw_holds(c, cfg)
-  cfg = cfg_of(cfg)
-  if c.iron_waiting ~= true or (c.tier or 0) ~= 1 or c.wanted then return false, "libre" end
-  if c.fuel and c.fuel_short then return false, "combustible" end
-  if c.since ~= nil and (c.now or 0) - c.since >= cfg.iron_hold_max then return false, "expire" end
-  return true, "retenue"
-end
-
 
 --- Une bande est-elle « bloquée par ses matières » ? Réserve (pas encore au chantier), autre raison que la porte « degel » (qui attend le retrait des paires,
 --- matières déjà réunies), depuis plus de cfg.stuck_wait ticks. `state` : état du projet du plan, `reason` : sa raison, `age` : ticks depuis la demande.

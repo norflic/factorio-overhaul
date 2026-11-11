@@ -5785,41 +5785,6 @@ function Build.tag(f, id, family, product)
   return true
 end
 
-Build.BURN_EVERY = 600 -- ticks : le relevé du charbon brûlé par les fours du plan se refait au plus toutes les 10 s
-
---- Lot INTEG-ECONOMIE (D4) : charbon par seconde que brûlent les fours à COMBUSTIBLE déjà posés par le plan directeur (les fonderies
---- en ligne : le charbon leur vient du coffre du QG, quais d'entrée). Le bilan du charbon du planificateur (shared/team/planner.lua,
---- `burn_rate`) ne comptait que les foreuses et les fours des avant-postes et du QG : une faction à 3 fonderies de 12 fours
---- manquait de charbon sans qu'aucun avant-poste de charbon ne soit demandé. La puissance vient des DONNÉES (M.spec(...).burner_kw,
---- niveaux compris), jamais d'un nom écrit ici. Relevé mis en cache dans `f.build` (nombres seulement). 0 sans plan directeur.
-function Build.burn_rate(f, tick)
-  local b = f and f.build
-  if not b then return 0 end
-  tick = tick or game.tick
-  if b.burn_tick and tick - b.burn_tick < Build.BURN_EVERY and b.burn_v then return b.burn_v end
-  local kw = 0
-  for _, id in ipairs(b.order) do
-    local p = b.projects[id]
-    if p and p.state ~= "bloque" then
-      -- lot CHARBON-CENTRALE : les chaudières d'une centrale nourrie à la main (par le coffre du QG) brûlent ce charbon-là aussi, à
-      -- pleine charge (0,45/s chacune) ; nourrie par ses foreuses (Cc.automated), elle n'en prend plus au QG
-      local hand = is_plant_project(p) and not plant_automated(b, p)
-      for _, e in ipairs(p.ents) do
-        if e.built and not e.dropped then
-          local sp = M.spec(e.name)
-          if sp and sp.kind == "furnace" and sp.burner_kw then kw = kw + sp.burner_kw end
-          -- lot CHARBON-CAPACITE (F485) : les foreuses à brûleur des bandes du plan (champ thermique) brûlent le charbon des tournées
-          -- du QG ; le bilan ne les comptait pas : 80 brûleurs de fer à sec sur 123456789 sans qu'un avant-poste de charbon soit demandé
-          if sp and sp.kind == "drill" and sp.burner_kw then kw = kw + sp.burner_kw end
-          if hand and sp and sp.water and sp.burner_kw then kw = kw + sp.burner_kw end
-        end
-      end
-    end
-  end
-  b.burn_tick, b.burn_v = tick, kw / M.COAL_J
-  return b.burn_v
-end
-
 function Build.report(f)
   local b = f and f.build
   if not b then return nil end

@@ -44,7 +44,6 @@ M.CFG = {
   max_part_pairs = 8,     -- paires retirées d'un coup au plus
   keep_pairs = 1,         -- paires debout tant qu'aucune ligne neuve n'a produit
   min_rows = 2,           -- rangées de fours au moins (sous 2 rangées, le tapis de foreuses est refusé par le plan : seuil du tapis)
-  min_plates = 150,       -- plaques libres au coffre au moins pour lancer (la ligne coûte du fer : jamais au détriment du reste)
   min_overlap = 0.4,      -- part de la ligne qui doit tomber sur la place libérée
   lot_margin = 1,         -- tuiles : marge du lot (P.fit)
   zone_slack = 2,         -- tuiles : jeu laissé au plan autour de la ligne promise (la ligne neuve se pose DANS la place libérée)
@@ -319,7 +318,7 @@ end
 -- Décisions
 ---------------------------------------------------------------------------------------------------
 --- Faut-il lancer la migration de cet avant-poste ? c = { migr (o.migr), plan (plan directeur allumé), power (réseau qui produit),
---- obtainable (objet de foreuse électrique au stock ou fabricable), plates (plaques libres), lattice (le champ est dans un lot de
+--- obtainable (objet de foreuse électrique au stock ou fabricable), lattice (le champ est dans un lot de
 --- gisement du treillis), pairs (paires thermiques vivantes), enemy (ennemi à CFG.safe tuiles), now, retry (tick avant lequel on
 --- n'essaie pas) }. Rend vrai, ou faux et la raison.
 function M.start_ok(c, cfg)
@@ -330,7 +329,6 @@ function M.start_ok(c, cfg)
   if not c.obtainable then return false, "objet" end
   if (c.pairs or 0) < cfg.min_pairs then return false, "paires" end
   if not c.lattice then return false, "treillis" end
-  if (c.plates or 0) < cfg.min_plates then return false, "plaques" end
   if c.retry and c.now < c.retry then return false, "attente" end
   if c.enemy then return false, "ennemi" end
   return true, "ok"

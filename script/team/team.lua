@@ -27,6 +27,7 @@ local Config = require("script.core.config")
 local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
+local Cap = require("script.team.plafond_charbon") -- lot PURGE-FER-CHARBON : plafond du combustible (vue : coal_cap)
 local Famine = require("script.team.famine_fer") -- lot FAMINE-FER : plaque clé en famine, bande en attente : l'avant-poste n'est pas « plein »
 local Military = require("script.faction.military")
 local Sites = require("script.faction.sites")
@@ -94,23 +95,6 @@ local books = {}
 -- Seuls les livres de la force concernée sont oubliés : oublier tous les livres à chaque technologie débloquée
 -- faisait reconstruire ceux de toutes les forces (banc `default`, machine chargée : 98 pics « team » de plus de
 -- 2 ms avec l'oubli total, 65 avec l'oubli par force ; décisions identiques au tick près).
---- Lot CHARBON-CAPACITE (F485) : temps de minage de la ressource dont le produit est le combustible (T.outposts, T.fuel), lu aux
---- prototypes du jeu ; nil si aucune (le planificateur garde alors 1 s, la valeur d'un banc pur).
-local function fuel_mining_time()
-  local kinds = {}
-  for kind in pairs(T.outposts) do kinds[#kinds + 1] = kind end
-  table.sort(kinds) -- ordre stable (jamais l'ordre de pairs)
-  for _, kind in ipairs(kinds) do
-    local spec = T.outposts[kind]
-    if spec and spec.product == T.fuel and spec.resource then
-      local rp = game.entity_prototypes[spec.resource]
-      local mp = rp and rp.mineable_properties
-      return mp and mp.mining_time or nil
-    end
-  end
-  return nil
-end
-
 local function forget_books() books = {} end
 local function forget_force(force)
   if not (force and force.valid) then
@@ -835,8 +819,7 @@ function Team.view(f, tick)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, Outposts.smelters(f)),
-    build_burn = Profiler.fwrap("view:5-burn", Build.burn_rate, f, game.tick), -- lot INTEG-ECONOMIE (D4) : charbon/s des fours du plan directeur (bilan du charbon du planificateur)
-    fuel_mining_time = fuel_mining_time(), -- lot CHARBON-CAPACITE (F485) : temps de minage de la ressource du combustible (prototypes)
+    coal_cap = fsurface and Cap.read(f, fsurface) or nil, -- lot PURGE-FER-CHARBON : plafond du combustible (besoin réel, extraction posée)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
     turret_groups = groups,
