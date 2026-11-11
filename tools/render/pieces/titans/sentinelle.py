@@ -21,7 +21,7 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
-from juggernaut import hexseg, pointe, plaque, anneau, rainure  # noqa: E402
+from juggernaut import hexseg, pointe, plaque, anneau, rainure, traces, bague  # noqa: E402
 
 PREFIX = "se_"
 PSI = -math.radians(40.0)
@@ -62,6 +62,38 @@ def gravure(lot, M, p, n, up, w, h, k=3):
         lot.put(M["turq"], G.tube([a, b], 0.07, 5))
 
 
+def gemme(base, d, L, r, n=6, rot=0.0):
+    """TITANS2 (11/11) : cristal bleu glacier TAILLÉ (concept : gemmes à facettes nettes) : bipyramide à n pans, ceinture aux 30 %
+    de la longueur, table étroite, posée de `base` dans la direction `d`."""
+    prof = [(0.0, r * 0.35), (L * 0.12, r * 0.9), (L * 0.3, r), (L * 0.42, r * 0.86), (L, 0.0)]
+    return G.oriente(G.tour(prof, n, "z", a0=rot, a1=rot + G.TAU, cap0=True), base, d)
+
+
+def grappe(lot, M, base, d, L, r, k=3):
+    """Grappe de k gemmes autour d'un axe : une grande au centre, les autres inclinées, plus courtes."""
+    lot.put(M["cristal"], gemme(base, d, L, r))
+    t, n1, n2 = G._frames([base, G.add(base, d)])[0]
+    for i in range(k - 1):
+        a = G.TAU * i / max(k - 1, 1) + 0.4
+        off = G.add(G.mul(n1, math.cos(a)), G.mul(n2, math.sin(a)))
+        lot.put(M["cristal"], gemme(G.add(base, G.mul(off, r * 0.9)), G.norm(G.add(d, G.mul(off, 0.45))), L * (0.62 - 0.08 * i), r * 0.7, 6, 0.3 * i))
+
+
+def vortex(lot, M, C, rc, e=1.0):
+    """TITANS2 : cœur à VORTEX à haute luminosité (concept : spirale cyan blanc au centre de la couronne) : trois bras en spirale
+    d'Archimède devant la singularité, un noyau blanc, un disque d'accrétion fin."""
+    R_ = (rc - 0.9) * e                       # rayon de la sphère de singularité : les bras épousent sa face avant
+    for b in range(3):
+        pts = []
+        for j in range(14):
+            t = j / 13.0
+            a = G.TAU * b / 3 + t * 2.6 * math.pi
+            rr = (0.35 + (rc - 1.4) * t) * e
+            pts.append((C[0] + math.sqrt(max(R_ * R_ - rr * rr, 0.0)) + 0.14, C[1] + rr * math.cos(a), C[2] + rr * math.sin(a)))
+        lot.put(M["coeur"], G.tube(pts, 0.2, 6, rfun=lambda s_, i: 0.26 * (1.0 - 0.65 * i / 13.0)))
+    lot.put(M["coeur"], G.sphere((C[0] + R_ - 0.25, C[1], C[2]), 0.95 * e, 14, 7))
+
+
 def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     """Couronne blindée autour de la singularité (axe x), vortex et halo, carénage dorsal, ventral et arrière."""
     C = (0.0, 0.0, ZC)
@@ -82,6 +114,26 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
         e = gonfle[2]
         lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.2, 1.6 * e), (3.2 * e, 0.8), (5.0 * e, 0.0)], 14, "z", cap0=True), (C[0] + 1.2, C[1], C[2]), (1.0, 0.0, 0.0)))
     lot.put(M["struct"], G.tour([(-1.0, 0.0), (-0.9, rc - 0.2), (-0.4, rc + 0.3)], 24, "x", C, cap0=True))
+    vortex(lot, M, C, rc, gonfle[0])
+    # TITANS2 : silhouette en RELIEF (le DC : « corriger la silhouette plate ») : crête de trois lames verticales au sommet de la couronne,
+    # grappes de gemmes glacier sur la couronne (haut et flancs), carène ventrale à trois échappements d'énergie vers le sol
+    for k, (yy, h) in enumerate(((0.0, 6.8), (-1.7, 5.0), (1.7, 5.0))):
+        b0 = (-0.6, yy, ZC + rc + 0.9)
+        pts = [b0, (-1.2, yy * 1.15, b0[2] + h * 0.45), (-2.4, yy * 1.25, b0[2] + h * 0.85), (-3.6, yy * 1.3, b0[2] + h)]
+        rr = (0.7, 0.52, 0.32, 0.08)
+        for j in range(3):
+            lot.put(M["blind2"], hexseg(pts[j], pts[j + 1], rr[j], rr[j + 1], 4, 0.785))
+        lot.put(M["conduit"], G.tube([G.add(pts[0], (0.45, 0.0, 0.1)), G.add(pts[1], (0.4, 0.0, 0.0)), G.add(pts[2], (0.25, 0.0, 0.0))], 0.07, 4))
+    for a_deg, L in ((90.0, 2.6), (40.0, 2.0), (140.0, 2.0), (-40.0, 1.7), (-140.0, 1.7)):
+        a = math.radians(a_deg)
+        p = (C[0] + 0.2, (rc + 1.5) * math.cos(a), ZC + (rc + 1.5) * math.sin(a))
+        grappe(lot, M, p, G.norm((0.25, math.cos(a), math.sin(a))), L + 0.4 * (stage - 1), 0.42, 3)
+    for k, (xx, yy) in enumerate(((0.8, 0.0), (-1.6, 1.9), (-1.6, -1.9))):
+        b = (xx, yy, ZC - 7.0)
+        lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.9), (0.9, 1.05), (1.5, 0.85), (1.6, 0.65)], 12, "z", cap0=True), b, (0, 0, -1)))
+        lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", 0.7, 0.08), G.add(b, (0.0, 0.0, -1.55)), (0, 0, -1)))
+        lot.put(M["coeur"], G.oriente(G.tour([(1.55, 0.6), (2.6, 0.42), (4.2, 0.2), (5.4, 0.0)], 10, "z", cap0=True), b, (0, 0, -1)))
+        lot.put(M["halo"], G.oriente(G.tour([(1.5, 1.0), (3.0, 0.8), (5.0, 0.4), (6.2, 0.0)], 10, "z", cap0=True), b, (0, 0, -1)))
     # carénage arrière : coque octogonale derrière la couronne, cheminées et conduits
     lot.put(M["blind2"], G.loft([[(-1.0, (rc + 0.8) * math.cos(G.TAU * (k + 0.5) / 8), ZC + (rc + 0.8) * math.sin(G.TAU * (k + 0.5) / 8)) for k in range(8)],
                                  [(-4.2, (rc - 0.6) * math.cos(G.TAU * (k + 0.5) / 8), ZC + (rc - 0.6) * math.sin(G.TAU * (k + 0.5) / 8)) for k in range(8)],
@@ -230,6 +282,11 @@ def pattes(lot, M, stage, u=None):
         out = G.norm((math.cos(a), math.sin(a), 0.0))
         lot.put(M["blind"], plaque(G.add(G.lerp(K, T, 0.4), G.mul(out, 0.8)), G.norm(G.add(out, (0, 0, 0.3))), 1.6, 3.0, 0.3, up=G.norm(G.sub(K, T))))
         lot.put(M["conduit"], hexseg(G.add(G.lerp(H, K, 0.2), G.mul(out, 0.0)), G.add(T, G.mul(out, 0.7)), 0.1, 0.1))
+        # TITANS2 : conduits haute densité, bague au genou, échappement d'énergie sous la tuyère
+        traces(lot, M, H, K, (1.25 * 0.866, 0.95 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.08, jog=0.3)
+        traces(lot, M, K, T, (1.0 * 0.866, 0.7 * 0.866), [0.1 + G.TAU * j / 6 for j in (1, 3, 4)], rt=0.075, jog=0.25)
+        bague(lot, M, K, G.norm(G.sub(T, H)), 1.1)
+        lot.put(M["halo"], G.oriente(G.tour([(1.6, 0.55), (2.6, 0.45), (3.6, 0.0)], 8, "z", cap0=True), T, (0, 0, -1)))
         # tuyère : cône vers le bas, jet turquoise
         lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.6), (1.0, 0.75), (1.6, 0.55), (1.7, 0.4)], 10, "z", cap0=True), T, (0, 0, -1)))
         lot.put(M["turq"], G.oriente(G.tour([(1.55, 0.35), (1.6, 0.0)], 10, "z"), T, (0, 0, -1)))
