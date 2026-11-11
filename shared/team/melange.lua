@@ -87,4 +87,10 @@ function M.belt_verdict(contents, targets)
   return r
 end
 
+--- Point 40 (audit des 50 angles morts) : le contrôle anti-mélange retient le NOM de l'entité contrôlée (e.mel_ok) ; une foreuse dont
+--- le nom a changé (niveau qui agrandit la zone) ou une ancienne marque booléenne est relue.
+function M.needs_check(mel_ok, name)
+  return mel_ok ~= name
+end
+
 return M
