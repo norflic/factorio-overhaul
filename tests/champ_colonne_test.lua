@@ -547,7 +547,8 @@ do
   rule_mutant("tête sans chargement du charbon", function()
     Co.layout = function(...)
       local l, n, i = lay(...)
-      if l then for k = #l, 1, -1 do if l[k].role == "charbon" and l[k].col == 1 then table.remove(l, k) end end end
+      -- la tuile de charbon en travers de la colonne (col 1, col 2 dans une colonne double) : celle qui charge la tête
+      if l then for k = #l, 1, -1 do if l[k].role == "charbon" and l[k].kind == "tapis" and l[k].du == 0 then table.remove(l, k) end end end
       return l, n, i
     end
   end, function() Co.layout = lay end, { coal = COAL_NEAR }, function(r) return r.no_coal > 0 end)
@@ -783,7 +784,9 @@ do
   Ch.CFG.both_orders = false
   local pm = Ch.plan(scarlet())
   Ch.CFG.both_orders = true
-  check(Ch.head_chests(pm) == 4, "mutant « un seul ordre » vu : 4 coffres de tete (" .. Ch.head_chests(pm) .. ")")
+  -- (lot COLONNE-DOUBLE) la colonne double (deux bandes, une ligne de plaques) libère la place du tronc : l'ordre habituel trouve déjà
+  -- les deux voies de ce cadre (4 coffres de tête avant le lot) ; un seul ordre ne fait jamais mieux que les deux
+  check(Ch.head_chests(pm) >= Ch.head_chests(ps), "un seul ordre : jamais moins de coffres de tete que les deux (" .. Ch.head_chests(pm) .. ")")
   -- cadre réel du joueur (avant-poste 1, fer, verif-guide 271828182 sur 0.6.43 : côté - « aucun chemin » dans les deux ordres, 5 coffres de
   -- tête, refus à 84 %) : la sortie de sa ligne de charbon était enfermée (ses foreuses de chaque côté, une case bloquée devant)
   local pp2 = Ch.plan(player())
@@ -871,6 +874,152 @@ do
   local pm = Ch.plan(spm)
   check(pm ~= nil and pm.stats.band_drills > 0 and pm.stats.capped == 0,
     string.format("F555 : mur en travers des tapis, aucune foreuse ecartee (%d sur %d)", pm and Ch.field_drills(pm) or -1, pm and pm.stats.band_drills or 0))
+end
+
+---------------------------------------------------------------------------------------------------
+section("12. colonne double : deux rangées de fours, ligne de plaques centrale (lot COLONNE-DOUBLE, DC 11/11)")
+---------------------------------------------------------------------------------------------------
+do
+  -- le DC : « 2 rangées de fours qui se déversent sur une ligne de sortie centrale, et le minerai qui arrive par le tapis collecteur
+  -- continu (aucune navette coffre -> coffre, aucun bras intermédiaire sur le chemin du minerai) ». Pas d'une bande : 2 × 3 + 2 = 8 ; une
+  -- colonne double (2 fs + 7 rangées, deux voies de charbon) ne tient pas dans un pas : chaque rangée est nourrie par le collecteur d'une
+  -- des deux bandes d'une paire, la demi-colonne d'en face décalée de |8 - (2 fs + 6)| rangées en tête.
+  local DV = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
+  local function tile(e) return math.floor(e.x - e.size / 2 + 1e-9), math.floor(e.y - e.size / 2 + 1e-9) end
+  --- Tuiles de la ligne de plaques où des bras de sortie déposent depuis les DEUX côtés ; fours qui déposent sur une ligne partagée.
+  local function doubles(plan)
+    local at = {}
+    for _, e in ipairs(plan.ents) do
+      local x0, y0 = tile(e)
+      for x = x0, x0 + e.size - 1 do for y = y0, y0 + e.size - 1 do at[Ch.key(x, y)] = e end end
+    end
+    local from = {} -- tuile de plaques -> { [côté] = vrai }
+    for _, e in ipairs(plan.ents) do
+      if e.kind == "bras" and e.role == nil then
+        local x, y = tile(e)
+        local v = DV[e.dir]
+        local src, dst = at[Ch.key(x + v[1], y + v[2])], at[Ch.key(x - v[1], y - v[2])]
+        if src and src.kind == "four" and dst and dst.kind == "tapis" and dst.role == "sortie" then
+          local k = Ch.key(x - v[1], y - v[2])
+          from[k] = from[k] or {}
+          from[k][e.dir] = true
+        end
+      end
+    end
+    local tiles, keys = 0, {}
+    for k, s in pairs(from) do keys[#keys + 1] = k; if (s[0] and s[4]) or (s[2] and s[6]) then tiles = tiles + 1 end end
+    return tiles
+  end
+  local sp = spec_of(ORE, { coal = COAL_NEAR })
+  local h = Co.half(sp, 2 * sp.drill.size + 2, true)
+  local ht = Co.half(sp, 2 * sp.drill.size + 2, false)
+  check(h ~= nil and h.mirror == true and h.jog == (2 * 2 + 6 - 8) * Co.SF and ht and not ht.mirror and ht.jog == 0 and ht.lead == h.lead,
+    string.format("Co.half : fours de 2, pas de 8 : demi-colonne d'en face, collecteur décalé de %s", tostring(h and h.jog)))
+  check(Co.half(spec_of(ORE, { fs = 4 }), 8, true) == nil and Co.half(spec_of(ORE, { fs = 4 }), 8, false) == nil, "Co.half : fours de 4 dans un pas de 8 : pas de colonne double (16 rangées)")
+  -- deux demi-colonnes d'une paire, hors champ : même ligne de plaques, fours de part et d'autre, aucune tuile prise deux fois
+  local top, _, ti = Co.layout(sp, 0, 1, 0, 6, "voie", ht)
+  local bot, _, bi = Co.layout(sp, 8 * Co.SF, 1, 0, 5, "voie", h)
+  local rows, seen, clash, f_side = {}, {}, 0, {}
+  for which, l in ipairs({ top or {}, bot or {} }) do
+    for _, e in ipairs(l) do
+      if e.kind == "tapis" and e.role == "sortie" then rows[which] = e.v end
+      for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do
+        local k = Co.tk(u, v)
+        local plate = e.kind == "tapis" and e.role == "sortie"
+        if seen[k] and not (plate and seen[k] == "plaques:" .. e.du) then clash = clash + 1 end
+        seen[k] = plate and ("plaques:" .. e.du) or "x"
+      end end
+      if e.kind == "four" then f_side[which] = e.v end
+    end
+  end
+  check(top and bot and rows[1] ~= nil and rows[1] == rows[2], string.format("paire : une seule ligne de plaques (rangées %s et %s)",
+    tostring(rows[1]), tostring(rows[2])))
+  check(top and bot and f_side[1] and f_side[2] and (f_side[1] - rows[1]) * (f_side[2] - rows[1]) < 0,
+    "paire : les deux rangées de fours de part et d'autre de la ligne de plaques")
+  check(top and bot and clash == 0, "paire : aucune tuile prise par les deux demi-colonnes hors la ligne de plaques (" .. clash .. ")")
+  check(ti and bi and ti.b_coal ~= bi.b_coal and math.abs(bi.b_coal - rows[1]) == 2 + 2 + 2,
+    "paire : la voie de charbon de la demi-colonne d'en face de son côté (rangée " .. tostring(bi and bi.b_coal) .. ")")
+  -- champs entiers : colonnes doubles, aucun four perdu contre les demi-colonnes seules, flux vérifiés (minerai par tapis seul)
+  local function plan_with(o, off)
+    local keep = Co.half
+    if off then Co.half = function() return nil end end
+    local s = spec_of(ORE, o)
+    local p = Ch.plan(s)
+    Co.half = keep
+    return p, s
+  end
+  for _, case in ipairs({ { "combustible, charbon proche", { coal = COAL_NEAR } }, { "combustible, coffre de tête", {} },
+    { "four électrique", { electric = true } }, { "poteaux moyens", { coal = COAL_NEAR, pole = "moyen" } } }) do
+    local p, s = plan_with(case[2])
+    local p0 = plan_with(case[2], true)
+    local rep = p and Cv.verify(p, s)
+    local d, d0 = p and doubles(p) or 0, p0 and doubles(p0) or 0
+    check(rep and rep.ok and rep.no_ore == 0 and rep.no_plate == 0, case[1] .. " : plan vérifié (" .. (rep and Cv.line(rep) or "?") .. ")")
+    check(d > 0 and d0 == 0, string.format("%s : lignes de plaques nourries des deux côtés (%d tuiles ; demi-colonnes seules : %d)", case[1], d, d0))
+    check(p and p0 and p.stats.furnaces >= p0.stats.furnaces,
+      string.format("%s : aucun four perdu (%d contre %d)", case[1], p and p.stats.furnaces or -1, p0 and p0.stats.furnaces or -1))
+    print(string.format("  %s : %d fours, %d tuiles de plaques à double dépôt", case[1], p and p.stats.furnaces or -1, d))
+  end
+  -- bande seule rejouée du cadre : la même demi-colonne (miroir compris), aucune pièce absente du plan entier
+  -- (en jeu, une bande = un projet ; chaque projet de bande porte toute sa ligne de plaques, la seconde bande d'une paire écarte en jeu les
+  -- pièces déjà au plan de la première, doublons légitimes de shared/team/champ_dedupe.lua : jamais deux pièces différentes sur une tuile)
+  local pf = Ch.plan(spec_of(ORE, { coal = COAL_NEAR }))
+  local in_full, bad, total, owner, twice, fours = {}, 0, 0, {}, 0, 0
+  for _, e in ipairs(pf and pf.ents or {}) do in_full[sig(e)] = true end
+  for bi, bd in ipairs(pf and pf.bands or {}) do
+    local fr = {}
+    for k, v in pairs(pf.frame) do fr[k] = v end
+    fr.only = { [bd.pr] = true }
+    local s2 = spec_of(ORE, { coal = COAL_NEAR })
+    s2.frame = fr
+    local part = Ch.plan(s2)
+    for _, e in ipairs(part and part.ents or {}) do
+      total = total + 1
+      if not in_full[sig(e)] and e.kind ~= "poteau" then bad = bad + 1 end
+      if e.kind == "four" then fours = fours + 1 end
+      if e.kind ~= "poteau" and e.coalnet == nil then
+        local x0, y0 = tile(e)
+        for x = x0, x0 + e.size - 1 do for y = y0, y0 + e.size - 1 do
+          local k = Ch.key(x, y)
+          if owner[k] and owner[k].bi ~= bi and owner[k].sig ~= sig(e) then twice = twice + 1 end
+          owner[k] = { bi = bi, sig = sig(e) }
+        end end
+      end
+    end
+  end
+  check(total > 0 and bad == 0, string.format("colonne double, bandes seules : %d entités, %d absentes du plan entier", total, bad))
+  check(pf and fours == pf.stats.furnaces, string.format("colonne double, bandes seules : tous les fours du plan entier (%d sur %d)", fours,
+    pf and pf.stats.furnaces or -1))
+  check(twice == 0, "colonne double, bandes seules : aucune tuile portant deux pièces différentes dans deux projets de bande (" .. twice .. ")")
+  -- cadre d'avant le lot (aucune colonne marquée miroir) : rejoué en demi-colonnes seules
+  local old = {}
+  for k, v in pairs(pf.frame) do old[k] = v end
+  old.cols = {}
+  for k, sides in pairs(pf.frame.cols or {}) do
+    old.cols[k] = {}
+    for sk, fc in pairs(sides) do old.cols[k][sk] = { s_edge = fc.s_edge, count = fc.count, mode = fc.mode } end -- sans double ni mirror
+  end
+  local s3 = spec_of(ORE, { coal = COAL_NEAR })
+  s3.frame = old
+  local po = Ch.plan(s3)
+  check(po == nil or doubles(po) == 0, "cadre d'avant le lot : aucune demi-colonne d'en face (" .. tostring(po and doubles(po)) .. ")")
+  -- mutants : la parité des bandes ignorée, le décalage du collecteur faux
+  local keep_f = Co.is_facing
+  Co.is_facing = function() return false end
+  local pm1 = Ch.plan(spec_of(ORE, { coal = COAL_NEAR }))
+  Co.is_facing = keep_f
+  check(pm1 and doubles(pm1) == 0, "mutant « parité ignorée » vu : aucune colonne double")
+  local keep_h = Co.half
+  Co.half = function(s, pitch, facing)
+    local r = keep_h(s, pitch, facing)
+    if r and facing then r = { mirror = true, jog = r.jog - Co.SF, lead = r.lead } end
+    return r
+  end
+  local s4 = spec_of(ORE, { coal = COAL_NEAR })
+  local pm2 = Ch.plan(s4)
+  Co.half = keep_h
+  local r4 = pm2 and Cv.verify(pm2, s4)
+  check(pm2 == nil or doubles(pm2) == 0 or not (r4 and r4.ok), "mutant « décalage faux » vu : plus de ligne partagée ou plan refusé au contrôle")
 end
 
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))

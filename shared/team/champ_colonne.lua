@@ -7,7 +7,11 @@
   passages sous-terrain et aux splitters (si pas recherchés) ».
 
   Motif retenu (colonne classique de Factorio 1.1 : une voie de minerai, une voie de charbon, un bras par four qui prend sur les deux
-  voies, plaques sur un tapis de sortie) ; colonne d'UN côté du tapis pour tenir dans le pas d'une bande du champ (fs + 5 rangées) :
+  voies, plaques sur un tapis de sortie). Lot COLONNE-DOUBLE (DC, 11/11 : « deux rangées de fours qui se déversent sur une ligne de
+  sortie centrale, le minerai par le tapis collecteur continu ») : la colonne est DOUBLE, deux demi-colonnes face à face qui partagent
+  la ligne de plaques ; chaque rangée est nourrie par le collecteur d'une bande (la bande d'en face, Co.half : miroir, son collecteur
+  décalé de `jog` rangées en col 0). Une colonne double et ses deux voies de charbon tiennent dans deux pas de bande (2 fs + 8 < 2 pas).
+  Demi-colonne (rangées en sf ; la demi-colonne d'en face a sf opposé, sa rangée « fs + 3 » tombe sur la même ligne de plaques) :
       col :  0   1   2 ...                              K bras de quai
       b-sf   .  [c↓] [c←][c←][c←] ...                   voie de charbon (vient du tronc, au bout de la colonne)
       b     [↑] [H→] [→][→][→] ...                      tête H : minerai chargé par le côté fours, charbon par l'autre
@@ -59,9 +63,9 @@ Co.D4 = D4
 ---------------------------------------------------------------------------------------------------
 -- 1. La colonne
 ---------------------------------------------------------------------------------------------------
---- Rangées de la colonne, en décalage de v depuis le tapis b.
-function Co.rows(fs)
-  local sf = Co.SF
+--- Rangées d'une demi-colonne, en décalage de v depuis son tapis de minerai b (sf : côté des fours, Co.SF par défaut).
+function Co.rows(fs, sf)
+  sf = sf or Co.SF
   return { ins = sf, f_lo = math.min(2 * sf, (fs + 1) * sf), out = (fs + 2) * sf, obelt = (fs + 3) * sf, chest = (fs + 1) * sf, coal = -sf }
 end
 
@@ -76,12 +80,33 @@ function Co.bay_size(spec, count)
   return math.max(1, math.ceil(plates / cap - 1e-9)), plates
 end
 
---- Entités de la colonne { kind, u, v, size, du, dv, role }, longueur et info { far, head_pole, need, plates, bay, mode }.
---- mode : "voie" (charbon par tapis depuis le tronc), "coffre" (coffre de tête), nil pour un four électrique.
-function Co.layout(spec, b, side, s_edge, count, mode)
+--- Lot COLONNE-DOUBLE : forme d'une demi-colonne de colonne double pour un pas de bande `pitch`. facing : la demi-colonne d'en face
+--- (miroir ; jog : rangées, en v, du collecteur de la bande à la rangée de son minerai, pour que les deux demi-colonnes partagent la ligne
+--- de plaques). lead = 1 : la tête des deux demi-colonnes commence en col 1 (col 0 : le collecteur, décalé ou tout droit), leurs fours
+--- face à face. nil quand la colonne double et ses deux voies de charbon ne tiennent pas dans deux pas de bande (demi-colonne seule).
+function Co.half(spec, pitch, facing)
+  local span = 2 * spec.furnace.size + 6 -- d'une rangée de minerai à l'autre : bras, four, bras, plaques, bras, four, bras
+  if span + 2 >= 2 * pitch then return nil end
+  if facing then return { mirror = true, jog = (span - pitch) * Co.SF, lead = 1 } end
+  return { mirror = false, jog = 0, lead = 1 }
+end
+
+--- La bande d'index `i` (pas de bande depuis l'origine du cadre) porte-t-elle la demi-colonne d'en face ? Paires (i, i - Co.SF) : la
+--- demi-colonne de la bande i - Co.SF a ses fours du côté Co.SF, vers celle de i.
+function Co.is_facing(i) return i % 2 == ((Co.SF < 0) and 0 or 1) end
+
+--- Entités de la demi-colonne { kind, u, v, size, du, dv, role }, longueur et info { far, head_pole, need, plates, bay, mode }.
+--- mode : "voie" (charbon par tapis depuis le tronc), "coffre" (coffre de tête), nil pour un four électrique. half : Co.half (demi-colonne
+--- d'en face : fours du côté -Co.SF, minerai décalé de half.jog depuis le collecteur b, tête une colonne plus loin), ou nil.
+function Co.layout(spec, b, side, s_edge, count, mode, half)
   local f = spec.furnace
-  local fs, sf, R = f.size, Co.SF, spec.pole.reach
-  local rw = Co.rows(fs)
+  local sf = (half and half.mirror) and -Co.SF or Co.SF
+  local fs, R = f.size, spec.pole.reach
+  local jog = (half and half.jog) or 0
+  local lead = (half and half.lead) or 0 -- colonne 0 : le collecteur (passe de la rangée de la bande à celle du minerai si jog)
+  local b_band = b
+  b = b + jog
+  local rw = Co.rows(fs, sf)
   local fuel = f.fuel
   if fuel and mode == "coffre" and R < 2 then return nil end
   local ents = {}
@@ -91,24 +116,36 @@ function Co.layout(spec, b, side, s_edge, count, mode)
     ents[#ents + 1] = { kind = kind, u = math.min(ua, ub), v = row, size = size, du = du, dv = dv, role = role, col = col }
   end
   local b_ins, b_out, b_ob, b_ch, b_coal = b + rw.ins, b + rw.out, b + rw.obelt, b + rw.chest, b + rw.coal
-  local c0 = 2
+  local c0 = 2 + lead
   local busy_in, busy_out = {}, {}
-  local belt0 = 0
-  if fuel then
-    put("tapis", 0, b, 1, 0, sf, "tete")          -- le minerai quitte la rangée du tapis...
-    put("tapis", 0, b_ins, 1, side, 0, "tete")    -- ... avance d'une tuile...
-    put("tapis", 1, b_ins, 1, 0, -sf, "tete")     -- ... et se charge par le côté des fours sur la tête H
-    busy_in[0], busy_in[1] = true, true
-    put("tapis", 1, b_coal, 1, 0, sf, "charbon")  -- le charbon se charge par l'autre côté
-    if mode == "coffre" then
-      put("tapis", 2, b_coal, 1, -side, 0, "charbon")
-      put("bras", 3, b_coal, 1, side, 0, "charbon")        -- prend au coffre (col 4), pose sur le tapis (col 2)
-      put("coffre", 4, b_coal, 1, 0, 0, "combustible")
+  local belt0 = lead
+  if lead > 0 then
+    if jog ~= 0 then
+      local dj = jog > 0 and 1 or -1
+      for v = b_band, b - dj, dj do
+        put("tapis", 0, v, 1, 0, dj, "tete")
+        if v == b_ins then busy_in[0] = true end
+        if v == b_out then busy_out[0] = true end
+      end
     end
-    belt0 = 1
+    put("tapis", 0, b, 1, side, 0, "tete")
+  end
+  local h = lead -- première colonne de la tête
+  if fuel then
+    put("tapis", h, b, 1, 0, sf, "tete")              -- le minerai quitte la rangée du tapis...
+    put("tapis", h, b_ins, 1, side, 0, "tete")        -- ... avance d'une tuile...
+    put("tapis", h + 1, b_ins, 1, 0, -sf, "tete")     -- ... et se charge par le côté des fours sur la tête H
+    busy_in[h], busy_in[h + 1] = true, true
+    put("tapis", h + 1, b_coal, 1, 0, sf, "charbon")  -- le charbon se charge par l'autre côté
+    if mode == "coffre" then
+      put("tapis", h + 2, b_coal, 1, -side, 0, "charbon")
+      put("bras", h + 3, b_coal, 1, side, 0, "charbon")        -- prend au coffre (col h + 4), pose sur le tapis (col h + 2)
+      put("coffre", h + 4, b_coal, 1, 0, 0, "combustible")
+    end
+    belt0 = h + 1
   end
   local need_in = {}
-  if fuel and mode == "coffre" then need_in[#need_in + 1] = 3 end
+  if fuel and mode == "coffre" then need_in[#need_in + 1] = h + 3 end
   local last_ins = c0
   for k = 0, count - 1 do
     local c = c0 + k * fs
@@ -138,7 +175,7 @@ function Co.layout(spec, b, side, s_edge, count, mode)
     return last
   end
   local f_end = c0 + count * fs - 1
-  if greedy(b_ins, need_in, fuel and 2 or 0, f_end, busy_in) == nil and #need_in > 0 then return nil end
+  if greedy(b_ins, need_in, fuel and (h + 2) or 0, f_end, busy_in) == nil and #need_in > 0 then return nil end
   local need_out = {}
   for k = 0, count - 1 do need_out[#need_out + 1] = c0 + k * fs end
   local lastp = greedy(b_out, need_out, 0, f_end, busy_out)
@@ -167,14 +204,14 @@ function Co.layout(spec, b, side, s_edge, count, mode)
   local head_pole
   -- poteau de liaison de tête, col 0 de la rangée du charbon (libre dans tous les modes) : la rangée de poteaux de la bande du côté
   -- opposé aux fours le rejoint (sans lui, ses foreuses n'ont de courant que par les relais du plan ENTIER, jamais posés bande par bande)
-  poles[#poles + 1] = { col = 0, row = b_coal }
+  poles[#poles + 1] = { col = h, row = b_coal }
   for _, p in ipairs(poles) do
     put("poteau", p.col, p.row, 1, 0, 0, nil)
     far = math.max(far, p.col)
     if p.row == b_out and (not head_pole or p.col < head_pole) then head_pole = p.col end
   end
   if fuel and mode ~= "coffre" then
-    for cc = 2, far do put("tapis", cc, b_coal, 1, -side, 0, "charbon") end
+    for cc = h + 2, far do put("tapis", cc, b_coal, 1, -side, 0, "charbon") end
   end
   local info = { far = far, head_pole = head_pole or 0, need = count * Co.fuel_rate(f), plates = plates, bay = K, mode = fuel and mode or nil,
     b_coal = b_coal, b_link = b_ins }
@@ -182,28 +219,38 @@ function Co.layout(spec, b, side, s_edge, count, mode)
 end
 
 --- Colonne d'un groupe : (entités, longueur, s_edge, nombre, info) ou nil. Même contrat que Fd.place (shared/team/champ_fonderie.lua) ;
---- `fixed` = { s_edge, count } rejoue la place du cadre figé (bande seule) sans chercher.
-function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed)
+--- `fixed` = { s_edge, count } rejoue la place du cadre figé (bande seule) sans chercher. half : Co.half ou nil. shared(u, v, e) : la tuile
+--- porte déjà la ligne de plaques de la demi-colonne d'en face, dans le sens de e (lot COLONNE-DOUBLE : la ligne centrale est posée une
+--- fois ; ces tuiles ne sont pas rendues).
+function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared)
+  local function common(e) return shared ~= nil and e.kind == "tapis" and e.role == "sortie" and shared(e.u, e.v, e) end
   -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
   -- autres ressources) ; plus de seconde passe qui acceptait le minerai. Lot DECOUPLAGE : la colonne d'un cadre figé (`fixed`) aussi.
   local function fits(s_edge, list)
     for u = edge + side, s_edge - side, side do if not free(u, b) then return false end end
     for _, e in ipairs(list) do
-      for u = e.u, e.u + e.size - 1 do
-        for v = e.v, e.v + e.size - 1 do if not free(u, v) or is_ore(u, v) then return false end end
+      if not common(e) then
+        for u = e.u, e.u + e.size - 1 do
+          for v = e.v, e.v + e.size - 1 do if not free(u, v) or is_ore(u, v) then return false end end
+        end
       end
     end
     return true
   end
+  local function own(list)
+    local out = {}
+    for _, e in ipairs(list) do if not common(e) then out[#out + 1] = e end end
+    return out
+  end
   if fixed then
-    local list, len, info = Co.layout(spec, b, side, fixed.s_edge, fixed.count, mode)
-    if list and fits(fixed.s_edge, list) then return list, len, fixed.s_edge, fixed.count, info end
+    local list, len, info = Co.layout(spec, b, side, fixed.s_edge, fixed.count, mode, half)
+    if list and fits(fixed.s_edge, list) then return own(list), len, fixed.s_edge, fixed.count, info end
     return nil
   end
   for t = 0, shift do
     local s_edge = edge + side * (gap + 1 + t)
-    local list, len, info = Co.layout(spec, b, side, s_edge, count, mode)
-    if list and fits(s_edge, list) then return list, len, s_edge, count, info end
+    local list, len, info = Co.layout(spec, b, side, s_edge, count, mode, half)
+    if list and fits(s_edge, list) then return own(list), len, s_edge, count, info end
   end
   return nil
 end
@@ -712,11 +759,11 @@ end
 -- 4. Tronc et dérivations d'un côté du champ
 ---------------------------------------------------------------------------------------------------
 --- Pièces PROPRES à une colonne en mode « voie » : prolongement de sa voie de charbon jusqu'au tronc, dérivation (sortie de
---- répartiteur tournée vers la colonne, ou bras tapis -> tapis), poteau de liaison. `col` = { b, s_edge, far }, net = { uT, dv, split }.
+--- répartiteur tournée vers la colonne, ou bras tapis -> tapis), poteau de liaison. `col` = { coal_v, link_v, s_edge, far } (rangées de sa voie
+--- de charbon et de ses bras d'entrée : info.b_coal, info.b_link de Co.layout), net = { uT, dv, split }.
 function Co.branch(col, net, side, wire)
-  local sf = Co.SF
   local out = {}
-  local v = col.b - sf
+  local v = col.coal_v
   local function U(c) return col.s_edge + side * c end
   local cT = (net.uT - col.s_edge) * side -- colonne du tronc, en col de cette colonne
   for c = col.far + 1, cT - 2 do out[#out + 1] = { kind = "tapis", u = U(c), v = v, size = 1, du = -side, dv = 0, role = "charbon" } end
@@ -725,16 +772,16 @@ function Co.branch(col, net, side, wire)
   else
     out[#out + 1] = { kind = "bras", u = U(cT - 1), v = v, size = 1, du = side, dv = 0, role = "charbon" } -- prend sur le tronc
   end
-  out[#out + 1] = { kind = "poteau", u = U(cT - 1), v = col.b + sf, size = 1, du = 0, dv = 0, role = "charbon" }
+  out[#out + 1] = { kind = "poteau", u = U(cT - 1), v = col.link_v, size = 1, du = 0, dv = 0, role = "charbon" }
   -- relais sur la rangée des bras d'entrée (libre au-delà des fours), du bout de la colonne au poteau de dérivation : une colonne plus
   -- courte que la plus longue du côté a son bout loin du tronc (mesuré hors jeu : 7,6 tuiles pour un fil de 7,5)
   local step = math.max(1, math.floor((wire or 7) + 1e-9))
   local c = col.far
   while (cT - 1) - c > step do
-    out[#out + 1] = { kind = "poteau", u = U(c), v = col.b + sf, size = 1, du = 0, dv = 0, role = "charbon" }
+    out[#out + 1] = { kind = "poteau", u = U(c), v = col.link_v, size = 1, du = 0, dv = 0, role = "charbon" }
     c = c + step
   end
-  if (cT - 1) - c > 0 then out[#out + 1] = { kind = "poteau", u = U(c), v = col.b + sf, size = 1, du = 0, dv = 0, role = "charbon" } end
+  if (cT - 1) - c > 0 then out[#out + 1] = { kind = "poteau", u = U(c), v = col.link_v, size = 1, du = 0, dv = 0, role = "charbon" } end
   return out
 end
 
@@ -745,24 +792,23 @@ local function branch_tiles(col, net, side, wire)
   return t
 end
 
---- Réseau de charbon d'un côté : cols = { { key, b, s_edge, far, need } } (colonnes à combustible du côté `side`), env = { free,
+--- Réseau de charbon d'un côté : cols = { { key, coal_v, link_v, s_edge, far, need } } (colonnes à combustible du côté `side`), env = { free,
 --- take, forbid (u, v) -> vrai : zone du champ et des colonnes, interdite au tracé en surface ; span ; coal = { tiles, is_coal, rate } ;
 --- drill ; pole ; ug ; split ; bridge(poles) -> relais ; ugs : tuiles de souterrain déjà posées }. Rend
 --- { uT, dv, split, ents (pièces communes), modes = { [key] = "voie" | "coffre" }, drills, need, why } ; jamais nil.
 function Co.network(cols, side, env)
-  local sf = Co.SF
   local res = { modes = {}, ents = {}, need = 0 }
   for _, c in ipairs(cols) do res.modes[c.key] = "coffre"; res.need = res.need + (c.need or 0) end
   if #cols == 0 then res.why = "aucune colonne" return res end
   local coal = env.coal
   if not (coal and coal.tiles and #coal.tiles > 0 and coal.rate and coal.rate > 0) then res.why = "aucun charbon lu" return res end
-  table.sort(cols, function(a, b) return a.b < b.b end)
+  table.sort(cols, function(a, b) return a.coal_v < b.coal_v end)
   local base
   for _, c in ipairs(cols) do
     local u = c.s_edge + side * (c.far + 2)
     if not base or (side > 0 and u > base) or (side < 0 and u < base) then base = u end
   end
-  local vmin, vmax = cols[1].b - sf, cols[#cols].b - sf
+  local vmin, vmax = cols[1].coal_v, cols[#cols].coal_v
   local vmid = math.floor((vmin + vmax) / 2)
   local cap = (env.inserter_rate or 0.83) * Co.PICKUP
   local maxn = 0
@@ -818,7 +864,7 @@ function Co.network(cols, side, env)
           if fine and not env.free(tl[1], tl[2]) then fine, at = false, tl end
         end
         if fine and net.split then
-          if not env.free(u - side, c.b - sf - dv) then fine, at = false, { u - side, c.b - sf - dv } end
+          if not env.free(u - side, c.coal_v - dv) then fine, at = false, { u - side, c.coal_v - dv } end
         end
         if fine then kept[#kept + 1] = c else dropped[#dropped + 1] = string.format("bande %s : derivation occupee en (u %d, v %d)", c.key, at[1], at[2]) end
       end
@@ -828,7 +874,7 @@ function Co.network(cols, side, env)
   end
   if not uT then res.why = "aucune place pour le tronc" return res end
   -- tronc : de v_start (arrivée du tracé) au dernier embranchement gardé
-  table.sort(keep, function(a, b) if dv > 0 then return a.b < b.b end return a.b > b.b end)
+  table.sort(keep, function(a, b) if dv > 0 then return a.coal_v < b.coal_v end return a.coal_v > b.coal_v end)
   -- ce que la ligne extrait nourrit les premières colonnes du tronc ; les suivantes gardent le coffre de tête (jamais un four sans
   -- charbon en bout de tronc parce que la ligne est trop courte)
   -- colonnes servies : le plus long début du tronc tel que (k - 1) dérivations au plafond d'un bras + le besoin de la k-ième (la dernière,
@@ -844,13 +890,13 @@ function Co.network(cols, side, env)
   if #fed < #keep then res.why = string.format("charbon pour %d colonne(s) sur %d (%d foreuse(s), %.2f/s)", #fed, #keep, line.drills, capa) end
   keep = fed
   local last_c = keep[#keep]
-  last_v = last_c.b - sf
+  last_v = last_c.coal_v
   for _, c in ipairs(cols) do c.last = nil end
   last_c.last = true
   local ents = {}
   local split_at = {}
   if env.split then
-    for i = 1, #keep - 1 do split_at[keep[i].b - sf - dv] = keep[i] end
+    for i = 1, #keep - 1 do split_at[keep[i].coal_v - dv] = keep[i] end
   end
   local taken = {}
   local function add(e) ents[#ents + 1] = e; for x = e.u, e.u + (e.w or e.size) - 1 do for y = e.v, e.v + (e.h or e.size) - 1 do taken[tk(x, y)] = true end end end
@@ -876,7 +922,7 @@ function Co.network(cols, side, env)
   end
   -- poteaux du tronc (côté extérieur), un en face de chaque poteau de liaison, d'autres où les fils manquent
   local tpoles = { v_start }
-  for _, c in ipairs(keep) do tpoles[#tpoles + 1] = c.b + sf end
+  for _, c in ipairs(keep) do tpoles[#tpoles + 1] = c.link_v end
   table.sort(tpoles)
   local wire = math.floor(env.pole.wire + 1e-9)
   local pv = {}
@@ -928,7 +974,7 @@ function Co.network(cols, side, env)
       end
     end
   end
-  for _, c in ipairs(keep) do poles[#poles + 1] = { uT - side, c.b + sf } end
+  for _, c in ipairs(keep) do poles[#poles + 1] = { uT - side, c.link_v } end
   if env.bridge then
     for _, p in ipairs(env.bridge(poles, function(u, v) return not taken[tk(u, v)] and env.free(u, v) end)) do
       add({ kind = "poteau", u = p[1], v = p[2], size = 1, du = 0, dv = 0, role = "charbon" })
