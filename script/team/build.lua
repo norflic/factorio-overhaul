@@ -3978,7 +3978,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     -- lot FONDERIE : une foreuse de BANDE refusée « occupe » pour la 3e fois, quand tout ce qui occupe son emprise est une tourelle de l'équipe
     -- posée après le plan (que move_turrets_off n'a pas pu déplacer), est SAUTÉE : la bande finit et produit sans elle, la tourelle reste
     -- (lot6-20261020 : emerald, bande 329, 551 entités bâties sur 552 jusqu'à la fin)
-    if r == "occupe" and e.role == "champ-foreuse" and Build.TAPIS and Build.TAPIS() then
+    if (r == "occupe" or r == "obstacle") and e.role == "champ-foreuse" and Build.TAPIS and Build.TAPIS() then -- CHAMP-OBSTACLES : arbre résiduel compris
       local turret = {}
       for _, t in ipairs(T.TURRET_TYPES or {}) do turret[t] = true end
       local bl = {}
@@ -3988,10 +3988,10 @@ local function revive_one(surface, f, p, e, inv, tick, self)
       if Saut.skip(e.role, r, e.fails or 0, bl, Build.FAIL_LIMIT) then
         -- `dropped` : la revue de reconstruction (rebuild_sweep) ne la rouvre pas comme une pièce détruite (court-g-20261020 : rouverte et
         -- resautée toutes les 5 à 6 min, la bande restait en chantier)
-        e.built, e.skipped, e.dropped = true, "tourelle", true
+        e.built, e.skipped, e.dropped = true, r, true
         st.skipped = (st.skipped or 0) + 1
-        log(string.format("[FO-FONDERIE] %s : projet %d, foreuse de bande (%.1f, %.1f) sautee : emprise prise par une tourelle de l'equipe posee apres le plan (non deplacee)",
-          f.key or "player", p.id, e.x, e.y))
+        log(string.format("[FO-FONDERIE] %s : projet %d, foreuse de bande (%.1f, %.1f) sautee : emprise refusee « %s » %d fois (tuile sautee, la bande continue)",
+          f.key or "player", p.id, e.x, e.y, r, (e.fails or 0) + 1))
         return true
       end
     end

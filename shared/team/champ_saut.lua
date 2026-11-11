@@ -6,9 +6,8 @@
     REPORTÉS dans des projets liés à la bande (demandés juste après elle, refusés si elle l'est : jamais d'orphelin). Rend la liste triée des
     côtés reportés. Une bande dont les pièces propres seules dépassent `max` ne reporte rien de plus que tous ses réseaux.
 
-  Sa.skip(role, reason, fails, blockers, limit) : une foreuse de BANDE (`role` = "champ-foreuse") dont le fantôme est refusé « occupe »
-    pour la `limit`-ième fois, alors que tout ce qui occupe son emprise est une TOURELLE de la faction elle-même (posée après le plan ; les
-    ressources ne comptent pas), est SAUTÉE : la bande finit et produit sans elle, la tourelle n'est pas déplacée (lot6-20261020 : emerald,
+  Sa.skip(role, reason, fails, blockers, limit) : une foreuse de BANDE (`role` = "champ-foreuse") dont le fantôme est refusé
+    pour la `limit`-ième fois, quoi qu'occupe son emprise (tourelle, poteau, arbre résiduel, bâtiment : lot CHAMP-OBSTACLES, 11/11), est SAUTÉE : la bande finit et produit sans elle, la tourelle n'est pas déplacée (lot6-20261020 : emerald,
     bande 329, 551 entités sur 552, gun-turret fo-emerald posée sur l'emprise d'une foreuse).
     blockers = { { own_turret = vrai | faux } } : ce qui occupe l'emprise, ressources et fantômes déjà écartés par le runtime (types lus dans
     T.TURRET_TYPES : aucun nom ici).
@@ -35,10 +34,11 @@ function Sa.split(own, shared, max)
 end
 
 function Sa.skip(role, reason, fails, blockers, limit)
-  if role ~= "champ-foreuse" or reason ~= "occupe" then return false end
+  -- lot CHAMP-OBSTACLES (ordre du DC du 11/11) : branches supprimées « raison autre que occupe » et « un bloqueur qui n'est pas une tourelle
+  -- de l'équipe » : un poteau, un arbre résiduel ou un bâtiment quelconque sous l'emprise faisait échouer la foreuse jusqu'à FAIL_LIMIT et
+  -- bloquait la bande entière ; la tuile est sautée, la rangée continue. `reason` et `blockers` restent dans la signature (journal du runtime).
+  if role ~= "champ-foreuse" then return false end
   if (fails or 0) + 1 < (limit or Sa.LIMIT) then return false end
-  if not blockers or #blockers == 0 then return false end
-  for _, b in ipairs(blockers) do if not b.own_turret then return false end end
   return true
 end
 
