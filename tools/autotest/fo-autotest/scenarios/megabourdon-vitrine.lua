@@ -10,6 +10,10 @@ local K = 2.2
 local XM, XB = 4000, 4120 -- Méga-Bourdon, Bourdon (côte à côte)
 local ALLER = 1500         -- le Méga-Bourdon part vers l'est
 local XM2 = XM + 45
+-- Lot MEGA-BALISTIQUE : un ESSAIM COMPACT (3 x 3, à 2 tuiles d'écart) de la plus forte unité d'essaim (la plus grande santé parmi les
+-- unités des nids, titans exclus, lue dans les prototypes), posé à ESSAIM_D tuiles au sud de la cloche au tick ESSAIM : un seul tir
+-- doit le nettoyer (les 9 meurent au même tick).
+local ESSAIM, ESSAIM_D = 1000, 16
 
 local PLAN = {}
 local function vue(tick, nom, x, y, zoom, res, nuit)
@@ -49,6 +53,34 @@ return {
       remote.call("fo-bourdon", "muet", st.mega, true)
       remote.call("fo-bourdon", "muet", st.bourdon, true)
     end
+    if t == ESSAIM then
+      local nom, pv = nil, -1
+      for _, sp in pairs(game.get_filtered_entity_prototypes({ { filter = "type", type = "unit-spawner" } })) do
+        for _, ru in ipairs(sp.result_units or {}) do
+          local u = game.entity_prototypes[ru.unit]
+          if u and ru.unit:sub(1, 9) ~= "fo-titan-" and (u.max_health or 0) > pv then nom, pv = ru.unit, u.max_health end
+        end
+      end
+      local s = ctx.surface()
+      local ess = { nom = nom, pv = pv, ids = {}, t = t, tirs = (remote.call("fo-bourdon", "etat", st.mega) or {}).tirs or 0 }
+      for i = -1, 1 do
+        for j = -1, 1 do
+          local u = nom and s.create_entity({ name = nom, position = { XM + 2 * i, Y + ESSAIM_D + 2 * j }, force = "enemy" })
+          if u then ess.ids[#ess.ids + 1] = u end
+        end
+      end
+      st.essaim = ess
+    end
+    local ess = st.essaim
+    if ess and not ess.fin then
+      local vivants = 0
+      for _, u in ipairs(ess.ids) do if u.valid then vivants = vivants + 1 end end
+      if vivants < #ess.ids and not ess.premier then ess.premier = t end
+      if vivants == 0 then
+        ess.fin = t
+        ess.tirs_fin = (remote.call("fo-bourdon", "etat", st.mega) or {}).tirs or 0
+      end
+    end
     if t == 1400 then st.tirs_avant = (remote.call("fo-bourdon", "etat", st.mega) or {}).tirs or 0 end
     if t == ALLER then ctx.check(remote.call("fo-bourdon", "aller", st.mega, XM2, Y) == true, "ordre de vol") end
   end,
@@ -62,6 +94,14 @@ return {
     ctx.check(m ~= nil and (st.tirs_avant or 0) > 0, "les casemates ont tiré avant le vol", tostring(st.tirs_avant))
     ctx.check(m ~= nil and m.glas == false, "le Glas est resté muet")
     ctx.check(m ~= nil and math.abs(m.x - XM2) < 3, "le Méga-Bourdon est arrivé", m and string.format("%.1f", m.x) or "absent")
+    local ess = st.essaim or {}
+    ctx.check(ess.ids and #ess.ids == 9, "essaim compact posé (9 unités)", ess.ids and tostring(#ess.ids) or "absent")
+    ctx.check(ess.fin ~= nil, "l'essaim compact est détruit", ess.fin and tostring(ess.fin - ess.t) or "survivants")
+    ctx.check(ess.fin ~= nil and ess.premier == ess.fin, "un seul tir nettoie l'essaim (les 9 meurent au même tick)",
+      tostring(ess.premier) .. " / " .. tostring(ess.fin))
+    ctx.log(string.format("[FO-MEGA-VITRINE] essaim : %d x %s (%s PV), premier mort a +%s ticks, dernier a +%s ticks, tirs partis entre la pose et la fin : %s",
+      ess.ids and #ess.ids or 0, tostring(ess.nom), tostring(ess.pv), tostring(ess.premier and ess.premier - ess.t), tostring(ess.fin and ess.fin - ess.t),
+      tostring(ess.tirs_fin and ess.tirs_fin - ess.tirs)))
     local s = ctx.surface()
     local restes = #s.find_entities_filtered({ force = C.CIBLE, area = { { XM - 36, Y - 36 }, { XM + 36, Y + 36 } } })
     ctx.log(string.format("[FO-MEGA-VITRINE] tirs %d (avant le vol %d), sante %.0f, phase %s, ancres %d ; Bourdon : phase %s ; batiments ennemis restants a 36 tuiles : %d",

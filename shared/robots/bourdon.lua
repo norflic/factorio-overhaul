@@ -395,6 +395,15 @@ end
 --   portée minimale, cadence, vitesse et rayon de l'orbe repris tels quels ; dégâts portés à l'âge de la cloche par la règle d'échelle E3
 --   (Ech.salve, comme les salves des titans) : une volée des CANONS livre la salve de l'âge 15, partagée entre coup direct, zone laser et
 --   zone d'explosion dans les proportions de l'orbe Bastion.
+-- Lot MEGA-BALISTIQUE (ordre du DC du 11/11 après son playtest : « dégâts décevants, zone d'impact ridicule ») :
+-- - rayon : celui de l'orbe Bastion × RAYON_X (« radius = radius * 4 ») ; le Bastion et le Bourdon ne changent pas ;
+-- - zone : un tir TUE D'UN COUP chaque unité d'essaim du mod (les unités que produisent les nids, data.raw["unit-spawner"],
+--   titans exclus), PV et résistances laser et explosion lus dans data.raw au data stage : les deux zones de la salve sont
+--   multipliées par le plus petit facteur (au moins 1) qui tue la plus forte d'entre elles, formule de dégâts du moteur ;
+-- - coup direct : à lui seul, il tue d'un coup chaque unité d'essaim, la plus blindée au laser comprise (au moins la part
+--   de la salve) ;
+-- - effets : explosion, onde de choc, lumière et portée des étincelles de plasma de l'impact Bastion × RAYON_X (la feuille et
+--   l'animation existantes, agrandies, à la lueur de l'orbe) ; nombre d'étincelles et durées gardés (UPS).
 B.MEGA = {
   NOM = "fo-mega-bourdon",
   OBJET = "fo-mega-bourdon-item",
@@ -414,6 +423,7 @@ B.MEGA = {
   -- Bourdon ») : échelle du rendu (bourdon.py, MEGA_ECHELLE ; feuilles_mega.py l'écrit dans sprites.lua, « echelle », le test les compare).
   -- Tout ce que le Méga-Bourdon emprunte au Bourdon en est multiplié : chaînes, ancres, battant, griffes, boîtes, lumière.
   ECHELLE = 2.2,
+  RAYON_X = 4,    -- lot MEGA-BALISTIQUE : rayon de zone de l'orbe = rayon de l'orbe Bastion × 4 (ordre du DC)
 }
 
 --- Échelle d'une variante de cloche : B.MEGA.ECHELLE pour « mega », 1 sinon.
@@ -468,21 +478,109 @@ end
 --- PV du Méga-Bourdon depuis ceux du Bourdon.
 function B.pv_mega(pv) return pv * B.MEGA.GEANTS end
 
+--- Lot MEGA-BALISTIQUE : dégâts reçus (formule du moteur 1.1) d'un coup de d points contre la résistance r = { decrease, percent }
+--- (nil : aucune) : la réduction fixe d'abord (au-dessous d'elle, 1 / (2 + réduction - d)), puis le pourcentage.
+function B.degat_effectif(d, r)
+  local dec, pct = r and r.decrease or 0, r and r.percent or 0
+  local x
+  if dec < d then x = d - dec else x = 1 / (2 + dec - d) end
+  return x * (1 - pct / 100)
+end
+
+--- La zone (zl laser, ze explosion) tue-t-elle d'un coup la cible c = { nom, pv, res = { laser = r, explosion = r } } ?
+function B.zone_tue(zl, ze, c)
+  return B.degat_effectif(zl, c.res.laser) + B.degat_effectif(ze, c.res.explosion) >= c.pv
+end
+
+--- Le coup direct (laser) seul tue-t-il d'un coup la cible c ?
+function B.direct_tue(d, c) return B.degat_effectif(d, c.res.laser) >= c.pv end
+
 --- Arme des casemates. spec : A.age_turret(B.MEGA.ARME_AGE) (range, min_range, cooldown, plasma = { direct, radius, speed, area = { laser,
---- explosion } }) ; salve_laser, salve_explosion : Ech.salve(B.AGE, « laser » / « explosion »). Rend la table de l'arme d'UNE casemate, ou nil.
-function B.arme_mega(spec, salve_laser, salve_explosion)
+--- explosion } }) ; salve_laser, salve_explosion : Ech.salve(B.AGE, « laser » / « explosion »). cibles (lot MEGA-BALISTIQUE, facultatif) :
+--- les unités d'essaim { nom, pv, res } lues dans data.raw ; sans elles, les seules parts de la salve. Rend la table de l'arme d'UNE
+--- casemate, ou nil (entrée invalide, ou cible que rien ne tue).
+function B.arme_mega(spec, salve_laser, salve_explosion, cibles)
   if type(spec) ~= "table" or type(spec.plasma) ~= "table" or type(spec.plasma.area) ~= "table" then return nil end
   if type(salve_laser) ~= "number" or type(salve_explosion) ~= "number" then return nil end
   local P = spec.plasma
   local tot = P.direct + P.area.laser + P.area.explosion
   if tot <= 0 then return nil end
   local n = B.MEGA.CANONS
-  return {
-    portee = spec.range, portee_min = spec.min_range or 0, recharge = spec.cooldown, vitesse = P.speed, rayon = P.radius,
+  local a = {
+    portee = spec.range, portee_min = spec.min_range or 0, recharge = spec.cooldown, vitesse = P.speed, rayon = P.radius * B.MEGA.RAYON_X,
     direct = math.ceil(salve_laser * P.direct / tot / n),
     zone_laser = math.ceil(salve_laser * P.area.laser / tot / n),
     zone_explosion = math.ceil(salve_explosion * P.area.explosion / tot / n),
+    facteur = 1,
   }
+  if cibles == nil then return a end
+  if type(cibles) ~= "table" or #cibles == 0 then return nil end
+  local zl, ze = a.zone_laser, a.zone_explosion
+  local function tue(k, c) return B.zone_tue(math.ceil(k * zl), math.ceil(k * ze), c) end
+  local k = 1
+  for _, c in ipairs(cibles) do
+    if type(c) ~= "table" or type(c.pv) ~= "number" or type(c.res) ~= "table" then return nil end
+    if not tue(k, c) then
+      local lo, hi = k, k * 2
+      while not tue(hi, c) do
+        lo, hi = hi, hi * 2
+        if hi > 1e15 then return nil end
+      end
+      for _ = 1, 64 do
+        local m = (lo + hi) / 2
+        if tue(m, c) then hi = m else lo = m end
+      end
+      k = hi
+      a.plus_forte = c.nom
+    end
+  end
+  a.facteur = k
+  a.zone_laser, a.zone_explosion = math.ceil(k * zl), math.ceil(k * ze)
+  for _, c in ipairs(cibles) do
+    local r = c.res.laser
+    local pct = r and r.percent or 0
+    if pct >= 100 then return nil end
+    local d = math.ceil(c.pv / (1 - pct / 100) + (r and r.decrease or 0))
+    for _ = 1, 8 do
+      if B.direct_tue(d, c) then break end
+      d = d + 1
+    end
+    if not B.direct_tue(d, c) then return nil end
+    if d > a.direct then a.direct, a.plus_blindee = d, c.nom end
+  end
+  return a
+end
+
+--- Impact de l'orbe du Méga-Bourdon : copie de la recette d'impact de l'orbe Bastion (Fx.MODES.plasma.impact) à l'échelle du rayon
+--- (B.MEGA.RAYON_X) : explosion, onde de choc, onde, lumière et portée des étincelles de plasma ; nombre d'étincelles et durées gardés ;
+--- sans brûlure (celle de l'orbe reste). nil si i n'est pas une table.
+function B.impact_mega(i)
+  if type(i) ~= "table" then return nil end
+  local function copie(t)
+    if type(t) ~= "table" then return t end
+    local o = {}
+    for kk, v in pairs(t) do o[kk] = copie(v) end
+    return o
+  end
+  local k = B.MEGA.RAYON_X
+  local c = copie(i)
+  if c.echelle then c.echelle = c.echelle * k end
+  for _, q in ipairs({ "choc", "onde", "distorsion" }) do
+    if c[q] then c[q].echelle = c[q].echelle * k end
+  end
+  if c.lumiere then c.lumiere.taille = c.lumiere.taille * k end
+  if c.etincelles then c.etincelles.vitesse = c.etincelles.vitesse * k end
+  c.brulure = nil
+  return c
+end
+
+--- Bornes de vérification des effets du Méga-Bourdon : celles des armes (Fx.BORNES), diamètres et lumière × B.MEGA.RAYON_X.
+function B.bornes_mega(b)
+  local o = {}
+  for kk, v in pairs(b) do o[kk] = v end
+  o.vortex_echelle_max = b.vortex_echelle_max * B.MEGA.RAYON_X
+  o.lumiere_taille_max = b.lumiere_taille_max * B.MEGA.RAYON_X
+  return o
 end
 
 --- Direction d'une tourelle (0 à N_DIR - 1 ; 0 = nord, sens des aiguilles) la plus proche du vecteur (dx, dy) des feuilles (dy vers le sud,

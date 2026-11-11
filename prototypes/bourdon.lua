@@ -329,8 +329,46 @@ do
     end
   end
   -- l'orbe des casemates : celle du Bastion d'armement 4, plus grosse, cyan, aux dégâts de l'âge de la cloche
+  -- Lot MEGA-BALISTIQUE : l'essaim du mod, lu dans data.raw (après prototypes.enemies et les titans) : les unités que produisent les
+  -- nids, titans exclus (T.PREFIX : Kaijus, Écorchés), avec leurs PV et leurs résistances laser et explosion. Noms triés.
+  local function essaim()
+    local T = require("shared.robots.titans")
+    local nids, vus, cibles = {}, {}, {}
+    for nn in pairs(data.raw["unit-spawner"]) do nids[#nids + 1] = nn end
+    table.sort(nids)
+    local noms = {}
+    for _, nn in ipairs(nids) do
+      for _, ru in ipairs(data.raw["unit-spawner"][nn].result_units or {}) do
+        local un = ru[1] or ru.unit
+        if type(un) == "string" and not vus[un] and un:sub(1, #T.PREFIX) ~= T.PREFIX then
+          vus[un] = true
+          noms[#noms + 1] = un
+        end
+      end
+    end
+    table.sort(noms)
+    for _, un in ipairs(noms) do
+      local u = assert(data.raw.unit[un], "mega-bourdon : unité d'essaim absente " .. un)
+      local res = {}
+      for _, r in ipairs(u.resistances or {}) do
+        if r.type == "laser" or r.type == "explosion" then res[r.type] = { decrease = r.decrease or 0, percent = r.percent or 0 } end
+      end
+      cibles[#cibles + 1] = { nom = un, pv = assert(u.max_health, "mega-bourdon : PV de " .. un), res = res }
+    end
+    assert(#cibles > 0, "mega-bourdon : aucune unité d'essaim dans les nids")
+    return cibles
+  end
   local spec = A.age_turret(Bm.MEGA.ARME_AGE)
-  local arme = assert(Bm.arme_mega(spec, Ech2.salve(Bm.AGE, "laser"), Ech2.salve(Bm.AGE, "explosion")), "mega-bourdon : arme")
+  local cibles = essaim()
+  local arme = assert(Bm.arme_mega(spec, Ech2.salve(Bm.AGE, "laser"), Ech2.salve(Bm.AGE, "explosion"), cibles), "mega-bourdon : arme")
+  for _, c in ipairs(cibles) do
+    assert(Bm.zone_tue(arme.zone_laser, arme.zone_explosion, c), "mega-bourdon : la zone d'un tir ne tue pas " .. c.nom)
+    assert(Bm.direct_tue(arme.direct, c), "mega-bourdon : le coup direct ne tue pas " .. c.nom)
+  end
+  assert(arme.rayon == spec.plasma.radius * Bm.MEGA.RAYON_X, "mega-bourdon : rayon")
+  log(string.format("[FO-MEGA] orbe : rayon %g (Bastion %g) ; direct %d, zone laser %d, zone explosion %d (facteur %.3f) ; %d unités"
+    .. " d'essaim ; plus forte (zone) %s ; plus blindée (direct) %s", arme.rayon, spec.plasma.radius, arme.direct, arme.zone_laser,
+    arme.zone_explosion, arme.facteur, #cibles, tostring(arme.plus_forte), tostring(arme.plus_blindee)))
   local base = assert(data.raw.projectile[spec.name .. "-orb"], "mega-bourdon : orbe du Bastion absente")
   local orbe = table.deepcopy(base)
   orbe.name = Bm.MEGA.ORBE

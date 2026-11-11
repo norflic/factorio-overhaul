@@ -16,6 +16,11 @@
   ÉCHELLE dans les règles (B.MEGA.ECHELLE entre 2 et 2,5 ; chaînes, ancres, battant et boîtes homothétiques), dans le branchement (le script
   prend l'échelle des feuilles, le prototype agrandit ses boîtes et déclare un sprite par tuile, que le script dessine ensemble) et dans les feuilles (sprites.lua à
   l'échelle des règles, corps à cette échelle mesuré contre le Bourdon, aucun fichier au-delà de 4096 px, les tuiles pavent leur image).
+  Lot MEGA-BALISTIQUE (ordre du DC du 11/11 après son playtest : « dégâts décevants, zone d'impact ridicule ») : RAYON de zone = 4 fois
+  celui de l'orbe Bastion ; DÉGÂTS dérivés de l'essaim (la zone d'un tir tue d'un coup chaque unité d'essaim, la plus forte comprise,
+  résistances comprises, au plus juste ; le coup direct seul tue d'un coup la plus blindée ; jamais sous la salve ; cible immunisée
+  refusée) ; formule de dégâts du moteur ; EFFETS d'impact (explosion, onde de choc, lumière, étincelles de plasma) à l'échelle du
+  rayon, durées et nombre gardés ; branchement (essaim lu dans les nids, titans exclus, asserts au data stage, impact remplacé).
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -36,6 +41,7 @@ end
 
 local A = require("shared.content.arsenal")
 local Ech = require("shared.robots.echelle")
+local Fx = require("shared.content.effets_armes")
 local SRC_B = lire("shared/robots/bourdon.lua")
 
 --- Charge le module des règles depuis son texte (éventuellement muté).
@@ -77,7 +83,10 @@ local function regles(B, muet)
     local tot = P.direct + P.area.laser + P.area.explosion
     local n = B.MEGA.CANONS
     ck(a.portee == spec.range and a.portee_min == spec.min_range and a.recharge == spec.cooldown, "portée et cadence de l'orbe Bastion")
-    ck(a.vitesse == P.speed and a.rayon == P.radius, "vitesse et rayon de l'orbe Bastion")
+    ck(a.vitesse == P.speed, "vitesse de l'orbe Bastion")
+    -- lot MEGA-BALISTIQUE : rayon × 4 (« radius = radius * 4 »), le Bastion ne change pas
+    ck(B.MEGA.RAYON_X == 4 and a.rayon == 4 * P.radius, "rayon de zone : 4 fois celui de l'orbe Bastion (ordre du DC)")
+    ck(A.age_turret(B.MEGA.ARME_AGE).plasma.radius == P.radius, "l'orbe du Bastion garde son rayon")
     ck(a.direct == math.ceil(sl * P.direct / tot / n), "coup direct : part de la salve de l'âge 15 par casemate")
     ck(a.zone_laser == math.ceil(sl * P.area.laser / tot / n), "zone laser : part de la salve laser")
     ck(a.zone_explosion == math.ceil(se * P.area.explosion / tot / n), "zone d'explosion : part de la salve d'explosion")
@@ -87,6 +96,68 @@ local function regles(B, muet)
     ck(math.abs(volee_l - sl * (P.direct + P.area.laser) / tot) <= n, "volée : la part laser de la salve")
   end
   ck(B.arme_mega(nil, sl, se) == nil and B.arme_mega(spec, nil, se) == nil, "arme : entrées invalides")
+  -- lot MEGA-BALISTIQUE : formule de dégâts du moteur (réduction fixe, puis pourcentage)
+  local function pres9(x, y) return math.abs(x - y) < 1e-9 end
+  ck(pres9(B.degat_effectif(100, nil), 100), "dégât sans résistance")
+  ck(pres9(B.degat_effectif(100, { decrease = 20, percent = 50 }), 40), "réduction fixe, puis pourcentage")
+  ck(pres9(B.degat_effectif(10, { decrease = 20, percent = 0 }), 1 / 12), "sous la réduction : 1 / (2 + réduction - d)")
+  -- dégâts dérivés de l'essaim (fictif : un petit, un blindé, un gros)
+  local essaim = {
+    { nom = "petit", pv = 15, res = {} },
+    { nom = "blinde", pv = 3e6, res = { laser = { decrease = 50, percent = 90 }, explosion = { decrease = 30, percent = 80 } } },
+    { nom = "gros", pv = 8e6, res = { laser = { decrease = 10, percent = 20 }, explosion = { decrease = 10, percent = 30 } } },
+  }
+  local a0 = B.arme_mega(spec, sl, se)
+  local m = B.arme_mega(spec, sl, se, essaim)
+  ck(type(m) == "table" and type(a0) == "table", "arme dérivée de l'essaim")
+  if type(m) == "table" and type(a0) == "table" then
+    local tous_z, tous_d, serre_z, serre_d = true, true, false, false
+    for _, c in ipairs(essaim) do
+      if not B.zone_tue(m.zone_laser, m.zone_explosion, c) then tous_z = false end
+      if not B.direct_tue(m.direct, c) then tous_d = false end
+      if not B.zone_tue(math.floor(0.99 * m.zone_laser), math.floor(0.99 * m.zone_explosion), c) then serre_z = true end
+      if not B.direct_tue(m.direct - 1, c) then serre_d = true end
+    end
+    ck(tous_z, "la zone d'un tir tue d'un coup chaque unité d'essaim, résistances comprises")
+    ck(tous_d, "le coup direct seul tue d'un coup chaque unité d'essaim, la plus blindée comprise")
+    ck(serre_z, "zone au plus juste : 1 % de moins laisse survivre la plus forte")
+    ck(serre_d, "coup direct au plus juste : un point de moins laisse survivre la plus blindée")
+    ck(m.plus_forte == "blinde" and m.plus_blindee == "blinde", "la plus forte (zone) et la plus blindée (direct) désignées")
+    ck(m.zone_laser >= a0.zone_laser and m.zone_explosion >= a0.zone_explosion and m.direct >= a0.direct, "jamais sous la salve de l'âge")
+    ck(math.abs(m.zone_laser / m.zone_explosion - a0.zone_laser / a0.zone_explosion) < 1e-4 * a0.zone_laser / a0.zone_explosion,
+      "zone : proportions laser et explosion de la salve gardées")
+    ck(m.rayon == a0.rayon and m.recharge == a0.recharge and m.portee == a0.portee and m.vitesse == a0.vitesse, "portée, cadence, rayon inchangés")
+  end
+  local faible = B.arme_mega(spec, sl, se, { { nom = "petit", pv = 15, res = {} } })
+  ck(type(faible) == "table" and type(a0) == "table" and faible.zone_laser == a0.zone_laser and faible.zone_explosion == a0.zone_explosion
+    and faible.direct == a0.direct and faible.facteur == 1, "essaim faible : la salve suffit, rien n'est gonflé")
+  ck(B.arme_mega(spec, sl, se, { { nom = "immunise", pv = 10, res = { laser = { percent = 100 }, explosion = { percent = 100 } } } }) == nil,
+    "cible immunisée : refus")
+  ck(B.arme_mega(spec, sl, se, {}) == nil, "essaim vide : refus")
+  ck(B.arme_mega(spec, sl, se, { { nom = "miroir", pv = 10, res = { laser = { percent = 100 } } } }) == nil,
+    "cible immunisée au laser : le coup direct ne la tue pas, refus")
+  -- effets d'impact à l'échelle du nouveau rayon
+  local I = Fx.MODES.plasma.impact
+  local choc0, lum0 = I.choc.echelle, I.lumiere.taille
+  local J = B.impact_mega(I)
+  local K = B.MEGA.RAYON_X
+  ck(type(J) == "table" and J.echelle == I.echelle * K, "explosion d'impact à l'échelle du rayon")
+  ck(type(J) == "table" and type(a0) == "table" and J.choc.echelle / (2 * a0.rayon) == I.choc.echelle / (2 * spec.plasma.radius),
+    "onde de choc : même part du rayon que l'orbe Bastion")
+  ck(type(J) == "table" and J.lumiere.taille == I.lumiere.taille * K and J.etincelles.vitesse == I.etincelles.vitesse * K,
+    "lumière et portée des étincelles de plasma à l'échelle du rayon")
+  ck(type(J) == "table" and J.duree == I.duree and J.choc.duree == I.choc.duree and J.etincelles.nombre == I.etincelles.nombre,
+    "durées et nombre d'étincelles gardés (UPS)")
+  ck(type(J) == "table" and J.brulure == nil and I.choc.echelle == choc0 and I.lumiere.taille == lum0, "copie : la recette Bastion intacte")
+  local Bo = B.bornes_mega(Fx.BORNES)
+  ck(Bo.vortex_echelle_max == Fx.BORNES.vortex_echelle_max * K and Bo.lumiere_taille_max == Fx.BORNES.lumiere_taille_max * K,
+    "bornes du Méga-Bourdon : diamètres et lumière à l'échelle")
+  if type(J) == "table" then
+    local cy = { r = 0.35, g = 0.95, b = 1.0 }
+    J.couleur = cy
+    if J.lumiere then J.lumiere.couleur = cy end
+    ck(#Fx.verifier({ nom = "mega", mode = "plasma", couleur = cy, impact = J }, Bo) == 0, "impact du Méga-Bourdon dans ses bornes")
+  end
   -- quinconce
   local vus = {}
   local ok = true
@@ -159,13 +230,28 @@ regles(B)
 section("4. branchement")
 local PROTO = lire("prototypes/bourdon.lua") or ""
 local SCRIPT = lire("script/robots/bourdon.lua") or ""
-local function branche(proto, script, muet)
+local FX = lire("prototypes/effets_armes.lua") or ""
+local function branche(proto, script, muet, fx)
+  fx = fx or FX
   local avant = failures
   local ck = muet and function(c) if not c then failures = failures + 1 else passes = passes + 1 end end or check
   ck(proto:find("mega.max_health = Bm.pv_mega(VEHICULE.max_health)", 1, true) ~= nil, "prototype : PV doublés depuis le Bourdon")
   ck(proto:find("mega.name = Bm.MEGA.NOM", 1, true) ~= nil, "prototype : le véhicule du Méga-Bourdon")
   ck(proto:find("orbe.name = Bm.MEGA.ORBE", 1, true) ~= nil, "prototype : l'orbe des casemates")
-  ck(proto:find("Bm.arme_mega(spec, Ech2.salve(Bm.AGE, \"laser\"), Ech2.salve(Bm.AGE, \"explosion\"))", 1, true) ~= nil, "prototype : dégâts par la règle")
+  ck(proto:find("Bm.arme_mega(spec, Ech2.salve(Bm.AGE, \"laser\"), Ech2.salve(Bm.AGE, \"explosion\"), cibles)", 1, true) ~= nil,
+    "prototype : dégâts par la règle, sur l'essaim")
+  -- lot MEGA-BALISTIQUE : essaim lu dans data.raw, asserts, rayon de zone ; impact agrandi (prototypes/effets_armes.lua)
+  ck(proto:find("for _, ru in ipairs(data.raw[\"unit-spawner\"][nn].result_units or {}) do", 1, true) ~= nil, "prototype : essaim lu dans les nids")
+  ck(proto:find("un:sub(1, #T.PREFIX) ~= T.PREFIX", 1, true) ~= nil, "prototype : titans hors de l'essaim")
+  ck(proto:find("if r.type == \"laser\" or r.type == \"explosion\" then res[r.type] =", 1, true) ~= nil, "prototype : résistances lues")
+  ck(proto:find("pv = assert(u.max_health,", 1, true) ~= nil, "prototype : PV lus")
+  ck(proto:find("assert(Bm.zone_tue(arme.zone_laser, arme.zone_explosion, c),", 1, true) ~= nil, "prototype : assert, la zone tue")
+  ck(proto:find("assert(Bm.direct_tue(arme.direct, c),", 1, true) ~= nil, "prototype : assert, le coup direct tue")
+  ck(proto:find("{ type = \"area\", radius = arme.rayon,", 1, true) ~= nil, "prototype : zone au rayon de l'arme")
+  ck(fx:find("impact = Bm.impact_mega(base.impact)", 1, true) ~= nil, "effets : impact du Bastion à l'échelle du rayon")
+  ck(fx:find("Fx.verifier(pack, Bm.bornes_mega(Fx.BORNES))", 1, true) ~= nil, "effets : bornes à l'échelle")
+  ck(fx:find("remplace_entite(orbe.action, \"big-explosion\", ni, {})", 1, true) ~= nil, "effets : l'impact agrandi remplace la big-explosion")
+  ck(fx:find("local c = color(assert(orbe.light and orbe.light.color", 1, true) ~= nil, "effets : lueur de l'orbe")
   ck(proto:find("type = \"recipe\", name = Bm.MEGA.RECETTE", 1, true) ~= nil, "prototype : recette")
   ck(proto:find("name = Bm.TECH_MEGA.name", 1, true) ~= nil, "prototype : technologie")
   ck(proto:find("type = \"simple-entity-with-owner\", name = Bm.MEGA.POSE", 1, true) ~= nil, "prototype : relais")
@@ -285,6 +371,19 @@ local MUTANTS = {
   { "chaîne courte", "local h = B.CHAINE_LONG * (k or 1) / 2", "local h = B.CHAINE_LONG / 2" },
   { "pivot du battant fixe", "local px, py = B.PIVOT[1] * k, B.PIVOT[2] * k", "local px, py = B.PIVOT[1], B.PIVOT[2]" },
   { "boîte non agrandie", "local k = B.MEGA.ECHELLE\n  return", "local k = 1\n  return" },
+  -- lot MEGA-BALISTIQUE
+  { "rayon du Bastion gardé", "rayon = P.radius * B.MEGA.RAYON_X,", "rayon = P.radius," },
+  { "rayon × 2", "RAYON_X = 4,", "RAYON_X = 2," },
+  { "pourcentage de résistance ignoré", "return x * (1 - pct / 100)", "return x" },
+  { "réduction fixe ignorée", "if dec < d then x = d - dec else", "if true then x = d else" },
+  { "zone sans la plus forte", "      k = hi\n", "" },
+  { "zone d'explosion non relevée", "a.zone_laser, a.zone_explosion = math.ceil(k * zl), math.ceil(k * ze)", "a.zone_laser = math.ceil(k * zl)" },
+  { "coup direct non relevé", "if d > a.direct then a.direct, a.plus_blindee = d, c.nom end", "" },
+  { "coup direct sans réduction fixe", "local d = math.ceil(c.pv / (1 - pct / 100) + (r and r.decrease or 0))", "local d = math.ceil(c.pv / (1 - pct / 100))" },
+  { "explosion non agrandie", "if c.echelle then c.echelle = c.echelle * k end", "" },
+  { "onde de choc non agrandie", "if c[q] then c[q].echelle = c[q].echelle * k end", "if c[q] then c[q].echelle = c[q].echelle end" },
+  { "lumière non agrandie", "c.lumiere.taille = c.lumiere.taille * k", "c.lumiere.taille = c.lumiere.taille" },
+  { "étincelles non agrandies", "c.etincelles.vitesse = c.etincelles.vitesse * k", "c.etincelles.vitesse = c.etincelles.vitesse" },
 }
 local refuses = 0
 for _, m in ipairs(MUTANTS) do
@@ -312,19 +411,26 @@ local MUTANTS_BR = {
   { "proto", "sélection du Bourdon", "mega.selection_box = Bm.boite_mega(VEHICULE.selection_box)", "" },
   { "proto", "tuiles sans hr", "pm.hr_version = bloc(th, s)", "" },
   { "script", "tuiles immobiles", "cible_couche(id, f, e, sh[1], sh[2] - d)", "rendering.set_target(id, e, { sh[1], sh[2] - d })" },
+  -- lot MEGA-BALISTIQUE
+  { "proto", "essaim ignoré", "Ech2.salve(Bm.AGE, \"explosion\"), cibles)", "Ech2.salve(Bm.AGE, \"explosion\"))" },
+  { "proto", "résistances non lues", "if r.type == \"laser\" or r.type == \"explosion\" then res[r.type] =", "if false then res[r.type] =" },
+  { "proto", "titans dans l'essaim", "un:sub(1, #T.PREFIX) ~= T.PREFIX", "true" },
+  { "proto", "zone non vérifiée", "assert(Bm.zone_tue(arme.zone_laser, arme.zone_explosion, c),", "assert(true," },
+  { "fx", "impact du Bastion gardé", "remplace_entite(orbe.action, \"big-explosion\", ni, {})", "" },
+  { "fx", "effets non agrandis", "impact = Bm.impact_mega(base.impact)", "impact = base.impact" },
 }
 for _, m in ipairs(MUTANTS_BR) do
   local quoi, nom, de, vers = m[1], m[2], m[3], m[4]
-  local p, s = PROTO, SCRIPT
-  local cible = quoi == "proto" and p or s
+  local p, s, x = PROTO, SCRIPT, FX
+  local cible = quoi == "proto" and p or quoi == "fx" and x or s
   local i, j = cible:find(de, 1, true)
   if not i then
     check(false, "mutant introuvable : " .. nom)
   else
     local mut = cible:sub(1, i - 1) .. vers .. cible:sub(j + 1)
-    if quoi == "proto" then p = mut else s = mut end
+    if quoi == "proto" then p = mut elseif quoi == "fx" then x = mut else s = mut end
     local f0, p0 = failures, passes
-    local echecs = branche(p, s, true)
+    local echecs = branche(p, s, true, x)
     failures, passes = f0, p0
     check(echecs > 0, "mutant refusé : " .. nom)
     if echecs > 0 then refuses = refuses + 1 end
