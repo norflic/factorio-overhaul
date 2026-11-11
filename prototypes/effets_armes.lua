@@ -445,5 +445,38 @@ for _, pack in ipairs(packs) do
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot MEGA-BALISTIQUE (11/11) : l'impact de l'orbe du Méga-Bourdon, à l'échelle de son rayon (B.MEGA.RAYON_X × celui de l'orbe
+-- Bastion) : la recette d'impact du pack Bastion qu'il reprend (shared/robots/bourdon.lua, B.impact_mega), à la lueur de l'orbe
+-- (prototype, light.color) ; elle remplace la big-explosion de son action. Bornes des armes, diamètres et lumière × RAYON_X.
+---------------------------------------------------------------------------------------------------
+do
+  local Bm = require("shared.robots.bourdon")
+  local orbe = data.raw.projectile[Bm.MEGA.ORBE]
+  if orbe then
+    local nom_bastion = A.age_turret(Bm.MEGA.ARME_AGE).name
+    local base
+    for _, p in ipairs(packs) do if p.nom == nom_bastion and p.mode == "plasma" then base = p end end
+    assert(base and base.impact, "effets_armes : pack plasma du Bastion absent pour le Méga-Bourdon")
+    local c = color(assert(orbe.light and orbe.light.color, "effets_armes : orbe du Méga-Bourdon sans lueur"))
+    local pack = { nom = Bm.MEGA.NOM, mode = base.mode, age = base.age, couleur = c, impact = Bm.impact_mega(base.impact) }
+    pack.impact.couleur = c
+    if pack.impact.lumiere then pack.impact.lumiere.couleur = c end
+    local motifs = Fx.verifier(pack, Bm.bornes_mega(Fx.BORNES))
+    if #motifs > 0 then error("[factorio-overhaul] effets_armes : " .. table.concat(motifs, " ; ")) end
+    local ni = impact(pack)
+    remplace_entite(orbe.action, "big-explosion", ni, {})
+    local function cree(t, n, vus)
+      if type(t) ~= "table" or vus[t] then return false end
+      vus[t] = true
+      if t.type == "create-entity" and t.entity_name == n then return true end
+      for _, v in pairs(t) do if cree(v, n, vus) then return true end end
+      return false
+    end
+    assert(cree(orbe.action, ni, {}) and not cree(orbe.action, "big-explosion", {}), "effets_armes : impact du Méga-Bourdon non branché")
+    nb = nb + 1
+  end
+end
+
 data:extend(out)
 log("[FO-EFFETS] " .. #out .. " prototype(s) d'effets pour " .. nb .. " arme(s) et titan(s) (couleurs lues dans leurs tables)")
