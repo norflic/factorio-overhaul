@@ -624,7 +624,8 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local k1 = wanted ~= nil and Auto.on()
   if st.auto_pause and tick < st.auto_pause then wanted = nil end
   if lab and lab.tech and not st.techs[lab.tech] and not lab.stalled then
-    if ev.tfeas[lab.tech] then
+    -- FIX-P3 : tourelle fermée et recherche en cours autre que la sienne : Gen.choose décide (defense_first).
+    if ev.tfeas[lab.tech] and Gen.keep_current(lab.tech, defense_tech, turret_rec ~= nil and not turret_rec.enabled) then
       Profiler.stop("iag:choose")
       return lab.tech, true, {}, lab.palier, lab.for_auto
     end

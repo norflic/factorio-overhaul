@@ -37,8 +37,9 @@ Gen.V_PACK = 100       -- débloque un pack de laboratoire que l'équipe ne sait
 Gen.V_WANTED = 100     -- débloque un objet qu'un but attend et que l'équipe ne sait pas faire
 Gen.V_MIL = 40         -- militaire (arme, munition, armure, capsule, tourelle, mur)
 Gen.V_MACHINE = 30     -- machine (fabrique, foreuse, laboratoire, énergie)
-Gen.V_LOG = 10         -- logistique (tapis, bras, poteau, coffre)
-Gen.V_OTHER = 5
+Gen.V_LOG = 30         -- logistique (tapis, bras, poteau, coffre) ; FIX-P3 : 10 -> 30, comme V_MACHINE
+-- FIX-P3 : 5 -> 0. Une technologie sans usage n'a plus de note positive ; elle reste prise par Gen.fallback (prérequis) ou par sa chaîne.
+Gen.V_OTHER = 0
 Gen.V_BONUS = { militaire = 25, capital = 10 }
 Gen.FAMILY = { pack = "recherche", wanted = "capital", militaire = "armee", machine = "capital", logistique = "capital",
   autre = "capital" }
@@ -484,6 +485,13 @@ end
 --- recette (valeur 0) est le prérequis de toute une branche payable ; sans elle, la recherche s'arrête au premier mur des
 --- technologies de valeur. Repli : la technologie de valeur nulle qui OUVRE le plus de technologies non faites, puis la moins
 --- chère, puis le nom (déterminisme). Jamais quand une technologie de valeur est payable.
+--- FIX-P3 : la recherche en cours, encore payable, est-elle gardée sans appel à Gen.choose ? Non quand la recette de la
+--- tourelle est fermée et que la recherche en cours n'est pas celle qui l'ouvre (defense_first doit pouvoir basculer).
+function Gen.keep_current(lab_tech, defense_tech, turret_closed)
+  if turret_closed and defense_tech ~= nil and lab_tech ~= defense_tech then return false end
+  return true
+end
+
 function Gen.fallback(cat, ev, state, zero, lab_speed)
   local opens = {}
   for _, u in ipairs(cat.tech_list) do

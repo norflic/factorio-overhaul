@@ -121,7 +121,9 @@ end
 
 --- Poids des familles (pour mille, 500 à 2 000) : 1 000 + biais du trait + la moitié des affinités des postures du chef.
 --- mix = { { key = posture, w = poids pour mille }, ... } (C.think) ; traits = { curiosite = …, … } (× 1 000).
-function B.weights(mix, traits)
+B.THREAT_ARMY_PCT = 150 -- FIX-P3 : poids de la famille « armee » × 1,5 quand l'équipe est menacée
+
+function B.weights(mix, traits, threatened)
   local out = {}
   for _, fam in ipairs(B.FAMILIES) do
     local w = 1000
@@ -132,7 +134,9 @@ function B.weights(mix, traits)
       local a = (B.POSTURE[m.key] or {})[fam] or 0
       aff = aff + math.floor(a * (m.w or 0) / 1000)
     end
-    out[fam] = clamp(w + math.floor(aff / 2), B.W_MIN, B.W_MAX)
+    local v = w + math.floor(aff / 2)
+    if threatened and fam == "armee" then v = math.floor(v * B.THREAT_ARMY_PCT / 100) end
+    out[fam] = clamp(v, B.W_MIN, B.W_MAX)
   end
   return out
 end
