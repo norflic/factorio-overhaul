@@ -149,6 +149,15 @@ G.LIST = {
     appelant = "aucun a l'execution (tests/quotas_test.lua seulement)", mods = { Q = "shared.team.quotas" }, verdict = "voulu",
     pourquoi = "ORPHELINE : aucun appelant d'execution ; sans verdict rien n'est retire, et rien ne l'appelle (chemin reel : Build.Quotas.feed_ok)",
     sonde = function(M) return #M.Q.filter({ { key = "k" } }, nil) == 0, nil end },
+  { id = "Ad.surstock (cerveau)", fichier = "shared/ai3/cerveau.lua", mesure = "ctx.dispersion (colonnes de fonderie automatisees, assembleurs actifs), sorte de l'avant-poste, manque",
+    appelant = "shared/ai3/cerveau.lua:343-361 (lot IA-GARDE, buts couverture:/releve: sans manque)", mods = { Ad = "shared.ai3.anti_dispersion" }, verdict = "ferme",
+    sonde = function(M) return refus(M.Ad.permet(M.Ad.etat(nil, nil), "surstock", { sorte = "brut" })) end },
+  { id = "Rb.extent", fichier = "shared/team/rangee_bus.lua", mesure = "reponse de chaque tuile (libre, defricher, bloque:<cause>)",
+    appelant = "aucun a l'execution (tests/rangee_bus_test.lua ; script/ai3/petrole.lua et shared/ai3/rangee_fluides.lua lisent Rb.croissance et Rb.capacite)",
+    mods = { Rb = "shared.team.rangee_bus" }, verdict = "ferme",
+    sonde = function(M)
+      local r = M.Rb.extent({ x = 0, y = 0, axe = "x", sens = 1, pas = 2, largeur = 2, n_max = 3, tuile = function() return nil end })
+      return r.n == 0 and r.stop == "obstacle:inconnu", r.stop end },
 }
 
 --- Joue la sonde d'une garde. over : { alias = module } (mutant). Rend ferme, raison, erreur (texte si la sonde plante).
