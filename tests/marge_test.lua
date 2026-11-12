@@ -83,6 +83,17 @@ do
   if D2.items["gun-turret"] then D2.items["gun-turret"].place = "ammo-turret" end
   local ex2 = Mg.exempt(D2, RANK, { entity_role = { ["ammo-turret"] = "militaire" }, kit = {}, plant = {} })
   check(D2.items["gun-turret"] == nil or ex2["gun-turret"] == "defense", "§4 objet qui pose une tourelle : défense")
+  -- Banc partie-reelle-120 (13/11) : le bras gelé à 76 min, le rang de la décision ne connaissait pas la foreuse électrique.
+  local D3 = Ca.data(F.dump(), { exec = EXEC })
+  for _, n in ipairs({ "inserter", "fast-inserter", "stack-inserter", "transport-belt" }) do
+    if D3.items[n] then D3.items[n].place = n end
+  end
+  local R3 = { inserter = 4, ["fast-inserter"] = 5, ["stack-inserter"] = 6, ["transport-belt"] = 3, ["engine-unit"] = 3 }
+  local ex3 = Mg.exempt(D3, R3, { entity_role = {}, kit = { inserter = "bras", ["transport-belt"] = "tapis" }, plant = {} })
+  check(ex3.inserter == "extraction" and ex3["transport-belt"] == "extraction", "§4 bras et tapis de la foreuse : jamais gelés, même hors du rang de la décision")
+  check(ex3["stack-inserter"] == nil, "§4 bras plus profond que la foreuse : gelable")
+  check(Mg.depth(D3, "iron-plate", {}) == 1 and Mg.depth(D3, "iron-gear-wheel", {}) == 2 and Mg.depth(D3, "iron-ore", {}) == 0,
+    "§4 profondeur de recette depuis les ressources")
   local v = { gel = true, short = { { item = "iron-plate", rank = 1, pct = 5, supply = 105, c = 100 } }, rows = {} }
   check(Mg.frozen(v, { kind = "chaine", item = "engine-unit" }, RANK, ex), "§4 gel : chaîne de rang 3 non exemptée")
   check(not Mg.frozen(v, { kind = "chaine", item = "electronic-circuit" }, RANK, ex), "§4 gel : jamais ce qui sert les foreuses")

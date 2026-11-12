@@ -25,7 +25,8 @@
     - la défense : objets militaires (type du moteur, D.mil), objets qui posent un bâtiment militaire (tourelle, mur), demandés par
       la décision, et tout ce qui entre dans leurs recettes ;
     - les foreuses et les fonderies EXÉCUTABLES (relevé Ca.data, opts.exec) et ce qui entre dans leurs recettes, ainsi que la logistique et le courant qui les servent
-      (types du moteur R.KIT_TYPE et R.PLANT_TYPES), au plus du rang de la foreuse ou de la fonderie la plus haute ;
+      (types du moteur R.KIT_TYPE et R.PLANT_TYPES), au plus de la profondeur de recette de la foreuse ou de la fonderie la plus haute
+      (Mg.depth, sur tout le relevé) ;
     - sous menace (ctx.threat) : rien n'est gelé.
   Jamais gelés (autres types d'ordres) : couvrir, ouvrir, fours, packs, laboratoires, courant, leviers ; la pile (réparation,
   reconstruction, défense) ne passe pas par ici.
@@ -138,6 +139,31 @@ function Mg.closure(D, seeds, out)
   return out
 end
 
+--- Profondeur de recette d'un objet sur TOUTES les recettes du relevé (0 : produit d'une ressource ; 1 + le plus grand ingrédient de
+--- sa recette la plus basse ; nil : aucune recette, ou cycle). Le rang de la décision (ctx.rang) ne connaît que les objets demandés :
+--- la foreuse et le bras n'y sont pas toujours (banc partie-reelle-120, 13/11 : bras gelés à 76 min faute du rang de la foreuse).
+function Mg.depth(D, i, memo)
+  if D.res[i] then return 0 end
+  local v = memo[i]
+  if v ~= nil then return v ~= false and v or nil end
+  memo[i] = false -- en cours : un cycle rend nil
+  local best = nil
+  for _, rn in ipairs(D.producers[i] or {}) do
+    local r = D.recipes[rn]
+    local m = 0
+    for _, ing in ipairs(r.ingredients) do
+      if not ing.fluid then
+        local d = Mg.depth(D, ing.name, memo)
+        if d == nil then m = nil break end
+        if d > m then m = d end
+      end
+    end
+    if m ~= nil and (best == nil or m + 1 < best) then best = m + 1 end
+  end
+  memo[i] = best or false
+  return best
+end
+
 --- Objets jamais gelés : { [objet] = "defense" | "extraction" }. D = Ca.data ; rank = rang ; roles = { item_role, entity_role,
 --- kit, plant } (tables de shared/ai3/reglages.lua : rôle par type du moteur). Rien n'y est nommé : tout se lit aux types.
 function Mg.exempt(D, rank, roles)
@@ -160,10 +186,11 @@ function Mg.exempt(D, rank, roles)
     for _, ing in ipairs(r.ingredients) do if not D.res[ing.name] then all_raw = false end end
     if all_raw then raw_cat[r.category] = true end
   end
-  local seeds, top = {}, -1
+  local seeds, top, memo = {}, -1, {}
   local function seed(i)
     seeds[#seeds + 1] = i
-    if rank[i] ~= nil and rank[i] > top then top = rank[i] end
+    local dp = Mg.depth(D, i, memo)
+    if dp ~= nil and dp > top then top = dp end
   end
   for _, d in ipairs(D.drills or {}) do if d.exec ~= false then seed(d.item) end end
   for _, m in ipairs(D.makers or {}) do
@@ -177,7 +204,8 @@ function Mg.exempt(D, rank, roles)
   local kit, plant = roles.kit or {}, roles.plant or {}
   for _, i in ipairs(sorted_keys(items)) do
     local p = items[i].place
-    if p and (kit[p] or plant[p]) and rank[i] ~= nil and rank[i] <= top then seeds[#seeds + 1] = i end
+    local dp = p and (kit[p] or plant[p]) and Mg.depth(D, i, memo) or nil
+    if dp ~= nil and dp <= top then seeds[#seeds + 1] = i end
   end
   table.sort(seeds)
   for k in pairs(Mg.closure(D, seeds)) do if out[k] == nil then out[k] = "extraction" end end
