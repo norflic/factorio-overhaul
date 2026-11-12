@@ -476,6 +476,7 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
       if PS and PS.capn[name] then capn = PS.capn[name] -- (par passes : fixé au début de la phase, le budget a baissé depuis)
       elseif not use_ug and ctx2.maxd and ctx2.maxd >= 2 and ctx2.budget then
         capn = math.max(100, math.floor(ctx2.budget.left / 2))
+        if ctx.max and ctx.max < capn then capn = ctx.max end -- lot TRAVERSEE-CAP : la moitié du budget BORNE le plafond de l'appelant, ne le remplace pas
         if PS then PS.capn[name] = capn end
       end
       el, n, used4, state = search(s, t, td, bounds, cost, ctx2, pen, lim, nil, capn, use_ug)
