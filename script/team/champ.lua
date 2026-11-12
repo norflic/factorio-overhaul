@@ -1063,6 +1063,7 @@ function Champ.report(f, surface, tick)
   local fu = { n = 0, run = 0, noin = 0, nofuel = 0, full = 0 }
   local out = { n = 0, sum = 0, max = 0, due = 0 }
   local fuel = { n = 0, min = nil }
+  local cds = { n = 0, d = 0, stuck = 0, fini = 0, ids = {} } -- lot COUPLAGE : bandes culs-de-sac
   local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
   local S = defines.entity_status
   local tapis_on, nopow_logs = Champ.tapis(), 0
@@ -1077,7 +1078,7 @@ function Champ.report(f, surface, tick)
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
-      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0 }
+      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0, dn = 0 }
       for _, e in ipairs(p.ents) do
         if e.built and not e.skipped and not e.dropped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
@@ -1091,6 +1092,7 @@ function Champ.report(f, surface, tick)
             local s = ent.status
             if e.role == "champ-foreuse" then
               d.n = d.n + 1
+              pd.dn = pd.dn + 1
               if s == S.working then d.run = d.run + 1 elseif s == S.waiting_for_space_in_destination then d.stuck = d.stuck + 1; pd.stuck = pd.stuck + 1
               elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1 end
             else
@@ -1169,6 +1171,13 @@ function Champ.report(f, surface, tick)
             Ra.cause_sans_courant(at_net, live, kw, dist, Champ.CFG.chain_far)))
         end
       end
+      -- lot COUPLAGE (règle 2 du DC, 12/11 : une bande n'est pas finie tant que son tapis ne nourrit pas une fonderie) : bande à foreuses
+      -- posées SANS four ni coffre de sortie (tapis collecteur arrêté dans l'herbe), lecture seule
+      if pd.dn > 0 and pd.fn == 0 and #(p.outs or {}) == 0 and not p.spec.champ.coal then
+        cds.n, cds.d, cds.stuck = cds.n + 1, cds.d + pd.dn, cds.stuck + pd.stuck
+        if p.state == "fini" then cds.fini = cds.fini + 1 end
+        if #cds.ids < 6 then cds.ids[#cds.ids + 1] = string.format("p%d %s %d/%d", pid, p.state, pd.stuck, pd.dn) end
+      end
       local lk = sorted_keys(pd.lost)
       if (#lk > 0 or pd.stuck > 0 or pd.armoff > 0) and #bad < 4 then
         local lt = {}
@@ -1194,6 +1203,8 @@ function Champ.report(f, surface, tick)
     end
   end
   if #ids == 0 then return end
+  log(string.format("[FO-COUPLAGE] %s min %.0f | bandes a foreuses sans four ni coffre de sortie %d (finies %d), foreuses %d dont figees %d%s",
+    f.key or "player", tick / 3600, cds.n, cds.fini, cds.d, cds.stuck, #cds.ids > 0 and (" : " .. table.concat(cds.ids, ", ")) or ""))
   local parts, mparts = {}, {}
   for _, k in ipairs(sorted_keys(st)) do parts[#parts + 1] = k .. " " .. st[k] end
   local mk = sorted_keys(miss)
