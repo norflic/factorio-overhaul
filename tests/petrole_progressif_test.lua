@@ -89,6 +89,8 @@ print(string.format("[PETROLE-PROGRESSIF] règle : %d OK, %d ECHEC(S)", ok0, #ba
 ---------------------------------------------------------------------------------------------------
 local DISPATCH = "  if s and s.ext == true and not s.rangee then return Cp.ready_lead(p.need or {}, p.stock or {}, p.lead or {}) end -- lot CC-PETROLE\n"
 local REOPEN = "  if p.reopened and p.reopened ~= 0 then return false, \"rouvert\" end\n"
+-- Lot SORTIE-PLAQUES : bloc de la garde du dégel (commentaires compris), tiré tel quel de la source
+local DEGEL = SRC:match("\n(  %-%- Lot SORTIE%-PLAQUES %(B5%).-  if s and s%.degel and not p%.degele then return false, \"degel\" end\n)") or "<degel introuvable>"
 local MUTANTS = {
   { "aiguillage retiré (tout-ou-rien d'avant)", DISPATCH, "" },
   { "rangée de modules acceptée", "if s and s.ext == true and not s.rangee then", "if s and s.ext == true then" },
@@ -100,7 +102,8 @@ local MUTANTS = {
   { "réserve non bornée au besoin",
     "      local have = math.min(math.floor(tonumber(stock[it]) or 0), n)\n      pieces, total = pieces + have, total + n\n      local fl = Cp.floor(n)\n      if lead[it] then",
     "      local have = math.floor(tonumber(stock[it]) or 0)\n      pieces, total = pieces + have, total + n\n      local fl = Cp.floor(n)\n      if lead[it] then" },
-  { "aiguillage avant la garde du rouvert", REOPEN .. "  local s = p.spec\n" .. DISPATCH, "  local s = p.spec\n" .. DISPATCH .. REOPEN },
+  -- (lot SORTIE-PLAQUES : la garde du dégel s'intercale entre p.spec et l'aiguillage ; seule la garde du rouvert descend)
+  { "aiguillage avant la garde du rouvert", REOPEN .. "  local s = p.spec\n" .. DEGEL .. DISPATCH, "  local s = p.spec\n" .. DEGEL .. DISPATCH .. REOPEN },
 }
 local refused = 0
 for _, mu in ipairs(MUTANTS) do

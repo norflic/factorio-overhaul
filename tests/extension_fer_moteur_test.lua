@@ -30,7 +30,7 @@ package.loaded["script.faction.state"] = {
   sorted_keys = function(t) local k = {} for a in pairs(t) do k[#k + 1] = a end table.sort(k) return k end,
 }
 package.loaded["script.faction.sites"] = {}
-package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
+package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end, is_reserved = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
 
 local passes, failures = 0, 0
 local function check(c, m) if c then passes = passes + 1 else failures = failures + 1; print("  ECHEC : " .. m) end end

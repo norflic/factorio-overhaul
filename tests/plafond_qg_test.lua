@@ -291,6 +291,7 @@ local function new_chest(size)
 end
 
 package.loaded["script.ai3.places_qg"] = {
+  is_reserved = function() return false end, -- (lot TUILES-RESERVEES : crochet unique des tuiles réservées ; aucune ici)
   place = function() error("les annexes passent par place_list") end,
   place_list = function(surface, name, force, origin, list, search, count, make)
     local placed = 0
