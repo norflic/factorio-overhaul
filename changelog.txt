@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.91
+Date: 2026-11-12
+  Bugfixes:
+    - IA (F598) : plantage quand une IA pose un répartiteur sur un tapis appartenant à un autre projet (« LuaEntity was invalid », piquage.lua:468).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.90
 Date: 2026-11-12
   Changes:

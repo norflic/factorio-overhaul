@@ -451,7 +451,9 @@ local function place_split(f, surface, p, lc)
   if not surface.can_fast_replace({ name = lc.split, position = { g.x, g.y }, direction = g.dir, force = f.force }) then
     return false, "remplacement sur place refuse par le moteur"
   end
-  local old_item = belt_item(belt.name)
+  -- le remplacement sur place détruit l'entité du tapis : son nom est lu AVANT (lu après, LuaEntity invalide, plantage en partie 0.7.90)
+  local belt_name = belt.name
+  local old_item = belt_item(belt_name)
   local ent = surface.create_entity({ name = lc.split, position = { g.x, g.y }, direction = g.dir, force = f.force, fast_replace = true, spill = false,
     raise_built = false })
   if not ent then return false, "pose refusee" end
@@ -465,7 +467,7 @@ local function place_split(f, surface, p, lc)
     local q = b.projects[pid]
     if q and q ~= p then
       for _, e in ipairs(q.ents or {}) do
-        if e.name == belt.name and math.floor(e.x) == g.tile.x and math.floor(e.y) == g.tile.y then
+        if e.name == belt_name and math.floor(e.x) == g.tile.x and math.floor(e.y) == g.tile.y then
           e.name, e.x, e.y, e.dir, e.item, e.piq = lc.split, g.x, g.y, g.dir, item, true
         end
       end
