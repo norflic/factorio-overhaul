@@ -128,7 +128,8 @@ check("worker charge la regle", W:find('require("shared.team.acces_champ")', 1, 
 check("acces(o, f) appelle la regle avec le rectangle", W:find("Acc.reach(boxes, tiles, base, rect)", 1, true) ~= nil
   and W:find("Acc.rect(own_boxes, base, Acc.MARGIN)", 1, true) ~= nil)
 local n_calls = select(2, W:gsub("local function access%(o, f%)", ""):gsub("access%(o, f%)", ""))
-check("les 5 marches vers un avant-poste (agrandir, garder, tournee, recharger, fortifier) passent par la regle", n_calls == 5)
+-- (AUTO-FINANCEMENT, 72e21264 : sixième marche, l'agrandissement autofinancé qui prend ses plaques aux fours de l'avant-poste)
+check("les 6 marches vers un avant-poste (agrandir, autofinancement, garder, tournee, recharger, fortifier) passent par la regle", n_calls == 6)
 check("plus aucun access(o) sans equipe", W:gsub("access%(o, f%)", ""):find("access%(o%)") == nil)
 check("obstacles : masque du corps, eau, types mobiles exclus", W:find('collision_mask = "player-layer"', 1, true) ~= nil
   and W:find('collision_mask = "water-tile"', 1, true) ~= nil and W:find("not ACC_MOVING[e.type]", 1, true) ~= nil)

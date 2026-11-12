@@ -88,6 +88,13 @@ local surface = {
   end,
 }
 local BOX = { x0 = -10, y0 = -10, x1 = 65, y1 = 65 }
+-- Lot TESTS-VERTS : script/team/raccord.lua requiert (par zone_equipe, UPS-HYGIENE a9010348) script/team/boite_chunks.lua, dont
+-- on_init relève les chunks de game.surfaces (POULS, c03b7f67) : la surface rend les deux coins de BOX.
+surface.get_chunks = function()
+  local cs, i = { { x = BOX.x0, y = BOX.y0 }, { x = BOX.x1, y = BOX.y1 } }, 0
+  return function() i = i + 1 return cs[i] end
+end
+game.surfaces = { surface }
 
 local function team()
   local ents2 = {}

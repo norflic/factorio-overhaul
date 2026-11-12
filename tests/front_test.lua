@@ -349,7 +349,9 @@ local ph2 = F.plan({ cells = hi_cells, turrets = {}, hq = { x = 100 + F.NEAR_HQ 
 local ph3 = F.plan({ cells = hi_cells, turrets = {}, hq = { x = 100 + F.NEAR_HQ + 1, y = 100 } })
 check(ph2.pick.near_hq == true and ph3.pick.near_hq == false and ph.pick.near_hq == nil, "D5 : cellule à moins de F.NEAR_HQ du QG marquée, plus loin non, sans QG rien")
 -- D5 : ordre des postes dans le planificateur (stock pour un seul poste)
-local one_post = { ["gun-turret"] = 2, [T.turret_ammo] = 40, ["iron-plate"] = 0, ["copper-plate"] = 0 }
+-- (Lot TESTS-VERTS : 1 tourelle. Avec 2, le bilan du charbon à cadences (Bc.balance, supprimé par F546, b55b8e5f) faisait réclamer un
+-- avant-poste de charbon qui retenait la seconde ; sans lui, la seconde sert le poste suivant en commande partielle.)
+local one_post = { ["gun-turret"] = 1, [T.turret_ammo] = 40, ["iron-plate"] = 0, ["copper-plate"] = 0 }
 local und = { { id = "o1", kind = "copper", drills = 8, turrets = 1, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } }
 local pn = Planner.plan(view({ stock = one_post, outposts = und, front = { pick = ph2.pick, busy = false } }), book)
 local pfar = Planner.plan(view({ stock = one_post, outposts = und, front = { pick = ph3.pick, busy = false } }), book)

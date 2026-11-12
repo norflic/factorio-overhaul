@@ -3,7 +3,7 @@
     D1  la priorité « production d'abord » est lue par l'armée et la réserve de munitions du cerveau (shared/ai3/projets.lua),
         la défense MINIMALE (premiers soldats, réserve jusqu'à B.AMMO_MIN) reste payée ;
     D2  un module réduit après un échec de matériaux (CAPI-REPLI) n'est pas remonté par AGENCEMENT (câblage, source) ;
-    D4  le charbon des fours du plan directeur entre dans le bilan du charbon du planificateur ;
+    D4  le charbon des fours du plan directeur entre dans le bilan du charbon du planificateur (depuis F546 : plafond mesuré, view.coal_cap) ;
     D5  le site proche bloqué devient un lieu à couvrir par le front (shared/team/site_securise.lua + Fr.plan) ;
     mutants : chaque règle retirée fait changer un fait observé.
 ]]
@@ -130,19 +130,18 @@ local function view2(over)
   v.recruit_cost = S.recruit_cost(v.workers)
   return v
 end
-local p_base = Planner.plan(view2({}), book)
-local p_burn = Planner.plan(view2({ build_burn = 3.0 }), book)
-check(p_base.burn_rate ~= nil and p_burn.burn_rate ~= nil and math.abs(p_burn.burn_rate - p_base.burn_rate - 3.0) < 1e-9,
-  "burn_rate du planificateur augmente du charbon des fours du plan (" .. tostring(p_base.burn_rate) .. " -> " .. tostring(p_burn.burn_rate) .. ")")
+-- F546 (PURGE-FER-CHARBON, b55b8e5f) : Build.burn_rate, view.build_burn et le bilan à cadences (out.burn_rate) sont supprimés ; le
+-- planificateur lit le plafond mesuré en jeu (view.coal_cap = { need, capacity }, script/team/plafond_charbon.lua) : un avant-poste de
+-- charbon de plus seulement si l'extraction posée est sous le besoin réel (fours du plan compris, ils sont des brûleurs actifs).
+local p_base = Planner.plan(view2({ coal_cap = { need = 0.5, capacity = 1.0 } }), book)
+local p_burn = Planner.plan(view2({ coal_cap = { need = 1.5, capacity = 1.0 } }), book)
 local function has_coal_step(plan)
   for _, t in ipairs(plan.tasks) do if t.key == "extend:1" or t.key == "build:coal" then return true end end
   return false
 end
-check(not has_coal_step(p_base) and has_coal_step(p_burn), "un charbon qui ne couvre plus les fours du plan fait agrandir l'avant-poste de charbon")
+check(not has_coal_step(p_base) and has_coal_step(p_burn), "un charbon qui ne couvre plus le besoin réel fait agrandir l'avant-poste de charbon")
 local team_src = read_src("script/team/team.lua")
--- (X10-S0, 0.6.62 : l'appel passe par la portée fine du profileur, mesure seulement ; Profiler.fwrap rend la valeur de Build.burn_rate)
-check(team_src:find('build_burn = Profiler.fwrap("view:5-burn", Build.burn_rate, f, game.tick)', 1, true), "la vue publie build_burn")
-check(build_src:find("function Build.burn_rate", 1, true) and build_src:find("sp.kind == \"furnace\" and sp.burner_kw", 1, true), "Build.burn_rate lit la puissance aux données (M.spec)")
+check(team_src:find("coal_cap = fsurface and Cap.read(f, fsurface) or nil", 1, true), "la vue publie coal_cap (plafond mesuré)")
 
 ---------------------------------------------------------------------------------------------------
 section("4. D5 : le site proche bloqué est couvert par le front")

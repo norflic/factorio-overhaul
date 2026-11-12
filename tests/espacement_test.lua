@@ -182,6 +182,8 @@ local function world(opts)
     end
     return opts.buildings or {}
   end
+  -- Lot TESTS-VERTS : Outposts.perimeter (CC-TOURELLES, 60b8e863) cherche le minerai sous l'emprise d'une tourelle : ce monde n'en a pas.
+  surface.count_entities_filtered = function(q) return 0 end
   surface.create_entity = function(q)
     if not free(q.position.x, q.position.y) then return nil end
     local e = { name = q.name, type = "ammo-turret", position = { x = q.position.x, y = q.position.y }, unit_number = 2000 + #turrets,

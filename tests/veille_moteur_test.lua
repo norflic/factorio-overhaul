@@ -41,6 +41,13 @@ end
 
 local function play(seed, on)
   M.new_game({ seed = seed, patches = patches(), p_busy = 0.02, p_nopath = 0.02, p_lost = 0.005 })
+  -- Lot TESTS-VERTS : la garde ANTI-DISPERSION (IA-GARDE f03e5c64, F542, règle du DC du 11/11) retient le départ d'une veille
+  -- (famille « exploration ») sous 2 colonnes de fonderie et 6 assembleurs, jamais atteints ici : ce banc mesure la veille, la garde
+  -- est ouverte pour la seule famille « exploration » (elle-même est testée par tests/anti_dispersion_test.lua).
+  local AdRt = require("script.ai3.anti_dispersion")
+  local permet, voit = AdRt.permet, AdRt.voit
+  AdRt.permet = function(f, famille, c, tick) if famille == "exploration" then return true end return permet(f, famille, c, tick) end
+  AdRt.voit = function(f, famille, c, tick) if famille == "exploration" then return true end return voit(f, famille, c, tick) end
   -- Les modules sont rechargés à chaque partie : l'option passe par l'interface distante des bancs.
   check(remote.call("factorio-overhaul", "veille_options", { on = on }).on == on, "option de bancs veille_options")
   M.command("fo-war", "start 4 100 10 320")

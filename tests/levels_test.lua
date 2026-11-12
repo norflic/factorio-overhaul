@@ -2351,7 +2351,12 @@ if vanilla then
   _G.data = { raw = { technology = raw_tech, module = {}, recipe = {}, ["ammo-turret"] = {}, ["electric-turret"] = {}, ["fluid-turret"] = {} } }
   table.deepcopy = deepcopy
   _G.log = function() end
+  -- Lot TESTS-VERTS : prototypes/effets_armes.lua (POLISSAGE-FX, c08418bc) habille des prototypes d'armes et lit leurs feuilles
+  -- (graphics/effets/sprites.lua) ; il ne touche ni recette ni technologie : neutralisé ici, ce banc ne relit que les technologies.
+  local saved_fx = package.preload["prototypes.effets_armes"]
+  package.preload["prototypes.effets_armes"] = function() return true end
   local okd, errd = pcall(dofile, "data-final-fixes.lua")
+  package.preload["prototypes.effets_armes"] = saved_fx
   _G.data, table.deepcopy, _G.log = saved_data, saved_deep, saved_log
   check(okd, "data-final-fixes.lua exécuté sur les technologies vanilla (" .. tostring(errd) .. ")")
   -- Attendus calculés à la main (époque par les recettes : shared/content/epochs.lua X.base_recipe_epochs ;

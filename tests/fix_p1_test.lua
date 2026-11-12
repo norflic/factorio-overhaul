@@ -90,8 +90,9 @@ local mutants = {
   { "b", "1. toute foreuse compte", "return S ~= nil and status ~= nil and (status == S.working or status == S.waiting_for_space_in_destination)", "return true" },
   { "b", "1. la foreuse à sec compte", "(status == S.working or", "(status == S.working or status == S.no_minable_resources or" },
   { "p", "1. le relevé n'appelle plus le prédicat", " and Bc.drill_counts(e.status, status) then", " then" },
-  { "c", "2. l'avance contourne F491", "n.load < C.GROW_LOAD then", "n.load < C.GROW_LOAD and not n.anticipate then" },
-  { "c", "2. la garde F491 tombe pour tous", "n.load ~= nil and n.load < C.GROW_LOAD then", "false then" },
+  -- (P0-CENTRALE, 80305871 : la garde F491 laisse passer une demande engagée au-delà de la capacité, C.engaged_over : repères suivis)
+  { "c", "2. l'avance contourne F491", "C.engaged_over(n.engaged_kw, n.cap_kw) then", "C.engaged_over(n.engaged_kw, n.cap_kw) and not n.anticipate then" },
+  { "c", "2. la garde F491 tombe pour tous", "n.load ~= nil and n.load < C.GROW_LOAD and not C.engaged_over(n.engaged_kw, n.cap_kw) then", "false then" },
   { "c", "3. la borne C.MAX_REQUESTS revient", COOL_LINE, COOL_LINE .. "  if (st.requests or 0) >= C.MAX_REQUESTS then return nil, \"trop de demandes\" end\n" },
   { "c", "3. une borne de 15 revient", COOL_LINE, COOL_LINE .. "  if (st.requests or 0) >= 15 then return nil, \"x\" end\n" },
   { "d", "4. la décroissance de 5 % revient", "    p = 0 -- lot FIX-P1", "    p = p * (1000 - Dm.DECAY) / 1000 -- " },

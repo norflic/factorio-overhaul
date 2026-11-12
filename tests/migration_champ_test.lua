@@ -320,7 +320,8 @@ local function suite(verbose)
   _, r = so({ obtainable = false }); ck(r == "objet", "départ : sans foreuse électrique")
   _, r = so({ pairs = CFG.min_pairs - 1 }); ck(r == "paires", "départ : trop peu de paires")
   _, r = so({ lattice = false }); ck(r == "treillis", "départ : champ hors du treillis")
-  _, r = so({ plates = CFG.min_plates - 1 }); ck(r == "plaques", "départ : trop peu de plaques libres")
+  -- F546 (PURGE-FER-CHARBON, b55b8e5f) : la porte des 150 plaques libres (CFG.min_plates) est supprimée : peu de plaques ne retient plus le départ.
+  ck(so({ plates = 0 }) == true, "départ : plus de garde de plaques libres (F546)")
   _, r = so({ retry = 2000 }); ck(r == "attente", "départ : nouvel essai plus tard")
   _, r = so({ enemy = true }); ck(r == "ennemi", "départ : ennemi à portée")
   _, r = so({ migr = "fini" }); ck(r == "fait", "départ : déjà migré")
@@ -848,8 +849,9 @@ do
 end
 
 do
-  -- F. Pas de courant, pas de foreuse électrique, pas de plaques, hors du treillis : en veille, aucune demande, aucune pièce touchée
-  for _, scn in ipairs({ { power = false, label = "sans courant" }, { lot_state = "libre", label = "hors lot de gisement" }, { plates = 10, label = "sans plaques" },
+  -- F. Pas de courant, pas de foreuse électrique, hors du treillis : en veille, aucune demande, aucune pièce touchée
+  -- (F546, b55b8e5f : la garde « sans plaques » est supprimée, son scénario aussi)
+  for _, scn in ipairs({ { power = false, label = "sans courant" }, { lot_state = "libre", label = "hors lot de gisement" },
     { pairs = 2, label = "trop peu de paires" } }) do
     scn.pairs = scn.pairs or 8
     local E = executor_run(scn)
@@ -1075,7 +1077,6 @@ do
         return o(pl, c2) end end },
     { "start_ok : le courant n'est pas exigé", function() local o = orig.start_ok; Mg.start_ok = function(c, cfg) c.power = true; return o(c, cfg) end end },
     { "start_ok : l'ennemi n'est pas regardé", function() local o = orig.start_ok; Mg.start_ok = function(c, cfg) c.enemy = false; return o(c, cfg) end end },
-    { "start_ok : plaques libres ignorées", function() local o = orig.start_ok; Mg.start_ok = function(c, cfg) c.plates = 1e9; return o(c, cfg) end end },
     { "start_ok : un champ migré repart", function() local o = orig.start_ok; Mg.start_ok = function(c, cfg) c.migr = nil; c.abandoned = nil; return o(c, cfg) end end },
     { "start_ok : objet électrique non exigé", function() local o = orig.start_ok; Mg.start_ok = function(c, cfg) c.obtainable = true; return o(c, cfg) end end },
     { "can_retire : l'ennemi est ignoré", function() local o = orig.can_retire; Mg.can_retire = function(c, cfg) c.enemy = false; return o(c, cfg) end end },
@@ -1159,15 +1160,11 @@ do
       for _ = 1, 3 do E4.think() end
       if #E4.Build.requests > 0 then bad = bad + 1 end
       E4.restore()
-      -- courant coupé ou pas de plaques : aucune demande
+      -- courant coupé : aucune demande (F546, b55b8e5f : la garde de plaques est supprimée, sa sonde aussi)
       local E5 = executor_run({ pairs = 8, power = false })
       for _ = 1, 3 do E5.think() end
       if #E5.Build.requests > 0 then bad = bad + 1 end
       E5.restore()
-      local E6 = executor_run({ pairs = 8, plates = 5 })
-      for _ = 1, 3 do E6.think() end
-      if #E6.Build.requests > 0 then bad = bad + 1 end
-      E6.restore()
     end)
     print = saved_print
     if not ok_run then bad = bad + 1; if err then saved_print("  (erreur sous mutant : " .. tostring(err):sub(1, 120) .. ")") end end
@@ -2232,7 +2229,8 @@ do
       return src:sub(1, i - 1) .. new .. src:sub(j + 1)
     end
   end
-  local m1 = { run_w3(mutsrc3("    return false\n  end\n  local bad = {}", "  end\n  local bad = {}")) }
+  -- (IA-GARDE, f03e5c64 : la garde anti-dispersion s'est glissée entre le cadre et « local bad = {} » : le repère vise le retour du cadre)
+  local m1 = { run_w3(mutsrc3("même après un chargement)\n    return false\n", "même après un chargement)\n")) }
   check(m1[1] ~= "frame", "W3 : mutant refusé : la première bande part dans la pensée du cadre (" .. m1[1] .. ")")
   local m2 = { run_w3(mutsrc3("    Champ.flush(f) -- (journal seulement : la perte des attentes par un chargement ne change aucune décision)\n", "")) }
   check(m2[2] ~= "frame,flush", "W3 : mutant refusé : la vérification du cadre n'est jamais appelée par la migration (" .. m2[2] .. ")")

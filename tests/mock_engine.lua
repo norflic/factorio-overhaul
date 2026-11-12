@@ -35,8 +35,9 @@ function M.item_prototypes(recipes)
   local out = {}
   local function add(n)
     if not out[n] then
+      -- Lot TESTS-VERTS : catégorie de combustible (LuaItemPrototype.fuel_category), lue par script/team/plafond_charbon.lua (F546).
       out[n] = { name = n, type = ITEM_TYPE[n] or "item", fuel_value = FUEL_VALUE[n] or 0,
-        localised_name = { "item-name." .. n } }
+        fuel_category = FUEL_VALUE[n] and "chemical" or nil, localised_name = { "item-name." .. n } }
     end
   end
   local names = {}
@@ -132,6 +133,13 @@ local function new_force(name)
   end
   f._friends = {}
   f.set_friend = function(other, v) f._friends[type(other) == "string" and other or other.name] = v end
+  -- Lot TESTS-VERTS : LuaForce.is_enemy (lue par script/ai3/menace.lua, FIX-P5) : ni elle-même, ni « neutral », ni amie, ni en
+  -- cessez-le-feu (comme le moteur : toujours faux pour la force neutre).
+  f.is_enemy = function(other)
+    local n = type(other) == "string" and other or other.name
+    if n == name or n == "neutral" or name == "neutral" then return false end
+    return not (f._friends[n] or f._cease[n])
+  end
   f._tags = {}
   f.add_chart_tag = function(surface, tag)
     assert(surface and tag and tag.position, "add_chart_tag : arguments")
@@ -1027,14 +1035,16 @@ function M.new_world(opts)
       collision_mask = MASK_BUILDING, items_to_place_this = { { name = "gun-turret", count = 1 } } },
     ["electric-mining-drill"] = { type = "mining-drill", max_health = 300,
       resource_categories = { ["basic-solid"] = true, ["fo-hard-solid"] = true },
-      collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING, items_to_place_this = { { name = "electric-mining-drill", count = 1 } } },
+      collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING, items_to_place_this = { { name = "electric-mining-drill", count = 1 } },
+      mining_drill_radius = 2.49 }, -- lot TESTS-VERTS : zone de minage vanilla (Gis.prune, P1-ELAGAGE f1f62e9d, la lit)
     -- Lot IA-G : objet qui pose, source d'énergie, catégories (relevé du cerveau général, comme le moteur).
     ["burner-mining-drill"] = { type = "mining-drill", max_health = 150, collision_box = box(-0.7, -0.7, 0.7, 0.7),
       collision_mask = MASK_BUILDING, items_to_place_this = { { name = "burner-mining-drill", count = 1 } },
-      resource_categories = { ["basic-solid"] = true }, burner_prototype = { effectivity = 1 }, mining_speed = 0.25 },
+      resource_categories = { ["basic-solid"] = true }, burner_prototype = { effectivity = 1, fuel_categories = { chemical = true } }, mining_speed = 0.25,
+      mining_drill_radius = 0.99 }, -- lot TESTS-VERTS : zone de minage vanilla
     ["stone-furnace"] = { type = "furnace", max_health = 200, collision_box = box(-0.7, -0.7, 0.7, 0.7),
       collision_mask = MASK_BUILDING, items_to_place_this = { { name = "stone-furnace", count = 1 } },
-      crafting_categories = { smelting = true }, burner_prototype = { effectivity = 1 }, crafting_speed = 1 },
+      crafting_categories = { smelting = true }, burner_prototype = { effectivity = 1, fuel_categories = { chemical = true } }, crafting_speed = 1 },
     ["iron-chest"] = { type = "container", max_health = 200, collision_box = box(-0.35, -0.35, 0.35, 0.35),
       collision_mask = MASK_BUILDING, items_to_place_this = { { name = "iron-chest", count = 1 } } },
     ["fo-team-chest"] = { type = "container", max_health = 800, collision_box = box(-0.35, -0.35, 0.35, 0.35),
@@ -1362,7 +1372,11 @@ function M.new_world(opts)
       end
       for _, p in ipairs(W.patches) do
         local dx, dy = p.x - cx, p.y - cy
-        if dx * dx + dy * dy <= (rad + 4) ^ 2 and name_matches(t.name, p.name or "iron-ore") then
+        -- Lot TESTS-VERTS : la grappe de 5 x 5 tuiles (pas de 2) s'étend jusqu'à 4 * racine(2) = 5,66 tuiles du centre en diagonale ; une
+        -- petite zone (rad <= 5, filtrée tuile par tuile ci-dessous) près d'un coin de la grappe ne la voyait pas (foreuse posée sur le coin
+        -- jugée sans ressource par Gis.prune, P1-ELAGAGE f1f62e9d). Grands rayons inchangés.
+        local reach = rad <= 5 and rad + 6 or rad + 4
+        if dx * dx + dy * dy <= reach ^ 2 and name_matches(t.name, p.name or "iron-ore") then
           for ix = -2, 2 do
             for iy = -2, 2 do
               local ex, ey = p.x + ix * 2, p.y + iy * 2
@@ -1390,7 +1404,16 @@ function M.new_world(opts)
       local e = ents[cand and cand[ci] or ci]
       if e.valid then
         local ok = true
-        if t.force then ok = ok and e.force.name == (type(t.force) == "string" and t.force or t.force.name) end
+        if t.force then
+          -- Lot TESTS-VERTS : comme le moteur, `force` est une force (nom ou LuaForce) OU une liste de forces (script/ai3/menace.lua, FIX-P5)
+          if type(t.force) == "table" and t.force.name == nil then
+            local any = false
+            for _, x in ipairs(t.force) do if e.force.name == (type(x) == "string" and x or x.name) then any = true end end
+            ok = ok and any
+          else
+            ok = ok and e.force.name == (type(t.force) == "string" and t.force or t.force.name)
+          end
+        end
         if t.name then
           local names = type(t.name) == "table" and t.name or { t.name }
           local match = false

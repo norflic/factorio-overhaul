@@ -106,16 +106,19 @@ local function new_team(W)
   add({ id = 9, state = "fini", spec = { gen = "steam" }, parts = { { kind = "centrale" } }, ents = {}, quais = {}, outs = {}, obstacles = {} })
   local ents = { { name = "fast-inserter", x = 150.5, y = 21.5, role = "sortie-bras" }, { name = "small-electric-pole", x = 151.5, y = 22.5 } }
   add({ id = 1, state = "fini", spec = { site = "champ" }, parts = { { kind = "module" } }, ents = ents, quais = {}, outs = { { x = 150.5, y = 20.5, at = 200 } }, obstacles = {} })
-  add({ id = 2, state = "fini", spec = { gen = "banc" }, parts = { { kind = "module" } }, ents = {}, quais = { { x = 20.5, y = 12.5, item = "A" } }, outs = {},
+  -- Lot TESTS-VERTS : depuis BUS-SORTIE (d40e2bcc), un quai à Rp.REUSE_R du point voulu EST l'arrivée (aucun tampon posé ; couvert par
+  -- rapatriement_test 6.18 à 6.22). Les deux quais sont écartés pour que le point voulu (médianes : 20, 12, celui de la scène d'avant) soit à 11 tuiles de chacun :
+  -- ce banc garde la chaîne du tampon ordinaire (coffre, sortie, barre, réutilisation).
+  add({ id = 2, state = "fini", spec = { gen = "banc" }, parts = { { kind = "module" } }, ents = {}, quais = { { x = 20.5, y = 23.5, item = "A" } }, outs = {},
     obstacles = {}, inflow = { A = 1.0 } })
-  add({ id = 3, state = "fini", spec = { gen = "banc" }, parts = { { kind = "module" } }, ents = {}, quais = { { x = 30.5, y = 16.5, item = "A" } }, outs = {},
+  add({ id = 3, state = "fini", spec = { gen = "banc" }, parts = { { kind = "module" } }, ents = {}, quais = { { x = 31.5, y = 12.5, item = "A" } }, outs = {},
     obstacles = {}, inflow = { A = 1.0 } })
   -- une sortie PROCHE (30 tuiles du QG) et une sortie sans objet lointaine
   add({ id = 4, state = "fini", spec = { gen = "banc" }, parts = { { kind = "module" } }, ents = {}, quais = {}, outs = { { x = 40.5, y = -10.5 } }, obstacles = {} })
   add({ id = 5, state = "fini", spec = { site = "champ" }, parts = { { kind = "module" } }, ents = ents, quais = {}, outs = { { x = -150.5, y = 40.5 } }, obstacles = {} })
   W.chest(150, 20, "A", 0)
-  W.chest(20, 12, "A", 0)
-  W.chest(30, 16, "A", 0)
+  W.chest(20, 23, "A", 0)
+  W.chest(31, 12, "A", 0)
   W.chest(40, -11, "A", 800)
   W.chest(-151, 40, nil, 0)
   W.pole(152, 22)

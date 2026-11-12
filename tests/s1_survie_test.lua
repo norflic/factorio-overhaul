@@ -28,6 +28,9 @@ local function read_src(path)
   local f = assert(io.open(path, "rb"))
   local s = f:read("*a")
   f:close()
+  -- Lot TESTS-VERTS : script/team/team.lua mêle CRLF et LF (le bloc de la retenue des recrues est en CRLF depuis QGSURVIE tour 2, 98db0cc2) :
+  -- les contrôles de texte lisent des fins de ligne LF
+  s = s:gsub("\r\n", "\n")
   return s
 end
 local IRON, COPPER = T.outposts.iron.product, T.outposts.copper.product

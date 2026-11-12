@@ -232,7 +232,9 @@ do
   -- mutants du planificateur
   local psrc = read_all("shared/team/planner.lua")
   local pmut = {
-    { "poste sans la garde voulue", "local wt = math.max(o.want_t or 0, T.defend_turrets(o.drills))", "local wt = T.defend_turrets(o.drills)" },
+    -- (CC-TOURELLES F489, 60b8e863 : la garde voulue est plafonnée par T.defend_outpost_max : repère suivi)
+    { "poste sans la garde voulue", "local wt = math.min(T.defend_outpost_max, math.max(o.want_t or 0, T.defend_turrets(o.drills)))",
+      "local wt = math.min(T.defend_outpost_max, T.defend_turrets(o.drills))" },
     { "poste jamais pour un avant-poste défendu", "if lacking[o.id] or (o.turrets or 0) < wt then", "if lacking[o.id] then" },
     { "protection sans la garde voulue", "(o.turrets or 0) < (o.want_t or T.defend_turrets(o.drills)) then protect_any = true end", "(o.turrets or 0) < T.defend_turrets(o.drills) then protect_any = true end" },
   }

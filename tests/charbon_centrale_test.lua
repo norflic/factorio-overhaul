@@ -4,8 +4,8 @@
   2. Le VRAI code de script/team/build.lua (quai_tasks, cc_say, plant_burn_kw, plant_automated, charbon_step), extrait entre ses
      repères et exécuté avec un moteur de bouchons : tâche urgente avant le vide, journal par épisode, projet d'alimentation demandé
      une fois, rang, refus et pause, centrale automatisée.
-  3. Chaîne statique : plan_project → plan_alim → Build.plan_drills → plan_finish ; pulse_team → charbon_step ; Build.burn_rate compte
-     les chaudières nourries à la main.
+  3. Chaîne statique : plan_project → plan_alim → Build.plan_drills → plan_finish ; pulse_team → charbon_step (Build.burn_rate, qui comptait
+     les chaudières nourries à la main, est supprimée par F546).
   Usage, depuis la racine du mod :   lua5.2 tests/charbon_centrale_test.lua
 ]]
 package.path = "./?.lua;" .. package.path
@@ -348,7 +348,7 @@ check(src:find("return plan_finish(f, surface, p, masks, false)", 1, true) ~= ni
 local pt0 = src:find("local function pulse_team", 1, true)
 local pt1 = pt0 and src:find("local function teams", pt0, true)
 check(pt0 ~= nil and pt1 ~= nil and src:sub(pt0, pt1):find("charbon_step(f, tick)", 1, true) ~= nil, "pulse_team appelle charbon_step (dans son corps, sans exiger la ligne suivante)")
-check(src:find("if hand and sp and sp.water and sp.burner_kw then", 1, true) ~= nil, "Build.burn_rate compte les chaudieres nourries a la main")
+-- (F546, b55b8e5f : Build.burn_rate est supprimée ; les chaudières comptent au plafond mesuré, script/team/plafond_charbon.lua)
 check(src:find("local r = Cc.refill(", 1, true) ~= nil, "quai_tasks lit la regle de remplissage")
 check(src:find("name == \"no_alim\"", 1, true) ~= nil, "reglage de banc no_alim")
 check(src:find("if p.state == \"fini\" or p.state == \"chantier\" or (p.reopened and p.state ~= \"refuse\" and is_plant_project(p)) then\n        quai_tasks(f, p, surface, tasks)", 1, true) ~= nil,

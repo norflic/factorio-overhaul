@@ -22,7 +22,10 @@ end
 ---------------------------------------------------------------------------------------------------
 local logs
 log = function(s) logs[#logs + 1] = s end
+-- Lot TESTS-VERTS : script/team/zone_equipe.lua (UPS-HYGIENE, a9010348) requiert script/team/boite_chunks.lua, abonné à
+-- defines.events.on_chunk_generated au chargement (POULS, c03b7f67).
 defines = defines or {}
+defines.events = defines.events or { on_chunk_generated = 34 }
 local PROTO = {
   ["small-electric-pole"] = { max_wire_distance = 7.5, supply_area_distance = 2.5 },
 }

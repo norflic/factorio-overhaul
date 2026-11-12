@@ -268,7 +268,10 @@ do
       deferred = {}, stock = rich, incoming = {}, outposts = outposts, pending = {}, sites = {}, smelters = 2,
       smelters_pending = 0, smelter_task = false, smelter_output = 0, smelter_fuel_low = false, smelter_coal = 0,
       turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 8, workers_max = 30, workers_idle = 0,
-      threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = {}, hq_turrets = T.defend_hq }
+      threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = {}, hq_turrets = T.defend_hq,
+      -- F546 (b55b8e5f) : le manque de charbon est le plafond mesuré (view.coal_cap), plus le bilan des foreuses : le fer brûle plus
+      -- que le charbon extrait
+      coal_cap = { need = 1.5, capacity = 1.0 } }
     for k, x in pairs(over or {}) do v[k] = x end
     v.recruit_cost = S.recruit_cost(v.workers)
     return Planner.plan(v, book)

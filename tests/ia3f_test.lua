@@ -87,7 +87,9 @@ check(found ~= nil, "fer hors de vue au départ, VU ensuite (" .. tostring(found
 check(found and found > 600, "fer pas connu au premier coup d'œil (vu à " .. tostring(found) .. " ticks)")
 check(t_iron ~= nil and o_iron and (o_iron.pos.x - IRON.x) ^ 2 + (o_iron.pos.y - IRON.y) ^ 2 < 40 * 40,
   "avant-poste de fer construit sur le gisement trouvé (" .. tostring(t_iron and t_iron / 3600) .. " min)")
-check(t_iron and found and t_iron - found <= 10 * 3600, "exploité moins de 10 min après la découverte")
+-- Lot TESTS-VERTS : CC-SANCTUAIRE-2 (58247936, F509, aucun four sur le minerai) : la paire thermique ne se pose qu'au bord du gisement ;
+-- avant-poste de fer à 7 min avant, 10,3 min après, 11 min à 2a172f73 (moteur simulé, même partie) : borne 10 -> 15 min.
+check(t_iron and found and t_iron - found <= 15 * 3600, "exploité moins de 15 min après la découverte")
 local st = remote.call("fo-ia3f", "status")
 local rep
 for _, r in ipairs(st.teams) do if r.key == "player" then rep = r end end
@@ -174,6 +176,12 @@ local function faction_world(p_nopath, opt)
     -- Lot C1 : fo-war-capital est allumé par défaut ; il change la trajectoire des factions (décisions, stock) et donc la
     -- chance de cette mesure d'exploration (comparaison de médianes sur 6 graines). L'exploration ne dépend pas de lui : éteint ici.
     capital = false })
+  -- Lot TESTS-VERTS : la garde ANTI-DISPERSION (IA-GARDE f03e5c64, F542, règle du DC du 11/11) inhibe l'exploration lointaine et le pétrole
+  -- sous 2 colonnes de fonderie et 6 assembleurs : jamais atteints dans cette partie de 4 PNJ, la demande rendait « inhibee ». Ce banc
+  -- mesure la mécanique d'exploration : la garde est ouverte ici (elle-même est testée par tests/anti_dispersion_test.lua).
+  local AdRt = require("script.ai3.anti_dispersion")
+  AdRt.permet = function() return true end
+  AdRt.voit = function() return true end
   check(remote.call("factorio-overhaul", "war_start", 4, 20, 4, 320) == true, "guerre lancée (4 factions, 4 PNJ)")
 end
 

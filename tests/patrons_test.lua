@@ -628,7 +628,8 @@ local function battery(Pm, verbose, tag)
       if gq then
         local errs = M.check(gq)
         chk(#errs == 0, "ruban : contrôle vide (" .. tostring(errs[1]) .. ")")
-        chk(gq.w == 11 and gq.h == 14 and gq.gen == "ruban" and gq.no_rotate == true and gq.level_arg == 1 and #gq.args == 4, "ruban : 11 × 14 (la hauteur du bloc), gen ruban, non orientable, args du bloc")
+        -- (MALL-DIRECTIONS, 10e5f16c, F461 : le ruban est ORIENTABLE, la série suit l'orientation de sa première section)
+        chk(gq.w == 11 and gq.h == 14 and gq.gen == "ruban" and not gq.no_rotate and gq.level_arg == 1 and #gq.args == 4, "ruban : 11 × 14 (la hauteur du bloc), gen ruban, orientable, args du bloc")
         chk(type(gq.ruban) == "table" and gq.ruban.belts[1] == 7 and gq.ruban.fam == "ruban-" .. MN, "ruban : g.ruban = ligne du convoyeur A (7), famille")
         local pa, pb
         for _, pt in ipairs(gq.ports) do
@@ -645,7 +646,7 @@ local function battery(Pm, verbose, tag)
         for _, r in ipairs(rr) do chk(near(gq.nominal[r.products[1].name], 0.05, 1e-12), "ruban : débit de " .. r.products[1].name) end
         local gq2 = M.regenerate(gq)
         chk(gq2 and M.serialize(gq) == M.serialize(gq2), "ruban : regenerate identique")
-        chk(M.rotate(gq, 1) == nil, "ruban : la rotation est refusée (la série va vers l'est)")
+        chk(M.rotate(gq, 1) ~= nil, "ruban : la rotation est permise (MALL-DIRECTIONS : séries dans les quatre directions)")
         -- la géométrie est celle de Mp.pattern : machines et convoyeurs aux mêmes lignes
         local Mp = require("shared.team.mall_paving")
         local pat = Mp.pattern({ asm = { w = 3, h = 3 }, belts = 2, n = 3 })

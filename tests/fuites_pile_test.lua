@@ -404,7 +404,8 @@ has(build, "if Build.reserve_suspended(f, p, tick) then return end", "plan direc
 has(build, "if not Build.grow_suspended(f, p, ln, tick) and ligne_one(f, surface, p, ln, cfg, tick) then return end",
   "plan directeur : l'agrandissement des lignes passe par la porte")
 has(build, "local conv_ok, conv_why = PileRt.porte(f, \"upgrade\", nil)", "plan directeur : amélioration des tapis suspendue")
-has(build, "rebuilding = rebuilding, growth =", "plan directeur : Build.brief distingue reconstruction et agrandissement")
+-- (EXPANSION-LOINTAINE, 1552119c : p.progressif s'est glissé entre les deux champs de Build.brief)
+has(build, "rebuilding = rebuilding, progressif = p.progressif or nil, growth =", "plan directeur : Build.brief distingue reconstruction et agrandissement")
 has(mig, "pile = \"migration\" }", "migration du champ : famille posée sur sa demande")
 has(cerv, "Pi.suspend(pile, g.key, \"module neuf du plan directeur (\"", "pensée : refus d'un module neuf noté")
 has(prt, "if Rule.rebuilding(q) and Rule.HOLD_STATES[q.state] then", "pile : le cadre « réparer:plan » ne compte que les reconstructions")

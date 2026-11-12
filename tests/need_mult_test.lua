@@ -68,6 +68,13 @@ local function scenario(cerveau_src)
         fp.team.ia3 = fp.team.ia3 or {}
         fp.team.ia3.saturated = { stone = true, coal = true, ["copper-ore"] = true, ["iron-ore"] = true }
         fp.team.ia3.other_short = true
+        -- Lot TESTS-VERTS : PURGE-MINE (77c26cc8, F544) a retiré le minage à la main du fond dans cette partie : plus aucune tâche de
+        -- fond d'une matière saturée n'arrivait au tableau, et Ia3.after_poles n'avait rien à retirer. Une tâche de fond d'une matière
+        -- saturée (agrandir l'avant-poste de pierre, sans objet) est posée avant son passage : le retrait et la resynchronisation sans
+        -- plan ni vue ont lieu comme avant.
+        if f == fp then
+          Board.add(f, { { key = "need-mult:fond", kind = "extend", prio = 1, outpost_kind = "stone", fond = true } }, tick)
+        end
       end
       local d = oafter(f, tick)
       st.dropped = st.dropped + (d or 0)
