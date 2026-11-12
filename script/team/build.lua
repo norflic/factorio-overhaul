@@ -3788,6 +3788,7 @@ local function move_turrets_off(f, surface, p, e)
         return false
       end
       f.build.stats.turrets_moved = (f.build.stats.turrets_moved or 0) + 1
+      if Outposts.on_resource_probe and Outposts.on_resource_probe(surface, x.name, x.position) then log(string.format("[FO-SONDE-MINERAI] %s : tourelle deplacee sur une ressource en (%g, %g)", tostring(f.key), x.position.x, x.position.y)) end
       Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. ")",
         string.format("deplacee en (%.1f, %.1f)", x.position.x, x.position.y))
       Build.axe_log(f, string.format("projet %d : tourelle deplacee de (%g, %g) a (%g, %g) : elle occupait l'emprise de %s en (%g, %g) ; %d couloir(s) d'extension",

@@ -105,6 +105,7 @@ function Outposts.ammo_name(tech, f)
   return type(v) == "string" and v or T.turret_ammo
 end
 
+Outposts.on_resource_probe = function(surface, name, pos) return PlacesQG.on_resource(surface, name, pos) end -- SONDE (temporaire)
 function Outposts.add_turret(f, turret, oid, ammo_count)
   if ammo_count and ammo_count > 0 then turret.insert({ name = Outposts.ammo_name(f.tech), count = ammo_count }) end
   f.turrets[turret.unit_number] = turret
@@ -745,6 +746,7 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
       if pos and (accept == nil or accept(pos)) and Pose.spaced(pos.x, pos.y, near, gap) then
         local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
         if t then
+          if PlacesQG.on_resource(surface, T.turret, t.position) then log(string.format("[FO-SONDE-MINERAI] %s poste %s : tourelle sur une ressource en (%g, %g), place cherchee (%g, %g), passe %d", tostring(f.key), tostring(oid), t.position.x, t.position.y, pos.x, pos.y, pass)) end
           carrier.remove({ name = T.turret, count = 1 })
           for _, ammo in ipairs(ammos) do
             local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
