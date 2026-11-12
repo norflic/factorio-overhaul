@@ -340,6 +340,9 @@ function P.want_kit(E, proj, list, prio, tag)
   local room = math.min(Kit.MAX_KITS, P.MAX_CRAFTS - E.crafts)
   local res = Kit.build(E.book, E.avail, shorts, { max_kits = room })
   E.avail = res.avail
+  -- lot KITS-VOLES : les projets du plan directeur pour lesquels le kit est fabriqué (g.pids, copiés : la tâche va dans global) ; le dépôt
+  -- au QG les leur remet (AmRt.deliver), jamais au premier projet en réserve de la file
+  local owners = (proj.goal and proj.goal.pids) or {}
   local idx = 0
   for _, kit in ipairs(res.kits) do
     local key
@@ -351,8 +354,10 @@ function P.want_kit(E, proj, list, prio, tag)
     local head = kit.wants[1]
     local pieces = {}
     for _, w in ipairs(kit.wants) do pieces[#pieces + 1] = { w[1], w[2] } end
+    local pids = {}
+    for _, id in ipairs(owners) do pids[#pids + 1] = id end
     local added = P.add(E, { key = key, kind = "craft", prio = prio, item = head[1], count = head[2], kit = pieces,
-      steps = kit.crafts, uses = sorted_uses(kit.uses), tag = "ia3", ia3 = proj.id, why = proj.key })
+      steps = kit.crafts, uses = sorted_uses(kit.uses), tag = "ia3", ia3 = proj.id, why = proj.key, pids = pids })
     if added and E.st then
       Kit.announce(E.st, E.tick or 0, { what = "emis", key = key, pid = proj.id, project = proj.key, pieces = pieces,
         crafts = #kit.crafts, energy = kit.energy, slots = kit.slots })

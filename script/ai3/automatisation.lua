@@ -635,7 +635,7 @@ function Auto.think(f, view, book, tick, research)
   if st.plant_id and st.plant_state ~= "fini" and st.plant_state ~= "refuse" then
     local ps = Build.brief(f, st.plant_id)
     if ps then
-      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+      mods[#mods + 1] = { id = st.plant_id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end
   -- Lot CORR-ENERGIE : une centrale de plus, demandée par le plan directeur (saturation), est un projet du cerveau comme la
@@ -643,7 +643,7 @@ function Auto.think(f, view, book, tick, research)
   for _, id in ipairs(f.build and f.build.extra_plants or {}) do
     local ps = Build.brief(f, id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+      mods[#mods + 1] = { id = id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end
   -- Lot ENERGIE (relecture) : le projet d'alimentation de la centrale (foreuses, tapis, poteaux ; demandé par le plan directeur, charbon_step)
@@ -652,7 +652,7 @@ function Auto.think(f, view, book, tick, research)
   local alim_id = Build.alim_project(f)
   if alim_id then
     local ps = Build.brief(f, alim_id)
-    if ps then mods[#mods + 1] = { product = "centrale-alim", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain } end
+    if ps then mods[#mods + 1] = { id = alim_id, product = "centrale-alim", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain } end
   end
   -- Lot MIGRATION-DECLENCHE (retour du DC du 29/10, 0.6.18 : « ils doivent automatiser, ils peuvent plus laisser des foreuses
   -- thermiques comme ça posées ») : la ligne électrique demandée par la migration du champ (script/team/migration_champ.lua) est un
@@ -667,7 +667,7 @@ function Auto.think(f, view, book, tick, research)
       if not mp.item then Build.tag(f, mig_id, "migration", nil) end -- lot FUITES-PILE : sauvegardes d'avant ce lot
       -- lot FUITES-PILE : famille de la pile ; une migration EN CHANTIER (paires déjà retirées) continue pendant la retenue
       local fam = mp.item and "capi" or "migration"
-      mods[#mods + 1] = { product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing or {},
+      mods[#mods + 1] = { id = mig_id, product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing or {},
         reason = ps.reason, gain = 0, -- valeur de base d'un module
         pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
     end
@@ -678,7 +678,7 @@ function Auto.think(f, view, book, tick, research)
   for i, id in ipairs(Ln.coal_feeds(f.build and f.build.order, f.build and f.build.projects)) do
     local ps = Build.brief(f, id)
     if ps then
-      mods[#mods + 1] = { product = (i == 1) and "champ-charbon" or ("champ-charbon-" .. i), state = ps.state, missing = ps.missing or {},
+      mods[#mods + 1] = { id = id, product = (i == 1) and "champ-charbon" or ("champ-charbon-" .. i), state = ps.state, missing = ps.missing or {},
         reason = ps.reason, gain = 0 }
     end
   end
@@ -688,7 +688,7 @@ function Auto.think(f, view, book, tick, research)
   for i, lp in ipairs(LigneBande.projects(f)) do
     local ps = Build.brief(f, lp.pid)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      mods[#mods + 1] = { product = (i == 1) and "ligne-bande" or ("ligne-bande-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0,
+      mods[#mods + 1] = { id = lp.pid, product = (i == 1) and "ligne-bande" or ("ligne-bande-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0,
         pile = "couverture", line = true }
     end
   end
@@ -698,7 +698,7 @@ function Auto.think(f, view, book, tick, research)
   for i, rp in ipairs(Build.Rapatriement.projects(f)) do
     local ps = Build.brief(f, rp.pid)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      mods[#mods + 1] = { product = (i == 1) and "rapatriement" or ("rapatriement-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason,
+      mods[#mods + 1] = { id = rp.pid, product = (i == 1) and "rapatriement" or ("rapatriement-" .. i), state = ps.state, missing = ps.missing or {}, reason = ps.reason,
         gain = 0, pile = rp.pile, line = true }
     end
   end
@@ -711,7 +711,7 @@ function Auto.think(f, view, book, tick, research)
     -- (Capi.think le ferme quand tous ses modules sont finis), personne d'autre ne ferait de but « auto:<produit> » pour les objets à refaire.
     if Sweep.goal_for_module(m) then
       -- lot FUITES-PILE (fuite b) : famille de la pile (reconstruction, agrandissement, module neuf), lue par la pensée (Pi.porte)
-      mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain,
+      mods[#mods + 1] = { id = m.id, product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain,
         pile = Pi.module_family(m.rebuild, m.grow_step, m.capi, nil) }
     end
     -- Lot MAIN-ET-INTERMEDIAIRES (D10) : produit au plafond de stock (script/team/intermediaires.lua) : rien n'est fabriqué pour ses quais.

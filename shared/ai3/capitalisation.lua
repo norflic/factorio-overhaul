@@ -2770,7 +2770,7 @@ function Ca.goals(goals, res, open)
     -- extraction qui se rembourse en quelques minutes passe avant ce qui consomme la matière qu'elle produit. L'armée et les
     -- munitions gardent leur rang, leurs parts restent réservées (Ca.capi_view).
     if o.kind ~= "techno" then goals[#goals + 1] = { key = "capi:" .. o.key, family = fam, kind = "capi", value = o.value or Ca.V_MIN, fond = true,
-      invest = (o.short and true) or nil, order = copy } end
+      invest = (o.short and true) or nil, order = copy, pids = copy.mod_ids } end -- (pids, lot KITS-VOLES : modules de l'ordre, P.want_kit)
   end
   table.sort(goals, function(a, b)
     if a.value ~= b.value then return a.value > b.value end

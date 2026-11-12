@@ -189,12 +189,36 @@ end
 --- p.missing, écrit par Build.reserve) va à p.stock du module, sans passer par le coffre : un coffre plein refuse tout objet non vital (M0), et le
 --- cycle « module de chaîne -> assembleurs 2 -> circuits -> module de chaîne » (M4) ne se coupait jamais. Rend le nombre d'objets remis
 --- (retirés de `inv`, comptés livrés au QG). La règle est Am.direct (shared/ai3/amorce.lua).
-function AmRt.deliver(f, inv, name, n)
+--- Lot KITS-VOLES : `kits` = { { pids = { id… }, n = k } }, la part de `name` que portent des KITS et les projets pour lesquels chacun a été
+--- fabriqué (tâche du kit, P.want_kit). La part d'un kit n'est offerte qu'à SES projets ; ce qu'ils n'attendent pas (mort, fini, servi) reste
+--- pour le coffre (stock commun). Avant, tout allait au premier projet en réserve de b.order : scarlet, graine 2507543475, le réseau du
+--- charbon (projet 7) prenait les tapis des kits des modules 3, 4 et 13, refusés « materiaux introuvables » à 44,7 min.
+function AmRt.deliver(f, inv, name, n, kits)
   local b = f and f.build
   if not (b and b.order and b.projects and inv) then return 0 end
+  local given, free = 0, n or 0
+  for _, k in ipairs(kits or {}) do
+    local part = math.min(free, k.n or 0)
+    if part > 0 then
+      local own = {}
+      for _, id in ipairs(k.pids or {}) do own[id] = true end
+      local g = AmRt.give(f, inv, name, part, own)
+      log(string.format("[FO-KIT-REMISE] %s : %d %s d'un kit (projets %s) : %d remis a ses projets, %d au coffre a %.1f min", f.key or "?", part, name,
+        table.concat(k.pids or {}, ","), g, part - g, (game and game.tick or 0) / 3600))
+      given, free = given + g, free - part
+    end
+  end
+  if free > 0 then given = given + AmRt.give(f, inv, name, free, nil) end
+  if given > 0 then f.team.delivered[name] = (f.team.delivered[name] or 0) + given end
+  return given
+end
+
+--- Remet au plus `n` objets `name` aux projets de b.order qui les attendent (Am.direct) ; `own` (ensemble d'ids) : à ces projets seulement.
+function AmRt.give(f, inv, name, n, own)
+  local b = f.build
   local list = {}
   for _, id in ipairs(b.order) do
-    local p = b.projects[id]
+    local p = (own == nil or own[id]) and b.projects[id] or nil
     -- lot CHARBON-CENTRALE : un projet ROUVERT pour reconstruction (Sw.rebuilding) dont le chantier a repris (REBUILD-RAPIDE : défrichage, fantômes,
     -- chantier ; p.missing tenu par refresh_missing) attend aussi, et d'abord : ses pièces détruites (tapis du charbon de la centrale) ne sont
     -- refaites que si l'objet atteint son p.stock ou le coffre, et la réserve d'un module neuf prenait tout au dépôt
@@ -221,10 +245,10 @@ function AmRt.deliver(f, inv, name, n)
       end
       p.missing, p.reserve_next = rest, nil
       given = given + got
-      log(string.format("[FO-AMORCE] %s : %s", f.key or "?", Am.describe_direct({ id = a.id, item = name, n = got, rebuild = a.rebuild }, (game and game.tick or 0) / 3600)))
+      log(string.format("[FO-AMORCE] %s : %s%s", f.key or "?", Am.describe_direct({ id = a.id, item = name, n = got, rebuild = a.rebuild }, (game and game.tick or 0) / 3600),
+        own and " (kit du projet)" or ""))
     end
   end
-  if given > 0 then f.team.delivered[name] = (f.team.delivered[name] or 0) + given end
   return given
 end
 
