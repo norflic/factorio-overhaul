@@ -45,4 +45,21 @@ function Ln.decide(items)
   return out
 end
 
+--- Lot TAPIS-MANQUANTS (12/11) : les RÉSEAUX DU CHARBON vivants (projets à part d'une bande, liés ou non ; spec.champ.coal) dont le cerveau
+--- fabrique les manques (but « auto:champ-charbon », script/ai3/automatisation.lua), comme l'alimentation de la centrale. Avant, aucun but :
+--- Mig.projects ne rend que les bandes, leurs tapis n'arrivaient que par la remise directe des kits d'autres projets (scarlet, graine
+--- 2507543475 : projet 7 à 0/122 de 14 à 60 min, 23 fours de la bande sans charbon). order, projects : ceux du plan directeur (f.build) ;
+--- rend les identifiants, dans l'ordre du plan directeur.
+Ln.FED = { attente = true, plan = true, reserve = true, defrichage = true, fantomes = true, chantier = true }
+
+function Ln.coal_feeds(order, projects)
+  local out = {}
+  for _, id in ipairs(order or {}) do
+    local q = projects and projects[id]
+    local cs = q and q.spec and q.spec.champ
+    if cs and cs.coal ~= nil and Ln.FED[q.state] then out[#out + 1] = id end
+  end
+  return out
+end
+
 return Ln
