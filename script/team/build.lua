@@ -28,9 +28,7 @@ local Board = require("script.team.board")
 local ChantierLent = require("script.team.chantier_lent") -- lot AZURE : trace [FO-CHANTIER-LENT] (lecture seule)
 local Tokens = require("script.team.tokens")
 local Profiler = require("script.core.profiler")
-local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
-local RevueObst = require("shared.team.revue_obstacles") -- lot AGEBLOCAGE : curseur de la revue des obstacles
 local M = require("shared.team.modules")
 local Saut = require("shared.team.champ_saut") -- lot FONDERIE : foreuse de bande sautée quand une tourelle de l'équipe a pris son emprise
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
@@ -54,13 +52,11 @@ local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'ext
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : amorce à la main des chaudières à sec, porte des consommateurs
-local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
-local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
 local Jeton = require("script.team.pouls_jeton") -- lot POULS : un seul relevé lourd du pouls par tick (réseau ou raccord)
 local BoiteChunks = require("script.team.boite_chunks") -- lot POULS : boîte des chunks générés (relevé du réseau par bandes)
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
-local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
+local Outposts = require("script.faction.outposts") -- lot AUTO : crochets des poseurs de tourelles (Outposts.corridors)
 local PlacesQG = require("script.ai3.places_qg") -- lot FOUR-PLEIN : crochet des tuiles réservées (PlacesQG.reserved) ; lot TOURELLES-MINERAI : PlacesQG.on_resource (tourelle déplacée)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG avant un module neuf (règle pure)
@@ -74,6 +70,10 @@ local Build = {}
 -- lot DECOUPLAGE : le type de prototype d'une entité de gabarit (BOX_MINAGE / BOX_FONDERIE de P.fit), lu dans les données du jeu
 Build.Sm = require("shared.team.sol_minerai")
 Build.Sm.type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
+-- lot DEFAUTS-REVELES : bloc principal à 200 locales (limite de Lua) ; modules lus en un seul endroit = champs de Build, pas des locales
+Build.RevueObst = require("shared.team.revue_obstacles") -- lot AGEBLOCAGE : curseur de la revue des obstacles
+Build.Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
+Build.Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
 
 Build.RADIUS = 3              -- carré de lots évalué au départ (7 × 7)
 Build.RADIUS_MAX = 5
@@ -185,9 +185,11 @@ local function bump(t, k, n) t[k] = (t[k] or 0) + (n or 1) end
 
 local function dist2(a, b) local dx, dy = a.x - b.x, a.y - b.y; return dx * dx + dy * dy end
 
-local ITEM_OF = {}
 --- Objet qui pose une entité (prototype du jeu ; mémoire locale, jamais dans global).
-local function item_of(name)
+local item_of
+do
+local ITEM_OF = {}
+function item_of(name)
   local it = ITEM_OF[name]
   if it == nil then
     local p = game.entity_prototypes[name]
@@ -197,6 +199,7 @@ local function item_of(name)
   end
   return it or nil
 end
+end -- do
 
 local function team_of_key(key)
   if key == "player" then return State.faction("player") end
@@ -211,10 +214,14 @@ local function surface_of(f)
   return f.hq and f.hq.valid and f.hq.surface or nil
 end
 
-local function strict(b, x0, y0, x1, y1)
+local strict
+do
+local Foot = require("shared.levels.footprint") -- DEFAUTS-REVELES : locale du seul strict
+function strict(b, x0, y0, x1, y1)
   return Foot.overlap({ x0 = x0, y0 = y0, x1 = x1, y1 = y1 },
     { x0 = b.left_top.x, y0 = b.left_top.y, x1 = b.right_bottom.x, y1 = b.right_bottom.y })
 end
+end -- do
 
 ---------------------------------------------------------------------------------------------------
 -- État
@@ -297,7 +304,7 @@ end end
 ---------------------------------------------------------------------------------------------------
 -- Évaluation d'un lot ou d'un tronçon : 3 appels du moteur, aucune entité posée
 ---------------------------------------------------------------------------------------------------
-local WALKABLE_OWN = { ["transport-belt"] = true, ["underground-belt"] = true, ["splitter"] = true, ["electric-pole"] = true }
+Build.WALKABLE_OWN = { ["transport-belt"] = true, ["underground-belt"] = true, ["splitter"] = true, ["electric-pole"] = true }
 
 local function survey(surface, force, x0, y0, x1, y1, seg)
   local area = { { x0, y0 }, { x1, y1 } }
@@ -314,7 +321,7 @@ local function survey(surface, force, x0, y0, x1, y1, seg)
       elseif fn == force then
         -- un tronçon de rue reste praticable sous nos tapis et nos poteaux (correction du 27/10 : 9 rues « fermées
         -- par nos bâtiments » après défrichage au banc ia1-build-foret)
-        if not (seg and WALKABLE_OWN[t]) then s.own = s.own + 1 end
+        if not (seg and Build.WALKABLE_OWN[t]) then s.own = s.own + 1 end
       elseif fn == "neutral" then s.rocks = s.rocks + 1
       elseif fn ~= "enemy" then s.foreign = s.foreign + 1 end
     end
@@ -455,7 +462,7 @@ local THAW = nil
 
 --- Lot ÉTAGE 5 : tuiles des couloirs d'accès des avant-postes de l'équipe `f` (shared/team/couloir.lua), ensemble { [P.tkey] = id d'avant-poste }.
 --- Lecteurs : read_masks (free : foreuses et poteaux du plan ; les tapis traversent, un tapis ne bloque pas un personnage), la vue des poteaux
---- (masques_view), Build.reserved_entity (agrandissements et tourelles, crochet Outposts.reserved ; remplacements de foreuse) et le masque de la
+--- (masques_view), Build.reserved_entity (agrandissements et tourelles, crochet PlacesQG.reserved ; remplacements de foreuse) et le masque de la
 --- migration du champ électrique (script/team/champ.lua). Cache LOCAL (jamais dans global, vide à chaque chargement), refait quand un accès ou
 --- le QG change : il ne dépend que de l'état. Règle coupée (f.team.couloir_off, bancs témoins) : ensemble vide.
 --- Revue (performance) : un seul relevé par tick et par équipe (c.tick == game.tick) ; Build.couloirs_reset(f) l'efface quand un accès est
@@ -979,8 +986,10 @@ end
 
 --- Tuiles de minerai `res` d'un lot (un appel). Lot PD-FONDERIEQG (D82) : `set.axis` = sens du gisement dans le lot ("x", "y"
 --- ou nil : rond ou trop petit ; shared/team/orient.lua), lu par place_module pour orienter une ligne de foreuses.
+local mel_category
+do
 local MEL_CAT = {} -- lot MELANGE : catégorie d'une ressource (mémoire LOCALE, prototypes seulement)
-local function mel_category(name)
+function mel_category(name)
   local c = MEL_CAT[name]
   if c == nil then
     local pp = game.entity_prototypes[name]
@@ -989,6 +998,7 @@ local function mel_category(name)
   end
   return c
 end
+end -- do
 
 local function ore_set(surface, rect, res)
   local set, n = {}, 0
@@ -1600,6 +1610,8 @@ end
 --- Lot IA3-e : un bras ÉLECTRIQUE de quai (tête d'alimentation, quai de sortie) hors de l'aire des poteaux du module ne
 --- reçoit pas de courant (moteur réel, e5-usine, diagnostic : « inserter:no_power » aux quais, fours « no_fuel » faute du
 --- bras du charbon) : un poteau moyen est ajouté sur une tuile libre voisine (le moteur le relie seul aux poteaux à portée).
+local quai_poles
+do
 local QUAI_ROLES = { ["quai-bras"] = true, ["sortie-bras"] = true }
 local function covered_by(poles, e)
   for _, q in ipairs(poles) do
@@ -1610,7 +1622,7 @@ local function covered_by(poles, e)
   end
   return false
 end
-local function quai_poles(b, p, list, masks, pole_name)
+function quai_poles(b, p, list, masks, pole_name)
   local poles = {}
   for _, e in ipairs(p.ents) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
   for _, e in ipairs(list) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
@@ -1636,6 +1648,7 @@ local function quai_poles(b, p, list, masks, pole_name)
   end
   return extra
 end
+end -- do
 
 --- Lot AGENCEMENT : bras de sortie par tapis de sortie d'un gabarit : (nom du bras, nombre) pour au plus `fan_max` bras (1 : le
 --- quai d'avant seul, comme avant le lot ; 2 : un second bras et son coffre sur le côté extérieur du bout du tapis, dont la place
@@ -1958,13 +1971,9 @@ function Build.reserved_entity(f, name, pos, dir, opts)
   return by_cor
 end
 
--- Crochet des avant-postes (script/faction/outposts.lua, déjà chargé par script/team/worker.lua avant ce fichier : ni
--- l'ordre des require ni celui des abonnements ne change).
-Outposts.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end
--- Lot STOCKAGE : les annexes du QG (script/team/stock.lua) sautent une place réservée par le plan directeur.
-Stock.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos) end
--- Lot FOUR-PLEIN : les labos et les fours du QG (script/ai3/places_qg.lua) sautent une tuile d'un projet planifié (b.occ, sans les couloirs).
-PlacesQG.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos, nil, { couloir = false }) end
+-- Lot TUILES-RESERVEES : crochet UNIQUE des tuiles réservées (script/ai3/places_qg.lua, PlacesQG.is_reserved), lu par tous les poseurs
+-- hors du plan (avant-postes, tourelles, annexes, fours et labos du QG, centre, reconstruction, remplacements de foreuse, hygiène).
+PlacesQG.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end
 
 --- Lot TOURELLES-HORS-AXE (retour du DC du 29/10 sur 0.6.18, défaut 4 : « le canon est en plein milieu [...] si on voulait étendre
 --- sur la gauche [...] on pourrait pas »). Couloirs d'extension des lignes extensibles de l'équipe : la ligne de fours à tapis
@@ -2092,6 +2101,7 @@ end
 ---------------------------------------------------------------------------------------------------
 Build.FONTE_LOGS = 40 -- lignes [FO-FONTE] de la ligne dynamique, au plus, par équipe
 
+do
 local ROW_KINDS = { drill = { drill = true }, four = { furnace = true, inserter = true } }
 local SIDE_KIND = { drill = "drill", four = "furnace" }
 
@@ -2110,6 +2120,7 @@ function Build.tag_rows(ents, g, offset, which, field)
   end)
   for i, e in ipairs(ents) do if rows[i] then e[field] = rows[i] end end
 end
+end -- do
 
 local function fonte_log(f, text)
   local b = f.build
@@ -2148,12 +2159,14 @@ function Build.ligne_split(f, p, g)
     p.id, tostring(prm.ore), rows, prm.n, 2 * rows, prs, dp.pairs, why, budget, #held))
 end
 
+local read_line
+do
 local PRODUCING, DEPLETED -- mémoire LOCALE (constantes du moteur), jamais dans global
 local function in_part(pt, pos) return pos.x > pt.ox and pos.x < pt.ox + pt.w and pos.y > pt.oy and pos.y < pt.oy + pt.h end
 
 --- Relevé au moteur d'une ligne bâtie : foreuses de sa partie (qui produisent, épuisées, autres), entrée réelle (vitesse du prototype
 --- posé, niveaux compris, et productivité minière de la force), fours de son module et leur capacité. Lecture seulement.
-local function read_line(f, surface, p, ln)
+function read_line(f, surface, p, ln)
   if not PRODUCING then
     local s = defines.entity_status
     PRODUCING = { [s.working] = true, [s.low_power] = true, [s.waiting_for_space_in_destination] = true }
@@ -2189,6 +2202,7 @@ local function read_line(f, surface, p, ln)
   end
   return r
 end
+end -- do
 
 --- Rend à p.ents les pièces des rangées 1..rows+add_r et des paires 1..pairs+add_p ; le projet fini est rouvert (« reserve ») et suit
 --- le chantier ordinaire. p.reopened : non annulable tant que ses pièces ne sont pas posées (Build.cancel) ; reopened_tick n'est PAS
@@ -2550,9 +2564,11 @@ end
 --- Arbres et rochers sur l'emprise de TOUTES les entités d'un projet (un appel sur leur boîte englobante, au plan) :
 --- { [tuile] = true }. Correction du 27/10 : seul le relevé du module principal était lu, et les arbres sous les
 --- foreuses et leur tapis n'étaient découverts qu'à la pose (banc ia1-build-foret).
+local wood_of
+do
 local STRETCHED = { reseau = true, rue = true, liaison = true, ["liaison-tapis"] = true }
 
-local function wood_of(surface, ents)
+function wood_of(surface, ents)
   -- une boîte par pièce compacte (module, foreuses, têtes) ; entité par entité pour ce qui s'étire (poteaux de rue et de
   -- liaison, tapis de liaison) : un seul appel sur la boîte de tout le projet coûtait jusqu'à 68 ms en forêt (27/10)
   local boxes, order = {}, {}
@@ -2584,6 +2600,7 @@ local function wood_of(surface, ents)
   end
   return out
 end
+end -- do
 
 --- Ajoute un obstacle au projet (une fois par tuile).
 local function add_obstacle(p, o)
@@ -2605,7 +2622,7 @@ local function review_obstacles(surface, p)
   -- boucle faisait n pas : son curseur revenait à son départ, les mêmes obstacles étaient revus à chaque appel et les autres restaient
   -- ouverts, même vides (banc ageblocage-dc 717152950 : 68 obstacles vides d'Azur jamais revus de 37 à 57 min, curseur bloqué à n + 1,
   -- 30 à 44 défrichages par 5 min sur des rectangles vides, fabrications à l'arrêt).
-  local left, cur = RevueObst.review(p.obstacles, p.obst_cur, Build.OBST_CHECKS, function(o)
+  local left, cur = Build.RevueObst.review(p.obstacles, p.obst_cur, Build.OBST_CHECKS, function(o)
     return surface.count_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 }) > 0
   end)
   p.obst_cur = cur
@@ -4315,12 +4332,14 @@ end
 --- Mémoire des arbres de parcours des rues, par équipe, valable pour une version des tronçons (b.seg_ver) et un rayon.
 --- HORS de global : c'est une simple mémoire d'un calcul pur (P.route_tree), vide au chargement et recalculée au
 --- besoin, au même résultat (27/10 : 1,7 ms par marche sans elle, hors jeu).
-local ROUTES = {}
 -- Lot IA3-e : le compte des mémoires refaites reste LOCAL (une mesure) : écrit dans global, il différait entre une partie
 -- continue et la même partie rechargée (la mémoire, locale, est refaite après le chargement) ; moteur simulé, pvp_test
 -- « partie continue = partie rechargée », 2 ECHEC dès que les factions ont un plan directeur.
 local ROUTE_RESETS = {}
-local function route_cache(f)
+local route_cache
+do
+local ROUTES = {} -- mémoire des arbres de parcours (ci-dessus)
+function route_cache(f)
   local b = f.build
   local key = f.key or "player"
   local ver = tostring(b.seg_ver or 0) .. ":" .. tostring(b.radius)
@@ -4332,6 +4351,7 @@ local function route_cache(f)
   end
   return c.trees
 end
+end -- do
 
 function Build.street_route(f, p, q)
   local b = f.build
@@ -5054,8 +5074,10 @@ end
 --- Lot FACTIONS-BLOQUEES : un projet qui n'avance plus depuis 10 min (aucune entité bâtie de plus) est écrit UNE fois par équipe et
 --- par cause, journal [FO-BLOQUE] (retour du DC du 29/10 : « elles avancent pas »). Horloge propre (tous les 600 ticks), rien à
 --- l'état du jeu hors f.build.noprog (nombres et chaînes).
+local watch_stall
+do
 local STALL_STATES = { plan = true, reserve = true, chantier = true, raccordement = true, bloque = true }
-local function watch_stall(f, tick)
+function watch_stall(f, tick)
   local b = f.build
   if tick < (b.noprog_next or 0) then return end
   b.noprog_next = tick + 600
@@ -5082,6 +5104,7 @@ local function watch_stall(f, tick)
     end
   end
 end
+end -- do
 
 --- Lot CHARBON-CENTRALE : relevé des centrales finies (toutes les Cc.EVERY ticks). Une centrale encore nourrie par son coffre demande
 --- le projet « alimentation de la centrale » (règle pure Cc.want_alim : un seul ouvert par équipe, pause et plafond après des refus) ;
@@ -5214,14 +5237,14 @@ local function pulse_team(f, tick)
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Profiler.fstop("bp:suivi")
   Profiler.fstart("bp:reseau")
-  Rv.step({ plant = Build.plant, cancel = Build.cancel, box = BoiteChunks.get, jeton = Jeton, pulse = Build.PULSE, prof = Profiler }, f,
+  Build.Rv.step({ plant = Build.plant, cancel = Build.cancel, box = BoiteChunks.get, jeton = Jeton, pulse = Build.PULSE, prof = Profiler }, f,
     surface, tick)
   Profiler.fstop("bp:reseau")
   Profiler.fstart("bp:raccord")
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
   -- (lot FONDERIE, 0.6.43) champ_live : les bandes de champ en cours sont relevées aussi (fonderie à tapis allumée)
   -- (lot LOURD) box : le relevé des générateurs du début de cycle se fait par bandes de la boîte des chunks
-  Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false, jeton = Jeton,
+  Build.Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false, jeton = Jeton,
     pulse = Build.PULSE,
     prof = Profiler, box = BoiteChunks.get }, f, surface, tick)
   -- 4 ter. lot INDUSTRIE I7 : un quai d'entrée porté à la main par un PNJ, relié par un tapis à la sortie d'un module du même objet
@@ -5415,12 +5438,6 @@ local function repair_enclosure(f, surface, tick, hold, tag)
   end
 end
 
---- Menaces connues de l'équipe (nids et vers de sa carte de connaissance, lot IA3-f) : liste { x, y, w } (shared/team/enceinte.lua).
-local function known_threats(f)
-  local m = f.ai3f and f.ai3f.m
-  return Enc.known_threats(m and m.s, f.build.lat, Enc.THREAT_RANGE)
-end
-
 --- Demande le segment suivant de l'enceinte `enc` (table de b.enc, ou candidate au premier segment) : (true) ou (false, raison).
 --- Le segment est payé sur le stock : au plus un quart de ce que le coffre contient en murs ou permet d'en fabriquer.
 local function request_segment(f, enc, tick)
@@ -5429,7 +5446,9 @@ local function request_segment(f, enc, tick)
   if not wr then return false, "recette" end
   local runs = Enc.runs(b.lat, enc.r, { bounds = enc.bounds })
   local equiv = Stock.count(f, wr.item) + craftable_walls(f, wr)
-  local threats = known_threats(f)
+  -- menaces connues de l'équipe (nids et vers de sa carte de connaissance, lot IA3-f) : liste { x, y, w } (shared/team/enceinte.lua)
+  local m = f.ai3f and f.ai3f.m
+  local threats = Enc.known_threats(m and m.s, f.build.lat, Enc.THREAT_RANGE)
   -- lot ENCEINTE3 (lot A) : le segment démarre au bout du tronçon le plus proche de la menace connue de son côté, à défaut du QG
   local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, threats), enc.claimed, Enc.segment_cap(equiv),
     Enc.run_refs(runs, b.lat, threats))

@@ -564,7 +564,7 @@ Stock.capacity = capacity
 --- `take()` retire le coffre de sa source une fois l'entité créée. Rend 1 (posé) ou 0.
 local function annex_make(f, surface, item, take)
   return function(pos)
-    if Stock.reserved and Stock.reserved(f, item, pos) then return false end
+    if PlacesQG.is_reserved(f, item, pos) then return false end
     local e = surface.create_entity({ name = item, position = pos, force = f.force })
     if not (e and e.valid) then return false end
     take()
@@ -591,7 +591,7 @@ local function place_on_ground(f, surface, item, take)
   local w, h = footprint(item)
   for _, o in ipairs(annex_slots(f, w, h)) do
     local p = { x = Pl.snap(f.hq_pos.x + o[1], w), y = Pl.snap(f.hq_pos.y + o[2], h) }
-    if not (Stock.reserved and Stock.reserved(f, item, p)) and not surface.can_place_entity({ name = item, position = p, force = f.force }) then
+    if not PlacesQG.is_reserved(f, item, p) and not surface.can_place_entity({ name = item, position = p, force = f.force }) then
       local area = { { p.x - w / 2 + 0.01, p.y - h / 2 + 0.01 }, { p.x + w / 2 - 0.01, p.y + h / 2 - 0.01 } }
       local ents = surface.find_entities_filtered({ area = area })
       local held, ok = {}, #ents > 0
@@ -647,7 +647,7 @@ function Stock.annex_blockers(f, surface, item)
   local out = {}
   for _, o in ipairs(annex_slots(f, w, h)) do
     local p = { x = Pl.snap(f.hq_pos.x + o[1], w), y = Pl.snap(f.hq_pos.y + o[2], h) }
-    local reserved = (Stock.reserved and Stock.reserved(f, item, p)) and true or false
+    local reserved = PlacesQG.is_reserved(f, item, p)
     if reserved or not surface.can_place_entity({ name = item, position = p, force = f.force }) then
       local row = { x = p.x, y = p.y, ground = 0, names = {}, reserved = reserved, own = false }
       local seen = {}
@@ -757,9 +757,6 @@ Stock.smelters = nil
 Stock.demand = nil
 --- Crochet de pensée (balayage des fantômes d'aperçu), idem.
 Stock.on_think = nil
---- Une entité `name` en `pos` toucherait-elle une tuile réservée par le plan directeur ? Posé par script/team/build.lua
---- (Build.reserved_entity ; build.lua requiert ce fichier, pas l'inverse). Absent : rien n'est réservé.
-Stock.reserved = nil
 
 --- Lot ADOPTE (constat du DC : « les IA se mettent à poser des fours ») : les fours LIBRES au-delà de Ad.IDLE_KEEP sont posés
 --- au QG (registre f.smelters, rangées T.hq_rows.smelter), jusqu'à Br.SMELT_HARD fours en tout (ils sont déjà fabriqués : un four
@@ -888,7 +885,7 @@ end
 
 --- Pose un coffre du stock (au plus un par appel) quand les cases se remplissent (70 %) ou par ANTICIPATION (lot STOCKAGE :
 --- stock à 60 % depuis 5 min, ou dépôt refusé). Les places viennent du bloc de T.annex.block, du plus proche du QG au plus
---- lointain, côté extérieur ; une place réservée par le plan directeur (Stock.reserved) est sautée, sans passe de secours.
+--- lointain, côté extérieur ; une place réservée par le plan directeur (PlacesQG.is_reserved) est sautée, sans passe de secours.
 --- Rend vrai si un coffre a été posé.
 function Stock.grow(f, surface, tick)
   if not (f.hq and f.hq.valid) then return false end

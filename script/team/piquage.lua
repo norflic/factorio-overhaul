@@ -42,6 +42,7 @@ Piquage.DISC_EVERY = 10 * 3600 -- ticks entre deux découvertes pour un quai (s'
 Piquage.EMPTY_RETRY = 3 * 3600 -- ... ou 3 min quand aucune tuile n'est suivie (le tapis peut se remplir plus tard : micro-banc 8/11, découverte unique à t=0 sur un tapis vide)
 Piquage.ROUTE_WEIGHT = 1.4 -- A* pondéré de la branche : au plus 1,4 fois le meilleur tracé, bien moins de noeuds
 Piquage.ROUTE_NODES = 300  -- noeuds développés au plus par recherche (~870 instructions chacun mesurées : ~0,26 million, test « pire cas borné »)
+Piquage.ROUTE_SLICE = 200  -- lot PIQUAGE-COUT : états développés au plus par pensée (tracé par tranches, ctx.phase_slice de Tv.route ; phase B ~1 100 instructions par état)
 Piquage.SPLIT_TRIES = 3    -- poses du répartiteur au plus par liaison
 Piquage.EVAL_MAX = 3       -- quais évalués (lecture des côtés libres) au plus par relevé
 
@@ -808,8 +809,20 @@ function Piquage.plan(api, f, surface, p)
     return cst
   end
   LAST_SEARCH = game.tick
+  -- lot PIQUAGE-COUT : Trav.route fait jusqu'à DEUX recherches (tuiles, puis paires souterraines), chacune plafonnée à ROUTE_NODES : 619 000
+  -- instructions d'un tenant au pire. Le MÊME tracé se cherche par tranches (comme le tapis des foreuses, script/team/foreuses_tranches.lua) :
+  -- au plus ROUTE_SLICE états par pensée, l'état de la recherche dans p.rs_piq (tables de nombres), jeté si la branche ou le site change.
+  local sig = table.concat({ g.branch.x, g.branch.y, g.dir, site.bx, site.by, site.ax, site.ay, tostring(lc.belt), x0, y0, x1, y1 }, ":")
+  local rs = p.rs_piq
+  if rs and rs.sig ~= sig then rs = nil end
   local tiles, why, tn = api.trav.route(f, surface, p, { x = g.branch.x, y = g.branch.y }, { x = site.bx, y = site.by }, Li.end_dir(site), bounds, cost,
-    { belt = lc.belt, sd = g.dir, weight = Piquage.ROUTE_WEIGHT, max = Piquage.ROUTE_NODES, no_ore = true, no_detour = true, no_diag = true, kind = "piquage" })
+    { belt = lc.belt, sd = g.dir, weight = Piquage.ROUTE_WEIGHT, max = Piquage.ROUTE_NODES, no_ore = true, no_detour = true, no_diag = true, kind = "piquage",
+      phase_slice = Piquage.ROUTE_SLICE, phase_state = rs and rs.st or nil })
+  if not tiles and why == "pending" then
+    p.rs_piq = { sig = sig, st = tn }
+    return false, "piquage: trace de la branche en cours (tranches)", "calcul"
+  end
+  p.rs_piq = nil
   if not tiles then return false, "piquage: " .. tostring(why) end
   do
     local ok, w2 = Li.route_ok(#Tv.virtual_belts(tiles), Li.manhattan(g.branch.x, g.branch.y, site.bx, site.by))

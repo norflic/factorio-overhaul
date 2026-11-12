@@ -250,8 +250,9 @@ local PLAN_API = {
   seg_passable = function() return function() return true end end, REACH = 10,
   -- lot COLONNES : le tracé des lignes de rapatriement et de liaison (règle pure Tv.route), souterrains de portée 5, sans gisement
   trav = { route = function(f, surface, p, s, t, td, bounds, cost, o)
-    local tiles, info = require("shared.team.traversee").route(s, t, td, bounds, cost, { maxd = 5, sd = o.sd, weight = o.weight, max = o.max, no_detour = o.no_detour })
-    if not tiles then return nil, info end
+    local tiles, info, st = require("shared.team.traversee").route(s, t, td, bounds, cost, { maxd = 5, sd = o.sd, weight = o.weight, max = o.max, no_detour = o.no_detour,
+      phase_slice = o.phase_slice, phase_state = o.phase_state }) -- (lot PIQUAGE-COUT : les tranches passent comme dans Trav.route)
+    if not tiles then return nil, info, st end
     return tiles, info, { ug = "UG", maxd = 5 }
   end },
 }
@@ -402,6 +403,7 @@ end
 -- §7 pire cas BORNÉ (instructions de la machine virtuelle, jamais le temps : os.clock est trop gros et dépend de la charge du PC)
 ---------------------------------------------------------------------------------------------------
 local BUDGET = 300000 -- instructions du A* d'un appel de Piquage.plan : de l'ordre de 5 ms (cible du lead, ~60 millions d'instructions par seconde)
+local PASSES = 60     -- appels au plus d'un même plan dans ce test (une tranche par appel ; au-delà : la recherche ne finit pas)
 belt(58, -30, 2, { X = 4 }, { X = 4 })
 link_belts()
 local function far_project(id)
@@ -417,30 +419,39 @@ WALL_API.read_masks = function()
   for y = -80, 80 do blocked[P.tkey(40, y)] = true end -- un mur sans passage entre le tapis source et le quai : la recherche explore tout ce qu'elle peut
   return { water = {}, blocked = blocked, clear = {} }
 end
--- instructions du seul A* (le tracé de l'API enveloppé) : le reste du plan dépend du moteur fictif de ce test, pas du mod
+-- instructions du seul A* (le tracé de l'API enveloppé) : le reste du plan dépend du moteur fictif de ce test, pas du mod.
+-- Lot PIQUAGE-COUT : le tracé se fait par tranches, une par appel (« calcul ») : le plan est rappelé au tick suivant jusqu'au verdict.
+-- Rend le pire APPEL (le coût d'une pensée), ok, raison, le total de la recherche, le nombre d'appels, le tracé rendu (nil : aucun).
 local function instructions(mod, api, p)
-  local n = 0
+  local worst, total, passes, route = 0, 0, 0, nil
   local real = api.trav.route
   api.trav.route = function(...)
     local m = 0
     debug.sethook(function() m = m + 1000 end, "", 1000)
-    local a, b = real(...)
+    local a, b, c = real(...)
     debug.sethook()
-    n = n + m
-    return a, b
+    if m > worst then worst = m end
+    total = total + m
+    if type(a) == "table" then route = a end
+    return a, b, c
   end
-  game.tick = game.tick + 1
-  local ok, why = mod.plan(api, FACTION, SURF, p)
+  local ok, why, wait
+  repeat
+    game.tick = game.tick + 1
+    passes = passes + 1
+    ok, why, wait = mod.plan(api, FACTION, SURF, p)
+  until wait ~= "calcul" or passes >= PASSES
   api.trav.route = real
-  return n, ok, why
+  return worst, ok, why, total, passes, route
 end
 do
-  local n, ok, why = instructions(Piquage, WALL_API, far_project(30))
+  local n, ok, why, tot, np = instructions(Piquage, WALL_API, far_project(30))
   check(ok == false and (tostring(why):find("aucun chemin", 1, true) or tostring(why):find("trop long", 1, true)),
-    "7.1 mur sans passage : refus rapide, cause écrite (" .. tostring(why) .. ")")
-  check(n <= BUDGET, string.format("7.2 pire cas (boîte de 52 x 54, aucun chemin) : A* %d instructions <= %d", n, BUDGET))
-  local n2, ok2 = instructions(Piquage, PLAN_API, far_project(31))
-  check(n2 <= BUDGET, string.format("7.3 cas sans obstacle : %d instructions <= %d", n2, BUDGET))
+    "7.1 mur sans passage : refus en " .. np .. " pensée(s), cause écrite (" .. tostring(why) .. ")")
+  check(n <= BUDGET, string.format("7.2 pire cas (boîte de 52 x 54, aucun chemin) : A* %d instructions par pensée <= %d (total %d en %d pensées)", n, BUDGET, tot, np))
+  local n2, ok2, _w2, tot2, np2 = instructions(Piquage, PLAN_API, far_project(31))
+  check(n2 <= BUDGET, string.format("7.3 cas sans obstacle : %d instructions par pensée <= %d (total %d en %d pensées)", n2, BUDGET, tot2, np2))
+  check(tot <= 3 * BUDGET and np <= 8, string.format("7.5 recherche entière bornée (ROUTE_NODES par recherche, deux recherches) : %d instructions, %d pensées", tot, np))
   check(Piquage.ROUTE_WEIGHT == 1.4 and Piquage.ROUTE_NODES <= 1000, "7.4 A* pondéré à 1,4, noeuds plafonnés (" .. Piquage.ROUTE_NODES .. ")")
   -- mutants du script : le plafond de noeuds retiré, le garde « une recherche par tick » retiré
   local SRC_S = read("script/team/piquage.lua")
@@ -454,16 +465,42 @@ do
     check(not okp or seen, "mutant " .. name .. " vu")
   end
   smut("plafond de noeuds retiré", "Piquage%.ROUTE_NODES = 300", "Piquage.ROUTE_NODES = 1000000000",
-    function(Pm) local m = instructions(Pm, WALL_API, far_project(32)); return m > BUDGET end)
+    function(Pm) local _, _, _, t = instructions(Pm, WALL_API, far_project(32)); return t > 3 * BUDGET end)
   smut("heuristique non pondérée à noeuds illimités", "max = Piquage%.ROUTE_NODES", "max = 1000000000",
-    function(Pm) local m = instructions(Pm, WALL_API, far_project(33)); return m > BUDGET end)
+    function(Pm) local _, _, _, t = instructions(Pm, WALL_API, far_project(33)); return t > 3 * BUDGET end)
+  -- lot PIQUAGE-COUT : la tranche retirée rend les deux recherches d'un tenant (619 000 instructions mesurées) ; l'état de reprise jeté fait
+  -- recommencer la recherche à chaque pensée (elle ne finit jamais)
+  smut("tranche retirée", "phase_slice = Piquage%.ROUTE_SLICE", "phase_slice = nil",
+    function(Pm) local m = instructions(Pm, WALL_API, far_project(40)); return m > BUDGET end)
+  smut("état de reprise jeté", "phase_state = rs and rs%.st or nil", "phase_state = nil",
+    function(Pm) local _, _, _, _, k = instructions(Pm, WALL_API, far_project(41)); return k >= PASSES end)
   smut("garde une recherche par tick retiré", "if LAST_SEARCH == game%.tick then", "if false then",
     function(Pm)
       game.tick = game.tick + 1
       Pm.plan(PLAN_API, FACTION, SURF, far_project(34))
-      local ok = Pm.plan(PLAN_API, FACTION, SURF, far_project(35)) -- même tick
-      return ok == true or ok == false and select(3, Pm.plan(PLAN_API, FACTION, SURF, far_project(36))) ~= "calcul"
+      -- même tick : sans le garde, la seconde recherche part (lot PIQUAGE-COUT : une recherche par tranches rend aussi « calcul », la raison les distingue)
+      local _, w = Pm.plan(PLAN_API, FACTION, SURF, far_project(35))
+      return not tostring(w):find("une recherche de branche par tick", 1, true)
     end)
+  -- 7.6 lot PIQUAGE-COUT : le MÊME tracé, par tranches ou d'un tenant. Plafond porté à 5 000 états (les deux scripts) : la recherche de tuiles
+  -- échoue contre le mur, celle des paires souterraines le franchit après des dizaines de tranches
+  do
+    local function sig_of(r)
+      local t = {}
+      for _, e in ipairs(r or {}) do t[#t + 1] = string.format("%d:%d:%d:%s", e.x, e.y, e.dir, tostring(e.ug)) end
+      return table.concat(t, ";")
+    end
+    local big = SRC_S:gsub("Piquage%.ROUTE_NODES = 300", "Piquage.ROUTE_NODES = 5000", 1)
+    local whole = big:gsub("phase_slice = Piquage%.ROUTE_SLICE", "phase_slice = nil", 1)
+    local pa, pb = far_project(42), far_project(43)
+    local wa, oka, ya, _ta, na, ra = instructions(load_script(big), WALL_API, pa)
+    local wb, okb, yb, _tb, nb2, rb = instructions(load_script(whole), WALL_API, pb)
+    local ug = 0
+    for _, e in ipairs(ra or {}) do if e.ug then ug = ug + 1 end end
+    check(na > 4 and nb2 == 1 and ra ~= nil and ug >= 2 and sig_of(ra) == sig_of(rb) and oka == okb and ya == yb and pa.rs_piq == nil,
+      string.format("7.6 même tracé (%d tuiles, %d pièces souterraines) par tranches (%d pensées, %d instructions au pire) que d'un tenant (%d) ; même verdict (%s)",
+        ra and #ra or 0, ug, na, wa, wb, tostring(ya)))
+  end
   smut("plusieurs sites essayés", "local site = sites%[%(%(lc%.site_i or 1%) %- 1%) %% #sites %+ 1%]", "local site = sites[1]",
     function(Pm)
       P2.abandoned = true

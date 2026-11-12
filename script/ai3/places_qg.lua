@@ -39,12 +39,23 @@ end
 --- Lot FOUR-PLEIN : crochet des tuiles réservées par le plan directeur (b.occ), posé par script/team/build.lua (Build.reserved_entity) ;
 --- absent : rien n'est réservé. Un labo posé à 12 min sur la ligne de plaques planifiée à 9 min du champ de fer coupait ce tapis :
 --- 24 fours « sortie pleine », fer au coffre à 0 (etape1-guide, 2507543475).
+--- Lot TUILES-RESERVEES : c'est le SEUL crochet des tuiles réservées ; tous les poseurs hors du plan (avant-postes, tourelles, annexes,
+--- fours et labos du QG, centre de commandement, reconstruction, remplacements de foreuse, hygiène, adoption) le lisent par
+--- Q.is_reserved. opts : ceux de Build.reserved_entity (couloir = false : tuiles du plan seulement ; keep, blocked : remplacement sur place).
 Q.reserved = nil
 
+--- Lot TUILES-RESERVEES : l'entité `name` posée en `pos` (direction `dir`) toucherait-elle une tuile réservée au plan directeur de `f` ?
+function Q.is_reserved(f, name, pos, dir, opts)
+  return Q.reserved ~= nil and Q.reserved(f, name, pos, dir, opts) == true
+end
+
+local QG = { couloir = false } -- labos et fours du QG : tuiles du plan, pas les couloirs d'accès (lot FOUR-PLEIN)
+
 --- Lot FOUR-PLEIN : `make` qui saute (rend false : place suivante) une place réservée au plan directeur de l'équipe `f`.
-function Q.skip_reserved(f, name, make)
+--- opts : ceux de Q.is_reserved (défaut : tuiles du plan seulement).
+function Q.skip_reserved(f, name, make, opts)
   return function(pos)
-    if Q.reserved and Q.reserved(f, name, pos) then return false end
+    if Q.is_reserved(f, name, pos, nil, opts or QG) then return false end
     return make(pos)
   end
 end

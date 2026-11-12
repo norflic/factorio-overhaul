@@ -202,7 +202,7 @@ local function suite(text, se_text)
   end
   -- F. free_for : ni sur la foreuse, ni sur le four, ni sur une tuile réservée (couloir, plan directeur)
   local reserved = {}
-  local free_for = load_fn(text, "local function free_for(f, surface, pole)", { S = S, Outposts = { reserved = function(_, _, p) return reserved[p.x .. ":" .. p.y] == true end } })
+  local free_for = load_fn(text, "local function free_for(f, surface, pole)", { S = S, PlacesQG = { is_reserved = function(_, _, p) return reserved[p.x .. ":" .. p.y] == true end } })
   c("F : free_for extraite", free_for ~= nil)
   if free_for then
     local W6 = world()
@@ -419,7 +419,7 @@ local MUT = {
   { "(4) tuiles du plan jamais refaites", "  if c and c.sig == s then return c.set end", "  if c then return c.set end" },
   { "echange : compte de foreuses non tenu", "  o.drills = math.max(0, (o.drills or 0) - lost)", "" },
   -- (echange coupe en entier : vu au banc foreuses-chaine, pas ici ; l ordre chaine puis retrait est controle au texte, cas I)
-  { "couloir et plan ignores", "      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },
+  { "couloir et plan ignores", "      if PlacesQG.is_reserved(f, pole.name, { x = x, y = y }, 0) then return false end", "" },
   { "B1 : recepteur lu au vecteur de la thermique (drop_target ignore)", "  if t and t.valid then return t end", "" },
   { "B1 : relecture du four au moteur oubliee", "      if t == k then return true end", "" },
   { "B2 : paires relues a chaque appel", "    if info then return info end", "" },

@@ -186,7 +186,9 @@ end
 ---------------------------------------------------------------------------------------------------
 package.loaded["script.faction.state"] = { own = function() end, sorted_keys = function(t) local k = {} for a in pairs(t) do k[#k + 1] = a end table.sort(k) return k end }
 package.loaded["script.faction.sites"] = {}
-package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
+-- Lot TUILES-RESERVEES : crochet unique des tuiles réservées (vrai script/ai3/places_qg.lua : Q.is_reserved lit Q.reserved)
+local PQ = dofile("script/ai3/places_qg.lua")
+package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end, is_reserved = PQ.is_reserved } -- (lot DECOUPLAGE : sol sans ressource)
 local OUT_SRC = read("script/faction/outposts.lua")
 local function load_outposts(src)
   package.loaded["script.faction.outposts"] = nil
@@ -220,7 +222,7 @@ local function fortify_cases(O, label)
   local f = line_team()
   O.corridors = function(ff) return Build.corridors(ff) end
   O.axe_log = function(ff, text) log("[FO-AXE] " .. tostring(ff.key) .. " : " .. text) end
-  O.reserved = nil
+  PQ.reserved = nil
   logs = {}
   local s, placed = world()
   local n = O.fortify_at(f, s, 7, { { x = 0, y = 9 } }, 1, carrier(3))
@@ -237,11 +239,11 @@ local function fortify_cases(O, label)
   for _, l in ipairs(logs) do if l:find("[FO-AXE]", 1, true) then axe_lines = axe_lines + 1 end end
   c(n == 1 and placed[1].position.x == -9 and placed[1].position.y == 0 and axe_lines == 0, "pose hors couloir : inchangée, sans journal [FO-AXE]")
   -- côté ouest réservé (b.occ) : l'autre côté
-  O.reserved = function(_, _, q) return q.x < -4 end
+  PQ.reserved = function(_, _, q) return q.x < -4 end
   s, placed = world()
   n = O.fortify_at(f, s, 7, { { x = 0, y = 9 } }, 1, carrier(3))
   c(n == 1 and placed[1].position.x == 6, "pose : côté ouest réservé -> côté est")
-  O.reserved = nil
+  PQ.reserved = nil
   -- le moteur refuse tout hors du couloir (relief) : jamais dans le couloir, emplacement sauté
   logs = {}
   s, placed = world(function(q) return q.x < -4 or q.x >= 4 or q.y >= 12 or q.y < -12 end)
@@ -454,7 +456,7 @@ mutant("couloir court", AXE_SRC, "y0 = lot%.y0, y1 = lot%.y1, axis = \"y\"", "y0
 mutant("côté lointain", AXE_SRC, "if %(x %- c%.x0%) > %(c%.x1 %- x%)", "if (x - c.x0) < (c.x1 - x)", function(m) return with_axe(m, pure) end)
 mutant("axe inversé", AXE_SRC, "if d %% 4 == 0 then v = v %+ 1", "if d %% 4 == 0 then h = h + 1", function(m) return with_axe(m, pure) end)
 mutant("pose ignore le couloir", OUT_SRC, "or in_axe%(q%) ~= nil or", "or", function(m) return fortify_cases(load_outposts(m)) end)
-mutant("repli dans le couloir", OUT_SRC, "if q and not in_axe%(q%) and not PlacesQG", "if q and not PlacesQG", function(m) return fortify_cases(load_outposts(m)) end)
+mutant("repli dans le couloir", OUT_SRC, "if q and not banned%(q%) then pos = q end", "if q then pos = q end", function(m) return fortify_cases(load_outposts(m)) end)
 mutant("côté d'abord oublié", OUT_SRC, "local spots = Axe%.side_spots%(s%.x, s%.y, cors, tw, th%)", "local spots = {}",
   function(m) return fortify_cases(load_outposts(m)) end)
 mutant("déplacement dans un couloir", BUILD_SRC, "or Build%.axis_entity%(cors, x%.name, q%) ~= nil or", "or", function(m) return move_cases(load_move(m, Axe)) end)

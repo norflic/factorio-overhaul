@@ -202,8 +202,11 @@ do
   check(q:find("can_place_entity({ name = name, position = p, force = force }) or Q.on_resource(surface, name, p)", 1, true) ~= nil,
     "places_qg : chaque place vérifiée contre la ressource (fours, labos, annexes)")
   local o = read("script/faction/outposts.lua")
+  -- (fusion TUILES-RESERVEES : les deux places, recherche et repli, lisent le même prédicat `banned`, qui interroge la ressource)
   local _, n_o = o:gsub("PlacesQG%.on_resource%(surface, T%.turret, q%)", "")
-  check(n_o == 2, "outposts.fortify : les deux places de tourelle vérifiées (" .. n_o .. ")")
+  local _, n_b = o:gsub("not banned%(q%)", "")
+  check(n_o == 1 and n_b >= 1 and o:find("if banned(q) then return true end", 1, true) ~= nil,
+    "outposts.fortify : les deux places de tourelle vérifiées (" .. n_o .. ", " .. n_b .. ")")
   check(read("script/team/team.lua"):find("if tpos and not PlacesQG.on_resource(surface, T.turret, tpos) then", 1, true) ~= nil,
     "team : tourelles de départ hors des ressources")
 end

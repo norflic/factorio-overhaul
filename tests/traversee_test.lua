@@ -493,5 +493,36 @@ do
   check(nmut >= 12, "au moins 12 mutants joués (" .. nmut .. ")")
 end
 
+-- lot TRAVERSEE-CAP : avec le budget du plan (Tv.PLAN_BUDGET, Trav.route en jeu) et des souterrains, la phase A ne prend que la moitié du budget ;
+-- le plafond ctx.max de l'appelant (300 pour la branche de piquage) doit TENIR : il bornait la phase A, la moitié du budget le remplaçait (2 000 états)
+section("plafond de l'appelant avec le budget du plan")
+do
+  local Tv = require("shared.team.traversee")
+  -- un mur de 8 tuiles d'épaisseur (au-delà de la portée 5 des souterrains) coupe toute la boîte : aucun chemin, chaque phase va à son plafond
+  local function cost(x, y) if x >= 30 and x <= 37 then return nil end return 1 end
+  local bounds = { x0 = 0, y0 = 0, x1 = 59, y1 = 59 }
+  local function run(max)
+    local e0 = Tv.STATS.expanded
+    local tiles, why = Tv.route({ x = 5, y = 30 }, { x = 55, y = 30 }, 2, bounds, cost,
+      { maxd = 5, sd = 2, weight = 1.4, max = max, budget = { left = Tv.PLAN_BUDGET } })
+    return tiles, why, Tv.STATS.expanded - e0
+  end
+  local t1, w1, n1 = run(300)
+  check(t1 == nil and w1 == "trop long" and n1 <= 2 * 301,
+    string.format("plafond 300 tenu, budget %d : %d états développés <= %d (deux phases), %s", Tv.PLAN_BUDGET, n1, 2 * 301, tostring(w1)))
+  local _, _, n2 = run(nil)
+  check(n2 > 2 * 301 and n2 <= Tv.PLAN_BUDGET + 2, string.format("sans plafond de l'appelant : la moitié du budget pour la phase A, comme avant (%d états)", n2))
+  -- même borne par passes (ctx.phase_slice, lot TRANCHES-FOREUSES)
+  local e0, st, why, tiles = Tv.STATS.expanded, nil, nil, nil
+  local k = 0
+  repeat
+    k = k + 1
+    tiles, why, st = Tv.route({ x = 5, y = 30 }, { x = 55, y = 30 }, 2, bounds, cost,
+      { maxd = 5, sd = 2, weight = 1.4, max = 300, budget = { left = Tv.PLAN_BUDGET }, phase_slice = 200, phase_state = st })
+  until why ~= "pending" or k > 50
+  check(tiles == nil and why == "trop long" and Tv.STATS.expanded - e0 <= 2 * 301,
+    string.format("par passes : plafond 300 tenu (%d états en %d passes)", Tv.STATS.expanded - e0, k))
+end
+
 print(string.format("[TRAVERSEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

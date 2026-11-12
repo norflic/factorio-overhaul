@@ -67,7 +67,7 @@ local function load_cq(src, rule)
   local cc = nil
   package.loaded["script.core.events"] = setmetatable({}, { __index = function() return function() end end })
   package.loaded["script.faction.state"] = { war = function() return nil end, sorted_keys = function() return {} end }
-  package.loaded["script.ai3.places_qg"] = { on_resource = rule }
+  package.loaded["script.ai3.places_qg"] = { on_resource = rule, is_reserved = function() return false end }
   package.loaded["script.levels.levels"] = { cc = function() return cc end }
   local CQ = assert(load(src, "=centre_qg", "t", _G))()
   return CQ, function(e) cc = e end
@@ -110,7 +110,7 @@ local CAP_BLOCK = extract(CAP_SRC, "local function place_center(f, c, d, tick)",
 local function load_place(block, rule)
   local Capital = { CENTER_OFFSETS = { { 0, 14 }, { 14, 0 }, { -14, 0 }, { 0, -14 }, { 14, 14 }, { -14, 14 } }, CENTER_SEARCH = 12 }
   local Stock = { count = function() return 5 end, remove = function() end }
-  local env = setmetatable({ Capital = Capital, Stock = Stock, L = L, CFAM = L.by_key.command, PlacesQG = { on_resource = rule },
+  local env = setmetatable({ Capital = Capital, Stock = Stock, L = L, CFAM = L.by_key.command, PlacesQG = { on_resource = rule, is_reserved = function() return false end },
     minutes = function() return 1 end }, { __index = _G })
   return assert(load("local Capital, Stock, L, CFAM, PlacesQG, minutes = Capital, Stock, L, CFAM, PlacesQG, minutes\n" .. block
     .. "\nreturn place_center", "=place_center", "t", env))()
@@ -123,7 +123,7 @@ local function cap_case(block, rule)
   return ok, why, s, placed
 end
 do
-  check(CAP_SRC:find("if pos and not PlacesQG.on_resource(surface, name, pos) then", 1, true) ~= nil
+  check(CAP_SRC:find("if pos and PlacesQG.on_resource(surface, name, pos) then pos = nil end", 1, true) ~= nil
     and CAP_SRC:find('local PlacesQG = require("script.ai3.places_qg")', 1, true) ~= nil, "2.0 CAPITAL lit la regle du sol (PlacesQG.on_resource)")
   local ok, why, s, placed = cap_case(CAP_BLOCK, PlacesQG.on_resource)
   check(ok == true and #placed == 1, "2.1 place_center : un centre pose (" .. tostring(why) .. ")")
@@ -219,13 +219,13 @@ local function mutant(label, detected)
   if detected then seen = seen + 1 else print("  SURVIVANT : " .. label) end
 end
 do
-  local m, k = CQ_SRC:gsub(" and not PlacesQG%.on_resource%(surface, name, pos%)", "", 1)
+  local m, k = CQ_SRC:gsub("if pos and PlacesQG%.on_resource%(surface, name, pos%) then pos = nil end", "", 1)
   check(k == 1, "4.0 motif du mutant CQ trouve")
   local _, _, s, placed = cq_case(m, PlacesQG.on_resource)
   mutant("CQ.ensure sans la regle du sol", not none_on_ore(s, placed))
   local _, _, s2, placed2 = cq_case(CQ_SRC, function() return false end)
   mutant("CQ.ensure, regle du sol muette", not none_on_ore(s2, placed2))
-  local mb, kb = CAP_BLOCK:gsub(" and not PlacesQG%.on_resource%(surface, name, pos%)", "", 1)
+  local mb, kb = CAP_BLOCK:gsub("if pos and PlacesQG%.on_resource%(surface, name, pos%) then pos = nil end", "", 1)
   check(kb == 1, "4.1 motif du mutant CAPITAL trouve")
   local _, _, s3, placed3 = cap_case(mb, PlacesQG.on_resource)
   mutant("place_center sans la regle du sol", not none_on_ore(s3, placed3))

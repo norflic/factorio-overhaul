@@ -31,7 +31,7 @@
 local Events = require("script.core.events")
 local State = require("script.faction.state")
 local L = require("shared.levels.config")
-local PlacesQG = require("script.ai3.places_qg") -- lot TAMPON-MINERAI : PlacesQG.on_resource (centre de commandement hors des ressources)
+local PlacesQG = require("script.ai3.places_qg") -- lots TUILES-RESERVEES et TAMPON-MINERAI : le centre saute une tuile réservée au plan ou une tuile de ressource
 
 local CQ = {}
 
@@ -105,7 +105,8 @@ function CQ.ensure(f, why)
   local name = L.name(CFAM, 1)
   for _, off in ipairs(CQ.OFFSETS) do
     local pos = surface.find_non_colliding_position(name, { x = f.hq_pos.x + off[1], y = f.hq_pos.y + off[2] }, CQ.SEARCH, 1)
-    if pos and not PlacesQG.on_resource(surface, name, pos) then -- lot TAMPON-MINERAI : jamais sur une ressource (Sm.forbidden)
+    if pos and PlacesQG.on_resource(surface, name, pos) then pos = nil end -- lot TAMPON-MINERAI : jamais sur une ressource (Sm.forbidden)
+    if pos and not PlacesQG.is_reserved(f, name, pos) then
       local e = surface.create_entity({ name = name, position = pos, force = force, raise_built = true })
       if e and e.valid and Lv.cc(force) == e then
         log(string.format("[FO-CENTRE-QG] %s : centre de commandement de niveau 1 pose avec le QG en %s, cause %s, tick %d",

@@ -23,7 +23,8 @@ local S = require("shared.team.foreuse_swap")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock")
-local Outposts = require("script.faction.outposts") -- crochet des tuiles reservees par le plan directeur (Outposts.reserved)
+local Outposts = require("script.faction.outposts")
+local PlacesQG = require("script.ai3.places_qg") -- lot TUILES-RESERVEES : crochet unique des tuiles reservees (PlacesQG.is_reserved)
 local Melange = require("script.team.melange") -- lot MELANGE : zone de la future foreuse electrique (5 x 5) relue au moteur
 local P = require("shared.team.plan") -- lot FOREUSES-THERMIQUES : chaine de poteaux (P.pole_chain, recherche de chemin bornee)
 local Sante = require("script.team.sante_centrale") -- lot FOREUSES-THERMIQUES : puissance des chantiers (bilan d'energie existant)
@@ -282,7 +283,7 @@ local function swap_one(f, surface, ref, cx, cy, tick, prep, ndir)
     end
   end
   local blocked = function(x, y) return taken[x .. "," .. y] == true end
-  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, edir, { keep = keep, blocked = blocked }) then
+  if PlacesQG.is_reserved(f, item, { x = cx, y = cy }, edir, { keep = keep, blocked = blocked }) then
     st.retry[ref.key] = tick + Swap.RETRY
     return false
   end
@@ -379,14 +380,14 @@ local function pole_choice(book, free)
 end
 
 --- Tuile libre pour un poteau de la chaine d'une entree : ni sur la future foreuse ni sur son recepteur, posable, ni reservee par le plan
---- directeur ni sur un couloir d'acces (Outposts.reserved).
+--- directeur ni sur un couloir d'acces (PlacesQG.is_reserved).
 local function free_for(f, surface, pole)
   return function(e, box)
     return function(x, y)
       local pb = { x = x, y = y, w = 1, h = 1 }
       if S.overlap(pb, box) or S.overlap(pb, e.sink) then return false end
       if not surface.can_place_entity({ name = pole.name, position = { x = x, y = y }, force = f.force }) then return false end
-      if Outposts.reserved and Outposts.reserved(f, pole.name, { x = x, y = y }, 0) then return false end
+      if PlacesQG.is_reserved(f, pole.name, { x = x, y = y }, 0) then return false end
       return true
     end
   end

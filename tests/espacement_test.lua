@@ -15,7 +15,9 @@ local logs = {}
 function log(s) logs[#logs + 1] = s end
 package.loaded["script.faction.state"] = { own = function() end, sorted_keys = function(t) local k = {} for a in pairs(t) do k[#k + 1] = a end table.sort(k) return k end }
 package.loaded["script.faction.sites"] = {}
-package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
+-- Lot TUILES-RESERVEES : crochet unique des tuiles réservées (vrai script/ai3/places_qg.lua : Q.is_reserved lit Q.reserved)
+local PQ = dofile("script/ai3/places_qg.lua")
+package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end, is_reserved = PQ.is_reserved } -- (lot DECOUPLAGE : sol sans ressource)
 
 local passes, failures = 0, 0
 local function check(c, m) if c then passes = passes + 1 else failures = failures + 1; print("  ECHEC : " .. m) end end
@@ -286,11 +288,11 @@ end
 section("10. Tuiles réservées du plan : toujours respectées (passe 1 et passe 2)")
 do
   local s, turrets = world({})
-  local save = Outposts.reserved
-  Outposts.reserved = function(_, _, q) return q.x > 0 end -- tout l'est réservé (tapis planifiés)
+  local save = PQ.reserved
+  PQ.reserved = function(_, _, q) return q.x > 0 end -- tout l'est réservé (tapis planifiés)
   local n = Outposts.fortify_at(fac(), s, "o1", { { x = 3, y = 0 }, { x = 6, y = 0 }, { x = -3, y = 0 }, { x = -3, y = 3 } }, 3, carrier(3),
     function(p) return p.x * p.x + p.y * p.y <= 100 end)
-  Outposts.reserved = save
+  PQ.reserved = save
   local bad = false
   for _, p in ipairs(new_ones(turrets)) do if p.x > 0 then bad = true end end
   check(n >= 1 and not bad, string.format("%d posée(s), aucune sur une tuile réservée", n))
