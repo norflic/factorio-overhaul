@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.50
+Date: 2026-11-12
+  Bugfixes:
+    - IA (F584) : chaque kit de matériaux va au projet pour lequel il a été fabriqué ; les bandes de foreuses reçoivent leurs propres kits (+23 % de foreuses sur 4 graines à 60 min).
+    - IA (F585) : une ancienne foreuse d'avant-poste restée sous une nouvelle bande est démontée au lieu de faire sauter la foreuse de bande.
+    - IA (F586) : un pack de science déjà fabriqué n'est plus oublié quand la recherche vide son stock.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.40
 Date: 2026-11-12
   Bugfixes:
