@@ -30,6 +30,7 @@ local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles
 local Profiler = require("script.core.profiler")
 local LigneBande = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : les poteaux manquants d'une ligne de bande sont des buts du cerveau
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
+local Ln = require("shared.team.champ_lien") -- lot TAPIS-MANQUANTS : réseaux du charbon des bandes de champ, buts du cerveau
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (agrandissement des lignes)
 local Pi = require("shared.ai3.pile") -- lot FUITES-PILE : famille d'un module (reconstruction, neuf, agrandissement)
 local Rsv = require("script.ai3.reserve") -- lot C2 : réglage maître (fo-war-industrie), puits ouvert
@@ -669,6 +670,16 @@ function Auto.think(f, view, book, tick, research)
       mods[#mods + 1] = { product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing or {},
         reason = ps.reason, gain = 0, -- valeur de base d'un module
         pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
+    end
+  end
+  -- Lot TAPIS-MANQUANTS : le RÉSEAU DU CHARBON d'une bande de champ (projet à part, lot FONDERIE) est un projet du cerveau comme l'alimentation
+  -- de la centrale : ses tapis, foreuses et poteaux manquants deviennent des buts « auto:champ-charbon » (fabriquer, fondre). Avant, aucun but :
+  -- ses tapis n'arrivaient que par la remise directe des kits d'autres projets (scarlet, graine 2507543475 : projet 7 à 0/122 de 14 à 60 min).
+  for i, id in ipairs(Ln.coal_feeds(f.build and f.build.order, f.build and f.build.projects)) do
+    local ps = Build.brief(f, id)
+    if ps then
+      mods[#mods + 1] = { product = (i == 1) and "champ-charbon" or ("champ-charbon-" .. i), state = ps.state, missing = ps.missing or {},
+        reason = ps.reason, gain = 0 }
     end
   end
   -- Lot RACCORD-BANDE 2 (partie neuve 0.6.72 : « reserve:materiaux », 0 entite batie sur 32, poteaux a 0 au stock) : la LIGNE de poteaux d'une bande lointaine est un
