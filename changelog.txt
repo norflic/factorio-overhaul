@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.40
+Date: 2026-11-12
+  Bugfixes:
+    - IA (F578) : plus aucun bâtiment sur le minerai : tourelles, tampons de rapatriement, centre de commandement, QG, colonnes de fonderie ; une tourelle n'est plus agrandie sur une ressource.
+    - IA (F579) : une tourelle n'est plus posée sur le tracé d'un projet planifié.
+    - IA (F580) : la recherche adopte de nouveau les nouveaux packs de science.
+    - IA (F582) : le tracé des branches de piquage est découpé sur plusieurs ticks (moins de saccades).
+    - IA (F583) : une ligne de rapatriement cassée peut être replanifiée.
+    - Code (F581) : marge rétablie sous la limite de variables locales de Lua dans build.lua.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.30
 Date: 2026-11-12
   Changes:

@@ -146,7 +146,7 @@ local function plan_api(f, b, extra)
     read_masks = function(x0, y0, x1, y1)
       local blocked = {}
       for k in next, (extra and extra.blocked or {}) do blocked[k] = true end
-      return { water = {}, blocked = blocked, clear = {} }
+      return { water = {}, blocked = blocked, clear = {}, res = {} } -- (res : tuiles de ressource, comme le vrai read_masks, lot TAMPON-MINERAI)
     end,
     reserve_tiles = function(bb, p, list)
       for _, e in ipairs(list) do
