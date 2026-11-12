@@ -533,7 +533,7 @@ function Champ.frame(f, surface, o)
     plan.stats.poles, plan.stats.belts, "verification du plan : ligne suivante") .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
     .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
-    .. string.format(" ; colonnes posees ailleurs %d, tapis collecteurs seuls %d%s", plan.stats.away or 0, plan.stats.bare or 0,
+    .. string.format(" ; colonnes posees ailleurs %d, tapis collecteurs seuls %d, foreuses sans fonderie non posees %d%s", plan.stats.away or 0, plan.stats.bare or 0, plan.stats.orphans or 0,
       plan.stats.away_why and (" (" .. plan.stats.away_why .. ")") or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
       spec.coal and spec.coal.nforeign or 0))
