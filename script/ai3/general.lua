@@ -587,6 +587,9 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   Profiler.start("iag:choose")
   Profiler.fstart("iag:state") -- lot PERF3 : portées fines (mesure seulement)
   local state, nlabs = General.state(f, st, view)
+  -- Lot PACK-OSCILLE : packs déjà fabriqués (Gen.pack_made les retient : la recherche qui les consomme ne les « défabrique » pas).
+  g.packs_made = g.packs_made or {}
+  state.made = g.packs_made
   Profiler.fstop("iag:state")
   Profiler.fstart("iag:prepare")
   local ev = Gen.prepare(c, state, memo_of(f))
