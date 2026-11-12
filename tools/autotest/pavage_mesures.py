@@ -7,7 +7,8 @@ de l'archive (on y cherche benchmark.log.gz, puis fo-shots/factorio.log). Sortie
 gisement à la minute M (défaut : la dernière mesurée), puis une ligne de synthèse par équipe. --touches : seulement les
 gisements où l'équipe a au moins une foreuse. Aucune dépendance hors bibliothèque standard.
 Lot CULS-DE-SAC : colonnes « tronçons morts » (tapis qui reçoivent du minerai sans aucun consommateur, voir pavage_common.lua),
-« souterrains seuls » (sans paire) et « fantômes » ; une journalisation d'avant le lot les affiche « - ».
+« souterrains seuls » (sans paire) et « fantômes » ; une journalisation d'avant le lot les affiche « - ». Produits de la fonte
+par équipe (champ produits= des lignes « equipe ») : total à la minute M et débit par minute depuis la mesure précédente.
 """
 import argparse
 import gzip
@@ -63,6 +64,15 @@ def waiting(r):
     return 0
 
 
+def prods(t):
+    out = {}
+    for kv in t.get("produits", "-").split(","):
+        k, _, v = kv.partition(":")
+        if v.isdigit():
+            out[k] = int(v)
+    return out
+
+
 def dead(r):
     if "troncons_morts" not in r:
         return "-"
@@ -95,7 +105,22 @@ def main():
               f'{r["foreuses_comb"]} | {r["couverture"].rstrip("%")} | {inter} | {r["sortie_tapis"]} | {dead(r)} | '
               f'{r.get("souterrains_seuls", "-")} | {r.get("fantomes", "-")} | {r["etats"]} | {r["capture"]} |')
     print()
+    cum = {}
     for t in [t for t in teams if int(t["minute"]) == minute]:  # équipes : relevé du tick T
+        now = prods(t)
+        prev = [u for u in teams if u["equipe"] == t["equipe"] and int(u["minute"]) < minute]
+        prev = max(prev, key=lambda u: int(u["minute"])) if prev else None
+        dt = minute - int(prev["minute"]) if prev else 0
+        before = prods(prev) if prev else {}
+        txt = []
+        for k in sorted(now):
+            rate = (now[k] - before.get(k, 0)) / dt if dt else 0
+            txt.append(f"{k} {now[k]} ({rate:.0f}/min)")
+            c = cum.setdefault(k, [0, 0.0])
+            c[0] += now[k]
+            c[1] += rate
+        if txt:
+            print(f'- {t["equipe"]} : produits ' + ", ".join(txt))
         mine = [r for r in alls if r["equipe"] == t["equipe"]]
         tiles = sum(int(r["tuiles"]) for r in mine)
         cov = sum(int(r["couvertes"]) for r in mine)
@@ -112,6 +137,8 @@ def main():
               f'{100 * cov / max(1, tiles):.1f} % ; gisements exploités {len(touched)} ({tt} tuiles, couverture '
               f'{100 * tc / max(1, tt):.1f} %), sortie par tapis {out}/{len(touched)} ; entités interdites sur minerai {bad} ; '
               f'tronçons morts {morts} ({fmortes} foreuses), souterrains seuls {seuls}, foreuses en attente de place {attente}')
+    if cum:
+        print("- toutes équipes : produits " + ", ".join(f"{k} {v[0]} ({v[1]:.0f}/min)" for k, v in sorted(cum.items())))
     tot = [r for r in alls]
     print(f'\nTotal : tronçons morts {sum(num(r, "troncons_morts") for r in tot)} ({sum(num(r, "foreuses_mortes") for r in tot)} foreuses), '
           f'souterrains seuls {sum(num(r, "souterrains_seuls") for r in tot)}, fantômes {sum(num(r, "fantomes") for r in tot)}, '

@@ -36,7 +36,9 @@
      morts=x,y/... (bout aval de chaque tronçon mort, au plus MAX_MORTS) ; souterrains_seuls = souterrains de l'équipe sans
      paire, posés à MARGE tuiles au plus de la boîte du gisement (ligne « souterrain_seul » par souterrain) ; fantomes =
      fantômes de l'équipe qui touchent une tuile du gisement.
-  Lignes « equipe » : QG, nombre de gisements, petites grappes ignorées (< MIN_TILES tuiles). Lignes « capture » : nom,
+  Lignes « equipe » : produits=item:n,... (lot CULS-DE-SAC) = total produit par la force (item_production_statistics) de
+  chaque produit d'une recette à un seul ingrédient qui est le produit minable d'une ressource solide (fonte : plaques, briques),
+  lu aux prototypes ; le débit se déduit de deux mesures. QG, nombre de gisements, petites grappes ignorées (< MIN_TILES tuiles). Lignes « capture » : nom,
   centre, zoom. Sans joueur (banc sans images) : mesures seulement.
 ]]
 
@@ -95,6 +97,38 @@ local function solid(proto)
   if not (mp and mp.minable and mp.products and mp.products[1]) then return false end
   for _, p in ipairs(mp.products) do if p.type == "fluid" then return false end end
   return true
+end
+
+-- Lot CULS-DE-SAC : produits des recettes à un seul ingrédient qui est le produit minable d'une ressource solide (lus une fois)
+local SMELTED
+local function smelted()
+  if SMELTED then return SMELTED end
+  local mined = {}
+  for _, rp in pairs(game.entity_prototypes) do
+    if rp.type == "resource" and solid(rp) then
+      for _, pr in ipairs(rp.mineable_properties.products) do if pr.type == "item" then mined[pr.name] = true end end
+    end
+  end
+  local set = {}
+  for _, r in pairs(game.recipe_prototypes) do
+    local ing = r.ingredients
+    if #ing == 1 and ing[1].type == "item" and mined[ing[1].name] then
+      for _, pr in ipairs(r.products) do if pr.type == "item" and not mined[pr.name] then set[pr.name] = true end end
+    end
+  end
+  SMELTED = sorted_keys(set)
+  return SMELTED
+end
+
+local function produced(fc)
+  local out = {}
+  if not fc then return "-" end
+  local st = fc.item_production_statistics
+  for _, n in ipairs(smelted()) do
+    local c = st.get_input_count(n)
+    if c > 0 then out[#out + 1] = n .. ":" .. c end
+  end
+  return #out > 0 and table.concat(out, ",") or "-"
 end
 
 local function hq_of(s, force)
@@ -471,8 +505,8 @@ return function(T_MIN)
         local nd = s.count_entities_filtered({ force = force, type = "mining-drill" })
         local ntech = 0
         if fc then for _, te in pairs(fc.technologies) do if te.researched then ntech = ntech + 1 end end end
-        log(TAG .. string.format("equipe minute=%d equipe=%s force=%s qg=%.1f,%.1f gisements=%d petites_grappes=%d foreuses_equipe=%d tech=%d",
-          minute, row.key, force, c.x, c.y, #cls, small, nd, ntech))
+        log(TAG .. string.format("equipe minute=%d equipe=%s force=%s qg=%.1f,%.1f gisements=%d petites_grappes=%d foreuses_equipe=%d tech=%d produits=%s",
+          minute, row.key, force, c.x, c.y, #cls, small, nd, ntech, produced(fc)))
         local idx = {}
         for _, cl in ipairs(cls) do
           idx[cl.name] = (idx[cl.name] or 0) + 1
