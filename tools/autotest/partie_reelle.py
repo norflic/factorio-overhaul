@@ -7,7 +7,7 @@ pleine, sans courant), fours du champ (en marche, sans entrée, sans combustible
 (produites mais jamais rendues au QG), entités bâties par les projets finis ([FO-IA1D] « fini », cumul). Somme des équipes en bas.
 Aucune projection : seulement des statuts d'entités lus en moteur et des objets comptés dans des coffres.
 """
-import io, os, re, sys
+import gzip, io, os, re, sys
 
 ETAT = re.compile(r"\[FO-CHAMP-ETAT\] (\S+) min (\d+) \|.*?foreuses (\d+) \(marche (\d+), figees (\d+), sans courant (\d+)\) \| "
                   r"fours (\d+) \(marche (\d+), sans entree (\d+), sans combustible (\d+), sortie pleine (\d+)\) \| "
@@ -16,10 +16,14 @@ FINI = re.compile(r"\[FO-IA1D\] (\S+) : projet \d+ fini \([^,]*, (\d+) entites.*
 
 
 def read(path):
-    if os.path.isdir(path):
-        path = os.path.join(path, "factorio-current.log")
+    if os.path.isdir(path):  # archive : partie du DC (factorio-current.log) ou banc (benchmark.log.gz)
+        for name in ("factorio-current.log", "benchmark.log.gz", "benchmark.log"):
+            if os.path.exists(os.path.join(path, name)):
+                path = os.path.join(path, name)
+                break
     rows, built = {}, []
-    with io.open(path, encoding="utf-8", errors="replace") as fh:
+    opener = (lambda p: gzip.open(p, "rt", encoding="utf-8", errors="replace")) if path.endswith(".gz") else (lambda p: io.open(p, encoding="utf-8", errors="replace"))
+    with opener(path) as fh:
         for line in fh:
             m = ETAT.search(line)
             if m:
