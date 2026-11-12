@@ -21,7 +21,8 @@ local CNAME = L.name(L.by_key.command, 1)
 local function box(h) return { left_top = { x = -h, y = -h }, right_bottom = { x = h, y = h } } end
 _G.remote = { add_interface = function() end, interfaces = {} }
 _G.game = { tick = 0, forces = { f1 = { name = "f1" } },
-  entity_prototypes = { [CNAME] = { type = "container", collision_box = box(1.7) } } }
+  entity_prototypes = { [CNAME] = { type = "container", collision_box = box(1.7) },
+    ["fo-faction-hq"] = { type = "container", collision_box = { left_top = { x = -8.7, y = -3.3 }, right_bottom = { x = 6.9, y = 4.5 } } } } }
 local PlacesQG = assert(loadfile("script/ai3/places_qg.lua"))()
 
 --- Monde factice : `ore` = { ["x,y"] = true } tuiles de ressource (une entité « resource » au centre de chaque tuile) ; le moteur trouve
@@ -142,6 +143,33 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §5 site du QG d'une faction (script/faction/war.lua, ranked_hq_spots, bloc extrait) : azure, graine 1618033988, QG et centre fondés
+-- sur le cuivre. Le premier emplacement (le point visé) porte une ressource : il passe après tous les autres
+---------------------------------------------------------------------------------------------------
+local WAR_SRC = read("script/faction/war.lua")
+local HQ_BLOCK = extract(WAR_SRC, "local HQ_OFFSETS = {", "--- Fonde (ou refonde) le QG")
+local function load_spots(block)
+  local env = setmetatable({ PlacesQG = PlacesQG }, { __index = _G })
+  return assert(load("local PlacesQG = PlacesQG\n" .. block .. "\nreturn ranked_hq_spots", "=ranked_hq_spots", "t", env))()
+end
+local function hq_world(ore)
+  local s = world(ore)
+  s.count_tiles_filtered = function() return 0 end
+  return s
+end
+local HQ_ORE = {}
+for x = -20, 20 do for y = -20, 20 do HQ_ORE[x .. "," .. y] = true end end
+do
+  check(WAR_SRC:find('local ore = PlacesQG.on_resource(surface, "fo-faction-hq", c)', 1, true) ~= nil, "5.0 le choix du site du QG lit la regle du sol")
+  local list = load_spots(HQ_BLOCK)(hq_world(HQ_ORE), { x = 0, y = 0 })
+  check(#list == 17 and list[#list].x == 0 and list[#list].y == 0, "5.1 point vise sur la ressource : passe en dernier ("
+    .. list[1].x .. ", " .. list[1].y .. " d'abord)")
+  check(list[1].x == 64 and list[1].y == 0, "5.2 les autres dans l'ordre d'avant (score, puis rang)")
+  local l2 = load_spots(HQ_BLOCK)(hq_world({}), { x = 0, y = 0 })
+  check(l2[1].x == 0 and l2[1].y == 0, "5.3 sans ressource : le point vise d'abord, comme avant")
+end
+
+---------------------------------------------------------------------------------------------------
 -- §4 mutants
 ---------------------------------------------------------------------------------------------------
 local mutants, seen = 0, 0
@@ -165,6 +193,12 @@ do
   check(qk == 1, "4.2 motif du mutant de recalage trouve")
   local Qm = assert(load(qm, "=places_qg_mutant", "t", _G))()
   mutant("regle du sol sans recalage (place trouvee)", not Qm.on_resource(world({ ["-2,12"] = true }), CNAME, { x = 0.3, y = 14.3 }))
+end
+do
+  local mh, kh = HQ_BLOCK:gsub("    if a%.ore ~= b%.ore then return b%.ore end%s*", "", 1)
+  check(kh == 1, "4.3 motif du mutant du site du QG trouve")
+  local l = load_spots(mh)(hq_world(HQ_ORE), { x = 0, y = 0 })
+  mutant("site du QG sans la regle du sol", l[1].x == 0 and l[1].y == 0)
 end
 print(string.format("[TAMPON-MINERAI] mutants refuses : %d sur %d", seen, mutants))
 failures = failures + (mutants - seen)

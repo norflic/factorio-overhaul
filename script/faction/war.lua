@@ -30,6 +30,7 @@ local PvP = require("script.faction.pvp")
 local Config = require("script.core.config")
 local Character = require("script.faction.character")
 local PlayerTeam = require("script.team.player_team") -- lot PARITE : coffre d'équipe posé d'office aux lancements humains
+local PlacesQG = require("script.ai3.places_qg") -- lot TAMPON-MINERAI : PlacesQG.on_resource (QG hors des ressources)
 local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le QG d'une faction est son centre de commandement
 local JournauxDC = require("script.faction.journaux_dc") -- lot JOURNAUX-DC : [FO-ANEANTI], [FO-REGLAGES]
 local JDCrules = require("shared.team.journaux_dc")
@@ -159,9 +160,15 @@ local function ranked_hq_spots(surface, p0)
     local water_near = surface.count_tiles_filtered({ position = c, radius = 40, collision_mask = "water-tile" })
     local water_far = surface.count_tiles_filtered({ position = c, radius = 80, collision_mask = "water-tile" })
     local cliffs = surface.count_entities_filtered({ position = c, radius = 40, type = "cliff" })
-    list[#list + 1] = { x = c.x, y = c.y, score = water_near * 2 + water_far + cliffs * 30 + i }
+    -- lot TAMPON-MINERAI (azure, graine 1618033988 : QG et centre de commandement fondés sur le cuivre) : un emplacement dont l'emprise du
+    -- QG toucherait une ressource (Sm.forbidden, via PlacesQG.on_resource) passe après tous les autres
+    local ore = PlacesQG.on_resource(surface, "fo-faction-hq", c)
+    list[#list + 1] = { x = c.x, y = c.y, score = water_near * 2 + water_far + cliffs * 30 + i, ore = ore }
   end
-  table.sort(list, function(a, b) return a.score < b.score end)
+  table.sort(list, function(a, b)
+    if a.ore ~= b.ore then return b.ore end
+    return a.score < b.score
+  end)
   return list
 end
 
