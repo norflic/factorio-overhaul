@@ -464,6 +464,158 @@ local function log_gisement(phase, tick, key, cl, n, m, file)
     file or "-"))
 end
 
+--[[ Lot DEBIT-FER (12/11) : bilan du fer par équipe et par MINUTE (journal seul, rien n'est écrit dans la partie). Ligne :
+    [FO-DEBIT-FER] minute=M equipe=K minerai_extrait=N minerai_consomme=N plaques_produites=N plaques_consommees=N
+      foreuses=etat:n,... foreuses_cap=etat:q,... foreuses_vers=type:n,... fours=etat:n,... fours_cap=etat:q,...
+      fours_autres=n plaques_coffres_sortie=N coffres_sortie=n plaques_qg=N plaques_tapis=N minerai_tapis=N
+      plaques_fours=N minerai_fours=N plaques_pnj=N livrees=N coffres_pleins=q@x,y(dD)/...
+  Le banc NOMME le minerai (FER_ORE, hors cerveau) ; tout le reste est lu aux prototypes :
+   - plaques : produits des recettes à un seul ingrédient FER_ORE (fonte) ; compteurs cumulés de la force
+     (item_production_statistics : entrée = produit ou extrait, sortie = consommé) ;
+   - foreuse de fer : mining-drill de la force dont mining_target produit FER_ORE ; foreuses_cap = débit nominal en minerai/min
+     par état (mining_speed * 60 / mining_time) ; foreuses_vers = type du drop_target (« - » : sol ou rien) ;
+   - four de fer : furnace de la force dont la recette (get_recipe, sinon previous_recipe) est une fonte de FER_ORE ;
+     fours_cap = débit nominal en plaques/min par état (crafting_speed * 60 / energy * quantité) ; fours_autres = fours sans
+     recette de fer ;
+   - coffre de sortie : container/logistic-container de la force, hors QG, où un bras ou une foreuse dépose et d'où aucun bras ne
+     prend ; plaques_qg = Stock.count du mod (remote fo-ia1, champ iron) ; livrees = plaques portées au coffre par les PNJ ;
+   - tapis : transport-belt, underground-belt, splitter de la force (toutes les voies) ; plaques_pnj = plaques portées par les corps.
+  Le débit se déduit de deux minutes consécutives (tools/autotest/pavage_mesures.py --fer). ]]
+local FER_TAG = "[FO-DEBIT-FER] "
+local FER_ORE = "iron-ore"
+local FER_TOP = 6 -- coffres de sortie les plus pleins écrits par ligne (plaques@x,y(dDistance au QG))
+local FER
+local function fer_protos()
+  if FER then return FER end
+  FER = { res = {}, recipes = {}, plates = {} }
+  for _, rp in pairs(game.entity_prototypes) do
+    if rp.type == "resource" and solid(rp) then
+      for _, pr in ipairs(rp.mineable_properties.products) do if pr.name == FER_ORE then FER.res[rp.name] = true end end
+    end
+  end
+  local plates = {}
+  for _, r in pairs(game.recipe_prototypes) do
+    local ing = r.ingredients
+    if #ing == 1 and ing[1].type == "item" and ing[1].name == FER_ORE then
+      local amount = 0
+      for _, pr in ipairs(r.products) do
+        if pr.type == "item" and pr.name ~= FER_ORE then
+          plates[pr.name] = true
+          amount = amount + (pr.amount or ((pr.amount_min + pr.amount_max) / 2)) * (pr.probability or 1)
+        end
+      end
+      FER.recipes[r.name] = { energy = r.energy, amount = amount / ing[1].amount }
+    end
+  end
+  FER.plates = sorted_keys(plates)
+  return FER
+end
+
+local function fer_count(e, list)
+  local n = 0
+  for _, it in ipairs(list) do n = n + e.get_item_count(it) end
+  return n
+end
+
+local function add(t, k, v) t[k] = (t[k] or 0) + v end
+local function kvf(t)
+  local out = {}
+  for _, k in ipairs(sorted_keys(t)) do out[#out + 1] = string.format("%s:%.0f", k, t[k]) end
+  return #out > 0 and table.concat(out, ",") or "-"
+end
+
+local function fer_bilan(s, row, hq, minute)
+  local P = fer_protos()
+  local force = row.force
+  local st = game.forces[force].item_production_statistics
+  local ore_in, ore_out, pl_in, pl_out = st.get_input_count(FER_ORE), st.get_output_count(FER_ORE), 0, 0
+  for _, n in ipairs(P.plates) do pl_in = pl_in + st.get_input_count(n); pl_out = pl_out + st.get_output_count(n) end
+  local drop, pick = {}, {}
+  -- foreuses
+  local d_st, d_cap, d_to = {}, {}, {}
+  for _, d in ipairs(s.find_entities_filtered({ force = force, type = "mining-drill" })) do
+    local okd, dt = pcall(function() return d.drop_target end)
+    dt = okd and dt and dt.valid and dt or nil
+    if dt and dt.unit_number then drop[dt.unit_number] = true end
+    local ok, t = pcall(function() return d.mining_target end)
+    if ok and t and t.valid and P.res[t.name] then
+      local sn = status_name(d.status)
+      add(d_st, sn, 1)
+      add(d_cap, sn, d.prototype.mining_speed * 60 / (t.prototype.mineable_properties.mining_time or 1))
+      add(d_to, dt and dt.type or "-", 1)
+    end
+  end
+  -- fours
+  local f_st, f_cap, others, pl_f, ore_f = {}, {}, 0, 0, 0
+  for _, e in ipairs(s.find_entities_filtered({ force = force, type = "furnace" })) do
+    local okr, r = pcall(function() return e.get_recipe() end)
+    if not (okr and r) then
+      local okp, pr = pcall(function() return e.previous_recipe end)
+      r = okp and pr or nil
+    end
+    local rec = r and P.recipes[r.name]
+    if rec then
+      local sn = status_name(e.status)
+      add(f_st, sn, 1)
+      add(f_cap, sn, e.prototype.crafting_speed * 60 / rec.energy * rec.amount)
+      local res = e.get_inventory(defines.inventory.furnace_result)
+      if res then pl_f = pl_f + fer_count(res, P.plates) end
+      local src = e.get_inventory(defines.inventory.furnace_source)
+      if src then ore_f = ore_f + src.get_item_count(FER_ORE) end
+    else
+      others = others + 1
+    end
+  end
+  -- coffres de sortie : un bras ou une foreuse y dépose, aucun bras n'y prend
+  for _, i in ipairs(s.find_entities_filtered({ force = force, type = "inserter" })) do
+    local okd, dt = pcall(function() return i.drop_target end)
+    if okd and dt and dt.valid and dt.unit_number then drop[dt.unit_number] = true end
+    local okp, pt = pcall(function() return i.pickup_target end)
+    if okp and pt and pt.valid and pt.unit_number then pick[pt.unit_number] = true end
+  end
+  local pl_c, n_c, top = 0, 0, {}
+  for _, c in ipairs(s.find_entities_filtered({ force = force, type = { "container", "logistic-container" } })) do
+    local u = c.unit_number
+    if c ~= hq and u and drop[u] and not pick[u] then
+      n_c = n_c + 1
+      local q = fer_count(c, P.plates)
+      pl_c = pl_c + q
+      if q > 0 then top[#top + 1] = { q = q, u = u, x = c.position.x, y = c.position.y } end
+    end
+  end
+  table.sort(top, function(a, b) if a.q ~= b.q then return a.q > b.q end return a.u < b.u end)
+  local tops = {}
+  for i = 1, math.min(FER_TOP, #top) do
+    local t = top[i]
+    tops[#tops + 1] = string.format("%d@%.0f,%.0f(d%.0f)", t.q, t.x, t.y, math.sqrt((t.x - hq.position.x) ^ 2 + (t.y - hq.position.y) ^ 2))
+  end
+  -- tapis
+  local pl_b, ore_b = 0, 0
+  for _, b in ipairs(s.find_entities_filtered({ force = force, type = { "transport-belt", "underground-belt", "splitter" } })) do
+    for li = 1, b.get_max_transport_line_index() do
+      local l = b.get_transport_line(li)
+      for _, n in ipairs(P.plates) do pl_b = pl_b + l.get_item_count(n) end
+      ore_b = ore_b + l.get_item_count(FER_ORE)
+    end
+  end
+  local pl_p = 0
+  for _, c in ipairs(s.find_entities_filtered({ force = force, type = "character" })) do pl_p = pl_p + fer_count(c, P.plates) end
+  local liv = 0
+  for _, n in ipairs(P.plates) do liv = liv + ((row.delivered or {})[n] or 0) end
+  log(FER_TAG .. string.format("minute=%d equipe=%s minerai_extrait=%d minerai_consomme=%d plaques_produites=%d plaques_consommees=%d"
+    .. " foreuses=%s foreuses_cap=%s foreuses_vers=%s fours=%s fours_cap=%s fours_autres=%d plaques_coffres_sortie=%d coffres_sortie=%d"
+    .. " plaques_qg=%d plaques_tapis=%d minerai_tapis=%d plaques_fours=%d minerai_fours=%d plaques_pnj=%d livrees=%d coffres_pleins=%s",
+    minute, row.key, ore_in, ore_out, pl_in, pl_out, kv(d_st), kvf(d_cap), kv(d_to), kv(f_st), kvf(f_cap), others, pl_c, n_c,
+    row.iron or 0, pl_b, ore_b, pl_f, ore_f, pl_p, liv, #tops > 0 and table.concat(tops, "/") or "-"))
+end
+
+local function fer_all(s, minute)
+  for _, row in ipairs(remote.call("fo-ia1", "teams") or {}) do
+    local hq = row.force and hq_of(s, row.force)
+    if hq and game.forces[row.force] then fer_bilan(s, row, hq, minute) end
+  end
+end
+
 -- Gisements photographiés (nom de capture sans .png -> { force, clé, grappe, n }) : hors de `global` (grappes volumineuses) ;
 -- rempli au tick T, lu pendant les captures de la même session.
 local CACHE = {}
@@ -571,6 +723,10 @@ return function(T_MIN)
           end)
           if not ok then ctx.state().erreur = tostring(err); log(TAG .. "ERREUR " .. tostring(err)) end
         end
+      end
+      if e.tick > 0 and e.tick <= T and e.tick % MIN == 0 then -- lot DEBIT-FER : bilan du fer chaque minute
+        local ok, err = pcall(fer_all, ctx.surface(), e.tick / MIN)
+        if not ok then ctx.state().erreur = tostring(err); log(FER_TAG .. "ERREUR " .. tostring(err)) end
       end
       if IS_MEASURE[e.tick] then
         local ok, err = pcall(run_all, ctx, e.tick, p)
