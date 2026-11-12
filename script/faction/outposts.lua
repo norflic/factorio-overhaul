@@ -225,8 +225,8 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
       local drop = { x = pos.x + v[1], y = pos.y + v[2] }
       local spos = sink_position(surface, spec.sink, drop, force, pos)
       -- lot AUTO : jamais sur une tuile réservée par un projet du plan directeur (fantômes pas encore posés)
-      -- (crochet Outposts.reserved, posé par script/team/build.lua : l'ordre des require et des abonnements ne change pas)
-      if spos and Outposts.reserved and (Outposts.reserved(f, T.DRILL, pos, dir) or Outposts.reserved(f, spec.sink, spos)) then spos = nil end
+      -- (crochet unique PlacesQG.is_reserved, posé par script/team/build.lua : l'ordre des require et des abonnements ne change pas)
+      if spos and (PlacesQG.is_reserved(f, T.DRILL, pos, dir) or PlacesQG.is_reserved(f, spec.sink, spos)) then spos = nil end
       if spos and surface.can_place_entity({ name = T.DRILL, position = pos, direction = dir, force = force }) then
         local d = surface.create_entity({ name = T.DRILL, position = pos, direction = dir, force = force })
         if d then
@@ -698,6 +698,20 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
   local tp = game.entity_prototypes[T.turret]
   local tw, th = tp and tp.tile_width or 2, tp and tp.tile_height or 2
   local function in_axe(q) return Axe.hit(cors, Axe.tile_rect(q.x, q.y, tw, th)) end
+  -- lot TOURELLES-MINERAI : la place trouvée par le moteur, RECALÉE sur la grille de la tourelle (Pl.snap), est celle que create_entity
+  -- pose ; tous les refus (ressource, couloir, réservée, écart) se jugent sur elle. Emerald, graine 123456789, QG : trouvée en
+  -- (-198.406, 460.406), posée en (-198, 460) ; la règle du sol ne lisait qu'une tuile sur quatre, la tourelle tombait sur le tungstène.
+  local function near_free(c)
+    local q = surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1)
+    return q and { x = Pl.snap(q.x, tw), y = Pl.snap(q.y, th) } or nil
+  end
+  -- lot TUILES-RESERVEES : place interdite (réservée au plan, couloir d'extension, hors de la zone voulue, sur une ressource), lue par la
+  -- recherche ET par le repli : le repli n'en gardait qu'une partie (couloir, ressource) et posait sur une tuile réservée (fo-lvl-gun-2
+  -- sur le tapis d'entrée du projet 31 d'amber, mall-rangee-2, 30 refus « occupé », TETE-CHAMP, 2507543475)
+  local function banned(q)
+    return PlacesQG.is_reserved(f, T.turret, q) or in_axe(q) ~= nil or (accept ~= nil and not accept(q))
+      or PlacesQG.on_resource(surface, T.turret, q) -- (lot DECOUPLAGE : aucune tourelle sur une ressource)
+  end
   -- lot PD-ESPACEMENT (D07) : tourelles de l'équipe autour des emplacements (lues une fois, puis complétées à chaque pose) ; une
   -- position plus proche que l'écart voulu d'une autre tourelle est refusée comme une tuile réservée. Passe 1 : Pose.gap ;
   -- passe 2 (seulement s'il en manque) : Pose.GAP_MIN. Bilan au journal [FO-TOUR-ECART].
@@ -723,18 +737,15 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
       local hit = #spots > 0 and in_axe(s) or nil
       for _, q in ipairs(Blocage.spots(s.x, s.y)) do spots[#spots + 1] = q end
       local pos = Blocage.first_free(spots,
-        function(c) return surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1) end,
+        near_free,
         function(q) -- réservée, dans un couloir d'extension, hors de la zone voulue (accept), ou trop près d'une autre tourelle
-          if (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or in_axe(q) ~= nil or (accept ~= nil and not accept(q))
-            or PlacesQG.on_resource(surface, T.turret, q) then -- (lot DECOUPLAGE : aucune tourelle sur une ressource)
-            return true
-          end
+          if banned(q) then return true end
           if not Pose.spaced(q.x, q.y, near, gap) then ec.refused = ec.refused + 1 return true end
           return false
         end)
       if not pos then
-        local q = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
-        if q and not in_axe(q) and not PlacesQG.on_resource(surface, T.turret, q) then pos = q end
+        local q = near_free(s)
+        if q and not banned(q) then pos = q end
       end
       if hit and Outposts.axe_log and pass == 1 then
         Outposts.axe_log(f, pos and string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s) -> tourelle en (%g, %g), hors du couloir",
@@ -821,7 +832,7 @@ end
 function Outposts.place_smelters(f, surface, count, carrier)
   f.smelters = f.smelters or {}
   return PlacesQG.place(surface, T.SMELTER, f.force, f.hq_pos, T.hq_rows.smelter,
-    Pl.need(#f.smelters, count, T.hq_rows_slack), count, function(pos)
+    Pl.need(#f.smelters, count, T.hq_rows_slack), count, PlacesQG.skip_reserved(f, T.SMELTER, function(pos)
       if carrier.get_item_count(T.SMELTER) < 1 then return nil end
       local s = surface.create_entity({ name = T.SMELTER, position = pos, force = f.force, raise_built = true })
       if not (s and s.valid) then return false end
@@ -831,7 +842,7 @@ function Outposts.place_smelters(f, surface, count, carrier)
       f.smelters[#f.smelters + 1] = s
       State.own(s, f.id, "smelter")
       return true
-    end)
+    end))
 end
 
 function Outposts.smelters(f)

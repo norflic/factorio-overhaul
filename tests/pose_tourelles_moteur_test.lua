@@ -10,7 +10,7 @@ local logs = {}
 function log(s) logs[#logs + 1] = s end
 package.loaded["script.faction.state"] = { own = function() end, sorted_keys = function(t) local k = {} for a in pairs(t) do k[#k + 1] = a end table.sort(k) return k end }
 package.loaded["script.faction.sites"] = {}
-package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
+package.loaded["script.ai3.places_qg"] = { on_resource = function() return false end, is_reserved = function() return false end } -- (lot DECOUPLAGE : sol sans ressource)
 package.loaded["shared.ai3.places"] = package.loaded["shared.ai3.places"] or nil
 
 local passes, failures = 0, 0
@@ -213,6 +213,65 @@ do
   local s, placed = ore_world(500)
   local n = Outposts.fortify(fac(), s, { id = 1, pos = { x = 0, y = 0 } }, 2, carrier(5))
   check(n == 2, "gisement plus grand que la portée : repli d'avant, 2 tourelles posées (" .. n .. ")")
+end
+
+-- 16. Lot TOURELLES-MINERAI (emerald, graine 123456789, QG, ~46 min) : le moteur trouve la place HORS grille (-198.406, 460.406),
+--    create_entity RECALE la tourelle 2 × 2 en (-198, 460) ; la règle du sol (VRAIE Q.on_resource, script/ai3/places_qg.lua ->
+--    Sm.forbidden) doit lire l'emprise POSÉE, pas celle de la place trouvée (qui ne couvrait qu'une tuile sur quatre).
+local PlacesQG_real = assert(loadfile("script/ai3/places_qg.lua"))()
+local stub = package.loaded["script.ai3.places_qg"]
+local function grid_cases(on_resource, ore)
+  local keep_rule, keep_proto = stub.on_resource, _G.game.entity_prototypes["gun-turret"]
+  stub.on_resource = on_resource
+  stub.is_reserved = stub.is_reserved or function() return false end -- (lot TUILES-RESERVEES : crochet unique des tuiles réservées ; aucune ici)
+  _G.game.entity_prototypes["gun-turret"] = { turret_range = 18, tile_width = 2, tile_height = 2, type = "ammo-turret",
+    collision_box = { left_top = { x = -0.7, y = -0.7 }, right_bottom = { x = 0.7, y = 0.7 } } }
+  ore = ore or {}
+  local s, placed = world({ building(0, 0, "mining-drill", 3, 1) })
+  s.find_non_colliding_position = function(_, c) return { x = c.x - 0.406, y = c.y - 0.406 } end -- vrai moteur : place hors grille
+  s.count_entities_filtered = function(q)
+    if q.type ~= "resource" then return 0 end
+    local a = q.area
+    for y = math.floor(a[1][2]), math.floor(a[2][2]) do
+      for x = math.floor(a[1][1]), math.floor(a[2][1]) do
+        if ore[x .. "," .. y] and a[1][1] < x + 0.5 and x + 0.5 < a[2][1] and a[1][2] < y + 0.5 and y + 0.5 < a[2][2] then return 1 end
+      end
+    end
+    return 0
+  end
+  local create = s.create_entity
+  s.create_entity = function(q) -- vrai moteur : une entité 2 × 2 est posée sur la grille (coordonnées entières)
+    return create({ name = q.name, position = { x = math.floor(q.position.x + 0.5), y = math.floor(q.position.y + 0.5) }, force = q.force })
+  end
+  local n = Outposts.fortify_at(fac(), s, nil, { { x = 7, y = 7 } }, 1, carrier(5)) -- emplacement du QG en (7, 7)
+  local ok = n == 1 and placed[1] ~= nil
+  for _, e in ipairs(placed) do if PlacesQG_real.on_resource(s, "gun-turret", e.position) then ok = false end end
+  stub.on_resource, _G.game.entity_prototypes["gun-turret"] = keep_rule, keep_proto
+  return ok, placed[1]
+end
+-- UNE tuile de ressource : (7, 7), coin bas-droit de l'emprise posée en (7, 7), que la place trouvée (6.594, 6.594) ne couvre pas
+local ORE = { ["7,7"] = true }
+do
+  local ok, t = grid_cases(PlacesQG_real.on_resource, ORE)
+  check(ok, "place trouvée hors grille : la tourelle posée (recalée) ne touche aucune tuile de ressource ("
+    .. (t and (t.position.x .. ", " .. t.position.y) or "aucune") .. ")")
+  -- mutant : la place n'est plus recalée avant les refus (pose d'avant TOURELLES-MINERAI) -> la tourelle tombe sur (7, 7)
+  local src = io.open("script/faction/outposts.lua", "rb"):read("*a")
+  local m, k = src:gsub("return q and { x = Pl%.snap%(q%.x, tw%), y = Pl%.snap%(q%.y, th%) } or nil", "return q", 1)
+  check(k == 1, "mutant « place non recalée » : motif trouvé")
+  local real = Outposts
+  Outposts = assert(load(m, "outposts_mutant", "t", _G))()
+  local okm = grid_cases(PlacesQG_real.on_resource, ORE)
+  Outposts = real
+  check(not okm, "mutant « place non recalée » détecté")
+  -- mutant : règle du sol muette -> vu aussi
+  local okr = grid_cases(function() return false end, ORE)
+  check(not okr, "mutant « règle du sol muette » détecté")
+  -- même règle pour les tourelles de départ (script/team/team.lua, Team.place_hq_turrets) : place recalée AVANT la règle du sol
+  local team = io.open("script/team/team.lua", "rb"):read("*a")
+  local a1 = team:find("tpos = tpos and { x = Pl.snap(tpos.x, tw), y = Pl.snap(tpos.y, th) } or nil", 1, true)
+  local a2 = team:find("if tpos and not PlacesQG.on_resource(surface, T.turret, tpos) then", 1, true)
+  check(a1 ~= nil and a2 ~= nil and a1 < a2, "tourelles de départ : place recalée avant la règle du sol")
 end
 
 print(string.format("[TOURELLES-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))

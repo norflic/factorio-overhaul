@@ -423,6 +423,13 @@ function Gen.choose(cat, ev, state, ctx)
   -- Lot PETROLE (ctx.new_pack) : « les paliers ne reculent pas » : la moins chère des technologies qui consomment le pack
   -- nouveau passe en tête (ses packs se fabriquent pendant que l'usine du pack se bâtit).
   if ctx.new_pack then
+    -- « ouvre elle-même un palier » = Gen.value a noté un pack fabricable débloqué (why « pack »). c.palier == true ne le dit
+    -- pas : une chaîne (Gen.chains) le pose aussi sur chaque prérequis, à toute distance (« logistics », prérequis lointain du
+    -- pack violet, passée en tête depuis FIX-P3 V_LOG 30, bloquait ainsi le pack chimique au stock : tests/petrole_test.lua §2b, §2c).
+    local function opens_pack(c)
+      for _, w in ipairs(c.why or {}) do if w[1] == "pack" then return true end end
+      return false
+    end
     local best, bi
     for i, c in ipairs(cands) do
       if c.palier == "nouveau" and (not best or c.cost < best.cost or (c.cost == best.cost and c.tech < best.tech)) then best, bi = c, i end
@@ -430,7 +437,7 @@ function Gen.choose(cat, ev, state, ctx)
     -- … sauf devant une candidate qui ouvre elle-même un palier (« automation » avant « landfill » : moteur réel,
     -- petrole-partie 1618033988, palier 1 à 6,3 min au lieu de 1,6 quand le pack vert passait devant)
     local top = cands[1]
-    if best and bi > 1 and not (top and top.palier == true) then
+    if best and bi > 1 and not (top and opens_pack(top)) then
       table.remove(cands, bi)
       table.insert(cands, 1, best)
       best.k1 = "pack nouveau"
@@ -443,7 +450,7 @@ function Gen.choose(cat, ev, state, ctx)
     if used_pack then
       local top = cands[1]
       local function urgent(c)
-        if c.palier == true or c.palier == "nouveau" then return true end
+        if opens_pack(c) or c.palier == "nouveau" then return true end
         for _, w in ipairs(c.why or {}) do if w[1] == "wanted" or w[1] == "levier" then return true end end
         return false
       end

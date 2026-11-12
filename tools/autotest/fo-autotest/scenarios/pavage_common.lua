@@ -237,6 +237,7 @@ local function measure(s, force, cl)
       if in_box_tiles(cl, e.bounding_box) then
         m.interdits[e.name] = (m.interdits[e.name] or 0) + 1
         m.n_interdits = m.n_interdits + 1
+        log(string.format("[FO-SONDE-MINERAI] interdite %s (%s) en (%g, %g) force %s", e.name, t, e.position.x, e.position.y, e.force.name))
       end
     end
   end
