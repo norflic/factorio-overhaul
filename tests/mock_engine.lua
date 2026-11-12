@@ -1398,7 +1398,16 @@ function M.new_world(opts)
       local e = ents[cand and cand[ci] or ci]
       if e.valid then
         local ok = true
-        if t.force then ok = ok and e.force.name == (type(t.force) == "string" and t.force or t.force.name) end
+        if t.force then
+          -- Lot TESTS-VERTS : comme le moteur, `force` est une force (nom ou LuaForce) OU une liste de forces (script/ai3/menace.lua, FIX-P5)
+          if type(t.force) == "table" and t.force.name == nil then
+            local any = false
+            for _, x in ipairs(t.force) do if e.force.name == (type(x) == "string" and x or x.name) then any = true end end
+            ok = ok and any
+          else
+            ok = ok and e.force.name == (type(t.force) == "string" and t.force or t.force.name)
+          end
+        end
         if t.name then
           local names = type(t.name) == "table" and t.name or { t.name }
           local match = false
