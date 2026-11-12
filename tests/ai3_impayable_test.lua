@@ -173,6 +173,34 @@ local function suite(Im)
   -- (c) pack produit en petite quantité (2 unités) : pas de va-et-vient
   local rd = simulate({ order = { "A", "B" }, hours = 3, produce = { 30 * MIN, 31 * MIN } })
   check(rd.switches <= 5, "§5c un pack qui ne suffit pas ne fait pas osciller (" .. rd.switches .. ")")
+  -- §8 Lot LABOS-ARRET (B4) : la recherche lâchée retient des PACKS ; les autres recherches qui demandent un de ces packs sont écartées avec elle
+  -- (fo-logs/2026-11-12_PACK-OSCILLE : 63 lâchers sur 86 suivis d'une recherche qui attendait le MÊME pack, 223 min de laboratoire sur 424).
+  check(type(Im.blocked_by_packs) == "function", "§8 Im.blocked_by_packs existe")
+  if type(Im.blocked_by_packs) == "function" then
+    local ING8 = { ta = { { "pr", 1 }, { "pv", 1 } }, tb = { { "pr", 1 } }, tc = { { "pv", 2 } }, td = { { "pv", 1 }, { "pr", 3 } } }
+    local function ing8(t) return ING8[t] or {} end
+    local techs8 = { "ta", "tb", "tc", "td" }
+    local st8 = {}
+    Im.stall(st8, "ta", 100, { "pr" })
+    local act8 = Im.active(st8, 200, ing8, function() return 10 end, {})
+    local b8 = Im.blocked_by_packs(st8, act8, techs8, ing8)
+    check(b8.tb == true and b8.td == true and b8.ta == true, "§8 les recherches qui demandent le pack retenu sont écartées")
+    check(b8.tc == nil, "§8 une recherche sans le pack retenu reste choisissable")
+    local e8 = Im.blocked_by_packs(st8, act8, techs8, ing8, "tb")
+    check(e8.tb == nil and e8.td == true, "§8 l'exception (recherche de la défense) n'est jamais écartée")
+    check(next(Im.blocked_by_packs(st8, {}, techs8, ing8)) == nil, "§8 aucune recherche lâchée active : rien d'écarté")
+    local back8 = Im.active(st8, 300, ing8, function() return 10 end, { pr = 5 })
+    check(next(Im.blocked_by_packs(st8, back8, techs8, ing8)) == nil, "§8 le pack revenu au stock lève l'écart")
+    -- Choix simulé (ordre de préférence tb, td, tc) après un lâcher sur « pr » : le suivant n'attend plus le même pack.
+    local st9 = {}
+    Im.stall(st9, "ta", 0, Im.missing(ing8("ta"), { pv = 4 }))
+    local act9 = Im.active(st9, 1, ing8, function() return 10 end, { pv = 4 })
+    local dis9 = Im.blocked_by_packs(st9, act9, techs8, ing8)
+    for t in next, act9 do dis9[t] = true end
+    local pick
+    for _, t in ipairs({ "tb", "td", "tc" }) do if not dis9[t] and not pick then pick = t end end
+    check(pick == "tc", "§8 après un lâcher sur un pack, la recherche suivante n'en a pas besoin (" .. tostring(pick) .. ")")
+  end
   return pass, fail, msgs
 end
 
@@ -210,6 +238,9 @@ local MUT = {
   { "lift sans grâce", "  st.grace[best] = tick + Im.PAUSE\n", "" },
   { "lift sans retrait", "  st.stalled[best] = nil\n  if st.stall_packs then st.stall_packs[best] = nil end\n  st.grace = st.grace or {}", "  st.grace = st.grace or {}" },
   { "grâce jamais nettoyée", "if tick >= st.grace[t] then", "if false then" },
+  { "packs retenus ignorés", "for _, p in ipairs((st.stall_packs or {})[t] or {}) do held[p] = true end", "" },
+  { "exception écartée", "if t ~= except then", "if true then" },
+  { "tout écarté", "if held[ing[1]] then out[t] = true break end", "out[t] = true break" },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUT) do

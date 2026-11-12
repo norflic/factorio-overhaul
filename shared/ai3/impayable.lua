@@ -8,6 +8,8 @@
        les packs qui MANQUAIENT (stock inférieur à ce qu'une unité coûte).
     2. RETOUR : avant la fin de la pause, la recherche revient dès que chacun de ces packs est au stock pour au moins Im.UNITS unités (ou le reste
        de la recherche s'il est plus court) : « le pack est produit ». Jamais sur une seule unité : sinon elle repartirait pour s'arrêter de nouveau.
+    2 bis. PACK RETENU (lot LABOS-ARRET) : pendant la pause, les autres recherches qui demandent un pack retenu sont écartées aussi (Im.blocked_by_packs) :
+       sans cela, 63 lâchers sur 86 passaient à une recherche qui attendait le même pack (fo-logs/2026-11-12_PACK-OSCILLE).
     3. RIEN D'AUTRE DE PAYABLE : si, toutes les autres écartées, aucune recherche n'est payable, la recherche lâchée depuis le plus longtemps revient
        (le laboratoire ne reste pas oisif) et la garde ne la reprend plus avant Im.PAUSE ticks (`grace`) : au plus un retour par pause, aucune
        oscillation.
@@ -85,6 +87,26 @@ function Im.active(st, tick, ingredients_of, remaining_of, stock)
       if st.stall_packs then st.stall_packs[t] = nil end
     else
       out[t] = true
+    end
+  end
+  return out
+end
+
+--- Lot LABOS-ARRET (B4) : une recherche est lâchée pour les PACKS qui lui manquent ; toute autre recherche qui en demande un attendrait le même pack.
+--- Rend { [tech] = vrai } des recherches de `techs` (liste triée) dont un ingrédient est retenu par une recherche lâchée encore écartée (`active`,
+--- rendu d'Im.active), sauf `except` (la recherche de la défense, jamais écartée). Le retour (Im.released) ou la fin de la pause lève l'écart.
+function Im.blocked_by_packs(st, active, techs, ingredients_of, except)
+  local held = {}
+  for _, t in ipairs(sorted_keys(active)) do
+    for _, p in ipairs((st.stall_packs or {})[t] or {}) do held[p] = true end
+  end
+  local out = {}
+  if next(held) == nil then return out end
+  for _, t in ipairs(techs or {}) do
+    if t ~= except then
+      for _, ing in ipairs(ingredients_of(t) or {}) do
+        if held[ing[1]] then out[t] = true break end
+      end
     end
   end
   return out
