@@ -179,5 +179,40 @@ if Sa.relics then
   check(not relics_ok(M12), "mutant M12 (relique demontee hors d'une bande de champ) refuse")
 end
 
+print("== reliques electriques (lot RELIQUES-SOUS-BANDE)")
+-- Lot RELIQUES-SOUS-BANDE (TUILES-RESERVEES, graine 2507543475) : foreuse ÉLECTRIQUE d'avant-poste en (453,5 ; 403,5), issue d'un remplacement
+-- thermique -> électrique (foreuse_swap), sous la foreuse de bande (454,5 ; 405,5) du projet 14 ; le plan du champ la tient pour libre (mine_of :
+-- foreuses et réceptions des avant-postes), le chantier ne démontait que les entités à brûleur : refus « occupe » puis tuile sautée.
+-- outpost = inscrite foreuse ou réception d'un avant-poste de l'équipe (State.owner) ; piece = pièce non cédée d'un plan (b.occ + p.ents)
+local OUT_EL = { own = true, burner = false, power = true, outpost = true }
+local OUT_EL_PIECE = { own = true, burner = false, power = true, outpost = true, piece = true }
+local TH_PIECE = { own = true, burner = true, piece = true }
+local FOE_OUT = { own = false, power = true, outpost = true }
+local function elec_ok(rel)
+  local function same(a, b) if #a ~= #b then return false end for i = 1, #a do if a[i] ~= b[i] then return false end end return true end
+  local ok = true
+  ok = ok and same(rel("champ", 600, { OUT_EL }), { 1 })                      -- foreuse électrique d'avant-poste : démontée
+  ok = ok and same(rel("champ", 600, { OWN_EL, OUT_EL, FOE_OUT, OWN_TH }), { 2, 4 })
+  ok = ok and same(rel("champ", nil, { OUT_EL }), {})                         -- avant l'ère électrique : rien
+  ok = ok and same(rel("module", 600, { OUT_EL }), {})                        -- hors bande : rien
+  ok = ok and same(rel("champ", 600, { FOE_OUT }), {})                        -- une autre force : jamais
+  ok = ok and same(rel("champ", 600, { OUT_EL_PIECE }), {})                   -- pièce d'une autre bande vivante : jamais
+  ok = ok and same(rel("champ", 600, { TH_PIECE }), {})                       -- pièce à brûleur d'un plan vivant : jamais
+  ok = ok and same(rel("champ", 600, { OWN_EL }), {}) and same(rel("champ", 600, { OWN_PW }), {}) -- électrique hors avant-poste, chaudière : jamais
+  return ok
+end
+check(Sa.relics ~= nil and elec_ok(Sa.relics), "foreuse electrique d'avant-poste sous une bande : demontee ; jamais une piece d'un plan vivant, ni autre force, ni avant l'ere")
+check(Sa.relics ~= nil and relics_ok(Sa.relics), "reliques thermiques inchangees")
+if Sa.relics then
+  local M13 = function(site, era, bl) local o = {} if site == "champ" and era then for i, b in ipairs(bl) do if b.own and b.burner and not b.power then o[#o + 1] = i end end end return o end
+  check(not elec_ok(M13), "mutant M13 (ancien critere : brûleur seulement, l'electrique reste sous la bande) refuse")
+  local M14 = function(site, era, bl) local o = {} if site == "champ" and era then for i, b in ipairs(bl) do if b.own and (b.outpost or (b.burner and not b.power)) then o[#o + 1] = i end end end return o end
+  check(not elec_ok(M14), "mutant M14 (piece d'une bande vivante demontee) refuse")
+  local M15 = function(site, era, bl) local o = {} if site == "champ" and era then for i, b in ipairs(bl) do if not b.piece and (b.outpost or (b.own and b.burner and not b.power)) then o[#o + 1] = i end end end return o end
+  check(not elec_ok(M15), "mutant M15 (foreuse d'avant-poste d'une autre force demontee) refuse")
+  local M16 = function(site, era, bl) local o = {} if site == "champ" and era then for i, b in ipairs(bl) do if b.own and not b.piece and not b.power then o[#o + 1] = i end end end return o end
+  check(not elec_ok(M16), "mutant M16 (toute entite sans energie hors plan, avant-poste ignore) refuse")
+end
+
 print(string.format("champ_obstacles_test : %d passes, %d echecs", passes, failures))
 if failures > 0 then os.exit(1) end

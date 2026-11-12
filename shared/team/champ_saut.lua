@@ -43,7 +43,7 @@ function Sa.skip(role, reason, fails, blockers, limit)
 end
 
 --- Lot RETROFIT (F556) : reliques thermiques sous une bande. `site` : spec.site du projet ; `era` : Elec.era de l'équipe (tick, nil avant) ;
---- `blockers` = { { own, burner, power } } : ce qui occupe l'emprise d'une pièce refusée « occupe ». Rend les indices (croissants) des
+--- `blockers` = { { own, burner, power, outpost, piece } } : ce qui occupe l'emprise d'une pièce refusée « occupe ». Rend les indices (croissants) des
 --- entités que le chantier DÉMONTE lui-même : de l'équipe, à brûleur, qui ne produisent pas d'énergie, sur une bande de champ, une fois
 --- l'ère électrique datée. Partie du DC (0.7.3, projet 70, bande 40) : 4 paires thermiques de l'équipe sous la bande, seule la porte
 --- « degel » de la migration les retirait ; le chantier sautait la foreuse et refusait le reste « occupe », la bande restait en chantier.
@@ -51,7 +51,9 @@ function Sa.relics(site, era, blockers)
   local out = {}
   if site ~= "champ" or not era then return out end
   for i, b in ipairs(blockers or {}) do
-    if b.own and b.burner and not b.power then out[#out + 1] = i end
+    -- lot RELIQUES-SOUS-BANDE : aussi une foreuse ou une réception d'AVANT-POSTE de l'équipe (`outpost`), électrique comprise (foreuse_swap) :
+    -- le plan du champ tient ces tuiles pour libres (mine_of) ; jamais une pièce non cédée d'un plan (`piece`, une autre bande vivante)
+    if b.own and not b.piece and (b.outpost or (b.burner and not b.power)) then out[#out + 1] = i end
   end
   return out
 end

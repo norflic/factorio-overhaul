@@ -3830,6 +3830,14 @@ Build.relics_off = function(f, surface, p, e)
     local pr = x.valid and x.prototype or nil
     bl[i] = { own = pr ~= nil and x.force.name == f.force, burner = pr ~= nil and pr.burner_prototype ~= nil,
       power = pr ~= nil and ((x.fluidbox ~= nil and #x.fluidbox > 0) or pr.electric_energy_source_prototype ~= nil) }
+    -- lot RELIQUES-SOUS-BANDE : `outpost` = foreuse ou réception inscrite à un avant-poste de l'équipe (le registre que lit le plan, mine_of) ;
+    -- `piece` = pièce non cédée d'un projet du plan (détenteur b.occ de sa tuile centrale, même nom, même position) : jamais démontée
+    local ow = pr ~= nil and x.unit_number and State.owner(x.unit_number) or nil
+    bl[i].outpost = ow ~= nil and ow.f == f.id and (ow.kind == "drill" or ow.kind == "sink")
+    local q = pr ~= nil and f.build.occ and f.build.projects[f.build.occ[P.tkey(math.floor(x.position.x), math.floor(x.position.y))] or false] or nil
+    for _, pe in ipairs(q and q.ents or {}) do
+      if not pe.dropped and pe.name == x.name and pe.x == x.position.x and pe.y == x.position.y then bl[i].piece = true break end
+    end
   end
   local n = 0
   for _, i in ipairs(Saut.relics(p.spec.site, era, bl)) do
@@ -3862,7 +3870,7 @@ Build.relics_off = function(f, surface, p, e)
       local st = f.build.stats
       st.relics = (st.relics or 0) + 1
       if st.relics <= Build.REFUSAL_LOGS then
-        log(string.format("[FO-RETROFIT] %s : projet %d : relique thermique %s demontee (emprise de %s en (%g, %g), ere electrique depuis %.1f min), contenu et objet au stock",
+        log(string.format("[FO-RETROFIT] %s : projet %d : relique %s demontee (emprise de %s en (%g, %g), ere electrique depuis %.1f min), contenu et objet au stock",
           f.key or "player", p.id, d, tostring(e.name), e.x, e.y, era / 3600))
       end
     end
