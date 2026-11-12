@@ -578,6 +578,55 @@ local function suite(Rp, quiet)
   Rp.route_step(jf, function() return 1 end, 2, 100)
   check(no_open_state(), "17.7 l'etat d'une recherche ne contient aucune fonction")
 
+  -- §18 lot SORTIE-COFFRE : l'état mesuré en moteur (graine 2507543475, azure 5:o2 a t=135770) : quai de coffres (458..466, 456), bras du quai au nord
+  -- (y = 455) sur la ligne de plaques (y = 454), la ligne 5:o4 longe la face sud du quai (tapis en y = 458, vers l'ouest)
+  if Rp.quai_guard and Rp.branch_sites then
+    local outs = {}
+    for x = 458, 466 do outs[#outs + 1] = { x = x + 0.5, y = 456.5 } end
+    local S = { x = 459, y = 456 }
+    local g = Rp.quai_guard(outs, S)
+    local gk = {}
+    for _, t in ipairs(g) do gk[t.x .. ":" .. t.y] = true end
+    check(gk["458:457"] and gk["460:457"] and gk["461:457"] and gk["466:457"], "18.1 la ligne de S ne prend pas la face libre des autres coffres du quai")
+    check(not gk["459:457"] and not gk["459:455"] and not gk["459:456"], "18.2 la face de S elle-meme reste a S")
+    check(gk["457:456"] and gk["467:456"] and not gk["459:458"], "18.3 les bouts du quai sont gardes, la tuile a deux pas de S ne l'est pas")
+    local dup = false
+    for i = 2, #g do if g[i].x == g[i - 1].x and g[i].y == g[i - 1].y then dup = true end end
+    local sorted = true
+    for i = 2, #g do if g[i - 1].y > g[i].y or (g[i - 1].y == g[i].y and g[i - 1].x > g[i].x) then sorted = false end end
+    check(not dup and sorted and #g == 3 * 8 + 2 - 2, "18.4 liste triee sans doublon (" .. #g .. ")")
+    local _, bk = Rp.quai_guard(outs, S)
+    local bkk = {}
+    for _, t in ipairs(bk) do bkk[t.x .. ":" .. t.y] = true end
+    check(bkk["458:458"] and bkk["460:458"] and bkk["466:458"] and bkk["458:454"], "18.4b la tuile du tapis derriere chaque autre coffre est rendue (sans poteau)")
+    check(not bkk["459:458"] and not bkk["459:454"] and not bkk["459:457"] and not bkk["467:456"] and not bkk["460:456"], "18.4c ni les tuiles de S ni les voisines deja gardees")
+    local okb = true
+    for i = 2, #bk do if bk[i - 1].y > bk[i].y or (bk[i - 1].y == bk[i].y and bk[i - 1].x >= bk[i].x) then okb = false end end
+    check(okb, "18.4d second rendu trie, sans doublon")
+    local tiles_of_quai = {}
+    for x = 458, 466 do tiles_of_quai[x .. ":456"] = true end
+    local busy = { ["459:455"] = true, ["459:454"] = true, ["459:458"] = true }
+    local function free(x, y) return not busy[x .. ":" .. y] and not tiles_of_quai[x .. ":" .. y] end
+    check(#Li.sites(S.x, S.y, free) == 0, "18.5 etat du symptome : aucun site (bras et tapis) contre le coffre")
+    local line = { ["459:458"] = 6, ["460:458"] = 6, ["458:458"] = 6 }
+    local bs = Rp.branch_sites(S, free, function(x, y) return line[x .. ":" .. y] end)
+    check(#bs == 1 and bs[1].dir == 4 and bs[1].ax == 459 and bs[1].ay == 457 and bs[1].bx == 459 and bs[1].by == 458, "18.6 le coffre verse par un bras sur la ligne voisine (face sud)")
+    check(#Rp.branch_sites(S, free, function() return nil end) == 0, "18.7 aucune ligne : aucun branchement")
+    check(#Rp.branch_sites(S, free, function(x, y) if x == 459 and y == 458 then return 0 end end) == 0, "18.8 un tapis qui verse sur la tuile du bras n'est pas un branchement")
+    check(#Rp.branch_sites(S, free, function(x, y) return line[x .. ":" .. y] end, function(x, y) return not (x == 459 and y == 457) end) == 0, "18.9 bras refuse sur la ressource")
+    check(#Rp.branch_sites(S, function(x, y) return free(x, y) and not (x == 459 and y == 457) end, function(x, y) return line[x .. ":" .. y] end) == 0, "18.10 tuile du bras prise : aucun branchement")
+    local ents = Rp.branch_entities(bs[1] or { dir = 4, ax = 459, ay = 457, bx = 459, by = 458 }, { arm = "A", pole = "P" }, { 458, 457 })
+    local isarm = function(e) return e.role == "liaison-bras" end
+    check(#ents == 2 and #Rp.branch_verify(ents, S, { x = 459, y = 458 }, isarm) == 0, "18.11 bras et poteau, preuve juste (prend en S, depose sur la ligne)")
+    check(#Rp.branch_verify(ents, S, { x = 460, y = 458 }, isarm) > 0, "18.12 la preuve voit un bras qui ne depose pas sur la ligne")
+    check(#Rp.branch_verify(ents, { x = 460, y = 456 }, { x = 459, y = 458 }, isarm) > 0, "18.13 la preuve voit un bras qui ne prend pas au coffre")
+    check(#Rp.branch_verify({ ents[1], ents[1] }, S, { x = 459, y = 458 }, isarm) > 0, "18.14 la preuve compte les bras")
+    local E = Rp.branch_sites({ x = 0, y = 0 }, function() return true end, function(x, y) if x == 2 and y == 0 then return 4 end end)
+    check(#E == 1 and E[1].dir == 2, "18.15 branchement a l'est (direction lue, pas supposee)")
+  else
+    check(false, "18.0 regles du quai et du branchement absentes (Rp.quai_guard, Rp.branch_sites)")
+  end
+
   return fail_n, ok_n
 end
 
@@ -700,6 +749,20 @@ local mutants = {
   { "minerai (TAMPON-MINERAI) : tapis refuses sur la ressource", "return not Sm.forbidden(ptype, function() return ore(x, y) == true end)", "return not ore(x, y)" },
   { "minerai (TAMPON-MINERAI) : le max des paires est oublie", "if max_n and #out >= max_n then break end", "" },
 }
+for _, m in ipairs({
+  { "quai (SORTIE-COFFRE) : les voisines des autres coffres ne sont plus gardees", "if not seen[k] and not mine[k] then", "if false then" },
+  { "quai (SORTIE-COFFRE) : la face de S est gardee", "local faces = ring(1, seen, {}, own)", "local faces = ring(1, seen, {}, {})" },
+  { "quai (SORTIE-COFFRE) : la tuile du tapis de S est rendue", [==[own2[(S.x + 2 * v[1]) .. ":" .. (S.y + 2 * v[2])] = true]==], "local _ = 0" },
+  { "quai (SORTIE-COFFRE) : les tuiles a deux pas sont oubliees", "return faces, ring(2, seen, {}, own2)", "return faces, {}" },
+  { "quai (SORTIE-COFFRE) : les tuiles a deux pas reprennent les voisines", "return faces, ring(2, seen, {}, own2)", "return faces, ring(2, {}, {}, own2)" },
+  { "branchement (SORTIE-COFFRE) : la ligne n'est plus exigee", "local w = Li.DV[belt_dir(bx, by) or -1]", "local w = Li.DV[belt_dir(bx, by) or 0]" },
+  { "branchement (SORTIE-COFFRE) : tapis qui verse sur le bras accepte", "if w and not (bx + w[1] == ax and by + w[2] == ay) and", "if w and" },
+  { "branchement (SORTIE-COFFRE) : tuile du bras non controlee", "and free(ax, ay) and (not arm_ok", "and (not arm_ok" },
+  { "branchement (SORTIE-COFFRE) : minerai ignore", "and (not arm_ok or arm_ok(ax, ay)) then", "then" },
+  { "branchement (SORTIE-COFFRE) : bras a l'envers", "dir = (site.dir + 4) % 8, role", "dir = site.dir, role" },
+  { "branchement (SORTIE-COFFRE) : la preuve ne compte plus les bras", "if #arms ~= 1 then bad[1]", "if #arms == 0 then bad[1]" },
+  { "branchement (SORTIE-COFFRE) : la depose n'est plus controlee", "if not v or tx - v[1] ~= B.x or ty - v[2] ~= B.y then", "if false then" },
+}) do mutants[#mutants + 1] = m end
 local refused, total_m = 0, 0
 local survivors = {}
 for _, m in ipairs(mutants) do
