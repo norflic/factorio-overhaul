@@ -155,7 +155,10 @@ check(r.bad_board == 0, "tâche « craft » prise au tableau à son nom jusqu'à
 check(r.bad_hold == 0, "réserve sans quantité nulle ou négative")
 check(inc_ok, "Board.incoming compte les travaux en arrière-plan")
 local ts = f.team.task_stats.craft or { ok = 0, fail = 0 }
-check(ts.ok >= 100, "fabrications livrées (" .. ts.ok .. ")")
+-- Lot TESTS-VERTS : CC-SANCTUAIRE-2 (58247936, F509, règle du DC : aucun four ni coffre sur le minerai) ne pose plus de paire thermique
+-- qu'au bord du gisement : à 20 min, 39 foreuses thermiques au lieu de 98 dans cette partie (git bisect), donc moins de plaques et de
+-- fabrications (217 à 283 avant, 76 à 84 après). Le seuil suit (60) ; le reste de la section (aucun PNJ immobile) est inchangé.
+check(ts.ok >= 60, "fabrications livrées (" .. ts.ok .. ")")
 check(ts.fail <= 2, "fabrications perdues : au plus 2 (" .. ts.fail .. " ; 8 sur l'ancien PNJ bloqué, même partie)")
 check((f.stats.crafted or 0) == ts.ok, "stats.crafted = fabrications livrées")
 local nlog, nrep = 0, 0
@@ -177,7 +180,8 @@ local r0 = sample(f, 20 * 60)
 f = global.fo.pteam.team
 local ts0 = f.team.task_stats.craft or { ok = 0, fail = 0 }
 print(string.format("  immobiles %d sur %d (%.1f %%), fabrications %d livrées, %d perdues", r0.craft, r0.n, 100 * r0.craft / r0.n, ts0.ok, ts0.fail))
-check(r0.craft >= r0.n / 5, "mutant détecté : plus de 20 % du temps immobile en « craft » (" .. r0.craft .. ")")
+-- (même cause, F509 : moins de fabrications, l'ancien PNJ bloqué attend moins : 21 à 23 % avant, 10 à 12 % après ; le vrai code : 0)
+check(r0.craft >= r0.n / 20, "mutant détecté : plus de 5 % du temps immobile en « craft » (" .. r0.craft .. ")")
 check(r0.bg == 0, "mutant : aucun travail en arrière-plan")
 
 ---------------------------------------------------------------------------------------------------
