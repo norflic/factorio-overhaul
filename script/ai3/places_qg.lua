@@ -32,6 +32,19 @@ function Q.on_resource(surface, name, pos)
   end)
 end
 
+--- Lot FOUR-PLEIN : crochet des tuiles réservées par le plan directeur (b.occ), posé par script/team/build.lua (Build.reserved_entity) ;
+--- absent : rien n'est réservé. Un labo posé à 12 min sur la ligne de plaques planifiée à 9 min du champ de fer coupait ce tapis :
+--- 24 fours « sortie pleine », fer au coffre à 0 (etape1-guide, 2507543475).
+Q.reserved = nil
+
+--- Lot FOUR-PLEIN : `make` qui saute (rend false : place suivante) une place réservée au plan directeur de l'équipe `f`.
+function Q.skip_reserved(f, name, make)
+  return function(pos)
+    if Q.reserved and Q.reserved(f, name, pos) then return false end
+    return make(pos)
+  end
+end
+
 --- Pose au plus `count` bâtiments `name` en rangées autour de `origin` (centre du QG). spec : disposition (T.hq_rows.*) ;
 --- need : places à générer ; make(position) pose un bâtiment et rend true (posé), false (raté : place suivante) ou nil
 --- (plus d'objet : arrêt). Rend le nombre posé.

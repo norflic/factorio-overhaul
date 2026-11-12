@@ -61,6 +61,7 @@ local BoiteChunks = require("script.team.boite_chunks") -- lot POULS : boîte de
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
+local PlacesQG = require("script.ai3.places_qg") -- lot FOUR-PLEIN : crochet des tuiles réservées (PlacesQG.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG avant un module neuf (règle pure)
 local Ic = require("shared.team.ilots_croissance") -- lot C3 EXTENSION : le treillis grandit au-delà du mur, en îlots défendus (règles pures)
@@ -1962,6 +1963,8 @@ end
 Outposts.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end
 -- Lot STOCKAGE : les annexes du QG (script/team/stock.lua) sautent une place réservée par le plan directeur.
 Stock.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos) end
+-- Lot FOUR-PLEIN : les labos et les fours du QG (script/ai3/places_qg.lua) sautent une tuile d'un projet planifié (b.occ, sans les couloirs).
+PlacesQG.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos, nil, { couloir = false }) end
 
 --- Lot TOURELLES-HORS-AXE (retour du DC du 29/10 sur 0.6.18, défaut 4 : « le canon est en plein milieu [...] si on voulait étendre
 --- sur la gauche [...] on pourrait pas »). Couloirs d'extension des lignes extensibles de l'équipe : la ligne de fours à tapis

@@ -821,7 +821,7 @@ end
 function Outposts.place_smelters(f, surface, count, carrier)
   f.smelters = f.smelters or {}
   return PlacesQG.place(surface, T.SMELTER, f.force, f.hq_pos, T.hq_rows.smelter,
-    Pl.need(#f.smelters, count, T.hq_rows_slack), count, function(pos)
+    Pl.need(#f.smelters, count, T.hq_rows_slack), count, PlacesQG.skip_reserved(f, T.SMELTER, function(pos)
       if carrier.get_item_count(T.SMELTER) < 1 then return nil end
       local s = surface.create_entity({ name = T.SMELTER, position = pos, force = f.force, raise_built = true })
       if not (s and s.valid) then return false end
@@ -831,7 +831,7 @@ function Outposts.place_smelters(f, surface, count, carrier)
       f.smelters[#f.smelters + 1] = s
       State.own(s, f.id, "smelter")
       return true
-    end)
+    end))
 end
 
 function Outposts.smelters(f)
