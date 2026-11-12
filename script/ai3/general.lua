@@ -644,6 +644,12 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     function(t) return c.techs[t] and c.techs[t].ingredients or {} end,
     function(t) return c.techs[t] and c.techs[t].count or 0 end, view.stock or {})
   for _, t in ipairs(sorted_keys(stalled_now)) do disabled[t] = true end
+  -- Lot LABOS-ARRET : les recherches qui demandent un pack retenu par une recherche lâchée sont écartées avec elle (sauf celle de la tourelle tant
+  -- que sa recette est fermée) ; rien d'autre de payable : Im.lift, plus bas, fait revenir la recherche lâchée.
+  local keep_turret = turret_rec ~= nil and not turret_rec.enabled and defense_tech or nil
+  for _, t in ipairs(sorted_keys(Im.blocked_by_packs(st, stalled_now, c.tech_list, function(t) return c.techs[t] and c.techs[t].ingredients or {} end, keep_turret))) do
+    disabled[t] = true
+  end
   local speed = 1
   for _, l in ipairs(c.labs) do speed = math.max(speed, l.speed or 1) end
   -- Lot LEVIERS : recherches à effet choisies par la capitalisation (script/ai3/capitalisation.lua), lues à l'appel.
