@@ -625,8 +625,10 @@ local function new_job(f, surface, p)
   if y1 - y0 > BOX_MAX then y0, y1 = (src.y + py) / 2 - BOX_MAX / 2, (src.y + py) / 2 + BOX_MAX / 2 end
   if math.min(src.x, px) - Rp.SPOT_RADIUS < x0 or math.max(src.x, px) + Rp.SPOT_RADIUS > x1
     or math.min(src.y, py) - Rp.SPOT_RADIUS < y0 or math.max(src.y, py) + Rp.SPOT_RADIUS > y1 then return nil, "rapatriement: trop loin" end
+  -- lot REPLAN-RAPATRIEMENT : la tuile du coffre de sortie S n'est jamais une tuile du tracé (gardée comme la tuile devant un tapis). Sans elle, un replan dont
+  -- le site nord est pris contournait S PAR S : tapis sur le coffre, refus « 2 bras au lieu de 1 » (Li.verify, F545 : un tapis sur S = départ sur tapis).
   local J = { box = { x0 = math.floor(x0), y0 = math.floor(y0), x1 = math.ceil(x1), y1 = math.ceil(y1) }, reuse = reuse, px = px, py = py, planned = {}, total = 0, runs = 0, si = 0, ei = 1,
-    last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = {}, grid = { cost = {}, done = false } }
+    last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = { [P.tkey(src.x, src.y)] = true }, grid = { cost = {}, done = false } }
   J.S = { x = src.x, y = src.y }
   return J
 end
