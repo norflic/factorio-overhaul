@@ -102,6 +102,7 @@ local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant
 local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : la couverture en boucle passe la porte du transport, modules posés cumulés
 local Pal = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
+local Mg = require("shared.ai3.marge") -- lot MARGE-TIERS : fenêtre glissante production / consommation, journal [FO-MARGE]
 local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
 
 local Capi = {}
@@ -757,6 +758,36 @@ local function flows_of(f, cs)
   for _, k in ipairs(sorted_keys(ha)) do copy[k] = ha[k] end
   cs.hand_prev = copy
   return out
+end
+
+--- Lot MARGE-TIERS : relevé de la fenêtre glissante (shared/ai3/marge.lua) après flows_of : fabriqués = cs.flows (machines, foreuses
+--- et main des PNJ), consommés = écart des compteurs cumulés output_counts des statistiques de la force depuis la décision précédente.
+--- État : cs.marge_win (relevés), cs.cons (compteurs), cs.marge_t (tick du relevé précédent) : nombres seulement.
+local function marge_sample(f, cs, tick)
+  local force = game.forces[f.force]
+  local stats = nil
+  pcall(function() stats = force.item_production_statistics end)
+  local cur = {}
+  if stats then pcall(function() cur = stats.output_counts end) end
+  local used, prev = {}, cs.cons
+  for _, k in ipairs(sorted_keys(cur)) do
+    local d = (cur[k] or 0) - ((prev or {})[k] or 0)
+    if prev ~= nil and d > 0 and prev[k] ~= nil then used[k] = d end
+  end
+  local copy = {}
+  for _, k in ipairs(sorted_keys(cur)) do copy[k] = cur[k] end
+  cs.cons = copy
+  local made = {}
+  for _, k in ipairs(sorted_keys(cs.flows or {})) do
+    local m = cs.flows[k].made or 0
+    if m > 0 then made[k] = m end
+  end
+  cs.marge_win = cs.marge_win or Mg.new()
+  if prev ~= nil and cs.marge_t ~= nil and tick > cs.marge_t then
+    Mg.push(cs.marge_win, { t = tick, dt = (tick - cs.marge_t) / 3600, made = made, used = used })
+  end
+  cs.marge_t = tick
+  return Mg.rates(cs.marge_win)
 end
 
 --- File de recherche : la technologie en cours (unités restantes) puis les suivantes du cerveau général.
@@ -2295,7 +2326,9 @@ local function decide_start(f, cs, view, book, tick, w, run)
   cs.flows = flows_of(f, cs)
   Dep.think(f, cs, tick, DEP_PRODUCTS, minutes(f, tick)) -- lot DEPENSES2 : budget du stock qui dort (Dep.defense, Dep.labs)
   if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
+  local mrates = Mg.ON and marge_sample(f, cs, tick) or nil
   local input, cex = build_input(f, cs, view, book, tick, D, w)
+  if mrates and next(mrates) ~= nil then input.marge = mrates end -- lot MARGE-TIERS : débits /min de la fenêtre (nil : pas encore de relevé)
   local absent = Ca.absent_input(input)
   if absent then
     log(string.format("[FO-CAPI] %s : decision refusee : entree absente : %s a %.1f min", f.key or "?", absent, minutes(f, tick)))
@@ -2362,6 +2395,18 @@ local function decide_slice(f, cs, view, book, tick, research, run)
   end
   cs.dj, DJ_MEM[key] = nil, nil
   RangTrace.note(f, J.ctx.rang, tick) -- lot VIDEO-TRACES (G34) : journal [FO-RANG], une ligne par signature changée (rang de la décision, sans toucher au résultat)
+  do -- lot MARGE-TIERS : [FO-MARGE] toutes les 5 minutes, et à chaque gel posé ou levé
+    local mg = J.ctx.mg
+    if mg then
+      local changed = (cs.marge_gel == true) ~= (mg.gel == true)
+      if changed or cs.marge_log == nil or tick - cs.marge_log >= 5 * 3600 then
+        cs.marge_log = tick
+        local _, win_min = Mg.rates(cs.marge_win)
+        log(Mg.format(f.key or "player", math.floor(minutes(f, tick)), mg, J.ctx.mg_n, win_min))
+      end
+      cs.marge_gel = mg.gel == true
+    end
+  end
   RangTrace.attentes(f, J.ctx.cons_log, tick) -- lot CONSOLIDATION-TIERS : [FO-RANG] une ligne par attente, consolidation ou levée (sans toucher au résultat)
   decide_finish(f, cs, J.res, mem.input, view, book, tick, research)
   return true
