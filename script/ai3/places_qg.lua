@@ -22,11 +22,15 @@ local Q = {}
 
 --- Lot DECOUPLAGE : l'entité `name` posée en `pos` couvrirait-elle une tuile de ressource alors que son type ne le permet pas
 --- (shared/team/sol_minerai.lua, Sm.forbidden) ? Emprise = collision_box du prototype. Lu aussi par les tourelles (outposts, team).
+--- Lot TAMPON-MINERAI : l'emprise est jugée là où create_entity POSE le bâtiment (recalé sur sa grille, Pl.snap, F104), pas à la place
+--- trouvée hors grille par find_non_colliding_position (centre de commandement de CAPITAL et du QG) ; une place déjà recalée ne bouge pas.
 function Q.on_resource(surface, name, pos)
   local proto = game.entity_prototypes[name]
   local cb = proto and proto.collision_box
   return Sm.forbidden(proto and proto.type, function()
     if not cb then return false end
+    local w, h = Pl.tiles(cb)
+    pos = { x = Pl.snap(pos.x, w), y = Pl.snap(pos.y, h) }
     return surface.count_entities_filtered({ area = { { pos.x + cb.left_top.x, pos.y + cb.left_top.y }, { pos.x + cb.right_bottom.x, pos.y + cb.right_bottom.y } },
       type = "resource", limit = 1 }) > 0
   end)

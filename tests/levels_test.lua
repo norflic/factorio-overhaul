@@ -3033,6 +3033,53 @@ WATER["439,498"], WATER["439,501"] = nil, nil
 check(not okw and whyw == "no-room" and gw.valid and Levels.blocker_names(infow.room.preferred)[1] == "tile:water",
   "eau au nord et au sud : refus « no-room », eau nommée (" .. tostring(whyw) .. ")")
 
+-- d3. Lot TAMPON-MINERAI (DC : tolérance 0 sur le minerai ; shared/team/sol_minerai.lua, Sm.forbidden) : la nouvelle emprise 3 × 3 d'une
+-- mitrailleuse qui toucherait une tuile de ressource est refusée comme une tuile d'eau : ressource à l'ouest et à l'est (toutes les
+-- candidates touchées) -> « no-room », rien payé, la mitrailleuse garde son niveau ; ressource à l'ouest seule -> agrandie à l'est.
+do
+  local raw_fef = s.find_entities_filtered
+  -- le moteur simulé ne rend les ressources (type « resource ») que de ses gisements ponctuels : ici, les vraies entités de la zone
+  s.find_entities_filtered = function(q)
+    if q.type ~= "resource" then return raw_fef(q) end
+    local out = {}
+    for _, e in ipairs(raw_fef({ area = q.area })) do if e.valid and e.name == "fo-test-ore" then out[#out + 1] = e end end
+    return out
+  end
+  local go = gun_at(6, 520, 500, 7)
+  local o_w = s.create_entity({ name = "fo-test-ore", position = { x = 518.5, y = 500.5 }, force = "neutral" })
+  local o_e = s.create_entity({ name = "fo-test-ore", position = { x = 521.5, y = 500.5 }, force = "neutral" })
+  stock(tinv, GUN, 7, 1)
+  local before = {}
+  for _, c in ipairs(L.cost(GUN, 7)) do before[c[1]] = tinv.get_item_count(c[1]) end
+  local oko, whyo, infoo = Levels.start(go, nil)
+  local unpaid_o = true
+  for _, c in ipairs(L.cost(GUN, 7)) do if tinv.get_item_count(c[1]) ~= before[c[1]] then unpaid_o = false end end
+  check(not oko and whyo == "no-room" and go.valid and go.name == L.name(GUN, 6) and go.get_item_count("firearm-magazine") == 7 and unpaid_o,
+    "minerai à l'ouest et à l'est : refus « no-room », mitrailleuse 6 gardée, rien payé (" .. tostring(whyo) .. ")")
+  check(infoo and infoo.room and Levels.blocker_names(infoo.room.preferred)[1] == "tile:fo-test-ore",
+    "minerai nommé comme gêne de la position préférée")
+  -- règle du sol muette (mutant) : l'agrandissement passerait sur le minerai
+  local Smm = require("shared.team.sol_minerai")
+  local keep = Smm.forbidden
+  Smm.forbidden = function() return false end
+  local rm = Levels.room(go, 2, L.name(GUN, 7), 3)
+  Smm.forbidden = keep
+  check(rm.chosen ~= nil, "mutant « règle du sol muette » : vu (la place sur le minerai serait prise)")
+  -- une foreuse (BOX_MINAGE) n'est pas concernée : même règle, type admis
+  check(not Smm.forbidden("mining-drill", function() return true end), "foreuse : admise sur le minerai (même règle)")
+  o_e.destroy()
+  local oke, whye, _, ge = Levels.start(go, nil)
+  local on_ore = false
+  if ge then
+    local b = Foot.tile_box(ge.position, 3)
+    on_ore = 518 >= b.x0 and 518 < b.x1 and 500 >= b.y0 and 500 < b.y1
+  end
+  check(oke and ge and ge.name == L.name(GUN, 7) and not on_ore and ge.position.x == 520.5,
+    "minerai à l'ouest seul : agrandie à l'est, hors du minerai (" .. tostring(whye) .. ")")
+  o_w.destroy()
+  s.find_entities_filtered = raw_fef
+end
+
 -- d2. Correction V3-T (défaut 8) : eau au nord (rangée y = 498) et coffre au sud-ouest. Le contour montre la
 -- candidate SUD-OUEST (rang 3 : gênée par le coffre seul), pas la préférée dans l'eau ; sans le coffre,
 -- l'agrandissement passe là.
@@ -3071,7 +3118,8 @@ check(oka and ga7 and infoa.room.index == 2 and ga7.position.x == 460.5 and ga7.
 local gn = gun_at(6, 480, 500)
 s.create_entity({ name = "fo-test-walker", position = { x = 478.6, y = 498.6 }, force = TF })
 local ground = s.create_entity({ name = "item-on-ground", position = { x = 479.5, y = 498.5 }, force = "neutral" })
-local ore = s.create_entity({ name = "fo-test-ore", position = { x = 478.5, y = 500.5 }, force = "neutral" })
+-- (lot TAMPON-MINERAI : hors de l'emprise retenue, la règle du sol du minerai la bloquerait, cas d3)
+local ore = s.create_entity({ name = "fo-test-ore", position = { x = 481.5, y = 501.5 }, force = "neutral" })
 local ghost = s.create_entity({ name = "fo-test-ghost", position = { x = 478.5, y = 499.5 }, force = TF })
 rawset(ghost, "ghost_prototype", Wd.prototypes["stone-wall"])
 local tghost = s.create_entity({ name = "fo-test-tile-ghost", position = { x = 480.5, y = 498.5 }, force = TF })

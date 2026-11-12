@@ -470,7 +470,7 @@ local function chunk_masks(api, surface, chunks)
     if c == nil or (c and game.tick - c.tick > CHUNK_TTL) then
       if surface.is_chunk_generated({ x = cx, y = cy }) then
         local m = api.read_masks(cx * CHUNK, cy * CHUNK, cx * CHUNK + CHUNK, cy * CHUNK + CHUNK)
-        c = { water = m.water, blocked = m.blocked, clear = m.clear, tick = game.tick }
+        c = { water = m.water, blocked = m.blocked, clear = m.clear, res = m.res, tick = game.tick } -- res : lot TAMPON-MINERAI (J.ok)
       else
         c = false
       end
@@ -556,7 +556,7 @@ local function advance(J)
     local sp = J.spots[J.si]
     J.D = { x = sp.x, y = sp.y }
     J.planned = {}
-    J.ends = Li.pick_ends(J.S, J.D, J.free, Rp.ROUTE_TRIES)
+    J.ends = Rp.ends_ok(Li.pick_ends(J.S, J.D, J.free), J.ok.arm, Rp.ROUTE_TRIES)
     J.ei = 1
   end
 end
@@ -565,7 +565,7 @@ local function waiting(J)
   return false, string.format("rapatriement: planification en cours (%s, appel %d, %d noeuds)", J.stage, J.slices, J.total), "tranche"
 end
 
-local STRIP = { "chunk", "merged", "ground", "free", "cost", "wf", "f", "surface", "p", "L" }
+local STRIP = { "chunk", "merged", "ground", "free", "cost", "wf", "f", "surface", "p", "L", "ok" }
 
 --- Les fonctions de la carte, refaites à chaque appel (jamais dans global).
 local function bind(api, f, surface, p, J)
@@ -589,6 +589,13 @@ local function bind(api, f, surface, p, J)
     local c, k = J.ground(x, y)
     return c ~= nil and not (J.guard[k] or J.planned[k]) and not J.wf(x, y)
   end
+  -- lot TAMPON-MINERAI : coffre tampon et bras jamais sur une ressource (Rp.off_ore -> Sm.forbidden, types lus aux prototypes du jeu)
+  local function ore(x, y)
+    local c = J.chunk(math.floor(x / CHUNK), math.floor(y / CHUNK))
+    return c and c.res[P.tkey(x, y)] or false
+  end
+  local function ptype(name) local pr = game.entity_prototypes[name] return pr and pr.type end
+  J.ok = { chest = Rp.off_ore(ptype(lc.chest), ore), arm = Rp.off_ore(ptype(lc.arm), ore) }
   function J.cost(x, y)
     if not J.free(x, y) then return nil end
     local c, k = J.ground(x, y)
@@ -673,8 +680,8 @@ local function stage_spots(f, surface, b, p, J)
       end
       return (probe or at_tam)(x, y, near)
     end
-    J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES)
-    if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES) end
+    J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, true) end, Rp.SPOT_TRIES, nil, J.ok)
+    if #J.spots == 0 then J.spots = Rp.pick_spots(J.px, J.py, function(x, y) return free_chest(x, y, false) end, Rp.SPOT_TRIES, nil, J.ok) end
     -- lot BUS-FER : REPLI FORCE. Moteur réel (carte max, 2 graines) : « 0 poteau lu dans 21 tuiles » autour du point voulu (le point est ramené à
     -- Rp.NEAR_HUB du QG, hors de tout réseau) : le tampon est déplacé VERS le QG, par pas de Rp.FALLBACK_STEP tuiles, jusqu'au premier point
     -- où un poteau du réseau est à portée ; la boîte de lecture s'élargit à ce point. Lot PLAQUES : puis du QG vers la sortie (Rp.fallback_points).
@@ -685,8 +692,8 @@ local function stage_spots(f, surface, b, p, J)
         local bx = J.box
         J.box = { x0 = math.min(bx.x0, qx - Rp.SPOT_RADIUS), y0 = math.min(bx.y0, qy - Rp.SPOT_RADIUS), x1 = math.max(bx.x1, qx + Rp.SPOT_RADIUS), y1 = math.max(bx.y1, qy + Rp.SPOT_RADIUS) }
         local probe = pole_probe(f, surface, qx, qy, Rp.SPOT_RADIUS + near + 4)
-        local sp = Rp.pick_spots(qx, qy, function(x, y) return free_chest(x, y, true, probe) end, Rp.SPOT_TRIES)
-        if #sp == 0 then sp = Rp.pick_spots(qx, qy, function(x, y) return free_chest(x, y, false, probe) end, Rp.SPOT_TRIES) end
+        local sp = Rp.pick_spots(qx, qy, function(x, y) return free_chest(x, y, true, probe) end, Rp.SPOT_TRIES, nil, J.ok)
+        if #sp == 0 then sp = Rp.pick_spots(qx, qy, function(x, y) return free_chest(x, y, false, probe) end, Rp.SPOT_TRIES, nil, J.ok) end
         if #sp > 0 then
           J.spots, J.px, J.py = sp, qx, qy
           break

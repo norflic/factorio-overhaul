@@ -43,6 +43,7 @@ local Storage = require("script.core.storage")
 local L = require("shared.levels.config")
 local Foot = require("shared.levels.footprint")
 local Points = require("shared.levels.points")
+local Sm = require("shared.team.sol_minerai") -- lot TAMPON-MINERAI : la règle unique du sol du minerai (Sm.forbidden)
 
 local Levels = {}
 
@@ -454,6 +455,16 @@ function Levels.room(entity, old_side, new_name, new_side, only_box)
         end
       end
     end
+  end
+  -- Lot TAMPON-MINERAI (DC : tolérance 0 sur le minerai) : une tuile de ressource bloque la nouvelle emprise d'un type qui n'a pas droit au
+  -- minerai (Sm.forbidden : tout sauf foreuses, poteaux, tapis) comme une tuile d'eau ; sans place, l'amélioration est refusée (no-room),
+  -- le bâtiment garde son niveau.
+  local ores = {}
+  if Sm.forbidden(proto and proto.type, function()
+    ores = surface.find_entities_filtered({ area = { { area.x0, area.y0 }, { area.x1, area.y1 } }, type = "resource" })
+    return #ores > 0
+  end) then
+    for _, r in ipairs(ores) do tiles[#tiles + 1] = { x = math.floor(r.position.x), y = math.floor(r.position.y), name = r.name } end
   end
   -- Entités qui touchent la zone (moteur : boîte de collision) et partagent une couche, sauf l'ancien bâtiment.
   local blockers, by_key = {}, {}

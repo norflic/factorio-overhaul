@@ -37,6 +37,7 @@
 ]]
 
 local Li = require("shared.team.liaison")
+local Sm = require("shared.team.sol_minerai") -- lot TAMPON-MINERAI : la règle unique du sol du minerai (Sm.forbidden), jamais recopiée
 
 local Rp = {}
 
@@ -355,15 +356,48 @@ function Rp.fallback_points(px, py, hub, src, step, reach)
   return out
 end
 
+--- Lot TAMPON-MINERAI (DC : tolérance 0 sur le minerai ; scarlet, graine 123456789, 50 min : coffre et bras du tampon du projet 22 posés en
+--- (379, -318), au milieu de son cuivre, par le repli Rp.fallback_points) : la règle UNIQUE du sol (shared/team/sol_minerai.lua, Sm.forbidden)
+--- pour une pièce 1 x 1 de la ligne (coffre tampon, bras) de type de prototype `ptype`. ore(x, y) -> vrai si la tuile porte une ressource.
+--- Rend ok(x, y) : vrai si la pièce peut occuper la tuile.
+function Rp.off_ore(ptype, ore)
+  return function(x, y) return not Sm.forbidden(ptype, function() return ore(x, y) == true end) end
+end
+
+--- Sites d'un coffre (Li.sites) dont le bras peut occuper sa tuile (arm_ok(x, y) : Rp.off_ore) ; le tapis derrière lui, BOX_MINAGE, le peut
+--- toujours. Même ordre.
+function Rp.sites_ok(sites, arm_ok)
+  local out = {}
+  for _, s in ipairs(sites) do
+    if arm_ok(s.ax, s.ay) then out[#out + 1] = s end
+  end
+  return out
+end
+
+--- Paires de bouts (Li.pick_ends) dont les DEUX bras (départ et arrivée) peuvent occuper leur tuile (arm_ok : Rp.off_ore) ; au plus `max_n`,
+--- dans le même ordre.
+function Rp.ends_ok(ends, arm_ok, max_n)
+  local out = {}
+  for _, e in ipairs(ends) do
+    if arm_ok(e.src.ax, e.src.ay) and arm_ok(e.dst.ax, e.dst.ay) then
+      out[#out + 1] = e
+      if max_n and #out >= max_n then break end
+    end
+  end
+  return out
+end
+
 --- Premiers points libres pour un coffre tampon (chaque coffre a au moins un site de bras : Li.sites) autour de (px, py), jusqu'à Rp.SPOT_RADIUS ;
---- au plus `max` points (défaut Rp.SPOT_TRIES), les plus proches d'abord. free(x, y) -> bool. Rend { { x, y, sites } }.
-function Rp.pick_spots(px, py, free, max_n, radius)
+--- au plus `max` points (défaut Rp.SPOT_TRIES), les plus proches d'abord. free(x, y) -> bool. Rend { { x, y, sites } }. Lot TAMPON-MINERAI : `ok`
+--- ({ chest, arm } de Rp.off_ore) refuse un point dont le coffre toucherait une ressource, et chaque site dont le bras en toucherait une.
+function Rp.pick_spots(px, py, free, max_n, radius, ok)
   local out = {}
   max_n = max_n or Rp.SPOT_TRIES
   for r = 0, radius or Rp.SPOT_RADIUS do
     for _, t in ipairs(Rp.ring(px, py, r)) do
-      if free(t[1], t[2]) then
+      if free(t[1], t[2]) and (not ok or ok.chest(t[1], t[2])) then
         local sites = Li.sites(t[1], t[2], free)
+        if ok then sites = Rp.sites_ok(sites, ok.arm) end
         if #sites > 0 then
           out[#out + 1] = { x = t[1], y = t[2], sites = sites }
           if #out >= max_n then return out end

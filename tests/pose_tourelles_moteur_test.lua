@@ -260,7 +260,14 @@ do
   check(k == 1, "mutant « place non recalée » : motif trouvé")
   local real = Outposts
   Outposts = assert(load(m, "outposts_mutant", "t", _G))()
-  local okm = grid_cases(PlacesQG_real.on_resource, ORE)
+  -- lot TAMPON-MINERAI : la règle du sol recale ELLE-MÊME la place sur la grille de pose (Q.on_resource, Pl.snap) : sans le recalage de
+  -- l'appelant, la tourelle ne tombe toujours pas sur la ressource ; le mutant retire les deux recalages
+  local okc = grid_cases(PlacesQG_real.on_resource, ORE)
+  check(okc, "place non recalée par l'appelant : la règle du sol juge l'emprise posée (recalage de Q.on_resource)")
+  local qsrc = io.open("script/ai3/places_qg.lua", "rb"):read("*a")
+  local qm, qk = qsrc:gsub("%s+pos = { x = Pl%.snap%(pos%.x, w%), y = Pl%.snap%(pos%.y, h%) }", "", 1)
+  check(qk == 1, "mutant « règle du sol non recalée » : motif trouvé")
+  local okm = grid_cases(assert(load(qm, "places_qg_mutant", "t", _G))().on_resource, ORE)
   Outposts = real
   check(not okm, "mutant « place non recalée » détecté")
   -- mutant : règle du sol muette -> vu aussi

@@ -322,6 +322,54 @@ local function suite(Rp, quiet)
     end
   end
 
+  -- §8 quater lot TAMPON-MINERAI (scarlet, graine 123456789, 50 min : coffre et bras du tampon du projet 22 en (379.5, -317.5) et (380.5, -317.5),
+  -- au milieu de son cuivre ; repli Rp.fallback_points du QG vers la sortie) : la règle unique du sol (Sm.forbidden) refuse le coffre ET le bras
+  do
+    local ore3 = function(x, y) return x >= 9 and x <= 11 and y >= 9 and y <= 11 end
+    local off = Rp.off_ore
+    check(type(off) == "function" and type(Rp.sites_ok) == "function" and type(Rp.ends_ok) == "function", "8m.1 la regle du minerai existe (Rp.off_ore, Rp.sites_ok, Rp.ends_ok)")
+    if type(off) == "function" and type(Rp.sites_ok) == "function" and type(Rp.ends_ok) == "function" then
+      local chest_ok, arm_ok, belt_ok = off("container", ore3), off("inserter", ore3), off("transport-belt", ore3)
+      check(not chest_ok(10, 10) and chest_ok(13, 10) and not arm_ok(9, 11) and arm_ok(8, 11), "8m.2 coffre et bras : refuses sur une tuile de ressource, admis a cote")
+      check(belt_ok(10, 10) and off("electric-pole", ore3)(10, 10), "8m.3 tapis et poteau (BOX_MINAGE) : admis sur la ressource")
+      local ok = { chest = chest_ok, arm = arm_ok }
+      local free_all = function() return true end
+      local sp = Rp.pick_spots(10, 10, free_all, 3, nil, ok)
+      local bad = 0
+      for _, q in ipairs(sp) do
+        if ore3(q.x, q.y) then bad = bad + 1 end
+        for _, si in ipairs(q.sites) do if ore3(si.ax, si.ay) then bad = bad + 1 end end
+      end
+      check(#sp == 3 and bad == 0, "8m.4 point voulu au milieu du minerai : aucun coffre ni bras sur une ressource (" .. bad .. ")")
+      check(sp[1] and sp[1].x == 10 and sp[1].y == 8 and #sp[1].sites == 3, "8m.5 premier point hors minerai (10, 8), le site sud (bras sur la ressource) ecarte")
+      check(Rp.pick_spots(10, 10, free_all, 3)[1].x == 10 and Rp.pick_spots(10, 10, free_all, 3)[1].y == 10, "8m.6 sans la regle (ok absent) : comportement d'avant")
+      local ends = { { src = { ax = 1, ay = 1 }, dst = { ax = 10, ay = 10 } }, { src = { ax = 10, ay = 10 }, dst = { ax = 1, ay = 1 } },
+        { src = { ax = 1, ay = 1 }, dst = { ax = 2, ay = 2 } }, { src = { ax = 3, ay = 1 }, dst = { ax = 2, ay = 3 } } }
+      local kept = Rp.ends_ok(ends, arm_ok)
+      check(#kept == 2 and kept[1] == ends[3] and kept[2] == ends[4], "8m.7 paires de bouts : un bras de depart ou d'arrivee sur la ressource ecarte la paire")
+      check(#Rp.ends_ok(ends, arm_ok, 1) == 1, "8m.8 paires de bouts : au plus max")
+      -- cas du banc : QG (339, -340), sortie (388, -306), cuivre de scarlet autour de (379, -318), seul poteau du réseau au cuivre
+      local copper = function(x, y) return x >= 372 and x <= 386 and y >= -324 and y <= -312 end
+      local near_pole = function(x, y) return (x - 381) ^ 2 + (y - -317) ^ 2 <= 7 * 7 end
+      local okb = { chest = off("container", copper), arm = off("inserter", copper) }
+      local function first(o)
+        for _, q in ipairs(Rp.fallback_points(339, -340, { x = 339, y = -340 }, { x = 388, y = -306 }, Rp.FALLBACK_STEP, Rp.NEAR_HUB)) do
+          local s2 = Rp.pick_spots(q.x, q.y, near_pole, Rp.SPOT_TRIES, nil, o)
+          if #s2 > 0 then return s2 end
+        end
+        return {}
+      end
+      local before, after = first(nil), first(okb)
+      check(#before > 0 and copper(before[1].x, before[1].y), "8m.9 cas du banc, sans la regle : le repli pose le tampon sur le cuivre (" .. (before[1] and before[1].x .. ", " .. before[1].y or "-") .. ")")
+      local bad2 = 0
+      for _, q in ipairs(after) do
+        if copper(q.x, q.y) then bad2 = bad2 + 1 end
+        for _, si in ipairs(q.sites) do if copper(si.ax, si.ay) then bad2 = bad2 + 1 end end
+      end
+      check(#after > 0 and bad2 == 0, "8m.10 cas du banc, avec la regle : tampon et bras hors du cuivre, a portee du poteau (" .. #after .. " point(s), " .. bad2 .. " sur la ressource)")
+    end
+  end
+
   -- §8 bis bord de rue (constantes du treillis de shared/team/plan.lua)
   local PL = require("shared.team.plan")
   local geom = { pitch = PL.PITCH, lot = PL.LOT, half = PL.HALF }
@@ -557,6 +605,12 @@ if exists("script/team/rapatriement.lua") then
   br(RT:find("pairs%(") == nil or not RT:gsub("ipairs%(", ""):find("pairs%("), "15.6 aucun pairs dans le runtime (seulement ipairs et sorted_keys)")
   br(RT:find("fo%-war%-rapatriement") ~= nil, "15.7 le reglage fo-war-rapatriement commande la ligne")
   br(not RT:find("\nglobal%.") and not RT:find("[^%w_]global%.", 1), "15.8 global n'est pas nomme hors storage.lua")
+  -- lot TAMPON-MINERAI : le runtime applique la règle du minerai à chaque choix du tampon (4 appels) et aux bras des paires de bouts
+  local _, n_ok = RT:gsub("Rp%.SPOT_TRIES, nil, J%.ok%)", "")
+  br(n_ok == 4, "15.9 les quatre recherches du tampon (point voulu et repli) passent la regle du minerai (" .. n_ok .. ")")
+  br(RT:find("J.ends = Rp.ends_ok(Li.pick_ends(J.S, J.D, J.free), J.ok.arm, Rp.ROUTE_TRIES)", 1, true) ~= nil, "15.10 les bras de depart et d'arrivee passent la regle du minerai")
+  br(RT:find("res = m.res", 1, true) ~= nil and RT:find('"L", "ok" }', 1, true) ~= nil and RT:find("Rp.off_ore(ptype(lc.chest), ore)", 1, true) ~= nil
+    and RT:find("Rp.off_ore(ptype(lc.arm), ore)", 1, true) ~= nil, "15.11 tuiles de ressource lues aux masques, types lus aux prototypes, regle retiree de l'etat")
 end
 
 -- §16 mutants : chaque règle faussée doit faire échouer au moins un contrôle
@@ -638,6 +692,13 @@ local mutants = {
   { "repli (PLAQUES) : la sortie n'est plus bornee a la portee", "local tx, ty = Rp.clamp_near(src.x, src.y, hub, reach)", "local tx, ty = src.x, src.y" },
   { "repli (PLAQUES) : plus de pas vers le QG", "  walk(px, py, hub.x, hub.y)", "  local _ = px" },
   { "repli (PLAQUES) : les doublons sont repris", "      if not seen[k] then", "      if true then" },
+  { "minerai (TAMPON-MINERAI) : le coffre n'est plus controle", " and (not ok or ok.chest(t[1], t[2]))", "" },
+  { "minerai (TAMPON-MINERAI) : les bras des sites ne sont plus controles", "if ok then sites = Rp.sites_ok(sites, ok.arm) end", "" },
+  { "minerai (TAMPON-MINERAI) : le bras de depart n'est plus controle", "if arm_ok(e.src.ax, e.src.ay) and arm_ok(e.dst.ax, e.dst.ay) then", "if arm_ok(e.dst.ax, e.dst.ay) then" },
+  { "minerai (TAMPON-MINERAI) : le bras d'arrivee n'est plus controle", "if arm_ok(e.src.ax, e.src.ay) and arm_ok(e.dst.ax, e.dst.ay) then", "if arm_ok(e.src.ax, e.src.ay) then" },
+  { "minerai (TAMPON-MINERAI) : la regle du sol est muette", "return not Sm.forbidden(ptype, function() return ore(x, y) == true end)", "return true" },
+  { "minerai (TAMPON-MINERAI) : tapis refuses sur la ressource", "return not Sm.forbidden(ptype, function() return ore(x, y) == true end)", "return not ore(x, y)" },
+  { "minerai (TAMPON-MINERAI) : le max des paires est oublie", "if max_n and #out >= max_n then break end", "" },
 }
 local refused, total_m = 0, 0
 local survivors = {}
