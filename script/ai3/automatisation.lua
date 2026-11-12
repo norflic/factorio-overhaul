@@ -669,6 +669,10 @@ function Auto.think(f, view, book, tick, research)
       local fam = mp.item and "capi" or "migration"
       mods[#mods + 1] = { id = mig_id, product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing or {},
         reason = ps.reason, gain = 0, -- valeur de base d'un module
+        -- lot KITS-VOLES : une bande est un investissement de fond comme la ligne d'une bande (line : g.fond, aucune des K places) ; avant, les
+        -- créneaux 2 et 3 n'avaient jamais de place (emerald, graine 2507543475 : bandes 5 et 14 sans projet du cerveau de 17 à 60 min, K 4) et ne
+        -- vivaient que des kits des autres projets, remis au premier projet en réserve
+        line = true,
         pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
     end
   end

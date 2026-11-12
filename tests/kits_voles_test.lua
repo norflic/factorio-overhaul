@@ -144,6 +144,17 @@ local function battery(mut)
   local Ca = patched("capitalisation", SRC.capi, mut.capi)
   local cg = Ca.goals({}, nil, { { key = "packs:x", kind = "packs", value = 40, mod_ids = { 12, 14 }, missing = {} } })
   check(cg[1] and cg[1].pids and cg[1].pids[1] == 12 and cg[1].pids[2] == 14, "9. but capi:<ordre> : pids = modules de l'ordre")
+
+  -- 10. une bande de la migration (line) a son projet du cerveau même quand les K places sont prises (emerald, bandes 5 et 14 sans projet)
+  local mods = {}
+  for i = 1, 8 do mods[#mods + 1] = { id = 100 + i, product = "p" .. i, state = "reserve", missing = { { TAPIS, 1 } }, gain = 5 } end
+  mods[#mods + 1] = { id = 5, product = "migration-2", item = "copper-plate", state = "reserve", missing = { { TAPIS, 137 } }, gain = 0, line = true }
+  local gl = A.goals({}, { mods = mods }, {}, nil)
+  local st = {}
+  local order = Pm.update(st, gl, 600, 0)
+  local band
+  for _, p in ipairs(order) do if p.key == "auto:migration-2" then band = p end end
+  check(band ~= nil and band.goal.pids and band.goal.pids[1] == 5, "10. bande de la migration : projet du cerveau malgre K places prises (K " .. Pm.K(0) .. ")")
 end
 
 print("[KITS-VOLES] cas")
@@ -160,6 +171,12 @@ local _, nid = au:gsub("mods%[#mods %+ 1%] = { id = ", "")
 local _, nall = au:gsub("mods%[#mods %+ 1%] = {", "")
 check(nid == nall and nall >= 8, "automatisation.lua : chaque entree du cerveau porte l'id de son projet (" .. nid .. "/" .. nall .. ")")
 check(read("script/ai3/capitalisation.lua"):find("short = makes_short(rec), mod_ids = rec.mod_ids }", 1, true) ~= nil, "capitalisation.lua : les ordres ouverts portent leurs modules")
+do -- l'entrée d'une bande de la migration porte line (investissement de fond)
+  local a0 = au:find("for i, mp in ipairs(MigChamp.projects(f)) do", 1, true)
+  local a1 = a0 and au:find("\n  end\n", a0, true)
+  local blk = a0 and a1 and au:sub(a0, a1) or ""
+  check(blk:find("line = true,", 1, true) ~= nil, "automatisation.lua : une bande de la migration est un investissement de fond (line)")
+end
 check(read("script/team/mall_rangee.lua"):find("mods[#mods + 1] = { id = q.id,", 1, true) ~= nil, "mall_rangee.lua : la section du mall porte son id")
 
 -- mutants : chaque maillon retiré fait échouer au moins un contrôle de la batterie
@@ -180,6 +197,7 @@ mutant("le kit ne porte pas ses projets", { projets = { { "pids = pids })", "pid
 mutant("le kit partage la table du but", { projets = { { "pids = pids })", "pids = owners })" } } })
 mutant("le but module sans pids", { auto = { { "pids = m.id and { m.id } or nil,", "" } } })
 mutant("le but alim sans pids", { auto = { { "pids = fd.id and { fd.id } or nil,", "" } } })
+mutant("la ligne ou bande sans fond (K places)", { auto = { { "fond = m.line or nil,", "fond = nil," } } })
 mutant("le but capi sans pids", { capi = { { "order = copy, pids = copy.mod_ids }", "order = copy }" } } })
 
 print(string.format("[KITS-VOLES] BILAN : %d OK, %d ECHEC(S)", n_ok, n_ko))
