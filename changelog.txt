@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.30
+Date: 2026-11-12
+  Changes:
+    - IA (F574) : une bande de foreuses en avance démonte elle-même les foreuses thermiques qu'elle recouvre ; le haut des gisements se couvre plus tôt.
+    - Code (F572) : 649 lignes de code mort supprimées du cerveau des IA.
+  Bugfixes:
+    - IA (F575) : le réseau de charbon des colonnes de fonderie est demandé et fabriqué ; les fours ne restent plus sans charbon.
+    - IA (F573) : une bande n'est plus lancée à moitié avant d'avoir remplacé les foreuses thermiques qui font le fer de l'équipe.
+    - IA (F576) : les labos et les fours du QG ne sont plus posés sur le tracé d'une bande déjà planifiée.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.20
 Date: 2026-11-12
   Changes:
