@@ -957,7 +957,10 @@ local function plan_once(spec)
         for u = g0.cut, e_end, t.side do c.take(u, bd.b) end -- (le tracé du lien ne repasse pas sur le collecteur)
         local want = Fd.count(spec, Ch.delivered(#g0.n, #g0.s, d.rate, lane, fuelled))
         local counts = { want }
-        for _ = 1, 2 do
+        -- colonne plus courte : four électrique seulement. Une colonne ailleurs à combustible prend un coffre de tête que rien ne garnit
+        -- en 60 min (banc partie-reelle-60, graine 123456789 : amber, 2 colonnes courtes, le plan du champ en est changé et 21 fours de la
+        -- bande -291 restent sans charbon, fer 405 -> 8 plaques/min en fin de banc)
+        for _ = 1, (fuelled and 0 or 2) do
           local n2 = math.ceil(counts[#counts] / 2)
           if n2 >= 1 and n2 < counts[#counts] then counts[#counts + 1] = n2 end
         end
