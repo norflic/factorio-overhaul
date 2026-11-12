@@ -99,8 +99,9 @@ local function scenario(tag, Sm, P, Co, M)
   check(c0 ~= nil, tag .. "colonne sans minerai : posée")
   local cf = Co.place(spec, 0, 1, 0, count, 2, 0, free, function() return true end, nil, { s_edge = s0, count = count })
   check(cf == nil, tag .. "colonne d'un cadre figé sur une ressource : refusée")
-  -- 7. la foreuse ne dépend QUE du minerai (agent PAVAGE-GEANT, 0.7.5, graine 2507543475 : émeraude fer, 37 foreuses sur 42 retirées du
-  -- plan faute de place pour les fours) : champ muré, aucune place de fonderie -> toutes les foreuses des rangées restent, aucun four
+  -- 7. lot COUPLAGE (règles du DC du 12/11, remplace la règle « les foreuses restent » du lot DECOUPLAGE : plus aucune foreuse orpheline ;
+  -- partie du DC 0.7.90 : 11 bandes de fer d'amber, 249 foreuses, tapis collecteur arrêté dans l'herbe) : champ muré, aucune place de
+  -- fonderie, ni ici ni ailleurs -> AUCUNE foreuse ni tapis posé, les foreuses comptées « sans fonderie non posées »
   local Ch = require(MODS.ch)
   local ore, wall = {}, {}
   for x = -12, 12 do for y = -8, 8 do if (x / 12) ^ 2 + (y / 8) ^ 2 <= 1 then ore[#ore + 1] = x; ore[#ore + 1] = y end end end
@@ -109,17 +110,13 @@ local function scenario(tag, Sm, P, Co, M)
     belts = { { lane = 7.5 }, { lane = 15 }, { lane = 22.5 } }, furnace = { size = 2, rate = 0.3125, fuel = true, fuel_rate = 0.0225 },
     inserter = { rate = 0.83 }, target = { x = 1000, y = 0 }, max_side = 8, design = "colonne", logistics = {} }
   local pw = Ch.plan(sp)
-  local fours, drills = 0, 0
+  local fours, drills, belts = 0, 0, 0
   for _, e in ipairs(pw and pw.ents or {}) do
-    if e.kind == "four" then fours = fours + 1 elseif e.kind == "foreuse" then drills = drills + 1 end
+    if e.kind == "four" then fours = fours + 1 elseif e.kind == "foreuse" then drills = drills + 1 elseif e.kind == "tapis" then belts = belts + 1 end
   end
-  check(pw ~= nil and pw.stats.no_smelter >= 1 and drills > 0 and drills == pw.stats.band_drills - pw.stats.capped and fours == 0,
-    string.format(tag .. "champ sans place de fonderie : les foreuses restent (%d sur %d possibles, %d groupe(s) sans fonderie, %d four)",
-      drills, pw and pw.stats.band_drills or -1, pw and pw.stats.no_smelter or -1, fours))
-  -- et leur tapis collecteur sort du champ, la tuile devant sa sortie libre
-  local belts = 0
-  for _, e in ipairs(pw and pw.ents or {}) do if e.kind == "tapis" then belts = belts + 1 end end
-  check(belts > 0, tag .. "tapis collecteur posé sans fonderie (" .. belts .. ")")
+  check(pw ~= nil and pw.stats.no_smelter >= 1 and drills == 0 and belts == 0 and fours == 0 and (pw.stats.orphans or 0) > 0,
+    string.format(tag .. "champ sans place de fonderie : aucune foreuse orpheline (%d posées, %d tapis, %d sans fonderie non posées, %d groupe(s) sans fonderie)",
+      drills, belts, pw and pw.stats.orphans or -1, pw and pw.stats.no_smelter or -1))
   -- 9. lot FONDERIE-BOUT : bouts de bande murés (aucune place de colonne dans leur prolongement), sol neutre plus loin, une autre ressource
   -- au sud : la colonne se pose AILLEURS, hors de toute ressource, et le collecteur la nourrit sans relais (tapis continu, Cv.flow)
   local Cv = require("shared.team.champ_verif")
@@ -211,6 +208,38 @@ do
     "team : tourelles de départ hors des ressources")
 end
 
+section("10. COUPLAGE (DC, 12/11) : chaque foreuse posée a sa fonderie, au besoin une colonne plus courte ailleurs")
+do
+  local Ch = require(MODS.ch)
+  local Fd = require("shared.team.champ_fonderie")
+  local ore = {}
+  for x = -20, 20 do for y = -8, 8 do ore[#ore + 1] = x; ore[#ore + 1] = y end end
+  local function plan_w(W)
+    local wall = {}
+    for x = -200, 200 do for y = -11, 11 do if math.abs(x) >= 24 then wall[Ch.key(x, y)] = true end end end
+    local sp = { ore = ore, blocked = wall, drill = { size = 3, reach = 1, rate = 0.5 }, pole = { reach = 2, wire = 7.5 },
+      belts = { { lane = 7.5 } }, furnace = { size = 2, rate = 0.3125, fuel = false }, inserter = { rate = 0.83 },
+      target = { x = 1000, y = 0 }, max_side = 8, design = "colonne", logistics = { underground = 5 }, window = { -W, -40, W, 40 } }
+    return Ch.plan(sp), sp
+  end
+  for _, W in ipairs({ 150, 70, 40 }) do
+    local p, sp = plan_w(W)
+    local bad, groups, drills, short = 0, 0, 0, 0
+    for _, bd in ipairs(p and p.bands or {}) do for _, g in ipairs(bd.groups) do
+      groups = groups + 1
+      drills = drills + (g.drills or 0)
+      if g.bare or (g.count or 0) < Fd.count(sp, g.flow) then bad = bad + 1 end
+      if g.away and g.count < Fd.count(sp, math.min(7.5, 13 * 0.5)) then short = short + 1 end
+    end end
+    local fd = Ch.field_drills(p)
+    check(p ~= nil and bad == 0 and fd == drills and fd + p.stats.orphans <= p.stats.band_drills,
+      string.format("fenetre %d : %d groupe(s), %d foreuses posees, toutes avec assez de fours (%d sans), %d non posees", W, groups, fd, bad,
+        p and p.stats.orphans or -1))
+    if W == 70 then check(short > 0 and fd > 0, string.format("fenetre 70 : colonne plus courte posee ailleurs, groupe reduit (%d groupe(s), %d foreuses)", short, fd)) end
+    if W == 40 then check(fd == 0 and groups == 0, "fenetre 40 : aucune place, aucune foreuse posee (" .. fd .. ")") end
+  end
+end
+
 section("5. mutants")
 local MUTANTS = {
   { name = "P.fit : emprise sur la ressource", mod = MODS.p, file = "shared/team/plan.lua",
@@ -219,7 +248,7 @@ local MUTANTS = {
     from = " or %(rsat and opts%.res%[tkey%(tx, ty%)%]%)", to = "" },
   { name = "P.fit : BOX_MINAGE refusée", mod = MODS.p, file = "shared/team/plan.lua",
     from = "opts%.res and not Sm%.mining_box%(g%)", to = "opts.res" },
-  { name = "Ch.plan : groupe sans fonderie retiré (0.7.5)", mod = MODS.ch, file = "shared/team/champ.lua",
+  { name = "Ch.plan : bout sans fonderie oublié (ni colonne ailleurs ni compte)", mod = MODS.ch, file = "shared/team/champ.lua",
     from = "bare_todo%[#bare_todo %+ 1%] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }", to = "" },
   { name = "Ch.plan : aucune colonne ailleurs (avant FONDERIE-BOUT)", mod = MODS.ch, file = "shared/team/champ.lua",
     from = "if colonne and not t%.refused then", to = "if false then" },

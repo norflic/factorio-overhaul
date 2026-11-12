@@ -631,7 +631,8 @@ do
   local spn = spec_of(ORE, { coal = disc(60, 0, 8), blocked = river })
   local pn = Ch.plan(spn)
   -- (décision du lead, 3/11) refuser coûterait tout le champ : le cadre garde ses colonnes au coffre de tête (0.6.42), coût écrit
-  check(pn ~= nil and chests(pn) > 0 and pn.coffre_cost == 100 and pn.refused == nil,
+  -- (lot COUPLAGE : une colonne plus courte posée ailleurs garde quelques fours après le refus : 98 %)
+  check(pn ~= nil and chests(pn) > 0 and pn.coffre_cost >= 90 and pn.refused == nil,
     string.format("rivière sans souterrain : refus à %s %% -> cadre à coffres (%d coffres de tête)", tostring(pn and pn.coffre_cost), chests(pn)))
   local refusee = 0
   for _, sides in pairs(pn and pn.frame.cols or {}) do for _, fc in pairs(sides) do if fc.mode == "refusee" then refusee = refusee + 1 end end end
@@ -697,7 +698,15 @@ do
   Ch.CFG.refuse_min = 1.01
   local m2 = Ch.plan(spec_of(disc(0, 0, 26), o))
   Ch.CFG.refuse_min = 0.5
-  check(chests(m1) == 0 and chests(m2) > 0, string.format("mutants du seuil vus (toujours refuser : %d coffres ; jamais : %d)", chests(m1), chests(m2)))
+  -- (lot COUPLAGE) le refus garde au plus les coffres de tête des colonnes posées AILLEURS (bouts sans fonderie, colonne plus courte)
+  local function away_chests(p)
+    local n = 0
+    for _, bd in ipairs(p and p.bands or {}) do for _, g in ipairs(bd.groups) do if g.away and g.mode == "coffre" then n = n + 1 end end end
+    return n
+  end
+  print(string.format("  mutants du seuil : toujours refuser %d coffres (%d colonnes ailleurs a coffre), jamais %d", chests(m1), away_chests(m1), chests(m2)))
+  check(chests(m1) <= away_chests(m1) and chests(m1) < chests(pn) and chests(m2) > 0,
+    string.format("mutants du seuil vus (toujours refuser : %d coffres, %d ailleurs ; jamais : %d)", chests(m1), away_chests(m1), chests(m2)))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -756,8 +765,11 @@ do
   -- lot DECOUPLAGE : un groupe sans place de fonderie garde ses foreuses (tapis collecteur seul) ; 0.7.5 : 35 foreuses, 40 après l'échange
   -- d'ordre ; ici 40 au moins, fonderie ou pas
   check(ps ~= nil and Ch.head_chests(ps) == 0, string.format("scarlet 20261020 : 0 coffre de tete (%s)", tostring(ps and Ch.head_chests(ps))))
-  check(ps and Ch.field_drills(ps) >= 40, string.format("scarlet : les foreuses du gisement gardees, fonderie ou pas (%d, 40 au moins)",
-    ps and Ch.field_drills(ps) or 0))
+  -- lot COUPLAGE (DC, 12/11 : plus aucune foreuse orpheline) : les 5 foreuses d'un bout sans aucune place de fonderie ne sont plus posées
+  local bare_s = 0
+  for _, bd in ipairs(ps and ps.bands or {}) do for _, g in ipairs(bd.groups) do if g.bare or (g.count or 0) < 1 then bare_s = bare_s + 1 end end end
+  check(ps and Ch.field_drills(ps) >= 35 and bare_s == 0, string.format("scarlet : %d foreuses posees (35 au moins), toutes avec leur fonderie (%d groupe(s) sans four), %d non posees",
+    ps and Ch.field_drills(ps) or 0, bare_s, ps and ps.stats.orphans or -1))
   local r = ps and Cv.verify(ps, scarlet())
   check(r and r.no_coal == 0 and r.no_ore == 0 and r.no_plate == 0, "scarlet : chaque four a minerai et charbon, plaques au quai (" .. (r and Cv.line(r) or "?") .. ")")
   -- bandes seules rejouées du cadre (le réseau du charbon est rejoué du cadre, sans dépendre de l'ordre)
@@ -824,12 +836,13 @@ do
   end end
   local p10 = Ch.plan(spec_of(ore10, { blocked = wall10 }))
   local at = p10 and p10.stats.no_smelter_at
-  -- lot DECOUPLAGE (directive du DC du 11/11) : sans place de fonderie, les foreuses RESTENT (tapis collecteur seul) ; 0.7.5 : bande vide
+  -- lot COUPLAGE (règles du DC du 12/11, à la place de « les foreuses restent » du lot DECOUPLAGE) : sans place de fonderie, ni ici ni
+  -- ailleurs, AUCUNE foreuse n'est posée (plus de tapis collecteur arrêté dans l'herbe) ; elles sont comptées « non posées »
   local f10 = 0
   for _, e in ipairs(p10 and p10.ents or {}) do if e.kind == "four" then f10 = f10 + 1 end end
-  check(p10 ~= nil and p10.stats.no_smelter >= 1 and Ch.field_drills(p10) > 0 and Ch.field_drills(p10) == (p10.stats.band_drills or -1) - p10.stats.capped
-    and f10 == 0, string.format("champ muré : les foreuses restent sans fonderie (%d foreuses, %d possibles, %d groupe(s) sans fonderie, %d four)",
-    p10 and Ch.field_drills(p10) or -1, p10 and p10.stats.band_drills or -1, p10 and p10.stats.no_smelter or -1, f10))
+  check(p10 ~= nil and p10.stats.no_smelter >= 1 and Ch.field_drills(p10) == 0 and (p10.stats.orphans or 0) > 0 and f10 == 0,
+    string.format("champ muré : aucune foreuse orpheline (%d foreuses, %d non posees, %d groupe(s) sans fonderie, %d four)",
+    p10 and Ch.field_drills(p10) or -1, p10 and p10.stats.orphans or -1, p10 and p10.stats.no_smelter or -1, f10))
   check(at ~= nil and at.fixed == false and (math.abs(at.x) > 16 or math.abs(at.y) > 11) and at.band ~= nil and (at.side == 1 or at.side == -1),
     "la première tuile prise est donnée, dans le mur (" .. (at and string.format("%.1f, %.1f", at.x, at.y) or "aucune") .. ")")
   -- déterminisme du diagnostic

@@ -285,6 +285,34 @@ local function take_group(c, spec, band, side, edge, used, limit)
   return g
 end
 
+--- Lot COUPLAGE (règle 1 du DC, 12/11 : « toute ligne de foreuses déclenche assez de fours pour fondre 100 % de son débit brut ») : le
+--- groupe `g` (foreuses rangées du bord `side` vers le milieu, comme take_group) réduit aux `k` foreuses les plus près du bord (one_lane :
+--- en tout, la voie de charbon prend l'autre voie ; sinon par côté) : celles que `k` fours fondent quand seule une colonne plus courte
+--- trouve sa place (bout de bande sans fonderie). Rend le groupe (le même s'il tient), ou nil si k < 1.
+function Ch.trim_group(g, side, half, k, one_lane)
+  if not g then return nil end
+  if k < 1 then return nil end
+  if (one_lane and #g.n + #g.s <= k) or (not one_lane and #g.n <= k and #g.s <= k) then return g end
+  local all = {}
+  for _, a in ipairs(g.n) do all[#all + 1] = { a = a, cu = a + half, side = "n" } end
+  for _, a in ipairs(g.s) do all[#all + 1] = { a = a, cu = a + half, side = "s" } end
+  table.sort(all, function(p, q)
+    if p.cu ~= q.cu then if side > 0 then return p.cu > q.cu end return p.cu < q.cu end
+    return p.side < q.side
+  end)
+  local out, cnt, tot = { n = {}, s = {} }, { n = 0, s = 0 }, 0
+  for _, it in ipairs(all) do
+    local fits = one_lane and tot < k or (not one_lane and cnt[it.side] < k)
+    if fits then
+      cnt[it.side], tot = cnt[it.side] + 1, tot + 1
+      out[it.side][#out[it.side] + 1] = it.a
+      out.cut = it.cu
+    end
+  end
+  if tot == 0 then return nil end
+  return out
+end
+
 --- Poteaux de la rangée `row` sur le treillis (u ≡ origin mod P) : un par foreuse non couverte, des relais où les fils manquent,
 --- puis jusqu'aux colonnes de poteaux des fonderies `reach_to`. Rend la liste triée des u.
 --- Pas du treillis des poteaux le long d'une rangée : au plus la portée des fils, au plus côté + 2 × portée (toute foreuse en touche un).
@@ -585,6 +613,7 @@ local function plan_once(spec)
   local first_k = fuelled and math.min(2 * cap, Ch.lane_drills(lane, d.rate)) or 2 * cap
   local ents, out_bands = {}, {}
   local capped, flow_all, cap_all, no_smelter = 0, 0, 0, 0
+  local orphans = 0 -- lot COUPLAGE : foreuses d'un bout sans fonderie, non posées
   local no_smelter_at -- 9/11 : première tuile prise qui empêche la colonne de fonderie d'un groupe (diagnostic du refus « sans place de fonderie »)
   local function emit(kind, u, v, size, du, dv, bi, gi, pr, role, belt, module)
     local x, y = c.xy(u, v)
@@ -908,47 +937,68 @@ local function plan_once(spec)
   end
   local ug_uv = {}
   for _, k in ipairs(spec.ug_tiles or {}) do local u, v = c.uv(k[1], k[2]); ug_uv[Co.tk(u, v)] = true end
+  -- lot COUPLAGE (règles du DC du 12/11 : « toute ligne de foreuses déclenche assez de fours pour fondre 100 % de son débit brut » ; plus
+  -- aucune foreuse orpheline. Partie du DC 0.7.90 à 190 min : 751 foreuses de champ figées sur 1 396, dont les bandes « tapis collecteur
+  -- seul » dont le tapis s'arrête dans l'herbe : amber fer, 11 bandes et 249 foreuses sans un four, « aucune place sur le sol neutre ») :
+  -- un bout de bande sans place de fonderie dans son prolongement ne garde ses foreuses QUE si une colonne les reçoit ailleurs (Co.away),
+  -- au besoin plus courte (moitié, quart des fours : le groupe est réduit à ce qu'elle fond). Sinon RIEN n'est posé : ni foreuse, ni tapis
+  -- (leur minerai attend une fonderie). Une colonne refusée faute de voie de charbon (t.refused) n'en reçoit pas : ses foreuses non plus.
+  local half_d = math.floor(d.size / 2)
   for _, t in ipairs(bare_todo) do
     local bd, bo = t.bd, out_bands[t.bi]
-    local g = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
-    if g then
-      for _, a in ipairs(g.n) do t.used[a .. "n"] = true end
-      for _, a in ipairs(g.s) do t.used[a .. "s"] = true end
-      capped = capped - #g.n - #g.s
-      local gi = #bo.groups + 1
-      for _, a in ipairs(g.n) do emit("foreuse", a, bd.pr + 1, d.size, 0, 1, t.bi, gi, bd.pr) end
-      for _, a in ipairs(g.s) do emit("foreuse", a, bd.b + 1, d.size, 0, -1, t.bi, gi, bd.pr) end
-      g.belt = belt_for(g)
+    local g0 = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
+    if g0 then
       -- le tapis finit au bord du champ, ou plus tôt (jamais avant la dernière foreuse) si la tuile devant sa sortie est déjà prise : le
       -- minerai ne tombe sur aucun autre tapis
       local e_end = t.edge
-      while e_end ~= g.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
-      local nb = 0
-      for u = g.cut, e_end, t.side do
-        c.take(u, bd.b)
-        emit("tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
-        nb = nb + 1
-      end
-      local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
-      flow_all = flow_all + flow
-      -- lot FONDERIE-BOUT : un bout SANS PLACE de colonne dans son prolongement la reçoit AILLEURS sur le sol neutre (Co.away), son tapis
-      -- prolonge le collecteur depuis la tuile devant sa sortie ; combustible : coffre de tête (le réseau du charbon est déjà tracé ; le
-      -- coffre est servi par FONDERIE-BLOC). Une colonne REFUSÉE (place trouvée, aucune voie de charbon) n'est pas déplacée : le coffre
-      -- de tête que le refus écarte reviendrait.
-      local aw, aw_why
+      while e_end ~= g0.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
+      local g, aw, aw_why
       if colonne and not t.refused then
+        for u = g0.cut, e_end, t.side do c.take(u, bd.b) end -- (le tracé du lien ne repasse pas sur le collecteur)
+        local want = Fd.count(spec, Ch.delivered(#g0.n, #g0.s, d.rate, lane, fuelled))
+        local counts = { want }
+        -- colonne plus courte : four électrique seulement. Une colonne ailleurs à combustible prend un coffre de tête que rien ne garnit
+        -- en 60 min (banc partie-reelle-60, graine 123456789 : amber, 2 colonnes courtes, le plan du champ en est changé et 21 fours de la
+        -- bande -291 restent sans charbon, fer 405 -> 8 plaques/min en fin de banc)
+        for _ = 1, (fuelled and 0 or 2) do
+          local n2 = math.ceil(counts[#counts] / 2)
+          if n2 >= 1 and n2 < counts[#counts] then counts[#counts + 1] = n2 end
+        end
         -- recul : jusqu'au bord des tuiles lues le long de l'axe (sans rectangle connu, celui de Co.place)
         local u0 = e_end + t.side
         local reach = win and math.max(0, t.side > 0 and (win.u1 - u0) or (u0 - win.u0)) or (Ch.CFG.shift + Ch.CFG.gap)
-        aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, Fd.count(spec, flow), fuelled and "coffre" or nil,
-          c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
-            span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win })
+        for _, cnt in ipairs(counts) do
+          local gc = g0
+          if cnt < want then
+            local capa = Fd.capacity(spec, cnt)
+            local k = fuelled and math.floor(capa / d.rate + Ch.CFG.eps) or math.floor(capa / (2 * d.rate) + Ch.CFG.eps)
+            gc = Ch.trim_group(g0, t.side, half_d, k, fuelled)
+          end
+          if gc then
+            aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
+              c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
+                span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win })
+            if aw then g = gc break end
+          end
+        end
         if not aw and not away_why then away_why = string.format("bande %d : %s", bd.pr, tostring(aw_why)) end
       end
-      local og = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = 0,
-        capacity = 0, belt_tiles = nb, s_edge = e_end + t.side, len = 0, cut = g.cut, pole_u = e_end, pole_u2 = colonne and e_end or nil,
-        bare = true }
       if aw then
+        for _, a in ipairs(g.n) do t.used[a .. "n"] = true end
+        for _, a in ipairs(g.s) do t.used[a .. "s"] = true end
+        capped = capped - #g.n - #g.s
+        local gi = #bo.groups + 1
+        for _, a in ipairs(g.n) do emit("foreuse", a, bd.pr + 1, d.size, 0, 1, t.bi, gi, bd.pr) end
+        for _, a in ipairs(g.s) do emit("foreuse", a, bd.b + 1, d.size, 0, -1, t.bi, gi, bd.pr) end
+        g.belt = belt_for(g)
+        local nb = 0
+        for u = g.cut, e_end, t.side do
+          c.take(u, bd.b)
+          emit("tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
+          nb = nb + 1
+        end
+        local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
+        flow_all = flow_all + flow
         for _, r in ipairs(aw.route) do
           c.take(r.u, r.v)
           local dv = Co.D4[r.d]
@@ -961,12 +1011,16 @@ local function plan_once(spec)
         end
         local capa = Fd.capacity(spec, aw.count)
         cap_all = cap_all + capa
-        og.bare, og.away, og.col_b, og.count, og.capacity, og.s_edge, og.len = nil, true, aw.b, aw.count, capa, aw.s_edge, aw.len
-        og.mode = aw.info.mode
+        bo.groups[gi] = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = aw.count,
+          capacity = capa, belt_tiles = nb, s_edge = aw.s_edge, len = aw.len, cut = g.cut, pole_u = e_end, pole_u2 = colonne and e_end or nil,
+          away = true, col_b = aw.b, mode = aw.info.mode }
       else
+        orphans = orphans + #g0.n + #g0.s -- foreuses NON posées : aucune fonderie ne les recevrait
+        -- leurs tuiles (rangée du collecteur, tuile devant sa sortie) restent prises dans ce plan, comme avant le lot : les autres bouts ne
+        -- s'y placent pas (même plan qu'avant, foreuses et tapis en moins)
+        for u = g0.cut, e_end, t.side do c.take(u, bd.b) end
         c.take(e_end + t.side, bd.b)
       end
-      bo.groups[gi] = og
     end
   end
   -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
@@ -1014,7 +1068,7 @@ local function plan_once(spec)
       band_drills = (function() local k = 0; for _, bd in ipairs(bands) do k = k + #bd.n + #bd.s end; return k end)(),
       -- lot FONDERIE-BOUT : groupes dont la colonne est posée ailleurs / tapis collecteurs seuls (sans fonderie dans ce plan)
       away = (function() local k = 0; for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.away then k = k + 1 end end end; return k end)(),
-      away_why = away_why,
+      away_why = away_why, orphans = orphans, -- lot COUPLAGE : foreuses non posées faute de fonderie
       bare = (function() local k = 0; for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.bare then k = k + 1 end end end; return k end)() },
   }
 end
