@@ -1677,7 +1677,7 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       s.built, s.total, s.reason = br.built, br.total, br.reason
       if br.state ~= "fini" and br.state ~= "refuse" then
         if garde then
-          mods[#mods + 1] = { product = product_of[s.key] or ("petrole:" .. s.key), state = br.state, missing = br.missing or {},
+          mods[#mods + 1] = { id = s.id, product = product_of[s.key] or ("petrole:" .. s.key), state = br.state, missing = br.missing or {},
             reason = br.reason, gain = Pet.GAIN }
         end
       elseif br.state == "fini" then
@@ -1687,7 +1687,7 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
         if s.ext_id then
           local eb = Build.brief(f, s.ext_id)
           if eb and eb.state ~= "fini" and eb.state ~= "refuse" then
-            mods[#mods + 1] = { product = "petrole:" .. s.key .. ":champ", state = eb.state, missing = eb.missing or {}, reason = eb.reason, gain = Pet.GAIN }
+            mods[#mods + 1] = { id = s.ext_id, product = "petrole:" .. s.key .. ":champ", state = eb.state, missing = eb.missing or {}, reason = eb.reason, gain = Pet.GAIN }
           end
         end
         local items = {}

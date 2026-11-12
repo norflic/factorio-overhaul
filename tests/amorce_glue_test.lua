@@ -294,7 +294,7 @@ do -- crochets de capitalisation.lua du lot VIDEO-COUVERTURE 5 : la décision, p
 end
 do -- crochet du depot des PNJ (C3) : la remise directe AVANT le coffre
   local wk = read("script/team/worker.lua")
-  local d1 = wk:find("AmRt.deliver(f, inv, name, n)", 1, true)
+  local d1 = wk:find("AmRt.deliver(f, inv, name, n, kits and kits[name])", 1, true) -- (lot KITS-VOLES : les kits portes)
   local d2 = wk:find("local moved = Stock.insert(f, name, n", 1, true) -- (intégrateur : STOCKAGE-VITAL y ajoute DEPOSIT_OPTS)
   local d0 = wk:find("local function deposit_inventory", 1, true)
   -- Les deux appels doivent rester dans deposit_inventory, deliver AVANT tout le reste. La limite d'avant, « moins de 400 octets entre

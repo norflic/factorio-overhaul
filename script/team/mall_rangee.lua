@@ -1025,7 +1025,7 @@ function Rt.contexte(f, mods, feeds, stock, book, feed_stock)
         local p = f.build.projects[q.id]
         if p and p.state ~= "fini" and p.state ~= "refuse" then
           local ps = Build.brief(f, q.id)
-          if ps then mods[#mods + 1] = { product = "mall:" .. r.j .. ":" .. q.from, state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, pile = "capi" } end
+          if ps then mods[#mods + 1] = { id = q.id, product = "mall:" .. r.j .. ":" .. q.from, state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, pile = "capi" } end
         elseif p and p.state == "fini" and q.from == 1 then
           local ps = Build.brief(f, q.id)
           local items = {}
