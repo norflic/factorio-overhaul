@@ -540,6 +540,17 @@ local function ia1d_program(task)
   local j = task.ia1d
   local at = { x = j.ax, y = j.ay }
   if j.mode == "build" then
+    -- Lot CHANTIERS-FANTOMES : tournée de points d'appui (script/team/build.lua batch_tasks, shared/team/tournee_pose.lua) : une prise,
+    -- puis marche et pose de point en point, un seul retour.
+    if j.tour and #j.tour > 0 then
+      local steps = { { "home" }, { "take_res", j.pid, task.items } }
+      for i, a in ipairs(j.tour) do
+        steps[#steps + 1] = { "goto", { x = a.ax, y = a.ay }, 1 }
+        steps[#steps + 1] = { "ia1d", i }
+      end
+      steps[#steps + 1] = { "home" }
+      return steps
+    end
     return { { "home" }, { "take_res", j.pid, task.items }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
   elseif j.mode == "fill" and j.depot then -- lot TV-ARCHI (V91) : quai d'un quartier servi par son dépôt (script/team/quartiers.lua, Qr.route)
     return { { "goto", j.depot, 2 }, { "take_depot", j.depot, task.depot_items }, { "goto", at, 1 }, { "ia1d" }, { "goto", j.depot, 2 },
@@ -1751,6 +1762,8 @@ local function run_steps(agent, tick)
         return
       end
       agent.ia1d = { pid = j.pid, mode = j.mode, anchor = j.anchor, idx = j.idx, seg = j.seg, rect = j.rect, ax = j.ax, ay = j.ay }
+      local a = step[2] and j.tour and j.tour[step[2]] -- lot CHANTIERS-FANTOMES : point d'appui de la tournée
+      if a then agent.ia1d.anchor, agent.ia1d.ax, agent.ia1d.ay = a.anchor, a.ax, a.ay end
       set(agent, "ia1d", tick)
       return
     elseif kind == "act" then
@@ -1920,7 +1933,16 @@ FSM.define(MACHINE, {
       local r = Build.work(agent, f, tick)
       Profiler.stop("build:work")
       if r == "more" then return end
+      local job = agent.ia1d
       agent.ia1d = nil
+      -- Lot CHANTIERS-FANTOMES : dans une tournée, un point d'appui sans pose (pièces déjà posées, objet absent du sac, point inaccessible)
+      -- est passé ; la tournée n'échoue que si elle n'a rien posé du tout à son dernier point.
+      local cur0 = steps0 and pc0 and steps0[pc0]
+      local tour = cur0 and cur0[1] == "ia1d" and cur0[2] and agent.task and agent.task.ia1d and agent.task.ia1d.tour
+      if tour and agent.steps == steps0 and agent.pc == pc0 then
+        agent.task.tour_done = (agent.task.tour_done or 0) + (job and job.done or 0)
+        if r == "fail" and (cur0[2] < #tour or agent.task.tour_done > 0) then r = "done" end
+      end
       if r == "again" then
         -- refaire la marche vers le point d'appui (étape précédente), depuis la position atteinte. Seulement si le programme
         -- est resté le même et que l'étape courante est bien ce travail, avec une étape avant (pc > 1) : sinon rien à refaire.
