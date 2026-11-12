@@ -14,12 +14,14 @@
        bande (Mp.CFG.margin) qui reste à la défense et au mall ;
     3. par l'ÉTAT de la bande principale : ses matières sont réunies (elle est au chantier), sinon deux bandes se disputeraient les mêmes
        pièces ; la première bande part toujours par la voie principale (inflight 0 : « voie principale »).
-  Ne prive pas la défense : refus en crise (survie ou QG menacé), refus si un ennemi est près du gisement. Une bande avec des paires
-  thermiques dessous passe par la voie principale (retrait, dégel, retour en arrière) : jamais en avance.
+  Ne prive pas la défense : refus en crise (survie ou QG menacé), refus si un ennemi est près du gisement. Lot BANDES-PARALLELES : une bande
+  avec des paires thermiques dessous part aussi en avance ; son dégel (retrait des paires, matières réunies) est celui de la voie principale
+  (Mp.reap : "degel"). Avant, elle était refusée (« paires dessous ») : la 3e bande du fer de départ (le dôme) n'était jamais bâtie.
 
   Mp.par_max(rec)      -> nombre de bandes en vol au plus pour la décision `rec` { lines }
-  Mp.allow(c)          -> vrai/faux, cause. c = { on, power, crisis, enemy, pairs_under, inflight, par_max, main_ready, iron, band_iron }
-  Mp.reap(p)           -> "attendre" | "posee" | "perdue" | "bloquee" pour l'état d'un projet en avance { state, blocked_for }
+  Mp.allow(c)          -> vrai/faux, cause. c = { on, power, crisis, enemy, inflight, par_max, main_ready, iron, band_iron }
+  Mp.reap(p)           -> "attendre" | "posee" | "perdue" | "bloquee" | "degel" pour l'état d'un projet en avance { state, reason, degele,
+                          blocked_for } ("degel" : matières réunies, ses paires thermiques à retirer)
   Mp.saturation(l, s)  -> lot SATURATION (directive du DC du 9/11 : « fabriquer 300 foreuses pour les laisser dans un coffre ne sert à rien ;
                           liez la condition de pose à l'inventaire disponible ») : les pièces d'une bande DÉJÀ au stock. l = { { name, n,
                           machine } } (machine : foreuse ou four), s = { [objet] = n }. Rend { machines (toutes les machines de la bande
@@ -56,7 +58,6 @@ function Mp.allow(c, cfg)
   if c.crisis then return false, "crise" end
   if not c.power then return false, "aucun reseau qui produit" end
   if c.enemy then return false, "ennemi" end
-  if (c.pairs_under or 0) > 0 then return false, "paires dessous : voie principale" end
   if (c.inflight or 0) <= 0 then return false, "rien en vol : voie principale" end
   if (c.inflight or 0) >= (c.par_max or 1) then return false, "parallelisme" end
   if not c.main_ready then return false, "matieres de la bande en cours pas reunies" end
@@ -90,13 +91,15 @@ function Mp.saturation(l, s, cfg)
   return out
 end
 
---- État d'un projet en avance : p = { state, blocked_for } (nil : le projet n'existe plus). "posee" : fini ; "bloquee" : fantôme refusé depuis
---- plus de block_max (laissée au plan, comptée posée) ; "perdue" : projet disparu ou annulé ; sinon "attendre".
+--- État d'un projet en avance : p = { state, reason, degele, blocked_for } (nil : le projet n'existe plus). "posee" : fini ; "bloquee" : fantôme
+--- refusé depuis plus de block_max (laissée au plan, comptée posée) ; "perdue" : projet disparu ou annulé ; "degel" : matières réunies, le plan
+--- attend le retrait des paires sous la bande (pas encore dégelée) ; sinon "attendre".
 function Mp.reap(p, cfg)
   cfg = cfg or Mp.CFG
   if not p then return "perdue" end
   if p.state == "fini" then return "posee" end
   if p.state == "annule" or p.state == "refuse" then return "perdue" end
+  if p.state == "reserve" and p.reason == "degel" and not p.degele then return "degel" end
   if p.state == "bloque" and (p.blocked_for or 0) > cfg.block_max then return "bloquee" end
   return "attendre"
 end
