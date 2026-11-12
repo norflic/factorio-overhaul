@@ -507,5 +507,74 @@ do
   check(logs_with("ne se paie pas") == 1, "G8.2 refus ecrit UNE fois en 24 releves (" .. logs_with("ne se paie pas") .. ")")
 end
 
+-- G9 : lot SORTIE-COFFRE. Quai de deux coffres (150, 20) et (151, 20) du champ 1. (a) la ligne de (150, 20) laisse les voisines de (151, 20) ;
+-- (b) (151, 20) dont la seule face libre (sud) porte le tapis d'une ligne du même objet y verse par UN bras (branchement), sans tapis ni tampon ;
+-- (c) le même coffre sans cette ligne est refusé comme avant.
+do
+  local function quai_team()
+    local W = new_world()
+    local f, b = new_team(W)
+    b.projects[1].outs[2] = { x = 151.5, y = 20.5, at = 200 }
+    W.chest(151, 20, "A", 0)
+    return W, f, b
+  end
+  local function spec_of(key, idx, x)
+    return { rapatriement = { key = key, item = "A", flow = 0.8, arm = "fast-inserter", pole = "small-electric-pole", belt = "transport-belt", chest = CHEST,
+      src = { pid = 1, idx = idx, x = x, y = 20 }, point = { x = 24, y = 14 } } }
+  end
+  local function new_p(b, id, spec)
+    local p = { id = id, spec = spec, state = "plan", parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0 }
+    b.projects[id] = p
+    b.order[#b.order + 1] = id
+    return p
+  end
+  -- (a)
+  local W, f, b = quai_team()
+  local p = new_p(b, 40, spec_of("1:o1", 1, 150))
+  -- (seule la face sud du 1er coffre est libre : son poteau irait sur la face sud du 2e, première tuile essayée par Li.pole_tile)
+  local ok, why = plan_full(plan_api(f, b, { blocked = { [P.tkey(150, 19)] = true, [P.tkey(149, 20)] = true } }), f, W.surface, p)
+  local on_face = 0
+  for _, e in ipairs(p.ents) do
+    local x, y = math.floor(e.x), math.floor(e.y)
+    if (x == 151 and (y == 19 or y == 21)) or (x == 152 and y == 20) then on_face = on_face + 1 end
+  end
+  check(ok == true and on_face == 0, "G9.1 la ligne du 1er coffre ne prend aucune voisine du 2e coffre du quai (" .. tostring(why) .. ", " .. on_face .. ")")
+  -- (a2) les deux tuiles latérales du bras prises : Li.pole_tile essaierait ensuite (151, 22), la tuile du tapis du 2e coffre
+  local Wa, fa, ba = quai_team()
+  local pa = new_p(ba, 44, spec_of("1:o1", 1, 150))
+  local oka, whya = plan_full(plan_api(fa, ba, { blocked = { [P.tkey(150, 19)] = true, [P.tkey(149, 20)] = true, [P.tkey(149, 21)] = true } }), fa, Wa.surface, pa)
+  local pole_back = 0
+  for _, e in ipairs(pa.ents) do if e.role == "liaison" and math.floor(e.x) == 151 and math.floor(e.y) == 22 then pole_back = pole_back + 1 end end
+  check(oka == true and pole_back == 0, "G9.1b aucun poteau sur la tuile du tapis du 2e coffre (" .. tostring(whya) .. ", " .. pole_back .. ")")
+  -- (b)
+  local W2, f2, b2 = quai_team()
+  local host = new_p(b2, 41, spec_of("1:o1", 1, 150))
+  host.state = "fini"
+  for x = 140, 156 do host.ents[#host.ents + 1] = { name = "transport-belt", x = x + 0.5, y = 22.5, dir = 6, role = "liaison-tapis" } end
+  for _, e in ipairs(host.ents) do b2.occ[P.tkey(math.floor(e.x), math.floor(e.y))] = 41 end
+  local blk = { [P.tkey(151, 19)] = true, [P.tkey(152, 20)] = true, [P.tkey(150, 20)] = true }
+  local q = new_p(b2, 42, spec_of("1:o2", 2, 151))
+  logs = {}
+  local ok2, why2 = plan_full(plan_api(f2, b2, { blocked = blk }), f2, W2.surface, q)
+  local arms, belts, chests, poles, arm = 0, 0, 0, 0, nil
+  for _, e in ipairs(q.ents) do
+    if e.role == "liaison-bras" then arms = arms + 1; arm = e
+    elseif e.role == "liaison-tapis" then belts = belts + 1
+    elseif e.role == "tampon" then chests = chests + 1
+    elseif e.role == "liaison" then poles = poles + 1 end
+  end
+  check(ok2 == true, "G9.2 le 2e coffre du quai est relie (" .. tostring(why2) .. ")")
+  check(arms == 1 and belts == 0 and chests == 0 and poles == 1 and #q.outs == 0, "G9.3 un bras et son poteau, ni tapis ni tampon ni sortie")
+  check(arm and math.floor(arm.x) == 151 and math.floor(arm.y) == 21 and #Rp.branch_verify(q.ents, { x = 151, y = 20 }, { x = 151, y = 22 }, function(e) return e.role == "liaison-bras" end) == 0,
+    "G9.4 le bras prend au coffre et depose sur le tapis de la ligne")
+  check(logs_with("branchement") == 1, "G9.5 journal du branchement")
+  -- (c)
+  local W3, f3, b3 = quai_team()
+  local q3 = new_p(b3, 43, spec_of("1:o2", 2, 151))
+  local blk3 = { [P.tkey(151, 19)] = true, [P.tkey(152, 20)] = true, [P.tkey(150, 20)] = true, [P.tkey(151, 22)] = true }
+  local ok3, why3 = plan_full(plan_api(f3, b3, { blocked = blk3 }), f3, W3.surface, q3)
+  check(ok3 == false and tostring(why3):find("contre le coffre de sortie", 1, true), "G9.6 sans ligne voisine : refus comme avant (" .. tostring(why3) .. ")")
+end
+
 print(string.format("[RAPATRIEMENT-GLUE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

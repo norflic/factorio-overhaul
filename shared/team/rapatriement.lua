@@ -387,6 +387,77 @@ function Rp.ends_ok(ends, arm_ok, max_n)
   return out
 end
 
+--- Lot SORTIE-COFFRE (fo-logs/2026-11-12_SORTIE-COFFRE, sonde en moteur : 16 refus sur 17 « aucune place pour un bras et un tapis contre le coffre
+--- de sortie ») : les K coffres d'un quai de colonne sont K sorties côte à côte qui n'ont qu'UNE face libre ; la première ligne longeait le quai et
+--- posait tapis, souterrain ou poteau sur la face des autres. Deux règles, une seule ligne par quai :
+--- (1) Rp.quai_guard : la ligne de S ne prend aucune voisine (4 côtés) des AUTRES sorties de son projet (outs : { x, y }, centres ou tuiles),
+---     hors des voisines de S ; liste { x, y } triée (y puis x), sans doublon. Second rendu : les tuiles à DEUX pas de ces sorties (la tuile
+---     du tapis derrière chaque bras), hors de celles de S et des voisines déjà rendues : un tapis de la ligne peut y passer (le coffre y
+---     versera), un poteau jamais (sonde : poteau de la ligne posé sur la tuile du tapis d'un voisin, 3 refus sur 10, graine 123456789) ;
+--- (2) Rp.branch_sites : un coffre sans site (Li.sites vide) verse par UN bras sur une voisine libre A, qui dépose sur la tuile B derrière lui
+---     portée par le tapis d'une ligne vivante du même objet (belt_dir(x, y) -> direction de ce tapis, nil sinon ; jamais un souterrain), qui
+---     ne verse pas sur A ; arm_ok(x, y) (Rp.off_ore) refuse le bras sur une ressource. Ordre N, E, S, O. Rend { dir, ax, ay, bx, by }.
+local D4 = { 0, 2, 4, 6 }
+function Rp.quai_guard(outs, S)
+  local own, own2 = { [S.x .. ":" .. S.y] = true }, { [S.x .. ":" .. S.y] = true }
+  for _, d in ipairs(D4) do
+    local v = Li.DV[d]
+    own[(S.x + v[1]) .. ":" .. (S.y + v[2])] = true
+    own2[(S.x + v[1]) .. ":" .. (S.y + v[2])] = true
+    own2[(S.x + 2 * v[1]) .. ":" .. (S.y + 2 * v[2])] = true
+  end
+  local function ring(step, seen, out, mine)
+    for _, o in ipairs(outs or {}) do
+      local ox, oy = floor(o.x), floor(o.y) -- (S parmi `outs` : ses tuiles sont à lui, rien n'est gardé)
+      for _, d in ipairs(D4) do
+        local v = Li.DV[d]
+        local x, y = ox + step * v[1], oy + step * v[2]
+        local k = x .. ":" .. y
+        if not seen[k] and not mine[k] then seen[k] = true; out[#out + 1] = { x = x, y = y } end
+      end
+    end
+    table.sort(out, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
+    return out
+  end
+  local seen = {}
+  local faces = ring(1, seen, {}, own)
+  return faces, ring(2, seen, {}, own2)
+end
+
+function Rp.branch_sites(S, free, belt_dir, arm_ok)
+  local out = {}
+  for _, d in ipairs(D4) do
+    local v = Li.DV[d]
+    local ax, ay = S.x + v[1], S.y + v[2]
+    local bx, by = ax + v[1], ay + v[2]
+    local w = Li.DV[belt_dir(bx, by) or -1]
+    if w and not (bx + w[1] == ax and by + w[2] == ay) and free(ax, ay) and (not arm_ok or arm_ok(ax, ay)) then
+      out[#out + 1] = { dir = d, ax = ax, ay = ay, bx = bx, by = by }
+    end
+  end
+  return out
+end
+
+--- Pièces d'un branchement : le bras sur A (prend en S, dépose sur B : convention de Li.entities) et son poteau { x, y } (ou nil).
+function Rp.branch_entities(site, names, pole)
+  local out = { { name = names.arm, x = site.ax + 0.5, y = site.ay + 0.5, dir = (site.dir + 4) % 8, role = "liaison-bras" } }
+  if pole then out[2] = { name = names.pole, x = pole[1] + 0.5, y = pole[2] + 0.5, dir = 0, role = "liaison" } end
+  return out
+end
+
+--- Preuve d'un branchement : un seul bras, qui prend au coffre S et dépose sur la tuile B du tapis de la ligne. Rend la liste des écarts.
+function Rp.branch_verify(ents, S, B, isarm)
+  local bad, arms = {}, {}
+  for _, e in ipairs(ents) do if isarm(e) then arms[#arms + 1] = e end end
+  if #arms ~= 1 then bad[1] = string.format("%d bras au lieu de 1", #arms) return bad end
+  local a = arms[1]
+  local v = Li.DV[a.dir]
+  local tx, ty = floor(a.x), floor(a.y)
+  if not v or tx + v[1] ~= S.x or ty + v[2] ~= S.y then bad[#bad + 1] = "le bras ne prend pas au coffre de sortie" end
+  if not v or tx - v[1] ~= B.x or ty - v[2] ~= B.y then bad[#bad + 1] = "le bras ne depose pas sur le tapis de la ligne" end
+  return bad
+end
+
 --- Premiers points libres pour un coffre tampon (chaque coffre a au moins un site de bras : Li.sites) autour de (px, py), jusqu'à Rp.SPOT_RADIUS ;
 --- au plus `max` points (défaut Rp.SPOT_TRIES), les plus proches d'abord. free(x, y) -> bool. Rend { { x, y, sites } }. Lot TAMPON-MINERAI : `ok`
 --- ({ chest, arm } de Rp.off_ore) refuse un point dont le coffre toucherait une ressource, et chaque site dont le bras en toucherait une.

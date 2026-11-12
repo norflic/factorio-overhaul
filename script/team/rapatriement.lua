@@ -565,7 +565,7 @@ local function waiting(J)
   return false, string.format("rapatriement: planification en cours (%s, appel %d, %d noeuds)", J.stage, J.slices, J.total), "tranche"
 end
 
-local STRIP = { "chunk", "merged", "ground", "free", "cost", "wf", "f", "surface", "p", "L", "ok" }
+local STRIP = { "chunk", "merged", "ground", "free", "pole_free", "cost", "wf", "f", "surface", "p", "L", "ok" }
 
 --- Les fonctions de la carte, refaites à chaque appel (jamais dans global).
 local function bind(api, f, surface, p, J)
@@ -589,6 +589,12 @@ local function bind(api, f, surface, p, J)
     local c, k = J.ground(x, y)
     return c ~= nil and not (J.guard[k] or J.planned[k]) and not J.wf(x, y)
   end
+  -- lot SORTIE-COFFRE : jamais de poteau sur la tuile du tapis d'un autre coffre du quai (second rendu de Rp.quai_guard, refait à chaque appel)
+  local sp = f.build.projects[lc.src.pid]
+  local _, backs = Rp.quai_guard(sp and sp.outs, { x = lc.src.x, y = lc.src.y })
+  local bk = {}
+  for _, t in ipairs(backs) do bk[P.tkey(t.x, t.y)] = true end
+  function J.pole_free(x, y) return J.free(x, y) and not bk[P.tkey(x, y)] end
   -- lot TAMPON-MINERAI : coffre tampon et bras jamais sur une ressource (Rp.off_ore -> Sm.forbidden, types lus aux prototypes du jeu)
   local function ore(x, y)
     local c = J.chunk(math.floor(x / CHUNK), math.floor(y / CHUNK))
@@ -630,6 +636,10 @@ local function new_job(f, surface, p)
   local J = { box = { x0 = math.floor(x0), y0 = math.floor(y0), x1 = math.ceil(x1), y1 = math.ceil(y1) }, reuse = reuse, px = px, py = py, planned = {}, total = 0, runs = 0, si = 0, ei = 1,
     last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = { [P.tkey(src.x, src.y)] = true }, grid = { cost = {}, done = false } }
   J.S = { x = src.x, y = src.y }
+  -- lot SORTIE-COFFRE : les voisines des autres coffres de sortie du projet de S (le quai) restent à leurs bras (Rp.quai_guard ; la tuile
+  -- derrière chacune, sans poteau, est relue par bind : J.pole_free)
+  local sp = f.build.projects[src.pid]
+  for _, t in ipairs((Rp.quai_guard(sp and sp.outs, J.S))) do J.guard[P.tkey(t.x, t.y)] = true end
   return J
 end
 
@@ -657,6 +667,21 @@ local function stage_guard(J, b, p)
   return true
 end
 
+--- Lot SORTIE-COFFRE : tapis (hors souterrains) des lignes de rapatriement vivantes de l'objet `item`, autres que p. Rend belt_dir(x, y) -> direction ou nil.
+local function line_belts(b, p, item)
+  local dirs = {}
+  for _, id in ipairs(b.order) do
+    local q = b.projects[id]
+    local qc = q and q.spec and q.spec.rapatriement
+    if qc and q ~= p and qc.item == item and not q.abandoned and not DEAD[q.state] then
+      for _, e in ipairs(q.ents) do
+        if e.role == "liaison-tapis" and not e.type then dirs[P.tkey(math.floor(e.x), math.floor(e.y))] = e.dir or 0 end
+      end
+    end
+  end
+  return function(x, y) return dirs[P.tkey(x, y)] end
+end
+
 --- Étape spots : poteaux du réseau, points libres du tampon, place contre le coffre de sortie. Rend nil si tout va bien, sinon la raison du refus.
 local function stage_spots(f, surface, b, p, J)
   local lc = p.spec.rapatriement
@@ -665,6 +690,14 @@ local function stage_spots(f, surface, b, p, J)
   local near = wire - 2
   local at_src = pole_probe(f, surface, src.x, src.y, near + 4)
   if not at_src(src.x, src.y, near) then return "rapatriement: aucun poteau du reseau pres de la sortie" end
+  -- lot SORTIE-COFFRE : un coffre du quai dont la seule face libre porte déjà la ligne d'un voisin y verse par un bras (Rp.branch_sites) : ni tapis ni tampon
+  if #Li.sites(J.S.x, J.S.y, J.free) == 0 then
+    local br = Rp.branch_sites(J.S, J.free, line_belts(b, p, lc.item), J.ok.arm)
+    if #br > 0 then
+      J.branch = br[1]
+      return nil
+    end
+  end
   if J.reuse then
     J.spots = { { x = J.reuse.x, y = J.reuse.y } }
   else
@@ -775,7 +808,7 @@ local function stage_ents(f, surface, b, p, J)
   taken[e.src.ax .. ":" .. e.src.ay], taken[e.dst.ax .. ":" .. e.dst.ay], taken[D.x .. ":" .. D.y] = true, true, true
   local poles = {}
   for _, site in ipairs({ e.src, e.dst }) do
-    local ptx, pty = Li.pole_tile(site, J.free, taken)
+    local ptx, pty = Li.pole_tile(site, J.pole_free, taken)
     if not ptx then return "rapatriement: aucune place pour un poteau contre un bras" end
     taken[ptx .. ":" .. pty] = true
     J.planned[P.tkey(ptx, pty)] = true
@@ -791,6 +824,21 @@ local function stage_ents(f, surface, b, p, J)
   if #bad == 0 then bad = Tv.verify(tiles, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), ug and ug.maxd or 0, nil) end
   if #bad > 0 then return "rapatriement: geometrie fausse (" .. bad[1] .. ")" end
   -- le rang de pose est écrit une fois (P.sort_build le lit avant de le calculer) : le tri de 300 pièces coûtait 171 k instructions, 40 k avec le rang
+  for _, x in ipairs(ents) do x.part = 1; x.rank = P.kind_rank(x.name) end
+  J.ents, J.ai = ents, 1
+  return nil
+end
+
+--- Lot SORTIE-COFFRE : étape branch : le bras du coffre sur la ligne voisine et son poteau, preuve géométrique. Rend nil, ou la raison du refus.
+local function stage_branch(p, J)
+  local lc = p.spec.rapatriement
+  local s = J.branch
+  J.planned = { [P.tkey(s.ax, s.ay)] = true }
+  local ptx, pty = Li.pole_tile(s, J.pole_free, { [s.ax .. ":" .. s.ay] = true })
+  if not ptx then return "rapatriement: aucune place pour un poteau contre un bras" end
+  local ents = Rp.branch_entities(s, { arm = lc.arm, pole = lc.pole }, { ptx, pty })
+  local bad = Rp.branch_verify(ents, J.S, { x = s.bx, y = s.by }, function(x) return x.role == "liaison-bras" end)
+  if #bad > 0 then return "rapatriement: geometrie fausse (" .. bad[1] .. ")" end
   for _, x in ipairs(ents) do x.part = 1; x.rank = P.kind_rank(x.name) end
   J.ents, J.ai = ents, 1
   return nil
@@ -838,7 +886,6 @@ local function stage_close(api, f, p, J)
   local b = f.build
   local lc = p.spec.rapatriement
   local chosen = J.chosen
-  local tiles, D = chosen.tiles, chosen.D
   local L = J.L
   if not L.masks then -- chargement entre les étapes : le relevé est refait (rare ; quelques dizaines de chunks déjà lus, jamais plus d'une fois)
     for _, x in ipairs(p.ents) do J.chunk(math.floor(x.x / CHUNK), math.floor(x.y / CHUNK)) end
@@ -855,6 +902,14 @@ local function stage_close(api, f, p, J)
   p.counted = true -- une ligne n'est pas un module : finish_project ne la compte pas aux modules finis
   -- un replanifié ne double rien (bug de build.lua signalé par team-lead : p.outs et p.quais dupliqués à chaque réessai de plan)
   p.outs = {}
+  if J.branch then -- lot SORTIE-COFFRE : un bras sur la ligne voisine, aucun tapis, aucun tampon
+    local s = J.branch
+    p.tapis_piquable = {}
+    log(string.format("[FO-RAPATRIEMENT] %s : projet %d planifie (sortie %s, %s) : branchement, 1 bras %s du coffre (%d, %d) sur le tapis de la ligne en (%d, %d), %d obstacle(s), %d appel(s)",
+      f.key or "player", p.id, tostring(lc.key), tostring(lc.item), lc.arm, J.S.x, J.S.y, s.bx, s.by, #p.obstacles, J.slices))
+    return true
+  end
+  local tiles, D = chosen.tiles, chosen.D
   p.tapis_piquable = {} -- lot piquage : tuiles DROITES du tapis (tapis derrière et devant, dans le même sens), hors des 3 premières et dernières
   for i = 4, #tiles - 3 do
     local a, c, d = tiles[i - 1], tiles[i], tiles[i + 1]
@@ -884,7 +939,12 @@ local function plan_step(api, f, surface, p, J)
   elseif J.stage == "spots" then
     local why = stage_spots(f, surface, b, p, J)
     if why then return stop(why) end
-    J.stage = "search"
+    J.stage = J.branch and "branch" or "search"
+    return waiting(J)
+  elseif J.stage == "branch" then
+    local why = stage_branch(p, J)
+    if why then return stop(why) end
+    J.stage = "anchors"
     return waiting(J)
   elseif J.stage == "search" then
     local st = stage_search(J)
