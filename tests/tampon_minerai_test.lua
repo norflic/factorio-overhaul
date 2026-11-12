@@ -170,6 +170,47 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §6 colonne de fonderie d'un champ (shared/team/champ.lua, règle pure Ch.plan) : emerald, graine 271828182, 16 fours et 30 bras de la
+-- colonne du fer n° 1 posés sur le fer n° 2 (MÊME minerai, autre gisement : ni `ore` ni `foreign`). Cas de tests/decouplage_test.lua §9
+-- (bouts murés, colonne posée ailleurs) ; la bande au sud est ici le même minerai d'un autre gisement (spec.resources)
+---------------------------------------------------------------------------------------------------
+local Ch = require("shared.team.champ")
+local function column_case(with_rule)
+  local ore, wall, other = {}, {}, {}
+  for x = -12, 12 do for y = -8, 8 do if (x / 12) ^ 2 + (y / 8) ^ 2 <= 1 then ore[#ore + 1] = x; ore[#ore + 1] = y end end end
+  for x = -140, 140 do for y = -11, 11 do if math.abs(x) >= 16 then wall[Ch.key(x, y)] = true end end end
+  for x = -140, 140 do for y = 12, 40 do other[Ch.key(x, y)] = true end end
+  for x = -140, 140 do for y = -40, -12 do other[Ch.key(x, y)] = true end end
+  local all = {}
+  for k in pairs(other) do all[k] = true end
+  for i = 1, #ore - 1, 2 do all[Ch.key(ore[i], ore[i + 1])] = true end
+  local s = { ore = ore, blocked = wall, resources = with_rule and all or nil, drill = { size = 3, reach = 1, rate = 0.5 }, pole = { reach = 2, wire = 7.5 },
+    belts = { { lane = 7.5 }, { lane = 15 }, { lane = 22.5 } }, furnace = { size = 2, rate = 0.3125, fuel = false },
+    inserter = { rate = 0.83 }, target = { x = 1000, y = 0 }, max_side = 8, design = "colonne", logistics = { underground = 5 },
+    window = { -150, -40, 150, 40 } }
+  local p = Ch.plan(s)
+  local on_other, fours = 0, 0
+  for _, e in ipairs(p and p.ents or {}) do
+    if e.kind == "four" then fours = fours + 1 end
+    if e.kind == "four" or e.kind == "bras" or e.kind == "coffre" then
+      local w, h = e.w or e.size, e.h or e.size
+      local x0, y0 = math.floor(e.x - w / 2 + 0.5), math.floor(e.y - h / 2 + 0.5)
+      for x = x0, x0 + w - 1 do for y = y0, y0 + h - 1 do if other[Ch.key(x, y)] then on_other = on_other + 1 end end end
+    end
+  end
+  return p, on_other, fours
+end
+do
+  local p, on_other, fours = column_case(true)
+  check(p ~= nil and on_other == 0, "6.1 colonne : aucun four, bras ni coffre sur le meme minerai d'un autre gisement (" .. on_other .. ", " .. fours .. " four(s))")
+  local _, on_before = column_case(false)
+  check(on_before > 0, "6.2 sans spec.resources (lecture d'avant) : la colonne tombe sur l'autre gisement (" .. on_before .. ")")
+  local CH_SRC = read("script/team/champ.lua")
+  check(CH_SRC:find("local foreign, nforeign, resources = foreign_in(", 1, true) ~= nil and CH_SRC:find("resources = resources,", 1, true) ~= nil
+    and CH_SRC:find("all[k] = true", 1, true) ~= nil, "6.3 le moteur releve toutes les tuiles de ressource du rectangle lu (spec.resources)")
+end
+
+---------------------------------------------------------------------------------------------------
 -- §4 mutants
 ---------------------------------------------------------------------------------------------------
 local mutants, seen = 0, 0
@@ -199,6 +240,16 @@ do
   check(kh == 1, "4.3 motif du mutant du site du QG trouve")
   local l = load_spots(mh)(hq_world(HQ_ORE), { x = 0, y = 0 })
   mutant("site du QG sans la regle du sol", l[1].x == 0 and l[1].y == 0)
+end
+do
+  local CS = read("shared/team/champ.lua")
+  local mc, kc = CS:gsub("return all%[Ch%.key%(x, y%)%] == true", "return false", 1)
+  check(kc == 1, "4.4 motif du mutant de la colonne trouve")
+  local real = Ch
+  Ch = assert(load(mc, "=champ_mutant", "t", _G))()
+  local _, on_m = column_case(true)
+  Ch = real
+  mutant("colonne : l'autre gisement du meme minerai oublie", on_m > 0)
 end
 print(string.format("[TAMPON-MINERAI] mutants refuses : %d sur %d", seen, mutants))
 failures = failures + (mutants - seen)

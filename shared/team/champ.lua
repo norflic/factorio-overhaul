@@ -112,8 +112,13 @@ local function context(spec, axis)
   c.has_foreign = next(c.foreign) ~= nil
   c.is_foreign = function(u, v) local x, y = c.xy(u, v); local k = Ch.key(x, y); return c.foreign[k] == true and not c.ore[k] end
   -- F500 (directive du DC du 10/11, 22 h) : toute ressource sous l'emprise d'une fonderie, le minerai visé comme celui d'un autre gisement
+  -- lot TAMPON-MINERAI (emerald, graine 271828182 : 16 fours et 30 bras de la colonne du fer n° 1 posés sur le fer n° 2, voisin) : le MÊME
+  -- minerai d'un autre gisement n'est ni `ore` (ce gisement) ni `foreign` (autre nom) ; spec.resources = toutes les tuiles de ressource lues
+  local all = spec.resources or {}
   c.is_resource = function(u, v)
-    return c.is_ore(u, v) or c.is_foreign(u, v)
+    if c.is_ore(u, v) or c.is_foreign(u, v) then return true end
+    local x, y = c.xy(u, v)
+    return all[Ch.key(x, y)] == true
   end
   c.free = function(u, v)
     local x, y = c.xy(u, v)

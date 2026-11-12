@@ -326,18 +326,19 @@ local function category(name)
 end
 Champ.category = category
 
+--- Rend les tuiles d'une AUTRE ressource minable (lot MELANGE), leur nombre et, lot TAMPON-MINERAI, TOUTES les tuiles de ressource lues
+--- (n'importe quel nom ou catégorie : le même minerai d'un AUTRE gisement compris), où aucune fonderie ne se pose (Sm.forbidden).
 local function foreign_in(surface, res, cats, x0, y0, x1, y1)
-  local out, n = {}, 0
+  local out, n, all = {}, 0, {}
   for _, r in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1 + 1, y1 + 1 } }, type = "resource" })) do
-    if r.valid and r.name ~= res then
-      local c = category(r.name)
-      if c and cats[c] then
-        local k = Ch.key(math.floor(r.position.x), math.floor(r.position.y))
-        if not out[k] then out[k] = true; n = n + 1 end
-      end
+    if r.valid then
+      local k = Ch.key(math.floor(r.position.x), math.floor(r.position.y))
+      all[k] = true
+      local c = r.name ~= res and category(r.name)
+      if c and cats[c] and not out[k] then out[k] = true; n = n + 1 end
     end
   end
-  return out, n
+  return out, n, all
 end
 
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
@@ -407,14 +408,14 @@ local function spec_of(f, surface, o, frame, only)
   end
   local fm = data.drill.size + 2 * data.drill.reach + 1
   -- F500 : relevées aussi sur tout le rectangle lu (x0..x1, y0..y1), où la fonderie se place : aucun four sur un autre gisement
-  local foreign, nforeign = foreign_in(surface, names.resource, names.cats, math.min(ox0 - fm, x0), math.min(oy0 - fm, y0),
+  local foreign, nforeign, resources = foreign_in(surface, names.resource, names.cats, math.min(ox0 - fm, x0), math.min(oy0 - fm, y0),
     math.max(ox1 + fm, x1), math.max(oy1 + fm, y1))
   Profiler.fstart("champ:blocked")
   -- lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre de cet avant-poste a retenues pour son réseau du charbon reporté lui restent libres
   local blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft, function(_, _, owner) return Cd.own(owner, o.id) end)
   Profiler.fstop("champ:blocked")
   local spec = {
-    ore = ore, blocked = blocked, mine = mine, soft = soft, foreign = foreign, nforeign = nforeign,
+    ore = ore, blocked = blocked, mine = mine, soft = soft, foreign = foreign, nforeign = nforeign, resources = resources,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
     design = data.design, logistics = data.logistics,
