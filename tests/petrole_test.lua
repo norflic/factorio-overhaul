@@ -164,6 +164,22 @@ local function run(d, label, names)
   check(d_on.tech ~= nil and newp, label .. " §2b pack nouveau : la recherche choisie consomme un pack jamais consommé (" .. tostring(d_on.tech) .. ")")
   local d_off = Gen.choose(cat, ev3, st2, {})
   say(label .. " §2b sans la règle : " .. tostring(d_off.tech) .. (consumes(d_off.tech or "") and " (consomme)" or " (ne consomme pas)"))
+  -- §2b' lot PACK-OSCILLE : le stock du pack nouveau est consommé par la recherche qu'il a fait choisir. Un pack FABRIQUÉ le reste
+  -- (state.made, retenu par le cerveau) : le stock qui retombe à 0 pendant la recherche ne rend pas le choix au pack d'avant
+  -- (fo-logs/2026-11-12_DEFAUTS-REVELES/avant, azure : 'defender' sans « pack nouveau » à 54,3 min, 'stronger-explosives-2' avec à 58,9).
+  do
+    local st6 = { stock = { [names.chem_pack] = 10 }, techs = st2.techs, built = {}, known = st2.known, made = {} }
+    local d_full = Gen.choose(cat, ev3, st6, { new_pack = true })
+    st6.stock[names.chem_pack] = 0
+    local d_empty = Gen.choose(cat, ev3, st6, { new_pack = true })
+    check(d_full.tech == d_on.tech and d_empty.tech == d_full.tech and d_empty.k1 == d_full.k1,
+      label .. " §2b' stock du pack nouveau tombé à 0 pendant la recherche : choix stable (" .. tostring(d_full.tech) .. " -> "
+      .. tostring(d_empty.tech) .. ")")
+    local st7 = { stock = {}, techs = st2.techs, built = {}, known = st2.known, made = {} }
+    local d_never = Gen.choose(cat, ev3, st7, { new_pack = true })
+    check(d_never.tech == d_nostock.tech and d_never.k1 ~= "pack nouveau",
+      label .. " §2b' pack jamais fabriqué : rien n'est retenu (" .. tostring(d_never.tech) .. ")")
+  end
   -- §2c la CHAÎNE qui mène au pack nouveau (Gen.PACK_NEAR) : packs rouge, vert et militaire acquis, pétrole connu, la
   -- technologie choisie est la moins chère de la chaîne vers le pack chimique (moteur réel, etape1-guide 20261020 : la
   -- chaîne du pétrole commençait à 43 min, après vingt minutes de recherches de faible valeur)

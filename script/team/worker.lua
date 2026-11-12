@@ -273,14 +273,14 @@ end
 local DEPOSIT_OPTS = { reserve = true }
 -- Lot CORR-RALLIEMENT (tenue) : `chest` = un coffre du stock précis, hors de portée pendant « away » (sans la réserve des vitales ; note de
 -- revue-0659 : un coffre sûr qui serait le QG la contournerait) ; sans `chest`, le stock comme avant.
-local function deposit_inventory(f, inv, keep, chest)
+local function deposit_inventory(f, inv, keep, chest, kits)
   local contents = inv.get_contents()
   local names = {}
   for name in pairs(contents) do names[#names + 1] = name end
   table.sort(names)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
-    if n > 0 then n = n - AmRt.deliver(f, inv, name, n) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
+    if n > 0 then n = n - AmRt.deliver(f, inv, name, n, kits and kits[name]) end -- C3 : ce qu'un module en réserve attend lui est remis AVANT le coffre
     if n > 0 and chest then
       local put = chest.insert({ name = name, count = n })
       if put > 0 then inv.remove({ name = name, count = put }) f.team.delivered[name] = (f.team.delivered[name] or 0) + put end
@@ -399,10 +399,25 @@ local function rearm(agent, f)
   end
 end
 
+--- Lot KITS-VOLES : les pièces des KITS que le PNJ porte (travaux en arrière-plan, tâche en cours), par objet : { [objet] = { { pids, n } } },
+--- dans l'ordre des travaux. Lues par la remise directe (amorce_rt) : la part d'un kit va aux projets pour lesquels il a été fabriqué (task.pids, P.want_kit).
+local function kits_of(agent)
+  local out, tasks, seen = {}, {}, {}
+  for _, j in ipairs(agent.bg and agent.bg.jobs or {}) do tasks[#tasks + 1] = j.task seen[j.task] = true end
+  if agent.task and not seen[agent.task] then tasks[#tasks + 1] = agent.task end
+  for _, t in ipairs(tasks) do
+    for _, w in ipairs(t.kit or {}) do
+      out[w[1]] = out[w[1]] or {}
+      out[w[1]][#out[w[1]] + 1] = { pids = t.pids, n = w[2] }
+    end
+  end
+  return out
+end
+
 local function deposit_all(agent, f, chest)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
-  deposit_inventory(f, main_inv(agent), nil, chest)
+  deposit_inventory(f, main_inv(agent), nil, chest, kits_of(agent))
   local guns = e.get_inventory(defines.inventory.character_guns)
   if guns then deposit_inventory(f, guns, KEEP_GUN, chest) end
   local ammo = e.get_inventory(defines.inventory.character_ammo)

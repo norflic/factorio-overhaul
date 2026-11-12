@@ -2550,7 +2550,7 @@ function Capi.think_tail(f, cs, tick)
   for _, rec in ipairs(cs.open) do
     open[#open + 1] = { key = rec.key, kind = rec.kind, item = rec.item, value = rec.value, exec = rec.exec,
       outpost_kind = rec.outpost_kind, n_left = rec.n_left, missing = rec.missing, blocked = rec.blocked, tech = rec.tech,
-      short = makes_short(rec) }
+      short = makes_short(rec), mod_ids = rec.mod_ids } -- (mod_ids, lot KITS-VOLES : les kits de l'ordre vont à ses modules)
   end
   -- Lot CAPI-REPLI : objets qui manquaient à un module refusé pour « materiaux introuvables » : but de FABRICATION gardé
   -- Rp.PREP_TTL après l'échec (le module suivant, réduit, les trouvera au coffre). Un ordre ouvert de la même clé reprend
