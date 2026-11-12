@@ -78,6 +78,13 @@ local function k1_cases()
   r = run_k1({ cand("TA", 900, 500, {}), cand("TD", 100, 300, {}) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
   check(r == "TA TD", "K1 d2 : pack nouveau pas encore fabriqué, pas un palier (" .. r .. ")")
   state.stock = nil
+  -- d3. lot PACK-OSCILLE : fabriqué une fois (state.made), le pack le reste quand la recherche vide son stock
+  state.made, state.stock = {}, { P2 = 10 }
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TD", 100, 300, {}) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
+  state.stock = { P2 = 0 }
+  local r3 = run_k1({ cand("TA", 900, 500, {}), cand("TD", 100, 300, {}) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
+  check(r == "TD TA" and r3 == r, "K1 d3 : stock du pack tombé à 0, première consommation gardée (" .. r .. " -> " .. r3 .. ")")
+  state.made, state.stock = nil, nil
   -- e. auto par la CHAÎNE (vers un objet voulu) : même règle
   r = run_k1({ cand("TC", 900, 500, {}), cand("TB", 300, 200, { { "pack", "P3" } }) },
     { TC = { v = 25, target = "TA", len = 4, wanted = true } })

@@ -358,9 +358,17 @@ Gen.V_NEW_PACK = 100   -- lot PETROLE (ctx.new_pack) : PREMIÈRE technologie à 
 -- nouveau » parce que le pack chimique est faisable (pétrole connu, exécutants), sans aucune usine qui le produise : laboratoire
 -- arrêté 8 min puis lâché par la garde (shared/ai3/impayable.lua), 4 fois sur 3 graines. Le pack doit être au stock (coffre et
 -- arrivées, state.stock) pour Gen.NEW_PACK_UNITS unités de la recherche (la même quantité que Im.UNITS, retour d'une recherche lâchée).
+-- Lot PACK-OSCILLE : ce stock est celui que la recherche choisie CONSOMME ; lu seul, le pack « se défabriquait » pendant sa propre
+-- recherche et la promotion s'éteignait puis se rallumait au gré du coffre (fo-logs/2026-11-12_DEFAUTS-REVELES/avant, azure :
+-- 'defender' sans « pack nouveau » à 54,3 min, 'stronger-explosives-2' avec à 58,9, aucune technologie du pack finie entre). Fabriqué
+-- une fois, il le reste : state.made (table du cerveau, persistée par l'appelant) retient le fait ; sans elle, le stock seul.
 Gen.NEW_PACK_UNITS = 5
 function Gen.pack_made(state, ing)
-  return (((state and state.stock) or {})[ing[1]] or 0) >= (ing[2] or 1) * Gen.NEW_PACK_UNITS
+  local made = state and state.made
+  if made and made[ing[1]] then return true end
+  local ok = (((state and state.stock) or {})[ing[1]] or 0) >= (ing[2] or 1) * Gen.NEW_PACK_UNITS
+  if ok and made then made[ing[1]] = true end
+  return ok
 end
 function Gen.choose(cat, ev, state, ctx)
   ctx = ctx or {}
