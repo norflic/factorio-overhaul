@@ -620,7 +620,7 @@ end
 -- rempli au tick T, lu pendant les captures de la même session.
 local CACHE = {}
 
-return function(T_MIN)
+return function(T_MIN, BASE) -- BASE : "partie" (lot PARTIE-REELLE, ouvriers au réglage), sinon "default"
   local MIN = 3600
   local T = T_MIN * MIN
   local MEASURES = {}
@@ -699,7 +699,7 @@ return function(T_MIN)
 
   return {
     description = string.format("PAVAGE-PREUVE : pavage des gisements par les IA (guerre default), mesures toutes les 10 min, captures a %d min", T_MIN),
-    base = "default",
+    base = BASE or "default",
     check_tick = T + 300,
     shots_delay = T + 400,
 

@@ -48,6 +48,8 @@ KIT_EGAL["etape1-guide-epave"] = true
 -- les scénarios greffés scenarios/ia0-*.lua.
 local SCENARIOS = {
   default = { war = true, companions = 50, radius = 32, fund = 0, pvp = "peaceful" },
+  -- lot PARTIE-REELLE (12/11) : comme default, mais les équipes suivent le réglage fo-war-workers (30 dans la partie du DC, départ 15) au lieu de 10 ouvriers fixes
+  partie = { war = true, companions = 50, radius = 32, fund = 0, pvp = "peaceful", workers = "reglage" },
   stress = { war = true, companions = 380, radius = 64, fund = 20000, pvp = "peaceful" },
   baseline = { war = false, companions = 0, radius = 32, fund = 0 }, -- témoin : même carte, sans guerre
   noexp = { war = true, companions = 50, radius = 32, fund = 0, no_expansion = true, pvp = "peaceful" }, -- expansion biters coupée
@@ -130,7 +132,9 @@ local function builtin_init(sc)
     log("[FO-AUTOTEST] difficulte PvP " .. sc.pvp .. " = " .. tostring(remote.call("fo-pvp", "set_difficulty", sc.pvp)))
   end
   if sc.war then
-    local ok = remote.call("factorio-overhaul", "war_start", 4, 100, 10)
+    local workers = sc.workers or 10 -- "reglage" : nil, la taille suit fo-war-workers comme dans la partie du DC (lot PARTIE-REELLE)
+    if workers == "reglage" then workers = nil end
+    local ok = remote.call("factorio-overhaul", "war_start", 4, 100, workers)
     log("[FO-AUTOTEST] war_start = " .. tostring(ok))
     if sc.biter_peace then
       for name, force in pairs(game.forces) do
