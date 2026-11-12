@@ -104,16 +104,16 @@ local FS = read("script/team/foreuse_swap.lua")
 local AD = read("script/team/adopte.lua")
 local RM = read("script/team/ia1_remote.lua")
 check("lecteur 1 : Build.reserved_entity (agrandissements, tourelles)", B:find("if cor[k] then by_cor = true end", 1, true) ~= nil
-  and B:find("Outposts.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end", 1, true) ~= nil)
+  and B:find("PlacesQG.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end", 1, true) ~= nil)
 check("lecteur 2 : read_masks free() (modules, poteaux du plan)", B:find("if water[k] or blocked[k] or b.occ[k] then return false end\n      if cor[k] then", 1, true) ~= nil)
 check("lecteur 3 : vue des poteaux en cache", B:find("return not b.occ[k] and not cor[k]", 1, true) ~= nil)
 check("lecteur 4 : masque de la migration du champ", CH:find('blocked[Ch.key(x, y)] = "couloir"', 1, true) ~= nil)
 check("les tapis traversent (cout du tapis sans couloir)", B:find("if masks.water[k] or masks.blocked[k] or b.occ[k] or planned[k] then return nil end", 1, true) ~= nil)
 check("interrupteur de banc f.team.couloir_off", B:find("(f.team and f.team.couloir_off) then return Build.NO_COULOIR end", 1, true) ~= nil)
 check("journal : derniere issue fermee par", W:find("derniere issue fermee par %s", 1, true) ~= nil and W:find("Co.closer(boxes, tiles, base, rect, order)", 1, true) ~= nil)
-check("B1 : le remplacement sur place passe l'ancienne emprise", FS:find("Outposts.reserved(f, item, { x = cx, y = cy }, edir, { keep = keep, blocked = blocked })", 1, true) ~= nil
+check("B1 : le remplacement sur place passe l'ancienne emprise", FS:find("PlacesQG.is_reserved(f, item, { x = cx, y = cy }, edir, { keep = keep, blocked = blocked })", 1, true) ~= nil
   and B:find("if by_cor and keep then by_cor = Build.Co.cuts(", 1, true) ~= nil)
-local _, nad = AD:gsub("Outposts%.reserved%(f, ent%.name, ent%.position, ent%.direction, { couloir = false }%)", "")
+local _, nad = AD:gsub("PlacesQG%.is_reserved%(f, ent%.name, ent%.position, ent%.direction, { couloir = false }%)", "")
 check("B2 : les deux adoptions ignorent le couloir", nad == 2, tostring(nad))
 -- Lot TESTS-VERTS : script/team/team.lua mêle des fins de ligne CRLF et LF ; le texte cherché est en LF
 local TM = (read("script/team/team.lua"):gsub("\r\n", "\n"))

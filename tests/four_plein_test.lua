@@ -86,7 +86,7 @@ local SRC = {
 local NEEDLES = {
   cerveau = "want - #labs, PlacesQG.skip_reserved(f, lab.entity, function(pos)",
   outposts = "count, PlacesQG.skip_reserved(f, T.SMELTER, function(pos)",
-  build = "PlacesQG.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos, nil, { couloir = false }) end",
+  build = "PlacesQG.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end", -- (lot TUILES-RESERVEES : crochet unique)
 }
 
 local function wiring(texts)
@@ -110,7 +110,7 @@ end
 section("3. mutants")
 do
   local qsrc = read(SRC.q)
-  local mut, nm = qsrc:gsub("if Q%.reserved and Q%.reserved%(f, name, pos%) then return false end", "", 1)
+  local mut, nm = qsrc:gsub("if Q%.is_reserved%(f, name, pos, nil, opts or QG%) then return false end", "", 1)
   check(nm == 1, "mutant de Q.skip_reserved trouvé")
   local Q = load_q(mut)
   local _, made = run(Q)
