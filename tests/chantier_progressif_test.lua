@@ -69,6 +69,16 @@ local function suite(Cp)
   local g5, w5 = Cp.go({ state = "reserve", spec = { champ = { oid = 1, pr = -30, coal = 1 } }, need = NEED, stock = STOCK30 })
   c(g5 == false and w5 == "reseau de charbon", "réseau du charbon autonome : tout-ou-rien gardé")
   c(Cp.go(nil) == false, "nil : non")
+  -- Lot SORTIE-PLAQUES (B5, graine 2507543475, 60 min) : scarlet, bande -349 (projet 6, 23 fours de pierre) partie à 29,4 min avec 433/466
+  -- pièces ; le degel retire aussitôt ses 11 paires thermiques (son fer) ; 21 tapis de sa voie de charbon jamais posés (manque transport-belt 33
+  -- jusqu'à 60 min), 23 fours sans charbon dès 40 min, fer 0/min et 1 plaque au QG à 50 min, 14 foreuses de fer arrêtées « sortie pleine ».
+  -- Une bande qui doit dégeler un champ qui produit garde le tout-ou-rien (comme Rr.partial_go dans build.lua) ; dégelée, elle part.
+  local DG = { oid = 3, tiles = { 1, 2 } }
+  local g6, w6 = Cp.go({ state = "reserve", spec = { champ = { oid = 3, pr = -349 }, degel = DG }, need = NEED, stock = STOCK30 })
+  c(g6 == false and w6 == "degel", "bande à dégeler, réserve au plancher : tout-ou-rien gardé (" .. tostring(w6) .. ")")
+  c(Cp.go({ state = "reserve", spec = { champ = { oid = 3, pr = -349 }, degel = DG }, degele = true, need = NEED, stock = STOCK30 }) == true,
+    "bande déjà dégelée, réserve au plancher : part")
+  c(Cp.go({ state = "reserve", spec = { champ = { oid = 3, pr = -349 } }, need = NEED, stock = STOCK30 }) == true, "bande sans champ à dégeler : part")
   -- texte
   local s = Cp.describe(d2)
   c(s:find("^306/311 pieces reservees") and s:find("d%-foreuse x1"), "texte du journal : " .. s)
@@ -95,6 +105,8 @@ local MUTANTS = {
   { "état ignoré", 'if not (p and p.state == "reserve") then return false, "etat" end', 'if not p then return false, "etat" end' },
   { "un seul objet sous le plancher toléré", "return #short == 0 and total > 0, {", "return #short <= 1 and total > 0, {" },
   { "réseau du charbon accepté", 'if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end', "" },
+  { "degel ignoré (SORTIE-PLAQUES)", 'if s and s.degel and not p.degele then return false, "degel" end', "" },
+  { "degel jamais levé (SORTIE-PLAQUES)", 'if s and s.degel and not p.degele then return false, "degel" end', 'if s and s.degel then return false, "degel" end' },
   { "réseau lié accepté (coal seul refusé)", 'if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end', 'if c.coal ~= nil and c.link == nil then return false, "reseau de charbon" end' },
 }
 local refused = 0
@@ -120,7 +132,7 @@ print(string.format("[CHANTIER-PROGRESSIF] mutants refusés : %d sur %d", refuse
 ---------------------------------------------------------------------------------------------------
 local B = read("script/team/build.lua")
 check(B:find('Build.Cp = require("shared.team.chantier_progressif")', 1, true), "build.lua charge la règle (champ de Build)")
-check(B:find("local full, need = reserve(f, p)", 1, true) and B:find("prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, spec = p.spec, need = need, stock = p.stock", 1, true),
+check(B:find("local full, need = reserve(f, p)", 1, true) and B:find("prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, degele = p.degele, spec = p.spec, need = need, stock = p.stock", 1, true),
   "état reserve : la règle est consultée avec le besoin et la réserve du projet")
 check(B:find("if full or prog then", 1, true), "départ sur réserve complète OU plancher atteint")
 local _, nwrites = B:gsub("p%.progressif = true", "")

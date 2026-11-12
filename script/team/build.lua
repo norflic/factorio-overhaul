@@ -4889,7 +4889,7 @@ local function advance(f, surface, p, tick)
     -- au coffre à la prise du PNJ (Build.take_reserved), suivi par refresh_missing (p.progressif), fabriqué par le cerveau comme en réserve.
     local prog, pd = false, nil
     if not full then
-      prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, spec = p.spec, need = need, stock = p.stock, lead = lead_items(p) })
+      prog, pd = Build.Cp.go({ state = p.state, reopened = p.reopened, degele = p.degele, spec = p.spec, need = need, stock = p.stock, lead = lead_items(p) })
     end
     if full or prog then
       -- lot MIGRATION-CHAMP : matières réunies, la partie de champ à remplacer est retirée par script/team/migration_champ.lua (qui pose

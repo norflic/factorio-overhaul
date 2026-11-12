@@ -85,11 +85,16 @@ end
 --- neuve (spec.champ posé par le plan directeur du champ, sans `coal` ni `link` : un réseau du charbon, lié ou non, garde le tout-ou-rien :
 --- son kit est surtout du combustible et sa pose partielle déroute la migration, mesure EXPANSION-C, graine 271828182 : le réseau lié de la
 --- bande 1 parti à 33 min, la bande de fer suivante jamais demandée, 25 804 plaques au lieu de 42 144), en état « reserve », jamais un
---- projet rouvert (Rr.partial_go le couvre), et seulement si la réserve atteint le plancher de chaque objet (Cp.ready). Rend ok, détail.
+--- projet rouvert (Rr.partial_go le couvre), jamais une bande qui doit encore dégeler un champ qui produit (spec.degel sans p.degele), et
+--- seulement si la réserve atteint le plancher de chaque objet (Cp.ready). Rend ok, détail.
 function Cp.go(p)
   if not (p and p.state == "reserve") then return false, "etat" end
   if p.reopened and p.reopened ~= 0 then return false, "rouvert" end
   local s = p.spec
+  -- Lot SORTIE-PLAQUES (B5) : partir sans toute sa matière déclenchait le degel, qui retire les paires thermiques qui PRODUISENT ; la matière qui
+  -- manque (tapis de la voie de charbon) ne se fabriquait plus sans leur fer (scarlet, graine 2507543475 : 23 fours sans charbon, fer 0/min).
+  -- Une bande à dégeler garde le tout-ou-rien, comme Rr.partial_go (build.lua) ; la vue porte p.degele.
+  if s and s.degel and not p.degele then return false, "degel" end
   if s and s.ext == true and not s.rangee then return Cp.ready_lead(p.need or {}, p.stock or {}, p.lead or {}) end -- lot CC-PETROLE
   local c = p.spec and p.spec.champ
   if not c then return false, "pas une bande" end
