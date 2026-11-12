@@ -4210,6 +4210,8 @@ function Build.work(agent, f, tick)
             if blocked then
               left = left + 1
             elseif not Tokens.take(f, tick, cost) then
+              local g = agent.task and agent.task.gt -- lot CHANTIERS-FANTOMES : pensée arrêtée faute de jetons
+              if g then g.tok = (g.tok or 0) + 1; g.built = (g.built or 0) + did end
               return "more"
             elseif revive_one(surface, f, p, x, inv, tick, e) then
               did = did + 1
@@ -4225,6 +4227,8 @@ function Build.work(agent, f, tick)
       end
     end
     job.done = (job.done or 0) + did
+    local g = agent.task and agent.task.gt -- lot CHANTIERS-FANTOMES : pièces posées par la tâche
+    if g then g.built = (g.built or 0) + did end
     if did > 0 and left > 0 then return "more" end
     if did > 0 then return "more" end -- une pensée de plus pour constater la fin
     if (job.done or 0) == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 16 then
@@ -4417,7 +4421,7 @@ local function batch_tasks(f, p, out, free_of)
       out[#out + 1] = {
         -- lot REBUILD-RAPIDE (b) : un projet ROUVERT passe à son rang (alimentation 88, production principale 87 ; le reste inchangé)
         key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = Rr.project_prio(p, finish_prio(p.prio)), domain = p.domain, work = 15 + 2 * bt.n,
-        items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay },
+        items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay, n = bt.n },
       }
     end
   end

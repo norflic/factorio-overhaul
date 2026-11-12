@@ -1089,8 +1089,70 @@ local function return_site(f, task)
   end
 end
 
+--- Lot CHANTIERS-FANTOMES (12/11) : bilan des tâches de pose du plan (kind « ghost ») en moteur réel. Par tâche : temps par étape
+--- (départ au QG, prise à la réserve, marche, pose, retour, retour après échec), objets du lot, objets portés, pièces posées, pensées
+--- bloquées par les jetons. Journal [FO-GHOST] (30 tâches par équipe) et [FO-GHOST-BILAN] (toutes les 5 min de jeu, cumul par équipe).
+local GH_LOGS = 30
+local GH_KEYS = { "t_depart", "t_prise", "t_marche", "t_pose", "t_retour", "t_echec" }
+local function gh_phase(agent, tick)
+  local g = agent.task and agent.task.gt
+  if not g then return end
+  local failed = agent.failed and true or false
+  if g.pc == agent.pc and g.failed == failed then return end
+  if g.lab then g[g.lab] = (g[g.lab] or 0) + (tick - g.pt) end
+  g.pc, g.failed, g.pt = agent.pc, failed, tick
+  local s = agent.steps and agent.steps[agent.pc]
+  if failed then g.lab = "t_echec"
+  elseif not s then g.lab = nil
+  elseif s[1] == "home" then g.lab = agent.pc == 1 and "t_depart" or "t_retour"
+  elseif s[1] == "take_res" then g.lab = "t_prise"
+  elseif s[1] == "goto" then g.lab = "t_marche"
+  elseif s[1] == "ia1d" then g.lab = "t_pose"
+  else g.lab = "t_" .. tostring(s[1]) end
+end
+
+local function gh_finish(agent, f, task, ok, tick)
+  local g = task and task.gt
+  if not g then return end
+  if g.lab then g[g.lab] = (g[g.lab] or 0) + (tick - g.pt) end
+  g.lab = nil
+  local b = f.build
+  if not (b and b.stats) then return end
+  local st = b.stats.gh
+  if not st then st = { n = 0, ok = 0, built = 0, lot = 0, took = 0, tok = 0, zero = 0, total = 0, fails = {}, logs = 0, last = tick } b.stats.gh = st end
+  st.n, st.ok = st.n + 1, st.ok + (ok and 1 or 0)
+  st.built, st.lot, st.took, st.tok = st.built + (g.built or 0), st.lot + (g.n or 0), st.took + (g.took or 0), st.tok + (g.tok or 0)
+  if (g.built or 0) == 0 then st.zero = st.zero + 1 end
+  st.total = st.total + (tick - g.t0)
+  for _, k in ipairs(GH_KEYS) do st[k] = (st[k] or 0) + (g[k] or 0) end
+  if not ok then local r = tostring(task.fail or "?") st.fails[r] = (st.fails[r] or 0) + 1 end
+  local function sec(v) return (v or 0) / 60 end
+  if st.logs < GH_LOGS then
+    st.logs = st.logs + 1
+    log(string.format("[FO-GHOST] %s : tache %s %s en %.0f s par le PNJ %s a %.1f min : lot %d piece(s), %d objet(s) porte(s), %d posee(s), %d pensee(s) sans jeton, %.0f tuiles du QG ; depart %.0f s, prise %.0f s, marche %.0f s, pose %.0f s, retour %.0f s, retour d'echec %.0f s%s",
+      f.key or "player", tostring(task.key), ok and "FINIE" or "ECHEC", sec(tick - g.t0), tostring(agent.id), tick / 3600, g.n or 0, g.took or 0,
+      g.built or 0, g.tok or 0, g.d or 0, sec(g.t_depart), sec(g.t_prise), sec(g.t_marche), sec(g.t_pose), sec(g.t_retour), sec(g.t_echec),
+      ok and "" or (" (" .. tostring(task.fail) .. ")")))
+  end
+  if tick - st.last >= 18000 then
+    st.last = tick
+    local fl = {}
+    local ks = {}
+    for k in pairs(st.fails) do ks[#ks + 1] = k end
+    table.sort(ks)
+    for _, k in ipairs(ks) do fl[#fl + 1] = k .. " " .. st.fails[k] end
+    local tt = math.max(1, st.total)
+    log(string.format("[FO-GHOST-BILAN] %s a %.1f min : %d tache(s) ghost (%d finies, %d sans pose), %d piece(s) posee(s) (%.2f par tache) sur %d au lot, %d objet(s) porte(s) ; %.1f PNJ-min ; temps : depart %d %%, prise %d %%, marche %d %%, pose %d %%, retour %d %%, retour d'echec %d %% ; %d pensee(s) sans jeton ; echecs {%s}",
+      f.key or "player", tick / 3600, st.n, st.ok, st.zero, st.built, st.built / math.max(1, st.n), st.lot, st.took, st.total / 3600,
+      math.floor(100 * (st.t_depart or 0) / tt), math.floor(100 * (st.t_prise or 0) / tt), math.floor(100 * (st.t_marche or 0) / tt),
+      math.floor(100 * (st.t_pose or 0) / tt), math.floor(100 * (st.t_retour or 0) / tt), math.floor(100 * (st.t_echec or 0) / tt), st.tok,
+      table.concat(fl, ", ")))
+  end
+end
+
 local function finish(agent, f, ok, tick)
   local task = agent.task
+  gh_finish(agent, f, task, ok, tick)
   agent.task = nil
   agent.steps = nil
   Board.release(f, agent) -- lot IA3-b : réservation non prise rendue au libre
@@ -1562,6 +1624,7 @@ local function run_steps(agent, tick)
   if not f or not (f.hq and f.hq.valid) then return end
   local surface = agent.entity.surface
   for _ = 1, MAX_STEPS_PER_THINK do
+    gh_phase(agent, tick) -- lot CHANTIERS-FANTOMES : temps par étape des tâches de pose
     local step = agent.steps and agent.steps[agent.pc]
     if not step then
       local ok = not agent.failed
@@ -1666,6 +1729,12 @@ local function run_steps(agent, tick)
       -- Lot IA1-d : objets réservés au chantier (retirés du coffre à la réservation : personne ne les arrache)
       local all = Build.take_reserved(f, step[2], step[3], main_inv(agent))
       if agent.task then agent.task.took = true end
+      local g = agent.task and agent.task.gt
+      if g then -- lot CHANTIERS-FANTOMES : objets du lot portés au départ
+        local n = 0
+        for _, it in ipairs(step[3]) do n = n + math.min(it[2], main_inv(agent).get_item_count(it[1])) end
+        g.took = n
+      end
       if not all then
         local any = false
         for _, it in ipairs(step[3]) do if main_inv(agent).get_item_count(it[1]) > 0 then any = true break end end
@@ -1815,6 +1884,12 @@ FSM.define(MACHINE, {
       Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       Profiler.fstop("board:reserve")
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
+      if task.kind == "ghost" and task.ia1d then -- lot CHANTIERS-FANTOMES : mesure de la tâche de pose (gh_phase, gh_finish)
+        local j = task.ia1d
+        local hq = f.hq_pos
+        task.gt = { t0 = tick, pt = tick, pc = 0, n = j.n or 0,
+          d = (hq and j.ax) and math.sqrt((j.ax - hq.x) ^ 2 + (j.ay - hq.y) ^ 2) or 0 }
+      end
       agent.walk_retries = 0 -- lot CHARBON3 (B2) : essais de marche comptés par tâche (Rc.walk_fail)
       agent.mine_trips = nil -- lot MAIN-INVENTAIRE : voyages de dépôt comptés par tâche
       set(agent, "step", tick)
