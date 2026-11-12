@@ -38,6 +38,7 @@ local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, gén
 local Rappel = require("script.team.rappel_urgent") -- lot COLLECTE : rappel d'un PNJ occupé pour une tâche urgente que personne ne prend
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local PlacesQG = require("script.ai3.places_qg") -- lot DECOUPLAGE : Q.on_resource (tourelles de départ hors des ressources)
+local Pl = require("shared.ai3.places") -- lot TOURELLES-MINERAI : place recalée sur la grille de la tourelle (Pl.snap)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
 local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qui dorment et des brûleurs vitaux à sec
@@ -286,9 +287,13 @@ function Team.place_hq_turrets(f, surface, center, n)
   -- lot QG-GROUPE2 : votre équipe pose ses tourelles de départ en ligne (script/team/qg_groupe.lua, QgG.line ; nil : D.HQ_OFFSETS)
   local line = QgG.line(f, surface, center, n)
   local offsets = line or Depart.offsets(n)
+  local tpr = game.entity_prototypes[T.turret] -- lot TOURELLES-MINERAI : emprise de la tourelle (grille de pose)
+  local tw, th = Pl.tiles(tpr and tpr.collision_box)
   local got = {} -- lot HQ-RECENSEMENT (relecture, mineur 4) : positions obtenues, pour le journal de la dispersion finale
   for i, o in ipairs(offsets) do
     local tpos = surface.find_non_colliding_position(T.turret, { x = center.x + o[1], y = center.y + o[2] }, 10, 1)
+    -- lot TOURELLES-MINERAI : jugée là où create_entity la pose (recalée sur sa grille, Pl.snap), pas à la place trouvée hors grille
+    tpos = tpos and { x = Pl.snap(tpos.x, tw), y = Pl.snap(tpos.y, th) } or nil
     got[i] = false
     if tpos and not PlacesQG.on_resource(surface, T.turret, tpos) then -- (lot DECOUPLAGE : aucune tourelle sur une ressource)
       local t = surface.create_entity({ name = T.turret, position = tpos, force = force })

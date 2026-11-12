@@ -31,7 +31,8 @@ local Blocage = require("shared.team.blocage")
 local T = require("shared.team.config")
 
 _G.game = { entity_prototypes = {
-  ["gun-turret"] = { tile_width = 2, tile_height = 2, turret_range = 18 },
+  ["gun-turret"] = { tile_width = 2, tile_height = 2, turret_range = 18, type = "ammo-turret",
+    collision_box = { left_top = { x = -0.7, y = -0.7 }, right_bottom = { x = 0.7, y = 0.7 } } },
   ["transport-belt"] = { tile_width = 1, tile_height = 1, type = "transport-belt" },
   ["fast-transport-belt"] = { tile_width = 1, tile_height = 1, type = "transport-belt" }, -- relecture : tapis amélioré (Conv)
   ["stone-furnace"] = { tile_width = 2, tile_height = 2 },
@@ -263,14 +264,28 @@ local function footprint(e)
   local w = (game.entity_prototypes[e.name] or {}).tile_width or 1
   return { { e.x - w / 2 + 0.05, e.y - w / 2 + 0.05 }, { e.x + w / 2 - 0.05, e.y + w / 2 - 0.05 } }
 end
+-- lot TOURELLES-MINERAI : la VRAIE règle du sol (script/ai3/places_qg.lua, Q.on_resource -> shared/team/sol_minerai.lua, Sm.forbidden)
+local PlacesQG_real = assert(loadfile("script/ai3/places_qg.lua"))()
 local function load_move(src, A)
   local chunk_src = extract(src, "--- Lot TOURELLES-HORS-AXE : une tourelle ENREGISTRÉE", "--- Refus passager")
-  local env = setmetatable({ Build = Build, Blocage = Blocage, Axe = A, T = T, footprint = footprint }, { __index = _G })
-  return assert(load("local Build, Blocage, Axe, T, footprint = Build, Blocage, Axe, T, footprint\n" .. chunk_src
+  local env = setmetatable({ Build = Build, Blocage = Blocage, Axe = A, T = T, footprint = footprint, PlacesQG = PlacesQG_real },
+    { __index = _G })
+  return assert(load("local Build, Blocage, Axe, T, footprint, PlacesQG = Build, Blocage, Axe, T, footprint, PlacesQG\n" .. chunk_src
     .. "\nreturn move_turrets_off", "move", "t", env))()
 end
-local function move_world(ents, blocked)
+local function move_world(ents, blocked, ore)
   local s = {}
+  -- lot TOURELLES-MINERAI : `ore` = { ["x,y"] = true } tuiles de ressource ; une entité « resource » au centre de chaque tuile
+  s.count_entities_filtered = function(q)
+    if q.type ~= "resource" or not ore then return 0 end
+    local a = q.area
+    for y = math.floor(a[1][2]), math.floor(a[2][2]) do
+      for x = math.floor(a[1][1]), math.floor(a[2][1]) do
+        if ore[x .. "," .. y] and a[1][1] < x + 0.5 and x + 0.5 < a[2][1] and a[1][2] < y + 0.5 and y + 0.5 < a[2][2] then return 1 end
+      end
+    end
+    return 0
+  end
   s.find_entities_filtered = function(q)
     local a, out = q.area, {}
     for _, x in ipairs(ents) do
@@ -316,6 +331,26 @@ local function move_cases(mv, label)
   local found = false
   for _, l in ipairs(logs) do if l:find("[FO-AXE]", 1, true) and l:find("tourelle deplacee", 1, true) then found = true end end
   c(found, "journal [FO-AXE] du déplacement")
+  -- lot TOURELLES-MINERAI (scarlet, graine 2507543475, 26,5 min : déplacée de (374, -344) en (374, -347), sur son fer) : la place du côté
+  -- ouest (-6, 9) porte une ressource -> la tourelle va ailleurs, et sa nouvelle emprise ne touche aucune tuile de ressource
+  f = line_team()
+  t = turret(0, 9, 508)
+  f.turrets[508] = t
+  p = f.build.projects[1]
+  local ore = {}
+  for x = -8, -5 do for y = 7, 10 do ore[x .. "," .. y] = true end end
+  s = move_world({ t }, nil, ore)
+  r = mv(f, s, p, piece)
+  c(r == true and not (t.position.x == -6 and t.position.y == 9), "place du côté ouest sur le minerai : déplacée ailleurs")
+  c(not PlacesQG_real.on_resource(s, "gun-turret", t.position), "nouvelle place : aucune tuile de ressource sous la tourelle")
+  -- tout l'alentour sur le minerai : pas déplacée (free_own_turrets la reprend au coffre), jamais posée sur la ressource
+  f = line_team()
+  t = turret(0, 9, 509)
+  f.turrets[509] = t
+  ore = {}
+  for x = -20, 20 do for y = -10, 30 do ore[x .. "," .. y] = true end end
+  s = move_world({ t }, nil, ore)
+  c(mv(f, s, f.build.projects[1], piece) == false and t.position.x == 0 and t.position.y == 9, "minerai partout : pas déplacée")
   -- côté ouest réservé : côté est
   f = line_team()
   t = turret(0, 9, 502)
@@ -420,7 +455,11 @@ mutant("pose ignore le couloir", OUT_SRC, "or in_axe%(q%) ~= nil or", "or", func
 mutant("repli dans le couloir", OUT_SRC, "if q and not in_axe%(q%) and not PlacesQG", "if q and not PlacesQG", function(m) return fortify_cases(load_outposts(m)) end)
 mutant("côté d'abord oublié", OUT_SRC, "local spots = Axe%.side_spots%(s%.x, s%.y, cors, tw, th%)", "local spots = {}",
   function(m) return fortify_cases(load_outposts(m)) end)
-mutant("déplacement dans un couloir", BUILD_SRC, "or Build%.axis_entity%(cors, x%.name, q%) ~= nil end%)", "end)", function(m) return move_cases(load_move(m, Axe)) end)
+mutant("déplacement dans un couloir", BUILD_SRC, "or Build%.axis_entity%(cors, x%.name, q%) ~= nil or", "or", function(m) return move_cases(load_move(m, Axe)) end)
+mutant("déplacement sur le minerai (TOURELLES-MINERAI)", BUILD_SRC, " or PlacesQG%.on_resource%(surface, x%.name, q%) end%)", " end)",
+  function(m) return move_cases(load_move(m, Axe)) end)
+mutant("règle du sol muette (Sm.forbidden)", BUILD_SRC, "PlacesQG%.on_resource%(surface, x%.name, q%)", "(function() return false end)()",
+  function(m) return move_cases(load_move(m, Axe)) end)
 mutant("joueur déplacé", BUILD_SRC, "local mine = x%.unit_number ~= nil and f%.turrets%[x%.unit_number%] ~= nil\n    list",
   "local mine = true\n    list", function(m) return move_cases(load_move(m, Axe)) end)
 mutant("ligne sans couloir", BUILD_SRC, "%(i == 1 and spec%.gen == \"smelter\" and spec%.feed == \"tapis\"%) or ", "",

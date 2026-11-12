@@ -61,7 +61,7 @@ local BoiteChunks = require("script.team.boite_chunks") -- lot POULS : boîte de
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
-local PlacesQG = require("script.ai3.places_qg") -- lot FOUR-PLEIN : crochet des tuiles réservées (PlacesQG.reserved)
+local PlacesQG = require("script.ai3.places_qg") -- lot FOUR-PLEIN : crochet des tuiles réservées (PlacesQG.reserved) ; lot TOURELLES-MINERAI : PlacesQG.on_resource (tourelle déplacée)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG avant un module neuf (règle pure)
 local Ic = require("shared.team.ilots_croissance") -- lot C3 EXTENSION : le treillis grandit au-delà du mur, en îlots défendus (règles pures)
@@ -3757,7 +3757,9 @@ end
 --- Lot TOURELLES-HORS-AXE : une tourelle ENREGISTRÉE de l'équipe (f.turrets, posée par les avant-postes ; jamais celle d'un joueur) qui
 --- occupe seule l'emprise d'une pièce à poser du projet n'est plus enlevée : elle est DÉPLACÉE à côté (teleport : munitions, santé et
 --- registre gardés), d'abord sur le côté de la ligne dont elle bloque le couloir (Axe.side_spots), sinon sur l'anneau voisin
---- (Blocage.spots), jamais sur une tuile réservée (Build.reserved_entity : b.occ) ni dans un couloir (Build.axis_entity). Appelé au
+--- (Blocage.spots), jamais sur une tuile réservée (Build.reserved_entity : b.occ) ni dans un couloir (Build.axis_entity), ni sur une tuile de
+--- ressource (lot TOURELLES-MINERAI : PlacesQG.on_resource, la règle de shared/team/sol_minerai.lua ; scarlet, graine 2507543475, 26,5 min :
+--- tourelle déplacée de (374, -344) en (374, -347), sur son fer, puis montée en fo-lvl-gun-2 à la même place). Appelé au
 --- refus « occupe » d'un fantôme (revive_one, phase « fantomes ») : la ligne qui s'étend la pousse tout de suite, sans attendre le
 --- blocage du projet. Rend vrai si TOUTES les tourelles de l'emprise ont été déplacées. Journal [FO-AXE], une ligne par tourelle.
 local function move_turrets_off(f, surface, p, e)
@@ -3780,7 +3782,7 @@ local function move_turrets_off(f, surface, p, e)
       for _, s in ipairs(Blocage.spots(from.x, from.y)) do spots[#spots + 1] = s end
       local pos = Blocage.first_free(spots,
         function(c) return surface.find_non_colliding_position(x.name, { x = c.x, y = c.y }, 4, 1) end,
-        function(q) return Build.reserved_entity(f, x.name, q) or Build.axis_entity(cors, x.name, q) ~= nil end)
+        function(q) return Build.reserved_entity(f, x.name, q) or Build.axis_entity(cors, x.name, q) ~= nil or PlacesQG.on_resource(surface, x.name, q) end)
       local d = Build.Tj.describe(x) -- lot TOURELLE-JOURNAL (avant le téléport)
       if not (pos and x.teleport(pos)) then
         Build.axe_log(f, string.format("projet %d : tourelle en (%g, %g) sur l'emprise de %s en (%g, %g), aucune place libre hors des couloirs : non deplacee",
@@ -3788,7 +3790,6 @@ local function move_turrets_off(f, surface, p, e)
         return false
       end
       f.build.stats.turrets_moved = (f.build.stats.turrets_moved or 0) + 1
-      if Outposts.on_resource_probe and Outposts.on_resource_probe(surface, x.name, x.position) then log(string.format("[FO-SONDE-MINERAI] %s : tourelle deplacee sur une ressource en (%g, %g)", tostring(f.key), x.position.x, x.position.y)) end
       Build.Tj.removed(d, "chantier de l'equipe " .. tostring(f.key), "emprise de " .. tostring(e.name) .. " (projet " .. tostring(p.id) .. ")",
         string.format("deplacee en (%.1f, %.1f)", x.position.x, x.position.y))
       Build.axe_log(f, string.format("projet %d : tourelle deplacee de (%g, %g) a (%g, %g) : elle occupait l'emprise de %s en (%g, %g) ; %d couloir(s) d'extension",

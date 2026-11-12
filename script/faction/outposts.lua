@@ -105,7 +105,6 @@ function Outposts.ammo_name(tech, f)
   return type(v) == "string" and v or T.turret_ammo
 end
 
-Outposts.on_resource_probe = function(surface, name, pos) return PlacesQG.on_resource(surface, name, pos) end -- SONDE (temporaire)
 function Outposts.add_turret(f, turret, oid, ammo_count)
   if ammo_count and ammo_count > 0 then turret.insert({ name = Outposts.ammo_name(f.tech), count = ammo_count }) end
   f.turrets[turret.unit_number] = turret
@@ -699,6 +698,13 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
   local tp = game.entity_prototypes[T.turret]
   local tw, th = tp and tp.tile_width or 2, tp and tp.tile_height or 2
   local function in_axe(q) return Axe.hit(cors, Axe.tile_rect(q.x, q.y, tw, th)) end
+  -- lot TOURELLES-MINERAI : la place trouvée par le moteur, RECALÉE sur la grille de la tourelle (Pl.snap), est celle que create_entity
+  -- pose ; tous les refus (ressource, couloir, réservée, écart) se jugent sur elle. Emerald, graine 123456789, QG : trouvée en
+  -- (-198.406, 460.406), posée en (-198, 460) ; la règle du sol ne lisait qu'une tuile sur quatre, la tourelle tombait sur le tungstène.
+  local function near_free(c)
+    local q = surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1)
+    return q and { x = Pl.snap(q.x, tw), y = Pl.snap(q.y, th) } or nil
+  end
   -- lot PD-ESPACEMENT (D07) : tourelles de l'équipe autour des emplacements (lues une fois, puis complétées à chaque pose) ; une
   -- position plus proche que l'écart voulu d'une autre tourelle est refusée comme une tuile réservée. Passe 1 : Pose.gap ;
   -- passe 2 (seulement s'il en manque) : Pose.GAP_MIN. Bilan au journal [FO-TOUR-ECART].
@@ -724,7 +730,7 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
       local hit = #spots > 0 and in_axe(s) or nil
       for _, q in ipairs(Blocage.spots(s.x, s.y)) do spots[#spots + 1] = q end
       local pos = Blocage.first_free(spots,
-        function(c) return surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1) end,
+        near_free,
         function(q) -- réservée, dans un couloir d'extension, hors de la zone voulue (accept), ou trop près d'une autre tourelle
           if (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or in_axe(q) ~= nil or (accept ~= nil and not accept(q))
             or PlacesQG.on_resource(surface, T.turret, q) then -- (lot DECOUPLAGE : aucune tourelle sur une ressource)
@@ -734,7 +740,7 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
           return false
         end)
       if not pos then
-        local q = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
+        local q = near_free(s)
         if q and not in_axe(q) and not PlacesQG.on_resource(surface, T.turret, q) then pos = q end
       end
       if hit and Outposts.axe_log and pass == 1 then
@@ -746,7 +752,6 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
       if pos and (accept == nil or accept(pos)) and Pose.spaced(pos.x, pos.y, near, gap) then
         local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
         if t then
-          if PlacesQG.on_resource(surface, T.turret, t.position) then log(string.format("[FO-SONDE-MINERAI] %s poste %s : tourelle sur une ressource en (%g, %g), place cherchee (%g, %g), passe %d", tostring(f.key), tostring(oid), t.position.x, t.position.y, pos.x, pos.y, pass)) end
           carrier.remove({ name = T.turret, count = 1 })
           for _, ammo in ipairs(ammos) do
             local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
