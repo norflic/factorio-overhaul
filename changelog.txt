@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.60
+Date: 2026-11-12
+  Bugfixes:
+    - IA (F587) : une recherche lâchée faute de pack n'est plus remplacée par une autre qui attend le même pack ; +9 % de technologies à 60 min sur 4 graines.
+    - IA (F588) : les coffres de sortie voisins d'une colonne de fonderie partagent une seule ligne de rapatriement par tapis ; refus divisés par 2,4.
+  Changes:
+    - Outils (F589) : le banc de preuve compte les tapis en cul-de-sac, les souterrains sans paire et les fantômes par gisement.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.50
 Date: 2026-11-12
   Bugfixes:
