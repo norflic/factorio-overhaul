@@ -126,7 +126,9 @@ return {
     -- Corrections V3-T : fantôme de mur dans le nouveau carré de A (défaut 5), minerai sous la position
     -- préférée de P (défaut 14), cas W (défaut 8).
     st.ghost = s.create_entity({ name = "entity-ghost", inner_name = "stone-wall", position = { z.x0 + 25.5, y - 1.5 }, force = f })
-    st.ore = s.create_entity({ name = "iron-ore", position = { z.x0 + 104.5, y + 0.5 }, amount = 50 })
+    -- (lot TAMPON-MINERAI, 0.7.40 : le DC veut la tolérance 0 sur le minerai, Levels.room refuse désormais une nouvelle emprise sur une
+    -- ressource ; le minerai du défaut 14 est posé juste hors du nouveau carré de P, il ne doit pas gêner l'agrandissement)
+    st.ore = s.create_entity({ name = "iron-ore", position = { z.x0 + 101.5, y + 0.5 }, amount = 50 })
     local y2 = z.y0 + 30
     st.w = gun(z.x0 + 46, y2, 4)
     s.set_tiles({ { name = "water", position = { z.x0 + 45, y2 - 2 } }, { name = "water", position = { z.x0 + 46, y2 - 2 } } })
@@ -251,7 +253,7 @@ return {
         and a.left_top.y < b.right_bottom.y and b.left_top.y < a.right_bottom.y)
     end
     ctx.check(rp.ok and rp.candidate == 1 and walker_out and st.ground.valid and st.ore.valid,
-      "personnage ecarte par le moteur (move_stuck_players), objet au sol et minerai : aucun ne bloque",
+      "personnage ecarte par le moteur (move_stuck_players), objet au sol et minerai voisin : aucun ne bloque",
       st.walker.valid and string.format("personnage en %.2f, %.2f", st.walker.position.x, st.walker.position.y) or tostring(rp.reason))
     -- Objet au sol (défaut 4) : sorti du bâtiment agrandi, à portée de ramassage depuis son bord.
     if p7 and p7.valid and st.ground.valid then
