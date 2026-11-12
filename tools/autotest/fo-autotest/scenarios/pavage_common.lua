@@ -13,7 +13,8 @@
     [FO-PAVAGE-PREUVE] gisement minute=M equipe=K ressource=R n=I tuiles=N centre=x,y boite=x0,y0,x1,y1 tronque=0|1
       foreuses_elec=E foreuses_comb=B foreuses_autres_equipes=O couvertes=C couverture=P% interdites=X
       interdits=nom:n,nom:n tapis_sur=T sortie_tapis=oui|non sortie=x,y fin_chaine=x,y minerai_sortie=Q
-      etats=working:a,waiting_for_space_in_destination:b,... capture=pav-K-R-I.png
+      etats=working:a,waiting_for_space_in_destination:b,... troncons_morts=D tapis_morts=T foreuses_mortes=F morts=x,y/...
+      souterrains_seuls=U fantomes=G capture=pav-K-R-I.png
   Définitions (lues aux prototypes, aucun nom en dur sauf le QG pour trouver l'équipe) :
    - foreuse : type mining-drill de la force de l'équipe ; « sur le gisement » = au moins une tuile du gisement dans sa
      zone de minage (position ± mining_drill_radius, centre de tuile dedans) ; électrique = electric_energy_source_prototype,
@@ -27,6 +28,14 @@
      gisement, on suit les sorties (belt_neighbours.outputs, et la paire d'un souterrain d'entrée) ; « oui » si l'on atteint
      un tapis hors de la boîte du gisement élargie de MARGE tuiles. `sortie` = premier tapis atteint dehors, `fin_chaine` =
      dernier tapis de cette chaîne, `minerai_sortie` = objets sur le premier tapis dehors (les deux voies).
+   - tronçons morts (lot CULS-DE-SAC) : composante connexe (entrées et sorties des tapis, paire des souterrains) de tapis,
+     souterrains et répartiteurs de l'équipe qui reçoit le minerai d'une foreuse de l'équipe sur le gisement (drop_target)
+     et qu'AUCUN consommateur ne lit : bras dont pickup_target est un tapis de la composante, ou chargeur (loader) atteint.
+     Un coffre de quai, un four ou un bus sont servis par des bras : ils comptent par leurs bras. Composante de plus de
+     MAX_COMP tapis : dite vivante (bus). Champs : troncons_morts, tapis_morts, foreuses_mortes (foreuses qui y déversent),
+     morts=x,y/... (bout aval de chaque tronçon mort, au plus MAX_MORTS) ; souterrains_seuls = souterrains de l'équipe sans
+     paire, posés à MARGE tuiles au plus de la boîte du gisement (ligne « souterrain_seul » par souterrain) ; fantomes =
+     fantômes de l'équipe qui touchent une tuile du gisement.
   Lignes « equipe » : QG, nombre de gisements, petites grappes ignorées (< MIN_TILES tuiles). Lignes « capture » : nom,
   centre, zoom. Sans joueur (banc sans images) : mesures seulement.
 ]]
@@ -40,6 +49,8 @@ local SUB_ZOOM = 0.4   -- gros plans quand la vue d'ensemble tombe sous MIN_ZOOM
 local MIN_ZOOM = 0.25
 local SUB_MAX = 6
 local TAG = "[FO-PAVAGE-PREUVE] "
+local MAX_COMP = 4000  -- tapis : au-delà, la composante est un bus (dite vivante)
+local MAX_MORTS = 6    -- positions de tronçons morts écrites par gisement
 
 local PASSE = {        -- types tolérés sur le minerai
   ["mining-drill"] = true, ["electric-pole"] = true,
@@ -192,10 +203,76 @@ local function belt_items(b)
   return n
 end
 
+--- Lot CULS-DE-SAC : voisins d'un tapis dans les deux sens (entrées, sorties, paire d'un souterrain).
+local function belt_links(b)
+  local out = {}
+  local ok, nb = pcall(function() return b.belt_neighbours end)
+  if ok and nb then
+    for _, o in ipairs(nb.inputs or {}) do out[#out + 1] = o end
+    for _, o in ipairs(nb.outputs or {}) do out[#out + 1] = o end
+  end
+  if b.type == "underground-belt" then
+    local okn, n = pcall(function() return b.neighbours end)
+    if okn and n and n.valid then out[#out + 1] = n end
+  end
+  return out
+end
+
+local LOADER = { loader = true, ["loader-1x1"] = true }
+
+--- Lot CULS-DE-SAC : composante connexe de tapis de `b0` (au plus MAX_COMP tapis). Rend la liste, l'ensemble des
+--- unit_number, la boîte, et vrai si un chargeur est atteint ou la borne dépassée (composante vivante).
+local function component(b0)
+  local list, set, head, alive = { b0 }, { [b0.unit_number] = true }, 1, false
+  local x0, y0, x1, y1 = b0.position.x, b0.position.y, b0.position.x, b0.position.y
+  while head <= #list do
+    local b = list[head]; head = head + 1
+    for _, o in ipairs(belt_links(b)) do
+      if o.valid and o.unit_number and not set[o.unit_number] then
+        if LOADER[o.type] then alive = true
+        elseif BELT[o.type] then
+          set[o.unit_number] = true
+          list[#list + 1] = o
+          local p = o.position
+          if p.x < x0 then x0 = p.x end
+          if p.y < y0 then y0 = p.y end
+          if p.x > x1 then x1 = p.x end
+          if p.y > y1 then y1 = p.y end
+        end
+      end
+    end
+    if #list > MAX_COMP then alive = true; break end
+  end
+  return list, set, { x0, y0, x1, y1 }, alive
+end
+
+--- Lot CULS-DE-SAC : un bras de la force lit-il un tapis de la composante ? (bras dans la boîte élargie de leur portée)
+local function read_by_inserter(s, force, set, box)
+  local R = 6
+  local ins = s.find_entities_filtered({ area = { { box[1] - R, box[2] - R }, { box[3] + R, box[4] + R } }, type = "inserter", force = force })
+  for _, i in ipairs(ins) do
+    local ok, t = pcall(function() return i.pickup_target end)
+    if ok and t and t.valid and t.unit_number and set[t.unit_number] then return true end
+  end
+  return false
+end
+
+--- Lot CULS-DE-SAC : bout aval d'une composante (tapis sans sortie de plus petit unit_number), sinon son premier tapis.
+local function dead_end_of(list)
+  local best
+  for _, b in ipairs(list) do
+    local any = false
+    for _, o in ipairs(belt_outputs(b)) do if o.valid and BELT[o.type] then any = true break end end
+    if not any and (not best or b.unit_number < best.unit_number) then best = b end
+  end
+  return best or list[1]
+end
+
 --- Mesure d'un gisement pour une force. Rend la table des champs (journal et captures).
 local function measure(s, force, cl)
   local m = { elec = 0, comb = 0, autres = 0, couvertes = 0, interdits = {}, n_interdits = 0, tapis_sur = 0,
-    sortie = false, etats = {} }
+    sortie = false, etats = {}, morts = 0, tapis_morts = 0, foreuses_mortes = 0, morts_pos = {}, souterrains_seuls = 0, fantomes = 0 }
+  local feeds = {} -- lot CULS-DE-SAC : tapis qui reçoivent le minerai des foreuses de l'équipe sur le gisement
   local R = 12 -- marge de recherche des foreuses (rayon de minage maximal raisonnable)
   local area = { { cl.x0 - R, cl.y0 - R }, { cl.x1 + 1 + R, cl.y1 + 1 + R } }
   local covered = {}
@@ -220,6 +297,8 @@ local function measure(s, force, cl)
         for _, k in ipairs(hit) do covered[k] = true end
         local sn = status_name(d.status)
         m.etats[sn] = (m.etats[sn] or 0) + 1
+        local okt, t = pcall(function() return d.drop_target end)
+        if okt and t and t.valid and BELT[t.type] and t.force.name == force then feeds[#feeds + 1] = t end
       else
         m.autres = m.autres + 1
       end
@@ -242,6 +321,47 @@ local function measure(s, force, cl)
     end
   end
   m.tapis_sur = #belts_on
+  -- lot CULS-DE-SAC : souterrains sans paire (à MARGE tuiles au plus de la boîte), fantômes qui touchent le gisement
+  for _, e in ipairs(ents) do
+    if e.type == "underground-belt" then
+      local p = e.position
+      if p.x >= cl.x0 - MARGE and p.x <= cl.x1 + 1 + MARGE and p.y >= cl.y0 - MARGE and p.y <= cl.y1 + 1 + MARGE then
+        local okn, n = pcall(function() return e.neighbours end)
+        if not (okn and n and n.valid) then
+          m.souterrains_seuls = m.souterrains_seuls + 1
+          log(TAG .. string.format("souterrain_seul force=%s ressource=%s pos=%.1f,%.1f sens=%s", force, cl.name, p.x, p.y,
+            tostring(e.belt_to_ground_type)))
+        end
+      end
+    elseif e.type == "entity-ghost" and in_box_tiles(cl, e.bounding_box) then
+      m.fantomes = m.fantomes + 1
+    end
+  end
+  -- lot CULS-DE-SAC : tronçons morts (composantes qui reçoivent le minerai d'une foreuse, sans aucun consommateur)
+  table.sort(feeds, function(a, b) return a.unit_number < b.unit_number end)
+  local comp_of, comps = {}, {}
+  for _, t in ipairs(feeds) do
+    local ci = comp_of[t.unit_number]
+    if not ci then
+      local list, set, box, alive = component(t)
+      if not alive then alive = read_by_inserter(s, force, set, box) end
+      comps[#comps + 1] = { list = list, alive = alive, drills = 0 }
+      ci = #comps
+      for _, b in ipairs(list) do comp_of[b.unit_number] = ci end
+    end
+    comps[ci].drills = comps[ci].drills + 1
+  end
+  for _, c in ipairs(comps) do
+    if not c.alive then
+      m.morts = m.morts + 1
+      m.tapis_morts = m.tapis_morts + #c.list
+      m.foreuses_mortes = m.foreuses_mortes + c.drills
+      if #m.morts_pos < MAX_MORTS then
+        local e = dead_end_of(c.list)
+        m.morts_pos[#m.morts_pos + 1] = string.format("%.1f,%.1f", e.position.x, e.position.y)
+      end
+    end
+  end
   table.sort(belts_on, function(a, b) return a.unit_number < b.unit_number end)
   -- sortie par tapis : on suit les sorties depuis chaque tapis du gisement
   local bx0, by0, bx1, by1 = cl.x0 - MARGE, cl.y0 - MARGE, cl.x1 + 1 + MARGE, cl.y1 + 1 + MARGE
@@ -298,13 +418,16 @@ local function log_gisement(phase, tick, key, cl, n, m, file)
   local tiles = #cl.list
   log(TAG .. string.format("gisement minute=%d phase=%s tick=%d equipe=%s ressource=%s n=%d tuiles=%d centre=%.1f,%.1f distance_qg=%.0f boite=%d,%d,%d,%d tronque=%d"
     .. " foreuses_elec=%d foreuses_comb=%d foreuses_autres_equipes=%d couvertes=%d couverture=%.1f%% interdites=%d interdits=%s"
-    .. " tapis_sur=%d sortie_tapis=%s sortie=%s fin_chaine=%s minerai_sortie=%s etats=%s capture=%s",
+    .. " tapis_sur=%d sortie_tapis=%s sortie=%s fin_chaine=%s minerai_sortie=%s etats=%s"
+    .. " troncons_morts=%d tapis_morts=%d foreuses_mortes=%d morts=%s souterrains_seuls=%d fantomes=%d capture=%s",
     math.floor(tick / 3600), phase, tick, key, cl.name, n, tiles, cl.cx, cl.cy, math.sqrt(cl.d2), cl.x0, cl.y0, cl.x1 + 1, cl.y1 + 1, cl.tronque and 1 or 0,
     m.elec, m.comb, m.autres, m.couvertes, 100 * m.couvertes / tiles, m.n_interdits, kv(m.interdits),
     m.tapis_sur, m.sortie and "oui" or "non",
     m.sortie_pos and string.format("%.1f,%.1f", m.sortie_pos.x, m.sortie_pos.y) or "-",
     m.fin_pos and string.format("%.1f,%.1f(%d)", m.fin_pos.x, m.fin_pos.y, m.fin_long or 0) or "-",
-    tostring(m.minerai_sortie or "-"), kv(m.etats), file or "-"))
+    tostring(m.minerai_sortie or "-"), kv(m.etats),
+    m.morts, m.tapis_morts, m.foreuses_mortes, #m.morts_pos > 0 and table.concat(m.morts_pos, "/") or "-", m.souterrains_seuls, m.fantomes,
+    file or "-"))
 end
 
 -- Gisements photographiés (nom de capture sans .png -> { force, clé, grappe, n }) : hors de `global` (grappes volumineuses) ;
