@@ -60,7 +60,7 @@ local Jeton = require("script.team.pouls_jeton") -- lot POULS : un seul relevé 
 local BoiteChunks = require("script.team.boite_chunks") -- lot POULS : boîte des chunks générés (relevé du réseau par bandes)
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
-local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
+local Outposts = require("script.faction.outposts") -- lot AUTO : crochets des poseurs de tourelles (Outposts.corridors)
 local PlacesQG = require("script.ai3.places_qg") -- lot FOUR-PLEIN : crochet des tuiles réservées (PlacesQG.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG avant un module neuf (règle pure)
@@ -455,7 +455,7 @@ local THAW = nil
 
 --- Lot ÉTAGE 5 : tuiles des couloirs d'accès des avant-postes de l'équipe `f` (shared/team/couloir.lua), ensemble { [P.tkey] = id d'avant-poste }.
 --- Lecteurs : read_masks (free : foreuses et poteaux du plan ; les tapis traversent, un tapis ne bloque pas un personnage), la vue des poteaux
---- (masques_view), Build.reserved_entity (agrandissements et tourelles, crochet Outposts.reserved ; remplacements de foreuse) et le masque de la
+--- (masques_view), Build.reserved_entity (agrandissements et tourelles, crochet PlacesQG.reserved ; remplacements de foreuse) et le masque de la
 --- migration du champ électrique (script/team/champ.lua). Cache LOCAL (jamais dans global, vide à chaque chargement), refait quand un accès ou
 --- le QG change : il ne dépend que de l'état. Règle coupée (f.team.couloir_off, bancs témoins) : ensemble vide.
 --- Revue (performance) : un seul relevé par tick et par équipe (c.tick == game.tick) ; Build.couloirs_reset(f) l'efface quand un accès est
@@ -1958,13 +1958,9 @@ function Build.reserved_entity(f, name, pos, dir, opts)
   return by_cor
 end
 
--- Crochet des avant-postes (script/faction/outposts.lua, déjà chargé par script/team/worker.lua avant ce fichier : ni
--- l'ordre des require ni celui des abonnements ne change).
-Outposts.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end
--- Lot STOCKAGE : les annexes du QG (script/team/stock.lua) sautent une place réservée par le plan directeur.
-Stock.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos) end
--- Lot FOUR-PLEIN : les labos et les fours du QG (script/ai3/places_qg.lua) sautent une tuile d'un projet planifié (b.occ, sans les couloirs).
-PlacesQG.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos, nil, { couloir = false }) end
+-- Lot TUILES-RESERVEES : crochet UNIQUE des tuiles réservées (script/ai3/places_qg.lua, PlacesQG.is_reserved), lu par tous les poseurs
+-- hors du plan (avant-postes, tourelles, annexes, fours et labos du QG, centre, reconstruction, remplacements de foreuse, hygiène).
+PlacesQG.reserved = function(f, name, pos, dir, opts) return Build.reserved_entity(f, name, pos, dir, opts) end
 
 --- Lot TOURELLES-HORS-AXE (retour du DC du 29/10 sur 0.6.18, défaut 4 : « le canon est en plein milieu [...] si on voulait étendre
 --- sur la gauche [...] on pourrait pas »). Couloirs d'extension des lignes extensibles de l'équipe : la ligne de fours à tapis

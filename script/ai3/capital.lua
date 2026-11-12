@@ -36,6 +36,7 @@ local R = require("shared.ai3.reglages")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
+local PlacesQG = require("script.ai3.places_qg") -- lot TUILES-RESERVEES : le centre saute une tuile réservée au plan
 local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
@@ -791,7 +792,7 @@ local function place_center(f, c, d, tick)
   for _, off in ipairs(Capital.CENTER_OFFSETS) do
     local pos = surface.find_non_colliding_position(name, { x = f.hq_pos.x + off[1], y = f.hq_pos.y + off[2] },
       Capital.CENTER_SEARCH, 1)
-    if pos then
+    if pos and not PlacesQG.is_reserved(f, name, pos) then
       local e = surface.create_entity({ name = name, position = pos, force = f.force, raise_built = true })
       if e and e.valid then
         Stock.remove(f, item, 1)

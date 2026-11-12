@@ -29,6 +29,7 @@ local R = require("shared.ai3.reglages")
 local T = require("shared.team.config")
 local A = require("shared.team.adopte")
 local Outposts = require("script.faction.outposts")
+local PlacesQG = require("script.ai3.places_qg") -- lot TUILES-RESERVEES : crochet unique des tuiles réservées
 
 local Adopte = {}
 
@@ -178,7 +179,7 @@ function Adopte.consider(f, ent, sinks)
     on = Adopte.on(), registry = reg.registry, burner_needed = reg.burner, burner = ent.burner ~= nil,
     already = st.units[u] or listed(f, reg.registry, ent), dist2 = dx * dx + dy * dy, radius = reg.radius,
     -- lot ÉTAGE 5 (revue B2, décision du lead) : la machine posée par le joueur est adoptée même sur un couloir d'accès
-    reserved = (Outposts.reserved and Outposts.reserved(f, ent.name, ent.position, ent.direction, { couloir = false })) or (sinks or outpost_sinks(f))[u] or false,
+    reserved = PlacesQG.is_reserved(f, ent.name, ent.position, ent.direction, { couloir = false }) or (sinks or outpost_sinks(f))[u] or false,
     linked = function() return linked(ent) end, -- lu en dernier : un appel de recherche
   })
   if not ok then
@@ -211,7 +212,7 @@ function Adopte.consider_drill(f, ent, sinks)
     on = Adopte.on(), kind = kind, burner = ent.burner ~= nil, already = st.drills[u] ~= nil or State.owner(u) ~= nil,
     sink = sink ~= nil and State.owner(sink.unit_number) == nil,
     -- lot ÉTAGE 5 (revue B2, décision du lead) : la foreuse posée par le joueur est adoptée même sur un couloir d'accès
-    reserved = (Outposts.reserved and Outposts.reserved(f, ent.name, ent.position, ent.direction, { couloir = false })) or (sinks or outpost_sinks(f))[u] or false,
+    reserved = PlacesQG.is_reserved(f, ent.name, ent.position, ent.direction, { couloir = false }) or (sinks or outpost_sinks(f))[u] or false,
     dist2 = dx * dx + dy * dy, radius = A.RADIUS,
     linked = function() return pair_linked(ent, sink) end, -- lu en dernier : deux recherches
   })

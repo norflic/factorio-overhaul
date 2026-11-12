@@ -162,6 +162,9 @@ world.surface = {
   end,
 }
 
+-- Lot TUILES-RESERVEES : crochet unique des tuiles réservées (vrai script/ai3/places_qg.lua : Q.is_reserved lit Q.reserved)
+local PQ = dofile("script/ai3/places_qg.lua")
+package.loaded["script.ai3.places_qg"] = PQ
 local Adopte = require("script.team.adopte")
 check(handlers[1] and handlers[2] and #config_fns == 1 and remotes["fo-adopte"], "abonnements, migration et interface distante déclarés")
 
@@ -213,11 +216,11 @@ do
   build(foe)
   check(count(f) == 1, "machine d'une autre force : ignorée")
   -- tuile du plan directeur
-  Outposts.reserved = function(_, _, pos) return pos.x == 30 end
+  PQ.reserved = function(_, _, pos) return pos.x == 30 end
   local plan = new_entity(FURNACE_TYPE, 30, 0)
   build(plan)
   check(count(f) == 1 and f.adopt.refused[plan.unit_number] == "plan", "tuile du plan directeur : refusée (plan)")
-  Outposts.reserved = nil
+  PQ.reserved = nil
   -- réceptacle d'avant-poste
   local sink = new_entity(FURNACE_TYPE, 0, -25)
   f.outposts = { [1] = { sinks = { sink } } }
@@ -382,11 +385,11 @@ do
   new_entity("transport-belt", 0, 22.5)
   put(n1, ns1)
   check(f.outposts[1] == nil and f.adopt.refused[n1.unit_number] == "ligne", "foreuse avec un tapis à son flanc : ligne du joueur (ligne)")
-  Outposts.reserved = function(_, _, pos) return pos.x == 30 end
+  PQ.reserved = function(_, _, pos) return pos.x == 30 end
   local p1, ps1 = pair(30, -10)
   put(p1, ps1)
   check(f.outposts[1] == nil and f.adopt.refused[p1.unit_number] == "plan", "tuile du plan directeur : refusée (plan)")
-  Outposts.reserved = nil
+  PQ.reserved = nil
   setting_value = false
   local c1, cs1 = pair(-10, -20)
   put(c1, cs1)
@@ -430,7 +433,7 @@ end
 section("Pose des fours dormants (Stock.deploy_idle)")
 do
   local TT = require("shared.team.config")
-  package.loaded["script.ai3.places_qg"] = { place = function() return 0 end }
+  package.loaded["script.ai3.places_qg"] = { place = function() return 0 end, is_reserved = PQ.is_reserved }
   game.item_prototypes = setmetatable({}, { __index = function() return { stack_size = 50 } end })
   local Stock = require("script.team.stock")
   local function chest(items)

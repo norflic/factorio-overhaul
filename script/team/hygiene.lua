@@ -67,7 +67,8 @@ local Sr = require("script.team.scan_reveil") -- lot SCAN-EVENEMENTS : réveils 
 local Boxes = require("script.team.boxes_rt") -- lot BOXES (DC 9/11) : relevé des boxes à la tranche 0, poteaux d'une box MAXED sautés à l'audit
 local Balises = require("script.team.balises_teinte") -- lot BALISES-TEINTE (DC 10/11) : lueur des balises d'après leurs modules, une tranche par appel
 local Hr = require("shared.team.hygiene_regle") -- lot HYGIENE-ACTIVE (DC 10/11) : règle pure du retrait
-local P = require("shared.team.plan") -- lot HYGIENE-ACTIVE : clé de tuile (f.swap.pole_pos, f.build.occ)
+local P = require("shared.team.plan") -- lot HYGIENE-ACTIVE : clé de tuile (f.swap.pole_pos)
+local PlacesQG = require("script.ai3.places_qg") -- lot TUILES-RESERVEES : tuiles réservées au plan (crochet unique)
 local Stock = require("script.team.stock") -- lot HYGIENE-ACTIVE : objet rendu au coffre, remplaçant payé au stock
 local Famine = require("script.team.famine_fer") -- lot HYGIENE-ACTIVE : jamais pendant une famine de la plaque clé
 local Gens = require("script.team.generateurs") -- lot HYGIENE-ACTIVE : réseaux alimentés (registre des génératrices)
@@ -310,14 +311,6 @@ local function retire_feuille(f, h, e, cause, cession, tick)
   h.acts.feuilles[#h.acts.feuilles + 1] = { x, y, cause }
 end
 
---- La place (x, y) est-elle réservée par le plan directeur (emprise d'un projet, couloir d'accès) ? Build.reserved_entity quand build.lua
---- est chargé (lu dans package.loaded : hygiene.lua est requis par build.lua, aucun require circulaire), sinon la tuile f.build.occ.
-local function reserved(f, name, x, y)
-  local Build = package.loaded["script.team.build"]
-  if Build and Build.reserved_entity then return Build.reserved_entity(f, name, { x = x, y = y }, 0) end
-  local occ = f.build and f.build.occ
-  return occ ~= nil and occ[P.tkey(math.floor(x), math.floor(y))] ~= nil
-end
 
 --- Anneau des positions candidates (décalages entiers : même alignement de tuile que l'ancien) dans le carré de rayon `r` (portée de fil).
 local function anneau(r)
@@ -362,7 +355,7 @@ local function plan_remplacement(surface, f, h, e)
     local x, y = px + c.dx, py + c.dy
     local x0, y0, x1, y1 = St.tile_box(bb.left_top.x + c.dx, bb.left_top.y + c.dy, bb.right_bottom.x + c.dx, bb.right_bottom.y + c.dy)
     local hors = surface.count_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = "resource" }) == 0
-    local libre = hors and surface.can_place_entity({ name = name, position = { x = x, y = y }, force = f.force }) and not reserved(f, name, x, y)
+    local libre = hors and surface.can_place_entity({ name = name, position = { x = x, y = y }, force = f.force }) and not PlacesQG.is_reserved(f, name, { x = x, y = y }, 0) -- (lot TUILES-RESERVEES : crochet unique)
     sondes[#sondes + 1] = { dx = c.dx, dy = c.dy, hors_gisement = hors, libre = libre or false }
     if hors and libre then break end -- le plus proche qui convient : la règle pure le retiendra (même ordre)
   end

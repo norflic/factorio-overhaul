@@ -96,7 +96,10 @@ local function new_chest(size)
 end
 
 local last_search
+-- Lot TUILES-RESERVEES : crochet unique des tuiles réservées (vrai script/ai3/places_qg.lua : Q.is_reserved lit Q.reserved)
+local PQ = dofile("script/ai3/places_qg.lua")
 package.loaded["script.ai3.places_qg"] = {
+  is_reserved = PQ.is_reserved,
   place = function() error("les annexes passent par place_list") end,
   -- Moteur simulé : essaie les places de la liste dans l'ordre (comme le vrai), sans passe de secours quand search est nul.
   place_list = function(surface, name, force, origin, list, search, count, make)
@@ -348,13 +351,13 @@ do
   local r = team(10)
   r.hq.items.coal = 50 * 9
   r.hq.items["iron-chest"] = 1
-  Stock.reserved = function() return true end
+  PQ.reserved = function() return true end
   check(not Stock.grow(r, surface, 0) and r.stock_watch.retry == T.annex.retry and #(r.annex or {}) == 0,
     "toutes les places réservées : rien posé, nouvel essai plus tard")
-  Stock.reserved = function(_, _, p) return p.x < 0 end
+  PQ.reserved = function(_, _, p) return p.x < 0 end
   check(not Stock.grow(r, surface, T.annex.retry - 1), "attente après un échec de pose")
   check(Stock.grow(r, surface, T.annex.retry) and #r.annex == 1 and pos[#pos].x >= 0, "après l'attente : posé sur une place non réservée")
-  Stock.reserved = nil
+  PQ.reserved = nil
   -- Coffre réclamé par le plan directeur : pas posé en annexe.
   local d = team(10)
   d.hq.items.coal = 50 * 9
@@ -647,8 +650,8 @@ do
   local f = team(10)
   f.annex = { mine }
   f.annex_sy = 1
-  local saved_reserved = Stock.reserved
-  Stock.reserved = function(_, _, p) return key(p) == key(at(4)) end
+  local saved_reserved = PQ.reserved
+  PQ.reserved = function(_, _, p) return key(p) == key(at(4)) end
   local rows = Stock.annex_blockers(f, surface, "iron-chest")
   check(#rows == 4 and rows[1].own and rows[2].ground == 3 and #rows[2].names == 0 and rows[3].names[1] == "stone-furnace[-, hors plan]"
     and rows[4].reserved, "places refusees : la notre, 3 objets au sol, un four (force, hors plan), une reserve du plan (" .. #rows .. ")")
@@ -669,7 +672,7 @@ do
   for _, s in ipairs(logs) do if s:find("aucune place libre", 1, true) then n, line = n + 1, s end end
   check(n == 1 and line and line:find("sol 3", 1, true) and line:find("stone-furnace", 1, true) and line:find("reserve du plan", 1, true)
     and line:find("1 prise(s) par nos annexes", 1, true), "journal : une ligne bornee, avec chaque raison (" .. tostring(line) .. ")")
-  Stock.reserved = saved_reserved
+  PQ.reserved = saved_reserved
 end
 
 do
