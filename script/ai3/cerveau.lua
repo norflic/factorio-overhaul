@@ -460,14 +460,14 @@ local function place_labs(f, st, lab, want)
   -- Lot SCALE (correction après revue) : places en rangées depuis l'emprise du laboratoire (T.hq_rows.lab), recalées sur
   -- la grille et vérifiées avant la pose (script/ai3/places_qg.lua).
   return PlacesQG.place(f.hq.surface, lab.entity, f.force, f.hq_pos, T.hq_rows.lab, Pl.need(0, want, T.hq_rows_slack),
-    want - #labs, function(pos)
+    want - #labs, PlacesQG.skip_reserved(f, lab.entity, function(pos)
       if Stock.count(f, lab.item) < 1 then return nil end
       local e = f.hq.surface.create_entity({ name = lab.entity, position = pos, force = f.force })
       if not e then return false end
       Stock.remove(f, lab.item, 1)
       st.labs[#st.labs + 1] = e
       return true
-    end)
+    end))
 end
 
 --- Recherche d'une faction à cette pensée : choix, laboratoires, avancement. Renvoie l'information pour la pensée pure.
