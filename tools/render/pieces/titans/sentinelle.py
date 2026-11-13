@@ -93,7 +93,7 @@ def vortex(lot, M, C, rc, e=1.0):
             rr = (0.35 + (rc - 1.4) * t) * e
             pts.append((C[0] + math.sqrt(max(R_ * R_ - rr * rr, 0.0)) + 0.14, C[1] + rr * math.cos(a), C[2] + rr * math.sin(a)))
         lot.put(M["coeur"], G.tube(pts, 0.2, 6, rfun=lambda s_, i: 0.26 * (1.0 - 0.65 * i / 13.0)))
-    lot.put(M["coeur"], G.sphere((C[0] + R_ - 0.25, C[1], C[2]), 0.95 * e, 14, 7))
+    lot.put(M["coeur"], G.sphere((C[0] + R_ - 0.25, C[1], C[2]), 0.6 * e, 14, 7))
 
 
 def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
@@ -109,8 +109,10 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     lot.put(M["turq"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc + 0.2, 0.08))
     lot.put(M["conduit"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc - 0.3, 0.06))
     # singularité : vortex (cœur) + halo large ; sous-disque sombre derrière
-    lot.put(M["singularite"], G.sphere(C, (rc - 0.9) * gonfle[0], 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
-    lot.put(M["halo"], G.sphere(C, (rc - 0.3) * gonfle[1], 20, 10))   # s43 : halo resserré (la brume de rc + 0,6 couvrait la couronne)
+    # s43 (contrôle qualité du 13/11 : « grande plage cyan floue qui mange le corps ») : singularité réduite à 0,55 du rayon, posée au fond
+    # d'une cuvette sombre ; les bras du vortex (cœur) restent à leur rayon et lui donnent sa forme
+    lot.put(M["singularite"], G.sphere((C[0] - 0.4, C[1], C[2]), (rc - 0.9) * 0.55 * gonfle[0], 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
+    lot.put(M["halo"], G.sphere(C, (rc - 1.6) * gonfle[1], 20, 10))   # s43 : halo resserré (la brume de rc + 0,6 couvrait la couronne)
     if gonfle[2] > 0:
         # TITANS-8DIR : la singularité se LIBÈRE : jet lumineux vers l'avant
         e = gonfle[2]
@@ -159,6 +161,7 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     if stage >= 2:
         # anneau de lévitation autour de la couronne
         anneau_seg(lot, M, (C[0] - 0.6, 0.0, ZC), "x", rc + 2.6, 0.5, 0.22, n=8, jour=0.16, noeud=0.26)   # s43 : patins magnétiques
+        lot.put(M["turq"], rainure((C[0] - 0.84, 0.0, ZC), "x", rc + 2.85, 0.06))
         for q in range(4):
             a = G.TAU * (q + 0.5) / 4
             lot.put(M["struct"], G.boite((C[0] - 0.6, (rc + 2.8) * math.cos(a), ZC + (rc + 2.8) * math.sin(a)), (0.4, 0.6, 0.5), rx=a))

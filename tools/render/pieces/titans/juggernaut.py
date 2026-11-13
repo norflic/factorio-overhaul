@@ -301,6 +301,7 @@ def torse(lot, M, stage, r):
         p1 = (C[0] + 1.3, C[1] + 1.9 * math.cos(a), C[2] + 1.9 * math.sin(a))
         lot.put(M["struct"], G.tube([p0, p1], 0.18, 6))
     anneau_seg(lot, M, (C[0] - 0.9, 0.0, C[2]), "x", 2.9, 0.55, 0.26, n=4, jour=0.14, noeud=0.26)
+    lot.put(M["turq"], rainure((C[0] - 1.18, 0.0, C[2]), "x", 3.17, 0.07))
     lot.put(M["turq"], rainure((C[0] - 1.15, 0.0, C[2]), "x", 3.15, 0.08))
     # échappements dorsaux (2 cheminées) et conduits du dos
     for s in (-1, 1):

@@ -24,8 +24,8 @@ if XP not in sys.path:
 import mat as MT  # noqa: E402
 import titans_mat as TM  # noqa: E402
 
-NUIT = (0.075, 0.085, 0.105)          # blindage principal : acier de nuit bleuté
-NUIT2 = (0.150, 0.165, 0.200)         # plaques secondaires : acier canon CLAIR (deux tons : chaque plaque se lit sur le blindage de nuit)
+NUIT = (0.035, 0.040, 0.052)          # blindage principal : acier de nuit bleuté
+NUIT2 = (0.240, 0.260, 0.310)         # plaques secondaires : acier canon CLAIR (deux tons : chaque plaque se lit sur le blindage de nuit)
 VIF = (0.72, 0.78, 0.88)              # arêtes usées : acier vif
 CREUX = (0.010, 0.011, 0.015)
 SKY_GLOSSY = 4.0
@@ -44,14 +44,12 @@ def film(m, nm, ior=1.5):
 
 
 def anneau_mag(S, name):
-    """Anneau de lévitation magnétique : métal poli sombre OPAQUE, flancs rasants allumés en cyan (lueur de bord)."""
-    m = S.mat_emissive(name, TM.CYAN, strength=2.4, base=(0.020, 0.030, 0.040), main_scale=0.45)
-    p = m.node_tree.nodes["Principled BSDF"]
-    p.inputs["Metallic"].default_value = 0.9
-    p.inputs["Roughness"].default_value = 0.16
+    """Anneau de lévitation magnétique : métal poli sombre OPAQUE, SANS émission propre (contrôle qualité du 13/11 : la lueur de bord
+    faisait un aplat blanc quand un anneau se voyait par la tranche, flanc du Juggernaut en d4/d12) ; le cyan vient des gorges `turq`
+    et des émetteurs posés dans les jours des patins."""
+    m = MT.surface(name, (0.05, 0.06, 0.08), rough=0.16, met=0.95, usure=0.5, nu=VIF, crasse=0.05, crasse_col=CREUX, grain=0.0,
+                   biseau=0.03, graine=24)
     film(m, 300)
-    TM.rim(m, 2.4, creux=0.02, blend=0.22)
-    m["fo_glow_part"] = 0.8
     return m
 
 
@@ -81,5 +79,5 @@ def charte(S, M, prefix, gris=False):
                              crasse=0.15, crasse_col=(0.004, 0.004, 0.006), grain=0.0, biseau=0.03, graine=23)
     M["anneau"] = anneau_mag(S, prefix + "anneau_v3")
     M["halo"] = halo_discret(S, prefix + "halo_v3")
-    M["conduit"] = S.mat_emissive(prefix + "conduit_v3", TM.CYAN, strength=3.8, base=(0.02, 0.30, 0.36), main_scale=0.55)
+    M["conduit"] = S.mat_emissive(prefix + "conduit_v3", TM.CYAN, strength=3.0, base=(0.02, 0.30, 0.36), main_scale=0.5)
     return M
