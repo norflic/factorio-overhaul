@@ -246,14 +246,9 @@ local function start_cycle(b)
   return { units = units, i = 1, docks = {}, tours = 0, items = 0 }
 end
 
---- Découverte : tuiles de tapis à portée du quai qui portent son objet SEUL. Garde au plus MAX_TRACK (les plus proches du quai).
-local function discover(f, surface, st, d, tick)
-  local tr = st.track[d.key]
-  if not tr then tr = { tiles = {}, order = {} }; st.track[d.key] = tr end
-  st.disc[d.key] = tick
-  local R = Pq.SEARCH_SPAN
-  local ents = surface.find_entities_filtered({ area = { { d.x - R, d.y - R }, { d.x + R + 1, d.y + R + 1 } }, name = belt_names(), force = f.force,
-    limit = Piquage.MAX_SCAN })
+--- Sources du plan, lues UNE fois par relevé (elles étaient relues, toutes les pièces de tous les projets, à chaque découverte) : table locale au
+--- relevé, jamais sauvegardée. Rend { opt_in = { [tuile] = objet }, owner = { [tuile] = projet }, multi = { [tuile] = true } }.
+local function plan_sources(f)
   -- tapis du plan que leur projet déclare piquables (p.tapis_piquable = { {x, y, item} }, tuiles entières : lignes de rapatriement)
   local opt_in = {}
   for _, pid in ipairs(f.build.order) do
@@ -274,24 +269,40 @@ local function discover(f, surface, st, d, tick)
     end
   end
   -- lignes des AUTRES projets finis du plan (sorties de modules, lignes de fonderie, champs) : sources aussi, hors têtes d'alimentation (rôle « tete »),
-  -- hors souterrains, hors branches de piquage et hors projet du quai lui-même. Sans cela une partie avancée n'a aucun tapis « hors plan »
+  -- hors souterrains, hors branches de piquage et hors projet du quai lui-même (owner = le projet de la tuile, multi = plusieurs projets : le filtre du quai se fait à la lecture). Sans cela une partie avancée n'a aucun tapis « hors plan »
   -- (dcsave du 8/11 : « aucune_source » pour 14 à 21 quais par équipe). Le surplus seul passe au quai (priorité de sortie sur la ligne).
-  local plan_ok = {}
+  local owner, multi = {}, {}
   for _, pid in ipairs(f.build.order) do
     local q = f.build.projects[pid]
-    if q and q.state == "fini" and q.id ~= d.pid and not (q.spec and q.spec.liaison and q.spec.liaison.piquage) then
+    if q and q.state == "fini" and not (q.spec and q.spec.liaison and q.spec.liaison.piquage) then
       for _, e in ipairs(q.ents or {}) do
-        if e.role ~= "tete" and not e.type and e.name and Conv.is_belt(e.name) then plan_ok[math.floor(e.x) .. ":" .. math.floor(e.y)] = true end
+        if e.role ~= "tete" and not e.type and e.name and Conv.is_belt(e.name) then
+          local k = math.floor(e.x) .. ":" .. math.floor(e.y)
+          if owner[k] == nil then owner[k] = q.id elseif owner[k] ~= q.id then multi[k] = true end
+        end
       end
     end
   end
+  return { opt_in = opt_in, owner = owner, multi = multi }
+end
+Piquage.plan_sources = plan_sources
+
+--- Découverte : tuiles de tapis à portée du quai qui portent son objet SEUL. Garde au plus MAX_TRACK (les plus proches du quai).
+local function discover(f, surface, st, d, tick, plan)
+  local tr = st.track[d.key]
+  if not tr then tr = { tiles = {}, order = {} }; st.track[d.key] = tr end
+  st.disc[d.key] = tick
+  local R = Pq.SEARCH_SPAN
+  local ents = surface.find_entities_filtered({ area = { { d.x - R, d.y - R }, { d.x + R + 1, d.y + R + 1 } }, name = belt_names(), force = f.force,
+    limit = Piquage.MAX_SCAN })
+  local opt_in, owner, multi = plan.opt_in, plan.owner, plan.multi
   local found = {}
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
     local key = tx .. ":" .. ty
     -- les tapis du PLAN directeur (tuiles réservées par un projet : têtes de quai, lignes de modules, champs, liaisons) ne sont jamais piqués,
     -- sauf ceux que leur projet déclare piquables (opt_in) : seuls comptent les tapis posés hors plan (par le joueur, ou à la main par l'équipe)
-    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item or plan_ok[key]) then
+    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item or (owner[key] ~= nil and (multi[key] or owner[key] ~= d.pid))) then
       local s = sample_belt(e, d.item)
       if s.count > 0 and s.other == 0 then
         found[#found + 1] = { key = key, x = tx, y = ty, dir = e.direction, sample = s, m = Li.manhattan(tx, ty, d.x, d.y) }
@@ -635,11 +646,13 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     end
   end
   local turn = Piquage.discover_turn(dus, Piquage.DISC_QUOTA)
+  local plan -- sources du plan, lues à la première découverte du relevé
   for _, d in ipairs(order) do
     -- un quai hors tour est relevé (dû mais hors quota, il n'était ni découvert ni relevé)
     local tr
     if turn[d.key] then
-      discover(f, surface, st, d, tick)
+      plan = plan or plan_sources(f)
+      discover(f, surface, st, d, tick, plan)
     elseif st.track[d.key] then
       observe_tracks(f, surface, st, d)
     end

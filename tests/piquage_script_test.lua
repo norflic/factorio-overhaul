@@ -578,5 +578,22 @@ do
   check(st.flow[1] ~= nil and st.flow[9] == nil, "8.5 debits d'un projet disparu retires")
 end
 
+-- §9 (s40 p9) sources du plan lues une fois par relevé : même filtre qu'avant (hors projet du quai, hors têtes, hors branches de piquage)
+do
+  local function belt(x, y, role) return { name = "transport-belt", x = x + 0.5, y = y + 0.5, role = role } end
+  local fx = { build = { order = { 1, 2, 3, 4 }, projects = {
+    [1] = { id = 1, state = "fini", ents = { belt(0, 0), belt(1, 0, "tete"), belt(5, 5) } },
+    [2] = { id = 2, state = "fini", ents = { belt(5, 5), belt(2, 0) }, tapis_piquable = { { x = 7, y = 7, item = "X" } } },
+    [3] = { id = 3, state = "fini", spec = { liaison = { piquage = true, item = "X" } }, ents = { belt(3, 0) } },
+    [4] = { id = 4, state = "pose", ents = { belt(4, 0) } },
+  } } }
+  local ps = Piquage.plan_sources(fx)
+  local function ok_for(pid, k) return ps.owner[k] ~= nil and (ps.multi[k] or ps.owner[k] ~= pid) or false end
+  check(ok_for(2, "0:0") and not ok_for(1, "0:0"), "9.1 tuile d'un autre projet : source ; du projet du quai : non")
+  check(ps.owner["1:0"] == nil and ps.owner["3:0"] == nil and ps.owner["4:0"] == nil, "9.2 tete, branche de piquage et projet non fini : jamais sources")
+  check(ok_for(1, "5:5") and ok_for(2, "5:5"), "9.3 tuile de deux projets : source pour chacun")
+  check(ps.opt_in["7:7"] == "X", "9.4 tapis declare piquable")
+end
+
 print(string.format("[PIQUAGE-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
