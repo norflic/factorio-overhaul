@@ -388,21 +388,27 @@ function C.think(view, book, st, ctx)
   -- alors que le coffre en tient) : la fabrication qui refait l'EXTRACTION de la plaque clé (it[4]) est payée sur le stock AVANT les consommations du
   -- plan permanent (used : tourelles, munitions, fonds de défense, recrues), sans fer il n'y a plus de défense. Ce qu'elle prend est ensuite retiré du
   -- stock libre du reste (le plan permanent garde son dû sur ce qui reste) ; la foreuse fabriquée n'est pas comptée deux fois.
+  -- (s40 decision p1 : le stock brut `pre` est COMMUN aux fabrications clés de la boucle et court de l'une à l'autre, le paiement est cumulé, et le
+  -- stock libre du reste ne peut que BAISSER : avant, chaque fabrication clé repartait du coffre entier et réécrivait le stock libre depuis lui, ce
+  -- qu'une fabrication précédente de la boucle avait pris était rendu : deux fabrications payées sur la même matière)
+  local pre, pre0 = nil, nil
   for _, it in ipairs(pile.crafts or {}) do
     if it[4] then
-      local pre = {}
-      for _, k in ipairs(sorted_keys(view.stock)) do pre[k] = view.stock[k] end
-      for _, k in ipairs(sorted_keys(view.incoming or {})) do pre[k] = (pre[k] or 0) + view.incoming[k] end
-      for _, r in ipairs(pile.reserve or {}) do pre[r[1]] = math.max(0, (pre[r[1]] or 0) - r[2]) end
-      local pre0 = {}
-      for _, k in ipairs(sorted_keys(pre)) do pre0[k] = pre[k] end
+      if not pre then
+        pre, pre0 = {}, {}
+        for _, k in ipairs(sorted_keys(view.stock)) do pre[k] = view.stock[k] end
+        for _, k in ipairs(sorted_keys(view.incoming or {})) do pre[k] = (pre[k] or 0) + view.incoming[k] end
+        for _, r in ipairs(pile.reserve or {}) do pre[r[1]] = math.max(0, (pre[r[1]] or 0) - r[2]) end
+        for _, k in ipairs(sorted_keys(pre)) do pre0[k] = pre[k] end
+      end
       local saved = E.avail
       E.avail = pre
       P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile")
+      pre = E.avail -- (P.want remplace la table du stock virtuel à chaque fabrication : le stock brut courant est celui qu'il laisse)
       E.avail = saved
       for _, k in ipairs(sorted_keys(pre0)) do
         local paid = pre0[k] - (pre[k] or 0)
-        if paid > 0 and k ~= it[1] then saved[k] = math.max(0, pre0[k] - paid - (used[k] or 0)) end
+        if paid > 0 and k ~= it[1] then saved[k] = math.min(saved[k] or 0, math.max(0, pre0[k] - paid - (used[k] or 0))) end
       end
     else
       P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile")
