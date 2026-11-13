@@ -67,6 +67,7 @@ require("script.gui.team_window")
 
 -- Dézoom étendu : Ctrl + molette écrit player.zoom sous la limite de la molette (shared/gui/dezoom.lua)
 require("script.gui.dezoom")
+require("script.gui.commande") -- lot s43 UX-COMMANDE : panneau de commandement, outil, ordres sur la carte
 require("script.debug.cerveau") -- lot DEBUG-CERVEAU (8/11) : vue « Cerveau » par joueur (zones, écart IA / réel, décisions, améliorations), rien sans spectateur
 
 -- Robots (lot RB-1, 31/10) : ateliers, kits en unités, plafond en points, ordres du joueur
