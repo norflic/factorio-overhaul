@@ -32,6 +32,7 @@ local Zone = require("script.team.zone_melee") -- lot MELANGE2 : zone minée de 
 local Flux = require("shared.team.flux") -- lot FLUX : sorties pleines d'un avant-poste (règle pure)
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, cible par tourelle (règle pure)
 local Rv = require("shared.team.ravitaillement") -- lot BLOCAGE-COMBUSTIBLE : charbon des coffres propres, verdict d'une tournée (règle pure)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Outposts = {}
 
@@ -232,6 +233,8 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
         if d then
           local s = surface.can_place_entity({ name = spec.sink, position = spos, force = force })
             and surface.create_entity({ name = spec.sink, position = spos, force = force })
+          RegT.note(d) -- lot UPS : poses sans événement, notées au registre des machines (foreuse, et four de sortie)
+          RegT.note(s or nil)
           if s then
             carrier.remove({ name = T.DRILL, count = 1 })
             carrier.remove({ name = spec.sink, count = 1 })

@@ -20,6 +20,7 @@ local M = require("shared.team.modules")
 local S = require("shared.team.reseau_sante")
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : chemin le plus court des poteaux à reposer, second chemin
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
+local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 local Ze = require("shared.team.zone_equipe") -- lot UPS-2 : intersection d'une tranche et de la zone de l'équipe (Ze.clip, Ze.area)
 local Zone = require("script.team.zone_equipe") -- lot UPS-2 : zone de l'équipe (rectangles fusionnés, F470)
 
@@ -156,7 +157,10 @@ end
 local function net_read(f, surface, b)
   local gnets = Gens.networks(surface, f.force, "generator") -- lot X10-S4 : registre des génératrices
   local out = { islands = 0, uncovered = 0, nets = {}, live = gnets } -- (lot ENERGIE : nets = réseaux des îlots, live = réseaux alimentés)
-  for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = ELEC_TYPES })) do
+  Profiler.fstart("ws:rv-net")
+  local found = surface.find_entities_filtered({ force = f.force, type = ELEC_TYPES })
+  Profiler.fstop("ws:rv-net")
+  for _, e in ipairs(found) do
     -- Le réseau d'abord : la quasi-totalité des machines est sur un réseau avec centrale, et le prototype (objet créé à chaque lecture)
     -- ne se lit que pour les autres (revue statique 29/10 : le relevé touchait toutes les machines de la force toutes les 2 min).
     local id = e.electric_network_id

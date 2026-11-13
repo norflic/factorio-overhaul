@@ -15,9 +15,11 @@
 ]]
 
 local T = require("shared.team.config")
+local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 local E = require("shared.team.electrique")
 local Dt = require("shared.team.decision_tree") -- arbre de décision Early / Mid / Late (DC, 9/11) : phase et électriques qui dorment au coffre
 local Stock = require("script.team.stock")
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Elec = {}
 
@@ -78,7 +80,9 @@ local function live_drills(f, st, tick)
   local surface = f.hq and f.hq.valid and f.hq.surface
   if surface and defines and defines.entity_status then
     LIVE_STATUS = LIVE_STATUS or { [defines.entity_status.working] = true, [defines.entity_status.waiting_for_space_in_destination] = true }
-    local ok, list = pcall(function() return surface.find_entities_filtered({ name = T.DRILL_ELECTRIC, force = f.force }) end)
+    Profiler.fstart("ws:elec-live")
+    local ok, list = pcall(function() return RegT.named(surface, f.force, T.DRILL_ELECTRIC, "elec-live") end) -- lot UPS : registre
+    Profiler.fstop("ws:elec-live")
     for _, d in ipairs(ok and list or {}) do
       if d.valid and LIVE_STATUS[d.status] then
         out.total = out.total + 1
@@ -248,7 +252,9 @@ function Elec.count(f, st, tick, allowed, why)
   local out = 0
   local surface = f.hq and f.hq.valid and f.hq.surface
   if surface then
-    local ok, all = pcall(function() return surface.count_entities_filtered({ name = T.DRILL, force = f.force }) end)
+    Profiler.fstart("ws:elec-count")
+    local ok, all = pcall(function() return #RegT.named(surface, f.force, T.DRILL, "elec-count") end) -- lot UPS : registre
+    Profiler.fstop("ws:elec-count")
     if ok and type(all) == "number" then out = math.max(0, all - n) end
   end
   local kinds = {}

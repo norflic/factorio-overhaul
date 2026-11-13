@@ -27,6 +27,7 @@ local State = require("script.faction.state")
 local Storage = require("script.core.storage")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock")
+local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 local Poles = require("script.team.poles")
 
 local Src = {}
@@ -201,7 +202,9 @@ Events.on_died(on_removed, { types = { "container", "inserter", "mining-drill" }
 local function scan_step(f, st, surface)
   if st.scanned then return end
   if not st.todo then
+    Profiler.fstart("ws:sources")
     st.todo = surface.find_entities_filtered({ force = f.force, type = "container" })
+    Profiler.fstop("ws:sources")
     st.todo_i = 1
   end
   local n = 0

@@ -522,6 +522,7 @@ do
     ["script/team/reseau_vivant.lua"] = { "TYPE", 3, "types du moteur lus par la santé de la centrale et du réseau (boiler, generator, offshore-pump, inserter) : le GENRE de la pièce, jamais un niveau" },
     ["script/team/raccord.lua"] = { "TYPE", 2, "types du moteur lus par le relevé de couverture électrique (lot PD-ELEC : machines électriques, machines génératrices dont solar-panel) : le GENRE, jamais un niveau" },
     ["script/team/generateurs.lua"] = { "TYPE", 1, "types du moteur des génératrices tenues par le registre (lot X10-S4 : burner-generator, generator, solar-panel, les types lus par raccord.lua) : le GENRE, jamais un niveau" },
+    ["script/team/registre_types.lua"] = { "TYPE", 1, "types du moteur des machines tenues par le registre (lot UPS : assembling-machine, boiler, furnace, lab, mining-drill, les types lus par les cinq sites servis) : le GENRE, jamais un niveau" },
     ["script/team/plant_arms.lua"] = { "EXEC", 1, "journal de la centrale : le fluide « vapeur » lu dans les chaudières (diagnostic)" },
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
     ["shared/team/sol_minerai.lua"] = { "TYPE", 2, "types du moteur admis sur une tuile de ressource (Sm.MINING_TYPES : mining-drill, electric-pole, transport-belt, underground-belt, splitter, pipe, pipe-to-ground), lot DECOUPLAGE : le GENRE de la BOX_MINAGE, jamais un niveau" },

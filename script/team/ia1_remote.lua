@@ -31,6 +31,7 @@ local Pl = require("shared.team.plan") -- lot FOREUSES-THERMIQUES (bancs : clé 
 local Board = require("script.team.board") -- lots FOREUSES-THERMIQUES (collect_probe) et COLLECTE (état des tâches de collecte) ; déjà chargé par team.lua
 local Src = require("script.team.sources") -- lot MINAGE-MAIN (bancs : état des sorties et des décisions)
 local Rt = require("shared.team.repli_thermique") -- lot FOREUSES-THERMIQUES, partie C (bancs : réglage effectif du repli, set_repli)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -553,6 +554,7 @@ remote.add_interface("fo-ia1", {
     p.state, p.finished, p.counted = "fini", game.tick, true
     for _, s in ipairs(spots) do
       local c = surface.create_entity({ name = T.outposts.coal.sink, position = { x = s[1], y = s[2] }, force = f.force })
+      RegT.note(c) -- lot UPS : pose sans événement, notée au registre des machines
       if c then
         c.get_inventory(defines.inventory.chest).insert({ name = fe, count = s[3] })
         p.outs[#p.outs + 1] = { x = c.position.x, y = c.position.y }

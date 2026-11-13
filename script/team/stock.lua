@@ -28,6 +28,7 @@ local Ad = require("shared.team.adopte")
 local Profiler = require("script.core.profiler") -- lot X10-S0 : compteurs d'appels (mode detail du profileur seulement, mesure)
 local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
 local Pqs = require("script.team.plafond_qg") -- lot STOCK-QG : plafonds de rapatriement au QG par catégorie d'objet (brut, base, déclassé)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 -- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
 local SMELT_INPUTS = {}
@@ -567,6 +568,7 @@ local function annex_make(f, surface, item, take)
     if PlacesQG.is_reserved(f, item, pos) then return false end
     local e = surface.create_entity({ name = item, position = pos, force = f.force })
     if not (e and e.valid) then return false end
+    RegT.note(e) -- lot UPS : pose sans événement, notée au registre des machines
     take()
     f.annex = f.annex or {}
     f.annex[#f.annex + 1] = e

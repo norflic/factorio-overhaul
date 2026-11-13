@@ -35,6 +35,7 @@ local Profiler = require("script.core.profiler") -- mesure des tranches jouées 
 local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, sans la boucle de plans complets
 local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : quota lu à la marge de kW, par bloc, kW prévus pour la centrale
 local Se = require("script.team.swap_entity") -- lot RETROFIT-GABARITS : le coeur de swap_one (retrait, pose, repose) extrait en primitive partagee
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Swap = {}
 
@@ -589,6 +590,7 @@ local function exchange_undo(f, surface, o, undo)
     if Stock.count(f, u.name) >= 1 and surface.can_place_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })
         and Stock.remove(f, u.name, 1) >= 1 then
       local e = surface.create_entity({ name = u.name, position = { x = u.x, y = u.y }, direction = u.dir, force = f.force })
+      RegT.note(e) -- lot UPS : pose sans événement, notée au registre des machines
       if e then
         State.own(e, f.id, u.kind, o.id)
         local list = u.kind == "drill" and o.drill_list or o.sinks
@@ -996,6 +998,7 @@ local function revert_one(f, surface, o, d, tick, cfg, at, coal)
   local new
   if surface.can_place_entity({ name = T.DRILL, position = pos, direction = place.dir, force = f.force }) then
     new = surface.create_entity({ name = T.DRILL, position = pos, direction = place.dir, force = f.force })
+    RegT.note(new) -- lot UPS : pose sans événement, notée au registre des machines
     if new and not new.valid then new = nil end
   end
   if not new then

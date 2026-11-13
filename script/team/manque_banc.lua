@@ -15,6 +15,7 @@ local Board = require("script.team.board")
 local Build = require("script.team.build")
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages")
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local B = {}
 
@@ -44,6 +45,7 @@ function B.install(Mv)
       local surface = f.hq.surface
       local q = surface.create_entity({ name = CHEST, position = { x = qx, y = qy }, force = f.force })
       local lab = surface.create_entity({ name = lab_name, position = { x = lx + 1.5, y = ly + 1.5 }, force = f.force })
+      RegT.note(lab) -- lot UPS : pose sans événement, notée au registre des machines
       if not (q and lab) then return nil end
       local id = Build.request(f, { gen = "labs", bench = "manque-labo", prio = type(prio) == "number" and prio or 60 })
       local p = f.build and f.build.projects[id]

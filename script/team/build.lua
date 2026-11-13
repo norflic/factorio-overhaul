@@ -2606,6 +2606,7 @@ end -- do
 local function add_obstacle(p, o)
   local k = P.tkey(math.floor(o.x), math.floor(o.y))
   p.obst_keys = p.obst_keys or {}
+  p.obst_faits = nil -- lot UPS : un obstacle rouvert ou ajouté : la revue relit la liste (review_obstacles)
   if p.obst_keys[k] then
     for _, q in ipairs(p.obstacles) do if q.k == k then q.done = nil end end
     return
@@ -2618,6 +2619,11 @@ end
 --- Revue de Build.OBST_CHECKS obstacles ouverts (à tour de rôle) : faits quand plus aucun arbre ni rocher n'y est.
 --- Rend le nombre d'obstacles encore ouverts.
 local function review_obstacles(surface, p)
+  -- Lot UPS : la revue parcourait TOUTE la liste à chaque passe (toutes les 5 ticks, pour chaque projet en chantier), même quand tous
+  -- les obstacles étaient déjà faits. p.obst_faits garde la LISTE (la table elle-même) dont la dernière revue n'a laissé aucun obstacle
+  -- ouvert : tant que c'est encore elle (une liste neuve du plan est une autre table) et que rien n'y a été ajouté ni rouvert
+  -- (add_obstacle efface la marque ; un obstacle fait ne se rouvre que là), la revue rendrait 0 sans rien écrire : elle est sautée.
+  if p.obst_faits ~= nil and p.obst_faits == p.obstacles then return 0 end
   -- Lot AGEBLOCAGE : le curseur repart juste après le dernier obstacle revu (règle pure shared/team/revue_obstacles.lua). L'ancienne
   -- boucle faisait n pas : son curseur revenait à son départ, les mêmes obstacles étaient revus à chaque appel et les autres restaient
   -- ouverts, même vides (banc ageblocage-dc 717152950 : 68 obstacles vides d'Azur jamais revus de 37 à 57 min, curseur bloqué à n + 1,
@@ -2626,6 +2632,7 @@ local function review_obstacles(surface, p)
     return surface.count_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 }) > 0
   end)
   p.obst_cur = cur
+  p.obst_faits = (left == 0) and p.obstacles or nil
   return left
 end
 
@@ -3902,7 +3909,7 @@ local function npc_block(f, p, e, surface)
       st.npc_moved = (st.npc_moved or 0) + 1
     end
   end
-  if e.npc_blocks % Build.NPC_BLOCKS_PER_FAIL == 0 then e.fails = (e.fails or 0) + 1 end
+  if e.npc_blocks % Build.NPC_BLOCKS_PER_FAIL == 0 then e.fails = (e.fails or 0) + 1; p.fails_lus = nil end -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
   log_refusal(f, p, e, "pnj", surface)
 end
 
@@ -4059,7 +4066,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     if r ~= "ok" then
       -- lot PETROLE : sur un site défriché pendant le chantier (spec.lazy_clear), un arbre sous l'emprise n'est pas un
       -- échec (il est coupé par la tâche de défrichage ; moteur réel, petrole-site : raffinerie « bloquée » par un arbre)
-      if not (r == "obstacle" and p.spec and p.spec.lazy_clear) then e.fails = (e.fails or 0) + 1 end
+      if not (r == "obstacle" and p.spec and p.spec.lazy_clear) then e.fails = (e.fails or 0) + 1; p.fails_lus = nil end -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
       st.revive_fail = st.revive_fail + 1
       learn_cliff(f, surface, p, e, r) -- lot OBSTACLES : falaise cachée aux masques, apprise
       log_refusal(f, p, e, r, surface)
@@ -4069,7 +4076,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     st.ghosts = st.ghosts + 1
     gh = find_ghost(surface, e, f.force)
     if not gh then
-      e.fails = (e.fails or 0) + 1
+      e.fails = (e.fails or 0) + 1; p.fails_lus = nil -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
       st.revive_fail = st.revive_fail + 1
       log_refusal(f, p, e, "fantome pose mais introuvable", surface)
       return false
@@ -4081,7 +4088,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   if not (ent and ent.valid) then
     inv.insert({ name = e.item, count = 1 })
     if npc_on(surface, e) then npc_block(f, p, e, surface) return false end
-    e.fails = (e.fails or 0) + 1
+    e.fails = (e.fails or 0) + 1; p.fails_lus = nil -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
     st.revive_fail = st.revive_fail + 1
     log_refusal(f, p, e, "ravivage refuse", surface)
     return false
@@ -4453,12 +4460,18 @@ local function street_clear_tasks(f, out)
   local want = {}
   local passable = seg_passable(b)
   local hi, hj = 0, 0
+  -- Lot UPS : UN arbre de parcours depuis le QG pour tous les chantiers de la pensée (P.route_tree : mêmes règles et même ordre que
+  -- P.route_nodes, le chemin lu dans l'arbre est celui que rend P.route_nodes ; tests/plan_test.lua). Avant : un parcours en largeur
+  -- ENTIER par chantier ouvert (mesuré à 60-90 min, graine 123456789 : 14 ms par pensée d'équipe, pics de 77 ms). L'arbre n'est
+  -- calculé qu'au premier chantier ouvert, et jeté à la fin de l'appel (les tronçons ne changent pas pendant l'appel).
+  local tree
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") and p.parts[1] then
       local pt = p.parts[1]
       local ti, tj = nearest_node(b, pt.ox, pt.oy)
-      local nodes = P.route_nodes({ i = hi, j = hj }, { i = ti, j = tj }, passable, b.radius)
+      tree = tree or P.route_tree({ i = hi, j = hj }, passable, b.radius)
+      local nodes = P.tree_path(tree, { i = ti, j = tj })
       for k = 2, #(nodes or {}) do
         local a, c = nodes[k - 1], nodes[k]
         local key = a.i ~= c.i and P.seg_key("h", math.min(a.i, c.i), a.j) or P.seg_key("v", a.i, math.min(a.j, c.j))
@@ -4665,9 +4678,68 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Raccordement : fils (arbre couvrant au plus court), recettes
 ---------------------------------------------------------------------------------------------------
+--- Lot UPS : même calcul qu'avant, ligne pour ligne (mêmes poteaux, même tri, mêmes candidats dans le même ordre, mêmes unions, mêmes
+--- fils posés dans le même ordre), mais chaque poteau n'est LU au moteur qu'une fois (position, portée de fil du prototype, numéro) au
+--- lieu de l'être à chaque comparaison du tri et à chaque paire, et le voisin déjà relié est retrouvé par son numéro au lieu d'une
+--- comparaison d'entités avec TOUS les poteaux. Mesuré (graine 123456789, 72,3 min, centrale de 149 entités) : 959 ms dans un seul tick.
+--- La règle est Build.wire_poles (champ de Build : essayée hors jeu par tests/registre_types_test.lua contre l'ancienne).
+--- poles : liste d'entités (poteaux) ; rend le nombre de fils posés, le nombre de liaisons de cuivre entre ces poteaux.
+function Build.wire_poles(poles)
+  local recs = {}
+  for i, ent in ipairs(poles) do
+    local pos = ent.position
+    recs[i] = { ent = ent, x = pos.x, y = pos.y, reach = ent.prototype.max_wire_distance, u = ent.unit_number }
+  end
+  table.sort(recs, function(a, c) if a.y ~= c.y then return a.y < c.y end return a.x < c.x end)
+  local cand = {}
+  for a = 1, #recs do
+    for c = a + 1, #recs do
+      local pa, pc = recs[a], recs[c]
+      local reach = math.min(pa.reach, pc.reach)
+      local d2 = dist2(pa, pc)
+      if d2 <= reach * reach + 1e-6 then cand[#cand + 1] = { d2, a, c } end
+    end
+  end
+  table.sort(cand, function(u, v) if u[1] ~= v[1] then return u[1] < v[1] end if u[2] ~= v[2] then return u[2] < v[2] end return u[3] < v[3] end)
+  local parent, idx = {}, {}
+  for i = 1, #recs do
+    parent[i] = i
+    idx[recs[i].u] = i
+  end
+  local function find(x) while parent[x] ~= x do x = parent[x] end return x end
+  -- poteaux déjà reliés entre eux : même composante
+  for a = 1, #recs do
+    for _, nb in ipairs((recs[a].ent.neighbours or {}).copper or {}) do
+      local c = nb.valid and idx[nb.unit_number] or nil
+      if c then local ra, rc = find(a), find(c); if ra ~= rc then parent[rc] = ra end end
+    end
+  end
+  local n = 0
+  for _, c in ipairs(cand) do
+    local ra, rc = find(c[2]), find(c[3])
+    if ra ~= rc then
+      -- lot CHAMP : la liaison n'unit les deux réseaux que si le fil est POSÉ ; un poteau qui a déjà ses 5 fils (reliés par le moteur au
+      -- ravivage) refuse, et l'arête suivante doit être essayée. Avant, le refus comptait comme une liaison : des fonderies de champ restaient
+      -- sur un réseau sans centrale (mesuré : 12 à 26 bras « sans courant » par bande, graine 271828182, [FO-CHAMP-ETAT])
+      if recs[c[2]].ent.connect_neighbour(recs[c[3]].ent) then
+        n = n + 1
+        parent[rc] = ra
+      end
+    end
+  end
+  -- liaisons de cuivre des poteaux du projet (le moteur relie lui-même un poteau ravivé à ses voisins : les fils
+  -- AJOUTÉS ci-dessus ne comptent que les trous)
+  local links = 0
+  for a = 1, #recs do
+    for _, nb in ipairs((recs[a].ent.neighbours or {}).copper or {}) do
+      if nb.valid and idx[nb.unit_number] and idx[nb.unit_number] > a then links = links + 1 end
+    end
+  end
+  return n, links
+end
+
 local function wire_project(f, surface, p)
   local poles = {}
-  local b = f.build
   local seen = {}
   local function add(ent) if ent and ent.valid and not seen[ent.unit_number] then seen[ent.unit_number] = true; poles[#poles + 1] = ent end end
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
@@ -4680,48 +4752,7 @@ local function wire_project(f, surface, p)
   if #poles == 0 then return 0 end
   -- poteaux du réseau voisins
   for _, ent in ipairs(surface.find_entities_filtered({ area = { { x0 - 30, y0 - 30 }, { x1 + 30, y1 + 30 } }, type = "electric-pole", force = f.force })) do add(ent) end
-  table.sort(poles, function(a, c) if a.position.y ~= c.position.y then return a.position.y < c.position.y end return a.position.x < c.position.x end)
-  local cand = {}
-  for a = 1, #poles do
-    for c = a + 1, #poles do
-      local pa, pc = poles[a], poles[c]
-      local reach = math.min(pa.prototype.max_wire_distance, pc.prototype.max_wire_distance)
-      local d2 = dist2(pa.position, pc.position)
-      if d2 <= reach * reach + 1e-6 then cand[#cand + 1] = { d2, a, c } end
-    end
-  end
-  table.sort(cand, function(u, v) if u[1] ~= v[1] then return u[1] < v[1] end if u[2] ~= v[2] then return u[2] < v[2] end return u[3] < v[3] end)
-  local parent = {}
-  for i = 1, #poles do parent[i] = i end
-  local function find(x) while parent[x] ~= x do x = parent[x] end return x end
-  -- poteaux déjà reliés entre eux : même composante
-  for a = 1, #poles do
-    for _, nb in ipairs((poles[a].neighbours or {}).copper or {}) do
-      for c = 1, #poles do if poles[c] == nb then local ra, rc = find(a), find(c); if ra ~= rc then parent[rc] = ra end end end
-    end
-  end
-  local n = 0
-  for _, c in ipairs(cand) do
-    local ra, rc = find(c[2]), find(c[3])
-    if ra ~= rc then
-      -- lot CHAMP : la liaison n'unit les deux réseaux que si le fil est POSÉ ; un poteau qui a déjà ses 5 fils (reliés par le moteur au
-      -- ravivage) refuse, et l'arête suivante doit être essayée. Avant, le refus comptait comme une liaison : des fonderies de champ restaient
-      -- sur un réseau sans centrale (mesuré : 12 à 26 bras « sans courant » par bande, graine 271828182, [FO-CHAMP-ETAT])
-      if poles[c[2]].connect_neighbour(poles[c[3]]) then
-        n = n + 1
-        parent[rc] = ra
-      end
-    end
-  end
-  -- liaisons de cuivre des poteaux du projet (le moteur relie lui-même un poteau ravivé à ses voisins : les fils
-  -- AJOUTÉS ci-dessus ne comptent que les trous)
-  local links, idx = 0, {}
-  for i, ent in ipairs(poles) do idx[ent.unit_number] = i end
-  for a = 1, #poles do
-    for _, nb in ipairs((poles[a].neighbours or {}).copper or {}) do
-      if nb.valid and idx[nb.unit_number] and idx[nb.unit_number] > a then links = links + 1 end
-    end
-  end
+  local n, links = Build.wire_poles(poles)
   p.links = links
   return n
 end
@@ -4898,10 +4929,15 @@ local function advance(f, surface, p, tick)
     -- Lot FUITES-PILE (fuite b) : un module NEUF est une amélioration (R3) ; pendant qu'un cadre réparer, protéger ou survivre retient,
     -- il ne prend rien au coffre (et rend ce qu'il avait déjà pris), sauf s'il produit une matière d'un cadre ouvert ou qui manque
     -- (PileRt.porte). Avant, il réservait le fer des tourelles comme un module rouvert pour reconstruction.
-    if Build.reserve_suspended(f, p, tick) then return end
+    Profiler.fstart("rs:pile") -- lot UPS : portées fines de la réserve (mesure seulement)
+    local susp = Build.reserve_suspended(f, p, tick)
+    Profiler.fstop("rs:pile")
+    if susp then return end
     if p.spec.enceinte then craft_walls(f, p) end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
+    Profiler.fstart("rs:reserve")
     local full, need = reserve(f, p)
+    Profiler.fstop("rs:reserve")
     -- Lot EXPANSION-LOINTAINE : une bande de champ NEUVE n'attend plus TOUTE sa matière (azure, bande 393 : 40 min en « reserve:materiaux »
     -- avec 283 pièces sur 311 au coffre) : elle part dès que chaque objet est réservé au plancher de Build.Cp (règle pure) ; le reste est pris
     -- au coffre à la prise du PNJ (Build.take_reserved), suivi par refresh_missing (p.progressif), fabriqué par le cerveau comme en réserve.
@@ -4953,7 +4989,9 @@ local function advance(f, surface, p, tick)
   -- depuis la fin de la réserve), le PNJ échouait « stock » en boucle
   if (p.reopened or p.progressif or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
     p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
+    Profiler.fstart("ch:missing")
     refresh_missing(f, p)
+    Profiler.fstop("ch:missing")
   end
   if p.state == "defrichage" then
     if review_obstacles(surface, p) == 0 then p.state = "fantomes" end
@@ -4979,7 +5017,7 @@ local function advance(f, surface, p, tick)
           npc_block(f, p, e, surface)
         else
           e.ghosted = true
-          e.fails = (e.fails or 0) + 1
+          e.fails = (e.fails or 0) + 1; p.fails_lus = nil -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
           b.stats.ghost_refused = b.stats.ghost_refused + 1
           learn_cliff(f, surface, p, e, r) -- lot OBSTACLES
           log_refusal(f, p, e, r, surface)
@@ -4990,10 +5028,17 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "chantier" then
+    Profiler.fstart("ch:obst") -- lot UPS : portées fines du chantier (mesure seulement)
     review_obstacles(surface, p)
+    Profiler.fstop("ch:obst")
     if all_built(p) then
       p.state = "raccordement"
-    else
+    elseif p.fails_lus ~= true then
+      -- Lot UPS : cette boucle relisait TOUTES les pièces du projet à chaque passe (toutes les 5 ticks). Elle n'agit que sur une pièce
+      -- pas bâtie dont les refus ont atteint la limite ; chaque pièce de ce genre y est abandonnée (bâtie) ou bloque le projet (retour).
+      -- Une lecture allée au bout n'en laisse donc aucune : p.fails_lus le dit, et les cinq lignes de ce fichier qui comptent un refus
+      -- (les seules du mod à faire monter e.fails) l'effacent. Les réouvertures remettent e.fails à 0 avec e.built. Absent (sauvegarde
+      -- d'avant ce lot) : la boucle se joue, comme avant.
       -- 3 refus d'un même fantôme : le module est bloqué (raison écrite), §6.6 (4)
       for _, e in ipairs(p.ents) do
         if e.wall and not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
@@ -5027,6 +5072,7 @@ local function advance(f, surface, p, tick)
           return
         end
       end
+      p.fails_lus = true
     end
     return
   end
@@ -5653,7 +5699,7 @@ function Build.think(f, surface, tick)
     end
   end
   Profiler.fstart("e2:rues")
-  street_clear_tasks(f, tasks)
+  Profiler.fwrap("e2:rues-routes", street_clear_tasks, f, tasks)
   Build.Place.defprev_tasks(f, tasks, tick) -- lot TV-PLACE (G38) : défrichage préventif de 50 x 50, un lot à la fois, priorité la plus basse
   Profiler.fstop("e2:rues")
   Profiler.fstart("e2:board")

@@ -65,6 +65,7 @@ local Dep = require("script.ai3.depenses") -- lot DEPENSES2 : laboratoires de pl
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 local ZIrt = require("script.ai3.zero_idle_rt") -- lot ZERO-IDLE : journal [FO-ZERO-IDLE] de la minute
 local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : texte des pièces d'un kit ([FO-LOTS-KIT])
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Ia3 = {}
 
@@ -464,6 +465,7 @@ local function place_labs(f, st, lab, want)
       if Stock.count(f, lab.item) < 1 then return nil end
       local e = f.hq.surface.create_entity({ name = lab.entity, position = pos, force = f.force })
       if not e then return false end
+      RegT.note(e) -- lot UPS : pose sans événement, notée au registre des machines
       Stock.remove(f, lab.item, 1)
       st.labs[#st.labs + 1] = e
       return true
