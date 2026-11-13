@@ -320,5 +320,15 @@ do
   check(K.purge_ids(done, nil) == 2 and next(done) == nil, "p49 : plus aucun avant-poste = table vide")
 end
 
+-- Sprint 40 (p50) : le journal ne dit « toute la frontière bloquée » que si aucune cible libre n'a été écartée.
+do
+  check(K.soft_reason(0) == "toute la frontiere est en region bloquee" and K.soft_reason(nil) == K.soft_reason(0),
+    "p50 : aucune cible libre écartée = ancienne ligne, mot pour mot")
+  local r = K.soft_reason(2)
+  check(r:find("2 cible(s) libre(s) ecartee(s)", 1, true) ~= nil and r:find("toute la frontiere", 1, true) == nil,
+    "p50 : cibles libres écartées = la ligne ne dit plus « toute la frontière » (" .. r .. ")")
+  check(not r:find("[\128-\255]"), "p50 : ligne sans accent, comme le reste du journal")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

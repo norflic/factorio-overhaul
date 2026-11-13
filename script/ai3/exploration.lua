@@ -610,22 +610,26 @@ local function retarget(f, k, a, ex, tick)
     local tctx = { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
       rivals = rivals(f, surface), exclude = excl, soft = make_soft(k, tick),
       frontier = K.frontier(k.m) } -- sprint 40 (p46) : une seule frontière pour les 4 essais (la carte ne change pas entre eux)
+    local libres = 0 -- sprint 40 (p50) : cibles LIBRES écartées par K.scout_ok (trajet près d'un nid ou d'un ver vu)
     for _try = 1, 4 do
       key, _note, soft = K.best_target(k.m, tctx)
       if not key or K.scout_ok(k.m, me, key) then break end
+      if not soft then libres = libres + 1 end
       rawset(excl, key, true)
       key, soft = nil, nil
     end
     if key and soft then
       -- Lot IA3F-PETROLE : toute la frontière non vue est dans des régions bloquées ; avant, la mission finissait « rien » et la
       -- demande passait pour épuisée (10 min sans éclaireur) alors que rien n'avait été vu. Journal : une ligne par mission.
-      k.stats.soft = (k.stats.soft or 0) + 1
+      -- Sprint 40 (p50) : ce compteur et la ligne annonçaient « toute la frontière bloquée » même quand des cibles libres venaient
+      -- d'être écartées pour un nid sur le trajet : compte à part (soft_nid) et motif exact (K.soft_reason). Aucune décision changée.
+      if libres == 0 then k.stats.soft = (k.stats.soft or 0) + 1 else k.stats.soft_nid = (k.stats.soft_nid or 0) + 1 end
     end
     if key and soft and not ex.soft_logged then
       ex.soft_logged = true
       local sx, sy = K.center(K.xy(key))
-      log(string.format("[FO-IA3F] %s : eclaireur %d : toute la frontiere est en region bloquee (%d), cible bloquee tentee en (%d, %d) a %.1f min",
-        team_label(f), a.id, #k.blocked, math.floor(sx), math.floor(sy), minutes(tick)))
+      log(string.format("[FO-IA3F] %s : eclaireur %d : %s (%d), cible bloquee tentee en (%d, %d) a %.1f min",
+        team_label(f), a.id, K.soft_reason(libres), #k.blocked, math.floor(sx), math.floor(sy), minutes(tick)))
     end
   end
   if not key then

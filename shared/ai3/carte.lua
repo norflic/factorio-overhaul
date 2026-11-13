@@ -105,6 +105,15 @@ function K.purge_ids(done, recs)
   return n
 end
 
+--- Sprint 40 (p50) : motif EXACT d'une cible prise dans l'exclusion douce (journal [FO-IA3F], aucune décision ne le lit). `rejected` :
+--- nombre de cibles LIBRES (hors région bloquée) écartées juste avant parce que le trajet passait près d'un nid ou d'un ver vu.
+--- Zéro : toute la frontière à portée est bien en région bloquée. Sinon l'ancienne ligne mentait : il restait de la frontière libre.
+function K.soft_reason(rejected)
+  if (rejected or 0) <= 0 then return "toute la frontiere est en region bloquee" end
+  return string.format("%d cible(s) libre(s) ecartee(s) pour trajet pres d'un nid ou d'un ver vu, le reste de la frontiere est en region bloquee",
+    rejected)
+end
+
 --- Tick du dernier regard sur le secteur, ou nil (jamais vu).
 function K.seen(m, key)
   local s = m.s[key]
