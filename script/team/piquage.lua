@@ -43,6 +43,7 @@ Piquage.EMPTY_RETRY = 3 * 3600 -- ... ou 3 min quand aucune tuile n'est suivie (
 Piquage.ROUTE_WEIGHT = 1.4 -- A* pondéré de la branche : au plus 1,4 fois le meilleur tracé, bien moins de noeuds
 Piquage.ROUTE_NODES = 300  -- noeuds développés au plus par recherche (~870 instructions chacun mesurées : ~0,26 million, test « pire cas borné »)
 Piquage.ROUTE_SLICE = 200  -- lot PIQUAGE-COUT : états développés au plus par pensée (tracé par tranches, ctx.phase_slice de Tv.route ; phase B ~1 100 instructions par état)
+Piquage.DISC_QUOTA = 3     -- découvertes au plus par relevé (inchangé : l'ancien « 3 » écrit dans finish_cycle)
 Piquage.SPLIT_TRIES = 3    -- poses du répartiteur au plus par liaison
 Piquage.EVAL_MAX = 3       -- quais évalués (lecture des côtés libres) au plus par relevé
 
@@ -555,6 +556,18 @@ local function linked_by_liaison(b, key)
   return ln and ln.links and ln.links[key] ~= nil
 end
 
+--- Tour de découverte : parmi les quais DUS (`dus` = liste { key, last } dans l'ordre du débit ; last = tick de la dernière découverte, nil = jamais),
+--- les `quota` plus anciens d'abord (jamais découvert avant tout, puis l'ordre reçu). Rend l'ensemble { [key] = true }. Sans cela les quais de tête,
+--- dus de nouveau toutes les EMPTY_RETRY, prenaient tous les créneaux et les quais suivants n'étaient jamais découverts.
+function Piquage.discover_turn(dus, quota)
+  local list = {}
+  for i, x in ipairs(dus) do list[i] = { key = x.key, last = x.last or -math.huge, i = i } end
+  table.sort(list, function(a, c2) if a.last ~= c2.last then return a.last < c2.last end return a.i < c2.i end)
+  local out = {}
+  for i = 1, math.min(quota, #list) do out[list[i].key] = true end
+  return out
+end
+
 local function finish_cycle(api, f, surface, b, st, c, tick)
   follow_links(api, f, surface, b, st, tick)
   local piques, linked = 0, 0
@@ -587,15 +600,21 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   local split = nil
   local evals, asked = 0, false
   local seen_now = {}
+  -- découverte (bornée : au plus Piquage.DISC_QUOTA par passage, les quais dus les plus anciens d'abord)
+  local dus = {}
   for _, d in ipairs(order) do
-    -- découverte et relevé (bornés : au plus 3 découvertes par passage)
     local tr = st.track[d.key]
     if not tr or (#tr.order < Piquage.MAX_TRACK and tick - (st.disc[d.key] or -Piquage.DISC_EVERY) >= (st.disc_every or (#tr.order == 0 and Piquage.EMPTY_RETRY or Piquage.DISC_EVERY))) then
-      if (c.discovered or 0) < 3 then
-        c.discovered = (c.discovered or 0) + 1
-        discover(f, surface, st, d, tick)
-      end
-    else
+      dus[#dus + 1] = { key = d.key, last = st.disc[d.key] }
+    end
+  end
+  local turn = Piquage.discover_turn(dus, Piquage.DISC_QUOTA)
+  for _, d in ipairs(order) do
+    -- un quai hors tour est relevé (dû mais hors quota, il n'était ni découvert ni relevé)
+    local tr
+    if turn[d.key] then
+      discover(f, surface, st, d, tick)
+    elseif st.track[d.key] then
       observe_tracks(f, surface, st, d)
     end
     tr = st.track[d.key]

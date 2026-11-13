@@ -540,5 +540,30 @@ check(state_block ~= nil and not state_block:find("function%s*%("), "6.7 l'état
 check(not code_s:find("os%.clock") and not code_s:find("math%.random") and not code_s:find("math%.sin"), "6.8 ni horloge mesurée, ni hasard, ni trigonométrie")
 check(not code_s:find("global") , "6.9 le script ne nomme pas global")
 
+-- §7 (s40 p7) tour de découverte : les quais dus les plus anciens d'abord, jamais les mêmes quais de tête
+do
+  local dus = {}
+  for i = 1, 5 do dus[i] = { key = "q" .. i, last = 100 } end
+  dus[4].last = nil; dus[5].last = 50
+  local t = Piquage.discover_turn(dus, 3)
+  check(t.q4 and t.q5 and t.q1 and not t.q2 and not t.q3, "7.1 jamais decouvert, puis le plus ancien, puis l'ordre du debit")
+  local n = 0
+  for _ in pairs(Piquage.discover_turn(dus, 9)) do n = n + 1 end
+  check(n == 5, "7.2 quota plus grand que la liste : tous")
+  check(next(Piquage.discover_turn({}, 3)) == nil, "7.3 aucun quai du : tour vide")
+  -- 20 quais toujours dus (aucun tapis) : en 7 passages chacun est decouvert au moins une fois
+  local last, seen = {}, {}
+  for pass = 1, 7 do
+    local l = {}
+    for i = 1, 20 do l[i] = { key = "k" .. i, last = last["k" .. i] } end
+    for _, k in ipairs({ "k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12", "k13", "k14", "k15", "k16", "k17", "k18", "k19", "k20" }) do
+      if Piquage.discover_turn(l, 3)[k] then last[k] = pass; seen[k] = true end
+    end
+  end
+  local all = true
+  for i = 1, 20 do if not seen["k" .. i] then all = false end end
+  check(all, "7.4 vingt quais dus : aucun n'est affame")
+end
+
 print(string.format("[PIQUAGE-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
