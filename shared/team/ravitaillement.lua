@@ -23,6 +23,12 @@
     Rv.pause_until(a)                tournee FUTILE (des bruleurs restent bas et rien n'a ete pose) : tick avant lequel l'avant-poste
                                      n'est plus signale « a court de combustible » (pas de nouvelle tournee de ravitaillement) ; nil sinon.
     Rv.paused(until_tick, tick)      la pause court-elle encore ?
+    Rv.field_burners(prev, rows)     lot COMBUSTIBLE (13/11) : fours d'un CHAMP (bandes du plan directeur) a ravitailler a la main par la
+                                     tournee de leur avant-poste : ceux vus A SEC au releve, et ceux deja ravitailles a la main tant qu'ils
+                                     sont debout. Mesure (v0.7.93, 4 graines, 120 min) : scarlet 271828182, 45 fours de champ sur 47 a sec de
+                                     50 a 120 min avec 381 a 406 charbons au coffre du QG ; amber 314159265, 16 sur 16 de 35 a 90 min, QG
+                                     perdu. Le reseau du charbon de la bande (projet lie, tout-ou-rien) attend des tapis que seul le fer de
+                                     ces fours paierait (gardes croisees) ; aucune tournee ne les comptait (Outposts.burners).
   Determinisme : aucune table parcourue par pairs, aucun temps mesure.
 ]]
 
@@ -75,6 +81,25 @@ end
 function Rv.paused(until_tick, tick)
   if type(until_tick) ~= "number" or type(tick) ~= "number" then return false end
   return num(tick) < until_tick
+end
+
+--- Lot COMBUSTIBLE : fours d'un champ que la tournee de leur avant-poste ravitaille a la main. `rows` = fours a bruleur du champ debout au
+--- releve, dans l'ordre du plan : { { id = numero d'unite, dry = vrai si le four est a l'arret faute de combustible } } ; `prev` = { [id] = vrai }
+--- des fours deja ravitailles a la main. Rend la liste des id gardes, dans l'ordre de `rows`, sans doublon : un four a sec entre, un four deja
+--- entre reste tant qu'il est debout (sa voie de charbon le tient au-dessus du seuil bas quand elle marche : aucune tournee n'en nait), un four
+--- absent du releve (detruit, demonte) sort.
+function Rv.field_burners(prev, rows)
+  local keep, seen = {}, {}
+  if type(prev) ~= "table" then prev = {} end
+  if type(rows) ~= "table" then rows = {} end
+  for i = 1, #rows do
+    local r = rows[i]
+    if type(r) == "table" and r.id ~= nil and not seen[r.id] and (r.dry == true or prev[r.id] == true) then
+      seen[r.id] = true
+      keep[#keep + 1] = r.id
+    end
+  end
+  return keep
 end
 
 return Rv

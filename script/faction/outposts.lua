@@ -872,6 +872,9 @@ function Outposts.burners(o)
   -- Lot FOREUSES : une foreuse électrique de l'avant-poste (remplacement sur place) ne brûle rien : ni ravitaillement ni « manque de charbon ».
   for _, d in ipairs(valid_list(o.drill_list)) do if d.burner then list[#list + 1] = d end end
   for _, s in ipairs(valid_list(o.sinks)) do if s.type == "furnace" then list[#list + 1] = s end end
+  -- Lot COMBUSTIBLE : fours du CHAMP de cet avant-poste vus à sec (o.champ_burners, écrit par le seul Champ.report, règle Rv.field_burners) : la
+  -- tournée les ravitaille comme ses fours thermiques, tant que leur réseau du charbon ne les tient pas (nil avant le premier relevé).
+  for _, s in ipairs(valid_list(o.champ_burners)) do list[#list + 1] = s end
   return list
 end
 

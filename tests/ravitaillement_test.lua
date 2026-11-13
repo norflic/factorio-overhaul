@@ -56,6 +56,21 @@ local function suite(Rv)
   c("pause : court jusqu'a l'echeance exclue", Rv.paused(4600, 4599) == true and Rv.paused(4600, 4600) == false)
   c("pause : absente (nil) -> ne court pas, tick absent -> traite comme 0", Rv.paused(nil, 10) == false and Rv.paused(5, nil) == false)
   c("pause : 60 secondes (3600 ticks)", Rv.FUTILE_PAUSE == 3600)
+  -- §3 ter (lot COMBUSTIBLE) fours d'un champ ravitailles a la main : un four a sec entre, un four entre reste tant qu'il est debout
+  local function ids(prev, rows) return table.concat(Rv.field_burners(prev, rows), ",") end
+  c("champ : amber 314159265, 16 fours tous a sec, aucun connu -> les 16, dans l'ordre du plan", (function()
+    local rows = {}
+    for i = 16, 1, -1 do rows[#rows + 1] = { id = 100 + i, dry = true } end
+    return ids({}, rows) == "116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101"
+  end)())
+  c("champ : un four qui tourne et jamais vu a sec n'entre pas", ids({}, { { id = 1, dry = false }, { id = 2, dry = true } }) == "2")
+  c("champ : un four deja ravitaille a la main reste, meme plein (sa voie ne le tient pas encore)",
+    ids({ [1] = true }, { { id = 1, dry = false }, { id = 2, dry = false } }) == "1")
+  c("champ : un four connu absent du releve (detruit) sort", ids({ [1] = true, [9] = true }, { { id = 1, dry = false } }) == "1")
+  c("champ : un four releve deux fois n'est compte qu'une fois", ids({}, { { id = 4, dry = true }, { id = 4, dry = true } }) == "4")
+  c("champ : aucun four, liste absente ou illisible -> liste vide, jamais d'erreur",
+    ids({}, {}) == "" and ids(nil, nil) == "" and ids("x", "y") == "" and ids({}, { "x", { dry = true } }) == "")
+  c("champ : dry doit valoir vrai (un etat illisible n'est pas a sec)", ids({}, { { id = 1, dry = "non" }, { id = 2 } }) == "")
   return res
 end
 
@@ -90,6 +105,17 @@ do
   check("cablage : status ne signale plus le manque pendant la pause d'une tournee futile",
     op:find("if low and Rv.paused(o.futile_until, tick) then low = false end", 1, true) ~= nil
     and op:find("o.futile_until = Rv.pause_until({ low_after = short, placed = placed, tick = tick })", 1, true) ~= nil)
+  -- lot COMBUSTIBLE : fours du champ a sec dans la liste des bruleurs de leur avant-poste ; un seul ecrivain (le releve des champs)
+  local cp = read("script/team/champ.lua")
+  local function count(text, pat) local n, i = 0, 1 while true do local a, b = text:find(pat, i, true) if not a then return n end n, i = n + 1, b + 1 end end
+  check("cablage : la liste des bruleurs d'un avant-poste lit les fours de son champ vus a sec",
+    op:find("for _, s in ipairs(valid_list(o.champ_burners)) do list[#list + 1] = s end", 1, true) ~= nil)
+  check("cablage : le releve des champs ecrit la liste par la regle, pour chaque avant-poste, avant toute sortie",
+    cp:find("for _, id in ipairs(Rv.field_burners(prev, fo and fo.rows or {})) do list[#list + 1] = fo.ents[id] end", 1, true) ~= nil
+    and cp:find("  Champ.field_burners(f, fours, tick)\n  if #ids == 0 then return end", 1, true) ~= nil)
+  check("cablage : un four entre au releve par son etat « sans combustible », seulement s'il a un bruleur",
+    cp:find("if ent.burner and ent.unit_number then", 1, true) ~= nil and cp:find("dry = s == S.no_fuel }", 1, true) ~= nil)
+  check("cablage : un seul ecrivain de o.champ_burners", count(cp, "o.champ_burners = ") == 1 and count(op, "o.champ_burners = ") == 0)
   check("cablage : l'acte de service passe la force et le stock du combustible",
     wk:find('{ key = f.key or "player", stock = function() return Stock.count(f, T.fuel) end }', 1, true) ~= nil)
 end
@@ -128,6 +154,11 @@ mutant("pause jamais", "if num(a.low_after) > 0 and num(a.placed) <= 0 then retu
 mutant("pause eternelle", "return num(tick) < until_tick", "return true")
 mutant("pause d'une seconde", "Rv.FUTILE_PAUSE = 3600", "Rv.FUTILE_PAUSE = 60")
 mutant("rang nul ecrit", "if n <= 0 then return false end", "")
+mutant("champ : four a sec jamais pris", "(r.dry == true or prev[r.id] == true)", "(prev[r.id] == true)")
+mutant("champ : four connu oublie des qu'il a du combustible", "(r.dry == true or prev[r.id] == true)", "(r.dry == true)")
+mutant("champ : tous les fours pris", "(r.dry == true or prev[r.id] == true)", "true")
+mutant("champ : doublons gardes", "not seen[r.id] and ", "")
+mutant("champ : fours connus gardes sans releve", "for i = 1, #rows do", "for id in next, prev do keep[#keep + 1] = id end for i = 1, #rows do")
 
 print(string.format("[RAVITAILLEMENT] BILAN : %d OK, %d ECHEC(S)", ok_n, bad))
 os.exit(bad == 0 and 0 or 1)

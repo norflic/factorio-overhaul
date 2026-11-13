@@ -23,6 +23,7 @@ local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
 local Cd = require("shared.team.champ_dedupe") -- lot COMBUSTIBLE-MIGRATION : une pièce n'est écartée que si le détenteur de sa tuile porte la même (règle pure)
+local Rv = require("shared.team.ravitaillement") -- lot COMBUSTIBLE : fours du champ ravitaillés à la main (Rv.field_burners)
 local Ln = require("shared.team.champ_lien") -- revue-fonderie (point 7) : lecteur des projets liés du réseau du charbon
 local LB = require("script.team.ligne_bande") -- lot RACCORD-BANDE 2 : ligne de poteaux d'une bande lointaine
 local Ra = require("shared.team.champ_raccord") -- lot FONDERIE : tous les poteaux d'une bande rejoignent le réseau alimenté
@@ -32,6 +33,7 @@ local Db = require("shared.team.debit")
 local Paires = require("shared.team.pose_paires")
 local State = require("script.faction.state")
 local Build = require("script.team.build")
+local Stock = require("script.team.stock") -- lot COMBUSTIBLE : combustible au coffre du QG, au journal [FO-CHAMP-COMBUSTIBLE]
 local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
@@ -1050,6 +1052,33 @@ function Champ.links_step(f, tick)
   return nc, nr
 end
 
+--- Lot COMBUSTIBLE : seul écrivain de o.champ_burners (lu par Outposts.burners : état, besoin et tournée de l'avant-poste). `fours` = fours à
+--- brûleur des bandes relevés par Champ.report, par champ. Un four à sec entre dans la liste de son avant-poste, il y reste tant qu'il est debout
+--- (Rv.field_burners). Un champ sans avant-poste (gisement de la capitalisation, f.migration.fields) n'a pas de tournée : compté au journal.
+function Champ.field_burners(f, fours, tick)
+  local parts, orphans = {}, 0
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local o = f.outposts[oid]
+    local fo = fours[oid]
+    local prev = {}
+    for _, e in ipairs(o.champ_burners or {}) do if e.valid then prev[e.unit_number] = true end end
+    local list, dry = {}, 0
+    for _, r in ipairs(fo and fo.rows or {}) do if r.dry then dry = dry + 1 end end
+    for _, id in ipairs(Rv.field_burners(prev, fo and fo.rows or {})) do list[#list + 1] = fo.ents[id] end
+    o.champ_burners = list
+    if #list > 0 then parts[#parts + 1] = string.format("avant-poste %s (%s) %d four(s) dont %d a sec", tostring(oid), tostring(o.kind), #list, dry) end
+  end
+  for _, oid in ipairs(sorted_keys(fours)) do
+    if not f.outposts[oid] then
+      for _, r in ipairs(fours[oid].rows) do if r.dry then orphans = orphans + 1 end end
+    end
+  end
+  if #parts > 0 or orphans > 0 then
+    log(string.format("[FO-CHAMP-COMBUSTIBLE] %s min %.0f | fours de champ ravitailles a la main : %s ; fours a sec d'un champ sans avant-poste (aucune tournee) %d ; %s au coffre du QG %d",
+      f.key or "player", tick / 3600, #parts > 0 and table.concat(parts, ", ") or "aucun", orphans, T.fuel, Stock.count(f, T.fuel)))
+  end
+end
+
 function Champ.report(f, surface, tick)
   local b = f.build
   if not b then return end
@@ -1076,6 +1105,7 @@ function Champ.report(f, surface, tick)
   local S = defines.entity_status
   local tapis_on, nopow_logs = Champ.tapis(), 0
   local vlogs = 0 -- lot COMBUSTIBLE-MIGRATION : lignes [FO-CHAMP-VOIE] de ce relevé
+  local fours = {} -- lot COMBUSTIBLE : fours à brûleur debout par champ { [oid] = { rows = { { id, dry } }, ents = { [id] = entité } } }
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and p.spec and p.spec.champ then
@@ -1119,6 +1149,12 @@ function Champ.report(f, surface, tick)
               fu.n = fu.n + 1
               pd.fn = pd.fn + 1
               if s == S.no_fuel then pd.fnofuel = pd.fnofuel + 1 end
+              if ent.burner and ent.unit_number then -- lot COMBUSTIBLE : un four à brûleur du champ, à sec ou non (règle Rv.field_burners)
+                local fo = fours[p.spec.champ.oid]
+                if not fo then fo = { rows = {}, ents = {} }; fours[p.spec.champ.oid] = fo end
+                fo.rows[#fo.rows + 1] = { id = ent.unit_number, dry = s == S.no_fuel }
+                fo.ents[ent.unit_number] = ent
+              end
               if s == S.working then fu.run = fu.run + 1 elseif s == S.no_ingredients then fu.noin = fu.noin + 1; pd.noin = pd.noin + 1
               elseif s == S.no_fuel then fu.nofuel = fu.nofuel + 1 elseif s == S.full_output then fu.full = fu.full + 1 end
             end
@@ -1222,6 +1258,7 @@ function Champ.report(f, surface, tick)
       end
     end
   end
+  Champ.field_burners(f, fours, tick)
   if #ids == 0 then return end
   log(string.format("[FO-COUPLAGE] %s min %.0f | bandes a foreuses sans four ni coffre de sortie %d (finies %d), foreuses %d dont figees %d%s",
     f.key or "player", tick / 3600, cds.n, cds.fini, cds.d, cds.stuck, #cds.ids > 0 and (" : " .. table.concat(cds.ids, ", ")) or ""))
