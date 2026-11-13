@@ -447,6 +447,17 @@ function Ind.vivants(blocs)
   return out
 end
 
+--- s40 p20 : memo des refus dits ({ [objet] = cause }) ramene aux objets ENCORE refuses (refus : liste { item, why }). Avant, une entree ne
+--- partait jamais : un refus leve puis revenu avec la meme cause n'etait plus ecrit au journal, et la table ne faisait que grandir.
+function Ind.refus_purge(memo, refus)
+  local now = {}
+  for _, r in ipairs(refus or {}) do now[r.item] = true end
+  for _, k in ipairs(sorted_keys(memo)) do
+    if not now[k] then memo[k] = nil end
+  end
+  return memo
+end
+
 function Ind.think(f, cs, res, view, book, tick)
   if not Rsv.on() then return nil end
   local lec = lecture()
@@ -524,6 +535,7 @@ function Ind.think(f, cs, res, view, book, tick)
   if sig ~= st.sig then
     st.sig = sig
     say(f, tick, sig)
+    Ind.refus_purge(st.refus, out.refus) -- s40 p20 : un refus disparu est oublie (il sera redit s'il revient)
     for _, r in ipairs(out.refus) do
       if st.refus[r.item] ~= r.why then
         st.refus[r.item] = r.why

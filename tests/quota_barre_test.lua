@@ -117,5 +117,14 @@ do
   check(#Ind.vivants({}) == 0 and #Ind.vivants({ b }) == 0, "s40 p19 : liste vide, liste de morts")
 end
 
+-- s40 p20 : le mémo des refus dits ne garde que les objets encore refusés
+do
+  local memo = { a = "x", b = "y", c = "z" }
+  Ind.refus_purge(memo, { { item = "b", why = "y" } })
+  check(memo.a == nil and memo.b == "y" and memo.c == nil, "s40 p20 : refus disparus oubliés, refus présent gardé avec sa cause")
+  Ind.refus_purge(memo, nil)
+  check(next(memo) == nil, "s40 p20 : plus aucun refus : mémo vide")
+end
+
 print(string.format("[QUOTA-BARRE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
