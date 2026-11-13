@@ -705,15 +705,34 @@ def segment_v3(lot, M, stage):
     lot.put(M["struct"], G.loft([sect(x, r * 0.97, 8, 0.2, rot=G.TAU / 16) for x in (x0, x1)], True, True))
     for xa, xb in ((-2.55, -0.1), (-0.05, 2.45)):
         bande(lot, M, xa, xb, r, lip=1.1, mat="blind2")
-    rotule(lot, M, -DEMI, r)
-    rotule(lot, M, DEMI, r)
-    for xa, xb in ((-2.75, 0.05), (-0.15, 2.75)):
-        V3.carapace(lot, M["blind"], xa, xb, r * RC, Z, ouv=1.6, ep=0.55, lip=1.1, n=6, sy=1.12)
-    echine_v3(lot, M, -2.4, 2.4, lambda x: r, stage, pointes=((-1.2, 1.3) if stage >= 2 else ()))
-    anneau_magnetique(lot, M, -0.05, r * RC + 0.55, stage, bras=4)
+    for xj in (-DEMI, DEMI):
+        # rotule du segment en acier SOMBRE strié (struct + trois côtes claires) : vue dans l'axe (d0, d8) la sphère brillante d'un ton
+        # moyen faisait tomber le contraste ; même sphère, même rayon (aucun jour aux joints)
+        lot.put(M["struct"], G.sphere((xj, 0.0, Z), r * 1.02, 16, 8))
+        for k in (-1, 0, 1):
+            lot.put(M["canon"], G.oriente(anneau((0.0, 0.0, 0.0), "z", math.sqrt((r * 1.02) ** 2 - (0.75 * k) ** 2) - 0.03, 0.1, 0.07), (xj + k * 0.75, 0.0, Z), (1.0, 0.0, 0.0)))
+    # QA tour 3 (contraste 0,33 aux stades 1-2 : « coques en sphères lisses sans plaques ») : TROIS plaques comme la queue (une marche
+    # d'ombre de plus), joints sombres creusés entre elles, plaques latérales d'acier clair (canon) posées sur chaque coque, pointes
+    # d'échine dès le stade 1 (mesuré : d0-d2 0,28 -> 0,31 avec des plaques sombres seules ; il fallait aussi des valeurs CLAIRES)
+    plaques = ((-2.75, -0.8), (-1.0, 0.95), (0.75, 2.75))
+    for i, (xa, xb) in enumerate(plaques):
+        # plaque du milieu en acier CLAIR (canon), les deux autres sombres : rythme de blindage bicolore le long du corps (mesuré : avec
+        # trois coques sombres le contraste restait 0,30-0,34 aux stades 1-2, il faut une grande surface claire)
+        V3.carapace(lot, M["canon" if i == 1 else "blind"], xa, xb, r * RC, Z, ouv=1.6, ep=0.55, lip=1.12, n=6, sy=1.12)
+        xm = 0.5 * (xa + xb) - 0.1
+        for s_ in (-1, 1):
+            a = s_ * 0.98
+            rr = r * RC * 1.1
+            p = (xm, rr * 1.12 * math.sin(a), Z + rr * math.cos(a))
+            lot.put(M["canon"], plaque(p, G.norm((0.0, 1.12 * math.sin(a), math.cos(a))), 1.25, 1.5, 0.22, up=(1.0, 0.0, 0.0), coins=0.7))
+    for xs in (-0.9, 0.85):
+        rr = r * RC * 1.04
+        lot.put(M["struct"], G.tube([(xs, 1.12 * rr * math.sin(a), Z + rr * math.cos(a)) for a in [-1.6 + 3.2 * i / 12.0 for i in range(13)]], 0.17, 6))
+    echine_v3(lot, M, -2.4, 2.4, lambda x: r, stage, pointes=((-1.9, -0.05, 1.85) if stage >= 2 else (-1.0, 1.0)))
+    anneau_magnetique(lot, M, -0.9, r * RC + 0.55, stage, bras=4)
     couronne_ventrale(lot, M, 0.0, 3.5)
     flanc_v3(lot, M, 1.25, r)
-    flanc_v3(lot, M, -1.35, r, rv=0.8)
+    flanc_v3(lot, M, -1.85, r, rv=0.8)
 
 
 def queue_v3(lot, M, stage):
