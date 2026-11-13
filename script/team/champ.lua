@@ -186,6 +186,7 @@ function Champ.data(f, kind)
   local fp = game.entity_prototypes[spec.sink]
   if fp and fp.type == "furnace" then
     local rec = game.recipe_prototypes[spec.product]
+    names.plate = rec and rec.products and rec.products[1] and rec.products[1].name or nil -- s41 sortie-bus : objet porté par la ligne de plaques
     local per = 1
     for _, ing in ipairs(rec and rec.ingredients or {}) do if ing.name == spec.resource then per = ing.amount end end
     if not (rec and rec.energy and rec.energy > 0) then return nil, "recette du four" end
@@ -602,6 +603,7 @@ end
 --- Entités nommées d'un plan (bande seule) : ents { name, x, y, dir, role }, quais, outs, emprise { tuiles }.
 local function named(plan, names, coal_side, exclude)
   local ents, quais, outs = {}, {}, {}
+  local piq = {} -- s41 sortie-bus : tuiles de trop-plein de la ligne de plaques (au-delà du quai), sources de piquage déclarées
   local design = plan.design
   for _, e in ipairs(plan.ents) do
     local name
@@ -638,10 +640,11 @@ local function named(plan, names, coal_side, exclude)
       ents[#ents + 1] = ent
       if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel, flow = e.need } end -- lot FONDERIE-BLOC : débit du quai
       if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end
+      if e.piq and e.kind == "tapis" and names.plate then piq[#piq + 1] = { x = math.floor(e.x), y = math.floor(e.y), item = names.plate } end
     end
     ::continue::
   end
-  return ents, quais, outs
+  return ents, quais, outs, piq
 end
 
 --- La bande `pr` seule : { ents, quais, outs, tiles (liste plate de son emprise), plan } ou nil, raison.
@@ -681,7 +684,7 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
     defer = Sa.split(own, shared, Champ.CFG.band_max)
     if #defer > 0 then exclude = {}; for _, sd in ipairs(defer) do exclude[sd] = true end end
   end
-  local ents, quais, outs = named(plan, names, coal_side, exclude)
+  local ents, quais, outs, piq = named(plan, names, coal_side, exclude)
   if coal_side and #ents == 0 then return nil, "reseau du charbon vide" end
   -- lot COMBUSTIBLE-MIGRATION : pièces du réseau du charbon REPORTÉ dans des projets liés (pas encore planifiés) : leurs tuiles, retenues par Build.SITES.champ
   local deferred_tiles = {}
@@ -692,7 +695,7 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
   end
   local tiles = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do tiles[#tiles + 1] = t[1]; tiles[#tiles + 1] = t[2] end end
-  return { ents = ents, quais = quais, outs = outs, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer, deferred_tiles = deferred_tiles }
+  return { ents = ents, quais = quais, outs = outs, piquable = piq, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer, deferred_tiles = deferred_tiles }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1003,7 +1006,7 @@ Build.SITES.champ = function(f, surface, p, h)
     o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu")
     .. (comps and string.format(" (%d composante(s) de poteaux, toutes jointes au reseau alimente)", comps) or ""))
   return { key = "champ:" .. o.id .. ":" .. (cs.coal and ("charbon" .. cs.coal) or cs.pr), box = { x0, y0, x1, y1 }, ents = ents, quais = bd.quais,
-    outs = bd.outs, masks = masks }
+    outs = bd.outs, masks = masks, piquable = bd.piquable }
 end
 
 ---------------------------------------------------------------------------------------------------

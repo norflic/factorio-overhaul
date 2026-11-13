@@ -50,6 +50,7 @@ Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. 
                        -- tout au coffre de tête. Ce qui faisait attendre les bandes au lot3 était le charbon à 320 tuiles posé par la bande.)
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
+Co.EXT = 3             -- (s41 sortie-bus) tuiles de trop-plein au-delà du quai : le moins qui donne deux tuiles avec un tapis derrière et devant
 Co.COAL_MARGIN = 1.25  -- la ligne extrait au moins 1,25 × le charbon brûlé (banc fonderie-banc, 3/11)
 -- (banc-2, 3/11, mesuré colonne par colonne) une ligne au plus juste laisse les DERNIÈRES colonnes du tronc sans charbon tant que les
 -- dérivations d'amont prennent plus que leur besoin pour remplir leurs voies : la ligne couvre donc ce que les dérivations PEUVENT
@@ -98,7 +99,7 @@ function Co.is_facing(i) return i % 2 == ((Co.SF < 0) and 0 or 1) end
 --- Entités de la demi-colonne { kind, u, v, size, du, dv, role }, longueur et info { far, head_pole, need, plates, bay, mode }.
 --- mode : "voie" (charbon par tapis depuis le tronc), "coffre" (coffre de tête), nil pour un four électrique. half : Co.half (demi-colonne
 --- d'en face : fours du côté -Co.SF, minerai décalé de half.jog depuis le collecteur b, tête une colonne plus loin), ou nil.
-function Co.layout(spec, b, side, s_edge, count, mode, half)
+function Co.layout(spec, b, side, s_edge, count, mode, half, ext)
   local f = spec.furnace
   local sf = (half and half.mirror) and -Co.SF or Co.SF
   local fs, R = f.size, spec.pole.reach
@@ -201,6 +202,15 @@ function Co.layout(spec, b, side, s_edge, count, mode, half)
   end
   for cc = c0, last_unit do put("tapis", cc, b_ob, 1, side, 0, "sortie") end
   local far = last_unit
+  -- s41 sortie-bus : trop-plein du quai. `ext` tuiles droites de la ligne de plaques au-delà du dernier bras du quai : elles ne se
+  -- remplissent que les coffres pleins (surplus vrai). `piq` : tuile avec un tapis derrière ET devant (source de piquage déclarée)
+  if ext and ext > 0 then
+    for cc = last_unit + 1, last_unit + ext do
+      put("tapis", cc, b_ob, 1, side, 0, "sortie")
+      ents[#ents].piq = (cc < last_unit + ext) or nil
+    end
+    far = last_unit + ext
+  end
   local head_pole
   -- poteau de liaison de tête, col 0 de la rangée du charbon (libre dans tous les modes) : la rangée de poteaux de la bande du côté
   -- opposé aux fours le rejoint (sans lui, ses foreuses n'ont de courant que par les relais du plan ENTIER, jamais posés bande par bande)
@@ -214,7 +224,7 @@ function Co.layout(spec, b, side, s_edge, count, mode, half)
     for cc = h + 2, far do put("tapis", cc, b_coal, 1, -side, 0, "charbon") end
   end
   local info = { far = far, head_pole = head_pole or 0, need = count * Co.fuel_rate(f), plates = plates, bay = K, mode = fuel and mode or nil,
-    b_coal = b_coal, b_link = b_ins }
+    b_coal = b_coal, b_link = b_ins, ext = (ext and ext > 0) and ext or nil }
   return ents, far + 1, info
 end
 
@@ -243,14 +253,20 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     return out
   end
   if fixed then
-    local list, len, info = Co.layout(spec, b, side, fixed.s_edge, fixed.count, mode, half)
+    -- s41 sortie-bus : le cadre figé rejoue SA forme (fixed.ext ; cadres d'avant le lot : sans trop-plein, plan inchangé)
+    local list, len, info = Co.layout(spec, b, side, fixed.s_edge, fixed.count, mode, half, fixed.ext)
     if list and fits(fixed.s_edge, list) then return own(list), len, fixed.s_edge, fixed.count, info end
     return nil
   end
   for t = 0, shift do
     local s_edge = edge + side * (gap + 1 + t)
     local list, len, info = Co.layout(spec, b, side, s_edge, count, mode, half)
-    if list and fits(s_edge, list) then return own(list), len, s_edge, count, info end
+    if list and fits(s_edge, list) then
+      -- s41 sortie-bus : même place qu'avant le lot ; le trop-plein ne s'ajoute que si ses tuiles tiennent aussi (sinon plan identique)
+      local l2, len2, info2 = Co.layout(spec, b, side, s_edge, count, mode, half, Co.EXT)
+      if l2 and fits(s_edge, l2) then return own(l2), len2, s_edge, count, info2 end
+      return own(list), len, s_edge, count, info
+    end
   end
   return nil
 end
