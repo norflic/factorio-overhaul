@@ -150,14 +150,33 @@ local function boxes_of(p)
   return out
 end
 
---- Lot s42 TUYAUX (règle des 5 cases) : la pièce SOUTERRAINE d'une conduite, trouvée par TYPE (jamais par nom) : un prototype
---- posable, non caché, dont la boîte à fluide a un raccord de surface et un raccord souterrain (max_underground_distance, la
---- portée). Préférée : même boîte que le tuyau de surface (hauteur, niveau, aire), puis la plus longue portée, puis le nom.
+--- Lot s42 TUYAUX (règle des 5 cases) : la pièce SOUTERRAINE d'une conduite, trouvée par TYPE de prototype (jamais par nom) : une
+--- entité d'une tuile, posable, non cachée, dont l'unique boîte à fluide a un raccord de surface et un raccord souterrain
+--- (max_underground_distance, la portée). Préférée : même boîte que le tuyau de surface (hauteur, niveau, aire), puis la plus longue portée, puis le nom.
 --- Rend { name, item, reach, open = { [direction] = {dx, dy} } (tuile du raccord de surface) } ou nil.
-function under_of(pipe)
-  local pfb = pipe and (get(pipe, "fluidbox_prototypes") or {})[1]
+function under_of(tube)
+  local pfb = tube and (get(tube, "fluidbox_prototypes") or {})[1]
   local best
-  local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = "pipe-to-ground" } })
+  -- le TYPE du moteur est celui des prototypes dont la boîte à fluide porte un raccord souterrain : relevé une fois, par structure
+  -- (aucun nom, aucun type écrit ici) ; un seul type est gardé, celui du premier prototype trouvé par ordre de nom
+  local protos, utype = {}, nil
+  local all = {}
+  for name in pairs(game.entity_prototypes) do all[#all + 1] = name end
+  table.sort(all)
+  for _, name in ipairs(all) do
+    local p = game.entity_prototypes[name]
+    local w, h = size_of(p)
+    if w == 1 and h == 1 and (utype == nil or p.type == utype) then
+      local fbs = get(p, "fluidbox_prototypes") or {}
+      local deep = false
+      if #fbs == 1 then
+        for _, pc in ipairs(get(fbs[1], "pipe_connections") or {}) do
+          if (pc.max_underground_distance or 0) > 0 then deep = true end
+        end
+      end
+      if deep then utype = utype or p.type; protos[name] = p end
+    end
+  end
   local names = {}
   for name in pairs(protos) do names[#names + 1] = name end
   table.sort(names)

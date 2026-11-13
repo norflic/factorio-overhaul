@@ -220,7 +220,7 @@ do
   check(fl:find("Tu.plan(s.tube, s.rsv, req.under, N)", 1, true) ~= nil, "fluides : l'extension enterre ses conduites droites")
   check(fl:find("Tu.buried(ents, rel.entities)", 1, true) ~= nil, "fluides : ext_net relit les paires posees")
   local pet = read("script/ai3/petrole.lua")
-  check(pet:find('filter = "type", type = "pipe-to-ground"', 1, true) ~= nil, "petrole : piece souterraine trouvee par type")
+  check(pet:find("utype == nil or p.type == utype", 1, true) ~= nil and not pet:find('"pipe-to-ground"', 1, true), "petrole : piece souterraine trouvee par type")
   check(pet:find("max_underground_distance", 1, true) ~= nil, "petrole : portee lue au prototype")
   check(pet:find("req.under = fz.under or nil", 1, true) ~= nil, "petrole : piece gelee avec le plan")
   check(pet:find("for _, t in ipairs(buried) do L0[Fl.tkey(t.x, t.y)] = nil end", 1, true) ~= nil, "petrole : la rangee ne se pique pas sur une paire posee")
