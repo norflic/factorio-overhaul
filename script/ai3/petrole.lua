@@ -1043,9 +1043,14 @@ local function freeze_rangee(f, surface, p, h)
   if not (base and base.ents) then return nil, "site de base absent" end
   local mod, why = Rf.analyze(rel, base.ents, { quais = base.quais, outs = base.outs })
   if not mod then return nil, "module non copiable : " .. tostring(why) end
-  local L0, conn0 = Rf.world0(rel, ext_ents(b, spec.projects))
-  -- lot s42 TUYAUX : une paire souterraine posée (extension du champ) n'est ni un point de piquage ni une place libre : étiquette à part
-  for _, t in ipairs(Tu.buried(ext_ents(b, spec.projects), rel.entities)) do L0[Fl.tkey(t.x, t.y)] = "souterrain" end
+  -- lot s42 TUYAUX : les paires souterraines posées (extension du champ) portent leur fluide : l'étiquetage les traverse (tuiles
+  -- LOGIQUES, sinon un tuyau de brut isolé derrière une paire serait lu « interne ») ; puis leurs tuiles sortent du relevé : un bout
+  -- ne se raccorde que par sa face ouverte (déjà prise par sa conduite), le milieu ne porte rien : ni piquage, ni contact.
+  local site_ents = ext_ents(b, spec.projects)
+  local buried = Tu.buried(site_ents, rel.entities)
+  for _, t in ipairs(buried) do site_ents[#site_ents + 1] = { name = D.PIPE, x = t.x + 0.5, y = t.y + 0.5, dir = 0, role = "tuyau" } end
+  local L0, conn0 = Rf.world0(rel, site_ents)
+  for _, t in ipairs(buried) do L0[Fl.tkey(t.x, t.y)] = nil end
   -- relevé : l'emprise du module, élargie le long de l'axe de toute la rangée voulue et de la hauteur des bus de l'autre côté
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
   for _, t in ipairs(mod.tiles) do

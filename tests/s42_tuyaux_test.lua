@@ -223,7 +223,8 @@ do
   check(pet:find('filter = "type", type = "pipe-to-ground"', 1, true) ~= nil, "petrole : piece souterraine trouvee par type")
   check(pet:find("max_underground_distance", 1, true) ~= nil, "petrole : portee lue au prototype")
   check(pet:find("req.under = fz.under or nil", 1, true) ~= nil, "petrole : piece gelee avec le plan")
-  check(pet:find('L0[Fl.tkey(t.x, t.y)] = "souterrain"', 1, true) ~= nil, "petrole : la rangee n'utilise pas une paire posee")
+  check(pet:find("for _, t in ipairs(buried) do L0[Fl.tkey(t.x, t.y)] = nil end", 1, true) ~= nil, "petrole : la rangee ne se pique pas sur une paire posee")
+  check(pet:find("local L0, conn0 = Rf.world0(rel, site_ents)", 1, true) ~= nil, "petrole : etiquetage a travers les paires")
   local bl = read("script/team/build.lua")
   check(bl:find("for _, t in ipairs(lay.sous or {})", 1, true) ~= nil, "build : sol au-dessus des paires retenu au plan")
 end
