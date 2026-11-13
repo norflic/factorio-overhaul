@@ -43,8 +43,36 @@ check(S:find("st.evald[d.key], evaluated[d.key] = tick, true", 1, true) ~= nil, 
 check(S:find("Pq.seen_lost(k, seen_now, evaluated)", 1, true) ~= nil, "la confirmation ne se perd que pour un quai évalué")
 check(S:find('{ "track", "disc", "evald" }', 1, true) ~= nil, "les dates d'évaluation sont purgées avec le quai")
 
--- 5. scénarios de crise déclarés (fichiers du banc)
-for _, n in ipairs({ "scen-blackout" }) do
+-- 5. déclaration du blackout au format déclaratif, et jugement sur des relevés fictifs
+local F = require("shared.scenarios.format")
+local B = require("shared.scenarios.blackout_centrale")
+check(F.valider(B) == nil, "blackout_centrale valide au format (" .. tostring(F.valider(B)) .. ")")
+check(F.ACTIONS.assecher_centrale == true, "action assecher_centrale connue du format")
+local bad = { nom = "x", duree_min = 3, description = { fr = "a", en = "b" }, mise_en_scene = { { minute = 1, action = "assecher_centrale", tapis_coupes = 1.5 } },
+  theorie = { { id = "a", predicat = { type = "seuil", champ = "c", minute = 1, op = ">=", valeur = 0 } } } }
+check(F.valider(bad) ~= nil, "tapis_coupes non entier refusé")
+local function rel(sat_after, dry_after)
+  local r = {}
+  for m = 1, B.duree_min do
+    if m < 25 then r[m] = { elec_sat = 0.98, elec_kw = 900, chaudieres_a_sec = 0 }
+    elseif m == 25 then r[m] = { elec_sat = 0.1, elec_kw = 0, chaudieres_a_sec = 2 }
+    else r[m] = { elec_sat = sat_after(m), elec_kw = 500, chaudieres_a_sec = dry_after(m) } end
+  end
+  return r
+end
+local function verdicts(r)
+  local out = {}
+  for _, att in ipairs(B.theorie) do out[att.id] = F.juger(att.predicat, r) end
+  return out
+end
+local good = verdicts(rel(function(m) return m >= 28 and 0.97 or 0.3 end, function(m) return m >= 27 and 0 or 2 end))
+check(good["centrale-en-marche"] == "OK" and good["coupe-posee"] == "OK" and good["chaudieres-rallumees"] == "OK"
+  and good["satisfaction-revenue"] == "OK" and good["satisfaction-tenue"] == "OK", "retour en 3 min : tous les attendus OK")
+local badv = verdicts(rel(function() return 0.2 end, function() return 2 end))
+check(badv["satisfaction-revenue"] == "ECHEC" and badv["chaudieres-rallumees"] == "ECHEC", "aucun retour : ECHEC")
+
+-- 6. scénarios de crise déclarés (fichiers du banc)
+for _, n in ipairs({ "scen-blackout", "scen-blackout-centrale", "scen-bus-goulot" }) do
   local ok = io.open("tools/autotest/fo-autotest/scenarios/" .. n .. ".lua", "rb")
   check(ok ~= nil, "scénario " .. n .. " présent")
   if ok then ok:close() end
