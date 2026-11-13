@@ -561,4 +561,15 @@ function S.pole_item(list)
   return nil
 end
 
+--- s40 champ p3 : clés échues de la table des nouveaux essais (`retry` : { [clé] = tick avant lequel la place n'est pas relevée }). Une entrée
+--- dont le tick est <= `tick` ne retient plus rien (le relevé lit `t0 < retry[clé]`) : elle peut être retirée. Rend la liste TRIÉE des clés.
+function S.retry_expired(retry, tick)
+  local out = {}
+  for k, v in pairs(retry or {}) do
+    if type(v) ~= "number" or v <= tick then out[#out + 1] = k end
+  end
+  table.sort(out, function(a, b) return tostring(a) < tostring(b) end)
+  return out
+end
+
 return S

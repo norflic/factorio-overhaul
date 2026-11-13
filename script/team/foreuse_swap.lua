@@ -917,6 +917,9 @@ function Swap.think(f, surface, book, free, tick)
   end
   if tick < st.next then return 0 end
   st.next = tick + T.swap.every
+  -- s40 champ p3 : les nouveaux essais échus sortent de la table (une entrée par place de foreuse refusée, jamais retirée avant : global
+  -- grossissait toute la partie) ; le relevé ne lit que `t0 < retry[clé]` : mêmes décisions
+  if st.retry then for _, k in ipairs(S.retry_expired(st.retry, tick)) do st.retry[k] = nil end end
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
   -- Stock LIBRE seulement : ce que le plan directeur a reserve (registre) n'est pas pris.
