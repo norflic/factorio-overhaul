@@ -71,6 +71,49 @@ local function sorted_keys(t)
 end
 K.sorted_keys = sorted_keys
 
+--- Sprint 40 (p48) : nombre d'entrées par type (`rec.kind`, « ? » sans type) d'une table { [id] = rec }. Un comptage ne dépend pas de
+--- l'ordre du parcours : aucune liste triée n'est allouée (la mesure des bancs le refaisait à chaque passe de l'œil).
+function K.kind_counts(recs)
+  local n = {}
+  for _, rec in pairs(recs or {}) do
+    local kind = rec.kind or "?"
+    n[kind] = (n[kind] or 0) + 1
+  end
+  return n
+end
+
+--- Sprint 40 (p48) : identifiants de `recs` absents de `done`, TRIÉS (seuls les nouveaux sont triés, pas toute la table à chaque passe).
+function K.new_ids(done, recs)
+  local out = {}
+  for id in pairs(recs or {}) do
+    if not done[id] then out[#out + 1] = id end
+  end
+  if #out > 1 then table.sort(out) end
+  return out
+end
+
+--- Sprint 40 (p49) : retire de `done` ({ [id] = true }) les identifiants absents de `recs` ; rend le nombre retiré. Effacer un champ
+--- existant pendant un parcours est permis par Lua ; le résultat (un ensemble) ne dépend pas de l'ordre.
+function K.purge_ids(done, recs)
+  local n = 0
+  for id in pairs(done) do
+    if not (recs and recs[id]) then
+      done[id] = nil
+      n = n + 1
+    end
+  end
+  return n
+end
+
+--- Sprint 40 (p50) : motif EXACT d'une cible prise dans l'exclusion douce (journal [FO-IA3F], aucune décision ne le lit). `rejected` :
+--- nombre de cibles LIBRES (hors région bloquée) écartées juste avant parce que le trajet passait près d'un nid ou d'un ver vu.
+--- Zéro : toute la frontière à portée est bien en région bloquée. Sinon l'ancienne ligne mentait : il restait de la frontière libre.
+function K.soft_reason(rejected)
+  if (rejected or 0) <= 0 then return "toute la frontiere est en region bloquee" end
+  return string.format("%d cible(s) libre(s) ecartee(s) pour trajet pres d'un nid ou d'un ver vu, le reste de la frontiere est en region bloquee",
+    rejected)
+end
+
 --- Tick du dernier regard sur le secteur, ou nil (jamais vu).
 function K.seen(m, key)
   local s = m.s[key]
@@ -404,7 +447,9 @@ end
 --- Frontière : secteurs NON VUS voisins (8-connexité) d'un secteur vu, triés par clé.
 function K.frontier(m)
   local out, added = {}, {}
-  for _, k in ipairs(sorted_keys(m.s)) do
+  -- Sprint 40 (p46) : parcours sans tri préalable : `out` est un ENSEMBLE (added) trié juste après, donc la sortie ne dépend pas de
+  -- l'ordre du parcours ; le tri de toutes les clés vues (des milliers en fin de partie) ne servait à rien.
+  for k in pairs(m.s) do
     local sx, sy = A.xy(k)
     for dy = -1, 1 do
       for dx = -1, 1 do
@@ -461,11 +506,14 @@ function K.best_target(m, ctx)
   local best, bs, sbest, sbs
   local maxd = ctx.max_dist or K.MAX_DIST
   local spawn = ctx.spawn or { x = 0, y = 0 }
-  for _, k in ipairs(K.frontier(m)) do
-    if not (ctx.exclude and ctx.exclude[k]) then
-      local cx, cy = A.center(A.xy(k))
-      local dh = math.sqrt((cx - ctx.hq.x) ^ 2 + (cy - ctx.hq.y) ^ 2)
-      if dh <= maxd then
+  -- Sprint 40 (p46) : ctx.frontier = frontière déjà calculée par l'appelant pour CETTE carte inchangée (essais successifs d'un même choix).
+  for _, k in ipairs(ctx.frontier or K.frontier(m)) do
+    -- Sprint 40 (p47) : la distance d'abord (deux multiplications), l'exclusion ensuite : `exclude` peut être une table calculée à la
+    -- demande (régions bloquées, nids vus, autres éclaireurs) ; lecture pure, donc même résultat, sans la payer hors de portée.
+    local cx, cy = A.center(A.xy(k))
+    local dh = math.sqrt((cx - ctx.hq.x) ^ 2 + (cy - ctx.hq.y) ^ 2)
+    if dh <= maxd then
+      if not (ctx.exclude and ctx.exclude[k]) then
         local risk = K.sector_risk(m, k, ctx.tick, ctx.rivals)
         if risk < K.DANGER.skip then
           local me = ctx.me or ctx.hq

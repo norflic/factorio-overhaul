@@ -256,5 +256,79 @@ do
   check(K.blocked_near(b, 3096, 0, 940, 128, 1000) and not K.blocked_near(b, 300, 0, 940, 128, 1000), "l'entrée oubliée ne bloque plus")
 end
 
+-- Sprint 40 (p46) : la frontière ne dépend pas de l'ordre d'insertion des secteurs, et une frontière fournie (ctx.frontier) rend la
+-- même cible que la frontière recalculée.
+do
+  local a, b = K.new(), K.new()
+  local list = {}
+  for sy = -3, 3 do for sx = -3, 3 do if (sx * 7 + sy * 3) % 5 ~= 0 then list[#list + 1] = key(sx, sy) end end end
+  for i = 1, #list do K.record(a, list[i], 0, {}) end
+  for i = #list, 1, -1 do K.record(b, list[i], 0, {}) end
+  local fa, fb = K.frontier(a), K.frontier(b)
+  local same = #fa == #fb
+  for i = 1, #fa do if fa[i] ~= fb[i] then same = false end end
+  check(same and #fa > 0, "p46 : frontière identique quel que soit l'ordre d'insertion")
+  for i = 2, #fa do check(fa[i - 1] < fa[i], "p46 : frontière triée, sans doublon") end
+  local hq = { x = 32, y = 32 }
+  local k0, s0 = K.best_target(a, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 } })
+  local k1, s1 = K.best_target(a, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, frontier = fa })
+  check(k0 ~= nil and k0 == k1 and s0 == s1, "p46 : frontière fournie = même cible, même note")
+end
+
+-- Sprint 40 (p47) : l'exclusion (possiblement calculée à la demande) n'est lue que pour les secteurs à portée ; même cible.
+do
+  local m = K.new()
+  for sy = -2, 2 do for sx = -2, 2 do K.record(m, key(sx, sy), 0, {}) end end
+  local hq = { x = 32, y = 32 }
+  local ref = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 } })
+  local function lazy(banned)
+    local n = { reads = 0 }
+    return setmetatable({}, { __index = function(_, k) n.reads = n.reads + 1; if k == banned then return true end return nil end }), n
+  end
+  local e1, n1 = lazy(ref)
+  local k_all = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, exclude = e1 })
+  local plain = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, exclude = { [ref] = true } })
+  check(k_all ~= nil and k_all ~= ref and k_all == plain, "p47 : exclusion calculée = même cible que l'exclusion en table")
+  check(n1.reads == #K.frontier(m), "p47 : toute la frontière à portée est lue (" .. n1.reads .. ")")
+  local e2, n2 = lazy(ref)
+  check(K.best_target(m, { hq = hq, me = hq, tick = 0, max_dist = 100, exclude = e2 }) == nil and n2.reads == 0,
+    "p47 : hors de portée, l'exclusion n'est jamais lue (" .. n2.reads .. ")")
+end
+
+-- Sprint 40 (p48) : comptage par type et identifiants nouveaux, sans dépendre de l'ordre d'insertion.
+do
+  local a = { [7] = { kind = "fer" }, [2] = { kind = "cuivre" }, [9] = { kind = "fer" }, [4] = {} }
+  local b = {}
+  b[4] = a[4]; b[9] = a[9]; b[2] = a[2]; b[7] = a[7]
+  local na, nb = K.kind_counts(a), K.kind_counts(b)
+  check(na.fer == 2 and na.cuivre == 1 and na["?"] == 1 and nb.fer == 2 and nb.cuivre == 1 and nb["?"] == 1, "p48 : comptes par type")
+  check(next(K.kind_counts(nil)) == nil and #K.new_ids({}, nil) == 0, "p48 : table absente = rien")
+  local ia, ib = K.new_ids({ [2] = true }, a), K.new_ids({ [2] = true }, b)
+  check(#ia == 3 and ia[1] == 4 and ia[2] == 7 and ia[3] == 9 and table.concat(ia, ",") == table.concat(ib, ","),
+    "p48 : identifiants nouveaux triés (" .. table.concat(ia, ",") .. ")")
+  check(#K.new_ids({ [2] = true, [4] = true, [7] = true, [9] = true }, a) == 0, "p48 : tout contrôlé = liste vide")
+end
+
+-- Sprint 40 (p49) : la table des identifiants contrôlés ne garde que les vivants.
+do
+  local done = { [1] = true, [2] = true, [3] = true, [8] = true }
+  local recs = { [2] = {}, [8] = {}, [9] = {} }
+  check(K.purge_ids(done, recs) == 2 and done[1] == nil and done[3] == nil and done[2] and done[8] and done[9] == nil,
+    "p49 : identifiants disparus retirés, vivants gardés, aucun ajouté")
+  check(K.purge_ids(done, recs) == 0, "p49 : deuxième purge sans effet")
+  check(#K.new_ids(done, recs) == 1 and K.new_ids(done, recs)[1] == 9, "p49 : un vivant déjà contrôlé n'est pas recontrôlé")
+  check(K.purge_ids(done, nil) == 2 and next(done) == nil, "p49 : plus aucun avant-poste = table vide")
+end
+
+-- Sprint 40 (p50) : le journal ne dit « toute la frontière bloquée » que si aucune cible libre n'a été écartée.
+do
+  check(K.soft_reason(0) == "toute la frontiere est en region bloquee" and K.soft_reason(nil) == K.soft_reason(0),
+    "p50 : aucune cible libre écartée = ancienne ligne, mot pour mot")
+  local r = K.soft_reason(2)
+  check(r:find("2 cible(s) libre(s) ecartee(s)", 1, true) ~= nil and r:find("toute la frontiere", 1, true) == nil,
+    "p50 : cibles libres écartées = la ligne ne dit plus « toute la frontière » (" .. r .. ")")
+  check(not r:find("[\128-\255]"), "p50 : ligne sans accent, comme le reste du journal")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

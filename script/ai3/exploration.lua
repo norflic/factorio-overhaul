@@ -549,21 +549,23 @@ local function make_exclude(k, tick, ex, no_blocked)
     end
   end
   local badt = k.badt or {}
+  -- Sprint 40 (p47) : rayon et durée des régions bloquées lus UNE fois (ils ne dépendent que de #k.blocked, fixe pendant ce choix),
+  -- et un seul centre par clé (il était recalculé pour les autres éclaireurs).
+  local use_blocked = not no_blocked and k.blocked ~= nil and #k.blocked > 0
+  local br, bttl
+  if use_blocked then br, bttl = block_params(k) end
   return setmetatable({}, { __index = function(_, key)
     if ex and ex.bad[key] then return true end
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
     local bx, by = K.center(K.xy(key))
-    if not no_blocked and k.blocked and #k.blocked > 0 and K.blocked_near(k.blocked, bx, by, tick, block_params(k)) then return true end
+    if use_blocked and K.blocked_near(k.blocked, bx, by, tick, br, bttl) then return true end
     -- Lot EXPLO (moteur réel, 28/10 : votre équipe, 29 fuites sur 44 départs, 5 fois au même nid) : un secteur à portée de fuite
     -- d'un nid ou d'un ver VU est écarté (l'éclaireur y fuirait de toute façon à FLEE_RADIUS).
     local nests, worms = K.enemies_near(k.m, bx, by, FLEE_RADIUS)
     if nests + worms > 0 then return true end
-    if #others > 0 then
-      local cx, cy = K.center(K.xy(key))
-      for _, o in ipairs(others) do
-        if (cx - o.x) ^ 2 + (cy - o.y) ^ 2 < SPREAD * SPREAD then return true end
-      end
+    for _, o in ipairs(others) do
+      if (bx - o.x) ^ 2 + (by - o.y) ^ 2 < SPREAD * SPREAD then return true end
     end
     return nil
   end })
@@ -573,9 +575,10 @@ end
 --- K.best_target ne la viole que si toutes les autres cibles sont exclues (table locale, jamais rangée dans global).
 local function make_soft(k, tick)
   if not (k.blocked and #k.blocked > 0) then return nil end
+  local br, bttl = block_params(k) -- sprint 40 (p47) : lus une fois par choix
   return setmetatable({}, { __index = function(_, key)
     local bx, by = K.center(K.xy(key))
-    if K.blocked_near(k.blocked, bx, by, tick, block_params(k)) then return true end
+    if K.blocked_near(k.blocked, bx, by, tick, br, bttl) then return true end
     return nil
   end })
 end
@@ -605,23 +608,28 @@ local function retarget(f, k, a, ex, tick)
     -- Lot FIX-P2 : une cible dont le trajet depuis l'éclaireur passe près d'un nid ou d'un ver vu est écartée (comme la veille).
     local excl = make_exclude(k, tick, ex, true)
     local tctx = { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
-      rivals = rivals(f, surface), exclude = excl, soft = make_soft(k, tick) }
+      rivals = rivals(f, surface), exclude = excl, soft = make_soft(k, tick),
+      frontier = K.frontier(k.m) } -- sprint 40 (p46) : une seule frontière pour les 4 essais (la carte ne change pas entre eux)
+    local libres = 0 -- sprint 40 (p50) : cibles LIBRES écartées par K.scout_ok (trajet près d'un nid ou d'un ver vu)
     for _try = 1, 4 do
       key, _note, soft = K.best_target(k.m, tctx)
       if not key or K.scout_ok(k.m, me, key) then break end
+      if not soft then libres = libres + 1 end
       rawset(excl, key, true)
       key, soft = nil, nil
     end
     if key and soft then
       -- Lot IA3F-PETROLE : toute la frontière non vue est dans des régions bloquées ; avant, la mission finissait « rien » et la
       -- demande passait pour épuisée (10 min sans éclaireur) alors que rien n'avait été vu. Journal : une ligne par mission.
-      k.stats.soft = (k.stats.soft or 0) + 1
+      -- Sprint 40 (p50) : ce compteur et la ligne annonçaient « toute la frontière bloquée » même quand des cibles libres venaient
+      -- d'être écartées pour un nid sur le trajet : compte à part (soft_nid) et motif exact (K.soft_reason). Aucune décision changée.
+      if libres == 0 then k.stats.soft = (k.stats.soft or 0) + 1 else k.stats.soft_nid = (k.stats.soft_nid or 0) + 1 end
     end
     if key and soft and not ex.soft_logged then
       ex.soft_logged = true
       local sx, sy = K.center(K.xy(key))
-      log(string.format("[FO-IA3F] %s : eclaireur %d : toute la frontiere est en region bloquee (%d), cible bloquee tentee en (%d, %d) a %.1f min",
-        team_label(f), a.id, #k.blocked, math.floor(sx), math.floor(sy), minutes(tick)))
+      log(string.format("[FO-IA3F] %s : eclaireur %d : %s (%d), cible bloquee tentee en (%d, %d) a %.1f min",
+        team_label(f), a.id, K.soft_reason(libres), #k.blocked, math.floor(sx), math.floor(sy), minutes(tick)))
     end
   end
   if not key then
@@ -913,8 +921,9 @@ local function next_request(k, tick)
 end
 
 local function audit(f, k, tick)
-  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
-    if not k.audit.outposts[oid] then
+  -- Sprint 40 (p48) : seuls les avant-postes pas encore contrôlés sont listés et triés (même ordre de contrôle qu'avant).
+  for _, oid in ipairs(K.new_ids(k.audit.outposts, f.outposts)) do
+    do
       k.audit.outposts[oid] = true
       local p = f.outposts[oid].pos
       if K.seen_xy(k.m, p.x, p.y) then
@@ -926,6 +935,13 @@ local function audit(f, k, tick)
       end
     end
   end
+  -- Sprint 40 (p49) : un avant-poste disparu (perdu, adopté, ruine) laissait son entrée à vie dans la sauvegarde. Les identifiants ne
+  -- sont jamais réattribués (f.next_oid ne fait que monter) : la purge ne change aucun contrôle. Une fois par minute et par équipe
+  -- (tick de jeu, déterministe ; f.outposts_count n'est pas tenu par tous les retraits, il ne sert donc pas de garde).
+  if tick >= (k.audit.purge_at or 0) then
+    k.audit.purge_at = tick + 3600
+    K.purge_ids(k.audit.outposts, f.outposts)
+  end
 end
 
 --- Mesures des bancs (avec ET sans brouillard : avant / après sur la même source) : date du n-ième avant-poste de chaque
@@ -936,11 +952,7 @@ local function measure(f, tick)
     mm = { out = {}, site = {} }
     f.ai3m = mm
   end
-  local n = {}
-  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
-    local kind = f.outposts[oid].kind or "?"
-    n[kind] = (n[kind] or 0) + 1
-  end
+  local n = K.kind_counts(f.outposts) -- sprint 40 (p48) : comptage sans liste triée des avant-postes
   for _, kind in ipairs(sorted_keys(n)) do
     local list = mm.out[kind] or {}
     mm.out[kind] = list
