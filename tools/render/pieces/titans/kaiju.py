@@ -1,12 +1,13 @@
-"""KAIJU CRISTALLIN LOURD, titan ENNEMI (lot TITANS, 9/11) : reptile colossal cyber-organique, quadrupède, épines dorsales de
-cristal bleu, gueule-canon (vortex cyan dans la mâchoire), plaques de blindage sombres iridescentes sur le dos, conduits lumineux
-le long des flancs, deux anneaux magnétiques flottants au garrot.
+"""KAIJU CRISTALLIN, titan ENNEMI. Refonte s43 (13/11, pilier D) : silhouette TITANESQUE (15 tuiles au garrot cristaux compris, 27 du
+museau au bout de la queue), corps de basalte sombre et massif sur quatre pattes en colonnes, blindage dorsal iridescent, et surtout des
+GRAPPES de cristaux réfractifs : chaque cristal est une coque de verre bleu glacier (transmission, IOR du verre) qui enferme un NOYAU
+émissif (couche de lueur) ; des fissures lumineuses courent de la base des grappes sur les flancs. Gueule-canon (vortex) et couronne de
+cristaux sur le crâne. Les anneaux magnétiques flottants de la version du 9/11 sont retirés (ils brouillaient la silhouette).
 
 Modèle paramétrique low-poly (kit des géants, geo.py) ANIMÉ : `build(S, lot, u, attaque=None)` construit la pose du cycle de course
-u dans [0, 1[ (trot : pattes en diagonale), ou de l'attaque (la tête s'abaisse, la gueule s'ouvre, le vortex grossit). Le rendu
-tourne le modèle sur 8 directions (batch_titans.py, comme serie_blender.py des souches). Repère LOCAL : +x = avant (tête),
-+y = gauche, +z = haut ; origine = sous le centre du corps, au sol. Longueur environ 24 tuiles du museau au bout de la queue,
-6,5 tuiles au garrot (un `unit` : boîte de collision plafonnée, l'image déborde comme les écraseurs).
+u dans [0, 1[ (trot lourd : pattes en diagonale), ou de l'attaque (la tête plonge, la gueule s'ouvre, le vortex grossit, les noyaux
+s'allument). Le rendu tourne le modèle sur 8 directions (batch_titans.py). Repère LOCAL : +x = avant (tête), +y = gauche, +z = haut ;
+origine = sous le centre du corps, au sol.
 """
 import math
 import os
@@ -21,16 +22,16 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
-from juggernaut import hexseg, pointe, plaque, anneau, rainure  # noqa: E402
+from juggernaut import hexseg, pointe, plaque  # noqa: E402
 
 PREFIX = "ka_"
 GRIS = os.environ.get("FO_GRIS", "") == "1"
 # Série (lue par batch_titans et feuilles_titans) : images par animation, densité du rendu (px par tuile), rayon au sol et hauteur
-# englobants (cadre fixe pour toutes les images et directions), portée du liseré de contact.
-SERIE = {"course": 8, "attaque": 4, "densite": 24.0, "R": 12.6, "zmax": 9.2}
-AO = 0.6
-GLOW_BLANC = True         # la lueur est rendue BLANCHE : le prototype la teinte par ère (les alliés gardent leurs couleurs)
-FOULEE = 2.0 * 1.3        # distance parcourue par cycle (unités) : amplitude du pas × 2 (distance_per_frame du prototype)
+# englobants (cadre fixe pour toutes les images et directions), sol du rendu.
+SERIE = {"course": 8, "attaque": 4, "densite": 24.0, "R": 14.5, "zmax": 15.5, "sol": 140.0}
+AO = 0.7
+GLOW_BLANC = True         # la lueur est rendue BLANCHE : le prototype la teinte par ère
+FOULEE = 2.0 * 1.4        # distance parcourue par cycle (unités) : amplitude du pas × 2 (distance_per_frame du prototype)
 
 
 def pas(u, amp, levee, appui=0.55):
@@ -65,173 +66,230 @@ def ellipse(c, w, h, n=10, rot=0.0):
     return ring
 
 
+# ------------------------------------------------------------------------------------------------ matières propres au Kaiju
+def matieres(S):
+    """Jeu commun des titans (titans_mat) + matières du Kaiju : basalte (peau), chair sombre, NOYAU émissif des cristaux (la coque
+    `cristal` est translucide : le noyau se voit au travers, réfracté), fissures lumineuses."""
+    M = TM.matieres(S, PREFIX, GRIS)
+    if GRIS:
+        M["noyau"] = M["conduit"]
+        M["fissure"] = M["conduit"]
+        return M
+    import mat as MT
+    M["peau"] = MT.surface(PREFIX + "basalte", (0.030, 0.034, 0.048), rough=0.62, met=0.10, tole=(0.6, 0.35), joint=0.3, joint_l=0.035,
+                           var=0.22, usure=0.25, nu=(0.20, 0.24, 0.34), crasse=0.6, crasse_col=(0.008, 0.009, 0.014), relief=1.0, graine=31)
+    M["chair"] = MT.surface(PREFIX + "chair2", (0.060, 0.040, 0.070), rough=0.66, met=0.05, usure=0.15, nu=(0.25, 0.18, 0.32),
+                            crasse=0.55, crasse_col=(0.01, 0.006, 0.014), graine=32)
+    M["ventre"] = MT.surface(PREFIX + "ventre", (0.085, 0.090, 0.110), rough=0.5, met=0.25, tole=(0.9, 0.35), joint=0.35, joint_l=0.03,
+                             var=0.1, usure=0.3, nu=(0.35, 0.38, 0.45), crasse=0.5, crasse_col=(0.01, 0.01, 0.015), relief=0.8, graine=33)
+    # QA s43 tour 2 : la coque des cristaux n'est plus émissive (elle était dans la lueur : crête en aplat blanc aux ères hautes, alpha
+    # 0,91) ; verre BLEU NUIT dans la couche principale, seule le NOYAU (fin) porte la lueur teintée par l'ère
+    # (émissif FAIBLE et transmissif : il reste dans la passe de lueur, où le noyau se voit au travers ; fo_glow_part 0,1 : un liseré)
+    verre = S.mat_emissive(PREFIX + "verre", (0.16, 0.46, 1.00), strength=0.6, base=(0.018, 0.045, 0.13), main_scale=0.15)
+    verre["fo_glow_part"] = 0.1
+    p = verre.node_tree.nodes.get("Principled BSDF")
+    if p is not None:
+        for k_, v_ in (("Transmission Weight", 0.6), ("IOR", 1.45), ("Coat Weight", 1.0), ("Coat Roughness", 0.03), ("Roughness", 0.06)):
+            if k_ in p.inputs:
+                p.inputs[k_].default_value = v_
+    TM.facettes(verre, cellules=2.6, stries=6.0, bosse=0.35, graine=5.0)
+    M["cristal"] = verre
+    M["noyau"] = S.mat_emissive(PREFIX + "noyau", (0.12, 0.55, 1.00), strength=4.0, base=(0.02, 0.12, 0.35), main_scale=0.2)
+    M["fissure"] = S.mat_emissive(PREFIX + "fissure", (0.20, 0.70, 1.00), strength=3.0, base=(0.04, 0.25, 0.40), main_scale=0.45)
+    return M
+
+
+def cristal(lot, M, base, d, L, r, noyau=True):
+    """Un cristal réfractif : coque de verre (`cristal`) et noyau émissif plus fin à l'intérieur (lueur)."""
+    lot.put(M["cristal"], pointe(base, d, L, r))
+    if noyau and L > 0.7:
+        lot.put(M["noyau"], pointe(G.add(base, G.mul(d, 0.1 * L)), d, L * 0.72, r * 0.3, 5))
+
+
+def grappe(lot, M, base, up, L, r, n, graine, ouvert=0.55):
+    """Grappe de cristaux : un grand au centre (direction `up`), n satellites plus courts écartés autour (angle doré : déterministe)."""
+    cristal(lot, M, base, up, L, r)
+    a0 = G.cross(up, (0.0, 0.0, 1.0) if abs(up[2]) < 0.9 else (1.0, 0.0, 0.0))
+    a0 = G.norm(a0)
+    b0 = G.norm(G.cross(up, a0))
+    for k in range(n):
+        ang = graine * 2.399 + k * G.TAU / n
+        lat = G.add(G.mul(a0, math.cos(ang)), G.mul(b0, math.sin(ang)))
+        dd = G.norm(G.add(up, G.mul(lat, ouvert + 0.15 * ((k * 7 + graine) % 3))))
+        kk = 0.42 + 0.14 * ((k * 5 + graine * 3) % 4)
+        cristal(lot, M, G.add(base, G.mul(lat, r * 0.9)), dd, L * kk, r * (0.55 + 0.1 * (k % 2)))
+
+
+# ------------------------------------------------------------------------------------------------ squelette
 def spine(u, bob):
     """Points de contrôle de la colonne (queue -> tête) pour la phase de course u ; `bob` : montée du corps."""
     z = bob
-    sw = 0.25 * math.sin(G.TAU * u)   # ondulation latérale de la queue
-    return [(-11.6, -sw * 2.2, 1.1), (-9.0, -sw * 1.4, 1.9 + z * 0.3), (-6.2, -sw * 0.6, 3.2 + z * 0.6), (-3.6, 0.0, 4.3 + z),
-            (0.0, 0.0, 4.9 + z), (3.4, 0.0, 4.7 + z), (5.6, 0.0, 5.1 + z)]
+    sw = 0.3 * math.sin(G.TAU * u)   # ondulation latérale de la queue
+    return [(-13.0, -sw * 2.4, 1.3), (-10.0, -sw * 1.6, 2.6 + z * 0.3), (-6.8, -sw * 0.7, 4.4 + z * 0.6), (-3.4, 0.0, 6.0 + z),
+            (0.0, 0.0, 6.7 + z), (3.2, 0.0, 6.8 + z), (5.6, 0.0, 6.6 + z)]
 
 
-def corps(lot, M, u, bob):
-    """Corps et queue : loft d'ellipses le long de la colonne (peau), plaques dorsales, épines de cristal, conduits de flanc."""
+def corps(lot, M, u, bob, eclat):
+    """Corps et queue : loft massif (basalte), écailles ventrales, blindage dorsal, grappes de cristaux, fissures lumineuses."""
     ctrl = spine(u, bob)
     pts = G.catmull(ctrl, 6)
     n = len(pts)
-    rings = []
-    prof = []
+    rings, prof = [], []
     for i, p in enumerate(pts):
         t = i / float(n - 1)
-        # rayons : queue fine, croupe large, poitrail large, cou plus fin
-        if t < 0.42:
-            w = 0.28 + (2.2 - 0.28) * (t / 0.42) ** 1.4
-            h = 0.25 + (1.9 - 0.25) * (t / 0.42) ** 1.4
-        elif t < 0.82:
-            k = (t - 0.42) / 0.40
-            w = 2.2 + 0.35 * math.sin(math.pi * k)
-            h = 1.9 + 0.4 * math.sin(math.pi * k)
-        else:
-            k = (t - 0.82) / 0.18
-            w = 2.2 - 1.0 * k
-            h = 2.0 - 0.8 * k
-        rings.append(ellipse(p, w, h, 10))
+        if t < 0.40:                         # queue : fine au bout, épaisse à la croupe
+            k = (t / 0.40) ** 1.25
+            w, h = 0.35 + (3.0 - 0.35) * k, 0.30 + (2.7 - 0.30) * k
+        elif t < 0.84:                       # tronc : croupe -> poitrail, bombé
+            k = (t - 0.40) / 0.44
+            w, h = 3.0 + 0.45 * math.sin(math.pi * k) + 0.25 * k, 2.7 + 0.5 * math.sin(math.pi * k) + 0.2 * k
+        else:                                # garrot -> cou épais
+            k = (t - 0.84) / 0.16
+            w, h = 3.25 - 1.2 * k, 3.0 - 1.0 * k
+        rings.append(ellipse((p[0], p[1], p[2] - 0.1 * h), w, h, 12))
         prof.append((p, w, h, t))
     lot.put(M["peau"], G.loft(rings, True, True))
-    # plaques dorsales angulaires (blindage sombre), une tous les ~1,1 unité du milieu de la queue au cou
-    for i in range(3, n - 2, 2):
+    # écailles ventrales claires (lisibles sous le corps, la nuit comme le jour)
+    for i in range(4, n - 2, 2):
         p, w, h, t = prof[i]
-        if t < 0.2:
+        d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
+        lot.put(M["ventre"], plaque((p[0], p[1], p[2] - h * 1.02), (0.0, 0.0, -1.0), w * 1.1, 1.2, 0.18, up=d, coins=0.7))
+    # blindage dorsal : grandes plaques imbriquées, et plaques de flanc
+    for i in range(3, n - 1, 2):
+        p, w, h, t = prof[i]
+        if t < 0.15:
             continue
-        d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
-        top = (p[0], p[1], p[2] + h * 0.92)
-        lot.put(M["blind"], plaque(top, (0.0, 0.0, 1.0), w * 1.1 + 0.3, 1.0, 0.22 + 0.1 * (t > 0.4), up=d, coins=0.7))
-        for s in (-1, 1):
-            flank = (p[0], p[1] + s * w * 0.78, p[2] + h * 0.55)
-            lot.put(M["blind2"], plaque(flank, G.norm((0.0, s * 0.8, 0.6)), 1.0, 0.9 + 0.5 * (t > 0.4), 0.2, up=d, coins=0.7))
-    # épines dorsales de cristal : grandes au garrot, petites sur la queue, inclinées vers l'arrière
-    for i in range(2, n - 3, 2):
-        p, w, h, t = prof[i]
-        L = 0.7 + 3.2 * math.sin(math.pi * min(1.0, max(0.0, (t - 0.1) / 0.85))) ** 1.3
-        if t > 0.5:
-            L *= 1.15
-        d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
-        up = G.norm((-0.55 * d[0], 0.0, 1.0))
-        lot.put(M["cristal"], pointe((p[0], p[1], p[2] + h * 0.95), up, L, 0.22 + 0.16 * L / 3.5))
-        if t > 0.45 and i % 4 == 2:
+        d = G.norm(G.sub(pts[min(n - 1, i + 1)], pts[i - 1]))
+        top = (p[0], p[1], p[2] + h * 0.86)
+        lot.put(M["blind"], plaque(top, G.norm((-0.25 * d[0], 0.0, 1.0)), w * 1.25 + 0.4, 1.6, 0.3 + 0.12 * (t > 0.4), up=d, coins=0.65))
+        if t > 0.35:
             for s in (-1, 1):
-                lot.put(M["cristal"], pointe((p[0] - 0.3, p[1] + s * w * 0.55, p[2] + h * 0.75), G.norm((-0.6, s * 0.7, 0.8)), L * 0.5, 0.2))
-    # conduits lumineux des flancs (du garrot à la croupe) et de la queue
-    for s in (-1, 1):
-        line = [(pts[i][0], pts[i][1] + s * prof[i][1] * 0.98, pts[i][2] + prof[i][2] * 0.1) for i in range(int(n * 0.3), int(n * 0.86), 2)]
-        lot.put(M["conduit"], G.tube(line, 0.12, 6))
-        line2 = [(pts[i][0], pts[i][1] + s * prof[i][1] * 0.9, pts[i][2] + prof[i][2] * 0.35) for i in range(2, int(n * 0.32), 2)]
-        lot.put(M["turq"], G.tube(line2, 0.09, 6))
-    # pointes d'os au bout de la queue (masse d'armes)
+                flank = (p[0], p[1] + s * w * 0.82, p[2] + h * 0.42)
+                lot.put(M["blind2"], plaque(flank, G.norm((0.0, s * 0.85, 0.5)), 1.5, 1.4, 0.26, up=d, coins=0.65))
+    # grappes de cristaux dorsales : la crête de la silhouette, géante au garrot et à la croupe
+    for j, i in enumerate(range(3, n - 2, 2)):
+        p, w, h, t = prof[i]
+        f = math.sin(math.pi * min(1.0, max(0.0, (t - 0.08) / 0.86))) ** 1.1
+        L = 1.0 + 4.6 * f + 0.8 * (t > 0.55)
+        d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
+        up = G.norm((-0.45 * d[0], 0.0, 1.0))
+        base = (p[0], p[1], p[2] + h * 0.93)
+        grappe(lot, M, base, up, L, 0.48 + 0.22 * L / 4.0, 2 if L > 2.5 else 1, j, ouvert=0.45)
+        # fissure lumineuse de la grappe sur les deux flancs (zigzag vers le bas)
+        if t > 0.3 and j % 2 == 0:
+            for s in (-1, 1):
+                z = [(p[0] + 0.15 * ((k % 2) * 2 - 1), p[1] + s * w * (0.5 + 0.45 * k / 4.0), p[2] + h * (0.85 - 0.55 * k / 4.0))
+                     for k in range(5)]
+                lot.put(M["fissure"], G.tube(z, 0.07 + 0.03 * eclat, 5))
+    # grappes d'épaules (au-dessus des pattes avant) et de hanches, ouvertes vers l'extérieur
+    for x, kz, LL, gg in ((3.4, 0.55, 3.4, 7), (-3.4, 0.5, 2.6, 11)):
+        i = min(range(n), key=lambda q: abs(pts[q][0] - x))
+        p, w, h, t = prof[i]
+        for s in (-1, 1):
+            grappe(lot, M, (p[0], p[1] + s * w * 0.62, p[2] + h * kz), G.norm((-0.2, s * 0.75, 0.8)), LL, 0.45, 2, gg + (s > 0))
+    # bout de queue : massue de cristal
     tip = pts[0]
-    for k in range(4):
-        a = G.TAU * k / 4
-        lot.put(M["os"], pointe((tip[0] + 0.6, tip[1], tip[2] + 0.1), G.norm((-0.6, 0.9 * math.cos(a), 0.9 * math.sin(a) + 0.3)), 1.1, 0.2, 5))
-    lot.put(M["cristal"], pointe((tip[0] + 0.2, tip[1], tip[2]), (-1.0, 0.0, 0.15), 1.6, 0.26))
+    grappe(lot, M, (tip[0] + 0.4, tip[1], tip[2] + 0.2), G.norm((-1.0, 0.0, 0.35)), 2.2, 0.32, 4, 5, ouvert=0.9)
     return pts, prof
 
 
 def patte(lot, M, hanche, pied0, u, avant, s):
-    """Une patte sprawlée (genou vers l'extérieur et l'avant pour les antérieures, l'arrière pour les postérieures) :
-    cuisse, tibia, pied à 3 griffes ; plaque d'épaule ; conduit à la cuisse. u : phase du pied."""
-    amp, levee = FOULEE / 2.0, 0.9
+    """Patte en colonne (pachyderme) : cuisse massive blindée, tibia épais, grand pied à quatre griffes, cristaux au coude."""
+    amp, levee = FOULEE / 2.0, 0.8
     dx, dz = pas(u, amp, levee)
     pied = (pied0[0] + dx, pied0[1], pied0[2] + dz)
-    l1, l2 = 3.1, 3.0
-    pole = G.norm((0.9 if avant else -0.9, s * 1.2, 0.35))
-    genou = ik2(hanche, pied, l1, l2, pole)
-    lot.put(M["chair"], G.sphere(hanche, 0.95, 10, 5))
-    lot.put(M["accent"], G.boite(G.add(hanche, (0.0, s * 0.85, 0.35)), (0.22, 0.14, 0.14)))
-    lot.put(M["peau"], hexseg(hanche, genou, 1.05, 0.7, 7, 0.2))
-    lot.put(M["chair"], G.sphere(genou, 0.62, 8, 4))
-    lot.put(M["peau"], hexseg(genou, pied, 0.62, 0.42, 7, 0.1))
-    lot.put(M["blind2"], plaque(G.add(G.lerp(hanche, genou, 0.45), (0.0, s * 0.9, 0.45)), G.norm((0.0, s * 0.9, 0.6)), 1.1, 1.8, 0.2,
-                                up=G.norm(G.sub(genou, hanche))))
-    lot.put(M["conduit"], hexseg(G.add(hanche, (0.3, s * 0.95, -0.3)), G.add(genou, (0.2, s * 0.6, 0.1)), 0.1, 0.09))
-    # pied : coussinet et 3 griffes vers l'avant, un ergot
-    lot.put(M["struct"], G.sphere((pied[0], pied[1], pied[2] + 0.25), 0.5, 8, 4))
-    for k, ay in enumerate((0.0, 0.7, -0.7)):
-        lot.put(M["os"], pointe((pied[0] + 0.3, pied[1] + ay * 0.4, pied[2] + 0.3), G.norm((1.0, ay * 0.8, -0.35)), 1.4 if k == 0 else 1.1, 0.25, 5))
-    lot.put(M["os"], pointe((pied[0] - 0.3, pied[1], pied[2] + 0.35), (-0.8, 0.0, -0.3), 0.8, 0.2, 5))
+    cheville = (pied[0], pied[1], pied[2] + 1.1)
+    l1, l2 = 3.0, 2.9
+    pole = G.norm((0.8 if avant else -0.8, s * 0.35, 0.0))
+    genou = ik2(hanche, cheville, l1, l2, pole)
+    lot.put(M["peau"], G.sphere(hanche, 1.55, 12, 6))
+    lot.put(M["peau"], hexseg(hanche, genou, 1.55, 1.1, 8, 0.2))
+    lot.put(M["chair"], G.sphere(genou, 1.0, 10, 5))
+    lot.put(M["peau"], hexseg(genou, cheville, 1.05, 0.9, 8, 0.1))
+    lot.put(M["blind"], plaque(G.add(G.lerp(hanche, genou, 0.4), (0.0, s * 1.35, 0.3)), G.norm((0.0, s * 0.9, 0.45)), 1.9, 2.6, 0.3,
+                               up=G.norm(G.sub(genou, hanche))))
+    lot.put(M["blind2"], plaque(G.add(genou, (0.75 if avant else -0.75, s * 0.4, 0.0)), G.norm((1.0 if avant else -1.0, s * 0.4, 0.2)),
+                                1.4, 1.6, 0.24, up=(0.0, 0.0, 1.0)))
+    cristal(lot, M, G.add(genou, (-0.3, s * 0.8, 0.4)), G.norm((-0.5, s * 0.8, 0.6)), 1.6, 0.26)
+    # pied : large coussinet (contact au sol) et quatre griffes, un ergot
+    lot.put(M["struct"], G.loft([ellipse((pied[0] - 0.9, pied[1], pied[2] + 0.05), 1.0, 0.25, 10),
+                                 ellipse((pied[0] + 0.1, pied[1], pied[2] + 0.55), 1.2, 0.6, 10),
+                                 ellipse((pied[0] + 0.6, pied[1], pied[2] + 1.1), 0.95, 0.5, 10)], True, True))
+    for k, ay in enumerate((-0.75, -0.25, 0.25, 0.75)):
+        lot.put(M["os"], pointe((pied[0] + 0.9, pied[1] + ay, pied[2] + 0.35), G.norm((1.0, ay * 0.5, -0.4)), 1.2 + 0.3 * (abs(ay) < 0.5), 0.26, 5))
+    lot.put(M["os"], pointe((pied[0] - 0.9, pied[1], pied[2] + 0.4), (-0.85, 0.0, -0.3), 0.9, 0.22, 5))
 
 
 def tete(lot, M, base, ouverture, charge):
-    """Tête : crâne anguleux en loft, mâchoire articulée (ouverture 0 à 1), gueule-canon (vortex, grossit avec la charge),
-    cornes de cristal, yeux lumineux, deux anneaux flottants au cou."""
+    """Tête massive : crâne anguleux en loft, arcade sourcilière, mâchoire articulée, gueule-canon (vortex), couronne de cristaux, yeux."""
     bx, by, bz = base
-    pitch = -0.25 * ouverture
+    pitch = -0.28 * ouverture
+    K = 1.35
+
     def P(x, y, z):
+        x, y, z = x * K, y * K, z * K
         return (bx + x * math.cos(pitch) - z * math.sin(pitch), by + y, bz + x * math.sin(pitch) + z * math.cos(pitch))
-    # cou
-    lot.put(M["chair"], G.loft([ellipse((bx - 1.6, by, bz - 0.3), 1.25, 1.1, 10), ellipse((bx - 0.2, by, bz), 1.1, 1.0, 10)], False, False))
+    # cou (raccord au corps)
+    lot.put(M["peau"], G.loft([ellipse((bx - 2.6, by, bz - 0.2), 2.0, 1.9, 12), ellipse((bx - 0.6, by, bz + 0.1), 1.6, 1.45, 12)], False, False))
+
     def sect(x, w, h, zc):
-        return [P(x, -w, zc - h * 0.6), P(x, -w * 0.75, zc + h * 0.7), P(x, 0.0, zc + h), P(x, w * 0.75, zc + h * 0.7), P(x, w, zc - h * 0.6),
+        return [P(x, -w, zc - h * 0.6), P(x, -w * 0.8, zc + h * 0.7), P(x, 0.0, zc + h), P(x, w * 0.8, zc + h * 0.7), P(x, w, zc - h * 0.6),
                 P(x, w * 0.5, zc - h * 0.75), P(x, -w * 0.5, zc - h * 0.75)]
-    lot.put(M["blind"], G.loft([sect(-0.4, 1.25, 1.0, 0.25), sect(1.2, 1.3, 1.05, 0.3), sect(2.6, 1.05, 0.8, 0.25), sect(3.9, 0.7, 0.45, 0.1),
-                                sect(4.5, 0.45, 0.22, 0.0)], True, True))
+    lot.put(M["blind"], G.loft([sect(-0.5, 1.3, 1.05, 0.25), sect(1.0, 1.35, 1.1, 0.35), sect(2.4, 1.1, 0.85, 0.25), sect(3.6, 0.75, 0.5, 0.1),
+                                sect(4.3, 0.5, 0.25, 0.0)], True, True))
+    # arcade sourcilière (plaques), yeux lumineux enfoncés dessous
+    for s in (-1, 1):
+        lot.put(M["blind2"], plaque(P(1.9, s * 0.95, 0.8), G.norm((0.3, s * 0.7, 0.7)), 1.6, 0.7, 0.2, up=(1.0, 0.0, 0.0), coins=0.6))
+        lot.put(M["noyau"], G.boite(P(2.0, s * 1.08, 0.5), (0.36 * K, 0.10 * K, 0.11 * K)))
     # mâchoire inférieure (pivot en x = 0,8) qui s'ouvre vers le bas
-    ang = 0.75 * ouverture
+    ang = 0.8 * ouverture
+
     def J(x, y, z):
         xx, zz = x - 0.8, z
         return P(0.8 + xx * math.cos(ang) + zz * math.sin(ang), y, -xx * math.sin(ang) + zz * math.cos(ang))
-    jaw = [[J(0.8, -1.0, -0.4), J(0.8, 1.0, -0.4), J(0.8, 0.7, -1.0), J(0.8, -0.7, -1.0)],
-           [J(2.6, -0.85, -0.5), J(2.6, 0.85, -0.5), J(2.6, 0.55, -0.95), J(2.6, -0.55, -0.95)],
-           [J(4.1, -0.45, -0.35), J(4.1, 0.45, -0.35), J(4.1, 0.3, -0.6), J(4.1, -0.3, -0.6)]]
+    jaw = [[J(0.8, -1.05, -0.4), J(0.8, 1.05, -0.4), J(0.8, 0.75, -1.05), J(0.8, -0.75, -1.05)],
+           [J(2.6, -0.9, -0.5), J(2.6, 0.9, -0.5), J(2.6, 0.6, -1.0), J(2.6, -0.6, -1.0)],
+           [J(4.1, -0.5, -0.35), J(4.1, 0.5, -0.35), J(4.1, 0.35, -0.62), J(4.1, -0.35, -0.62)]]
     lot.put(M["blind2"], G.loft(jaw, True, True))
-    # dents (os) sur les deux mâchoires
     for k in range(4):
         x = 1.4 + 0.75 * k
         for s in (-1, 1):
-            lot.put(M["os"], pointe(P(x, s * (0.85 - 0.12 * k), -0.45), (0.0, 0.0, -1.0), 0.55, 0.13, 4))
-            lot.put(M["os"], pointe(J(x, s * (0.75 - 0.1 * k), -0.5), (0.0, 0.0, 1.0), 0.45, 0.12, 4))
+            lot.put(M["os"], pointe(P(x, s * (0.9 - 0.12 * k), -0.45), (0.0, 0.0, -1.0), 0.6 * K, 0.14 * K, 4))
+            lot.put(M["os"], pointe(J(x, s * (0.78 - 0.1 * k), -0.5), (0.0, 0.0, 1.0), 0.5 * K, 0.13 * K, 4))
     # gueule-canon : vortex au fond de la gueule, grossit et s'avance avec la charge
-    rv = 0.45 + 0.5 * charge
+    rv = (0.45 + 0.55 * charge) * K
     lot.put(M["coeur"], G.sphere(P(1.6 + 0.6 * charge, 0.0, -0.3 - 0.3 * ouverture), rv, 12, 6))
     lot.put(M["halo"], G.sphere(P(1.8 + 0.7 * charge, 0.0, -0.3 - 0.3 * ouverture), rv * 1.9, 12, 6))
-    lot.put(M["turq"], G.tour([(0.0, 0.0), (0.04, 0.5 + 0.3 * charge)], 12, "x", P(2.2 + 0.8 * charge, 0.0, -0.3 - 0.35 * ouverture), cap1=True))
-    # yeux, cornes de cristal, crête
+    # couronne de cristaux : vers l'arrière, la plus haute au centre
+    grappe(lot, M, P(0.2, 0.0, 1.15), G.norm((-0.75, 0.0, 0.85)), 3.2, 0.36, 4, 3, ouvert=0.7)
     for s in (-1, 1):
-        lot.put(M["conduit"], G.boite(P(1.6, s * 1.15, 0.65), (0.5, 0.12, 0.2)))
-        lot.put(M["cristal"], pointe(P(-0.2, s * 0.9, 1.1), G.norm((-0.7, s * 0.45, 0.8)), 2.4, 0.3))
-        lot.put(M["cristal"], pointe(P(0.6, s * 1.2, 0.6), G.norm((-0.5, s * 0.9, 0.5)), 1.4, 0.22))
-    lot.put(M["cristal"], pointe(P(0.3, 0.0, 1.25), G.norm((-0.6, 0.0, 1.0)), 1.9, 0.26))
-    # anneaux magnétiques flottants autour du cou (deux, décalés)
-    for k, (x, rr) in enumerate(((-1.4, 1.9), (-2.6, 2.3))):
-        c = (bx + x, by, bz + 0.6 + 0.4 * k)
-        lot.put(M["anneau"], anneau(c, "x", rr, 0.35, 0.12))
-        lot.put(M["turq"], rainure((c[0] - 0.14, c[1], c[2]), "x", rr + 0.17, 0.05))
+        cristal(lot, M, P(0.9, s * 1.1, 0.75), G.norm((-0.6, s * 0.8, 0.45)), 2.0, 0.28)
+        cristal(lot, M, P(2.8, s * 0.7, 0.55), G.norm((-0.3, s * 0.6, 0.8)), 0.9, 0.18, noyau=False)
 
 
 def build(S, lot, u=0.0, attaque=None):
     """Pose du Kaiju : u = phase de course ; attaque = phase d'attaque (0 à 1) ou None."""
-    M = TM.matieres(S, "ka_", GRIS)
-    r = G.Rnd(3000)
+    M = matieres(S)
     R.raz()
-    bob = 0.12 * math.sin(G.TAU * 2.0 * u) if attaque is None else 0.0
-    pts, prof = corps(lot, M, u, bob)
-    # pattes : antérieures aux épaules, postérieures aux hanches ; trot (diagonales en phase)
-    hanches = {"AG": (3.3, 2.1, 3.5 + bob), "AD": (3.3, -2.1, 3.5 + bob), "PG": (-3.6, 2.0, 3.0 + bob), "PD": (-3.6, -2.0, 3.0 + bob)}
-    pieds = {"AG": (4.6, 3.6, 0.0), "AD": (4.6, -3.6, 0.0), "PG": (-4.4, 3.5, 0.0), "PD": (-4.4, -3.5, 0.0)}
+    bob = 0.14 * math.sin(G.TAU * 2.0 * u) if attaque is None else 0.0
+    eclat = 0.0 if attaque is None else max(0.0, (attaque - 0.25) / 0.75)
+    pts, prof = corps(lot, M, u, bob, eclat)
+    hanches = {"AG": (3.4, 2.4, 5.4 + bob), "AD": (3.4, -2.4, 5.4 + bob), "PG": (-3.6, 2.3, 5.0 + bob), "PD": (-3.6, -2.3, 5.0 + bob)}
+    pieds = {"AG": (4.2, 3.5, 0.0), "AD": (4.2, -3.5, 0.0), "PG": (-4.0, 3.4, 0.0), "PD": (-4.0, -3.4, 0.0)}
     phase = {"AG": 0.0, "PD": 0.0, "AD": 0.5, "PG": 0.5}
     if attaque is not None:
-        # à l'attaque, les pattes campées (phase d'appui fixe), le poitrail bas
         for k in phase:
             phase[k] = 0.1 if k in ("AG", "PD") else 0.35
         u = 0.0
     for k in ("PG", "PD", "AG", "AD"):
         patte(lot, M, hanches[k], pieds[k], u + phase[k], k[0] == "A", 1 if k[1] == "G" else -1)
-    # tête : au bout du cou ; attaque = la tête plonge, la gueule s'ouvre puis la charge monte
     if attaque is None:
-        tete(lot, M, (6.8, 0.0, 5.6 + bob), 0.15, 0.0)
+        tete(lot, M, (7.6, 0.0, 6.5 + bob), 0.15, 0.0)
     else:
         a = attaque
         ouverture = min(1.0, a * 2.2)
         charge = max(0.0, (a - 0.25) / 0.75)
-        tete(lot, M, (7.0, 0.0, 5.6 - 1.2 * ouverture), ouverture, charge)
+        tete(lot, M, (7.9, 0.0, 6.5 - 1.6 * ouverture), ouverture, charge)
     return {"pieces": lot.n, "u": u, "attaque": attaque}
 
 

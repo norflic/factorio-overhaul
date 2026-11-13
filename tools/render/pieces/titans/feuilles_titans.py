@@ -69,6 +69,10 @@ ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
 ENNEMIS = ("kaiju", "ecorcheur")
+# s43 (refonte 3D du Kaiju et de l'Écorcheur) : le Kaiju titanesque (15 tuiles de haut) dépasse 2 048 px par feuille ; lueur et ombre
+# à demi-densité (halo diffus, ombre floue : budget de mémoire vidéo), corps à pleine densité
+ENNEMIS_DIVS = {"main": 1, "glow": 2, "shadow": 2}
+ENNEMIS_MAX_PX = 4096
 ANIMS = (("course", 8), ("attaque", 4))
 DIRS = 8
 REDUC = 2
@@ -260,26 +264,31 @@ def seul(a):
     octet pour octet (un autre lot peut les refaire en même temps)."""
     nom = a.seul
     ent = [x for x in ANIMES if x[0] == nom]
-    if not ent:
-        raise SystemExit("--seul : %s n'est pas un titan animé (ANIMES)" % nom)
-    _, stades, divs, max_px = ent[0]
+    if not ent and nom not in ENNEMIS:
+        raise SystemExit("--seul : %s n'est ni un titan animé (ANIMES) ni un ennemi (ENNEMIS)" % nom)
     pre = re.compile(r"^(hr-|icone-)?%s-" % re.escape(nom))
     for f in os.listdir(a.dest):
         if f.endswith(".png") and pre.match(f):
             os.remove(os.path.join(a.dest, f))
     FX.PREFIXE = PREFIXE
     S = FX.Sortie(a.dest)
-    nd = directions_de(nom)
-    e = {"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": nd}
     pd = {"haute": 0.0, "normale": 0.0, "images": 0}
-    # un processus par stade (les stades sont indépendants : fichiers distincts) ; poids sommés après
-    import multiprocessing as mp
-    with mp.Pool(len(stades)) as pool:
-        res = pool.map(_stade, [(a.src, a.dest, nom, st, divs, max_px, nd) for st in stades])
-    for st, (ent, p_) in zip(stades, res):
-        e[st] = ent
-        for k in pd:
-            pd[k] += p_[k]
+    if not ent:
+        # s43 : ennemi à une série (Kaiju, Écorcheur) : même entrée que main() ; source <src>/<nom>/<nom>-<anim>-<image>-<dir>.npz
+        e = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
+        e.update(anime(S, a.src, pd, nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
+    else:
+        _, stades, divs, max_px = ent[0]
+        nd = directions_de(nom)
+        e = {"anime": True, "foulee": foulee_de(nom), "reduc": REDUC, "directions": nd}
+        # un processus par stade (les stades sont indépendants : fichiers distincts) ; poids sommés après
+        import multiprocessing as mp
+        with mp.Pool(len(stades)) as pool:
+            res = pool.map(_stade, [(a.src, a.dest, nom, st, divs, max_px, nd) for st in stades])
+        for st, (ent_, p_) in zip(stades, res):
+            e[st] = ent_
+            for k in pd:
+                pd[k] += p_[k]
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, encoding="utf-8") as f:
         lignes = f.read().split("\n")
@@ -353,7 +362,7 @@ def main():
     if not a.sans_kaiju:
         for nom in ENNEMIS:
             spr[nom] = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
-            spr[nom].update(anime(S, a.src, poids[nom], nom, nom, nom, {"main": 1, "glow": 1, "shadow": 1}, MAX_PX))
+            spr[nom].update(anime(S, a.src, poids[nom], nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("-- FICHIER GÉNÉRÉ par tools/render/pieces/titans/feuilles_titans.py (lot TITANS) : ne pas modifier à la main.\n")

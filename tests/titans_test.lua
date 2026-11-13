@@ -433,7 +433,7 @@ if okspr then
     local K = SPR[kk.id]
     check(K and K.directions == 8 and K.course and K.course.images == 8 and K.attaque and K.attaque.images == 4, "§3 " .. kk.id .. " : 8 directions, course 8 images, attaque 4")
     if K and K.course then
-      serie(K, kk.id, 2048)
+      serie(K, kk.id, 4096)   -- s43 : Kaiju titanesque (15 tuiles de haut) : feuilles jusqu'à 4 096 px comme les alliés animés
       local PY = read("tools/render/pieces/titans/" .. kk.id .. ".py")
       local FO = py_num(PY:match("\nFOULEE = ([^#\n]+)"))
       check(K.foulee > 0 and FO and math.abs(K.foulee - FO) < 1e-3, "§3 " .. kk.id .. " : foulée des feuilles = FOULEE du modèle")

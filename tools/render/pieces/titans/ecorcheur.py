@@ -8,6 +8,10 @@ Modèle paramétrique low-poly (kit des géants, geo.py) ANIMÉ comme le Kaiju (
 u dans [0, 1[ (bipède : pieds en opposition de phase, balancement des bras et de la queue), ou d'attaque (le canon se lève, charge, éclair de
 bouche et recul ; la gueule s'ouvre, le sac ventral gonfle). Le rendu tourne le modèle sur 8 directions (batch_titans.anime). Repère LOCAL :
 +x = avant, +y = gauche, +z = haut ; origine = sous le bassin, au sol. Environ 18 tuiles du museau au bout de la queue, 11 tuiles de haut.
+
+Refonte s43 (13/11, pilier D) : l'Écorcheur se DÉTACHE de la famille des Écorchés (mauves à collerette) et du Kaiju (cristaux bleus) :
+muscle ÉCORCHÉ rouge sang luisant, carapace d'OS ivoire (plaques, CAGE THORACIQUE ouverte sur le sac de ponte), épines d'os au lieu des
+cristaux, griffes noires ; plus d'anneaux flottants (queue, canon) : des vertèbres et des bagues d'os. Silhouette voûtée, plus massive.
 """
 import math
 import os
@@ -44,6 +48,28 @@ def spine(u, bob, lunge):
             (4.8, sw * 0.4, 7.9 + z - 0.6 * lunge), (6.0, 0.0, 8.0 + z - 1.3 * lunge)]
 
 
+def matieres(S):
+    """Jeu commun des titans + palette PROPRE de l'Écorcheur (s43) : chair = muscle rouge sang luisant, peau = tendons sombres,
+    blind/blind2 = os ivoire (carapace), cristal = épines d'os (pas d'émission), os = griffes et dents noires, anneau = bague d'os."""
+    M = TM.matieres(S, PREFIX, GRIS)
+    if GRIS:
+        return M
+    import mat as MT
+    M["chair"] = MT.surface(PREFIX + "muscle", (0.26, 0.022, 0.030), rough=0.34, met=0.08, tole=(0.25, 0.9), joint=0.35, joint_l=0.03,
+                            var=0.25, usure=0.2, nu=(0.55, 0.10, 0.10), crasse=0.45, crasse_col=(0.05, 0.005, 0.008), relief=0.9, graine=41)
+    M["peau"] = MT.surface(PREFIX + "tendon", (0.09, 0.018, 0.024), rough=0.45, met=0.05, tole=(0.3, 0.6), joint=0.3, joint_l=0.03,
+                           var=0.2, usure=0.2, nu=(0.35, 0.08, 0.08), crasse=0.5, crasse_col=(0.02, 0.003, 0.004), relief=0.8, graine=42)
+    M["blind"] = MT.surface(PREFIX + "os_ivoire", (0.60, 0.53, 0.40), rough=0.5, met=0.0, tole=(0.7, 0.5), joint=0.2, joint_l=0.02, var=0.15,
+                            usure=0.3, nu=(0.80, 0.75, 0.62), crasse=0.6, crasse_col=(0.12, 0.05, 0.03), relief=0.9, graine=43)
+    M["blind2"] = MT.surface(PREFIX + "os_jauni", (0.44, 0.36, 0.24), rough=0.55, met=0.0, tole=(0.5, 0.4), joint=0.2, joint_l=0.02, var=0.15,
+                             usure=0.3, nu=(0.70, 0.62, 0.48), crasse=0.65, crasse_col=(0.10, 0.03, 0.02), relief=0.9, graine=44)
+    M["cristal"] = M["blind"]
+    M["anneau"] = M["blind2"]
+    M["os"] = MT.surface(PREFIX + "griffe", (0.035, 0.028, 0.026), rough=0.28, met=0.2, usure=0.3, nu=(0.30, 0.26, 0.22), crasse=0.3,
+                         crasse_col=(0.01, 0.01, 0.01), graine=45)
+    return M
+
+
 def queue(u, bob):
     """Queue du bassin vers l'arrière, qui ondule et retombe presque au sol ; le bout remonte (anneaux)."""
     sw = 0.45 * math.sin(G.TAU * u + 1.0)
@@ -67,6 +93,7 @@ def tronc(lot, M, u, bob, lunge, sac):
         else:
             k = (t - 0.7) / 0.3
             w, h = 2.2 - 1.3 * k, 2.1 - 1.2 * k                           # cou
+        w, h = w * 1.15, h * 1.1                                          # s43 : tronc plus massif, voûté
         rings.append(ellipse(p, w, h, 10))
         prof.append((p, w, h, t))
     lot.put(M["chair"], G.loft(rings, True, True))
@@ -97,6 +124,14 @@ def tronc(lot, M, u, bob, lunge, sac):
     for s in (-1, 1):
         line = [(pts[i][0], pts[i][1] + s * prof[i][1] * 0.55, pts[i][2] + prof[i][2] * 0.98) for i in range(0, n - 2, 2)]
         lot.put(M["conduit"], G.tube(line, 0.1, 6))
+    # s43 : CAGE THORACIQUE d'os ouverte : côtes qui partent de la colonne et s'arc-boutent autour du ventre, au-dessus du sac
+    for i in range(int(n * 0.2), int(n * 0.72), 2):
+        p, w, h, t = prof[i]
+        for s in (-1, 1):
+            arc = [(p[0] + 0.25 * math.sin(a), p[1] + s * (w + 0.35) * math.sin(a), p[2] + (h + 0.3) * math.cos(a)) for a in
+                   (0.25, 0.8, 1.35, 1.9, 2.35)]
+            arc.append((p[0] + 0.7, p[1] + s * 0.5, p[2] - h - 0.55))
+            lot.put(M["blind"], G.tube(arc, 0.17, 6))
     # sac ventral lumineux (ponte) : sphère-cœur sous le ventre, halo ; gonfle avec `sac`
     pv = prof[int(n * 0.28)][0]
     rs = 0.9 + 0.5 * sac
@@ -128,10 +163,10 @@ def tail(lot, M, u, bob):
     for k, i in enumerate((int(n * 0.55), int(n * 0.75), int(n * 0.92))):
         p = pts[i]
         d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
-        rr = 1.3 - 0.25 * k
-        ring = anneau((0.0, 0.0, 0.0), "z", rr, 0.28, 0.1)
-        lot.put(M["anneau"], G.oriente(ring, p, d))
-        lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", rr + 0.18, 0.05), p, d))
+        # s43 : vertèbres d'os en collier (plus d'anneaux flottants) : trois pointes rayonnantes par vertèbre
+        for q in range(3):
+            a = G.TAU * q / 3 + 0.5
+            lot.put(M["blind"], pointe(p, G.norm((-0.4, 0.9 * math.cos(a), 0.9 * math.sin(a) + 0.2)), 1.3 - 0.25 * k, 0.2, 5))
     tip = pts[-1]
     lot.put(M["cristal"], pointe(tip, G.norm(G.sub(tip, pts[-3])), 1.6, 0.22))
     for s in (-1, 1):
@@ -266,7 +301,7 @@ def tete(lot, M, base, ouverture, lunge):
 
 def build(S, lot, u=0.0, attaque=None):
     """Pose de l'Écorcheur : u = phase de course ; attaque = phase d'attaque (0 à 1) ou None."""
-    M = TM.matieres(S, PREFIX, GRIS)
+    M = matieres(S)
     R.raz()
     if attaque is not None:
         i = int(round(attaque * SERIE["attaque"])) % SERIE["attaque"]
