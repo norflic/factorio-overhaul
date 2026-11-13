@@ -2558,6 +2558,12 @@ function Capi.think_tail(f, cs, tick)
   -- à cs.open ; la tâche est postée plus bas comme pour tout ordre « equiper »).
   Capi.MS.think(f, cs, tick, { Ca = Ca, D = Capi.data(), minutes = minutes, held = held,
     count = function(item) return Stock.count(f, item) end,
+    -- lot S42 MODULES-ROI : l'équipe sait-elle fabriquer ce module ? (recette de moindre coût du relevé, ouverte pour la force)
+    craftable = function(item)
+      local rn = (Capi.data().mu_recipe or {})[item]
+      local r = rn and f.force and f.force.valid and f.force.recipes[rn]
+      return (r and r.enabled) and true or false
+    end,
     power = function() return Capi.power_input(f, Auto.plant_state(f)) end,
     threat = (f.threatened_until or 0) > tick })
   -- Laboratoires visés : ceux du QG plus le reste des ordres ouverts.

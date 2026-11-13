@@ -16,10 +16,13 @@
 
 local Ms = require("shared.ai3.modules_stock")
 local Pi = require("shared.ai3.pile")
+local Roi = require("shared.ai3.modules_roi")
 
 local RT = {}
 
 RT.ENABLED = true       -- tests seulement (mutants) : faux = la disposition du stock est éteinte
+RT.ROI = true           -- lot S42 MODULES-ROI : la passe choisit productivité ou vitesse par machine (shared/ai3/modules_roi.lua), pose partielle,
+                        -- sans réserve, et demande des modules à la fabrication ; faux (tests de l'ancienne règle) = Ms.plan seul
 RT.SAID_MAX = 200       -- refus déjà écrits gardés (au-delà : la liste repart de zéro)
 
 local function say(f, minutes, text)
@@ -53,7 +56,26 @@ function RT.status_of(f, g, u)
   local list = f.hq.surface.find_entities_filtered({ position = { u.x, u.y }, name = g.entity, force = f.force, limit = 1 })
   local e = list[1]
   if not (e and e.valid) then return nil end
-  return RT.status_names[e.status]
+  return RT.status_names[e.status], RT.load_of(e, g)
+end
+
+--- Lot S42 MODULES-ROI : charge d'une machine de fabrication (lecture seule) : { in_full = la fabrication SUIVANTE est déjà servie
+--- (chaque ingrédient solide de la recette en cours est dans l'inventaire d'entrée), out_empty = l'inventaire de sortie est vide }.
+--- Nil pour une foreuse, sans recette, ou si le moteur refuse une lecture (aucune charge lue : l'état reste « tourne »).
+function RT.load_of(e, g)
+  if g.resource ~= nil or not RT.ROI then return nil end
+  local ok, ld = pcall(function()
+    local r = e.get_recipe()
+    local out = e.get_output_inventory()
+    local inp = e.get_inventory(defines.inventory.assembling_machine_input)
+    if not (r and out and inp) then return nil end
+    local full = true
+    for _, ing in ipairs(r.ingredients) do
+      if ing.type == "item" and inp.get_item_count(ing.name) < ing.amount then full = false end
+    end
+    return { in_full = full, out_empty = out.is_empty() }
+  end)
+  return ok and ld or nil
 end
 
 RT.SAMPLE = 12 -- unités lues par groupe (statut) : les premières cibles d'un ordre (Ms.BATCH_MAX)
@@ -67,9 +89,19 @@ local function with_run(list, status)
     for k, x in pairs(g) do copy[k] = x end
     local sampled, working, starved, causes = 0, 0, 0, {}
     local units = {}
+    local units_in, short_in, full, bott, loads = {}, 0, 0, 0, 0 -- lot S42 MODULES-ROI : attente d'entrées, sortie pleine, goulot observé
     for i, u in ipairs(g.units or {}) do
-      local s = nil
-      if i <= RT.SAMPLE then s = status(g, u) end
+      local s, ld = nil, nil
+      if i <= RT.SAMPLE then s, ld = status(g, u) end
+      if s == "item_ingredient_shortage" then
+        short_in = short_in + 1
+        units_in[#units_in + 1] = u
+      elseif s == "full_output" or s == "waiting_for_space_in_destination" then
+        full = full + 1
+      elseif s == "working" and type(ld) == "table" then
+        loads = loads + 1
+        if ld.in_full and ld.out_empty then bott = bott + 1 end
+      end
       -- une unité échantillonnée qui ne travaille pas ne reçoit pas de module (banc 3 : 3 assembleurs « item_ingredient_shortage » équipés
       -- parce que le 4e du groupe travaillait) ; les unités non lues restent des cibles
       if s == nil or s == "working" then units[#units + 1] = u end
@@ -85,7 +117,9 @@ local function with_run(list, status)
       for _, name in ipairs(sorted_keys(causes)) do
         if causes[name] > best then stop, best = name, causes[name] end
       end
-      copy.run = { sampled = sampled, working = working, starved = starved, stop = stop }
+      copy.run = { sampled = sampled, working = working, starved = starved, stop = stop,
+        short_in = short_in, full = full, bott = bott, loads = loads }
+      copy.units_in = units_in
     end
     out[#out + 1] = copy
   end
@@ -134,13 +168,23 @@ function RT.think(f, cs, tick, c)
     stock[nm] = c.count(nm)
     total = total + stock[nm]
   end
-  if total <= 0 then return 0 end
+  -- Lot S42 MODULES-ROI : sans module au coffre la passe continue seulement si l'équipe sait en fabriquer un (souhait de fabrication)
+  local can_make = false
+  if RT.ROI and total <= 0 and c.craftable then
+    for _, nm in ipairs(D.lv.cand) do
+      if c.craftable(nm) then can_make = true break end
+    end
+  end
+  if total <= 0 and not can_make then return 0 end
+  local fab_open = 0 -- ordres de fabrication (non « stock ») ouverts, levier compris
   for _, rec in ipairs(cs.open or {}) do
     taken[rec.key] = true
     if rec.exec == "equiper" and rec.module then
       committed[rec.module] = (committed[rec.module] or 0) + (rec.n_left or 0) * (rec.per or 1)
+      if not rec.stock then fab_open = fab_open + 1 end
     end
   end
+  if total <= 0 and fab_open > 0 then return 0 end -- rien à poser et une fabrication déjà ouverte : aucun relevé de statut
   local danger = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do danger[id] = cs.deps[id].danger and true or nil end
   local memo = {}
@@ -158,15 +202,25 @@ function RT.think(f, cs, tick, c)
   if p and type(p.have_kw) == "number" and type(p.used_kw) == "number" then room = p.have_kw - p.used_kw end
   local short = (f.team.ia3 and (f.team.ia3.short_core or f.team.ia3.short)) or {}
   local views_m, views_d = with_run(cs.scan.machines, status), with_run(cs.scan.drills, status)
-  local orders, refus, info = Ms.plan(Ca, D, { stock = stock, committed = committed,
+  local view = { stock = stock, committed = committed,
     machines = views_m, drills = views_d,
     short = short, supply = supply, taken = taken, held = function(key) return c.held(cs, key, tick) end, power_room_kw = room,
-    threat = c.threat, danger = danger })
-  if info.free_total <= 0 then
+    threat = c.threat, danger = danger }
+  local orders, refus, info, wants
+  if RT.ROI then
+    view.made = function(item) return ((flows[item] or {}).made or 0) > 0 end
+    view.craftable = c.craftable
+    view.max_wants = (fab_open > 0) and 0 or nil -- un seul ordre de fabrication de modules ouvert à la fois par équipe
+    orders, refus, info, wants = Roi.plan(Ca, D, view)
+    for _, w in ipairs(wants) do orders[#orders + 1] = w end
+  else
+    orders, refus, info = Ms.plan(Ca, D, view)
+  end
+  if info.free_total <= 0 and #orders == 0 and total > 0 then
     local sig = "reserve:" .. total
     if cs.ms_low ~= sig then
       cs.ms_low = sig
-      say(f, mn, string.format("refus : %d module(s) au coffre, tous promis a des ordres ouverts ou sous la reserve de %d par sorte", total, Ms.RESERVE))
+      say(f, mn, string.format("refus : %d module(s) au coffre, tous promis a des ordres ouverts ou sous la reserve de %d par sorte", total, RT.ROI and Roi.RESERVE or Ms.RESERVE))
     end
     return 0
   end
@@ -180,14 +234,14 @@ function RT.think(f, cs, tick, c)
       if Ms.key(cand, is_drill, where) == o.key then g = cand break end
     end
     local targets = {}
-    for _, u in ipairs(g and g.units or {}) do
+    for _, u in ipairs(o.units or (g and g.units) or {}) do
       if #targets < o.n then targets[#targets + 1] = { x = u.x, y = u.y, u = u.u, entity = g.entity } end
     end
     if #targets > 0 then
       table.sort(targets, function(a, b) return a.u < b.u end)
       local rec = { key = o.key, kind = "equiper", item = o.item, resource = o.resource, deposit = o.deposit, entity = o.entity, n = #targets,
         n_left = #targets, where = o.where, value = Ca.V_MIN, opened = tick, progress_tick = tick, missing = {}, why = o.why,
-        exec = "equiper", module = o.module, per = o.per, targets = targets, done = {}, inserted = 0, stock = true,
+        exec = "equiper", module = o.module, per = o.per, targets = targets, done = {}, inserted = 0, stock = o.stock,
         d_item = o.d_item, d_out = o.d_out, d_in = o.d_in, d_kw = o.d_kw, d_fuel = o.d_fuel, sig = o.sig,
         announced = { d_out = o.d_out, item = o.d_item, factor = o.factor } }
       if #targets < o.n and o.n > 0 then
