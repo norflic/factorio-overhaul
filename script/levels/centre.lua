@@ -23,6 +23,7 @@ local Storage = require("script.core.storage")
 local L = require("shared.levels.config")
 local C = require("shared.levels.centre")
 local Levels = require("script.levels.levels")
+local PlacesQG = require("script.ai3.places_qg") -- lot s41 spawn-joueur : le centre de départ saute une place sur une ressource
 
 local Centre = {}
 
@@ -82,7 +83,11 @@ function Centre.place_wreck(force, surface, near)
   if not st then return nil end
   local name = L.WRECK
   local want = { x = near.x + C.START_OFFSET.x, y = near.y + C.START_OFFSET.y }
-  local pos = surface.find_non_colliding_position(name, want, C.START_RADIUS, 1)
+  -- Lot s41 spawn-joueur : places voisines de l'ancre dans l'ordre, hors ressource ; à défaut l'ancienne recherche (rayon START_RADIUS).
+  local pos = C.start_pos(near, C.START_SPOTS,
+    function(w) return surface.find_non_colliding_position(name, w, C.START_NEAR, 1) end,
+    function(p) return PlacesQG.on_resource(surface, name, p) end,
+    function() return surface.find_non_colliding_position(name, want, C.START_RADIUS, 1) end)
   if not pos then return nil end
   local e = surface.create_entity({ name = name, position = pos, force = force, raise_built = true })
   if not (e and e.valid) then return nil end
@@ -192,14 +197,16 @@ Events.on(defines.events.on_player_created, function(e)
   local force = player.force
   local has = Levels.cc(force) ~= nil
   if not C.should_start(has, st.started[force.name], st.disabled) then return end
-  local wreck = Centre.place_wreck(force, player.surface, player.position)
+  -- Lot s41 spawn-joueur : ancre = point d'apparition de l'équipe (là où sont le vaisseau écrasé et le coffre d'équipe), pas le joueur.
+  local near = C.start_anchor(force.get_spawn_position(player.surface), player.position)
+  local wreck = Centre.place_wreck(force, player.surface, near)
   if not wreck then
     log("[FO-CENTRE] épave non posée pour " .. force.name .. " (pas de place libre ou centre déjà là)")
   elseif Centre.START_REPAIRED then
-    local px, py = player.position.x, player.position.y
+    local px, py = near.x, near.y
     local cc = Centre.repair_free(wreck)
     if cc then
-      log(string.format("[FO-CENTRE] %s : centre pose repare au niveau 1 en (%.1f, %.1f), a %.1f tuile(s) du joueur", force.name,
+      log(string.format("[FO-CENTRE] %s : centre pose repare au niveau 1 en (%.1f, %.1f), a %.1f tuile(s) du point d'apparition", force.name,
         cc.position.x, cc.position.y, math.sqrt((cc.position.x - px) ^ 2 + (cc.position.y - py) ^ 2)))
     else
       log("[FO-CENTRE] " .. force.name .. " : reparation de depart impossible, l'epave reste a reparer")
