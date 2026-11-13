@@ -1674,6 +1674,28 @@ do
     check(E.alive() == 0, "T4 : la partie retirée (chantier), les restes sont balayés")
     E.restore()
 
+    -- T4b (lot ELAGAGE, B5 : gardes croisées) : la bande suivante attend ses MATIÈRES depuis plus de Th.CFG.stuck_wait (Th.band_stuck) : elle ne
+    -- retient plus le balayage du gisement couvert (azure, graine 123456789 : bande 380 en réserve de 53 à 120 min, 10 paires de fer gardées)
+    E = setup({})
+    local idb = E.Build.request(E.f, { site = "champ", champ = { oid = 1, pr = 6, frame = {} } })
+    local pb = E.f.build.projects[idb]
+    pb.state, pb.reason, pb.ents = "reserve", "materiaux", {}
+    E.ms.o[1].stage, E.ms.o[1].pid, E.ms.o[1].t0 = "projet", idb, 0
+    for _ = 1, 5 do E.sweep() end -- (âge 18000 = stuck_wait : pas encore bloquée)
+    check(E.alive() == 8, "T4b : bande en réserve depuis stuck_wait au plus : le balayage attend (" .. E.alive() .. ")")
+    E.sweep()
+    check(E.alive() == 0, "T4b : bande bloquée par ses matières : le gisement couvert est balayé (" .. E.alive() .. " restent)")
+    E.restore()
+    -- T4c : la bande a ses matières (porte « degel ») : elle retire elle-même sa partie, le balayage attend quel que soit l'âge
+    E = setup({})
+    idb = E.Build.request(E.f, { site = "champ", champ = { oid = 1, pr = 6, frame = {} } })
+    pb = E.f.build.projects[idb]
+    pb.state, pb.reason, pb.ents = "reserve", "degel", {}
+    E.ms.o[1].stage, E.ms.o[1].pid, E.ms.o[1].t0 = "projet", idb, 0
+    for _ = 1, 8 do E.sweep() end
+    check(E.alive() == 8, "T4c : bande au dégel : aucune paire balayée (" .. E.alive() .. ")")
+    E.restore()
+
     -- T5 : minerai CRITIQUE (le combustible de la centrale) : jamais coupé sous le plancher que brûlent les générateurs
     local saved_fuel = T.fuel
     E = setup({})
@@ -1868,9 +1890,13 @@ do
     { "sortie pleine ignorée", mut("if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end", "if de and de.valid and de.status == 1 then n = n + 1 end") },
     { "brûleurs à sec comptés", mut("pairs = n, fueled = nf,", "pairs = n, fueled = n,") },
     { "chantier en cours ignoré (les deux gardes)", function(src)
-      src = mut("busy = (st and st.stage == \"projet\") and true or false", "busy = false")(src)
-      return mut("if o and st and st.stage ~= \"projet\" then", "if o and st then")(src)
+      src = mut("busy = (st and st.stage == \"projet\" and not stuck) and true or false", "busy = false")(src)
+      return mut("if o and st and not byid[a.id].busy then", "if o and st then")(src)
     end },
+    -- lot ELAGAGE
+    { "bande bloquée par ses matières retient encore le balayage", mut("local stuck = pq ~= nil and Th.band_stuck(pq.state, pq.reason, game.tick - (st.t0 or game.tick))", "local stuck = false") },
+    { "toute bande en projet lâche le balayage (dégel compris)", mut("local stuck = pq ~= nil and Th.band_stuck(pq.state, pq.reason, game.tick - (st.t0 or game.tick))", "local stuck = pq ~= nil") },
+    { "âge de la bande ignoré", mut("game.tick - (st.t0 or game.tick))", "math.huge)") },
     { "minerai critique ignoré", mut("if spec.resource == T.fuel then", "if false then") },
     { "brûleur de la centrale sous-estimé", mut("watts = watts + (g.energy_generated_last_tick or 0) * 60", "watts = watts + (g.energy_generated_last_tick or 0)") },
     { "balayage sans règle", mut("local acts, refused = Th.sweep(gated, ctx)", "local acts, refused = {}, {}") },

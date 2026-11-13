@@ -645,8 +645,13 @@ local function build_fields(f, surface, ms, free)
         -- (lot THERMIQUE5 : fueled = paires avec combustible, l'extraction thermique de Th.supply ; pairs = paires à retirer)
         local w, nfini = 0, 0
         if framed then w, nfini = working_of(f, surface, o.id) end
+        -- lot ELAGAGE (gardes croisées : le balayage attendait le retrait de la partie, la bande attendait ses matières ; azure, 123456789 : bande 380
+        -- en réserve de 53 à 120 min, 10 paires de fer et 3 de cuivre gardées sur des gisements couverts) : une bande BLOQUÉE par ses matières
+        -- (Th.band_stuck, le seuil qui libère déjà le créneau de la plaque clé) ne retient plus le balayage ; à son dégel, sa partie est vide (Mg.can_retire)
+        local pq = st and st.stage == "projet" and f.build.projects[st.pid] or nil
+        local stuck = pq ~= nil and Th.band_stuck(pq.state, pq.reason, game.tick - (st.t0 or game.tick))
         local fl = { id = o.id, res = o.kind, pairs = n, fueled = nf, th_rate = th, el_rate = el, working = w, fini = nfini,
-          busy = (st and st.stage == "projet") and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
+          busy = (st and st.stage == "projet" and not stuck) and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
           have = free[T.outposts[o.kind].product] or 0, framed = framed }
         fields[#fields + 1] = fl
         byid[o.id] = fl
@@ -1490,7 +1495,7 @@ local function sweep(f, surface, ms, free, book, tick)
   for _, a in ipairs(acts) do
     local o = Champ.target(f, a.id)
     local st = ms.o[a.id]
-    if o and st and st.stage ~= "projet" then -- (avant le retrait de sa partie, une bande a besoin de ses paires ; ensuite les restes ne gênent plus)
+    if o and st and not byid[a.id].busy then -- (avant le retrait de sa partie, une bande a besoin de ses paires, sauf bloquée par ses matières : fl.busy)
       local list, ents, owners = sweep_list(f, o)
       local ids = {}
       for _, pr in ipairs(list) do ids[#ids + 1] = pr.id end
