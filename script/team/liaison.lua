@@ -453,8 +453,18 @@ function Liaison.plan(api, f, surface, p)
           planned[P.tkey(px, py)] = true
           poles[#poles + 1] = { px, py }
         end
-        if not lack then chosen = { e = e, tiles = tiles, names = tnames, poles = poles } break end
-        last_why = "aucune place pour un poteau contre un bras (contre " .. lack .. ")"
+        if not lack then
+          -- s40 p28 : la preuve géométrique se fait POUR CE BOUT ; un écart passe au bout suivant (avant : preuve après la boucle, refus de toute la liaison)
+          local vents = Ln.entities({ src = e.src, dst = e.dst, route = Tv.virtual_belts(tiles), names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, poles = poles })
+          local bad = Ln.verify(vents, S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+          if #bad == 0 then
+            bad = Tv.verify(tiles, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), tnames and tnames.maxd or 0, nil)
+          end
+          if #bad == 0 then chosen = { e = e, tiles = tiles, names = tnames, poles = poles } break end
+          last_why = "geometrie fausse (" .. bad[1] .. ")"
+        else
+          last_why = "aucune place pour un poteau contre un bras (contre " .. lack .. ")"
+        end
       else
         last_why = w2
       end
