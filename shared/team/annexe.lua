@@ -72,6 +72,37 @@ function A.slots(sy, w, h)
   return out
 end
 
+--- Lot s41 spawn-joueur (coffre d'équipe fondé sur un gisement : toutes les places du bloc portent du minerai, aucun coffre du stock ne se
+--- pose) : places de SECOURS, la couronne juste au-delà du bloc (rangées de far + pas à far + A.OUTER, colonnes élargies de A.OUTER), les
+--- deux faces, triées par distance au QG (carré), puis rangée (nord avant sud à distance égale), puis colonne. L'appelant ne les lit que
+--- si une place du bloc est refusée pour une ressource et qu'aucune n'a servi ; il recale et vérifie chaque place comme celles du bloc.
+A.OUTER = 12
+function A.outer_slots(w, h)
+  local b = T.annex.block
+  w, h = math.max(1, w or 1), math.max(1, h or 1)
+  local px, py = w + T.annex.gap, h + T.annex.gap
+  local out = {}
+  for _, sy in ipairs({ -1, 1 }) do
+    local half = (sy < 0 and b.half_north or b.half_south) + A.OUTER
+    local dx = -half
+    while dx <= half do
+      local r = b.far + py
+      while r <= b.far + A.OUTER do
+        out[#out + 1] = { dx, sy * r, dx * dx + r * r, sy }
+        r = r + py
+      end
+      dx = dx + px
+    end
+  end
+  table.sort(out, function(a, c)
+    if a[3] ~= c[3] then return a[3] < c[3] end
+    if a[4] ~= c[4] then return a[4] < c[4] end
+    return a[1] < c[1]
+  end)
+  for i, p in ipairs(out) do out[i] = { p[1], p[2] } end
+  return out
+end
+
 function A.capacity(sy, w, h)
   return #A.slots(sy, w, h)
 end

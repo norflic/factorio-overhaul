@@ -91,8 +91,22 @@ function PlayerTeam.found_default(surface, center)
     log(string.format("[FO-PTEAM] coffre d'office tick %d : non pose (%s)", game.tick, why))
     return false, why
   end
+  -- Lot s41 spawn-joueur : le coffre d'office évite un gisement (Depart.CHEST_SPOTS, Depart.pick_chest) : sur le minerai, ni tourelle de QG
+  -- ni coffre du stock ne se posait autour de lui. Sans ressource à la première place : (6, 6) comme avant ; à défaut l'ancienne recherche.
+  local cands, R = {}, Depart.CHEST_CLEAR
+  for i, o in ipairs(Depart.CHEST_SPOTS) do
+    local p = surface.find_non_colliding_position(CHEST, { x = center.x + o[1], y = center.y + o[2] }, 4, 1)
+    local ore = p and surface.count_entities_filtered({ area = { { p.x - R, p.y - R }, { p.x + R, p.y + R } }, type = "resource" }) or 0
+    cands[i] = { pos = p, ore = ore }
+    if p and ore == 0 then break end
+  end
+  local pick = Depart.pick_chest(cands)
   local near = { x = center.x + Depart.CHEST_OFFSET[1], y = center.y + Depart.CHEST_OFFSET[2] }
-  local pos = surface.find_non_colliding_position(CHEST, near, 20, 1)
+  local pos = pick and cands[pick].pos or surface.find_non_colliding_position(CHEST, near, 20, 1)
+  if pick and pick > 1 then
+    log(string.format("[FO-PTEAM] coffre d'office tick %d : depart sur un gisement (%d ressource(s) autour de la place 1), place %d retenue (%d ressource(s))",
+      game.tick, cands[1].ore or 0, pick, cands[pick].ore))
+  end
   local chest = pos and surface.create_entity({ name = CHEST, position = pos, force = "player", raise_built = true })
   if not (chest and chest.valid and get()) then
     log(string.format("[FO-PTEAM] coffre d'office tick %d : non pose (aucune place a 20 tuiles du depart)", game.tick))

@@ -29,6 +29,28 @@ C.WRECK_HEALTH = 0.4
 --- Où naît l'épave du joueur : décalage par rapport au joueur et rayon de recherche d'une place libre (tuiles).
 C.START_OFFSET = { x = 8, y = 0 }
 C.START_RADIUS = 32
+--- Lot s41 spawn-joueur (partie du DC, 12/11 : centre posé en (-54, 15), à 8 tuiles du JOUEUR né à 62 tuiles du point d'apparition, alors que
+--- le vaisseau écrasé et le coffre d'équipe sont au point d'apparition) : l'ancre du départ est le point d'apparition de l'ÉQUIPE (celui du
+--- coffre d'équipe, script/faction/war.lua), le joueur seulement à défaut. Places essayées dans l'ordre autour de l'ancre (décalages en
+--- tuiles), chacune dans START_NEAR tuiles ; une place sur une ressource est sautée (le runtime juge) ; à défaut, l'ancienne recherche.
+C.START_SPOTS = { { 8, 0 }, { 0, 8 }, { -8, 2 }, { 0, -12 }, { 16, 0 }, { -16, 2 }, { 0, 16 }, { 0, -18 } }
+C.START_NEAR = 6
+
+--- Ancre du départ : le point d'apparition de l'équipe s'il est connu, sinon la position du joueur. Rend une NOUVELLE table { x, y }.
+function C.start_anchor(spawn, player_pos)
+  local p = (type(spawn) == "table" and spawn.x and spawn.y) and spawn or player_pos
+  return { x = p.x, y = p.y }
+end
+
+--- Place du départ : la première de `spots` (décalages autour de `near`) que find(want) trouve et que blocked(pos) ne refuse pas ;
+--- à défaut fallback() (peut rendre nil). find, blocked, fallback : fonctions du runtime. Rend pos, rang (0 : secours).
+function C.start_pos(near, spots, find, blocked, fallback)
+  for i, o in ipairs(spots) do
+    local pos = find({ x = near.x + o[1], y = near.y + o[2] })
+    if pos and not blocked(pos) then return pos, i end
+  end
+  return fallback(), 0
+end
 
 --- Coût de réparation : liste ordonnée { {objet, quantité}, ... } (NOUVELLE liste à chaque appel), lue à `Lcfg`
 --- (shared/levels/config.lua) : paquets, puis chaque ligne du coût 1 → 2 du centre × MATERIAL_SHARE, arrondie comme
