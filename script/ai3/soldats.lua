@@ -113,7 +113,9 @@ C.on_alert = function(f, ep, kind, tick, mode)
       if tick - (a.t or 0) < 3600 and mode == "hunt" then return false end
       a["until"] = tick + SD.ALERT_TICKS
       a.x, a.y, a.t = ep.x, ep.y, tick
-      if mode == "site" then a.site = true end -- lot DANGER-ACTIF : un site touché ; ses soldats sont pris au-dessus de la réserve du QG (pass)
+      -- lot DANGER-ACTIF : un site touché ; ses soldats sont pris au-dessus de la réserve du QG (pass). Sprint 40 (défense, p3) : fusionnée dans une
+      -- alerte de CHASSE, elle en gardait le rôle (3 chasseurs) et n'était jamais lue comme un site (pass : `a.site and not a.role`).
+      if mode == "site" then a.site, a.role, a.n = true, nil, 4 end
       return true
     end
   end
@@ -502,10 +504,11 @@ local function pass(f, tick)
   local km = f.ai3f and f.ai3f.m
   -- Menaces candidates au nettoyage (vues par l'équipe), regroupées ; « a tué » : une mort de l'heure à 48 tuiles.
   local cand = {}
+  local outpost_ids = State.sorted_keys(f.outposts or {}) -- sprint 40 (défense, p5) : triés UNE fois par passage (avant : une fois par menace lointaine, puis encore plus bas)
   for _, th in ipairs(t.map.threats) do
     local ok = d2(th, f.hq_pos) <= SD.THREAT_HQ * SD.THREAT_HQ
     if not ok then
-      for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+      for _, oid in ipairs(outpost_ids) do
         local o = f.outposts[oid]
         if d2(th, o.access or o.pos) <= SD.THREAT_OUTPOST * SD.THREAT_OUTPOST then ok = true break end
       end
@@ -653,7 +656,7 @@ local function pass(f, tick)
   end
   -- Avant-postes marqués (menace ou mort à moins de 48 tuiles) : 2 gardes chacun.
   local marked = {}
-  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+  for _, oid in ipairs(outpost_ids) do
     local o = f.outposts[oid]
     local p = o.access or o.pos
     local hot = D.deaths_near(t.map, { p }, 48, tick) > 0
@@ -710,8 +713,8 @@ local function pass(f, tick)
       if o.role == "clear" and not sd.clearing then started_clear = o end
       ps.role, ps.key, ps.escort = o.role, o.key, o.aid
       -- Drapeau lu par le rappel du chef (military.lua) : seulement les rôles qui éloignent légitimement du QG.
-      local far_role = o.role == "escort" or o.role == "clear"
-        or (o.role == "guard" and d2(o, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ)
+      -- Sprint 40 (défense, p1) : défense et chasse LOINTAINES comprises (Re.far_role) : les défenseurs d'un site attaqué ne sont plus rappelés.
+      local far_role = Re.far_role(o.role, d2(o, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ)
       soldiers[s.id].ia3k = far_role and o.role or nil
     elseif ps.role then
       local was = ps.role
@@ -815,23 +818,9 @@ Events.on_nth_tick(SD.PERIOD, function(e)
   if (f.soldiers_count or 0) > 0 then pass(f, e.tick) else hq_threat(f, C.team(f), surface, e.tick) end
 end)
 
--- Votre équipe n'a pas de soldats : seule la mise à l'abri (C7) la concerne, toutes les 120 ticks.
-Events.on_nth_tick(120, function(e)
-  if not C.enabled() then return end
-  local f = State.faction("player")
-  if not (f and f.hq and f.hq.valid and f.hq_pos) then return end
-  local en = Mn.nearest_unit(f.hq.surface, f.force, f.hq_pos, SD.HQ_THREAT_R) -- lot FIX-P5 : une UNITÉ, pas un ver ou un nid
-  if en then
-    -- Lot CORR-RALLIEMENT : profils d'attaque du groupe (même recherche que hq_threat) : pas de refuge sous une tourelle débordée.
-    local seen_foes = {} -- point 50 : en est déjà rendu par la recherche
-    for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = en.position, radius = 16, force = en.force,
-      type = { "unit", "character" }, limit = 24 })) do
-      seen_foes[#seen_foes + 1] = u
-    end
-    shelter(f, C.team(f), { x = en.position.x, y = en.position.y }, e.tick, nil, nil, nil,
-      C.outrange_on() and C.foe_profiles(seen_foes) or nil)
-  end
-end)
+-- Sprint 40 (défense, p4) : le gestionnaire de 120 ticks de votre équipe sans soldats (lot IA3-k) est retiré : depuis le lot FUITE, celui de
+-- SD.PERIOD ci-dessus appelle déjà hq_threat (même recherche, puis shelter avec la réponse du QG) ; le second refaisait la recherche et un
+-- shelter SANS réponse (« stand ») au même tick : compteurs doublés, et un ouvrier laissé à sa tâche par le ralliement recevait un refuge.
 
 SD.pass = pass
 return SD

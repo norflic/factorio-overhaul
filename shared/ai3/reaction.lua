@@ -508,6 +508,15 @@ function Re.hq_response(i)
   return "stand"
 end
 
+--- Sprint 40 (défense, p1) : le rôle d'un soldat l'éloigne-t-il LÉGITIMEMENT du QG ? (drapeau lu par le rappel du chef, military.lua : un soldat
+--- lointain sans ce drapeau est ramené). Escorte et nettoyage : toujours. Garde, DÉFENSE et CHASSE : quand leur point est loin du QG (`far`) ; une
+--- alerte de site est admise à toute distance du QG (lot DANGER-ACTIF), ses défenseurs étaient rappelés en route (drapeau jamais posé).
+function Re.far_role(role, far)
+  if role == "escort" or role == "clear" then return true end
+  if far and (role == "guard" or role == "defense" or role == "hunt") then return true end
+  return false
+end
+
 function Re.decide(s)
   if not s.kind then return "none", "rien" end
   local K = D.KINDS[s.kind] or D.KINDS.unit
