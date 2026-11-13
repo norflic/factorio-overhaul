@@ -633,6 +633,25 @@ local function place_one(f, surface, item, take)
   local w, h = footprint(item)
   local placed = PlacesQG.place_list(surface, item, f.force, f.hq_pos, annex_slots(f, w, h), 0, 1, annex_make(f, surface, item, take))
   if placed == 0 then placed = place_on_ground(f, surface, item, take) end
+  if placed == 0 and f.hq_pos then
+    -- Lot s41 spawn-joueur : le QG chevauche un gisement (une place du bloc est refusée pour une RESSOURCE) et le bloc n'a rien donné :
+    -- la couronne voisine (A.outer_slots), mêmes contrôles (place libre, hors ressource, hors réserve du plan), sans passe de secours.
+    local on_ore = false
+    for _, o in ipairs(annex_slots(f, w, h)) do
+      if PlacesQG.on_resource(surface, item, { x = Pl.snap(f.hq_pos.x + o[1], w), y = Pl.snap(f.hq_pos.y + o[2], h) }) then
+        on_ore = true
+        break
+      end
+    end
+    if on_ore then
+      placed = PlacesQG.place_list(surface, item, f.force, f.hq_pos, A.outer_slots(w, h), 0, 1, annex_make(f, surface, item, take))
+      if placed > 0 then
+        local e = f.annex[#f.annex]
+        log(string.format("[FO-ANNEXE] %s : bloc des annexes sur un gisement, coffre pose en couronne voisine (%.1f, %.1f)", f.key or "player",
+          e.position.x, e.position.y))
+      end
+    end
+  end
   return placed
 end
 

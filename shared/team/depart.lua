@@ -23,6 +23,26 @@ D.HQ_OFFSETS = { { 12, 0 }, { -12, 0 }, { 0, 10 }, { 0, -10 } }
 -- Décalage du coffre posé d'office par rapport au point de départ du joueur (tuiles) : à portée de main, sans être sur le joueur.
 D.CHEST_OFFSET = { 6, 6 }
 
+--- Lot s41 spawn-joueur (partie du DC, 12/11 : coffre posé en (6, 6) sur un gisement, 0 tourelle de QG sur 4, aucun coffre du stock) : places
+--- essayées pour le coffre d'office, décalages depuis le point de départ, de la plus proche à la plus lointaine ; la première reste
+--- CHEST_OFFSET. CHEST_CLEAR : demi-côté (tuiles) du carré autour du coffre où l'on compte les ressources (le bloc des annexes).
+D.CHEST_SPOTS = { { 6, 6 }, { 6, -8 }, { -8, 6 }, { -8, -8 }, { 16, 0 }, { 0, 16 }, { -16, 0 }, { 0, -16 },
+  { 16, 16 }, { 16, -16 }, { -16, 16 }, { -16, -16 }, { 26, 0 }, { 0, 26 }, { -26, 0 }, { 0, -26 } }
+D.CHEST_CLEAR = 11
+
+--- Place du coffre d'office : cands = liste ORDONNÉE de { pos = place libre ou nil, ore = ressources autour }. Rend le rang de la première
+--- place libre sans ressource ; à défaut celui de la place libre qui en a le moins (la première à égalité) ; nil si aucune place libre.
+function D.pick_chest(cands)
+  local best
+  for i, c in ipairs(cands or {}) do
+    if c.pos then
+      if (c.ore or 0) <= 0 then return i end
+      if not best or c.ore < cands[best].ore then best = i end
+    end
+  end
+  return best
+end
+
 --- Le départ a-t-il déjà été offert ? `v` = la valeur gardée dans la sauvegarde : faux = partie neuve (à offrir), vrai = offert, ABSENT
 --- (nil) = sauvegarde d'avant le lot : une équipe déjà lancée ne reçoit rien d'office, même si la migration n'a pas tourné.
 function D.is_offered(v)
