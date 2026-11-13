@@ -33,6 +33,7 @@ local Lec = {}
 
 Lec.ENT_MAX = 120      -- entités comptées au plus par zone et par relevé
 Lec.DECISIONS_MAX = 24
+Lec.CHAMP_STALE = 5 * 3600 + 2 * 3600 -- s41 zone-aveugle : période du relevé des champs (Champ.REPORT_EVERY) + Ec.STALE
 Lec.OUTPOST_ENTS = 60  -- foreuses et réceptacles lus au plus pour l'emprise d'un avant-poste
 local MACHINE_TYPES = { "furnace", "assembling-machine", "lab", "mining-drill", "pumpjack", "boiler", "generator" }
 
@@ -247,6 +248,12 @@ function Lec.reads(f, z)
       local young = m.finished_m ~= nil and st.last_min - m.finished_m < 2
       local verdict = m.rate_meas > 0 and "marche" or (young and "inconnu" or "arret")
       out[#out + 1] = { src = "debit", verdict = verdict, why = verdict == "arret" and "debit_nul" or nil, tick = st.last_min * 3600 }
+    end
+    -- s41 zone-aveugle : bande du champ, relevé des champs (Champ.report, toutes les Ch.REPORT_EVERY ticks) gardé dans p.champ_read
+    local cp = f.build and f.build.projects and f.build.projects[z.pid]
+    local cr = cp and cp.champ_read
+    if type(cr) == "table" and type(cr.tick) == "number" then
+      out[#out + 1] = { src = "champ", verdict = cr.verdict, why = cr.why, tick = cr.tick, stale = Lec.CHAMP_STALE }
     end
     if z.kind == "centrale" and f.build and f.build.sante then
       local sv = f.build.sante

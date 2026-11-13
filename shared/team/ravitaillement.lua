@@ -102,4 +102,20 @@ function Rv.field_burners(prev, rows)
   return keep
 end
 
+--- s41 zone-aveugle : LECTURE d'une bande du champ gardee par le releve des champs. `n` = machines (foreuses et fours) debout, `run` = en marche,
+--- `nofuel` = fours a l'arret faute de combustible, `full` = fours a l'arret sortie pleine, `tick` = date du releve. Rend
+--- { tick, n, run, nofuel, full, verdict, why } : « marche » si des machines tournent et qu'aucun four n'est a sec ni plein ; « arret » des
+--- qu'un four est a sec (why « combustible ») ou plein (why « sortie », le plus nombreux des deux, « combustible » a egalite) ; « inconnu » sinon
+--- (aucune machine, ou toutes a l'arret pour une autre cause : le releve ne tranche pas).
+function Rv.field_read(n, run, nofuel, full, tick)
+  n, run, nofuel, full = num(n), num(run), num(nofuel), num(full)
+  local verdict, why = "inconnu", nil
+  if nofuel > 0 or full > 0 then
+    verdict, why = "arret", (full > nofuel) and "sortie" or "combustible"
+  elseif run > 0 then
+    verdict = "marche"
+  end
+  return { tick = num(tick), n = n, run = run, nofuel = nofuel, full = full, verdict = verdict, why = why }
+end
+
 return Rv

@@ -1116,7 +1116,7 @@ function Champ.report(f, surface, tick)
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
-      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0, dn = 0 }
+      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0, dn = 0, run = 0, ffull = 0 } -- (s41 zone-aveugle : run, ffull)
       -- s40 champ p4 : UNE recherche au moteur par pièce et par relevé (les trois boucles ci-dessous relisaient la même pièce jusqu'à trois
       -- fois : état, voie de charbon, sans courant) ; `found[i]` : l'entité valide de la pièce i, ou false ; mêmes lignes de journal
       local found = {}
@@ -1143,12 +1143,12 @@ function Champ.report(f, surface, tick)
             if e.role == "champ-foreuse" then
               d.n = d.n + 1
               pd.dn = pd.dn + 1
-              if s == S.working then d.run = d.run + 1 elseif s == S.waiting_for_space_in_destination then d.stuck = d.stuck + 1; pd.stuck = pd.stuck + 1
+              if s == S.working then d.run = d.run + 1; pd.run = pd.run + 1 elseif s == S.waiting_for_space_in_destination then d.stuck = d.stuck + 1; pd.stuck = pd.stuck + 1
               elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1 end
             else
               fu.n = fu.n + 1
               pd.fn = pd.fn + 1
-              if s == S.no_fuel then pd.fnofuel = pd.fnofuel + 1 end
+              if s == S.no_fuel then pd.fnofuel = pd.fnofuel + 1 elseif s == S.full_output then pd.ffull = pd.ffull + 1 elseif s == S.working then pd.run = pd.run + 1 end
               if ent.burner and ent.unit_number then -- lot COMBUSTIBLE : un four à brûleur du champ, à sec ou non (règle Rv.field_burners)
                 local fo = fours[p.spec.champ.oid]
                 if not fo then fo = { rows = {}, ents = {} }; fours[p.spec.champ.oid] = fo end
@@ -1161,6 +1161,9 @@ function Champ.report(f, surface, tick)
           end
         end
       end
+      -- s41 zone-aveugle : ce relevé EST la lecture de la bande par l'équipe ; il la garde (seul écrivain de p.champ_read, règle Rv.field_read),
+      -- lue par la vue « Cerveau » (script/debug/lecture.lua) : avant, rien n'était conservé et la bande était « jamais lue »
+      p.champ_read = Rv.field_read(pd.fn + pd.dn, pd.run, pd.fnofuel, pd.ffull, tick)
       -- lot COMBUSTIBLE-MIGRATION : état de la VOIE DE CHARBON du projet (tapis posés, avec du charbon, vides ; foreuses du charbon) et fours sans combustible
       -- de sa bande : lecture seule, une ligne par projet qui porte du charbon ou des fours, 8 lignes au plus par relevé (cause des fours à sec des fins de partie)
       if vlogs < 8 then

@@ -52,7 +52,7 @@ function Ec.compare(reads, real, now, stale)
   local fresh, any_stop, stop_read = {}, false, nil
   for _, r in ipairs(reads) do
     local a = Ec.age(r, now)
-    if a ~= nil and a <= stale then
+    if a ~= nil and a <= (finite(r.stale) and r.stale or stale) then -- (s41 zone-aveugle : une lecture périodique porte sa propre péremption)
       fresh[#fresh + 1] = r
       if r.verdict == "arret" and not any_stop then any_stop, stop_read = true, r end
     end
