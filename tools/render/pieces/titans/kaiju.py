@@ -82,7 +82,19 @@ def matieres(S):
                             crasse=0.55, crasse_col=(0.01, 0.006, 0.014), graine=32)
     M["ventre"] = MT.surface(PREFIX + "ventre", (0.085, 0.090, 0.110), rough=0.5, met=0.25, tole=(0.9, 0.35), joint=0.35, joint_l=0.03,
                              var=0.1, usure=0.3, nu=(0.35, 0.38, 0.45), crasse=0.5, crasse_col=(0.01, 0.01, 0.015), relief=0.8, graine=33)
-    M["noyau"] = S.mat_emissive(PREFIX + "noyau", (0.12, 0.55, 1.00), strength=4.5, base=(0.05, 0.30, 0.70), main_scale=0.35)
+    # QA s43 tour 2 : la coque des cristaux n'est plus émissive (elle était dans la lueur : crête en aplat blanc aux ères hautes, alpha
+    # 0,91) ; verre BLEU NUIT dans la couche principale, seule le NOYAU (fin) porte la lueur teintée par l'ère
+    # (émissif FAIBLE et transmissif : il reste dans la passe de lueur, où le noyau se voit au travers ; fo_glow_part 0,1 : un liseré)
+    verre = S.mat_emissive(PREFIX + "verre", (0.16, 0.46, 1.00), strength=0.6, base=(0.018, 0.045, 0.13), main_scale=0.15)
+    verre["fo_glow_part"] = 0.1
+    p = verre.node_tree.nodes.get("Principled BSDF")
+    if p is not None:
+        for k_, v_ in (("Transmission Weight", 0.6), ("IOR", 1.45), ("Coat Weight", 1.0), ("Coat Roughness", 0.03), ("Roughness", 0.06)):
+            if k_ in p.inputs:
+                p.inputs[k_].default_value = v_
+    TM.facettes(verre, cellules=2.6, stries=6.0, bosse=0.35, graine=5.0)
+    M["cristal"] = verre
+    M["noyau"] = S.mat_emissive(PREFIX + "noyau", (0.12, 0.55, 1.00), strength=4.0, base=(0.02, 0.12, 0.35), main_scale=0.2)
     M["fissure"] = S.mat_emissive(PREFIX + "fissure", (0.20, 0.70, 1.00), strength=3.0, base=(0.04, 0.25, 0.40), main_scale=0.45)
     return M
 
@@ -91,7 +103,7 @@ def cristal(lot, M, base, d, L, r, noyau=True):
     """Un cristal réfractif : coque de verre (`cristal`) et noyau émissif plus fin à l'intérieur (lueur)."""
     lot.put(M["cristal"], pointe(base, d, L, r))
     if noyau and L > 0.7:
-        lot.put(M["noyau"], pointe(G.add(base, G.mul(d, 0.1 * L)), d, L * 0.78, r * 0.42, 5))
+        lot.put(M["noyau"], pointe(G.add(base, G.mul(d, 0.1 * L)), d, L * 0.72, r * 0.3, 5))
 
 
 def grappe(lot, M, base, up, L, r, n, graine, ouvert=0.55):
