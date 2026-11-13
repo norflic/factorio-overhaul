@@ -230,6 +230,20 @@ function Sante.committed(f, except)
   return kw
 end
 
+--- Lot s41 energie : puissance INSTALLÉE (kW nominaux) des consommateurs FINIS (ni abandonnés, ni centrales), dans l'ordre des projets.
+--- Une machine posée mais à l'arrêt y compte : c'est la demande qui vient (S.demand).
+function Sante.installed(f)
+  local b = f.build
+  local plant = { [b.plant or 0] = true }
+  for _, id in ipairs(b.extra_plants or {}) do plant[id] = true end
+  local kw = 0
+  for _, pid in ipairs(b.order or {}) do
+    local p = b.projects[pid]
+    if p and not plant[pid] and p.state == "fini" and not p.abandoned and type(p.power_kw) == "number" and p.power_kw > 0 then kw = kw + p.power_kw end
+  end
+  return kw
+end
+
 function Sante.held(f)
   local sm = mem(f)
   local ids = {}
@@ -287,7 +301,8 @@ function Sante.growth(f, tick, plants, used_j, capacity_j)
   if Sante.off(f) then sm.ant_n = 0 return false, {}, 0, 0, 0 end
   -- étape 5a de VIDEO-INTEG : + les kW que la capitalisation a retenus faute de courant (S.capi_kw ; boucle B)
   local committed = Sante.committed(f) + Sante.held(f) + S.capi_kw(f.team and f.team.capi and f.team.capi.kw_blocked, tick)
-  local used, cap = used_j * JTICK_KW, capacity_j * JTICK_KW
+  -- lot s41 energie : la demande compte la puissance installée à l'arrêt (S.demand), plus la seule production mesurée
+  local used, cap = S.demand(used_j * JTICK_KW, Sante.installed(f)), capacity_j * JTICK_KW
   local stalled = {}
   for _, p in ipairs(plants) do
     if p.state ~= "fini" and p.reopened then
