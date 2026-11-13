@@ -1645,10 +1645,6 @@ function M.new_world(opts)
   end
   _G.game = {
     tick = 0,
-    -- lot ECOLOGIE-5 : réglages de carte (valeurs par défaut du moteur 1.1.91) mis à l'échelle des équipes au lancement de la guerre
-    map_settings = { enemy_evolution = { pollution_factor = 9e-7, time_factor = 4e-6, destroy_factor = 2e-3 },
-      pollution = { enabled = true, ageing = 1, diffusion_ratio = 0.02, enemy_attack_pollution_consumption_modifier = 1 },
-      enemy_expansion = { enabled = true, min_expansion_cooldown = 4 * 3600, max_expansion_cooldown = 60 * 3600 } },
     surfaces = { [1] = surface, nauvis = surface },
     -- Lot M0 : tuiles naturelles (autoplace) et eau, pour la garantie des monnaies (script/world/guarantee.lua).
     tile_prototypes = setmetatable({}, { __index = function(_, name)

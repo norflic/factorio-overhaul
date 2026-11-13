@@ -41,7 +41,6 @@ local DIAG = 0.7071
 local CORNERS = { { DIAG, -DIAG }, { DIAG, DIAG }, { -DIAG, DIAG }, { -DIAG, -DIAG } }
 local CLEAR_RADIUS = 14
 local Zone = require("shared.faction.zone_sure") -- lot EQUILIBRE : zone sûre du départ (rayon 256 au lieu de 80)
-local Ecologie = require("shared.faction.ecologie") -- lot ECOLOGIE-5 : pollution et expansion des biters à l'échelle des équipes
 local ENEMY_CLEAR_RADIUS = Zone.RADIUS
 
 local function say(msg)
@@ -336,10 +335,6 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
     end
     set_player_relations(f, true)
   end
-  -- lot ECOLOGIE-5 (DC, 12/11) : n factions + l'équipe du joueur polluent la même carte ; réglages de carte mis à l'échelle (une fois)
-  war.eco = Ecologie.apply(game.map_settings, n + 1, war.eco)
-  log(string.format("[FO-ECOLOGIE] guerre a %d equipe(s) : evolution par pollution /%d, pollution consommee par attaque x%d, absorption du sol x%d, delais d'expansion x%d",
-    n + 1, n + 1, n + 1, Ecologie.AGEING, Ecologie.COOLDOWN))
   say({ "fo-faction.war-started", n })
   PvP.on_war_started(game.tick)
   JournauxDC.reglages("guerre lancee") -- lot JOURNAUX-DC : réglages et plafond effectif au lancement de la guerre
@@ -359,16 +354,6 @@ function War.start(player, n, soldiers_max, engineers_max, distance)
   if ok then offer_player_team(player.surface, center) end
   return ok, err
 end
-
---- Lot ECOLOGIE-5 : une partie en cours chargée avec cette version (guerre lancée avant le lot) reçoit la mise à l'échelle une fois.
-Events.on_configuration_changed(function()
-  local war = State.war()
-  if not (war and war.active) or war.eco then return end
-  local n = 0
-  for _ in pairs(war.factions or {}) do n = n + 1 end -- compte seulement (aucun ordre lu)
-  war.eco = Ecologie.apply(game.map_settings, n + 1, war.eco)
-  log(string.format("[FO-ECOLOGIE] partie en cours a %d equipe(s) : reglages de carte mis a l'echelle", n + 1))
-end)
 
 function War.stop()
   local war = State.war()
@@ -397,7 +382,6 @@ function War.stop()
     Sites.untrack(id)
   end
   PvP.on_war_stopped()
-  war.eco = Ecologie.apply(game.map_settings, 1, war.eco) -- lot ECOLOGIE-5 : retour aux réglages de la carte
   war.active = false
   war.factions, war.by_force, war.owners, war.claims = {}, {}, {}, {}
   return removed
