@@ -25,6 +25,7 @@ local Tr = require("shared.faction.traits")
 local T = require("shared.team.config")
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : sites gardés et portée selon l'étendue et la défense de la base
 local S10 = require("shared.faction.sonde10") -- lot TV-PLACE (G57) : sonde en fenêtres de 10 x 10 (règle pure)
+local Co = require("shared.ai3.commande") -- lot s43 UX-COMMANDE : sites d'un gisement désigné d'abord (toute équipe)
 
 local Sites = {}
 
@@ -1026,6 +1027,7 @@ local function find_by_value(f, tick, resource)
     f.prospects = keep
     return nil
   end
+  cands = Co.restrict(cands, f.team and f.team.commande and f.team.commande.orders) -- lot s43 UX-COMMANDE : gisement désigné d'abord
   local chosen, vrank, _, ranked = V.choose(cands, ctx, draw_of(f))
   local site = chosen.site
   local out = {}
@@ -1039,6 +1041,7 @@ end
 --- Puise un site valide de la ressource demandée dans la réserve. Renvoie site ou nil.
 function Sites.find(f, surface, tick, resource)
   tick = tick or game.tick
+  if f.team and f.team.commande and f.prospects then f.prospects = Co.prefer(f.prospects, f.team.commande.orders) end -- lot s43 UX-COMMANDE
   if not f.is_player then return find_by_value(f, tick, resource) end
   local war = State.war()
   local list = f.prospects or {}
