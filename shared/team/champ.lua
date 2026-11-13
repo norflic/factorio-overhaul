@@ -639,7 +639,8 @@ local function plan_once(spec)
     if spec.furnace and spec.furnace.fuel and spec.furnace.size < 2 then return nil, "four trop petit pour son coffre de combustible" end
     if spec.furnace and 2 * spec.furnace.size + 3 > spec.pole.wire + Ch.CFG.eps then return nil, "portee des poteaux" end
   end
-  local axis = (F and F.axis) or long_axis(spec)
+  -- s42 gisements : spec.axis impose l'orientation d'un cadre NEUF (essai de l'autre orientation, Ch.axis_retry) ; un cadre figé garde la sienne
+  local axis = (F and F.axis) or ((spec.axis == "x" or spec.axis == "y") and spec.axis) or long_axis(spec)
   local c = context(spec, axis)
   local box = { u0 = math.huge, v0 = math.huge, u1 = -math.huge, v1 = -math.huge }
   for _, t in ipairs(c.list) do
@@ -1272,6 +1273,29 @@ function Ch.plan(spec)
   local q, qwhy = plan_both(sp)
   if q and Ch.head_chests(q) < Ch.head_chests(p) then return q, qwhy end
   return p, why
+end
+
+--- s42 gisements (chantier 4.3 du DC, partie 0.7.96 : « essayer les deux orientations et garder le plan qui pose le plus de foreuses »).
+--- Les rangées suivent l'axe LONG du gisement et la fonderie se pose au bout des rangées : quand ce bout n'a pas de sol neutre (un autre
+--- gisement le borde), les foreuses des bandes ne sont pas posées (stats.orphans ; joueur, 6,3 min : cuivre, 100 foreuses non posées sur 215).
+--- L'autre orientation sort par un autre bord. Borné : UN essai de plus, sur un cadre neuf seulement, et seulement si des foreuses manquent.
+function Ch.axis_other(axis) return axis == "x" and "y" or "x" end
+
+--- Vrai si le plan `p` d'un cadre neuf laisse des foreuses non posées faute de fonderie : l'autre orientation vaut un essai.
+function Ch.axis_retry(p)
+  return p ~= nil and p.stats ~= nil and (p.stats.orphans or 0) > 0
+end
+
+--- Vrai si le plan `b` (autre orientation) remplace `a` (axe long) : STRICTEMENT plus de foreuses du champ posées ; avec des coffres de
+--- tête en plus (colonnes à remplir à la main), seulement si l'axe long garde moins que la part que le refus exige (Ch.refuse_keeps, la
+--- même règle que le refus d'une colonne et que Ch.better_order) ; à égalité, l'axe long reste (plans d'avant inchangés).
+function Ch.better_axis(a, b)
+  if not b then return false end
+  if not a then return true end
+  local da, db = Ch.field_drills(a), Ch.field_drills(b)
+  if db <= da then return false end
+  if Ch.head_chests(b) <= Ch.head_chests(a) then return true end
+  return not (Ch.refuse_keeps(db, da))
 end
 
 --- s40 champ p1 : fin de l'ordre des bandes d'un cadre. `nbad` : bandes écartées (plan de bande refusé à l'instant de sa demande) ; `produced` :

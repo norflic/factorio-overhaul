@@ -375,7 +375,7 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
 end
 
 --- Spec de la règle pure pour l'avant-poste `o` : (spec, names) ou nil, raison.
-local function spec_of(f, surface, o, frame, only)
+local function spec_of(f, surface, o, frame, only, axis_force)
   local data, names = Champ.data(f, o.kind)
   if not data then return nil, names end
   local ore = ore_tiles(surface, o)
@@ -385,7 +385,7 @@ local function spec_of(f, surface, o, frame, only)
     x0, x1 = math.min(x0, ore[i]), math.max(x1, ore[i])
     y0, y1 = math.min(y0, ore[i + 1]), math.max(y1, ore[i + 1])
   end
-  local axis = frame and frame.axis or ((y1 - y0 > x1 - x0) and "y" or "x")
+  local axis = frame and frame.axis or axis_force or ((y1 - y0 > x1 - x0) and "y" or "x") -- s42 gisements : axis_force = autre orientation a l'essai
   local mu, mv = Champ.CFG.margin_u, Champ.CFG.margin_v
   local cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
   if axis == "x" then x0, x1, y0, y1 = x0 - mu, x1 + mu, y0 - mv, y1 + mv else x0, x1, y0, y1 = x0 - mv, x1 + mv, y0 - mu, y1 + mu end
@@ -421,6 +421,7 @@ local function spec_of(f, surface, o, frame, only)
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
     design = data.design, logistics = data.logistics,
+    axis = (not frame) and axis_force or nil, -- s42 gisements : orientation imposee au plan pur (cadre neuf)
     window = { x0, y0, x1, y1 }, -- lot FONDERIE-BOUT : tuiles lues (obstacles connus) ; une colonne ailleurs ne sort pas de ce rectangle
   }
   if coal then
@@ -466,6 +467,20 @@ function Champ.frame(f, surface, o)
   local plan, why = Ch.plan(spec)
   Profiler.fstop("champ:frame-plan")
   if not plan then return nil, why end
+  -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie au bout des rangees -> l'autre orientation est essayee UNE fois
+  -- (fenetre relue pour elle : les marges suivent l'axe) ; gardee seulement si elle pose strictement plus de foreuses (Ch.better_axis)
+  if Ch.axis_retry(plan) then
+    Profiler.fstart("champ:frame-axe")
+    local spec2 = spec_of(f, surface, o, nil, nil, Ch.axis_other(plan.axis))
+    local plan2 = spec2 and Ch.plan(spec2) or nil
+    Profiler.fstop("champ:frame-axe")
+    local keep = Ch.better_axis(plan, plan2)
+    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : %s a %.1f min",
+      f.key or "player", o.id, o.kind, plan.axis, Ch.field_drills(plan), plan.stats.orphans or 0, Ch.axis_other(plan.axis),
+      plan2 and tostring(Ch.field_drills(plan2)) or "-", plan2 and tostring(plan2.stats.orphans or 0) or "-",
+      keep and "gardee" or "axe long garde", game.tick / 3600))
+    if keep then spec, plan = spec2, plan2 end
+  end
   -- Lot CC-SAUT (F515, mandat du DC du 10/11, 22 h 20) : le cadre figé fixe la place de la colonne de fours de TOUTES ses bandes futures (rejouée sans
   -- recherche) ; ses tuiles hors ressource sont retenues au plan dès maintenant, sous le marqueur du cadre (Cd.frame_tiles) : libres pour les projets de
   -- cet avant-poste, évitées par tous les autres (lignes de poteaux comprises). Avant, seules celles du réseau du charbon reporté l'étaient : la ligne de
