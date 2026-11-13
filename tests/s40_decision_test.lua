@@ -74,5 +74,14 @@ local total = 0
 for _, tk in ipairs(En.tasks) do total = total + tk.count end
 check(total == 40 and #En.tasks >= 1 and #En.tasks <= P.MAX_CRAFTS, "grosse commande : " .. #En.tasks .. " morceau(x), 40 objets")
 
+-- p4, p5 (script/ai3/cerveau.lua, hors moteur : contrôle statique du source, comme tests/decoupage_pensee_test.lua).
+local fh = assert(io.open("script/ai3/cerveau.lua", "rb"))
+local src = fh:read("*a")
+fh:close()
+-- p4 : aucune sortie de research_step sur un add_research refusé sans dater l'horloge du laboratoire
+check(src:find("if not force.add_research(tech) then lab.last = tick return info end", 1, true) ~= nil
+  and src:find("if not force.add_research(tech) then return info end", 1, true) == nil,
+  "p4 : un add_research refusé date lab.last avant de sortir (le temps du refus n'est pas du temps de laboratoire)")
+
 print(string.format("[S40-DECISION] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

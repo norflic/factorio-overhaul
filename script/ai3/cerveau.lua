@@ -614,7 +614,9 @@ local function research_step(f, st, book, w, tick, view)
   -- Avancement au temps des prototypes, packs consommés unité par unité.
   local cur = force.current_research
   if own and (not cur or cur.name ~= tech) then
-    if not force.add_research(tech) then return info end
+    -- (s40 decision p4 : recherche refusée : l'horloge du laboratoire est datée quand même ; avant, la sortie laissait lab.last en arrière et, à la
+    -- reprise, tout le temps du refus était compté comme du temps de laboratoire : unités et packs payés d'un coup)
+    if not force.add_research(tech) then lab.last = tick return info end
   end
   local dt = tick - (lab.last or tick)
   lab.last = tick
