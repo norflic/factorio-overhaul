@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.96
+Date: 2026-11-13
+  Bugfixes:
+    - IA (F615) : les rangées du mall trouvent leur chaîne de poteaux à travers la place du tronc au lieu d'être refusées.
+    - IA (F616) : les fours des bandes du champ vus sans combustible sont ravitaillés en charbon ; le panneau de débogage lit l'état de la bande.
+    - IA (F617) : la centrale électrique est agrandie d'après les machines posées, plus seulement d'après la consommation mesurée.
+    - IA (F618) : un ouvrier qui vide une sortie de champ ramasse aussi les coffres voisins de la même bande.
+    - Équipe du joueur (F619) : en partie neuve, le centre de commandement est posé au point d'apparition, à côté du vaisseau ; le coffre du hub évite le minerai.
+  Changes:
+    - IA (F620) : jusqu'à 25 laboratoires tant que les plaques dorment et que les packs suivent ; pour l'équipe du joueur, la recherche de la construction par robots passe devant quand elle est proche.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.95
 Date: 2026-11-13
   Bugfixes:
