@@ -1,0 +1,62 @@
+--[[
+  Sprint s40, axe 3 (logistique des ouvriers), points 21 à 25. Hors jeu, Lua pur.
+  p21 : l'état « idle » ne dépense pas de jeton de prise quand le tableau n'a aucune tâche libre (Board.any_free).
+  Usage : lua5.2 tests/s40_ouvriers_test.lua   (depuis la racine du mod)
+]]
+package.path = "./?.lua;" .. package.path
+
+local ok_n, fail_n = 0, 0
+local function check(c, msg)
+  if c then ok_n = ok_n + 1 print("OK     " .. msg) else fail_n = fail_n + 1 print("ECHEC : " .. msg) end
+end
+
+local function read(p) local h = io.open(p, "rb"); local s = h:read("*a"); h:close(); return (s:gsub("\r\n", "\n")) end
+local BOARD = read("script/team/board.lua")
+local WORKER = read("script/team/worker.lua")
+
+--- Texte d'une fonction de premier niveau (de son en-tête à son `end` en colonne 0).
+local function fn_text(src, head)
+  local a = src:find(head, 1, true)
+  if not a then return nil end
+  local b = src:find("\nend\n", a, true)
+  return b and src:sub(a, b + 4) or nil
+end
+
+---------------------------------------------------------------------------------------------------
+-- p21 : Board.any_free
+---------------------------------------------------------------------------------------------------
+do
+  local txt = fn_text(BOARD, "function Board.any_free(f)")
+  check(txt ~= nil, "p21 : Board.any_free existe dans board.lua")
+  local Board = {}
+  local board
+  Board.get = function() return board end
+  local chunk = txt and load(txt, "any_free", "t", { Board = Board, ipairs = ipairs })
+  if chunk then chunk() end
+  local any = Board.any_free or function() return nil end
+  local t1, t2 = { key = "a", worker = 7 }, { key = "b" }
+  board = { tasks = {}, list = {} }
+  check(any({}) == false, "p21 : tableau vide : aucune tâche libre")
+  board = { tasks = { a = t1 }, list = { t1 } }
+  check(any({}) == false, "p21 : seule tâche déjà prise : aucune tâche libre")
+  board = { tasks = { a = t1, b = t2 }, list = { t1, t2 } }
+  check(any({}) == true, "p21 : une tâche sans preneur : libre")
+  board = { tasks = { a = t1 }, list = { t1, t2 } }
+  check(any({}) == false, "p21 : tâche libre de la liste déjà retirée du tableau : pas libre")
+  board = { tasks = { a = t1, b = { key = "b" } }, list = { t1, t2 } }
+  check(any({}) == false, "p21 : tâche de la liste remplacée au tableau : pas libre (comme Board.claim)")
+  -- Câblage dans l'état « idle » : le jeton n'est demandé que s'il y a une tâche libre, la prise aussi.
+  local idle = WORKER:match("FSM%.define%(MACHINE, {\n  idle = {(.-)\n  step = {")
+  check(idle ~= nil, "p21 : état « idle » trouvé dans worker.lua")
+  idle = idle or ""
+  local i_any = idle:find("local any_free = Board.any_free(f)", 1, true)
+  local i_tok = idle:find("if any_free and not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end", 1, true)
+  local i_claim = idle:find("local task = any_free and Board.claim(f, agent, tick) or nil", 1, true)
+  check(i_any and i_tok and i_claim and i_any < i_tok and i_tok < i_claim, "p21 : idle : any_free, puis jeton, puis prise")
+  local _, n_take = idle:gsub("Tokens%.take%(", "")
+  check(n_take == 1, "p21 : idle : un seul appel de Tokens.take (gardé par any_free)")
+  check(idle:find('agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1', 1, true) ~= nil, "p21 : idle : le retour au QG sans tâche reste")
+end
+
+print(string.format("\n[S40-OUVRIERS] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
+os.exit(fail_n == 0 and 0 or 1)

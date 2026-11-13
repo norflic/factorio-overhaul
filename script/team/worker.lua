@@ -1865,13 +1865,16 @@ FSM.define(MACHINE, {
       local f = faction_of(agent)
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
-      if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
+      -- Sprint s40 (ouvriers p21) : aucune tâche libre au tableau (Board.any_free) : la prise rendrait nil ; le jeton n'est pas dépensé (il
+      -- entamait la part de l'équipe, et Tokens.take refuse la grosse opération d'un tick, plan ou poteau, dès que `used > 0`).
+      local any_free = Board.any_free(f)
+      if any_free and not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
       -- Lot PERF (correction après revue) : la prise de tâche entière (réclamer, programmer, juger, rendre) est comptée et
       -- mesurée SELON SON ISSUE (« idle:sans-tache », « idle:sans-programme », « idle:refus », « idle:depart ») ; la
       -- porte seule aussi (« gate:accepte », « gate:refus »). Mode fin du profileur seulement (mesure, jamais décision).
       Profiler.fmark("idle")
       Profiler.fstart("board:claim")
-      local task = Board.claim(f, agent, tick)
+      local task = any_free and Board.claim(f, agent, tick) or nil
       Profiler.fstop("board:claim")
       if not task then
         -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin. Lot CORR-RALLIEMENT (tenue) : pas pendant « away » (QG débordé).
