@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.92
+Date: 2026-11-13
+  Changes:
+    - IA (F599) : plus aucune bande de foreuses sans fonderie : un bout de bande qui n'a pas sa colonne de fours n'est plus construit.
+    - IA (F600) : tant que les plaques et produits de base n'ont pas 20 % de marge, les chaînes de rang élevé attendent (hors défense et extraction).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.91
 Date: 2026-11-12
   Bugfixes:

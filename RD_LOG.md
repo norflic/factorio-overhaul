@@ -10,6 +10,16 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-13, 03 h 30 : version 0.7.92 (sprint partie réelle : bandes couplées à leur fonderie, marge des tiers 0 et 1)
+
+- **F599 · FAIT · [0.7.92]** Couplage extraction/fonderie (couplage 18cae22d, b93b5c74, fbacf426) : dans la partie du DC (archive `2026-11-12_PARTIE-DC-0790`), environ 404 foreuses étaient sur des bandes sans aucun four (tapis collecteur qui finit dans l'herbe). `shared/team/champ.lua` `bare_todo` : un bout de bande sans colonne de fonderie ne pose plus ni foreuse ni tapis ; une colonne ailleurs plus courte n'est admise que pour le four électrique. Relevé `[FO-COUPLAGE]` : 0 bande orpheline à 120 min sur les graines lues. decouplage_test section 10 (44 OK).
+- **F600 · FAIT · [0.7.92]** Marge de 20 % des tiers 0 et 1 (marge-tiers c4501b1b, ebdd76b4) : `shared/ai3/marge.lua`, fenêtre glissante, `[FO-MARGE]` ; gel des chaînes de rang 3 et plus (hors défense et extraction) tant que la marge n'est pas tenue ; bras, tapis et courant de la foreuse jamais gelés. Ne s'est jamais déclenché au banc. marge_test 39 OK.
+- **E270 · REJETÉ** Pollution et expansion des biters à l'échelle des 5 factions (ECOLOGIE-5 0f92e6df, retiré par ec793370) : panel `partie-reelle-120`, 4 graines, fer servi à 120 min 671 475 → 528 224 (−21 %), 2 foreuses en marche à 120 min sur la graine 314159265.
+- **E271 · REJETÉ** Plaques restées au champ rapatriées au QG (branche `plaques-champ`, v4 99be0f85, v5 14cf8886) : cause trouvée (plafond `Rp.MAX_LINES` = 8 compté avec les branchements, refus faute de place au coffre de sortie, bras d'arrivée unique), mais 4 graines à 120 min : plaques livrées 721 009 → 632 894 (−12 %).
+- **E272 · REJETÉ** Courant des foreuses du champ (lot COURANT-CHAMP v3, v4) : plus de 95 % des foreuses sans courant sont en sous-production (low_power) ; priorité aux centrales, fer servi à 120 min 213 950 → 137 125 (graine 1618033988).
+- Banc nouveau : base `partie` (ouvriers au réglage `fo-war-workers`, comme la partie du DC), scénarios `partie-reelle-30/60/120`, mesure `tools/autotest/partie_reelle.py` (foreuses en marche, figées, sans courant ; plaques au champ). Panel 4 graines à 120 min, référence a1e492c0 contre 0.7.92 : foreuses en marche 358 → 312, fer servi 671 475 → 624 362 (−7 %, dans le bruit de ±30 % par graine) ; le gain est le couplage demandé par le DC, pas le débit.
+- Garde-fous : run 114, iag 564, decouplage 44, marge 39, harness code 0.
+
 ## 2026-11-12, 22 h 22 : version 0.7.91 (plantage de la partie du DC en 0.7.90)
 
 - **F598 · FAIT · [0.7.91]** Plantage « LuaEntity API call when LuaEntity was invalid » (`on_nth_tick(5)`, `script/team/piquage.lua:468` `place_split`, appelé par `follow_links` / `finish_cycle` / `Piquage.step`) : le répartiteur est posé par remplacement sur place (`fast_replace`), qui détruit l'entité du tapis source ; la boucle qui renomme la pièce dans les relevés des autres projets relisait ensuite `belt.name`. Le nom est lu avant la pose. piquage_tapis_remplace_test 2 OK (mutant refusé), piquage 109, piquage_script 69.
