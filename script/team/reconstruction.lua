@@ -414,8 +414,15 @@ function Recon.think(f, surface, tick)
       stat(s, "discarded")
     end
   end
+  -- s40 : les pièces d'une tâche « rebuild » encore au tableau (ouvrier pas parti : pas encore « prises », Recon.program) sont tenues :
+  -- elles ne consomment plus les places essayées de la pensée (Board.add refusait leur clé) et n'entrent plus dans le lot d'une autre graine.
+  local held = {}
   for _, key in ipairs(State.sorted_keys(b.tasks)) do
-    if b.tasks[key].kind == "rebuild" then open = open + 1 end
+    local t = b.tasks[key]
+    if t.kind == "rebuild" then
+      open = open + 1
+      for _, k in ipairs(t.recs or {}) do held[k] = true end
+    end
   end
   if open >= Recon.MAX_OPEN then return 0 end
   Profiler.fstart("recon:poteaux")
@@ -436,7 +443,7 @@ function Recon.think(f, surface, tick)
   end
   if #due == 0 then return 0 end
   local added, tried = {}, 0
-  local have, taken = {}, {}
+  local have, taken = {}, held
   for _, seed in ipairs(due) do
     if open + #added >= Recon.MAX_OPEN or tried >= Recon.SEEDS_PER_THINK then break end
     if sink_waits(f, seed, due) then

@@ -349,6 +349,23 @@ do
 end
 
 
+-- s40 : les pièces d'une tâche « rebuild » encore au tableau ne sont pas reprises dans le lot d'une autre graine
+do
+  local f = new_team()
+  surface.enemies = 0
+  died({ entity = ent("piece-a", "assembling-machine", 10, 10), tick = 1000 })
+  died({ entity = ent("piece-b", "transport-belt", 12, 10), tick = 1001 })
+  local n = Recon.think(f, surface, 1000 + Rc.CALM + 5)
+  check(n == 1 and #added == 1 and #added[1].recs == 2, "s40 : première tâche, le lot des deux voisines")
+  died({ entity = ent("pole-x", "electric-pole", 11, 11), tick = 1000 + Rc.CALM + 6 })
+  local n2 = Recon.think(f, surface, 1000 + Rc.CALM + 6 + Rc.CALM + 5)
+  local t2 = added[2]
+  check(n2 == 1 and t2 and #t2.recs == 1 and f.recon.lost[t2.recs[1]].name == "pole-x",
+    "s40 : le poteau perdu à côté a sa tâche, sans reprendre les pièces de la tâche ouverte")
+  f.team.board.tasks = {}
+  added = {}
+end
+
 -- §9 Réparation ----------------------------------------------------------------------------------------------------------
 do
   local f = new_team()
