@@ -116,9 +116,10 @@ local function load_code(out_src, work_src)
   local Build = { COLLECT_AT = 200, Quotas = require("script.team.quotas_glue"), Colr = Colr, QUAI_CHEST = QUAI_CHEST }
   local env = setmetatable({
     Build = Build, Stock = Stock, REACH = 16,
-    P = { anchor_for = function(_, x, y) return { x = x, y = y } end },
+    -- lot LOGISTIQUE : rue (W.street) et tuile libre (W.spot) reglables par monde ; par defaut le point tel quel
+    P = { anchor_for = function(_, x, y) if W.street then return W.street(x, y) end return { x = x, y = y } end },
     seg_passable = function() return function() return true end end,
-    free_spot = function(_, _, x, y) return x, y end,
+    free_spot = function(_, _, x, y) if W.spot then return W.spot(x, y) end return x, y end,
     defines = { inventory = { chest = 1 } },
     log = function(s) W.logs[#W.logs + 1] = s end,
   }, { __index = _G })
@@ -189,6 +190,23 @@ local function battery(out_src, work_src)
   r = Build.work(agent_for(2, bag), f, 3600)
   check(r == "done" and bag.items["iron-plate"] == 50 and bag.items.stone == 10, "C7 : 50 fer puis 10 pierres dans un sac de 60")
   Stock.skip_fn = nil
+
+  -- Lot LOGISTIQUE (B2, banc partie-reelle-120 graine 123456789, emerald projet 4 : le point de la rue tombait entre deux bras du quai,
+  -- 110 « no_path ») : le point d'appui de la collecte passe par free_spot, autour du point de la rue, ou autour du coffre sans rue.
+  section("6. out_tasks : point d'appui de la collecte sur une tuile libre")
+  f, p = world({ ["iron-plate"] = 300 }, { ["iron-plate"] = 300 })
+  local asked = {}
+  W.street = function() return { x = 10, y = 20 } end
+  W.spot = function(x, y) asked[#asked + 1] = x .. "," .. y; return x + 0.5, y + 3.5 end
+  out = {}
+  X.out_tasks(f, p, surface, out)
+  check(#out == 2 and out[1].ia1d.ax == 10.5 and out[1].ia1d.ay == 23.5,
+    "C8 : rue sous le quai, l'appui est la tuile libre autour du point de la rue (" .. tostring(out[1] and out[1].ia1d.ax) .. ", " .. tostring(out[1] and out[1].ia1d.ay) .. ")")
+  check(asked[1] == "10,20", "C8 : free_spot interroge autour du point de la rue (" .. tostring(asked[1]) .. ")")
+  W.street = function() return nil end
+  out = {}
+  X.out_tasks(f, p, surface, out)
+  check(#out == 2 and out[2].ia1d.ax == 5 and out[2].ia1d.ay == 5, "C9 : sans rue, l'appui est la tuile libre autour du coffre (" .. tostring(out[2] and out[2].ia1d.ax) .. ")")
 end
 
 local ok, err = pcall(battery, OUT, WORK)
@@ -233,6 +251,10 @@ do
   local mw, n2 = mutate(WORK, "local skip = Stock%.skip_fn and Stock%.skip_fn%(f%) or nil", "local skip = nil")
   check(n2 == 1, "mutant ecart ignore a la collecte : applique")
   must_fail("ecart ignore a la collecte", OUT, mw)
+  -- lot LOGISTIQUE : le point de la rue pris tel quel (l'etat d'avant le lot)
+  local ma, n3 = mutate(OUT, "if a then fx, fy = free_spot%(b, nil, a%.x, a%.y%) else", "if a then fx, fy = a.x, a.y else")
+  check(n3 == 1, "mutant point de la rue tel quel : applique")
+  must_fail("point de la rue tel quel", ma, WORK)
 end
 for _, line in ipairs(mut_report) do print("  " .. line) end
 

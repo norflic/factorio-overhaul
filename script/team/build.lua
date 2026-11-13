@@ -4526,6 +4526,17 @@ local function out_wanted(f, p, chest)
   return false
 end
 
+--- Lot LOGISTIQUE : point d'appui d'une tâche de PORTAGE (collecte d'une sortie, remplissage d'un quai, amorce) : le point de la rue passé par
+--- free_spot, comme les points d'appui de chantier (plan_project). Avant le lot le point de la rue était pris tel quel : une rue du treillis sous
+--- le quai d'une colonne du champ donnait un but ENTRE deux bras du quai, que le moteur refuse (« no_path ») : banc partie-reelle-120, graine
+--- 123456789, emerald, les 11 coffres du projet 4 visaient (-282, 521), 110 refus de chemin, 18 900 plaques au quai et QG à sec à 120 min.
+function Build.carry_anchor(b, x, y)
+  local a = P.anchor_for(b.lat, x, y, seg_passable(b))
+  local fx, fy
+  if a then fx, fy = free_spot(b, nil, a.x, a.y) else fx, fy = free_spot(b, nil, x, y) end
+  return { x = fx, y = fy }
+end
+
 --- Tâches de COLLECTE des coffres de sortie d'un projet (une par coffre au seuil). Lot COLLECTE : appelée aussi pour un projet qui n'est ni
 --- « fini » ni « chantier » (bande du champ « reserve:pile », « refuse:migration »... dont les coffres posés se remplissent encore : journal du
 --- DC du 7/11, 8 coffres au seuil de 159 à 174 min) ; un coffre absent (rien de bâti) est ignoré.
@@ -4547,8 +4558,7 @@ local function out_tasks(f, p, surface, out)
     local chest = chests[i]
     -- lot PETROLE : seuil propre d'une sortie de site (o.at) ; lot VIDEO L4 : borné par le quota
     if chest and counts[i] >= Build.Quotas.collect_at(q, i, o.at or Build.COLLECT_AT) and out_wanted(f, p, chest) then
-      local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
-      if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
+      local a = Build.carry_anchor(f.build, o.x, o.y)
       out[#out + 1] = {
         key = "ia1d:" .. p.id .. ":o:" .. i, kind = "carry", prio = p.prio, domain = "logistique", work = 40,
         ia1d = { pid = p.id, mode = "collect", idx = i, ax = a.x, ay = a.y },
@@ -4585,8 +4595,7 @@ local function quai_tasks(f, p, surface, out)
     rate = Cc.rate(kw, M.COAL_J)
     -- lot ENERGIE (2/11) : chaudières à sec = amorce à la main (charbon du stock versé dans la chaudière), en tête de pile
     Sante.tasks(f, p, out, function(x, y)
-      local a = P.anchor_for(f.build.lat, x, y, seg_passable(f.build))
-      if not a then local fx, fy = free_spot(f.build, nil, x, y); a = { x = fx, y = fy } end
+      local a = Build.carry_anchor(f.build, x, y)
       return a
     end)
   end
@@ -4609,16 +4618,14 @@ local function quai_tasks(f, p, surface, out)
         -- lot COMBUSTIBLE-CENTRALE (levier a) : coffre du QG sans charbon -> le tampon d'un avant-poste de charbon porte le complément
         local relay
         if r.short and Build.Ct then
-          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
-          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          local a = Build.carry_anchor(f.build, q.x, q.y)
           relay = Build.Ct.relay(f, p, surface, i, q, n, r, a.x, a.y, Build.Quartiers.DEPOT, game.tick)
           if relay then r.short = nil end
         end
         cc_say(f, p, i, n, have, rate, r)
         if relay then out[#out + 1] = relay end
         if r.due then
-          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
-          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          local a = Build.carry_anchor(f.build, q.x, q.y)
           out[#out + 1] = {
             key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = r.prio, no_rush = true, domain = "logistique", work = 40,
             items = { { q.item, r.count } },
@@ -4629,8 +4636,7 @@ local function quai_tasks(f, p, surface, out)
         -- (Cc.refill : 4 min d'avance, 20 min de cible), tâche URGENTE comme le coffre d'une centrale ; coffre du QG sans combustible : le tampon d'un avant-poste (Build.Ct)
         local inv = chest.get_inventory(defines.inventory.chest)
         local r = Cc.refill(n, q.flow, have, inv and (n + inv.get_insertable_count(q.item)) or nil, false)
-        local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
-        if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+        local a = Build.carry_anchor(f.build, q.x, q.y)
         local relay
         if r.short and Build.Ct then
           relay = Build.Ct.relay(f, p, surface, i, q, n, r, a.x, a.y, Build.Quartiers.DEPOT, game.tick)
@@ -4648,8 +4654,7 @@ local function quai_tasks(f, p, surface, out)
         local r = Build.Quotas.refill(qta, i, n, have, Build.QUAI_LOW, Build.QUAI_FILL)
         r = Build.Rempl.adjust(f, p, i, q, chest, n, have, qta, r, Build.QUAI_LOW, Build.QUAI_FILL) -- lot REMPLISSAGE : stock abondant, coffre plein
         if r.due then
-          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
-          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          local a = Build.carry_anchor(f.build, q.x, q.y)
           out[#out + 1] = {
             key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = p.prio + 3, domain = "logistique", work = 40,
             items = { { q.item, r.count } },
