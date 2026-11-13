@@ -173,6 +173,14 @@ function M.stop_state(done, produced, retired)
   return "abandon"
 end
 
+--- s41 thermiques (DC, partie de 3 h 30 ; boucle du lot ELAGAGE, E273 : paires balayées, reposées par l'agrandissement du même avant-poste,
+--- rebalayées, 25 balayages et 145 paires pour une équipe en 120 min) : un avant-poste dont le balayage a retiré des paires (`o.th_swept` :
+--- tick du premier retrait, écrit par l'exécutant) ne reçoit PLUS JAMAIS de paire thermique, quelle que soit la règle qui la demande
+--- (famine de la plaque clé, extraction effondrée, fin d'une attente). Rend vrai/faux.
+function M.pairs_closed(o)
+  return type(o) == "table" and o.th_swept ~= nil
+end
+
 --- Le gisement est-il couvert par une bande électrique qui produit ? Rend (vrai/faux, raison).
 function M.covered(fl, cfg)
   cfg = cfg_of(cfg)
