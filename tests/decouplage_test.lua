@@ -117,6 +117,17 @@ local function scenario(tag, Sm, P, Co, M)
   check(pw ~= nil and pw.stats.no_smelter >= 1 and drills == 0 and belts == 0 and fours == 0 and (pw.stats.orphans or 0) > 0,
     string.format(tag .. "champ sans place de fonderie : aucune foreuse orpheline (%d posées, %d tapis, %d sans fonderie non posées, %d groupe(s) sans fonderie)",
       drills, belts, pw and pw.stats.orphans or -1, pw and pw.stats.no_smelter or -1))
+  -- 7b. lot BANDE-GELEE (0.7.92, graine 123456789, amber avant-poste 4 : bande -291 toute orpheline au cadre, absente de l'ordre des bandes
+  -- de Champ.frame qui ne gardait que les bandes à groupes, jamais demandée seule, alors que la même bande seule recevait 23 fours avant le
+  -- lot COUPLAGE) : la bande dont les foreuses attendent une fonderie le dit au plan (bo.orphans), l'ordre des bandes la garde
+  local o_sum, o_bands = 0, 0
+  for _, bd in ipairs(pw and pw.bands or {}) do
+    o_sum = o_sum + (bd.orphans or 0)
+    if #bd.groups == 0 and (bd.orphans or 0) > 0 then o_bands = o_bands + 1 end
+  end
+  check(pw ~= nil and o_sum == (pw.stats.orphans or -1) and o_bands > 0,
+    string.format(tag .. "bande toute orpheline : ses foreuses en attente sont au plan de la bande (%d au plan, %d au total, %d bande(s) sans groupe)",
+      o_sum, pw and pw.stats.orphans or -1, o_bands))
   -- 9. lot FONDERIE-BOUT : bouts de bande murés (aucune place de colonne dans leur prolongement), sol neutre plus loin, une autre ressource
   -- au sud : la colonne se pose AILLEURS, hors de toute ressource, et le collecteur la nourrit sans relais (tapis continu, Cv.flow)
   local Cv = require("shared.team.champ_verif")
@@ -240,6 +251,15 @@ do
   end
 end
 
+section("11. BANDE-GELEE : l'ordre des bandes du cadre garde la bande toute orpheline")
+do
+  local src = read("script/team/champ.lua")
+  check(src:find("if #bd.groups > 0 or bd.orphans > 0 then", 1, true) ~= nil,
+    "Champ.frame : une bande sans groupe mais a foreuses en attente (bd.orphans) reste dans l'ordre des bandes")
+  check(src:find("wait = #bd.groups == 0 }", 1, true) ~= nil and src:find("if a.wait ~= b.wait then return b.wait end", 1, true) ~= nil,
+    "Champ.frame : la bande en attente de fonderie passe apres les bandes a fonderie")
+end
+
 section("5. mutants")
 local MUTANTS = {
   { name = "P.fit : emprise sur la ressource", mod = MODS.p, file = "shared/team/plan.lua",
@@ -250,6 +270,8 @@ local MUTANTS = {
     from = "opts%.res and not Sm%.mining_box%(g%)", to = "opts.res" },
   { name = "Ch.plan : bout sans fonderie oublié (ni colonne ailleurs ni compte)", mod = MODS.ch, file = "shared/team/champ.lua",
     from = "bare_todo%[#bare_todo %+ 1%] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }", to = "" },
+  { name = "Ch.plan : bande orpheline muette (lot BANDE-GELEE)", mod = MODS.ch, file = "shared/team/champ.lua",
+    from = "bo%.orphans = bo%.orphans %+ #g0%.n %+ #g0%.s", to = "" },
   { name = "Ch.plan : aucune colonne ailleurs (avant FONDERIE-BOUT)", mod = MODS.ch, file = "shared/team/champ.lua",
     from = "if colonne and not t%.refused then", to = "if false then" },
   { name = "Co.away : colonne sur une ressource", mod = MODS.co, file = "shared/team/champ_colonne.lua",

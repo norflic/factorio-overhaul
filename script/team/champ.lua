@@ -510,8 +510,16 @@ function Champ.frame(f, surface, o)
     end
   end
   local order = {}
-  for _, bd in ipairs(plan.bands) do if #bd.groups > 0 then order[#order + 1] = { pr = bd.pr, n = pairs_in[bd.pr] or 0, d = math.abs(bd.b - hv) } end end
+  -- lot BANDE-GELEE : une bande sans groupe dont les foreuses attendent une fonderie (bd.orphans, lot COUPLAGE) reste dans l'ordre : demandée
+  -- seule (Champ.band), elle reçoit sa colonne si elle trouve sa place alors, sinon elle est écartée comme toute bande vide ; elle passe APRÈS
+  -- les bandes à fonderie (graine 123456789, scarlet : une telle bande demandée la première, refusée, retardait tout le champ)
+  for _, bd in ipairs(plan.bands) do
+    if #bd.groups > 0 or bd.orphans > 0 then
+      order[#order + 1] = { pr = bd.pr, n = pairs_in[bd.pr] or 0, d = math.abs(bd.b - hv), wait = #bd.groups == 0 }
+    end
+  end
   table.sort(order, function(a, b)
+    if a.wait ~= b.wait then return b.wait end
     if (a.n > 0) ~= (b.n > 0) then return a.n > 0 end
     if a.n ~= b.n then return a.n > b.n end
     if a.d ~= b.d then return a.d < b.d end
