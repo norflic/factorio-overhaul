@@ -42,6 +42,8 @@ Sv.WINDOW = 5 * 3600          -- fenêtre des refus de la porte
 Sv.PARA_WAITS = 6             -- refus de la porte dans la fenêtre : paralysie
 Sv.IDLE_PCT = 34              -- % de PNJ sans tâche qui, avec les refus, disent « paralysée »
 Sv.IDLE_PCT_THREAT = 50       -- % de PNJ sans tâche qui, sous la menace seule, disent « paralysée »
+Sv.FAMINE_TICKS = 10 * 3600   -- lot s42 diag-joueur : manque continu qui, coffre VIDE de la matière et IDLE_PCT_THREAT % de PNJ sans tâche,
+                              -- ouvre la survie sans aucun refus de la porte (famine en paix : Sv.famine)
 Sv.EXIT_TICKS = 5 * 3600      -- pénurie finie depuis 5 min : sortie
 Sv.MIN_ON = 3 * 3600          -- séjour minimal : pas de clignotement
 Sv.BEAT = 10 * 3600           -- une ligne de bilan toutes les 10 min tant que le mode dure
@@ -136,6 +138,16 @@ function Sv.paralysed(st, a, tick)
   return false
 end
 
+--- Lot s42 diag-joueur : FAMINE EN PAIX. La paralysie ne lisait que la porte et la menace : une équipe sans ennemi, à 0 plaque, dont les
+--- PNJ attendent la matière (aucun refus de la porte), n'entrait jamais en survie (Ordre Écarlate, partie du DC du 13/11 : 14 PNJ sur 15
+--- sans tâche pendant 3 h 30, « manque iron-plate 40 », aucune ligne [FO-SURVIE]). Vrai si le manque dure depuis Sv.FAMINE_TICKS, que le
+--- coffre est VIDE d'une matière qui manque (a.starved, lu par l'appelant) et que Sv.IDLE_PCT_THREAT % des PNJ sont sans tâche.
+function Sv.famine(st, a, tick)
+  local workers, idle = num(a.workers), num(a.idle)
+  if workers <= 0 or not a.starved or not st.short_since then return false end
+  return tick - st.short_since >= Sv.FAMINE_TICKS and idle * 100 >= workers * Sv.IDLE_PCT_THREAT
+end
+
 local function short_text(short)
   local parts = {}
   for _, s in ipairs(short) do parts[#parts + 1] = string.format("%s %d", s[1], s[2]) end
@@ -155,6 +167,7 @@ function Sv.decide(st, a)
     st.calm_since = st.calm_since or tick
   end
   local para, why = Sv.paralysed(st, a, tick)
+  if not para and #short > 0 and Sv.famine(st, a, tick) then para, why = true, "famine" end -- lot s42 diag-joueur
   local out = { on = st.on, short = short, para = para, para_why = why }
   if not st.on then
     if #short > 0 and tick - st.short_since >= Sv.SHORT_TICKS and para then
