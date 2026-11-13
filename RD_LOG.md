@@ -10,6 +10,25 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-13, 23 h 45 : version 0.7.97 (sprint long, partie 1 : six chantiers du DC après sa partie de 4 h 15 en 0.7.96)
+
+Journal de la partie archivé : `fo-logs/2026-11-13_partie-DC-4h15-0796/factorio-current.log`. `[FO-CUMUL]` vers 246 min, plaques de fer : amber 287 703, emerald 166 663, azure 58 176, scarlet 8 637, **player 7 836**. Cartes différentes de la partie en 0.7.95 (QG d'amber déplacé, gisements autres) : pas de régression de code établie. Validation : tests unitaires, contrôle de chargement et banc de contenu ; **aucun effet en jeu n'est mesuré**.
+
+- **F621 · FAIT · [0.7.97]** Famine (diag-joueur 7e56b85c) : `shared/team/main_inventaire.lua:55` (`Mi.gone`) purgeait aussi le minage de survie (player : survie ouverte de 33 à 243 min, « minages demandes 0 ») ; `Sv.famine` ouvre la survie sur un manque continu de 10 min, coffre vide, moitié des PNJ sans tâche (scarlet : 14 PNJ sur 15 inactifs, fer 0).
+- **F622 · FAIT · [0.7.97]** Pile (upgrades bb691d73) : E283 reproduit (scarlet suspendu de 12 à 247 min, player de 4 à 189) ; `Pi.post_calm` : sans danger mesuré, un poste qui attend sa matière ne retient plus ni n'entre au noyau du budget.
+- **F623 · FAIT · [0.7.97]** Thermiques (s41 d6b05e02 + 54c8d607) : voies `Outposts.build`, `Swap.repli`, `substitute_drills` fermées sur un site balayé ; `Th.replace_one`. 71 thermiques debout en fin de partie, cause dominante : « aucun poteau alimenté à portée » (818 lignes).
+- **F624 · FAIT · [0.7.97]** Centre (qg-niveaux 2e64d76c, 06eb9b4a) : seul amber dépassait le niveau 1 (2 à 118 min, 3 à 168 min) ; emerald bloquée `condition:furnace` de 61 min à la fin. Chaîne du centre devant (10 min au plus par bâtiment), centre de `player` candidat de son équipe.
+- **F625 · FAIT · [0.7.97]** Modules (modules-roi de8fe595) : `Ms.RESERVE = 4` et le remplissage d'un coup ne posaient que 11 ordres en 4 h 15 ; `shared/ai3/modules_roi.lua`.
+- **F626 · FAIT · [0.7.97]** Champ (gisements 27e6afab, 65bf26a1, 56d5ac7d) : rangée optimale de s41, autre orientation essayée une fois, déplacement de poteau sur gisement non bloqué par la famine (639 refus sur 904).
+- **F627 · FAIT · [0.7.97]** Tronc du mall (bus-continu 01856069, 353ddd98, 784e1c8f) : `shared/team/bus_continu.lua`, journal `[FO-BUS-CONTINU]` ; réinjection (E287) réconciliée avec F615.
+- **F628 · FAIT · [0.7.97]** Modules sur les fours du mod (modules-proto 49326235) : `prototypes/levels/common.lua:209` ne posait rien sur la famille four ; test datastage `modules_slots`.
+- **F629 · FAIT · [0.7.97]** Sortie directe et centrale (bus-direct 4dbe4db8, charbon-centrale 37646448) : ligne de tapis seuls du bout de colonne à la tête du tronc ; deux coffres et deux bras sur les centrales neuves ; `Cc.alim_rate` × 1,3. Refus « pas de lot » et « trop loin » des centrales d'azure et scarlet non traités.
+- **F630 · FAIT · [0.7.97]** Causal, défense, fluides, routage (causal 841370ba ; defense 8a354518, 26a7831e, 36feacb4 ; tuyaux 64edf140 à ad918979 ; reroutage 7b733c45 à b8cc71be). emerald seule rasée par les biters (centrale détruite 12 fois, 0 tourelle à 25 tuiles) ; aucun nid connu de toute la partie, d'où aucun raid. Enceinte : règle pure non câblée. Gabarit pétrochimique : refusé 9 fois sur 9 au journal (contact de tuyaux), tranche suivante écrite.
+- **F631 · FAIT · [0.7.97]** Commandement (s43 ux-commande a836589b, b71759fb) : panneau, outil de sélection, orientation qui pondère les familles de buts (50 à 200 %), gisement désigné servi en premier. Non vu en jeu.
+
+- **E289 · OUVERT** Teintes des tapis (s42-tapis-teintes b04cb8eb) : le mod n'a aucun palier intermédiaire de tapis (question TAPIS-NIVEAUX de `docs/QUESTIONS_DC.md`) ; passe fusionnée, inerte tant qu'aucun palier ne partage un aspect.
+- **E290 · OUVERT** Disque F: plein à 22 h 46 (worktrees de 0,8 à 3,2 Go chacun) : 35 worktrees finis retirés. Le banc de référence 0.7.96 a échoué pendant la saturation.
+
 ## 2026-11-13, 21 h 00 : version 0.7.96 (sprint de 40 min n° 2 : cinq verrous relevés par le DC sur sa partie de 3 h 30 en 0.7.95)
 
 Journal de la partie du DC archivé : `fo-logs/2026-11-13_partie-DC-3h30/factorio-current.log` (0.7.95, 187 min, 0 erreur Lua). `[FO-CUMUL]` vers 185 min, plaques de fer produites : emerald 487 710, azure 244 864, scarlet 196 443, **player 71 496**, amber 56 002. Validation des lots : tests unitaires et contrôle de chargement ; **aucun effet en jeu n'est mesuré**.
