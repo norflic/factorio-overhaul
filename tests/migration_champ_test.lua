@@ -1638,10 +1638,12 @@ do
     local E = setup({})
     local before_drills = E.o.drills
     check(E.sweep() == 0 and E.alive() == 8, "T1 : premier relevé couvert : rien n'est retiré (confirmation)")
+    check(E.o.th_swept == nil, "T1 : avant le balayage, l'avant-poste n'est pas fermé aux paires (s41 thermiques)")
     check(E.sweep() == 1 and E.alive() == 0, "T1 : deuxième relevé couvert : les 8 paires thermiques sont retirées de force (" .. E.alive() .. " restent)")
     check((E.chest[T.DRILL] or 0) == 8 and (E.chest[T.outposts.iron.sink] or 0) == 8, "T1 : foreuses et fours rendus au stock")
     check(E.o.drills == before_drills and E.o.migr_credit == 8, "T1 : la comptabilité des foreuses de l'avant-poste ne change pas (credit " .. tostring(E.o.migr_credit) .. ")")
     check(E.ms.swept == 8 and E.ms.retired == 8, "T1 : compteurs du balayage")
+    check(E.o.th_swept == E.tick, "T1 : l'avant-poste balayé est fermé aux paires pour de bon (s41 thermiques, o.th_swept = tick du retrait)")
     check((E.ms.retired_by or {})[E.o.kind] == 8, "T1 : cumul des foreuses rendues par ressource (lot ELAGAGE, lu par Elec.think)")
     check(said(E, "retiree(s) de force"), "T1 : journal du balayage")
     check(said(E, "[FO-THERMIQUE]"), "T1 : ligne d'état [FO-THERMIQUE]")
@@ -1770,6 +1772,7 @@ do
     E.sweep(); E.sweep()
     check(E.alive() == 5, "T10 : à sec depuis dry_wait, bande finie : les 3 brûleurs à sec partent, 5 restent (" .. E.alive() .. ")")
     check(said(E, "à sec retiré(s)"), "T10 : journal [FO-THERMIQUE] brûleur(s) à sec retiré(s)")
+    check(E.o.th_swept ~= nil, "T10 : l'avant-poste dont un brûleur à sec est retiré est fermé aux paires (s41 thermiques)")
     E.restore()
     -- T10b : un brûleur réalimenté reprend sa date à zéro
     E = setup({ working = 1 })

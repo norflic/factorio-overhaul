@@ -1519,6 +1519,7 @@ local function sweep(f, surface, ms, free, book, tick)
           for i, q in ipairs(owners) do
             q.drills = before[i]
             purge_recon(f, q)
+            if removed > 0 then q.th_swept = q.th_swept or tick end -- s41 thermiques : gisement balayé, fermé aux paires pour de bon (Th.pairs_closed)
           end
           o.migr_credit = (o.migr_credit or 0) + removed
           ms.retired = (ms.retired or 0) + removed
@@ -1561,7 +1562,7 @@ local function sweep(f, surface, ms, free, book, tick)
         for i, q in ipairs(owners) do before[i] = q.drills or 0 end
         local removed, got, _, full = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
         if not full then -- lot STOCKAGE-VITAL : sinon le retrait à sec attend la place au stock (ms.dry reste)
-          for i, q in ipairs(owners) do q.drills = (before)[i]; purge_recon(f, q) end -- (comptabilité inchangée, comme le balayage)
+          for i, q in ipairs(owners) do q.drills = (before)[i]; purge_recon(f, q); if removed > 0 then q.th_swept = q.th_swept or tick end end -- (comptabilité inchangée, comme le balayage ; s41 : fermé aux paires)
           ms.retired = (ms.retired or 0) + removed
           ms.dry_retired = (ms.dry_retired or 0) + removed
           swept = swept + removed
