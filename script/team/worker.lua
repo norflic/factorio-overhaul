@@ -1134,6 +1134,8 @@ local function gh_finish(agent, f, task, ok, tick)
   st.n, st.ok = st.n + 1, st.ok + (ok and 1 or 0)
   st.built, st.lot, st.took, st.tok = st.built + (g.built or 0), st.lot + (g.n or 0), st.took + (g.took or 0), st.tok + (g.tok or 0)
   if (g.built or 0) == 0 then st.zero = st.zero + 1 end
+  -- lot FANTOMES : tâche tenue plus de 2 min de jeu sans poser une pièce (compte et PNJ-min perdus)
+  if (g.built or 0) == 0 and tick - g.t0 > 7200 then st.long, st.long_t = (st.long or 0) + 1, (st.long_t or 0) + (tick - g.t0) end
   st.total = st.total + (tick - g.t0)
   for _, k in ipairs(GH_KEYS) do st[k] = (st[k] or 0) + (g[k] or 0) end
   if not ok then local r = tostring(task.fail or "?") st.fails[r] = (st.fails[r] or 0) + 1 end
@@ -1153,10 +1155,10 @@ local function gh_finish(agent, f, task, ok, tick)
     table.sort(ks)
     for _, k in ipairs(ks) do fl[#fl + 1] = k .. " " .. st.fails[k] end
     local tt = math.max(1, st.total)
-    log(string.format("[FO-GHOST-BILAN] %s a %.1f min : %d tache(s) ghost (%d finies, %d sans pose), %d piece(s) posee(s) (%.2f par tache) sur %d au lot, %d objet(s) porte(s) ; %.1f PNJ-min ; temps : depart %d %%, prise %d %%, marche %d %%, pose %d %%, retour %d %%, retour d'echec %d %% ; %d pensee(s) sans jeton ; echecs {%s}",
+    log(string.format("[FO-GHOST-BILAN] %s a %.1f min : %d tache(s) ghost (%d finies, %d sans pose), %d piece(s) posee(s) (%.2f par tache) sur %d au lot, %d objet(s) porte(s) ; %.1f PNJ-min ; temps : depart %d %%, prise %d %%, marche %d %%, pose %d %%, retour %d %%, retour d'echec %d %% ; %d pensee(s) sans jeton ; sans pose longues %d (%.1f PNJ-min) ; echecs {%s}",
       f.key or "player", tick / 3600, st.n, st.ok, st.zero, st.built, st.built / math.max(1, st.n), st.lot, st.took, st.total / 3600,
       math.floor(100 * (st.t_depart or 0) / tt), math.floor(100 * (st.t_prise or 0) / tt), math.floor(100 * (st.t_marche or 0) / tt),
-      math.floor(100 * (st.t_pose or 0) / tt), math.floor(100 * (st.t_retour or 0) / tt), math.floor(100 * (st.t_echec or 0) / tt), st.tok,
+      math.floor(100 * (st.t_pose or 0) / tt), math.floor(100 * (st.t_retour or 0) / tt), math.floor(100 * (st.t_echec or 0) / tt), st.tok, st.long or 0, (st.long_t or 0) / 3600,
       table.concat(fl, ", ")))
   end
 end
