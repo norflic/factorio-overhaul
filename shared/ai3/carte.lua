@@ -92,6 +92,19 @@ function K.new_ids(done, recs)
   return out
 end
 
+--- Sprint 40 (p49) : retire de `done` ({ [id] = true }) les identifiants absents de `recs` ; rend le nombre retiré. Effacer un champ
+--- existant pendant un parcours est permis par Lua ; le résultat (un ensemble) ne dépend pas de l'ordre.
+function K.purge_ids(done, recs)
+  local n = 0
+  for id in pairs(done) do
+    if not (recs and recs[id]) then
+      done[id] = nil
+      n = n + 1
+    end
+  end
+  return n
+end
+
 --- Tick du dernier regard sur le secteur, ou nil (jamais vu).
 function K.seen(m, key)
   local s = m.s[key]

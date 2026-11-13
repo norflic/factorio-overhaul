@@ -931,6 +931,13 @@ local function audit(f, k, tick)
       end
     end
   end
+  -- Sprint 40 (p49) : un avant-poste disparu (perdu, adopté, ruine) laissait son entrée à vie dans la sauvegarde. Les identifiants ne
+  -- sont jamais réattribués (f.next_oid ne fait que monter) : la purge ne change aucun contrôle. Une fois par minute et par équipe
+  -- (tick de jeu, déterministe ; f.outposts_count n'est pas tenu par tous les retraits, il ne sert donc pas de garde).
+  if tick >= (k.audit.purge_at or 0) then
+    k.audit.purge_at = tick + 3600
+    K.purge_ids(k.audit.outposts, f.outposts)
+  end
 end
 
 --- Mesures des bancs (avec ET sans brouillard : avant / après sur la même source) : date du n-ième avant-poste de chaque

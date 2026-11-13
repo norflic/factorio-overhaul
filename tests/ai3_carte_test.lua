@@ -309,5 +309,16 @@ do
   check(#K.new_ids({ [2] = true, [4] = true, [7] = true, [9] = true }, a) == 0, "p48 : tout contrôlé = liste vide")
 end
 
+-- Sprint 40 (p49) : la table des identifiants contrôlés ne garde que les vivants.
+do
+  local done = { [1] = true, [2] = true, [3] = true, [8] = true }
+  local recs = { [2] = {}, [8] = {}, [9] = {} }
+  check(K.purge_ids(done, recs) == 2 and done[1] == nil and done[3] == nil and done[2] and done[8] and done[9] == nil,
+    "p49 : identifiants disparus retirés, vivants gardés, aucun ajouté")
+  check(K.purge_ids(done, recs) == 0, "p49 : deuxième purge sans effet")
+  check(#K.new_ids(done, recs) == 1 and K.new_ids(done, recs)[1] == 9, "p49 : un vivant déjà contrôlé n'est pas recontrôlé")
+  check(K.purge_ids(done, nil) == 2 and next(done) == nil, "p49 : plus aucun avant-poste = table vide")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
