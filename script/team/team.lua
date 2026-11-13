@@ -631,7 +631,8 @@ function Team.view(f, tick)
       f.team.mag_iron, f.team.mag_iron_tech = rm[T.outposts.iron.product] or 0, f.tech
     end
     local n_turrets = 0
-    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do if f.turrets[id].valid then n_turrets = n_turrets + 1 end end
+    -- s40 ups-team p42 : un COMPTE (indépendant de l'ordre, aucun effet de bord) : plus de liste triée refaite à chaque pensée
+    for _, tu in pairs(f.turrets or {}) do if tu.valid then n_turrets = n_turrets + 1 end end
     -- (hystérésis : f.team.ammo_rich garde l'état d'une pensée à l'autre ; essai 1, la cible basculait avec le fer)
     f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret({ base = T.turret_ammo_target,
       rich = T.turret_ammo_rich_on and T.turret_ammo_rich or T.turret_ammo_target, turrets = n_turrets, -- (essai 3 : cible riche éteinte)

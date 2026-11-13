@@ -277,7 +277,18 @@ do
   local view = team:sub(team:find("function Team.view(", 1, true), team:find("function Team.measure(", 1, true))
   local _, n_sm = view:gsub("Outposts%.smelters%(f%)", "")
   check(n_sm == 1, "p41 : Team.view ne revalide les fours qu'une fois par pensée (" .. n_sm .. ")")
-  -- S40-SUITE
+  check(not view:find("sorted_keys(f.turrets", 1, true) and view:find("in pairs(f.turrets or {}) do if tu.valid then n_turrets = n_turrets + 1", 1, true) ~= nil,
+    "p42 : tourelles valides comptées sans liste triée")
+  -- compte identique à l'ancien (liste triée) sur une table à trous, entités valides et invalides mêlées
+  do
+    local tur = { [7] = { valid = true }, [3] = { valid = false }, [12] = { valid = true }, [40] = { valid = true }, [1] = { valid = false } }
+    local keys, old, new = {}, 0, 0
+    for k in pairs(tur) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, id in ipairs(keys) do if tur[id].valid then old = old + 1 end end
+    for _, tu in pairs(tur) do if tu.valid then new = new + 1 end end
+    check(old == 3 and new == old, "p42 : même compte qu'avec la liste triée")
+  end
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
