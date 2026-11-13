@@ -42,6 +42,8 @@ local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (d
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
 local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (état passé à la pensée pure)
+local Pf = require("shared.ai3.plafonds") -- sprint s41 : plafond de sûreté des laboratoires
+local Cr = require("shared.ai3.chantier_robots") -- sprint s41 : la construction par robots, objet voulu de votre équipe
 local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module (mall…)
 local Lj = require("script.ai3.labo_journal") -- lot BLOCAGE-LABOS : journal [FO-LABO] (cause d'une recherche qui attend ses packs)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
@@ -472,6 +474,27 @@ local function place_labs(f, st, lab, want)
     end))
 end
 
+--- Sprint s41 (labos) : { { item, recipe } } des recettes débloquées par une technologie dont un produit pose une entité de la
+--- construction par robots (types Cr.TYPES), dans un ordre fixe ; gardé dans le catalogue (cache local tiré des seuls prototypes).
+local function robot_recipes(c)
+  if c.robot_list then return c.robot_list end
+  local is = {}
+  for _, ty in ipairs(Cr.TYPES) do
+    for name in pairs(game.get_filtered_entity_prototypes({ { filter = "type", type = ty } })) do
+      local e = game.entity_prototypes[name]
+      for _, it in ipairs((e and e.items_to_place_this) or {}) do is[it.name] = true end
+    end
+  end
+  local out = {}
+  for _, r in ipairs(sorted_keys(c.products)) do
+    for _, p in ipairs(c.products[r]) do
+      if is[p] then out[#out + 1] = { item = p, recipe = r } end
+    end
+  end
+  c.robot_list = out
+  return out
+end
+
 --- Recherche d'une faction à cette pensée : choix, laboratoires, avancement. Renvoie l'information pour la pensée pure.
 local function research_step(f, st, book, w, tick, view)
   local force = game.forces[f.force]
@@ -528,6 +551,18 @@ local function research_step(f, st, book, w, tick, view)
       local m = {}
       for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
       for _, k in ipairs(sorted_keys(rw)) do m[k] = true end
+      wanted = m
+    end
+    -- Sprint s41 (labos) : votre équipe veut la construction par robots (objets qui posent une entité des types Cr.TYPES, sans recette
+    -- ouverte) : la technologie qui les ouvre et sa chaîne prennent la valeur d'un objet voulu. Aucun nom : types et effets des prototypes.
+    local bw = f.is_player and Cr.wanted(robot_recipes(c), function(r)
+      local x = force.recipes[r]
+      return x ~= nil and x.enabled
+    end) or nil
+    if bw then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      for _, k in ipairs(sorted_keys(bw)) do m[k] = true end
       wanted = m
     end
     tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, wanted)
@@ -596,7 +631,12 @@ local function research_step(f, st, book, w, tick, view)
   -- ABSOLUE (base figée quand la recherche commence à recevoir le stock qui dort, plus n), jamais au-delà du plafond des bras plus
   -- Dep.LABS_MAX : un laboratoire posé ne relève plus la cible.
   local dep_cap = Br.labs_max(view.workers, Ia3.LABS_MAX, Dm.extra_cap(st.puits ~= nil, spare_hands)) + Dep.LABS_MAX
-  local dep_t = Dep.labs_target(f, #labs, dep_cap, tick)
+  -- Sprint s41 (labos) : laboratoires NOURRIS (les packs de la recherche en cours sont au coffre) : le plafond des bras cède au plafond de
+  -- sûreté des laboratoires (Pf.HARD_KIND) et la base avance quand la cible est atteinte (Dp.rebase) : ils grandissent avec les plaques qui dorment.
+  local labs_fed = true
+  for _, ing in ipairs(spec.ing) do if (view.stock[ing[1]] or 0) < ing[2] then labs_fed = false end end
+  if labs_fed then dep_cap = math.max(dep_cap, Pf.HARD_KIND.labos or 0) end
+  local dep_t = Dep.labs_target(f, #labs, dep_cap, tick, labs_fed)
   if dep_t then want = math.max(want, dep_t) end
   if lproto then
     info.lab_item = lproto.item

@@ -151,6 +151,18 @@ function Dp.labs_target(base, now, extra, cap, prev)
   return math.min(c, t), base
 end
 
+--- Sprint s41 (labos) : la base AVANCE quand la cible est atteinte, que les plaques dorment encore (extra > 0) et que les laboratoires
+--- sont NOURRIS (fed : les packs de la recherche en cours sont au coffre). Avant : base + Dp.LABS_MAX était un plafond définitif tant
+--- que le sommeil durait (3 h 30 de jeu, plaques en excédent, laboratoires figés). Ce n'est pas le défaut D1 : la base ne bouge que
+--- cible ATTEINTE et laboratoires nourris, par pas de Dp.LABS_MAX au plus, sous le plafond de l'appelant ; des laboratoires affamés
+--- (packs absents) arrêtent la croissance. Rend la base à garder.
+function Dp.rebase(base, now, target, extra, fed)
+  if not fed or base == nil or target == nil or num(extra) <= 0 then return base end
+  local n = math.floor(num(now))
+  if n >= target and n > base then return n end
+  return base
+end
+
 --- Plaques encore engagées : (cible - présents) x coût, jamais négatif.
 function Dp.engaged(target, now, cost)
   if target == nil then return 0 end

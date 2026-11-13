@@ -116,10 +116,11 @@ function Dep.debit(f, kind, item, qty)
 end
 
 --- Cible ABSOLUE de laboratoires (revue D1) : now = laboratoires présents, cap = plafond total. nil : rien ne dort.
-function Dep.labs_target(f, now, cap, tick)
+function Dep.labs_target(f, now, cap, tick, fed)
   local r = fresh(f, tick)
   local d = f and f.team and f.team.depenses
   if not (r and d) or r.hold then return nil end
+  d.lab_base = Dp.rebase(d.lab_base, now, d.lab_target, r.labs, fed) -- sprint s41 : cible atteinte, plaques qui dorment encore, laboratoires nourris
   local target, base = Dp.labs_target(d.lab_base, now, r.labs, cap, d.lab_target)
   d.lab_base, d.lab_target, d.lab_now = base, target, now
   return target
