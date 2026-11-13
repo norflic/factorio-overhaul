@@ -101,6 +101,16 @@ function S.anticipate(used, committed, capacity)
   return (used or 0) + S.DRAW * (committed or 0) >= S.ANTICIPATE * capacity
 end
 
+--- Lot s41 energie (DC, 13/11 : « la centrale sature dès que les fours tournent ») : DEMANDE à couvrir par la centrale (kW) = la plus grande
+--- de la production mesurée et de la puissance INSTALLÉE (kW nominaux des consommateurs finis) comptée à S.DRAW. Avant : la mesure seule ;
+--- des machines posées mais à l'arrêt comptaient 0 kW, la centrale de plus n'était demandée qu'une fois la saturation constatée. Avec
+--- S.ANTICIPATE (0,7) et C.GROW_LOAD (0,75), la centrale grandit tant que la capacité ne dépasse pas cette demande d'un tiers.
+function S.demand(used, installed)
+  local u = type(used) == "number" and used == used and used > 0 and used or 0
+  local i = type(installed) == "number" and installed == installed and installed > 0 and installed < math.huge and installed or 0
+  return math.max(u, S.DRAW * i)
+end
+
 -- Étape 5a de VIDEO-INTEG : kW nominaux que la CAPITALISATION a retenus faute de courant (dernière décision, une par minute) ; valables
 -- deux décisions, puis oubliés (capitalisation coupée, équipe disparue : jamais une avance pour toujours).
 S.CAPI_TTL = 2 * 3600

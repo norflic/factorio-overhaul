@@ -270,7 +270,8 @@ function PA.watch(f, surface, tick)
     if q and q.state ~= "refuse" and not (q.state == "bloque" and not q.retry_at) then ns = ns + 1 end
   end
   -- lot CC-ENERGIE (F491) : demande MESURÉE sur la capacité bâtie vivante + celle des centrales neuves en chantier (C.grow_load)
-  local gate = C.grow_load(power + reopened_power, capacity + reopened_alive, new_kw * 1000 / 60)
+  -- lot s41 energie : la demande de la porte est celle de l'avance (used_kw : mesure ou puissance installée à S.DRAW, S.demand), jamais moins que la mesure
+  local gate = C.grow_load(math.max(power + reopened_power, (used_kw or 0) * 1000 / 60), capacity + reopened_alive, new_kw * 1000 / 60)
   local nb, why = C.growth(g, { load = gate, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
     engaged_kw = used_kw and (used_kw + Sante.committed(f) + Sante.held(f)) or nil, cap_kw = cap_kw, -- lot P0-CENTRALE
