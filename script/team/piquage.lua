@@ -510,6 +510,8 @@ local function follow_links(api, f, surface, b, st, tick)
           if not link.split then
             link.split = true
           end
+          -- le répartiteur est là (posé depuis par quelqu'un) : une branche « coupée » après ses refus revit, sinon son verdict restait « coupe » à vie
+          if link.cut then link.cut, link.split_tries = nil, 0 end
           if have.splitter_output_priority ~= lc.geo.priority then have.splitter_output_priority = lc.geo.priority end
         elseif (link.split_tries or 0) < Piquage.SPLIT_TRIES then
           local ok, why = place_split(f, surface, q, lc)

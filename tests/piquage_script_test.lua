@@ -387,6 +387,18 @@ do
   for _ = 1, Piquage.SPLIT_TRIES + 1 do cycle() end
   check(#CALLS.create == before, "5.2 remplacement refusé par le moteur : aucune pose forcée")
   check(has_log("coupe : %d+ pose%(s%) du repartiteur refusee%(s%)") ~= nil, "5.3 après les essais : coupé, la branche reste inerte, le PNJ continue")
+  -- s40 p10 : le répartiteur réapparaît après la coupe : la branche revit (verdict de livraison, plus « coupe »), puis l'état du test est remis
+  do
+    local lk = B.piquage.links["1:q1"]
+    check(lk ~= nil and lk.cut == true, "5.3 bis le lien est coupé")
+    sp0.valid = true
+    cycle()
+    local qv = B.piquage.quais["1:q1"]
+    check(lk.cut == nil and lk.split == true and lk.split_tries == 0, "5.3 ter répartiteur constaté en place : la coupe est levée")
+    check(qv and (qv.verdict == "actif" or qv.verdict == "inerte"), "5.3 quater le verdict redevient celui de la livraison : " .. tostring(qv and qv.verdict))
+    sp0.valid = false
+    lk.cut, lk.split_tries = true, Piquage.SPLIT_TRIES
+  end
   CAN_FR = true
   rebuilt.valid = true
 end
