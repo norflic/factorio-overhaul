@@ -148,5 +148,32 @@ do
     "worker.lua : point d'appui sans objet porte passe sans marche")
 end
 
+-- Sprint s40 (ouvriers p23) : un point d'appui a portee qui ne tient pas est ecarte, la tournee continue avec le suivant qui tient.
+do
+  -- origine (0,0) ; "a" 40 pieces, "b" 20 pieces (ne tient pas : 60 > 48) plus proche de "a" que "c" 5 pieces (tient : 45)
+  local list = { a("a", 5, 0, 40), a("b", 10, 0, 20), a("c", 20, 0, 5) }
+  local t = Tp.group(list, { x = 0, y = 0 }, stack)
+  check(#t == 2, "ecarte : 2 tournees (" .. #t .. ")")
+  check(table.concat(t[1], ",") == "1,3" and table.concat(t[2], ",") == "2", "ecarte : a puis c, b seul (" .. table.concat(t[1], ",") .. ")")
+  -- bornes tenues, chaque point une fois, sur un melange gros et petits
+  local l2 = {}
+  for i = 1, 12 do l2[#l2 + 1] = a(string.format("m%02d", i), 6 * i, 0, (i % 3 == 0) and 30 or 4) end
+  local t2 = Tp.group(l2, { x = 0, y = 0 }, stack)
+  local seen, n_seen = {}, 0
+  for _, tour in ipairs(t2) do
+    local n = 0
+    for _, i in ipairs(tour) do n = n + l2[i].n; seen[i] = (seen[i] or 0) + 1; n_seen = n_seen + 1 end
+    check(n <= Tp.MAX_PIECES, "ecarte : borne de pieces (" .. n .. ")")
+  end
+  local once = n_seen == 12
+  for i = 1, 12 do if seen[i] ~= 1 then once = false end end
+  check(once, "ecarte : chaque point d'appui une fois")
+  check(#t2 <= 4, "ecarte : 4 tournees au plus pour 152 pieces (" .. #t2 .. ")")
+  -- le saut reste borne : un point ecarte ne sert pas de relais
+  local l3 = { a("a", 0, 0, 40), a("b", 30, 0, 20), a("c", 60, 0, 5) }
+  local t3 = Tp.group(l3, { x = 0, y = 0 }, stack)
+  check(table.concat(t3[1], ",") == "1", "ecarte : pas de saut au-dela de MAX_HOP par un point ecarte")
+end
+
 print(string.format("tournee_pose : %d OK, %d ECHEC(S)", ok, ko))
 if ko > 0 then os.exit(1) end

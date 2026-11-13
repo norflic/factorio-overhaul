@@ -1094,6 +1094,17 @@ function Board.stall_view(f, prefix, tick)
   return view
 end
 
+--- Sprint s40 (ouvriers p21) : y a-t-il au moins une tâche SANS preneur au tableau ? Lecture seule de la liste triée (O(n), aucun appel du
+--- moteur). Faux : Board.claim rendrait nil pour tout PNJ (la place de marché, M.order, et O.pick_task ne rendent jamais une tâche prise) :
+--- l'appelant (script/team/worker.lua, état « idle ») ne dépense alors ni jeton ni prise.
+function Board.any_free(f)
+  local b = Board.get(f)
+  for _, t in ipairs(b.list or {}) do
+    if not t.worker and b.tasks[t.key] == t then return true end
+  end
+  return false
+end
+
 --- La matière stricte de la tâche `t` est-elle libre au registre ? (Sans registre : oui.)
 function Board.prenable(f, t)
   local reg = f.team and f.team.reg

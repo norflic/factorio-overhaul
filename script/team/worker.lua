@@ -1189,6 +1189,9 @@ local function abort(agent, f, tick, reason)
     Build.restore_reserved(f, t.ia1d.pid, t.items, main_inv(agent))
   end
   if agent.task then agent.task.fail = reason end
+  -- Sprint s40 (ouvriers p22) : le programme devient « rentrer » : plus aucune étape « take ». La réservation pas encore prise est rendue au
+  -- libre TOUT DE SUITE (avant : à finish, à l'arrivée au QG ; d'ici là Board.prenable refusait les tâches qui demandent cette matière).
+  if f then Board.release(f, agent) end
   agent.failed = true
   agent.steps = { { "home" } }
   agent.pc = 1
@@ -1865,13 +1868,16 @@ FSM.define(MACHINE, {
       local f = faction_of(agent)
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
-      if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
+      -- Sprint s40 (ouvriers p21) : aucune tâche libre au tableau (Board.any_free) : la prise rendrait nil ; le jeton n'est pas dépensé (il
+      -- entamait la part de l'équipe, et Tokens.take refuse la grosse opération d'un tick, plan ou poteau, dès que `used > 0`).
+      local any_free = Board.any_free(f)
+      if any_free and not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
       -- Lot PERF (correction après revue) : la prise de tâche entière (réclamer, programmer, juger, rendre) est comptée et
       -- mesurée SELON SON ISSUE (« idle:sans-tache », « idle:sans-programme », « idle:refus », « idle:depart ») ; la
       -- porte seule aussi (« gate:accepte », « gate:refus »). Mode fin du profileur seulement (mesure, jamais décision).
       Profiler.fmark("idle")
       Profiler.fstart("board:claim")
-      local task = Board.claim(f, agent, tick)
+      local task = any_free and Board.claim(f, agent, tick) or nil
       Profiler.fstop("board:claim")
       if not task then
         -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin. Lot CORR-RALLIEMENT (tenue) : pas pendant « away » (QG débordé).
@@ -1903,6 +1909,7 @@ FSM.define(MACHINE, {
       Profiler.fstop("ia3k:gate")
       if not gate_ok then
         return_site(f, task)
+        release_tile(f, task.target) -- sprint s40 (ouvriers p24) : tuile de minage réservée par Worker.program rendue (le PNJ ne part pas)
         task.fail = task.fail or "danger"
         Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
         Board.finish(f, task, false, tick)
@@ -2476,6 +2483,7 @@ Registry.on_removed(function(agent)
       Sites.mark_unreachable(agent.task.site, game.tick)
     end
     Board.finish(f, agent.task, false, game.tick)
+    Poles.task_done(f, agent.task, false, game.tick) -- sprint s40 (ouvriers p25) : comme toute autre fin de tâche (file sûre, Sur.done)
   end
   -- Lot CRAFT-PARALLELE : PNJ disparu (tué, renvoyé) avec une fabrication en arrière-plan : la tâche « craft » est rendue (échec).
   if agent.bg then

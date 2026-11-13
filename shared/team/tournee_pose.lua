@@ -74,14 +74,22 @@ function Tp.group(anchors, origin, stack)
     add(counts, names, anchors[i])
     local n = anchors[i].n or 0
     local last = anchors[i]
+    -- Sprint s40 (ouvriers p23) : un point d'appui à portée qui ne tient pas dans la tournée (pièces, piles) est ÉCARTÉ pour cette tournée
+    -- et le suivant le plus proche est essayé (avant : il fermait la tournée, et les petits points d'appui à portée partaient dans un
+    -- aller-retour de plus). `seen` = pris par une tournée ou écarté de celle-ci ; ordre fixe (nearest), même entrée, même résultat.
+    local seen = {}
+    for i2 = 1, #anchors do seen[i2] = used[i2] end
     while left > 0 do
-      local j = nearest(anchors, used, last, hop2)
-      if not j or not fits(n, counts, names, anchors[j], stack) then break end
-      tour[#tour + 1] = j
-      used[j], left = true, left - 1
-      add(counts, names, anchors[j])
-      n = n + (anchors[j].n or 0)
-      last = anchors[j]
+      local j = nearest(anchors, seen, last, hop2)
+      if not j then break end
+      seen[j] = true
+      if fits(n, counts, names, anchors[j], stack) then
+        tour[#tour + 1] = j
+        used[j], left = true, left - 1
+        add(counts, names, anchors[j])
+        n = n + (anchors[j].n or 0)
+        last = anchors[j]
+      end
     end
     tours[#tours + 1] = tour
   end
