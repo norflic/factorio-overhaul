@@ -26,6 +26,7 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
+import titans_charte as TC  # noqa: E402
 
 PREFIX = "ju_"
 PSI = -math.radians(40.0)
@@ -40,6 +41,7 @@ RAYON = 12.0 * KE            # rayon au sol englobant (ombre comprise : calculé
 SERIE = {"course": 8, "attaque": 4, "densite": 12.5, "R": 16.0, "zmax": 38.5, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False           # allié : la lueur garde ses couleurs (cyan, magenta)
+SKY_GLOSSY = TC.SKY_GLOSSY   # s43 (charte V3) : ciel spéculaire poussé, le blindage sombre vit de ses reflets
 AMP = 3.0                    # amplitude du pas (unités de modèle) : le pied va de +AMP à -AMP au sol
 LEVEE = 1.6                  # levée du pied en l'air
 FOULEE = 2 * 3.0 * 1.15      # tuiles par cycle = 2 × AMP × KE (distance_per_frame : FOULEE / images)
@@ -86,6 +88,23 @@ def anneau(c, axe, rayon, e, ep):
     """Anneau magnétique : section rectangulaire (e : largeur radiale, ep : épaisseur), axe « x », « y » ou « z », centre c."""
     prof = [(-ep, rayon), (ep, rayon), (ep, rayon + e), (-ep, rayon + e), (-ep, rayon)]
     return G.tour(prof, 48, axe, c)
+
+
+def anneau_seg(lot, M, c, axe, rayon, e, ep, n=6, jour=0.12, noeud=0.0):
+    """s43 (charte V3) : anneau de lévitation MAGNÉTIQUE en n arcs de métal poli séparés par des jours (fraction `jour` de chaque pas) ;
+    un émetteur (cœur) dans chaque jour si `noeud` > 0 (rayon de l'émetteur). Plus lisible qu'un tore plein : la silhouette du corps se lit
+    au travers, l'anneau se lit comme une mécanique (patins), pas comme une brume."""
+    prof = [(-ep, rayon), (ep, rayon), (ep, rayon + e), (-ep, rayon + e), (-ep, rayon)]
+    pas_ = G.TAU / n
+    for k in range(n):
+        a0 = pas_ * (k + jour * 0.5)
+        lot.put(M["anneau"], G.tour(prof, 8, axe, c, a0=a0, a1=a0 + pas_ * (1.0 - jour)))
+        if noeud > 0:
+            a = pas_ * k
+            r = rayon + e * 0.5
+            u, v = r * math.cos(a), r * math.sin(a)
+            q = (0.0, u, v) if axe == "x" else ((v, 0.0, u) if axe == "y" else (u, v, 0.0))
+            lot.put(M["coeur"], G.sphere(G.add(c, q), noeud, 8, 4))
 
 
 def rainure(c, axe, rayon, ep):
@@ -267,7 +286,7 @@ def torse(lot, M, stage, r):
         p0 = (C[0] + 0.2, C[1] + 1.1 * math.cos(a), C[2] + 1.1 * math.sin(a))
         p1 = (C[0] + 1.3, C[1] + 1.9 * math.cos(a), C[2] + 1.9 * math.sin(a))
         lot.put(M["struct"], G.tube([p0, p1], 0.18, 6))
-    lot.put(M["anneau"], anneau((C[0] - 0.9, 0.0, C[2]), "x", 2.9, 0.55, 0.22))
+    anneau_seg(lot, M, (C[0] - 0.9, 0.0, C[2]), "x", 2.9, 0.55, 0.26, n=4, jour=0.14, noeud=0.26)
     lot.put(M["turq"], rainure((C[0] - 1.15, 0.0, C[2]), "x", 3.15, 0.08))
     # échappements dorsaux (2 cheminées) et conduits du dos
     for s in (-1, 1):
@@ -282,9 +301,9 @@ def torse(lot, M, stage, r):
             lot.put(M["cristal"], pointe((-2.2, yy, 27.2 - 0.2 * abs(yy)), G.norm((-0.55, yy * 0.08, 1.0)), L, 0.42))
     if stage >= 3:
         # grand halo magnétique derrière le torse
-        lot.put(M["anneau"], anneau((-5.2, 0.0, 23.6), "x", 6.3, 0.7, 0.26))
-        lot.put(M["turq"], rainure((-5.5, 0.0, 23.6), "x", 6.65, 0.1))
-        lot.put(M["cristal"], rainure((-5.0, 0.0, 23.6), "x", 6.35, 0.06))
+        # s43 (charte V3) : grand halo en 6 patins magnétiques (le tore plein de 6,3 de rayon masquait le dos et noyait la silhouette)
+        anneau_seg(lot, M, (-5.2, 0.0, 23.6), "x", 5.6, 0.6, 0.3, n=6, jour=0.2, noeud=0.34)
+        lot.put(M["turq"], rainure((-5.52, 0.0, 23.6), "x", 5.9, 0.07))
 
 
 def bras_canon(lot, M, stage, r, swing=0.0, charge=0.0, recul=0.0, eclair=0.0):
@@ -386,7 +405,7 @@ def bras_griffes(lot, M, stage, r, swing=0.0):
 
 def build(S, lot, stage=1, u=None, attaque=None, dirs=False):
     """Construit le Juggernaut au stade `stage` (1 à 3) : repos (u et attaque None), marche (u) ou salve (attaque). Rend des comptes pour render.json."""
-    M = TM.matieres(S, "ju_", GRIS)
+    M = TC.charte(S, TM.matieres(S, "ju_", GRIS), "ju_", GRIS)
     xf = XF0 if dirs else XF
     r = G.Rnd(2000 + stage)
     R.raz()

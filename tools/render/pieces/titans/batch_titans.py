@@ -306,7 +306,7 @@ def anime(a):
     D = float(se["densite"])
     C.PX_PER_UNIT_HR = D
     C.AO_DISTANCE = MOD.AO
-    C.SKY_GLOSSY_FACTOR = TM.SKY_GLOSSY
+    C.SKY_GLOSSY_FACTOR = getattr(MOD, "SKY_GLOSSY", TM.SKY_GLOSSY)   # s43 : un module peut pousser le ciel spéculaire (charte V3)
     blanc = bool(getattr(MOD, "GLOW_BLANC", False))
     nb = 1 if piece else se[a.anim]
     kaiju = a.what in SANS_STADE

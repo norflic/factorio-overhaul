@@ -21,7 +21,8 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
-from juggernaut import hexseg, pointe, plaque, anneau, rainure, traces, bague  # noqa: E402
+import titans_charte as TC  # noqa: E402
+from juggernaut import hexseg, pointe, plaque, anneau, anneau_seg, rainure, traces, bague  # noqa: E402
 
 PREFIX = "se_"
 PSI = -math.radians(40.0)
@@ -36,6 +37,7 @@ ZC = 16.5                    # centre de la singularité
 SERIE = {"course": 8, "attaque": 4, "densite": 12.0, "R": 17.5, "zmax": 32.5, "sol": 400.0, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False
+SKY_GLOSSY = TC.SKY_GLOSSY   # s43 (charte V3) : ciel spéculaire poussé, le blindage sombre vit de ses reflets
 FOULEE = 6.0                 # tuiles par cycle de flottement (distance_per_frame du script : FOULEE / images)
 BOB = 0.6                    # amplitude du flottement (unités de modèle)
 ONDE = (0.6, 0.9)            # ondulation d'une patte : vers l'extérieur, vers le haut
@@ -108,7 +110,7 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     lot.put(M["conduit"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc - 0.3, 0.06))
     # singularité : vortex (cœur) + halo large ; sous-disque sombre derrière
     lot.put(M["singularite"], G.sphere(C, (rc - 0.9) * gonfle[0], 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
-    lot.put(M["halo"], G.sphere(C, (rc + 0.6) * gonfle[1], 20, 10))
+    lot.put(M["halo"], G.sphere(C, (rc - 0.3) * gonfle[1], 20, 10))   # s43 : halo resserré (la brume de rc + 0,6 couvrait la couronne)
     if gonfle[2] > 0:
         # TITANS-8DIR : la singularité se LIBÈRE : jet lumineux vers l'avant
         e = gonfle[2]
@@ -156,13 +158,12 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
         lot.put(M["accent"], G.boite((2.2, s * 2.0, ZC - 3.6), (0.4, 0.2, 0.3)))
     if stage >= 2:
         # anneau de lévitation autour de la couronne
-        lot.put(M["anneau"], anneau((C[0] - 0.6, 0.0, ZC), "x", rc + 2.6, 0.5, 0.18))
+        anneau_seg(lot, M, (C[0] - 0.6, 0.0, ZC), "x", rc + 2.6, 0.5, 0.22, n=8, jour=0.16, noeud=0.26)   # s43 : patins magnétiques
         for q in range(4):
             a = G.TAU * (q + 0.5) / 4
             lot.put(M["struct"], G.boite((C[0] - 0.6, (rc + 2.8) * math.cos(a), ZC + (rc + 2.8) * math.sin(a)), (0.4, 0.6, 0.5), rx=a))
     if stage >= 3:
-        lot.put(M["anneau"], anneau((C[0] - 1.6, 0.0, ZC), "x", rc + 4.4, 0.6, 0.2))
-        lot.put(M["cristal"], rainure((C[0] - 1.5, 0.0, ZC), "x", rc + 4.5, 0.06))
+        anneau_seg(lot, M, (C[0] - 1.6, 0.0, ZC), "x", rc + 4.0, 0.6, 0.24, n=6, jour=0.22, noeud=0.32)   # s43 : patins (tore plein : brume)
         for k in range(6):
             a = G.TAU * (k + 0.5) / 6
             p = (C[0] + 0.8, (rc + 1.6) * math.cos(a), ZC + (rc + 1.6) * math.sin(a))
@@ -315,7 +316,7 @@ def sphere_flottante(lot, M, stage, dz=0.0):
 
 def build(S, lot, stage=1, u=None, attaque=None, dirs=False):
     """Construit la Sentinelle au stade `stage` (1 à 3) : repos (une image, lacet PSI), marche (u) ou salve (attaque) sans lacet (dirs)."""
-    M = TM.matieres(S, PREFIX, GRIS)
+    M = TC.charte(S, TM.matieres(S, PREFIX, GRIS), PREFIX, GRIS)
     xf = XF0 if dirs else XF
     R.raz()
     gonfle, bob, dz = (1.0, 1.0, 0.0), 0.0, 0.0
