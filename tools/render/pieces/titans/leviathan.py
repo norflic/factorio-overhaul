@@ -651,19 +651,138 @@ def tete_v2(lot, M, stage, u=None, attaque=None):
     lot.xf = XF0
 
 
+# ------------------------------------------------------------------------------------------------ V3 (s43, 13/11)
+# Refonte (le DC : « laid et sans retour visuel »). Vu du dessus (la caméra de Factorio), la V2 n'offrait qu'un tube rayé de bandes
+# étroites et de dizaines d'anneaux et de traits cyan fins. V3 : CARAPACE dorsale à grandes plaques lisses très spéculaires (deux par
+# segment, en recouvrement : le dos se lit comme un cloporte blindé), UN anneau de lévitation épais par segment posé sur la jointure des
+# plaques, une COURONNE DE LÉVITATION horizontale sous le ventre (elle déborde du corps vu du dessus : il flotte), UN gros cœur à vortex
+# par flanc, une ligne d'échine cyan continue d'une pièce à l'autre (elle dessine la trajectoire). Mêmes joints, même Z, mêmes rotules,
+# mêmes cadres (PIECES, SERIE) : serpent.lua, titans_serpent.lua, T.LEVIATHAN et le format des feuilles sont inchangés.
+import titans_v3 as V3  # noqa: E402
+
+RC = 1.32            # rayon de la carapace / rayon du corps
+
+
+def echine_v3(lot, M, xa, xb, rfun, stage, pointes=()):
+    """Arête d'échine sur le dos de la carapace (prisme sombre) et sa ligne cyan ; pointes (os, cristal au stade 3) aux x donnés."""
+    xs = [xa + (xb - xa) * i / 6.0 for i in range(7)]
+    zt = lambda x: Z + rfun(x) * RC * 1.06
+    lot.put(M["struct"], G.loft([[(x, -0.42, zt(x) - 0.35), (x, 0.42, zt(x) - 0.35), (x, 0.2, zt(x) + 0.28), (x, -0.2, zt(x) + 0.28)] for x in xs], True, True))
+    lot.put(M["conduit"], G.tube([(x, 0.0, zt(x) + 0.3) for x in xs], 0.1, 6))
+    for x in pointes:
+        mat = "cristal" if stage >= 3 else "os"
+        lot.put(M[mat], pointe((x, 0.0, zt(x) + 0.2), G.norm((-0.55, 0.0, 1.0)), 1.3 + 0.35 * stage, 0.24, 5))
+
+
+def couronne_ventrale(lot, M, x, rr, dz=0.0, r_corps=None):
+    """COURONNE DE LÉVITATION sous le ventre : tore horizontal épais (cadre blindé, gorge lumineuse), pylône, disque d'impulsion vers le
+    sol : elle déborde du corps vu du dessus et dit « il flotte »."""
+    rc = R_CORPS if r_corps is None else r_corps
+    zr = Z + dz - rc - 1.3
+    lot.put(M["blind2"], anneau((x, 0.0, zr), "z", rr, 0.42, 0.2))
+    lot.put(M["anneau"], anneau((x, 0.0, zr - 0.05), "z", rr - 0.28, 0.3, 0.12))
+    lot.put(M["conduit"], rainure((x, 0.0, zr + 0.22), "z", rr + 0.2, 0.06))
+    lot.put(M["struct"], G.tube([(x, 0.0, Z + dz - rc * 0.8), (x, 0.0, zr)], 0.42, 8))
+    for k in range(3):
+        a = G.TAU * k / 3 + 0.5
+        lot.put(M["struct"], G.tube([(x, 0.0, zr + 0.15), (x + rr * math.cos(a), rr * math.sin(a), zr + 0.1)], 0.13, 5))
+    lot.put(M["coeur"], G.tour([(0.0, 0.0), (0.0, 0.62)], 16, "z", (x, 0.0, zr - 0.22), cap0=True))
+    lot.put(M["halo"], G.sphere((x, 0.0, zr - 0.3), 1.0, 12, 6))
+
+
+def flanc_v3(lot, M, x, r, dz=0.0, rv=1.05):
+    """Gros cœur à vortex sur chaque flanc, sous le bord de la carapace."""
+    for s_ in (-1, 1):
+        lunette_vortex(lot, M, (x, s_ * r * 1.04, Z + dz - r * 0.42), (0.0, float(s_), -0.38), rv, pales=5)
+
+
+def segment_v3(lot, M, stage):
+    """SEGMENT V3 (centre à l'origine, joints à ±DEMI) : âme, ventre en bandes sombres, deux plaques de CARAPACE en recouvrement,
+    anneau magnétique épais sur la jointure, couronne de lévitation ventrale, deux cœurs à vortex (flancs), échine
+    cyan ; stade 2 : pointes d'échine ; stade 3 : pointes et anneau en cristal."""
+    r = R_CORPS
+    x0, x1 = -DEMI - DEBORD, DEMI + DEBORD
+    lot.put(M["struct"], G.loft([sect(x, r * 0.97, 8, 0.2, rot=G.TAU / 16) for x in (x0, x1)], True, True))
+    for xa, xb in ((-2.55, -0.1), (-0.05, 2.45)):
+        bande(lot, M, xa, xb, r, lip=1.1, mat="blind2")
+    rotule(lot, M, -DEMI, r)
+    rotule(lot, M, DEMI, r)
+    for xa, xb in ((-2.75, 0.05), (-0.15, 2.75)):
+        V3.carapace(lot, M["blind"], xa, xb, r * RC, Z, ouv=1.6, ep=0.55, lip=1.1, n=6, sy=1.12)
+    echine_v3(lot, M, -2.4, 2.4, lambda x: r, stage, pointes=((-1.2, 1.3) if stage >= 2 else ()))
+    anneau_magnetique(lot, M, -0.05, r * RC + 0.55, stage, bras=4)
+    couronne_ventrale(lot, M, 0.0, 3.5)
+    flanc_v3(lot, M, 1.25, r)
+    flanc_v3(lot, M, -1.35, r, rv=0.8)
+
+
+def queue_v3(lot, M, stage):
+    """QUEUE V3 (pivot à l'origine, joint avant à +DEMI) : carapace qui s'effile en trois plaques, anneau magnétique, couronne ventrale,
+    propulseur à tuyère et vortex (V2), deux stabilisateurs horizontaux et un aileron dorsal ; stade 2 : 2e anneau ; stade 3 : dard de
+    cristal."""
+    xt = -6.6
+    rf = lambda x: R_CORPS if x >= 0.0 else 0.75 + (R_CORPS - 0.75) * max(0.0, (x - xt) / -xt) ** 1.15
+    x1 = DEMI + DEBORD
+    xs = [xt + (x1 - xt) * i / 14.0 for i in range(15)]
+    lot.put(M["struct"], G.loft([sect(x, rf(x) * 0.97, 8, 0.2, rot=G.TAU / 16) for x in xs], False, True))
+    for xa, xb in ((0.4, 2.5), (-2.0, 0.55), (-4.4, -1.85), (-6.0, -4.25)):
+        bande(lot, M, xa, xb, rf(0.5 * (xa + xb)), lip=1.1, mat="blind2")
+    rotule(lot, M, DEMI, R_CORPS)
+    for xa, xb in ((0.1, 2.75), (-2.5, 0.25), (-4.9, -2.3)):
+        V3.carapace(lot, M["blind"], xa, xb, rf(0.5 * (xa + xb)) * RC, Z, ouv=1.6, ep=0.5, lip=1.1, n=6, sy=1.12)
+    echine_v3(lot, M, -4.6, 2.4, rf, stage, pointes=((-3.3, -0.8) if stage >= 2 else ()))
+    anneau_magnetique(lot, M, 0.18, R_CORPS * RC + 0.5, stage)
+    if stage >= 2:
+        anneau_magnetique(lot, M, -2.4, rf(-2.4) * RC + 0.45, stage, bras=3, r_corps=rf(-2.4))
+    couronne_ventrale(lot, M, 1.2, 3.2)
+    flanc_v3(lot, M, 1.3, R_CORPS, rv=0.85)
+    # propulseur (V2) : tuyère blindée évasée, puits, vortex à pales, anneau lumineux, halo d'impulsion
+    xn = xt - 0.1
+    d = (-1.0, 0.0, 0.0)
+    c = (xn, 0.0, Z)
+    lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.8), (0.5, 0.95), (1.1, 1.25), (1.35, 1.3), (1.35, 1.05), (0.6, 0.72), (0.4, 0.0)], 16, "z"), c, d))
+    lot.put(M["coeur"], G.oriente(G.tour([(0.55, 0.0), (0.55, 0.78)], 16, "z", cap0=True), c, d))
+    lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", 1.3, 0.22, 0.08), G.add(c, G.mul(d, 1.36)), d))
+    lot.put(M["halo"], G.sphere(G.add(c, G.mul(d, 1.5)), 0.95, 12, 6))
+    for k in range(5):
+        a0 = G.TAU * k / 5
+        pts = [G.add(c, (-(0.6 + 0.12 * j), 0.95 * (1 - j / 6.0) * math.cos(a0 + 0.5 * j), 0.95 * (1 - j / 6.0) * math.sin(a0 + 0.5 * j))) for j in range(5)]
+        lot.put(M["turq"], G.tube(pts, 0.05, 4))
+    for s_ in (-1, 1):
+        lame(lot, M, (xt + 1.6, s_ * 0.8, Z), G.norm((-0.8, s_ * 0.75, 0.0)), (0.0, 0.0, 1.0), 3.0, 0.8, 1)
+    lame(lot, M, (xt + 1.8, 0.0, Z + 0.8), G.norm((-0.8, 0.0, 0.7)), (0.0, 1.0, 0.0), 2.4, 0.7, 1)
+    if stage >= 3:
+        lot.put(M["cristal"], pointe(G.add(c, G.mul(d, 0.2)), d, 2.6, 0.22))
+
+
+def tete_v3(lot, M, stage, u=None, attaque=None):
+    """TÊTE V3 : la tête V2 (crâne massif, gueule d'impulsion, mandibules, crête) dans la palette V3, plus une plaque de carapace sur le
+    cou, l'échine cyan qui se prolonge et la couronne de lévitation ventrale."""
+    tete_v2(lot, M, stage, u=u, attaque=attaque)
+    dz = 0.0
+    if attaque is None and u is not None:
+        dz = 0.15 * math.sin(G.TAU * u)
+    lot.xf = (lambda v: XF0((v[0], v[1], v[2] + dz))) if dz else XF0
+    r = R_CORPS
+    V3.carapace(lot, M["blind"], -(DEMI + 1.25), -0.7, r * RC, Z, ouv=1.6, ep=0.55, lip=1.1, n=6, sy=1.12)
+    echine_v3(lot, M, -(DEMI + 1.0), -0.9, lambda x: r, stage)
+    couronne_ventrale(lot, M, -1.9, 3.5)
+    lot.xf = XF0
+
+
 def build_anime(S, lot, stage, u, attaque):
     """Entrée des titans animés (batch_titans.anime) : la TÊTE seule (LEVIATHAN-SEG), phase de marche ou de salve, sans lacet."""
-    M = TM.matieres(S, PREFIX, GRIS)
+    M = V3.matieres(S, PREFIX, GRIS)
     lot.xf = XF0
     R.raz()
-    tete_v2(lot, M, stage, u=u if attaque is None else None, attaque=attaque)
+    tete_v3(lot, M, stage, u=u if attaque is None else None, attaque=attaque)
     return {"stage": stage, "pieces": lot.n, "u": u, "attaque": attaque}
 
 
 def build_piece(S, lot, stage, piece):
     """Pièce fixe (batch_titans.anime --piece) : « segment » ou « queue », sans lacet (16 directions)."""
-    M = TM.matieres(S, PREFIX, GRIS)
+    M = V3.matieres(S, PREFIX, GRIS)
     lot.xf = XF0
     R.raz()
-    {"segment": segment_v2, "queue": queue_v2}[piece](lot, M, stage)
+    {"segment": segment_v3, "queue": queue_v3}[piece](lot, M, stage)
     return {"stage": stage, "piece": piece, "pieces": lot.n}
