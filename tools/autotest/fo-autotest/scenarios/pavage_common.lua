@@ -620,9 +620,28 @@ end
 -- rempli au tick T, lu pendant les captures de la même session.
 local CACHE = {}
 
-return function(T_MIN, BASE) -- BASE : "partie" (lot PARTIE-REELLE, ouvriers au réglage), sinon "default"
+-- Lot PREUVES (13/11) : captures intermédiaires (PHOTOS) demandées par le scénario lui-même, hors de la liste du pilote.
+local QUEUE = {}        -- captures intermédiaires en attente
+local QUEUE_NEXT = 0    -- tick de la prochaine capture intermédiaire
+local INTER_N = {}      -- minute -> rang de la dernière capture intermédiaire demandée
+local INTER_HEAD = false
+local SHOT_CADENCE = 10 -- ticks entre deux captures (comme shots.lua)
+
+-- BASE : "partie" (lot PARTIE-REELLE, ouvriers au réglage), sinon "default".
+-- PHOTOS (lot PREUVES, facultatif) : minutes INTERMÉDIAIRES (multiples de 10, < T_MIN) photographiées dans la MÊME partie, en
+-- plus des captures du tick T : une seule session avec images donne par exemple 30, 60 et 120 min des mêmes gisements. Les
+-- noms de fichier portent alors la minute : NNN-pav-mMMM-<équipe>-<ressource>-<n>.png (index des intermédiaires :
+-- fo-shots/intermediaires.tsv, relu par gallery.py). Sans PHOTOS : rien ne change (noms, lignes, ticks).
+return function(T_MIN, BASE, PHOTOS)
   local MIN = 3600
   local T = T_MIN * MIN
+  local PHOTO_AT, PHOTO_TICKS = {}, {}
+  for _, m in ipairs(PHOTOS or {}) do
+    assert(m % 10 == 0 and m > 0 and m < T_MIN, "PHOTOS : minutes multiples de 10, entre 10 et T_MIN - 10")
+    PHOTO_AT[m * MIN] = m
+    PHOTO_TICKS[#PHOTO_TICKS + 1] = m * MIN
+  end
+  local MULTI = PHOTOS ~= nil
   local MEASURES = {}
   for m = 10, T_MIN, 10 do MEASURES[#MEASURES + 1] = m * MIN end
   if MEASURES[#MEASURES] ~= T then MEASURES[#MEASURES + 1] = T end
@@ -664,8 +683,19 @@ return function(T_MIN, BASE) -- BASE : "partie" (lot PARTIE-REELLE, ouvriers au 
           idx[cl.name] = (idx[cl.name] or 0) + 1
           local n = idx[cl.name]
           local m = measure(s, force, cl)
-          local file = string.format("pav-%s-%s-%d.png", safe(row.key), safe(cl.name), n)
-          log_gisement("T", tick, row.key, cl, n, m, tick == T and file or nil)
+          local stem = MULTI and string.format("pav-m%03d-%s-%s-%d", minute, safe(row.key), safe(cl.name), n)
+            or string.format("pav-%s-%s-%d", safe(row.key), safe(cl.name), n)
+          local file = stem .. ".png"
+          local inter = p and PHOTO_AT[tick] -- capture intermédiaire : session avec images seulement
+          log_gisement("T", tick, row.key, cl, n, m, (tick == T or inter) and file or nil)
+          if inter then
+            -- même cadrage que la capture finale ; pas de gros plans (la vue d'ensemble suffit à comparer les minutes)
+            local w, h = cl.x1 + 1 - cl.x0 + 8, cl.y1 + 1 - cl.y0 + 8
+            local zoom = math.max(0.08, math.min(1.5, math.min(SHOT_W / (w * 32), SHOT_H / (h * 32))))
+            QUEUE[#QUEUE + 1] = { name = stem, x = (cl.x0 + cl.x1 + 1) / 2, y = (cl.y0 + cl.y1 + 1) / 2, zoom = zoom,
+              minute = inter, force = force, key = row.key, cl = cl, n = n }
+            QUEUE_NEXT = tick + 1
+          end
           if tick == T then
             local w, h = cl.x1 + 1 - cl.x0 + 8, cl.y1 + 1 - cl.y0 + 8
             local zoom = math.min(SHOT_W / (w * 32), SHOT_H / (h * 32))
@@ -684,7 +714,7 @@ return function(T_MIN, BASE) -- BASE : "partie" (lot PARTIE-REELLE, ouvriers au 
                     k = k + 1
                     local sx = cl.x0 - 4 + (i - 0.5) * (w / nx)
                     local sy = cl.y0 - 4 + (j - 0.5) * (h / ny)
-                    shoot(ctx, p, string.format("pav-%s-%s-%d-gros-plan-%d.png", safe(row.key), safe(cl.name), n, k), sx, sy, SUB_ZOOM)
+                    shoot(ctx, p, string.format("%s-gros-plan-%d.png", stem, k), sx, sy, SUB_ZOOM)
                   end
                 end
               end
@@ -695,6 +725,43 @@ return function(T_MIN, BASE) -- BASE : "partie" (lot PARTIE-REELLE, ouvriers au 
     end
     st.measured = (st.measured or 0) + 1
     st.last_rows = #rows
+    if tick == T then
+      -- Lot PREUVES : budget de ticks de la session avec images (--visuel="--ticks N"). Les captures partent à T + 400, une
+      -- toutes les SHOT_CADENCE ticks, puis l'attente d'écriture et le marqueur (shots.lua : FLUSH = 60). Un budget plus court
+      -- ferme la session « sans marqueur » (code 7) : c'était le défaut de partie-reelle-30 (108400) et -60 (216600).
+      log(TAG .. string.format("budget captures=%d ticks_min=%d", #(st.plan or {}), T + 400 + SHOT_CADENCE * #(st.plan or {}) + 100))
+    end
+  end
+
+  --- Lot PREUVES : une capture intermédiaire (hors liste du pilote), re-mesurée au tick de la capture comme les finales.
+  local function take_inter(ctx, p, tick)
+    local sp = table.remove(QUEUE, 1)
+    INTER_N[sp.minute] = (INTER_N[sp.minute] or 0) + 1
+    local file = string.format("%03d-%s.png", INTER_N[sp.minute], sp.name)
+    log_gisement("capture", tick, sp.key, sp.cl, sp.n, measure(ctx.surface(), sp.force, sp.cl), file)
+    game.take_screenshot({
+      player = p, surface = ctx.surface(), position = { sp.x, sp.y }, resolution = { SHOT_W, SHOT_H }, zoom = sp.zoom,
+      path = "fo-shots/" .. file, show_entity_info = true, anti_alias = true, daytime = 0, allow_in_replay = true, force_render = true,
+    })
+    -- mêmes colonnes que index.tsv (shots.lua) ; numéro « iMMM-NNN » : après les captures finales dans l'index
+    game.write_file("fo-shots/intermediaires.tsv", table.concat({
+      string.format("i%03d-%03d", sp.minute, INTER_N[sp.minute]), file, sp.name, string.format("%.3f", sp.x), string.format("%.3f", sp.y),
+      string.format("%.3f", sp.zoom), "0.000", tostring(tick), SHOT_W .. "x" .. SHOT_H, "1", "1",
+    }, "\t") .. "\n", INTER_HEAD)
+    INTER_HEAD = true
+    log(TAG .. string.format("capture fichier=%s centre=%.1f,%.1f zoom=%.3f tick_mesure=%d intermediaire=%d", file, sp.x, sp.y, sp.zoom,
+      sp.minute * MIN, sp.minute))
+    QUEUE_NEXT = tick + SHOT_CADENCE
+    if #QUEUE == 0 then game.set_wait_for_screenshots_to_finish() end
+  end
+
+  --- Lot PREUVES : jeu à ×1 autour d'une minute photographiée (120 ticks avant, jusqu'à la dernière capture), comme au tick T.
+  local function slow_for_photo(tick)
+    if #QUEUE > 0 then return true end
+    for _, t in ipairs(PHOTO_TICKS) do
+      if tick >= t - 120 and tick <= t then return true end
+    end
+    return false
   end
 
   return {
@@ -706,7 +773,7 @@ return function(T_MIN, BASE) -- BASE : "partie" (lot PARTIE-REELLE, ouvriers au 
     tick = function(ctx, e)
       local p = game.connected_players[1]
       if p then
-        local want = (e.tick >= T - 120) and 1 or 8
+        local want = (e.tick >= T - 120 or slow_for_photo(e.tick)) and 1 or 8
         if game.speed ~= want then game.speed = want end
       end
       -- Session avec images : le pilote (shots.lua, appelé après ce crochet dans le même on_tick) prend la capture
@@ -734,6 +801,10 @@ return function(T_MIN, BASE) -- BASE : "partie" (lot PARTIE-REELLE, ouvriers au 
           ctx.state().erreur = tostring(err)
           log(TAG .. "ERREUR " .. tostring(err))
         end
+      end
+      if p and #QUEUE > 0 and e.tick >= QUEUE_NEXT then -- lot PREUVES : captures intermédiaires, une toutes les SHOT_CADENCE ticks
+        local ok, err = pcall(take_inter, ctx, p, e.tick)
+        if not ok then ctx.state().erreur = tostring(err); log(TAG .. "ERREUR " .. tostring(err)) end
       end
     end,
 

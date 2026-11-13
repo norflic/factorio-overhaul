@@ -617,6 +617,13 @@ def main():
             if os.path.exists(done_path):
                 continue
             code, reason = 7, "session fermee avant la fin (code %s) sans marqueur" % rc
+            # Lot PREUVES : le scénario écrit le budget qu'il lui faut (pavage_common.lua, « budget ... ticks_min=N »)
+            need = re.findall(r"budget captures=(\d+) ticks_min=(\d+)", read_text(log_path) if fresh else "")
+            if need and a.mode == "benchmark" and int(need[-1][1]) > ticks:
+                reason += " : budget de ticks trop court (--ticks %d, il en faut au moins %s pour %s captures)" % (
+                    ticks, need[-1][1], need[-1][0])
+            elif a.mode == "benchmark" and not gallery.read_plan(shots):
+                reason += " : aucune liste de captures a la fin du budget (--ticks %d trop court ?)" % ticks
             break
         if time.time() - t_launch > a.timeout:
             code, reason = 3, "delai de %d s depasse" % a.timeout
