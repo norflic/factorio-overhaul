@@ -556,6 +556,32 @@ local function linked_by_liaison(b, key)
   return ln and ln.links and ln.links[key] ~= nil
 end
 
+--- Purge de fin de relevé : les tables par quai et par projet ne gardent plus les disparus (elles grossissaient à vie dans la sauvegarde).
+--- `alive` = { [clé de quai] = true } du relevé, `projects` = b.projects. Suivi, découverte et journal : retirés dès que le quai n'est plus relevé et n'a
+--- pas de lien ; essais, dernier essai et site : gardés tant que le PROJET du quai existe (un quai absent un relevé ne regagne pas d'essais).
+function Piquage.purge(st, alive, projects)
+  local function gone(key) return not alive[key] and not st.links[key] end
+  for _, name in ipairs({ "track", "disc" }) do
+    local t = st[name]
+    for _, k in ipairs(sorted_keys(t)) do if gone(k) then t[k] = nil end end
+  end
+  for _, k in ipairs(sorted_keys(st.said)) do
+    if gone(k:match("^(.-)#") or k) then st.said[k] = nil end
+  end
+  for _, name in ipairs({ "tries", "last_try", "site_i" }) do
+    local t = st[name]
+    if t then
+      for _, k in ipairs(sorted_keys(t)) do
+        local pid = tonumber(k:match("^(.-):q"))
+        if gone(k) and not (pid and projects[pid]) then t[k] = nil end
+      end
+    end
+  end
+  for _, pid in ipairs(sorted_keys(st.flow)) do
+    if not projects[pid] then st.flow[pid] = nil end
+  end
+end
+
 --- Tour de découverte : parmi les quais DUS (`dus` = liste { key, last } dans l'ordre du débit ; last = tick de la dernière découverte, nil = jamais),
 --- les `quota` plus anciens d'abord (jamais découvert avant tout, puis l'ordre reçu). Rend l'ensemble { [key] = true }. Sans cela les quais de tête,
 --- dus de nouveau toutes les EMPTY_RETRY, prenaient tous les créneaux et les quais suivants n'étaient jamais découverts.
@@ -697,6 +723,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   for _, k in ipairs(sorted_keys(st.quais)) do
     if not alive[k] and not st.links[k] then st.quais[k] = nil end
   end
+  Piquage.purge(st, alive, b.projects)
   st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
   if #c.docks > 0 and tick >= st.log_next then
     st.log_next = tick + Li.LOG_EVERY

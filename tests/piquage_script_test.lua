@@ -565,5 +565,18 @@ do
   check(all, "7.4 vingt quais dus : aucun n'est affame")
 end
 
+-- §8 (s40 p8) purge des tables par quai et par projet
+do
+  local st = { links = { ["3:q1"] = {} }, track = { ["1:q1"] = {}, ["2:q1"] = {}, ["3:q1"] = {} }, disc = { ["1:q1"] = 5, ["2:q1"] = 5 },
+    said = { ["1:q1"] = "a", ["2:q1"] = "b", ["2:q1#pose"] = "c", ["3:q1#vie"] = "d" }, tries = { ["1:q1"] = 1, ["2:q1"] = 2, ["9:q1"] = 1 },
+    last_try = { ["9:q1"] = 7 }, flow = { [1] = {}, [9] = false } }
+  Piquage.purge(st, { ["1:q1"] = true }, { [1] = {}, [2] = {}, [3] = {} })
+  check(st.track["1:q1"] and st.track["3:q1"] and not st.track["2:q1"], "8.1 suivi : garde le quai releve et le quai lie, retire l'absent")
+  check(st.disc["1:q1"] == 5 and st.disc["2:q1"] == nil, "8.2 decouverte purgee avec le suivi")
+  check(st.said["1:q1"] == "a" and st.said["2:q1"] == nil and st.said["2:q1#pose"] == nil and st.said["3:q1#vie"] == "d", "8.3 journal purge, suffixes compris")
+  check(st.tries["1:q1"] == 1 and st.tries["2:q1"] == 2 and st.tries["9:q1"] == nil and st.last_try["9:q1"] == nil, "8.4 essais gardes tant que le projet existe")
+  check(st.flow[1] ~= nil and st.flow[9] == nil, "8.5 debits d'un projet disparu retires")
+end
+
 print(string.format("[PIQUAGE-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
