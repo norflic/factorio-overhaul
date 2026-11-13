@@ -2483,6 +2483,7 @@ Registry.on_removed(function(agent)
       Sites.mark_unreachable(agent.task.site, game.tick)
     end
     Board.finish(f, agent.task, false, game.tick)
+    Poles.task_done(f, agent.task, false, game.tick) -- sprint s40 (ouvriers p25) : comme toute autre fin de tâche (file sûre, Sur.done)
   end
   -- Lot CRAFT-PARALLELE : PNJ disparu (tué, renvoyé) avec une fabrication en arrière-plan : la tâche « craft » est rendue (échec).
   if agent.bg then

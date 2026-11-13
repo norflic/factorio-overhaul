@@ -103,5 +103,22 @@ do
   check(cl.by_tile["3,4"] == nil, "p24 : release_tile rend la tuile réservée")
 end
 
+---------------------------------------------------------------------------------------------------
+-- p25 : la tâche d'un PNJ disparu finit comme les autres (Poles.task_done)
+---------------------------------------------------------------------------------------------------
+do
+  local rem = WORKER:match("Registry%.on_removed%(function%(agent%)(.-)\nend%)") or ""
+  local i_fin = rem:find("Board.finish(f, agent.task, false, game.tick)", 1, true)
+  local i_pol = rem:find("Poles.task_done(f, agent.task, false, game.tick)", 1, true)
+  check(i_fin and i_pol and i_fin < i_pol, "p25 : PNJ disparu : Board.finish puis Poles.task_done")
+  -- chaque Board.finish(f, task...) de worker.lua est suivi de Poles.task_done dans les 2 lignes
+  local n_fin, n_ok = 0, 0
+  for pos in WORKER:gmatch("()Board%.finish%(f, [%w%.]+, [%w]+, [%w%.]+%)\n") do
+    n_fin = n_fin + 1
+    if WORKER:sub(pos, pos + 600):find("Poles.task_done(", 1, true) then n_ok = n_ok + 1 end
+  end
+  check(n_fin >= 4 and n_ok == n_fin, string.format("p25 : %d Board.finish sur %d suivis de Poles.task_done", n_ok, n_fin))
+end
+
 print(string.format("\n[S40-OUVRIERS] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
