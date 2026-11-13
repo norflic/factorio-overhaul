@@ -53,6 +53,7 @@ local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-
 local Bc = require("shared.team.bilan_charbon") -- lot PURGE-FER-CHARBON : plafond du combustible (Bc.room)
 local Cap = require("script.team.plafond_charbon") -- (sa mesure en jeu)
 local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
+local CausalRt = require("script.ai3.causal_rt") -- s42 causal : audit des causes après le relevé des champs
 local Mig = {}
 
 local CFG = Mg.CFG
@@ -1977,8 +1978,9 @@ function Mig.think(f, surface, book, free, tick, hold)
   if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
     ms.report_next = tick + Champ.REPORT_EVERY
     Profiler.fstart("mig:rapport") -- lot X10-S0 : mesure seulement
-    Champ.report(f, surface, tick)
+    local rd = Champ.report(f, surface, tick)
     Profiler.fstop("mig:rapport")
+    CausalRt.audit(f, surface, tick, rd) -- s42 causal : arbre des causes d'une pénurie (une cause racine, un ordre), à l'horloge de ce relevé
   end
   Profiler.fstart("mig:melange")
   Melange.pass(f, surface, tick) -- (sa propre horloge : Melange.EVERY)
