@@ -413,8 +413,18 @@ end
 
 --- Le relevé du réseau `nr` (net_read, ou la fin d'un relevé par bandes) appliqué à l'état de santé : îlots, demande nominale,
 --- poteaux perdus. Inchangé depuis le lot ENERGIE (sorti de Rv.step au lot POULS, pour servir aux deux chemins).
+local function poles_settled(b)
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q.poles_reopened then q.poles_reopened = nil end
+  end
+end
+
 local function apply_net(f, surface, b, sv, nr, api)
   sv.islands, sv.uncovered = nr.islands, nr.uncovered
+  -- s40 : le plafond Rv.POLE_REOPEN_MAX borne UN incident ; réseau relu entier (aucun îlot, aucun consommateur sans poteau), le compte
+  -- repart de zéro (jamais remis à zéro, il interdisait pour toujours la repose des poteaux d'un projet au 5e incident de la partie)
+  if nr.islands + nr.uncovered == 0 then poles_settled(b) end
   sv.demand = nominal_demand(b)
   sv.lost_links = 0
   if nr.islands + nr.uncovered > 0 then
@@ -431,6 +441,7 @@ local function do_relier(f, surface, b, sv, nr, why, tick)
   if nr.islands + nr.uncovered == 0 then
     -- le relevé qui a déclenché la décision est périmé : les poteaux posés depuis couvrent tout, rien à faire
     sv.islands, sv.uncovered, sv.lost_links = 0, 0, 0
+    poles_settled(b)
     return
   end
   -- les poteaux PERDUS (jamais un poteau neuf) : ceux de leurs projets sont rouverts, sauf sous le feu

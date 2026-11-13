@@ -436,8 +436,9 @@ local function finish_pending(f, surface, h, tick)
     end
   end
   if not ok then
-    new.destroy()
-    Stock.insert(f, pd.item, 1)
+    -- s40 : le remplaçant n'est détruit que si son objet rentre au coffre (« coffre plein » : le même Stock.insert échouait une seconde
+    -- fois après la destruction, un poteau perdu à chaque essai) ; sinon il reste posé, relié, sans matière perdue
+    if Stock.insert(f, pd.item, 1) >= 1 then new.destroy() end
     refus(h, why)
     return
   end

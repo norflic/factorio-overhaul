@@ -443,5 +443,21 @@ do
   check(src:find('if q and q.state ~= "fini" and q.state ~= "refuse" then', 1, true) == nil, "COURANT2 : plus d'exemption de tout projet non fini")
 end
 
+-- s40 : le plafond des réouvertures de poteaux borne un incident : un réseau relu sain remet le compte à zéro
+do
+  logs = {}
+  local w = new_world()
+  local f = team(w)
+  for _, pid in ipairs(f.build.order) do f.build.projects[pid].poles_reopened = Rv.POLE_REOPEN_MAX end
+  run(f, w, 1200, 7200 + 1200 * 6)
+  local left = 0
+  for _, pid in ipairs(f.build.order) do if f.build.projects[pid].poles_reopened then left = left + 1 end end
+  check(f.build.sante.islands + f.build.sante.uncovered == 0 and left == 0, "s40 : réseau sain : le compte des réouvertures de poteaux repart de zéro")
+  local w2, f2 = island_world(true) -- îlot tenu par l'ennemi : le réseau n'est pas rétabli, le plafond tient
+  f2.build.projects[2].poles_reopened = Rv.POLE_REOPEN_MAX
+  run(f2, w2, 1200, 7200 + 1200 * 6)
+  check(f2.build.projects[2].poles_reopened == Rv.POLE_REOPEN_MAX, "s40 : réseau coupé : le plafond des poteaux n'est pas remis à zéro")
+end
+
 print(string.format("[RESEAU-VIVANT] BILAN : %d OK, %d ECHEC(S)", oks, fails))
 os.exit(fails == 0 and 0 or 1)

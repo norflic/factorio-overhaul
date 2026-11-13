@@ -293,5 +293,15 @@ do
   check(#bad == 1 and bad[1] == "relais sans consommateur cede", "mutant m12 (relais sans consommateur cédé) détecté : " .. table.concat(bad, ", "))
 end
 
+-- s40 : échec du remplacement : le remplaçant n'est détruit que si son objet rentre au coffre (plus de poteau perdu sur « coffre plein »)
+do
+  local fh = assert(io.open("script/team/hygiene.lua", "rb"))
+  local hs = fh:read("*a")
+  fh:close()
+  check(hs:find("if Stock.insert(f, pd.item, 1) >= 1 then new.destroy() end", 1, true) ~= nil,
+    "s40 : remplaçant détruit seulement si l'objet rentre au coffre")
+  check(hs:find("new%.destroy%(%)%s+Stock%.insert%(f, pd%.item, 1%)") == nil, "s40 : plus de destruction avant le retour au coffre")
+end
+
 print(string.format("hygiene_regle_test : %d OK, %d ECHEC", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

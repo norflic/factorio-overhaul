@@ -349,6 +349,23 @@ do
 end
 
 
+-- s40 : les pièces d'une tâche « rebuild » encore au tableau ne sont pas reprises dans le lot d'une autre graine
+do
+  local f = new_team()
+  surface.enemies = 0
+  died({ entity = ent("piece-a", "assembling-machine", 10, 10), tick = 1000 })
+  died({ entity = ent("piece-b", "transport-belt", 12, 10), tick = 1001 })
+  local n = Recon.think(f, surface, 1000 + Rc.CALM + 5)
+  check(n == 1 and #added == 1 and #added[1].recs == 2, "s40 : première tâche, le lot des deux voisines")
+  died({ entity = ent("pole-x", "electric-pole", 11, 11), tick = 1000 + Rc.CALM + 6 })
+  local n2 = Recon.think(f, surface, 1000 + Rc.CALM + 6 + Rc.CALM + 5)
+  local t2 = added[2]
+  check(n2 == 1 and t2 and #t2.recs == 1 and f.recon.lost[t2.recs[1]].name == "pole-x",
+    "s40 : le poteau perdu à côté a sa tâche, sans reprendre les pièces de la tâche ouverte")
+  f.team.board.tasks = {}
+  added = {}
+end
+
 -- §9 Réparation ----------------------------------------------------------------------------------------------------------
 do
   local f = new_team()
@@ -376,6 +393,19 @@ do
   surface.enemies = 3
   surface.consumers = { dmg("pole-x", 10, 10, 10, 100) }
   check(Recon.repair_think(f, surface, 9000) == 0 and next(f.team.board.tasks) == nil, "ennemis près de la pièce : pas de réparation")
+  -- s40 : la pièce la plus abîmée sous le feu ne retient plus la réparation d'une pièce abîmée ailleurs
+  do
+    local far = dmg("pole-x", 300, 300, 30, 100)
+    surface.consumers = { dmg("pole-x", 10, 10, 10, 100), far }
+    local old_units = surface.find_enemy_units
+    surface.find_enemy_units = function(p) return (p.x == 10) and { {} } or {} end
+    local n2 = Recon.repair_think(f, surface, 9000 + Recon.REPAIR_SCAN + 1)
+    local t2
+    for _, tk in pairs(f.team.board.tasks) do if tk.kind == "repair" then t2 = tk end end
+    check(n2 == 1 and t2 and #t2.targets == 1 and t2.targets[1].x == 300, "s40 : pièce sous le feu écartée, la pièce abîmée ailleurs est réparée")
+    surface.find_enemy_units = old_units
+    f.team.board.tasks = {}
+  end
   surface.enemies = 0
   local fa = new_team()
   fa.is_player = false
