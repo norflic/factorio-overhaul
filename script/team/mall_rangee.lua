@@ -16,6 +16,7 @@
 
 local Mr = require("shared.team.mall_rangee")
 local Mt = require("shared.team.mall_tronc") -- tranche 3 : le tronc et les prises
+local Bc = require("shared.team.bus_continu") -- s42 bus-continu : contrôle de continuité des lignes du tronc (règle pure)
 local Sd = require("shared.team.serie_dirs") -- lot MALL-DIRECTIONS : noms des directions
 local Ma = require("shared.team.mall_allonge") -- allongement au-delà de la demande, au surplus de matière
 local Liq = require("shared.team.mall_liquidation") -- lot MALL-LIQUIDATION : le stock de machines qui dort paie une section de plus (réserve 20 %)
@@ -117,7 +118,30 @@ Build.SITES.mall = function(f, surface, p, h)
     if not row.cells[i] then return nil, "mall : cellules rendues" end
   end
   local extra = nil
-  if sp.bus and sp.lines then extra = Mt.section(sp.lines, row, sp.names) end
+  if sp.bus and sp.lines then
+    extra = Mt.section(sp.lines, row, sp.names)
+    -- (s42 bus-continu) le quai de réinjection ne fait jamais refuser la section : si une de ses tuiles est prise dans le monde (poteau de chaîne d'une partie d'avant, réserve d'un autre
+    -- projet, eau), la section se pose SANS lui : la ligne reste continue, la tête la nourrit seule comme avant.
+    -- La décision est tenue par le projet (sp.reinj : « oui » une fois le plan rendu avec le quai, « non » dès qu'il est écarté) : un plan refait ne change pas de liste de pièces.
+    local pris = nil
+    for _, e in ipairs(extra.ents) do
+      if e.reinj and not pris and not sp.reinj then
+        local wx, wy = Mr.to_world(e.x, e.y, e.dir, st.rep.k, st.rep.ox, st.rep.oy, 1)
+        local tx, ty = floor(wx), floor(wy)
+        local k = P.tkey(tx, ty)
+        local occ = b.occ[k]
+        local m = h.read_masks(tx, ty, tx, ty)
+        if (occ and occ ~= Build.Mall.OCC and occ ~= p.id) or m.water[k] or m.blocked[k] then pris = { tx, ty } end
+      end
+    end
+    if pris or sp.reinj == "non" then
+      extra = Mt.section(sp.lines, row, sp.names, { sans_reinjection = true })
+      if pris then
+        sp.reinj = "non"
+        say(f, st, game.tick, string.format("rangee %d : quai de reinjection ecarte (tuile prise en (%d, %d)) : section posee sans lui (projet %d)", row.j, pris[1], pris[2], p.id))
+      end
+    end
+  end
   -- lot MALL-DIRECTIONS : au-delà du secteur, les rues du treillis sont franchies par un souterrain par tapis (rien sur la rue) ; sans souterrain
   -- débloqué, la section qui devrait franchir est refusée « obstacle:rue » (la rangée s'arrête, comme au bout du secteur)
   local serie, swhy = Rt.serie_of(f, st, row, sp.to, sp.names.souterrain)
@@ -209,6 +233,7 @@ Build.SITES.mall = function(f, surface, p, h)
       if b.occ[k] == Build.Mall.OCC then b.occ[k] = nil end
     end
   end
+  if extra and sp.reinj ~= "non" then sp.reinj = "oui" end
   return { key = "mall-rangee-" .. row.j, box = bx, ents = sec.ents, quais = sec.quais, outs = sec.outs, masks = masks, out_at = 50 }
 end
 
@@ -805,10 +830,110 @@ local function stock_dormant(b, r, libre)
 end
 
 --- Une fois par décision (Ind.think) : barres des coffres de sortie, cellules rendues par une section refusée, allongement, compteurs.
+--- (s42 bus-continu) CONTRÔLE DE CONTINUITÉ du tronc, toutes les Bc.EVERY ticks par équipe : chaque pièce de convoyage du tronc (lignes, prises, amenées : rôles ROLES_BUS des projets
+--- des rangées alimentées par le tronc) est relue au monde (règle pure shared/team/bus_continu.lua). Une pièce que le plan croit posée et que le monde ne porte plus est ROUVERTE
+--- (Sweep.reopen_pieces : fantôme puis pose par les PNJ) à la SECONDE vue (le relevé de reconstruction, qui connaît les retraits à la main, passe d'abord) : ce contrôle reprend ce que le
+--- relevé laisse (pièce abandonnée après trop de pertes, plafonds horaires). Jamais près d'un ennemi (Sweep.ENEMY_R), au plus Bc.MAX_ROUVRE fois par pièce. Un tapis ou un répartiteur
+--- mal orienté est tourné en place. Rien n'est démonté. Journal [FO-BUS-CONTINU] : une ligne par projet à chaque changement d'état. Rend le nombre de défauts vus (nil hors échéance).
+local ROLES_BUS = { ["mall-tronc"] = true, ["mall-prise"] = true, ["mall-amenee"] = true }
+local SUIVIS_BUS = { fini = true, raccordement = true, chantier = true, reserve = true }
+function Rt.continuite(f, surface, tick)
+  local b = f.build
+  local st = b and b.mall
+  if not (st and st.rows and surface) then return nil end
+  if tick < (st.bc_next or 0) then return nil end
+  st.bc_next = tick + Bc.EVERY
+  local Sweep = package.loaded["script.team.rebuild_sweep"] -- (lecture : chargé par la reconstruction ; aucun require pendant un événement, F24)
+  local protos = game.entity_prototypes
+  local function type_of(name) local pr = name and protos[name] return pr and pr.type or nil end
+  local total = 0
+  for _, r in ipairs(st.rows) do
+    for _, q in ipairs(r.bus and r.projects or {}) do
+      local p = b.projects[q.id]
+      local nm = p and p.spec and p.spec.mall and p.spec.mall.names
+      if p and not q.dead and SUIVIS_BUS[p.state] and nm and nm.tapis and nm.repartiteur and nm.souterrain then
+        local genres = { tapis = type_of(nm.tapis), repartiteur = type_of(nm.repartiteur), souterrain = type_of(nm.souterrain) }
+        local types = { genres.tapis, genres.repartiteur, genres.souterrain }
+        local pieces, src = {}, {}
+        for _, e in ipairs(p.ents) do
+          if ROLES_BUS[e.role] then
+            pieces[#pieces + 1] = { x = e.x, y = e.y, dir = e.dir or 0, kind = type_of(e.name), ug = e.type, built = e.built == true, dropped = e.dropped, hand_gave = e.hand_gave,
+              item = e.item, bc_n = e.bc_n }
+            src[#src + 1] = e
+          end
+        end
+        local function monde(x, y)
+          local w = surface.find_entities_filtered({ position = { x, y }, type = types, force = f.force, limit = 1 })[1]
+          if w and w.valid then return w end
+          return nil
+        end
+        local function lire(x, y)
+          local w = monde(x, y)
+          if not w then return nil end
+          return { kind = w.type, dir = w.direction, ug = (w.type == genres.souterrain) and w.belt_to_ground_type or nil }
+        end
+        if #pieces > 0 and genres.tapis and genres.repartiteur and genres.souterrain then
+          local res = Bc.controle(pieces, lire, genres)
+          total = total + #res.defauts
+          local absent, rouvrir, rouvertes, tournees, attente, premier = {}, {}, 0, 0, 0, nil
+          for _, d in ipairs(res.defauts) do
+            local e = src[d.i]
+            premier = premier or d
+            if d.cause == "absent" then
+              absent[d.i] = true
+              if d.action == "rouvrir" and Sweep then
+                if e.bc_vu and tick - e.bc_vu >= Bc.EVERY - 60 then
+                  local foe = surface.find_nearest_enemy({ position = { x = e.x, y = e.y }, max_distance = Sweep.ENEMY_R, force = f.force })
+                  if foe and foe.valid then
+                    attente = attente + 1
+                  else
+                    e.gave_up, e.gave_t, e.rb, e.rb_t, e.bc_vu = nil, nil, nil, nil, nil
+                    e.bc_n = (e.bc_n or 0) + 1
+                    rouvrir[#rouvrir + 1] = { e = e }
+                  end
+                else
+                  e.bc_vu = e.bc_vu or tick
+                  attente = attente + 1
+                end
+              end
+            elseif d.cause == "tourne" and d.action == "tourner" then
+              local w = monde(e.x, e.y)
+              if w then w.direction = e.dir or 0; tournees = tournees + 1 end
+            end
+          end
+          for i, e in ipairs(src) do if e.bc_vu and not absent[i] then e.bc_vu = nil end end
+          if #rouvrir > 0 then
+            Sweep.reopen_pieces(p, rouvrir, tick)
+            rouvertes = #rouvrir
+          end
+          local sig = string.format("%d/%d/%d/%d/%d/%d", res.chantier, res.absent, res.tourne, res.sortie, rouvertes, tournees)
+          if sig ~= q.bc_sig then
+            q.bc_sig = sig
+            st.bc_logs = (st.bc_logs or 0) + 1
+            if st.bc_logs <= Bc.LOGS then
+              local detail = "ligne continue"
+              if premier then
+                local e = src[premier.i]
+                detail = string.format("COUPEE : %d en chantier, %d absente(s), %d mal orientee(s), %d sortie(s) de repartiteur non suivie(s) ; premier defaut : %s en (%.1f, %.1f) [%s, %s]%s ; " ..
+                  "%d rouverte(s), %d tournee(s), %d en attente (seconde vue ou ennemi)", res.chantier, res.absent, res.tourne, res.sortie, premier.cause, premier.x, premier.y,
+                  tostring(e.role), tostring(e.carries and e.carries[1]), premier.why and (" laisse : " .. premier.why) or "", rouvertes, tournees, attente)
+              end
+              log(string.format("[FO-BUS-CONTINU] %s : rangee %d (projet %d, etat %s) : %d piece(s) du tronc, %d conforme(s) : %s a %.1f min", who(f), r.j, p.id, tostring(p.state), res.n, res.ok,
+                detail, tick / 3600))
+            end
+          end
+        end
+      end
+    end
+  end
+  return total
+end
+
 function Rt.minute(f, surface, lec, sources, afford, tick, libre)
   local b = f.build
   local st = b and b.mall
   if not (st and st.rows) or not surface then return end
+  Rt.continuite(f, surface, tick) -- (s42 bus-continu)
   local protect = {}
   -- 1. états des projets
   for _, r in ipairs(st.rows) do

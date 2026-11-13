@@ -80,8 +80,9 @@ end
 --- Section du tronc pour la rangée `row` : prolonge chaque ligne jusqu'à yb, pose les prises des deux tapis, l'amenée. lines = liste de { k, item, y_to } (toutes les lignes existantes) ;
 --- names = { tapis, bras, coffre, poteau, repartiteur, souterrain }. N'écrit RIEN dans `lines` ; rend { ents, quais, y_to = { [k] = y }, routes }, les poteaux de liaison compris pour la rangée 1
 --- (entre la tête des lignes et le premier poteau de cellule). routes = liste { item, tiles = { x, y, dir, ug } } dans l'ordre du flux, contiguës (une ligne est coupée au répartiteur) :
---- le contrôle de pureté (shared/team/purete.lua, Pu.check).
-function Mt.section(lines, row, names)
+--- le contrôle de pureté (shared/team/purete.lua, Pu.check). opts.sans_reinjection (s42 bus-continu) : sans le quai de réinjection (ses tuiles sont prises dans le monde : la section se pose
+--- quand même, la ligne reste continue). Les pièces du quai de réinjection portent reinj = true.
+function Mt.section(lines, row, names, opts)
   local ents, quais = {}, {}
   local ya, yb = heights(row)
   local split_y = {} -- y du répartiteur par ligne (prise de la rangée) : nil sans prise
@@ -124,6 +125,29 @@ function Mt.section(lines, row, names)
   end
   if row.bus.a then poser(row.bus.a, ya) end
   if row.bus.b then poser(row.bus.b, yb) end
+  -- RÉINJECTION (s41) : une ligne déjà posée (donc déjà dérivée par une rangée d'avant) que CETTE rangée dérive encore reçoit un quai de plus (bras et coffre à l'ouest, comme à la tête),
+  -- dans la tuile de passage au nord de la rangée, en amont de la prise : sans lui, la tête (deux bras) nourrissait seule toutes les prises et le débit en aval tombait de moitié à chacune.
+  -- Poteaux : deux relais depuis le poteau de passage (3,5) puis un poteau par ligne, de la ligne 1 à la plus lointaine réinjectée (fils ≤ 5,1 tuiles). Rien n'est remplacé.
+  do
+    local kmax = 0
+    for _, ln in ipairs(lines) do if ln.y_to and split_y[ln.k] and ln.k > kmax then kmax = ln.k end end
+    if kmax > 0 and not (opts and opts.sans_reinjection) then
+      local yp = (row.j - 1) * 15 - 1
+      ents[#ents + 1] = { name = names.poteau, x = -1.5, y = yp + 0.5, dir = 0, role = "mall-poteau", reinj = true }
+      ents[#ents + 1] = { name = names.poteau, x = -6.5, y = yp + 0.5, dir = 0, role = "mall-poteau", reinj = true }
+      for _, ln in ipairs(lines) do
+        if ln.k <= kmax then
+          local x = Mt.XL(ln.k)
+          ents[#ents + 1] = { name = names.poteau, x = x - 0.5, y = yp - 0.5, dir = 0, role = "mall-poteau", reinj = true }
+          if ln.y_to and split_y[ln.k] then
+            ents[#ents + 1] = { name = names.bras, x = x - 0.5, y = yp + 0.5, dir = 6, role = "quai-bras", reinj = true }
+            ents[#ents + 1] = { name = names.coffre, x = x - 1.5, y = yp + 0.5, dir = 0, role = "quai", item = ln.item, reinj = true }
+            quais[#quais + 1] = { x = x - 1.5, y = yp + 0.5, item = ln.item }
+          end
+        end
+      end
+    end
+  end
   if row.j > 1 then
     -- (comme la tête d'une rangée à quais) relais vers la rangée précédente, dans la tuile de passage
     ents[#ents + 1] = { name = names.poteau, x = 3.5, y = (row.j - 1) * 15 - 0.5, dir = 0, role = "mall-poteau" }
@@ -138,20 +162,26 @@ function Mt.section(lines, row, names)
   return { ents = ents, quais = quais, y_to = y_to, routes = routes }
 end
 
---- (s41 raccord-mall) Vrai si cette tuile de la PLACE du tronc (x de −WEST à −1, y ≥ Y_TOP, repère canonique) n'est utilisée par aucune ligne, tête, prise ni amenée, quel que soit le nombre de
---- lignes et de rangées : une chaîne de poteaux peut y passer. La place entière était fermée au raccord : 16 tuiles de profondeur entre les têtes des rangées et la base, plus que la portée
---- d'un fil : aucune rangée ne rejoignait le réseau (partie du DC 0.7.95 : rangées 1, 2 et 3 refusées « sans chaine »). Ouvert : la tuile entre les deux coffres de chaque tête ; à l'ouest de
---- la dernière ligne (y ≥ 0) ; la tuile de passage entre deux rangées, hors colonnes des lignes et hors des tuiles de tête (x ≥ LEAD_FROM, laissées aux rangées à quais). Pur.
+--- (s41 raccord-mall) Vrai si cette tuile de la PLACE du tronc (x de −WEST à −1, y ≥ Y_TOP, repère canonique) n'est utilisée par aucune ligne, tête, prise, amenée ni quai de réinjection, quel que
+--- soit le nombre de lignes et de rangées : une chaîne de poteaux peut y passer. La place entière était fermée au raccord : 16 tuiles de profondeur entre les têtes des rangées et la base, plus
+--- que la portée d'un fil : aucune rangée ne rejoignait le réseau (partie du DC 0.7.95 : rangées 1, 2 et 3 refusées « sans chaine »). Ouvert : la tuile entre les deux coffres de chaque tête ;
+--- à l'ouest de la dernière ligne (y ≥ 0) ; les trois tuiles au nord de la tuile de passage (y mod 15 = 11 à 13 : sous les prises, y mod 15 = 5 à 7), hors colonnes des lignes et hors des
+--- tuiles de tête (x ≥ LEAD_FROM, laissées aux rangées à quais).
+--- (s42 bus-continu) La tuile de PASSAGE elle-même (y mod 15 = 14) est RÉSERVÉE au quai de réinjection (bras en xL − 1, coffre en xL − 2, relais en −7 et −2), avec la tuile de son poteau
+--- (xL − 1, y mod 15 = 13) : un poteau de chaîne posé là faisait refuser « obstacle » la section de la rangée suivante. Le couloir de la chaîne passe une à trois tuiles plus au nord. Pur.
 function Mt.place_libre(rx, ry)
   if rx >= 0 or rx < -Mt.WEST or ry < Mt.Y_TOP then return false end
-  local ligne, coffre = false, false
+  local ligne, coffre, bras = false, false, false
   for k = 1, Mt.KMAX do
     if rx == Mt.XL(k) then ligne = true end
+    if rx == Mt.XL(k) - 1 then bras = true end
     if rx == Mt.XL(k) - 2 then coffre = true end
   end
   if ry < 0 then return coffre and ry == Mt.Y_TOP + 1 end
+  local m = ry % 15
+  if m == 14 or (m == 13 and bras) then return false end
   if rx < Mt.XL(Mt.KMAX) then return true end
-  return ry % 15 == 14 and rx < Mt.LEAD_FROM and not ligne
+  return m >= 11 and rx < Mt.LEAD_FROM and not ligne
 end
 
 return Mt
