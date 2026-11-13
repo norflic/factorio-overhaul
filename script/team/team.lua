@@ -546,6 +546,7 @@ function Team.view(f, tick)
   Profiler.fstart("view:2-avant-postes")
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
+  local need_t = {} -- s40 ups-team p44 : seuil de tourelles de chaque avant-poste, calculé UNE fois (même rang que `outposts`)
   local fsurface = f.hq and f.hq.valid and f.hq.surface
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
@@ -567,6 +568,7 @@ function Team.view(f, tick)
     -- Seul l'avant-poste de la plaque clé (le fer) est gardé selon sa menace : « les ressources d'abord » (le DC, 29/10) ; les autres gardent la règle
     -- d'avant (mesure 1618033988 : une tourelle de plus demandée à un avant-poste de pierre à 211 tuiles, fer dépensé, PNJ perdu en chemin).
     local base_t = T.defend_turrets(o.drills)
+    need_t[#outposts + 1] = base_t
     local want_t, wave_t, why_t = base_t, 0, "base"
     local ospec_t = T.outposts[o.kind]
     if ospec_t and ospec_t.product == T.outposts.iron.product then want_t, wave_t, why_t = SurvieQg.garde(f, oid, tick, base_t) end
@@ -631,7 +633,8 @@ function Team.view(f, tick)
       f.team.mag_iron, f.team.mag_iron_tech = rm[T.outposts.iron.product] or 0, f.tech
     end
     local n_turrets = 0
-    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do if f.turrets[id].valid then n_turrets = n_turrets + 1 end end
+    -- s40 ups-team p42 : un COMPTE (indépendant de l'ordre, aucun effet de bord) : plus de liste triée refaite à chaque pensée
+    for _, tu in pairs(f.turrets or {}) do if tu.valid then n_turrets = n_turrets + 1 end end
     -- (hystérésis : f.team.ammo_rich garde l'état d'une pensée à l'autre ; essai 1, la cible basculait avec le fer)
     f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret({ base = T.turret_ammo_target,
       rich = T.turret_ammo_rich_on and T.turret_ammo_rich or T.turret_ammo_target, turrets = n_turrets, -- (essai 3 : cible riche éteinte)
@@ -699,8 +702,8 @@ function Team.view(f, tick)
     and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
     and iron0 >= grow_iron + 10 + (f.engineers_count or 0) then
     grow_due = true
-    for _, o in ipairs(outposts) do
-      if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
+    for i, o in ipairs(outposts) do
+      if (o.turrets or 0) < need_t[i] then grow_due = false break end
     end
   end
   if grow_due then recruit_held = false end
@@ -709,7 +712,7 @@ function Team.view(f, tick)
   local iron_reserve
   if f.is_player then
     local needs = {}
-    for _, o in ipairs(outposts) do needs[#needs + 1] = { turrets = o.turrets, need = T.defend_turrets(o.drills) } end
+    for i, o in ipairs(outposts) do needs[#needs + 1] = { turrets = o.turrets, need = need_t[i] } end
     local defended = FerEquipe.defended({ turret_ok = grow, hq_turrets = hq_turrets, defend_hq = T.defend_hq, outposts = needs })
     iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended, evaluated)
   end
@@ -812,6 +815,7 @@ function Team.view(f, tick)
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   -- Lot X10-S0 : le constructeur final (appels compris, même ordre) mesuré par « view:5-queue » et ses sous-portées (mesure seulement)
   Profiler.fstart("view:5-queue")
+  local smelters_now = Outposts.smelters(f) -- s40 ups-team p41 : fours valides lus UNE fois par pensée (avant : deux revalidations de suite)
   local out = {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = incoming, repat = repat,
@@ -820,9 +824,9 @@ function Team.view(f, tick)
     mq = mq and { need = mq.need, build = mq.build } or nil, avail_out = mq and mq.dispo_sorties or nil, dort = mq and mq.dort or nil,
     sorties_on = f.team.sorties_regle ~= false or nil, -- lot CHARBON-MAIN : règle « sorties brutes d'abord » (shared/team/sorties_main.lua)
     outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
-    smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
+    smelters = #smelters_now, smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
-    smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, Outposts.smelters(f)),
+    smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, smelters_now),
     coal_cap = fsurface and Profiler.fwrap("view:5-cap", Cap.read, f, fsurface) or nil, -- lot PURGE-FER-CHARBON : plafond du combustible (besoin réel, extraction posée)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES

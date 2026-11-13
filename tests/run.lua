@@ -270,5 +270,62 @@ check(labels == 0, "étiquettes de rendu détruites")
 run_ticks(2000) -- les résultats de chemin en retard doivent être ignorés sans erreur
 check(true, "résultats périmés ignorés sans erreur")
 
+-- s40 ups-team (axe 5) : travail refait par pensée (lecture statique du source)
+do
+  local function src(p) local h = assert(io.open(p, "rb")); local t = h:read("*a"); h:close(); return t end
+  local team = src("script/team/team.lua")
+  local view = team:sub(team:find("function Team.view(", 1, true), team:find("function Team.measure(", 1, true))
+  local _, n_sm = view:gsub("Outposts%.smelters%(f%)", "")
+  check(n_sm == 1, "p41 : Team.view ne revalide les fours qu'une fois par pensée (" .. n_sm .. ")")
+  check(not view:find("sorted_keys(f.turrets", 1, true) and view:find("in pairs(f.turrets or {}) do if tu.valid then n_turrets = n_turrets + 1", 1, true) ~= nil,
+    "p42 : tourelles valides comptées sans liste triée")
+  -- compte identique à l'ancien (liste triée) sur une table à trous, entités valides et invalides mêlées
+  do
+    local tur = { [7] = { valid = true }, [3] = { valid = false }, [12] = { valid = true }, [40] = { valid = true }, [1] = { valid = false } }
+    local keys, old, new = {}, 0, 0
+    for k in pairs(tur) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, id in ipairs(keys) do if tur[id].valid then old = old + 1 end end
+    for _, tu in pairs(tur) do if tu.valid then new = new + 1 end end
+    check(old == 3 and new == old, "p42 : même compte qu'avec la liste triée")
+  end
+  local _, n_dt = view:gsub("T%.defend_turrets%(", "")
+  check(n_dt == 1 and view:find("need_t[#outposts + 1] = base_t", 1, true) ~= nil,
+    "p44 : seuil de tourelles d'un avant-poste calculé une fois par pensée (" .. n_dt .. ")")
+  local qr = src("script/team/quartiers.lua")
+  local idle = qr:sub(qr:find("local function idle_count(f)", 1, true), qr:find("local function module_starts(b)", 1, true))
+  check(not idle:find("sorted_keys", 1, true) and idle:find("for id in pairs(f.engineers or {}) do", 1, true) ~= nil,
+    "p43 : PNJ inactifs des quartiers comptés sans liste triée")
+  -- Rt.named : le type d'un prototype n'est lu au moteur qu'une fois par nom ; même liste rendue ; un nom inconnu reste relu
+  do
+    local old_game = rawget(_G, "game")
+    local reads = 0
+    local protos = setmetatable({}, { __index = function(_, k)
+      reads = reads + 1
+      if k == "foreuse-x" then return { type = "mining-drill" } end
+      return nil
+    end })
+    local found = {}
+    local surface = { index = 1, find_entities_filtered = function(q) found[#found + 1] = q; return { { name = "foreuse-x", valid = true }, { name = "autre", valid = true } } end }
+    _G.game = { entity_prototypes = protos }
+    local ok, Rt2 = pcall(require, "script.team.registre_types")
+    if ok then
+      local was = Rt2.ENABLED
+      Rt2.ENABLED = false -- (ancienne recherche : la liste rendue ne dépend que du nom et du type)
+      local a = Rt2.named(surface, "f1", "foreuse-x")
+      local b = Rt2.named(surface, "f1", "foreuse-x")
+      check(reads == 1 and #a == 1 and #b == 1 and a[1].name == "foreuse-x" and found[2].type == "mining-drill",
+        "p45 : type du prototype lu une seule fois, même liste (" .. reads .. " lecture(s))")
+      Rt2.named(surface, "f1", "inconnu")
+      Rt2.named(surface, "f1", "inconnu")
+      check(reads == 3 and found[#found].name == "inconnu", "p45 : nom inconnu relu et cherché par son nom, comme avant")
+      Rt2.ENABLED = was
+    else
+      check(false, "p45 : module chargé (" .. tostring(Rt2) .. ")")
+    end
+    _G.game = old_game
+  end
+end
+
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
