@@ -252,8 +252,13 @@ do
 end
 
 section("11. BANDE-GELEE : l'ordre des bandes du cadre garde la bande toute orpheline")
-check(read("script/team/champ.lua"):find("if #bd.groups > 0 or bd.orphans > 0 then order[#order + 1]", 1, true) ~= nil,
-  "Champ.frame : une bande sans groupe mais a foreuses en attente (bd.orphans) reste dans l'ordre des bandes")
+do
+  local src = read("script/team/champ.lua")
+  check(src:find("if #bd.groups > 0 or bd.orphans > 0 then", 1, true) ~= nil,
+    "Champ.frame : une bande sans groupe mais a foreuses en attente (bd.orphans) reste dans l'ordre des bandes")
+  check(src:find("wait = #bd.groups == 0 }", 1, true) ~= nil and src:find("if a.wait ~= b.wait then return b.wait end", 1, true) ~= nil,
+    "Champ.frame : la bande en attente de fonderie passe apres les bandes a fonderie")
+end
 
 section("5. mutants")
 local MUTANTS = {
