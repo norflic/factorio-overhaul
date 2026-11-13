@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.93
+Date: 2026-11-13
+  Bugfixes:
+    - IA (F601) : une bande de foreuses qui attend sa colonne de fours n'est plus rayée du plan du champ ; les gisements sont de nouveau couverts (+11 % de fer servi sur 4 graines à 120 min).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.92
 Date: 2026-11-13
   Changes:

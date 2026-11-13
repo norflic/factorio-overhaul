@@ -10,6 +10,12 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-13, 09 h 00 : version 0.7.93 (bande de champ rayée par le couplage)
+
+- **F601 · FAIT · [0.7.93]** Bande gelée (bande-gelee 13bf0415, 23ebb87c) : capture 0.7.92 du fer d'amber à 120 min (graine 123456789), gisement couvert à 30 % au lieu de 79 %. Depuis le couplage (F599), une bande dont tous les bouts sont sans fonderie sortait du plan avec `groups = {}` (`shared/team/champ.lua`, `bare_todo`) et `Champ.frame` (`script/team/champ.lua:513`) ne gardait que les bandes à groupe : la bande n'était jamais redemandée seule, alors que seule elle trouvait sa colonne (23 fours dans REF dès 16,4 min). Le plan compte les foreuses en attente de fonderie (`bo.orphans`) ; l'ordre garde ces bandes après celles déjà servies. Panel `partie-reelle-120`, 4 graines, fer servi à 120 min : REF 671 475, 0.7.92 624 362, 0.7.93 693 779 (+11 % sur 0.7.92, +3 % sur REF) ; 0 bande orpheline au `[FO-COUPLAGE]`. Réserve : gain porté surtout par 314159265 (+83 k), 1618033988 recule de 25 k. decouplage_test 48 OK (7b et 11, mutants détectés).
+- Vu, non traité : poteaux posés sur le bout orphelin d'une bande (boucle `rows[row]` de `shared/team/champ.lua`) ; bout orphelin d'une bande déjà servie perdu ; couplage appliqué aussi au charbon et à la pierre, qui n'ont pas besoin de fours.
+- Garde-fous : run 114, iag 564, decouplage 48, harness code 0.
+
 ## 2026-11-13, 03 h 30 : version 0.7.92 (sprint partie réelle : bandes couplées à leur fonderie, marge des tiers 0 et 1)
 
 - **F599 · FAIT · [0.7.92]** Couplage extraction/fonderie (couplage 18cae22d, b93b5c74, fbacf426) : dans la partie du DC (archive `2026-11-12_PARTIE-DC-0790`), environ 404 foreuses étaient sur des bandes sans aucun four (tapis collecteur qui finit dans l'herbe). `shared/team/champ.lua` `bare_todo` : un bout de bande sans colonne de fonderie ne pose plus ni foreuse ni tapis ; une colonne ailleurs plus courte n'est admise que pour le four électrique. Relevé `[FO-COUPLAGE]` : 0 bande orpheline à 120 min sur les graines lues. decouplage_test section 10 (44 OK).
