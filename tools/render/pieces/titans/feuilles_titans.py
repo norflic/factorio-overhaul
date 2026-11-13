@@ -280,6 +280,9 @@ def seul(a):
         e[st] = ent
         for k in pd:
             pd[k] += p_[k]
+    if nom == "ecorche":
+        # s43 3d-ecorches : la mesure de luminance des variantes (tests/titans_test.lua §8) suit les feuilles refaites seules
+        e["mesure"] = mesure_variantes(a.dest, e, stades)
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, encoding="utf-8") as f:
         lignes = f.read().split("\n")

@@ -1,11 +1,17 @@
-"""ÉCORCHÉS, mordeurs MUTANTS (lot KAIJUS-MUTANTS, 10/11) : la lignée que pond l'Écorcheur (ecorcheur.py) et que les nids proposent tard dans
-l'évolution. Quadrupèdes de chair mauve écorchée, plaques sombres, cristaux bleu glacier (cohérence du Kaiju), conduits turquoise, cœur
-lumineux dans la gueule. TROIS variantes (le « stade » du rendu = la variante, shared/robots/titans.lua T.ECORCHE.variants) :
-  1 RÔDEUR : fin, haut sur pattes, rapide, peu de cristaux ;
-  2 PORTEUR : trapu, dos chargé d'un amas de cristaux et de plaques (blindé) ;
-  3 HURLEUR : tête énorme, gueule béante à cœur lumineux, crête d'os ; son cri frappe en zone (règle).
-Modèle paramétrique low-poly ANIMÉ comme le Kaiju : `build_anime(S, lot, variante, u, attaque)`. Repère LOCAL : +x = avant, +y = gauche,
-+z = haut ; origine = sous le centre du corps, au sol. Environ 4 tuiles du museau à la queue, 2 de haut (un titan parmi les mordeurs).
+"""ÉCORCHÉS, mordeurs MUTANTS : la lignée que pond l'Écorcheur (ecorcheur.py) et que les nids proposent tard dans l'évolution.
+Refonte ORGANIQUE (s43 3d-ecorches, 13/11) : les Écorchés d'avant étaient des quadrupèdes à blocs et à cristaux, peu lisibles ; ce sont
+désormais des bêtes à la PEAU ARRACHÉE : muscle strié humide (fibres le long des membres, matière `muscle` ci-dessous), tendons ivoire
+tendus des hanches aux pieds et des épaules au crâne, côtes et vertèbres à nu, crâne d'os, lambeaux de peau morte. TROIS variantes (le
+« stade » du rendu = la variante, shared/robots/titans.lua T.ECORCHE.variants), distinctes d'un coup d'œil :
+  1 RÔDEUR : BAS et ALLONGÉ (dos à 0,7 tuile, 4,5 tuiles du museau à la queue-fouet), pattes en araignée aux genoux hauts, chair
+    PÂLE (os et muscle rose délavé) : la plus claire ;
+  2 PORTEUR : MASSIF, dos en bosse, pattes en colonnes, porte sa CHARGE : un amas de poches de ponte sombres sanglées de tendons, piquées
+    de pustules lumineuses ; chair presque noire : la plus sombre ;
+  3 HURLEUR : avant DRESSÉ, cou levé, GUEULE GRANDE OUVERTE sur une gorge lumineuse, collerette d'épines et de membranes ; chair ROUGE
+    à vif : luminance médiane.
+Lueur rendue BLANCHE (GLOW_BLANC) : le prototype la teint de la couleur de la variante (T.ECORCHE.variants[i].lueur) mêlée à l'ère.
+Modèle paramétrique ANIMÉ : `build_anime(S, lot, variante, u, attaque)` (course 8 images, attaque 4 : batch_titans.py). Repère LOCAL :
++x = avant, +y = gauche, +z = haut ; origine = sous le centre du corps, au sol.
 """
 import math
 import os
@@ -20,170 +26,439 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
-from juggernaut import hexseg, pointe, plaque  # noqa: E402
+from juggernaut import pointe, plaque  # noqa: E402
 from kaiju import pas, ik2, ellipse  # noqa: E402
 
 PREFIX = "em_"
 GRIS = os.environ.get("FO_GRIS", "") == "1"
-SERIE = {"course": 8, "attaque": 4, "densite": 32.0, "R": 3.2, "zmax": 3.2, "sol": 40.0}
+SERIE = {"course": 8, "attaque": 4, "densite": 64.0, "R": 3.0, "zmax": 3.0, "sol": 40.0}
 AO = 0.3
 GLOW_BLANC = True
-AMP = 0.75
-FOULEE = 2 * 0.75
-# variante : (longueur du corps, hauteur au garrot, largeur, longueur de patte, cristaux (nombre, longueur), masse de la tête)
-# Lot VISUELS-DISTINCTS (10/11) : les trois variantes se confondaient de loin (même chair mauve, même gabarit) ; chacune a désormais sa
-# CHAIR et sa PEAU (couleurs de surface, ci-dessous) et son trait de silhouette : rôdeur FIN et CLAIR (corps étroit, hautes pattes,
-# chair os pâle), porteur MASSIF et SOMBRE (large, plaques argent sur tout le dos), hurleur à COLLERETTE lumineuse (épines émissives
-# autour de la nuque). La LUEUR en jeu est la couleur de la variante (shared/robots/titans.lua T.ECORCHE.variants[i].lueur).
-VARIANTES = {
-    1: {"L": 2.6, "h": 1.55, "w": 0.42, "patte": 1.65, "cristaux": (3, 0.45), "tete": 0.7, "plaques": 0.0,
-        "chair": (0.78, 0.66, 0.68), "peau": (0.70, 0.64, 0.68), "collerette": 0},
-    2: {"L": 3.0, "h": 1.25, "w": 1.0, "patte": 1.05, "cristaux": (7, 0.9), "tete": 0.9, "plaques": 1.0,
-        "chair": (0.10, 0.035, 0.06), "peau": (0.07, 0.05, 0.065), "collerette": 0},
-    3: {"L": 2.7, "h": 1.4, "w": 0.65, "patte": 1.3, "cristaux": (4, 0.6), "tete": 1.25, "plaques": 0.4,
-        "chair": (0.40, 0.14, 0.25), "peau": (0.25, 0.15, 0.21), "collerette": 9},
+AMP = 0.42
+FOULEE = 2 * 0.42
+
+# Variante : couleurs LINÉAIRES du muscle (creux, fond, crêtes), de l'os, du tendon et de la peau morte ; le reste (silhouette) est dans
+# les fonctions de pose propres à chaque variante (POSES).
+COULEURS = {
+    1: {"creux": (0.26, 0.06, 0.06), "fond": (0.64, 0.32, 0.28), "crete": (0.95, 0.80, 0.70), "os": (0.86, 0.80, 0.66),
+        "tendon": (0.92, 0.86, 0.72), "peau": (0.46, 0.43, 0.41), "gorge": (0.30, 0.04, 0.05)},
+    2: {"creux": (0.020, 0.006, 0.010), "fond": (0.095, 0.026, 0.034), "crete": (0.24, 0.085, 0.085), "os": (0.20, 0.17, 0.13),
+        "tendon": (0.30, 0.25, 0.19), "peau": (0.028, 0.020, 0.024), "gorge": (0.10, 0.01, 0.015), "sac": (0.045, 0.026, 0.040)},
+    3: {"creux": (0.10, 0.008, 0.012), "fond": (0.42, 0.040, 0.034), "crete": (0.80, 0.22, 0.14), "os": (0.46, 0.37, 0.29),
+        "tendon": (0.78, 0.70, 0.56), "peau": (0.050, 0.025, 0.030), "gorge": (0.25, 0.01, 0.03)},
 }
 
 
-def corps(lot, M, V, u, bob, cri):
-    """Corps : loft de la queue à la nuque, plaques dorsales (porteur), épines de cristal, conduits de flanc ; amas de cristaux du porteur."""
-    L, h, w = V["L"], V["h"], V["w"]
-    sw = 0.08 * math.sin(G.TAU * u)
-    ctrl = [(-L * 0.55, -sw * 1.5, h * 0.55), (-L * 0.3, -sw * 0.8, h * 0.75 + bob * 0.5), (0.0, 0.0, h * 0.85 + bob), (L * 0.25, 0.0, h * 0.9 + bob),
-            (L * 0.45, 0.0, h * 0.95 + bob)]
-    pts = G.catmull(ctrl, 5)
+# ------------------------------------------------------------------------------------------------ matières
+def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0.0):
+    """Muscle ÉCORCHÉ : fibres (vagues en bandes le long de u : la longueur des tubes et des lofts), marbrure, relief des fibres, vernis
+    humide (couche de vernis). Couleurs linéaires : creux des fibres, fond, crêtes."""
+    import bpy
+    m = bpy.data.materials.new(nom)
+    m.use_nodes = True
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    p = N["Principled BSDF"]
+    tc = N.new("ShaderNodeTexCoord")
+    wv = N.new("ShaderNodeTexWave")
+    wv.wave_type = "BANDS"
+    wv.bands_direction = "Y"
+    wv.inputs["Scale"].default_value = echelle
+    wv.inputs["Distortion"].default_value = 9.0
+    wv.inputs["Detail"].default_value = 4.0
+    wv.inputs["Detail Scale"].default_value = 1.2
+    mp = N.new("ShaderNodeMapping")
+    mp.inputs["Location"].default_value = (graine * 0.31, graine * 0.17, 0.0)
+    L.new(tc.outputs["UV"], mp.inputs["Vector"])
+    L.new(mp.outputs["Vector"], wv.inputs["Vector"])
+    nz = N.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = 4.0
+    nz.inputs["Detail"].default_value = 5.0
+    L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    a = N.new("ShaderNodeMath")
+    a.operation = "MULTIPLY"
+    a.inputs[1].default_value = 0.35
+    L.new(wv.outputs["Fac"], a.inputs[0])
+    b = N.new("ShaderNodeMath")
+    b.operation = "MULTIPLY_ADD"
+    L.new(nz.outputs["Fac"], b.inputs[0])
+    b.inputs[1].default_value = 0.75
+    L.new(a.outputs["Value"], b.inputs[2])
+    rp = N.new("ShaderNodeValToRGB")
+    e = rp.color_ramp.elements
+    e[0].position, e[0].color = 0.25, tuple(creux) + (1.0,)
+    e[1].position, e[1].color = 0.85, tuple(crete) + (1.0,)
+    mid = e.new(0.55)
+    mid.color = tuple(fond) + (1.0,)
+    L.new(b.outputs["Value"], rp.inputs["Fac"])
+    L.new(rp.outputs["Color"], p.inputs["Base Color"])
+    p.inputs["Roughness"].default_value = rough
+    p.inputs["Metallic"].default_value = 0.0
+    for k, v in (("Specular IOR Level", 0.55), ("Coat Weight", 0.35), ("Coat Roughness", 0.18)):
+        if k in p.inputs:
+            p.inputs[k].default_value = v
+    bp = N.new("ShaderNodeBump")
+    bp.inputs["Strength"].default_value = bosse
+    bp.inputs["Distance"].default_value = 0.02
+    L.new(wv.outputs["Fac"], bp.inputs["Height"])
+    L.new(bp.outputs["Normal"], p.inputs["Normal"])
+    m["fo_kind"] = "surface"
+    return m
+
+
+def lisse(nom, col, rough=0.3, coat=0.25):
+    """Os, tendon, poche : surface lisse à légère marbrure (bruit), vernis léger."""
+    import bpy
+    m = bpy.data.materials.new(nom)
+    m.use_nodes = True
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    p = N["Principled BSDF"]
+    tc = N.new("ShaderNodeTexCoord")
+    nz = N.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = 6.0
+    nz.inputs["Detail"].default_value = 4.0
+    L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    rp = N.new("ShaderNodeValToRGB")
+    e = rp.color_ramp.elements
+    e[0].position, e[0].color = 0.3, tuple(c * 0.62 for c in col) + (1.0,)
+    e[1].position, e[1].color = 0.75, tuple(min(1.0, c * 1.12) for c in col) + (1.0,)
+    L.new(nz.outputs["Fac"], rp.inputs["Fac"])
+    L.new(rp.outputs["Color"], p.inputs["Base Color"])
+    p.inputs["Roughness"].default_value = rough
+    p.inputs["Metallic"].default_value = 0.0
+    for k, v in (("Coat Weight", coat), ("Coat Roughness", 0.2)):
+        if k in p.inputs:
+            p.inputs[k].default_value = v
+    bp = N.new("ShaderNodeBump")
+    bp.inputs["Strength"].default_value = 0.25
+    bp.inputs["Distance"].default_value = 0.01
+    L.new(nz.outputs["Fac"], bp.inputs["Height"])
+    L.new(bp.outputs["Normal"], p.inputs["Normal"])
+    m["fo_kind"] = "surface"
+    return m
+
+
+def matieres(S, stage):
+    M = TM.matieres(S, PREFIX, GRIS)
+    if GRIS:
+        for k in ("muscle", "tendon", "sac", "gorge"):
+            M[k] = M["chair"]
+        M["peau_morte"] = M["peau"]
+        return M
+    c = COULEURS[stage]
+    M["muscle"] = muscle(PREFIX + "muscle", c["creux"], c["fond"], c["crete"], graine=stage)
+    M["gorge"] = muscle(PREFIX + "gorge", tuple(x * 0.4 for x in c["gorge"]), c["gorge"], tuple(min(1.0, x * 2.2) for x in c["gorge"]),
+                        rough=0.25, echelle=2.5, bosse=0.3)
+    M["os"] = lisse(PREFIX + "os", c["os"], rough=0.42, coat=0.1)
+    M["tendon"] = lisse(PREFIX + "tendon", c["tendon"], rough=0.22, coat=0.45)
+    M["peau_morte"] = lisse(PREFIX + "peau_morte", c["peau"], rough=0.7, coat=0.0)
+    M["sac"] = lisse(PREFIX + "sac", c.get("sac", c["peau"]), rough=0.25, coat=0.6)
+    # émissifs (couche lueur, rendus blancs, teints en jeu) : yeux, gorge, pustules
+    M["oeil"] = S.mat_emissive(PREFIX + "conduit_oeil", (1.0, 0.95, 0.85), strength=3.0, base=(0.6, 0.5, 0.3), main_scale=0.6)
+    M["pustule"] = S.mat_emissive(PREFIX + "conduit_pustule", (1.0, 0.75, 0.45), strength=2.4, base=(0.5, 0.25, 0.1), main_scale=0.55)
+    return M
+
+
+# ------------------------------------------------------------------------------------------------ primitives
+def ellipsoide(c, rx, ry, rz, seg=12, rings=7):
+    v, f, u = G.sphere((0.0, 0.0, 0.0), 1.0, seg, rings)
+    return [(c[0] + p[0] * rx, c[1] + p[1] * ry, c[2] + p[2] * rz) for p in v], f, u
+
+
+def renfle(a, b, r0, r1, bombe=0.35, n=7, segs=10):
+    """Muscle fusiforme de a à b : rayon r0 -> r1, ventre renflé de `bombe` au milieu."""
+    pts = [G.lerp(a, b, i / float(n)) for i in range(n + 1)]
+    L = G.length(G.sub(b, a)) or 1e-6
+    def rf(s, i):
+        t = i / float(n)
+        return (r0 + (r1 - r0) * t) * (1.0 + bombe * math.sin(math.pi * t))
+    return G.tube(pts, r0, segs, rfun=rf)
+
+
+def cable(lot, M, pts, r, cle="tendon"):
+    lot.put(M[cle], G.tube(G.catmull(pts, 4) if len(pts) > 2 else pts, r, 6))
+
+
+# ------------------------------------------------------------------------------------------------ corps
+def torse(lot, M, ctrl, rayon, cotes, vertebres=True, peau=()):
+    """Corps : loft le long de la colonne `ctrl` (queue -> nuque), rayons `rayon(t) -> (rw, rh)` ; côtes à nu (`cotes` : (t0, t1, n)),
+    vertèbres, lambeaux de peau morte aux t de `peau`. Rend (pts, prof)."""
+    pts = G.catmull(ctrl, 6)
     n = len(pts)
     rings, prof = [], []
     for i, p in enumerate(pts):
         t = i / float(n - 1)
-        if t < 0.35:
-            rw, rh = 0.1 + (w - 0.1) * (t / 0.35) ** 1.3, 0.1 + (h * 0.4 - 0.1) * (t / 0.35) ** 1.3
-        else:
-            k = (t - 0.35) / 0.65
-            rw, rh = w * (1.0 + 0.15 * math.sin(math.pi * k)) - 0.2 * k * w, h * 0.4 * (1.0 + 0.2 * math.sin(math.pi * k)) - 0.1 * k * h
-        rings.append(ellipse(p, rw, rh, 8))
+        rw, rh = rayon(t)
+        rings.append(ellipse(p, rw, rh, 12))
         prof.append((p, rw, rh, t))
-    lot.put(M["chair"], G.loft(rings, True, True))
-    for i in range(2, n - 2, 2):
-        p, rw, rh, t = prof[i]
-        d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
-        if t > 0.3:
-            for s in (-1, 1):
-                lot.put(M["peau"], plaque((p[0], p[1] + s * rw * 0.85, p[2] + rh * 0.3), G.norm((0.0, s * 0.9, 0.4)), 0.3, 0.42, 0.06, up=d, coins=0.6))
-            if V["plaques"] > 0 and (V["plaques"] >= 1.0 or i % 4 == 2):   # porteur : une plaque à chaque anneau
-                # porteur : plaques SOMBRES (struct) à chaque anneau, la masse lue noire de loin ; hurleur : plaques argent d'avant
-                lot.put(M["struct" if V["plaques"] >= 1.0 else "blind2"], plaque((p[0], p[1], p[2] + rh * 0.9), (0.0, 0.0, 1.0), rw * 1.6, 0.5, 0.08,
-                                                                              up=d, coins=0.65))
-    nc, lc = V["cristaux"]
+    lot.put(M["muscle"], G.loft(rings, True, True))
+    t0, t1, nc = cotes
     for k in range(nc):
-        t = 0.3 + 0.55 * (k + 0.5) / nc
-        i = min(n - 2, int(t * (n - 1)))
+        t = t0 + (t1 - t0) * k / max(1, nc - 1)
+        i = int(t * (n - 1))
         p, rw, rh, _ = prof[i]
-        d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
-        Lc = lc * (0.7 + 0.6 * math.sin(math.pi * (k + 0.5) / nc))
-        lot.put(M["cristal"], pointe((p[0], p[1], p[2] + rh * 0.9), G.norm((-0.6 * d[0], 0.0, 1.0)), Lc, 0.07 + 0.06 * Lc))
-        if V["plaques"] >= 1.0:
-            for s in (-1, 1):
-                lot.put(M["cristal"], pointe((p[0] - 0.1, p[1] + s * rw * 0.5, p[2] + rh * 0.7), G.norm((-0.4, s * 0.8, 0.7)), Lc * 0.6, 0.08))
+        for s in (-1, 1):
+            arc = []
+            for q in range(9):
+                a = math.radians(80 - 125 * q / 8.0)
+                arc.append((p[0] - 0.05 * q / 8.0, p[1] + s * rw * 1.04 * math.cos(a), p[2] + rh * 1.04 * math.sin(a)))
+            lot.put(M["os"], G.tube(arc, 0.026 + 0.012 * rw, 6))
+    if vertebres:
+        for i in range(1, n - 1):
+            p, rw, rh, t = prof[i]
+            if t < 0.05:
+                continue
+            d = G.norm(G.sub(pts[i + 1], pts[i - 1]))
+            top = (p[0], p[1], p[2] + rh * 0.95)
+            lot.put(M["os"], ellipsoide(top, 0.05 + 0.04 * rh, 0.04 + 0.03 * rh, 0.035 + 0.03 * rh, 8, 4))
+            if i % 2 == 0 and t > 0.3:
+                lot.put(M["os"], pointe(top, G.norm((-0.5 * d[0], 0.0, 1.0)), 0.10 + 0.22 * rh, 0.03 + 0.02 * rh, 5))
+    for tp, s in peau:
+        i = int(tp * (n - 1))
+        p, rw, rh, _ = prof[i]
+        d = G.norm(G.sub(pts[min(n - 1, i + 1)], pts[max(0, i - 1)]))
+        lot.put(M["peau_morte"], plaque((p[0], p[1] + s * rw * 0.9, p[2] + rh * 0.25), G.norm((0.0, s * 1.0, 0.35)), rw * 1.1, rh * 1.2,
+                                        0.03, up=d, coins=0.45, bis=0.9))
+    # tendons du flanc : de la hanche à l'épaule, tendus sur les côtes
     for s in (-1, 1):
-        line = [(pts[i][0], pts[i][1] + s * prof[i][1] * 0.95, pts[i][2] + prof[i][2] * 0.05) for i in range(int(n * 0.3), n - 1, 2)]
-        lot.put(M["turq"], G.tube(line, 0.035, 5))
-    # bout de la queue : pointe de cristal
-    lot.put(M["cristal"], pointe(pts[0], G.norm(G.sub(pts[0], pts[2])), 0.45, 0.07))
+        line = [(pts[i][0], pts[i][1] + s * prof[i][1] * 1.02, pts[i][2] - prof[i][2] * 0.35) for i in range(int(n * 0.35), n - 1, 3)]
+        if len(line) > 2:
+            lot.put(M["tendon"], G.tube(line, 0.022, 6))
     return pts, prof
 
 
-def patte(lot, M, V, hanche, pied0, u, avant, s):
-    """Patte sprawlée : cuisse (chair), tibia (os), pied à trois griffes."""
-    dx, dz = pas(u, AMP, 0.35)
+def patte(lot, M, hanche, pied0, u, l1, l2, r, pole, levee=0.22, griffe=0.24, appui=0.55):
+    """Patte : cuisse musclée renflée, tibia sec (os + tendon d'Achille), pied à trois griffes ; `pole` : côté du genou."""
+    dx, dz = pas(u, AMP, levee, appui)
     pied = (pied0[0] + dx, pied0[1], pied0[2] + dz)
-    l1 = l2 = V["patte"] * 0.56
-    pole = G.norm((0.8 if avant else -0.8, s * 1.0, 0.3))
     genou = ik2(hanche, pied, l1, l2, pole)
-    lot.put(M["chair"], G.sphere(hanche, 0.2, 8, 4))
-    lot.put(M["chair"], hexseg(hanche, genou, 0.2, 0.13, 6, 0.1))
-    lot.put(M["struct"], G.sphere(genou, 0.12, 6, 3))
-    lot.put(M["os"], hexseg(genou, pied, 0.11, 0.07, 6, 0.1))
-    lot.put(M["turq"], hexseg(G.add(hanche, (0.05, s * 0.18, -0.05)), G.add(genou, (0.02, s * 0.1, 0.02)), 0.025, 0.02))
-    for ay in (0.0, 0.5, -0.5):
-        lot.put(M["os"], pointe((pied[0] + 0.05, pied[1] + ay * 0.1, pied[2] + 0.05), G.norm((1.0, ay * 0.8, -0.3)), 0.28 if ay == 0 else 0.22, 0.045, 4))
+    lot.put(M["muscle"], ellipsoide(hanche, r * 1.35, r * 1.2, r * 1.3, 10, 5))
+    lot.put(M["muscle"], renfle(hanche, genou, r * 1.1, r * 0.6, 0.45))
+    lot.put(M["os"], ellipsoide(genou, r * 0.62, r * 0.62, r * 0.62, 8, 4))
+    cheville = G.lerp(genou, pied, 0.86)
+    lot.put(M["muscle"], renfle(genou, G.lerp(genou, pied, 0.5), r * 0.62, r * 0.32, 0.5, 5, 8))
+    lot.put(M["os"], G.tube([genou, cheville, pied], r * 0.3, 6))
+    # tendons : de la hanche au genou (devant), du mollet au talon (derrière)
+    tib = G.sub(pied, genou)
+    lat = G.cross(tib, (0.0, 0.0, 1.0))
+    off = G.mul(G.norm(lat) if G.length(lat) > 1e-4 else (0.0, 1.0, 0.0), r * 0.7)
+    cable(lot, M, [G.add(hanche, (0.0, 0.0, r * 0.6)), G.add(G.lerp(hanche, genou, 0.5), (0.0, 0.0, r * 0.95)), G.add(genou, (0.0, 0.0, r * 0.5))],
+          r * 0.16)
+    cable(lot, M, [G.add(G.lerp(genou, pied, 0.15), off), G.add(G.lerp(genou, pied, 0.6), G.mul(off, 0.6)), cheville], r * 0.13)
+    cable(lot, M, [G.add(G.lerp(genou, pied, 0.15), G.mul(off, -1.0)), G.add(G.lerp(genou, pied, 0.6), G.mul(off, -0.6)), cheville], r * 0.13)
+    d = G.norm((pied[0] - genou[0], pied[1] - genou[1], 0.0)) if abs(pied[0] - genou[0]) + abs(pied[1] - genou[1]) > 1e-3 else (1.0, 0.0, 0.0)
+    fw = G.norm((1.0, 0.25 * d[1], 0.0))
+    for ay in (-0.45, 0.0, 0.45):
+        dd = G.norm((fw[0], fw[1] + ay, -0.35))
+        lot.put(M["os"], pointe((pied[0], pied[1] + ay * r, pied[2] + 0.04), dd, griffe * (1.0 if ay == 0 else 0.8), r * 0.22, 5))
+    lot.put(M["muscle"], ellipsoide((pied[0], pied[1], pied[2] + r * 0.25), r * 0.55, r * 0.5, r * 0.3, 8, 4))
+    return genou, pied
 
 
-def tete(lot, M, V, base, ouverture, cri):
-    """Tête : crâne (loft), mâchoire ouverte sur un cœur lumineux, yeux, crête d'os (hurleur) ; `cri` : la gueule s'ouvre grand."""
-    k = V["tete"]
+def tete(lot, M, base, k, tangage, ouverture, crane, dents=3, yeux=2, gorge=1.0):
+    """Tête posée en `base`, échelle k, tangage (rad, > 0 : museau levé) : crâne d'os (loft), muscles des joues, mâchoire ouverte de
+    `ouverture` (rad), dents, gorge lumineuse, yeux. `crane` : (longueur, largeur, hauteur) relatifs."""
+    lx, ly, lz = crane
+    ct, st = math.cos(tangage), math.sin(tangage)
     bx, by, bz = base
+
     def P(x, y, z):
-        return (bx + x * k, by + y * k, bz + z * k)
+        x, y, z = x * k * lx, y * k * ly, z * k * lz
+        return (bx + x * ct - z * st, by + y, bz + x * st + z * ct)
+
     def sect(x, w, h, zc):
-        return [P(x, -w, zc - h * 0.5), P(x, -w * 0.7, zc + h * 0.7), P(x, 0.0, zc + h), P(x, w * 0.7, zc + h * 0.7), P(x, w, zc - h * 0.5),
-                P(x, w * 0.4, zc - h * 0.65), P(x, -w * 0.4, zc - h * 0.65)]
-    lot.put(M["peau"], G.loft([sect(-0.2, 0.42, 0.36, 0.1), sect(0.35, 0.45, 0.38, 0.12), sect(0.8, 0.34, 0.26, 0.08), sect(1.15, 0.16, 0.1, 0.0)], True, True))
-    ang = 0.75 * ouverture
-    def J(x, y, z):
-        xx = x - 0.1
-        return P(0.1 + xx * math.cos(ang) + z * math.sin(ang), y, -xx * math.sin(ang) + z * math.cos(ang))
-    jaw = [[J(0.1, -0.34, -0.14), J(0.1, 0.34, -0.14), J(0.1, 0.22, -0.32), J(0.1, -0.22, -0.32)],
-           [J(0.7, -0.26, -0.16), J(0.7, 0.26, -0.16), J(0.7, 0.16, -0.3), J(0.7, -0.16, -0.3)],
-           [J(1.1, -0.1, -0.12), J(1.1, 0.1, -0.12), J(1.1, 0.07, -0.2), J(1.1, -0.07, -0.2)]]
-    lot.put(M["peau"], G.loft(jaw, True, True))
-    for q in range(3):
-        x = 0.3 + 0.28 * q
-        for s in (-1, 1):
-            lot.put(M["os"], pointe(P(x, s * (0.3 - 0.06 * q), -0.14), (0.0, 0.0, -1.0), 0.16, 0.035, 4))
-            lot.put(M["os"], pointe(J(x, s * (0.22 - 0.04 * q), -0.16), (0.0, 0.0, 1.0), 0.13, 0.03, 4))
-    rv = 0.1 + 0.12 * ouverture + 0.08 * cri
-    lot.put(M["coeur"], G.sphere(P(0.4, 0.0, -0.12 - 0.1 * ouverture), rv, 8, 4))
-    lot.put(M["halo"], G.sphere(P(0.5, 0.0, -0.12 - 0.1 * ouverture), rv * 1.7, 8, 4))
+        return [P(x, -w, zc - h * 0.3), P(x, -w * 0.85, zc + h * 0.55), P(x, -w * 0.4, zc + h), P(x, 0.0, zc + h * 1.05), P(x, w * 0.4, zc + h),
+                P(x, w * 0.85, zc + h * 0.55), P(x, w, zc - h * 0.3), P(x, w * 0.5, zc - h * 0.5), P(x, -w * 0.5, zc - h * 0.5)]
+    lot.put(M["os"], G.loft([sect(-0.15, 0.24, 0.22, 0.05), sect(0.15, 0.30, 0.26, 0.08), sect(0.45, 0.24, 0.18, 0.06),
+                             sect(0.8, 0.15, 0.12, 0.02), sect(1.0, 0.08, 0.07, 0.0)], True, True))
+    # arcades et orbites : bourrelets d'os, yeux lumineux enfoncés
     for s in (-1, 1):
-        lot.put(M["conduit"], G.boite(P(0.45, s * 0.4, 0.2), (0.08, 0.03, 0.05)))
-        lot.put(M["os"], pointe(P(-0.1, s * 0.3, 0.3), G.norm((-0.7, s * 0.5, 0.6)), 0.4 * k, 0.05, 5))
-    if V.get("collerette"):
-        # collerette du hurleur : couronne d'épines émissives (couche lueur : teinte de la variante en jeu) autour de la nuque
-        nc = V["collerette"]
-        for q in range(nc):
-            a = -math.pi * 0.85 + 1.7 * math.pi * q / (nc - 1)
-            d = G.norm((-0.35, math.cos(a), math.sin(a) * 0.8 + 0.55))
-            lot.put(M["accent"], pointe(P(-0.25, math.cos(a) * 0.32, 0.12 + math.sin(a) * 0.22), d, 0.55 * k, 0.05, 4))
-        lot.put(M["accent"], G.tube([P(-0.25, math.cos(-math.pi * 0.85 + 1.7 * math.pi * q / 16.0) * 0.36,
-                                       0.12 + math.sin(-math.pi * 0.85 + 1.7 * math.pi * q / 16.0) * 0.25) for q in range(17)], 0.035, 5))
-    if V["tete"] > 1.0:
-        for q in range(3):
-            lot.put(M["os"], pointe(P(-0.15 - 0.12 * q, 0.0, 0.36 - 0.03 * q), G.norm((-0.6, 0.0, 1.0)), 0.55 - 0.1 * q, 0.06, 5))
-    else:
-        lot.put(M["cristal"], pointe(P(-0.1, 0.0, 0.35), G.norm((-0.5, 0.0, 1.0)), 0.4, 0.06))
+        lot.put(M["os"], ellipsoide(P(0.32, s * 0.24, 0.24), 0.09 * k * lx, 0.07 * k, 0.05 * k, 8, 4))
+        for q in range(yeux):
+            lot.put(M["oeil"], ellipsoide(P(0.38 - 0.12 * q, s * 0.27, 0.15 - 0.03 * q), 0.035 * k, 0.03 * k, 0.03 * k, 8, 4))
+    # mâchoire : tourne autour de la charnière (x = -0.05, z = -0.1) de `ouverture`
+    co, so = math.cos(ouverture), math.sin(ouverture)
+
+    def J(x, y, z):
+        xx, zz = x + 0.05, z + 0.1
+        return P(-0.05 + xx * co + zz * so, y, -0.1 - xx * so + zz * co)
+    jaw = [[J(x, -w, -0.04), J(x, w, -0.04), J(x, w * 0.7, -0.04 - hh), J(x, 0.0, -0.06 - hh * 1.1), J(x, -w * 0.7, -0.04 - hh)]
+           for x, w, hh in ((-0.05, 0.22, 0.14), (0.35, 0.19, 0.12), (0.7, 0.12, 0.09), (0.95, 0.06, 0.05))]
+    lot.put(M["os"], G.loft(jaw, True, True))
+    # joues : muscles masséters du crâne à la mâchoire (fibres visibles)
+    for s in (-1, 1):
+        lot.put(M["muscle"], renfle(P(0.05, s * 0.24, 0.12), J(0.3, s * 0.19, -0.1), 0.06 * k, 0.05 * k, 0.6, 5, 8))
+        cable(lot, M, [P(-0.1, s * 0.22, 0.2), P(0.15, s * 0.26, 0.05), J(0.45, s * 0.17, -0.08)], 0.015 * k)
+    # dents : rangées haute et basse, crocs devant
+    nd = 4 + 2 * dents
+    for q in range(nd):
+        x = 0.2 + 0.75 * q / float(nd - 1)
+        L = (0.10 + (0.08 if q >= nd - 2 else 0.0)) * (1.0 + 0.15 * dents)
+        for s in (-1, 1):
+            wq = 0.22 - 0.15 * q / float(nd - 1)
+            lot.put(M["os"], pointe(P(x, s * wq, -0.02), G.norm(G.sub(P(x, s * wq * 0.9, -1.0), P(x, s * wq, 0.0))), L * k, 0.022 * k, 4))
+            lot.put(M["os"], pointe(J(x * 0.95, s * wq * 0.85, -0.04), G.norm(G.sub(J(x, s * wq * 0.8, 1.0), J(x, s * wq * 0.85, 0.0))),
+                                    L * 0.8 * k, 0.02 * k, 4))
+    # gorge : intérieur de chair sombre et cœur lumineux au fond, qui grossit avec l'ouverture
+    gc = G.lerp(P(0.2, 0.0, -0.04), J(0.2, 0.0, -0.04), 0.5)
+    lot.put(M["gorge"], ellipsoide(gc, 0.3 * k * lx, 0.16 * k, 0.08 * k + 0.12 * k * min(1.0, ouverture), 10, 5))
+    rv = (0.05 + 0.06 * min(1.2, ouverture)) * k * gorge
+    o = min(1.0, ouverture)
+    lot.put(M["coeur"], ellipsoide(J(0.12 + 0.2 * o, 0.0, -0.02 + 0.03 * o), rv * 1.3, min(rv, 0.15 * k), min(rv * 0.8, 0.1 * k), 10, 5))
+    return P, J
+
+
+def cou(lot, M, a, b, r0, r1):
+    """Cou : muscle renflé de la nuque `a` à la base du crâne `b`, deux tendons dorsaux, une vertèbre en saillie."""
+    lot.put(M["muscle"], renfle(a, b, r0, r1, 0.15, 6, 12))
+    for s in (-1, 1):
+        cable(lot, M, [G.add(a, (0.0, s * r0 * 0.6, r0 * 0.8)), G.add(G.lerp(a, b, 0.5), (0.0, s * (r0 + r1) * 0.35, (r0 + r1) * 0.5)),
+                       G.add(b, (0.0, s * r1 * 0.5, r1 * 0.7))], 0.02)
+    for q in range(1, 4):
+        p = G.lerp(a, b, q / 4.0)
+        lot.put(M["os"], ellipsoide(G.add(p, (0.0, 0.0, (r0 + r1) * 0.48)), 0.05, 0.04, 0.04, 8, 4))
+
+
+# ------------------------------------------------------------------------------------------------ poses des variantes
+def queue(lot, M, pts, rmax, sway):
+    """Queue-fouet : tube effilé suivant `pts` (base -> pointe), osselets en saillie, pointe d'os."""
+    pp = [(p[0], p[1] + sway * (i / float(len(pts) - 1)) ** 1.6, p[2]) for i, p in enumerate(pts)]
+    pp = G.catmull(pp, 4)
+    n = len(pp)
+    lot.put(M["muscle"], G.tube(pp, rmax, 8, rfun=lambda s, i: rmax * (1.0 - 0.85 * i / float(n - 1))))
+    for i in range(1, n - 1, 2):
+        lot.put(M["os"], ellipsoide(G.add(pp[i], (0.0, 0.0, rmax * (1.0 - 0.85 * i / float(n - 1)) * 0.9)), 0.03, 0.025, 0.025, 6, 3))
+    d = G.norm(G.sub(pp[-1], pp[-2]))
+    lot.put(M["os"], pointe(pp[-1], d, 0.3, 0.035, 5))
+
+
+def rodeur(lot, M, u, a, bob, lunge, ouv):
+    """RÔDEUR : bas et allongé, genoux d'araignée au-dessus du dos, tête longue au ras du sol, queue-fouet."""
+    sw = 0.12 * math.sin(G.TAU * u)
+    x0 = lunge
+    ctrl = [(-1.15 + x0, 0.0, 0.62 + bob * 0.5), (-0.5 + x0, 0.0, 0.70 + bob), (0.25 + x0, 0.0, 0.74 + bob), (0.85 + x0, 0.0, 0.70 + bob),
+            (1.15 + x0, 0.0, 0.64 + bob)]
+    def ray(t):
+        rw = 0.20 + 0.10 * math.sin(math.pi * min(1.0, t * 1.1)) - 0.05 * math.exp(-((t - 0.45) / 0.12) ** 2)
+        rh = 0.17 + 0.08 * math.sin(math.pi * min(1.0, t * 1.05))
+        return rw, rh
+    pts, prof = torse(lot, M, ctrl, ray, (0.42, 0.85, 6), peau=((0.2, 1), (0.75, -1)))
+    queue(lot, M, [(-1.1 + x0, 0.0, 0.6 + bob * 0.5), (-1.6 + x0, 0.0, 0.48), (-2.1 + x0, 0.0, 0.32), (-2.55 + x0, 0.0, 0.24)], 0.12, -sw * 2.2)
+    ph = {"AG": 0.0, "PD": 0.0, "AD": 0.5, "PG": 0.5}
+    for k, (hx, fx) in (("AG", (0.75, 1.1)), ("AD", (0.75, 1.1)), ("PG", (-0.7, -0.95)), ("PD", (-0.7, -0.95))):
+        s = 1 if k[1] == "G" else -1
+        hz = 0.66 + bob
+        patte(lot, M, (hx + x0, s * 0.2, hz), (fx + (x0 if a is None else 0.0), s * 0.95, 0.0), u + ph[k], 0.72, 0.82, 0.075,
+              G.norm((0.15 if k[0] == "A" else -0.15, s * 0.45, 1.0)), levee=0.2, griffe=0.22)
+    nuque = pts[-1]
+    b = (nuque[0] + 0.28, 0.0, nuque[2] - 0.06)
+    cou(lot, M, nuque, b, 0.15, 0.1)
+    tete(lot, M, b, 0.62, -0.18 - 0.15 * ouv, 0.18 + ouv, (1.25, 0.85, 0.75), dents=2, yeux=2, gorge=0.7)
+
+
+def porteur(lot, M, u, a, bob, lunge, ouv):
+    """PORTEUR : massif, dos en bosse, pattes en colonnes, sa CHARGE (poches de ponte sanglées) sur le dos, tête basse et lourde."""
+    x0 = lunge * 0.6
+    ctrl = [(-1.05 + x0, 0.0, 0.70 + bob * 0.5), (-0.55 + x0, 0.0, 0.98 + bob), (0.1 + x0, 0.0, 1.08 + bob), (0.65 + x0, 0.0, 1.0 + bob),
+            (0.98 + x0, 0.0, 0.86 + bob)]
+    def ray(t):
+        return 0.30 + 0.30 * math.sin(math.pi * min(1.0, t * 1.15)) ** 0.7, 0.26 + 0.24 * math.sin(math.pi * min(1.0, t * 1.1)) ** 0.7
+    pts, prof = torse(lot, M, ctrl, ray, (0.4, 0.8, 5), vertebres=False, peau=((0.25, 1), (0.3, -1), (0.8, 1), (0.85, -1)))
+    queue(lot, M, [(-1.0 + x0, 0.0, 0.7 + bob * 0.5), (-1.35 + x0, 0.0, 0.5), (-1.65 + x0, 0.0, 0.3)], 0.14, -0.1 * math.sin(G.TAU * u))
+    # CHARGE : amas de poches de ponte sur le dos, sanglé de tendons qui ceinturent le ventre, pustules lumineuses
+    cz = 1.08 + bob
+    sacs = ((0.0, 0.0, 0.62, 0.50, 0.46, 0.42), (-0.42, 0.18, 0.52, 0.34, 0.30, 0.30), (-0.36, -0.22, 0.48, 0.32, 0.28, 0.28),
+            (0.38, 0.12, 0.50, 0.30, 0.28, 0.27), (0.25, -0.25, 0.44, 0.26, 0.24, 0.24), (-0.05, 0.05, 1.02, 0.30, 0.27, 0.26),
+            (-0.6, 0.0, 0.32, 0.22, 0.30, 0.2))
+    for (sx, sy, sz, rx, ry, rz) in sacs:
+        lot.put(M["sac"], ellipsoide((sx + x0, sy, cz + sz * 0.9), rx, ry, rz, 14, 7))
+    for q, (sx, sy, sz) in enumerate(((0.12, 0.3, 0.75), (-0.3, 0.35, 0.6), (0.3, -0.33, 0.62), (-0.48, -0.3, 0.5), (0.0, -0.1, 1.25),
+                                      (-0.1, 0.36, 1.05), (0.45, 0.25, 0.75))):
+        lot.put(M["pustule"], ellipsoide((sx + x0, sy, cz + sz * 0.9), 0.06, 0.06, 0.05, 8, 4))
+    for sx in (-0.3, 0.25):
+        ring = []
+        for q in range(15):
+            ang = math.radians(-20 + 220 * q / 14.0)
+            rw, rh = 0.62, 0.55
+            ring.append((sx + x0, rw * math.cos(ang) * 1.05, cz - 0.05 + 0.75 * math.sin(ang) * (1.0 if math.sin(ang) > 0 else 0.7)))
+        lot.put(M["tendon"], G.tube(ring, 0.035, 6, cap0=True, cap1=True))
+        ring2 = [(p[0], -p[1], p[2]) for p in ring]
+        lot.put(M["tendon"], G.tube(ring2, 0.035, 6))
+    # crochets d'os qui tiennent la charge
+    for s in (-1, 1):
+        for sx in (-0.5, 0.0, 0.45):
+            lot.put(M["os"], pointe((sx + x0, s * 0.42, cz + 0.1), G.norm((0.0, s * 0.6, 1.0)), 0.35, 0.05, 5))
+    ph = {"AG": 0.0, "PD": 0.0, "AD": 0.5, "PG": 0.5}
+    for k, (hx, fx) in (("AG", (0.55, 0.62)), ("AD", (0.55, 0.62)), ("PG", (-0.55, -0.62)), ("PD", (-0.55, -0.62))):
+        s = 1 if k[1] == "G" else -1
+        patte(lot, M, (hx + x0, s * 0.5, 0.9 + bob), (fx + (x0 if a is None else 0.0), s * 0.72, 0.0), u + ph[k], 0.5, 0.55, 0.15,
+              G.norm((0.6 if k[0] == "A" else -0.6, s * 0.3, 0.0)), levee=0.16, griffe=0.2, appui=0.6)
+    nuque = pts[-1]
+    b = (nuque[0] + 0.2, 0.0, nuque[2] - 0.12)
+    cou(lot, M, nuque, b, 0.3, 0.2)
+    tete(lot, M, b, 0.72, -0.35 + 0.1 * ouv, 0.12 + 0.6 * ouv, (1.05, 1.2, 1.0), dents=2, yeux=3, gorge=0.6)
+
+
+def hurleur(lot, M, u, a, bob, lunge, ouv, cri):
+    """HURLEUR : avant dressé, cou levé, gueule grande ouverte (toujours), collerette d'épines et de membranes, chair rouge à vif."""
+    x0 = lunge * 0.5
+    ctrl = [(-0.9 + x0, 0.0, 0.62 + bob * 0.5), (-0.4 + x0, 0.0, 0.78 + bob), (0.15 + x0, 0.0, 1.0 + bob), (0.55 + x0, 0.0, 1.22 + bob),
+            (0.78 + x0, 0.0, 1.42 + bob)]
+    def ray(t):
+        return 0.22 + 0.16 * math.sin(math.pi * min(1.0, t * 1.0)) ** 0.8, 0.2 + 0.16 * math.sin(math.pi * min(1.0, t)) ** 0.8
+    pts, prof = torse(lot, M, ctrl, ray, (0.4, 0.88, 6), peau=((0.3, 1), (0.35, -1)))
+    queue(lot, M, [(-0.85 + x0, 0.0, 0.62 + bob * 0.5), (-1.35 + x0, 0.0, 0.42), (-1.85 + x0, 0.0, 0.25)], 0.12, -0.15 * math.sin(G.TAU * u))
+    ph = {"AG": 0.0, "PD": 0.0, "AD": 0.5, "PG": 0.5}
+    for k, hx, hz, fx, l1, l2 in (("AG", 0.55, 1.15, 0.85, 0.62, 0.7), ("AD", 0.55, 1.15, 0.85, 0.62, 0.7),
+                                  ("PG", -0.55, 0.72, -0.75, 0.45, 0.52), ("PD", -0.55, 0.72, -0.75, 0.45, 0.52)):
+        s = 1 if k[1] == "G" else -1
+        patte(lot, M, (hx + x0, s * 0.32, hz + bob), (fx + (x0 if a is None else 0.0), s * 0.62, 0.0), u + ph[k], l1, l2, 0.1,
+              G.norm((0.5 if k[0] == "A" else -0.8, s * 0.4, 0.2)), levee=0.2, griffe=0.24)
+    nuque = pts[-1]
+    b = (nuque[0] + 0.25, 0.0, nuque[2] + 0.42 - 0.1 * cri)
+    cou(lot, M, nuque, b, 0.22, 0.16)
+    # collerette : membranes de peau sombre tendues entre des épines d'os, en éventail autour du cou ; s'évase pendant le cri
+    c = G.lerp(nuque, b, 0.45)
+    nep = 9
+    ev = 1.0 + 0.35 * cri
+    tips = []
+    for q in range(nep):
+        ang = -math.pi * 0.9 + 1.8 * math.pi * q / (nep - 1)
+        d = G.norm((-0.55, math.cos(ang) * ev, (math.sin(ang) * 0.7 + 0.45) * ev))
+        L = (0.5 + 0.18 * math.cos(ang * 0.5)) * ev
+        root = G.add(c, (0.0, math.cos(ang) * 0.2, math.sin(ang) * 0.17 + 0.05))
+        lot.put(M["os"], pointe(root, d, L, 0.04, 5))
+        tips.append((root, G.add(root, G.mul(d, L * 0.8))))
+    for q in range(nep - 1):
+        (r0, t0), (r1, t1) = tips[q], tips[q + 1]
+        mid = G.mul(G.add(t0, t1), 0.5)
+        mid = G.add(mid, G.mul(G.sub(G.mul(G.add(r0, r1), 0.5), mid), 0.25))   # membrane échancrée entre deux épines
+        v = [r0, t0, mid, t1, r1]
+        lot.put(M["peau_morte"], (v, [(0, 1, 2), (0, 2, 4), (4, 2, 3)], [(0.0, 0.0)] * 5))
+        lot.put(M["peau_morte"], (v, [(2, 1, 0), (4, 2, 0), (3, 2, 4)], [(0.0, 0.0)] * 5))
+    tete(lot, M, b, 0.85, 0.4 + 0.3 * cri, 0.95 + 0.35 * ouv, (1.05, 1.05, 1.0), dents=4, yeux=2, gorge=1.4)
 
 
 def build_anime(S, lot, stage, u, attaque):
     """Pose d'un Écorché de la variante `stage` (1 à 3) : u = phase de course ; attaque = phase d'attaque (0 à 1) ou None."""
-    V = VARIANTES[int(stage) if stage else 1]
-    M = TM.matieres(S, PREFIX, GRIS)
-    if not GRIS:
-        # chair et peau propres à la variante (VISUELS-DISTINCTS) : mêmes réglages que titans_mat, couleur de la variante
-        M["peau"] = TM.MT.surface(PREFIX + "peau", V["peau"], rough=0.52, met=0.20, tole=(0.45, 0.28), joint=0.25, joint_l=0.03, var=0.18,
-                                  usure=0.3, nu=tuple(min(1.0, c * 1.6 + 0.12) for c in V["peau"]), crasse=0.55,
-                                  crasse_col=(0.03, 0.012, 0.025), relief=0.8, graine=16)
-        M["chair"] = TM.MT.surface(PREFIX + "chair", V["chair"], rough=0.62, met=0.05, usure=0.15,
-                                   nu=tuple(min(1.0, c * 1.4 + 0.1) for c in V["chair"]), crasse=0.5, crasse_col=(0.06, 0.015, 0.04), graine=18)
-        TM.iridescence(M["peau"], part=0.35, blend=0.5)
+    st = int(stage) if stage else 1
+    M = matieres(S, st)
     R.raz()
-    L, h, w = V["L"], V["h"], V["w"]
     if attaque is not None:
         a = attaque
-        ouverture, cri = min(1.0, a * 2.0 + 0.2), max(0.0, a - 0.3)
-        bob, uu = 0.0, 0.0
-        phase = {"AG": 0.1, "PD": 0.1, "AD": 0.4, "PG": 0.4}
+        k = math.sin(math.pi * min(1.0, a * 1.4))        # élan : monte puis retombe sur la dernière image
+        lunge, ouv, cri = 0.35 * k, k, k
+        bob, uu = -0.04 * k, 0.0
     else:
-        ouverture, cri = 0.15, 0.0
-        bob = 0.06 * math.sin(G.TAU * 2.0 * u)
+        a = None
+        lunge, ouv, cri = 0.0, 0.0, 0.0
+        bob = 0.04 * math.sin(G.TAU * 2.0 * u)
         uu = u
-        phase = {"AG": 0.0, "PD": 0.0, "AD": 0.5, "PG": 0.5}
-    pts, prof = corps(lot, M, V, uu, bob, cri)
-    hz = h * 0.75 + bob
-    hanches = {"AG": (L * 0.22, w * 0.85, hz), "AD": (L * 0.22, -w * 0.85, hz), "PG": (-L * 0.2, w * 0.8, hz - 0.05), "PD": (-L * 0.2, -w * 0.8, hz - 0.05)}
-    pieds = {"AG": (L * 0.32, w * 1.5, 0.0), "AD": (L * 0.32, -w * 1.5, 0.0), "PG": (-L * 0.28, w * 1.45, 0.0), "PD": (-L * 0.28, -w * 1.45, 0.0)}
-    for k in ("PG", "PD", "AG", "AD"):
-        patte(lot, M, V, hanches[k], pieds[k], uu + phase[k], k[0] == "A", 1 if k[1] == "G" else -1)
-    hd = pts[-1]
-    tete(lot, M, V, (hd[0] + 0.05, hd[1], hd[2] + 0.05 - 0.2 * cri), ouverture, cri)
+    if st == 1:
+        rodeur(lot, M, uu, a, bob, lunge, ouv)
+    elif st == 2:
+        porteur(lot, M, uu, a, bob, lunge, ouv)
+    else:
+        hurleur(lot, M, uu, a, bob, lunge, ouv, cri)
     return {"variante": stage, "pieces": lot.n, "u": u, "attaque": attaque}

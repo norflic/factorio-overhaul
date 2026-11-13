@@ -3,868 +3,868 @@
  "commande": "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_TITANS2/rendu, fo-logs/2026-11-11_TITANS-16DIR/rendu, fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)",
  "fichiers": {
   "ecorche-1-attaque-glow-0.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "42e0de2f354ebe1debffda8c399bffca2a3d1ab1aae1c87e535161f25bc6a19f",
-   "taille": 1230
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "3aa0042629220712c32682b9a4c17afb20e2654e58402b6b51ce2942cb49d092",
+   "taille": 307
   },
   "ecorche-1-attaque-glow-1.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "9be56da754c6c0372f915b27099447d6479dc85b8267dcaf93c2dee9d32a989e",
-   "taille": 1768
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "df9e1af23247743b95de731f396534a9509abc465d77e76ea6a20273972d2c70",
+   "taille": 473
   },
   "ecorche-1-attaque-glow-2.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "0b260356e5d2b9c920cbb38fa6bf3630443f72a17f1b6bfc890fd3f6dc594be3",
-   "taille": 1839
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "da8660fb3b6460739d8028e4f86f88ed0d138ae4b77d89be0086af649f3a23f6",
+   "taille": 521
   },
   "ecorche-1-attaque-glow-3.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "396c2838ee51a1b6c5dc3bc2063110fd3c5e617ee97995a9b0e4fab06bf933e5",
-   "taille": 2108
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "b5258c792642d10fd0f8b3c3f581864a6a9a99ef2b026b16f278e6136ca92ada",
+   "taille": 613
   },
   "ecorche-1-attaque-glow-4.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "2fa04c183cd4943ab2b56b64b9b9c7e4aa87135c744f948d9001ec4b62ec8ba6",
-   "taille": 1880
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "99e5c5942bca899e7be716a4357eff655f2fe7930ca04fbf1981eff04dd77c24",
+   "taille": 464
   },
   "ecorche-1-attaque-glow-5.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "e7e4fb76526a11620200664e77e88a0b5f193f27085f8fb7206ef35efc1e2f09",
-   "taille": 2063
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "ddc2ecc9dab26562adac9211adde65d03ab261770e23dddb949134937e6bef61",
+   "taille": 613
   },
   "ecorche-1-attaque-glow-6.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "315ba0ccf773b5631aa62f392b956c691ec94d892e6db23b1e02011962d64c4d",
-   "taille": 1901
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "9364afcddf2458a5a4f01081576377a943c746346a62b04b4e4648393e44a5ac",
+   "taille": 525
   },
   "ecorche-1-attaque-glow-7.png": {
-   "hauteur": 53,
-   "largeur": 260,
-   "sha256": "2693f1437242a9dbe4e48c4d7e8a7882a92ef6dd40de5a21504ea82e318867e5",
-   "taille": 1834
+   "hauteur": 95,
+   "largeur": 544,
+   "sha256": "c8aeefd145a43e05a1f3dc5202193daabc4ed4b2747c41e5872c54f16dc4872f",
+   "taille": 463
   },
   "ecorche-1-attaque-main-0.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "d1afe53a7f36fc40e2ae059113eed64a811418aada7310ee4ef8120b8c96c1da",
-   "taille": 9041
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "9eee870be12ab57d6b015c05d53c39a030381a41253265b23f77cd13d3501177",
+   "taille": 29121
   },
   "ecorche-1-attaque-main-1.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "c44666dcf9f9557924994becfb39fb0d9e8b5025954b07773328c38526eeff75",
-   "taille": 10965
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "20113bdb446d253ef9b6ecc1fae5d05cbebbfa25c8993655935a7717b051e270",
+   "taille": 31758
   },
   "ecorche-1-attaque-main-2.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "335444241a08edf69a91dccef145a2f06b9fc93bbbb9f6d7a4882f5dc8d92d6b",
-   "taille": 11028
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "c6bf6d969bda6979168b13e3a9fbdef2e761768489dee3ad631dea56be93f182",
+   "taille": 31812
   },
   "ecorche-1-attaque-main-3.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "3d81fe0863e905b507471cb013ac16cea7063e31a708a965fcbf0f4d70c13719",
-   "taille": 13009
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "1a80c6bdc7d6f5512bb9cc54664f290adaf748f13300aa43deac77b07a8b5c83",
+   "taille": 32374
   },
   "ecorche-1-attaque-main-4.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "e2aea385f74aca223030eeaa956496a5fcc2bf4da9e1582fe5051f8fb159127b",
-   "taille": 11577
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "21bd649934c6d3546e7662d581534b2d3d5422782cdcad5bdd364e0e8bce357f",
+   "taille": 29646
   },
   "ecorche-1-attaque-main-5.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "0751bb75ae50b330a3303a9277bdf7f2f3376b1b1deb71e0ee964800a7d6cb4c",
-   "taille": 10381
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "2e2aeac52756229a232bd341e92a2f3e02cd0ecff36e96e108b7ce44d0b0e772",
+   "taille": 33009
   },
   "ecorche-1-attaque-main-6.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "491879d165c08970ce844125a40f6d31c627712bbbd4db0bc9374acf7335ba45",
-   "taille": 11340
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "9afafc3880acceb411f2d855125c05a90c1404a755e9596d05723c7aa71bdeac",
+   "taille": 30346
   },
   "ecorche-1-attaque-main-7.png": {
-   "hauteur": 61,
-   "largeur": 268,
-   "sha256": "4ee394fc700ebf0ef42ad2d6fa697238e92ffe678d6a02893dc82a5c515ba171",
-   "taille": 10121
+   "hauteur": 132,
+   "largeur": 728,
+   "sha256": "c09eea59cb2c5eefc734f51d9ef8e673358146391aef803f5038613df365f91b",
+   "taille": 32960
   },
   "ecorche-1-attaque-shadow-0.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "b64a05cad83d17ae1abd24a7332b4cf72fa48cd41d0cc39950efeecec23673f2",
-   "taille": 2167
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "3f15e45a1feea292a25cbb29ac8c74f2f8d2c0040614b17486c87da3192739d5",
+   "taille": 9990
   },
   "ecorche-1-attaque-shadow-1.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "ee4dd12cdb8d2a5747022e47e8059574d739b78891c05d326c9251785f4d3a06",
-   "taille": 2103
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "99bc1a361795716a4537d2a1ff6cff4ef739ef31409cb12848b99a51842c5221",
+   "taille": 9784
   },
   "ecorche-1-attaque-shadow-2.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "a119a5240a8eb319a96cb0a089ebd38ad50f6a1142fe5c9803895c0695d88115",
-   "taille": 2355
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "a620e98a0f37c8274f281f46add65ab5b3200f712ef458807b4730787aba2b72",
+   "taille": 9467
   },
   "ecorche-1-attaque-shadow-3.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "2f98bd6c1e28a78709e6ee43105044762e84c8889ef38d9d777bf883e46570a1",
-   "taille": 2299
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "2751189ebc34bc7710d7b440587ac7be8a26ae07010b975928413df5a4733cb1",
+   "taille": 8893
   },
   "ecorche-1-attaque-shadow-4.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "f4fe10411032bba04004b97507e3cf189bd87894ba22df74279ed44d21310504",
-   "taille": 2343
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "e78b0cd8b4ef6e395c0ea1ce3c20a4fa60f9ef2e0d13704c4465b78ea96de50f",
+   "taille": 10145
   },
   "ecorche-1-attaque-shadow-5.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "24a3a05c94b3d7534a7d1a09226ad0a441d810354e0e350604a8b21f2ca27f2c",
-   "taille": 1996
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "f4665fd40f2612636faae8182aeaac37ff97cd9b3ea52b756705860796552ad5",
+   "taille": 9237
   },
   "ecorche-1-attaque-shadow-6.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "82e8a4ca622a64d774667fca04564ef8b6cdda7db47ab7243f71eb57c6f25c31",
-   "taille": 1929
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "d89624ba90127d0745445973205347517ef611e447c7ad480a6c7d84606cd512",
+   "taille": 9433
   },
   "ecorche-1-attaque-shadow-7.png": {
-   "hauteur": 47,
-   "largeur": 324,
-   "sha256": "aa462a67d1c0d95034e4498b59bd482bcea0b8b5fec4f6c645aa4603e0f00f51",
-   "taille": 1962
+   "hauteur": 129,
+   "largeur": 724,
+   "sha256": "35f8f03d0ede1942978165cf50daded3bee39b7f4082d808aca5ea931a10931d",
+   "taille": 9531
   },
   "ecorche-1-course-glow-0.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "6e5479d31528e4ee7dca376a2bff37fe08f330a5852c3b542aa7c4ec7dbb1bef",
-   "taille": 3569
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "ebfbbb7184ceb14d7e53c3a4d19ee5b37636374df9b6adb79fb8894675d05e75",
+   "taille": 335
   },
   "ecorche-1-course-glow-1.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "31eafe28f9adf53374b59e6c14da6fedcf12c7ae72f2c3e1c0184225c46873bc",
-   "taille": 4907
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "5df72060d9641c75f13051630d99d5e03cae08c4efb2448c4da84d69d6cb17e6",
+   "taille": 563
   },
   "ecorche-1-course-glow-2.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "d6a8e981e8cd0ffb89d6a00b3ce689368be4c49485ec3ae3e52e8a3370588dd8",
-   "taille": 5395
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "6e5f54a7300cb1ffbc07a45575c4aa37a03bb8d2cbd74d3b6b1a3eacf51edbf1",
+   "taille": 567
   },
   "ecorche-1-course-glow-3.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "5bb79b576dbe9d4c9b48b665e34367b81ffc282408828bdd39c3ee5ed03f77b1",
-   "taille": 5641
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "69f6d8de51e0c78a5d44aa6479e63472e1ef2133bf189e184bbf5915a44e669e",
+   "taille": 719
   },
   "ecorche-1-course-glow-4.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "7e81bedf72bdd32b111a13af10536930902e3f55ffe79bec30854358c9094cca",
-   "taille": 4442
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "9127aeca5958c91147930e05817a3b8c2cebf41577c04f6c9b4aa47d57cd8e9e",
+   "taille": 561
   },
   "ecorche-1-course-glow-5.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "38ae27a6b5f1074fcb41df13da893876ac8d1cafe62591dc47a895f6dd3429cd",
-   "taille": 5541
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "a4b27715f4566a13389369a0b309e6dc35ce8d20f0205c05975de32838c5647e",
+   "taille": 698
   },
   "ecorche-1-course-glow-6.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "11f9316ffcc7b3e982bcbd0042eab6d61dbd76bbc0ceb0f0226f763fd76860ee",
-   "taille": 5340
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "f9a3669db2002bf205a2159996b512c96db415c889238461e2bc1093dc7cd389",
+   "taille": 565
   },
   "ecorche-1-course-glow-7.png": {
-   "hauteur": 52,
-   "largeur": 480,
-   "sha256": "9cefb1d7d68e9f6a3a6871719398aab2d9a53d09705741ecb7a6c1b2774db794",
-   "taille": 4832
+   "hauteur": 71,
+   "largeur": 928,
+   "sha256": "d6b835d2d6b81ba09adf52de2061a19accc74ac8f93ad0bee60e3e2d59a7e7b1",
+   "taille": 583
   },
   "ecorche-1-course-main-0.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "2760b46a40d172d7fa1e66cfd9706325458a9c249ee9f135bae48a41c3da6b5b",
-   "taille": 32358
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "38b7f7f705db61be195f59ac6f04ff242c82560118c38f3236b14dc4d758d698",
+   "taille": 75803
   },
   "ecorche-1-course-main-1.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "43a6e1b1c13c4086718f537642a56a0857d1b67a45ab4b782f22b9f413b42696",
-   "taille": 32059
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "c1e491085506cf9d9fa96bea3383a1fce0612374faac95b1e8b02af79be902fd",
+   "taille": 81666
   },
   "ecorche-1-course-main-2.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "afb93d82a751b0c86fb528c7fe1f577dd851020f9a5872a05740a43a820b5e95",
-   "taille": 31668
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "28acde11c14fd5d82e9973eebf2aa3ff32474717705dfd802a140704b596d566",
+   "taille": 77170
   },
   "ecorche-1-course-main-3.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "24d7282451a910d877e14d23a9aab460ac0e2a2fe14fc7643ebec4e9d930fd3b",
-   "taille": 30475
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "9574b37743adbf5275d281fe9d44b7bd5f1d58a4e42675fc59953a604475731b",
+   "taille": 83690
   },
   "ecorche-1-course-main-4.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "fe8220601969769c40cc92a242f30e48345c88db036a83b894287bbcc91dfb34",
-   "taille": 29896
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "6fd8a797096aa3cbd512b9e9d9b7dc2bc9c66cdd27a1e12767035f608580657d",
+   "taille": 76063
   },
   "ecorche-1-course-main-5.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "6a01c94d6d8ab0c79c50b52885c32cbe25acd568d6579927b50e5d95af877da9",
-   "taille": 29831
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "8899de33103ce9d8bbb5fbc0887a1c7edf13c5d06ef086b3d1d062d01394a64a",
+   "taille": 83440
   },
   "ecorche-1-course-main-6.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "d8bda51853c1cd99b682c52b4f2c5184242b140efece6bd7c5d6597137cb097f",
-   "taille": 31931
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "457804b6be554cf03aaf375ea95b7d5d3b2417cceeaf0695b9cb8a63aacc1e82",
+   "taille": 77076
   },
   "ecorche-1-course-main-7.png": {
-   "hauteur": 65,
-   "largeur": 536,
-   "sha256": "d7e37ec0e7bd0f7698bcb27e63661927ca1ad83ece9e668a683d39648d64a1f4",
-   "taille": 32520
+   "hauteur": 266,
+   "largeur": 732,
+   "sha256": "368986439c03bc72067cce95843b1ade2b7ba52ff7dbcb76a13a8fc1d5373c0f",
+   "taille": 83381
   },
   "ecorche-1-course-shadow-0.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "75dd21c9163fda725d090619515145cac8207f7bfbf24e7c7d8a9cb7f36cd984",
-   "taille": 7736
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "bbaeeb53db06b4f474f0044a76e7327f69e0cc2192218d04d2a7abdd39640980",
+   "taille": 23867
   },
   "ecorche-1-course-shadow-1.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "0c17fb971531aac7fc41b67e558f64d6f3271ec231ca2373b4dc6d863cf49c19",
-   "taille": 7810
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "35de8b9fb59fb1f849e5295ae167886b0aff0f9759caa7da88d48025741cbee6",
+   "taille": 21601
   },
   "ecorche-1-course-shadow-2.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "05d0403caaa72289d1eafc86c7f226b689d220c7d8ad5c3910e62f465ba0c423",
-   "taille": 8585
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "f361f7e142d24acd977868bc93f2e8f2d8c5e262aeec6ac5a815f419348d61db",
+   "taille": 22481
   },
   "ecorche-1-course-shadow-3.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "e0982d676a34c05ab3d4b6c03a155dea5d9877877dd43acb55fdcd19dd70c451",
-   "taille": 7640
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "a67f9e682f3a7fc351436162e6dc5e2edc158ffb2c30cdef327ab5dd07f9274b",
+   "taille": 21822
   },
   "ecorche-1-course-shadow-4.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "79e661b35410851498291c5eecddfb5d47871820e1c1f335aed4df3069e9ea41",
-   "taille": 7896
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "450b6991ba5c661eb554b1dc3d7dd10721178e379c484597ebcd275d60a2dbd4",
+   "taille": 24228
   },
   "ecorche-1-course-shadow-5.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "1c119e1019085c503f86d9bdbbe0d6c4ecc178c3989929249dc594e26dea0d86",
-   "taille": 7763
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "dad2971419b6f7e1f48ed521559ca74b8e1673a9a77ea8a024ce0eaaae815c4f",
+   "taille": 22586
   },
   "ecorche-1-course-shadow-6.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "d7233c95a28d829fa5e87651069143032981b734e2800bfab4e6525d09bf4ff8",
-   "taille": 8041
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "b03d91b73a20a2741b095c27995242fa9bfda38e4550d9442b3fcc3af0cc8ddf",
+   "taille": 23156
   },
   "ecorche-1-course-shadow-7.png": {
-   "hauteur": 47,
-   "largeur": 688,
-   "sha256": "4a6dbfbc9daa50b774766daee7e24fa8af46f74ca1ab3cb229fee755d6d0206e",
-   "taille": 7547
+   "hauteur": 260,
+   "largeur": 728,
+   "sha256": "2ffb9d88532dcfcafebcf425cc131c2b5bc6656e3ebbbc1a89f2f41a9cd4dce2",
+   "taille": 22985
   },
   "ecorche-2-attaque-glow-0.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "8aa947f5ab5fd289c08863e2518971404e2d875f90e96fd533f9b09915dfbd90",
-   "taille": 3419
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "3f62626669de448e86ceff33aee6a04daad2265fb677ef25422236ec089ae93e",
+   "taille": 1104
   },
   "ecorche-2-attaque-glow-1.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "eb3375e84b76f34e801b2abbe87070376c6f8b112488cbddc28b168ef9f43844",
-   "taille": 3741
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "6efe5d6aff25ee71bf7299454c59f485fdf4107fcea86095519ae3aa3c2f6b5c",
+   "taille": 1036
   },
   "ecorche-2-attaque-glow-2.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "b445d9236970f8041925600ab3a8cd3996b80735824d31aa19a722628076df7f",
-   "taille": 4027
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "16e3a408b82208f8556fef180f8904e3f0b28b9430394e675eeb6279364b6a34",
+   "taille": 1246
   },
   "ecorche-2-attaque-glow-3.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "f5bce0954f7ef325a4b80e48986bccfd33614d7cddb13f60243835e872bf7140",
-   "taille": 3945
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "7ab464af9b31b819e36e0c599ff2dc857cfe2ea7d06c691a2f4069cb3fe26987",
+   "taille": 1389
   },
   "ecorche-2-attaque-glow-4.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "2e69e2eecb0b296499734809bcc36b51e4027bf73506e758397e21aa5f6015d6",
-   "taille": 3898
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "e4fa20984240a16de77f1a17c607b702a3d064a9b68daaf56421b349b844e494",
+   "taille": 1695
   },
   "ecorche-2-attaque-glow-5.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "8806902243957585f51cf857b9d7b98e2f64596f15af73324f9e8e670938daa3",
-   "taille": 3939
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "057afc67d4d3f6e7d3dcdc00c543e44017d14ef5d19a3f2eec8af3f319d3e883",
+   "taille": 1931
   },
   "ecorche-2-attaque-glow-6.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "1fd17f4d082736ba49f8088cff912c4421f86079bea2da89010d1588ee8ea511",
-   "taille": 3871
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "711e493d9c19fbc8926ef6e52ad70012f7e2d5432fe3fdd63847e4389261404b",
+   "taille": 1662
   },
   "ecorche-2-attaque-glow-7.png": {
-   "hauteur": 56,
-   "largeur": 292,
-   "sha256": "0a0f5da7c29c62ba0b532b1962a3fe20b77dfee00870fd2e7f82fc20433fadbd",
-   "taille": 3862
+   "hauteur": 82,
+   "largeur": 448,
+   "sha256": "d1aab99c501e8c9c76d256448780127931a25a123fe1ef44d44455e7cdf6c8d7",
+   "taille": 1573
   },
   "ecorche-2-attaque-main-0.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "6f8085fde5164ba77e3cbe76e529d9cf8cce9b90e67f2f608dc28f76d92c9ced",
-   "taille": 10950
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "e8e92276f451d9182fc36727488f0f3c77d32b5753660e1a3620319721f5cc88",
+   "taille": 29023
   },
   "ecorche-2-attaque-main-1.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "cda9b62056010383efc407bbceebbdd581161e12bf75dc9f213848d198f0bd9b",
-   "taille": 14705
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "b92b449502add0620d7df681fda84ae4a30de0f56093664ab6a265e9c6425b0a",
+   "taille": 33648
   },
   "ecorche-2-attaque-main-2.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "893e9edf52025f222101a6351c97728173f59ce318823a23726ecf3fc48ce648",
-   "taille": 12757
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "3e4c644db5c5a9aebd95daa4afdfa2885ffa6ca0759dddd51a330f0cf13fdff6",
+   "taille": 33835
   },
   "ecorche-2-attaque-main-3.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "1976e4807bf693f89f6584d811fd5e6ba8d26c64e9a194af7108fa8f5d933017",
-   "taille": 15085
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "21c49f5e1b95b82ff5f1e1dbefb92bc9d16d42eb467a5c498e23109799a2a990",
+   "taille": 33974
   },
   "ecorche-2-attaque-main-4.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "2f80ab15790f621d435b877055de76014d9e423a37f3db2cf7e157dd6e3b40a3",
-   "taille": 14727
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "733aa3eeda5965b9fb79074c53bd19ec5fe6abd12340a50832b73d66a50bdc78",
+   "taille": 31680
   },
   "ecorche-2-attaque-main-5.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "64029047b09e71c1abe928b5e3a9cd020380703b782ff298694b18ff3b03319f",
-   "taille": 15142
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "f861cbe26f5ce47cc7585fd31c8feafc0bcccea44cca1d79fe294a4c59a65d56",
+   "taille": 32469
   },
   "ecorche-2-attaque-main-6.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "54907b8fc01357bffdb99118c18478bd15222ae1ccaae8c6055d8dace0fcb7f5",
-   "taille": 13825
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "30f9c38628ce612f1ac87e7472fe0552c13f1e484af0d99276fa33a11ec9e3f6",
+   "taille": 33683
   },
   "ecorche-2-attaque-main-7.png": {
-   "hauteur": 71,
-   "largeur": 316,
-   "sha256": "89d097c178252738d72f053af7cf874fd2d0c36cf9a83556aff61e5d9d0dcd68",
-   "taille": 12506
+   "hauteur": 106,
+   "largeur": 548,
+   "sha256": "c54ac3ea8926bac3528a179728cdd319f9d8f80ec09359015a8c7a879e35bab1",
+   "taille": 32456
   },
   "ecorche-2-attaque-shadow-0.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "49ef2f5c274596265617b3fdde5a93447eef084c263ee8987025b4b9466eba54",
-   "taille": 3023
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "9d55612837496339ac2e13451e63c965d397e289d4a6de094e09d656f034e0e2",
+   "taille": 6862
   },
   "ecorche-2-attaque-shadow-1.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "52952cc9778cabe25426767e449d164940f924385369ab1c7cf9c2dd8f4be201",
-   "taille": 2847
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "49d1ba392c5d7d4c66775c3bb8c734c7ade7b5c868ae4108080f67dde5cf4626",
+   "taille": 6831
   },
   "ecorche-2-attaque-shadow-2.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "5224701a4d687dbac4e6dfad14a991ddcd694cce0ef8256af9fa6941b6de3f27",
-   "taille": 2776
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "61e78cd7aab4a127fcd7c594180c50ae2374063b7904a68a6cfc0868fdaaa59c",
+   "taille": 6385
   },
   "ecorche-2-attaque-shadow-3.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "ca5302dd209235f824998b94cdcbd573c9f7b12375db5c0bbdd7956703f55c6e",
-   "taille": 2802
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "d7e1e4bf5ff6dddccb20407c7cc67fdb61b4d58b6e2805c28358db0a9cad4f1d",
+   "taille": 7509
   },
   "ecorche-2-attaque-shadow-4.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "a0c67769f8bcdd2274c286bb97b71c41254bc710b0eca27f2ff8dc85910c7fa8",
-   "taille": 3099
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "d6f28cbbc4807aba0d56594a09fb2963900b0df098c9c87148d4055a6ec48bf3",
+   "taille": 7131
   },
   "ecorche-2-attaque-shadow-5.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "77c9592c7d918c349ffc5504806b392ee7785bf514ef1bd73ac369de0b1676a2",
-   "taille": 2570
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "532185bf169c973fc21060f74efc9e29957da782d257be6754486fbc32110dee",
+   "taille": 7089
   },
   "ecorche-2-attaque-shadow-6.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "351b9ae13bdc3a56e5610ead012af967296a2733c612d634e4757a2da44e4db8",
-   "taille": 2385
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "6fdd8fe941525c4857afaf077f7c1214484ca8f26eb535cdd72fbfe325391bde",
+   "taille": 6850
   },
   "ecorche-2-attaque-shadow-7.png": {
-   "hauteur": 57,
-   "largeur": 384,
-   "sha256": "35a1ade9a13608faf9b9c91f6955bf6f93b9395bcec10656ad676202933ed6da",
-   "taille": 2537
+   "hauteur": 97,
+   "largeur": 560,
+   "sha256": "efc2a2dda1b74538c5e99ddfd3f7852a06c0a75d86335fd5016565292c0d684c",
+   "taille": 6824
   },
   "ecorche-2-course-glow-0.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "695ccd902c5c800d435238286e52d6b5dd3055b7f5f66d47792e3ef9e5cc7933",
-   "taille": 17336
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "2d68ff500755521c6357721d43fb674f40cc29db88322c6164f91048a52e39f1",
+   "taille": 1274
   },
   "ecorche-2-course-glow-1.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "a4f3f636d916b4572351ea36c73f78387881c1ea3d5bd1a2c4ff0786b9c7ff60",
-   "taille": 17995
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "350a5ca74784d05629ab68509029a33b11c74b0640453bd81bfc2abb8d8a2598",
+   "taille": 1238
   },
   "ecorche-2-course-glow-2.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "f2e1c3e54dfec72fe098d5784078340664d729e4601103ce77d4ca38be4767de",
-   "taille": 17474
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "6a119429522427c502b4ffbb1787571d4bf819d81e9425ca393dfd8f273ac697",
+   "taille": 1505
   },
   "ecorche-2-course-glow-3.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "5c09a19f97d50675f0546c55148557d94c370a58e1a5a428915c91f8346673df",
-   "taille": 16552
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "0675fb1bfd33efd67964d45805e8dd87ebc4b4a5019e0a0fe7734d306a7a6e42",
+   "taille": 1873
   },
   "ecorche-2-course-glow-4.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "76d5cb21245d7d5aad4a5cc3648704e61b034ef4b071a2bcb5d3e8f1565bcc2a",
-   "taille": 15887
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "f185a23eb008691df7fa9730fff83bf8fc22246bc99812b6142d8e3741e694d1",
+   "taille": 2071
   },
   "ecorche-2-course-glow-5.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "0e91b04b3a6da2bbc3f45c6230a74415bfe8590bddf0a17ecba15893dbd045f4",
-   "taille": 16797
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "b48e50ab2429a146a3300a58830337d7b9bdca46e71ad76531a040806cd94341",
+   "taille": 2463
   },
   "ecorche-2-course-glow-6.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "e87f0e3c7bdc09fbe2d8938252bc57de4feac80faadebf0c9f695912b3f156e4",
-   "taille": 17517
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "09cd589b84d892a85c1c7fce0c625ebe191b2c79ac58eaa1c3f9dedbd8b8e526",
+   "taille": 2049
   },
   "ecorche-2-course-glow-7.png": {
-   "hauteur": 57,
-   "largeur": 544,
-   "sha256": "eeb479c9d9fb93023c24a3588907e8ab918ce97f8b8c73908a0cf32ce865a8f8",
-   "taille": 18242
+   "hauteur": 79,
+   "largeur": 816,
+   "sha256": "70504a57247d19f1e47dc26272c36312b999c829b990173641da18f4dbaa9a2a",
+   "taille": 1884
   },
   "ecorche-2-course-main-0.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "b017d1c05f1ca5977b5cc641371226a6ec7134f9c4042f05b7a29602661e8e69",
-   "taille": 42144
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "49ec3f351ae618de6ebf7769547e38d6002ff7aa7a0ab0fe87fdd2cd5569542d",
+   "taille": 67798
   },
   "ecorche-2-course-main-1.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "a265cb002ba273b0f5ceb809ba99184a57b79a1d40ec12c687f694fac4246db6",
-   "taille": 45350
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "e5adde578925edcf5380c7424623ffe5c704d9cab4a0a8fe4d9edb8aa359a2e3",
+   "taille": 69817
   },
   "ecorche-2-course-main-2.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "03c0d4ca49543d082d33e2ea07da9ea42f4ea1844e5ce1e2c619d77fb7d4bc1f",
-   "taille": 41912
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "cf1eb5a3caf3de156722edf49363f0253342c544411f28934024eebadc9d87aa",
+   "taille": 73210
   },
   "ecorche-2-course-main-3.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "3aff056184982f44b352d9d1341180f7ad5bb16e0ba1c5ec3c9f1c58c7bbc38d",
-   "taille": 43341
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "0ba9360f08842c86a1959d023fe9c4a596c9ab48bfe6c3aca24169b516bc545b",
+   "taille": 71750
   },
   "ecorche-2-course-main-4.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "3dce221e4c3d33c543ac8915b5e068b8723fe951cffc63dd60b3a32518be3407",
-   "taille": 42204
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "8865a50bfd87c74a582d9e4266be8aa91ff73e2dbd11ca87cd655c3e9f81e5f8",
+   "taille": 71013
   },
   "ecorche-2-course-main-5.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "f4fa15c479e12455af79710b368ad09a4bae3e822e5e350f839a7b4028a2282d",
-   "taille": 42661
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "5d6ef4655a53724d5cd6deb537a0e712afadbe3d862cfa56716f6626fd63d87b",
+   "taille": 76099
   },
   "ecorche-2-course-main-6.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "f67c5e412de4f3e6a72e8220b4b7a69db45fb17aadd2bc6de69f407b51de14be",
-   "taille": 42298
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "138c21b01c969d47f70bb5408aab353d80e916e12cb72b7884281d59478e6d0b",
+   "taille": 72689
   },
   "ecorche-2-course-main-7.png": {
-   "hauteur": 73,
-   "largeur": 664,
-   "sha256": "c0a35eda408598f6adc65a82a08807ea5e10ceea313f8d64fe57cfc8b770568f",
-   "taille": 44647
+   "hauteur": 100,
+   "largeur": 992,
+   "sha256": "bf381267852c204d4a1037a5152fa216a19642fefecd93e9ae1ab0c80bdb416d",
+   "taille": 73587
   },
   "ecorche-2-course-shadow-0.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "73b5a836c839fcb7ab8779263b062629f35f0a30ec631023de54e6cccbc515bc",
-   "taille": 9569
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "f8db98604c3b0e31ff5d48c23f7f5cbb535af7be1b3c90cc07a773b2af2b1db9",
+   "taille": 15672
   },
   "ecorche-2-course-shadow-1.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "ec88125af2f6d1671b40087fc3f557c229ebf08c9a5e0256978d705c1b2187bf",
-   "taille": 8567
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "908a8a0df08b89e447c98fe01288831811e984e6aa5af48d8b02568548697420",
+   "taille": 15968
   },
   "ecorche-2-course-shadow-2.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "74e7f813325eae3d651f478edb11929c13c37b2330036fe9a9ad5370c5313517",
-   "taille": 8268
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "2b7650067beb455f8dd82d8594ab3a0e1dc8a7121659c7da6f2f0b72a1abe0dc",
+   "taille": 15692
   },
   "ecorche-2-course-shadow-3.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "fd06033d35e4dc8143739a7cbc0695bf75579409980afe77d458a02f0f5d19ac",
-   "taille": 8532
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "feec9261dbdf8437cb12ba1f94adb3e66577845c2d96a7516e088a4ac6afa8d4",
+   "taille": 16435
   },
   "ecorche-2-course-shadow-4.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "fed57381252c62a5acf537a552ef19ec882c492e05a7e1f0ec8bc72e8cbbcc25",
-   "taille": 9316
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "84d49ca1ed29d164d2d99d66d3121605e9c0a741279675836f6693d484ce0bfa",
+   "taille": 15647
   },
   "ecorche-2-course-shadow-5.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "b12393b2c1688a7dd646a0b3a457a5be13de930b8f824eb47d964b868897a45a",
-   "taille": 10105
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "a01d51047c0b40f15bccdb60d3b20da1f1aa8fa266dae9290cccef03099a42b3",
+   "taille": 16392
   },
   "ecorche-2-course-shadow-6.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "183ffc468544e6c21368a506d2fd725fa0afcd137663627f869be0ae7fea701c",
-   "taille": 10314
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "c831ed5eb602892b45b10542b100c40f6d5db120590f948557ca21b28b5b0f24",
+   "taille": 17175
   },
   "ecorche-2-course-shadow-7.png": {
-   "hauteur": 57,
-   "largeur": 800,
-   "sha256": "925252ddbf8de4e06fd84c8e7e90d8cb011bb48977eedc8a2e7a884e3f12ce70",
-   "taille": 10112
+   "hauteur": 176,
+   "largeur": 540,
+   "sha256": "a33fa2c59c281c51bce0489844503cb4f95c11f317fda4c96c7cfb154da2a2d2",
+   "taille": 16521
   },
   "ecorche-3-attaque-glow-0.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "8b23a9221ba3442e594fe032d252734a49de509e8daacdd1b217f4f912265cb7",
-   "taille": 3437
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "078c67713a1c2a0ed938f681a36fe6e7dfa27eae473902c56d7adb1def01cd3c",
+   "taille": 551
   },
   "ecorche-3-attaque-glow-1.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "c94e5d34906912db27ad4cfbfc4dc427e9e5378ea841bc82a1a90b0383f8aec3",
-   "taille": 3673
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "f42a537f51d18b8d8bf03af680b5ffd766733b3ebfe0d720013e64606a57e811",
+   "taille": 927
   },
   "ecorche-3-attaque-glow-2.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "0030fdeadbeff15a1c5203254d869cd8f291ebdce57bc4a758482b6e63e53de6",
-   "taille": 3931
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "d51989fb19f37e4e9f0b5f404a03edee10b57f53cef02416d5f181f756f6c216",
+   "taille": 1373
   },
   "ecorche-3-attaque-glow-3.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "9f3b640c1a179e8ca21499b339040e1d5da8a679f8d34e025eeb5128bd0c19cd",
-   "taille": 4219
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "b51db1c2316b83593d6d96da9d0c927db2484426ac5373e99b7fbe553a891c01",
+   "taille": 1636
   },
   "ecorche-3-attaque-glow-4.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "5c0c53e5d7ea62c796155c53df9086f6cc1f0b6deae2d34fdf21a666df6432e6",
-   "taille": 3756
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "08237845b0c906a275c16a4969a093efd085779ed5d70695f8bfe2902c3fd7d7",
+   "taille": 1744
   },
   "ecorche-3-attaque-glow-5.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "7a474e8bc3292395c65005d26f6d05890a7769bc97d2714052d987e1ccfe7854",
-   "taille": 4177
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "22a9ca177c94f50a9d89d3f64830bc4e1c9333d7c5159459299ac3f23f574426",
+   "taille": 1675
   },
   "ecorche-3-attaque-glow-6.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "b6cc74ccf816082316d51b711e679b219e4e8f749f0dfde9cbeaebd73561fbb5",
-   "taille": 4224
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "bdd143493e649c00b4a9f07d9b027a0239ab1eb125bd959d6589c2b4a59c4d95",
+   "taille": 1440
   },
   "ecorche-3-attaque-glow-7.png": {
-   "hauteur": 62,
-   "largeur": 300,
-   "sha256": "ecb778031d8f8757a6df58763e29c2c5719a46d709a67afbaa89e916f1b93dec",
-   "taille": 3898
+   "hauteur": 93,
+   "largeur": 476,
+   "sha256": "ce9e866a12d267c9ee42f410d060dcb8240f8e690ed7c964a80777bd7730c6b4",
+   "taille": 926
   },
   "ecorche-3-attaque-main-0.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "394fe31fc3ec60a2d892c62c4ea9ce3ad4869e633fbbbe06a23841f954c83b6d",
-   "taille": 12492
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "45f816932efa9e5e72828f3c0f966e5d0079983c9686c6228756964715a1ec26",
+   "taille": 36840
   },
   "ecorche-3-attaque-main-1.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "20270252188d9467673b20cf5ff4135791da7be08091e8a2da0fcb36b0f8187b",
-   "taille": 15718
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "6ba8873da02581bc78de2aa7ba0fe0e03864898a38d86d8113f26035118b17a9",
+   "taille": 38330
   },
   "ecorche-3-attaque-main-2.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "79a707fe51e1bfd961a329838c2483b8139a79f6044e53ed00ebdd39aeb0f62b",
-   "taille": 15403
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "666afe6c277a9fae7dc668eaf57a12552937f5bc4c224573acce4d530b135f06",
+   "taille": 34990
   },
   "ecorche-3-attaque-main-3.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "4c6ae3206e7302459acd5e2118d591b1acdaee118b06505f1f5f9737c00ccb8b",
-   "taille": 16244
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "cc3c6fa75ea8ea3625fea0aae453a6f6ef6089938d752fb69da3d3423f5b86b3",
+   "taille": 28938
   },
   "ecorche-3-attaque-main-4.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "eeac0ed5195b4b8f59b487d7462c1460a3ead5234365ee1e75e3f4afbb265185",
-   "taille": 15146
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "6ac4ca851e682541227cfbf3cc26991cc9e4386b30ccea3123aae82388e274d6",
+   "taille": 22593
   },
   "ecorche-3-attaque-main-5.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "36176b788363dcf533ef6aa57838f7a5e546e030e837b74c371f41c8643238a7",
-   "taille": 15884
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "6dfff5180a471a44be47657e0490ea0c8e63e3a092cbdce17d042ad4ba338a4f",
+   "taille": 27431
   },
   "ecorche-3-attaque-main-6.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "843640d13d690a8131b2633041c2fae10b766b744accb9a9a18209df6b0eaed5",
-   "taille": 16996
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "f01831520573353061fbf1e598fa8495ae1b64000bcf5a5b335d869c734377b7",
+   "taille": 32083
   },
   "ecorche-3-attaque-main-7.png": {
-   "hauteur": 74,
-   "largeur": 356,
-   "sha256": "93825b0c8586c3a0ba75e5ec7b6539d47353fb4bf44b3389ac8ebc4efb3af503",
-   "taille": 14973
+   "hauteur": 143,
+   "largeur": 552,
+   "sha256": "d30ebedf501e6b7912b683178b00280cdbec84b43b05b2b30ed4436cbdf450bb",
+   "taille": 36677
   },
   "ecorche-3-attaque-shadow-0.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "257b2eb4e23f3a52e32d71c3cafcd1a6b99e9e709ac4fd3831f0e8e557f6dabe",
-   "taille": 3428
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "ad24819f4be631a9507371763d92d9a556e654c2070d0e175f6ea002e679983d",
+   "taille": 7142
   },
   "ecorche-3-attaque-shadow-1.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "5878e5ec14a9af679eda30504fa9cad05434c1283a9f8e10af2e0e4dcd9d2f72",
-   "taille": 3307
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "2c5e3c8252ec8f4f7b158ade3d077f97fbd864e5fbc1ff17d2bf307d64af5b34",
+   "taille": 7872
   },
   "ecorche-3-attaque-shadow-2.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "4b3963b96d754824f45064bd3760ab0d60de951d5acea9056941f3cafe4d504f",
-   "taille": 3270
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "686c9e6ed3e27823422931135d6249c558a0433b1ee49ea191d7384096175232",
+   "taille": 8629
   },
   "ecorche-3-attaque-shadow-3.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "b4fe0b968769577f9ea2003c20c4704874e40245b59437f829af95a7139a7693",
-   "taille": 3389
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "8df267be696491608e6b333b8a7d078aab98b9ebd4eb7ef04a11d2af7f8a0c2d",
+   "taille": 7931
   },
   "ecorche-3-attaque-shadow-4.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "dcfda6bbb9391e01f3836726720fec7b613a357b584ff95206226a9b9bbdd1a3",
-   "taille": 3322
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "9e47dd072dbd9d50e339e090491fe1e82206f42b161b8e8b2d97d8b7c4bc91ea",
+   "taille": 8018
   },
   "ecorche-3-attaque-shadow-5.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "98ab21c2d5e0f98ee7a0abcbbd1e606dacb2e61865d1cc1648a83586fc0895c0",
-   "taille": 2762
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "8885cb32be0088214dc923c7d24b857caaa2813aeabbb38c01446b722e87e998",
+   "taille": 6822
   },
   "ecorche-3-attaque-shadow-6.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "90b24a96bc86ec0e9dbc2ca953e6f173e92415ac7d509e6302480c8dcb3b4090",
-   "taille": 2870
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "515faba98f3494d491ad7a0fbfbaccbe4424a7fa7476e8548b7f3db9af913531",
+   "taille": 6558
   },
   "ecorche-3-attaque-shadow-7.png": {
-   "hauteur": 63,
-   "largeur": 388,
-   "sha256": "8b4a2dd262488bd5370630c05cdbff541acd33e23e9305da7b15f4111a8d60a9",
-   "taille": 2973
+   "hauteur": 97,
+   "largeur": 760,
+   "sha256": "e0c279070a2172bdc8b3f2006b31633e31b65ab93fa5602783009cb9287943e2",
+   "taille": 6618
   },
   "ecorche-3-course-glow-0.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "c2b90bf1f962b44f86f20a14c798248a7775cb7f85a2e9188e0738527739e19d",
-   "taille": 7559
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "951b2b9a9647ff5259735acf6a72a7cf1df4fdae20f98f71037d0d97c0a1dcbc",
+   "taille": 605
   },
   "ecorche-3-course-glow-1.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "f8dbbf43706053ccf0853e13d0a6be9a5ec24171e21a5d08ff1d381cc81cd33c",
-   "taille": 8114
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "0231ca204e7047f547d051620225c68ad13a31b5b39948f6d84278209555d6b0",
+   "taille": 1069
   },
   "ecorche-3-course-glow-2.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "f98206d4c38dd72de93ee243b5638fe94c4f5530918cac01ca7bbacae1dbe264",
-   "taille": 8710
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "5c4c8b1762f9cc1d2091ece107c51c01c55cafb739d91290a421efe80682b939",
+   "taille": 1556
   },
   "ecorche-3-course-glow-3.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "e51884158b9f0decc3515e3d0307dd09483cfa66503ea4344846433f2b354e5f",
-   "taille": 8257
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "6de9683404a93ffe4cfefc4fc521dbdadc200f4542093b686bc4b13337b3cb12",
+   "taille": 2029
   },
   "ecorche-3-course-glow-4.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "5c4cca6b06ce458fb7fc8d8d029d73fe7c5dbe7f0f3ec7f751eab7a17c8a3097",
-   "taille": 7450
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "7bf19b0b8e9f86016957c43099e8242605c6541a02b324a4c9e359be8032c8da",
+   "taille": 2144
   },
   "ecorche-3-course-glow-5.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "fe168b29035b0c665ebde11f8cc9edfe62f6e3f05954ebce300057bcbd462452",
-   "taille": 8376
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "6a8e412d2927eaacca2ef2bb0866c97a91644169f5496d9e339a9051f658107f",
+   "taille": 1998
   },
   "ecorche-3-course-glow-6.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "72b28b74ce0d256025a8456dd6e5e6845572806c9c74a7c0cd96a37bf36b988c",
-   "taille": 9205
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "b50cfbf01508dd4b222c336145ec779712eba580c812ff7c9785e06e372f8807",
+   "taille": 1630
   },
   "ecorche-3-course-glow-7.png": {
-   "hauteur": 56,
-   "largeur": 512,
-   "sha256": "29cba12242548a3e97b603bb4788fa3bed3cb3fadb89bacee5a44bd28ae39d58",
-   "taille": 8367
+   "hauteur": 83,
+   "largeur": 864,
+   "sha256": "ae9066f6fba00e50cb41f813e2d2d85107244c60d1db155cef16e9fd87220ee2",
+   "taille": 1022
   },
   "ecorche-3-course-main-0.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "570ed63ef0f662f42c02ff3f406786e8893e680af1a15a2402c093e3b625c995",
-   "taille": 38853
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "31c94f24939d5c0bc6da3c7f9543f1a317b55049ea9b1e07a97be2be00cb00c6",
+   "taille": 89901
   },
   "ecorche-3-course-main-1.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "a41c9d6ca9c85bb00c9a077c5b69b81d0ee261f5bf1b7ec762f752368570c964",
-   "taille": 40881
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "5be8230125bf0778728efcfec9514395199bfb833f72644d8453fc8bf1fabff4",
+   "taille": 90518
   },
   "ecorche-3-course-main-2.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "f4b3b0f0668b41dc6c8d0e4f1e65c68c371e37da43d95942fe7549bbc5004c10",
-   "taille": 37537
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "314d6a6aaf4522a4ac715b3d6272db5faa9ff834c8824b6eaf649f4ac93daf76",
+   "taille": 83496
   },
   "ecorche-3-course-main-3.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "9f0fc9f7ae6fec876a351f03fd4fbe32665eff55e05d4893ffb03adb97379872",
-   "taille": 37199
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "919b69d76b2d34a8882d37b94507bdcf6f8ea76fc8322b9b95d00c6133c60ad3",
+   "taille": 72639
   },
   "ecorche-3-course-main-4.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "febd0f568ba61c5494493e1d0189d2587a011e326a602dd6a72d70e5b6b44e6d",
-   "taille": 35384
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "926421a3d9044d3c4acb3352144e2a1ecaafa0aba3c400d176931336fd1a2fe8",
+   "taille": 57432
   },
   "ecorche-3-course-main-5.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "a39b25a779327564f22f765996b17cf05cf48bd581ee1fc69857960ed716800d",
-   "taille": 36634
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "f748830edaebfc2076c373e2bb6e0c7decdcb283b54223fd43571268a0d249a5",
+   "taille": 68856
   },
   "ecorche-3-course-main-6.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "9bc263d2d6e93a0cd28f9317c99d96d56b324e0d5faba1227f714df2f55a79fb",
-   "taille": 38086
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "13934bd052343ae84f847a7f90bd9b2fdf50211dd4b4d9b8dc9d28213e25987d",
+   "taille": 81712
   },
   "ecorche-3-course-main-7.png": {
-   "hauteur": 74,
-   "largeur": 712,
-   "sha256": "4c0181160ea24111be8142edf79858ce1e94da65d0dbde8e2c3bd8ee63435579",
-   "taille": 41443
+   "hauteur": 284,
+   "largeur": 552,
+   "sha256": "12ab86753ad44964fb1a09f1ecd10009577f3d1176395a5d7aa24e6921e2b32d",
+   "taille": 91662
   },
   "ecorche-3-course-shadow-0.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "d3508f64e5e7e040cc7abd442a7d809d009069410ffcbea69629d1e7b62ca2f2",
-   "taille": 8844
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "83196b21c221913045a0a878d846b5ad9ad8ecb5edbf59a3e63ba6aa8ff85f4f",
+   "taille": 17872
   },
   "ecorche-3-course-shadow-1.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "384c2f7c451b2293a670be901f9a31eeda1a8f162624e8ade3d0b3f69737bdba",
-   "taille": 8523
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "79bb67770da1abbb5cdb8945ff292e40f1fd3b37d1df4c06ce014af8c3c535d6",
+   "taille": 18400
   },
   "ecorche-3-course-shadow-2.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "9073e0835ff37fbd5463b09ea03318c51e7898d47cae5ac55cf61b0df28cf650",
-   "taille": 8570
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "ab5b216ceac8221d57ab96472d2aa6faaebd75704979e4a9c9e55d6900a0a9d2",
+   "taille": 20094
   },
   "ecorche-3-course-shadow-3.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "cc5ccb7f5aac4c048e1e31fb8bc8a42939fca9d7313a22740a8f7f106960240b",
-   "taille": 8383
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "d04c0cf0246ba1085fec28067208aa0a074937c80baf2d015d0fd2309b525afc",
+   "taille": 18430
   },
   "ecorche-3-course-shadow-4.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "f6450b0797b774a1f77143b98082fb78d5ceb644d397991ad104ba9fc849ebab",
-   "taille": 8879
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "0ce537f8b0ba98ce540d4fb44d45ec6559f84c8e939d5cecfa487f531351d664",
+   "taille": 18288
   },
   "ecorche-3-course-shadow-5.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "baeb2d10af50fabf761e25a415600ee3979d2cca080b9c9b46609463603c1219",
-   "taille": 8921
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "d703bf9e2db5ea0dd11b9f36277f19d2e7af6ed8e999df442854556d04cc7811",
+   "taille": 16192
   },
   "ecorche-3-course-shadow-6.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "6bf84e6aeaabb767268f9593c410b47c815e4bb8e56d69beee0bf1fe029efad7",
-   "taille": 9917
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "b86d3fa204949abe97a8d4b169c29ee901dd3942954b970b8738010204b5a528",
+   "taille": 16255
   },
   "ecorche-3-course-shadow-7.png": {
-   "hauteur": 63,
-   "largeur": 800,
-   "sha256": "b88f885b2982d030ea15522b90df692fef3e43550b535e9d77f3567a074b9941",
-   "taille": 8713
+   "hauteur": 196,
+   "largeur": 752,
+   "sha256": "9a4da5477bb62e5a26686d2c5b31fc14969d9682d7ec7a00b997bbfacdb414e0",
+   "taille": 15795
   },
   "ecorcheur-attaque-glow-0.png": {
    "hauteur": 466,
@@ -1155,868 +1155,868 @@
    "taille": 87432
   },
   "hr-ecorche-1-attaque-glow-0.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "3575ad2821ee7a4c792ed837a3d66212debbcb38216b9c7ffbe845a8b4bdeda8",
-   "taille": 4157
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "30f924489ad2f27dd8af7654b6b2616970295e6057c8802c75c9921ffbd249ea",
+   "taille": 1082
   },
   "hr-ecorche-1-attaque-glow-1.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "6caf3447f63566c2573bd195d83ded31f79b2b5e86afe0ab1201a9605be0ca91",
-   "taille": 5289
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "ab5c1adb16614e635e2ccc9b8b0e1221f8a7d319c38723f1fc13dffc7a405950",
+   "taille": 1362
   },
   "hr-ecorche-1-attaque-glow-2.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "45d3c4854da089ccea6c01976faf0c2ce1db078c8bb18ef2c5c3edcc71758ef3",
-   "taille": 5729
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "2f76d301699f0b8ecf462da8d5be9bc66278c69ed00f53712c4e2fbf83733844",
+   "taille": 1520
   },
   "hr-ecorche-1-attaque-glow-3.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "be2c173f755f7ae2fc5bfe9cb3d53686ebfb077651533228384b4ec513c6006b",
-   "taille": 6149
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "4314c093f3c3d0661e4f629a25853b2bc932d95fda3464c0da38e30824ed84c8",
+   "taille": 1864
   },
   "hr-ecorche-1-attaque-glow-4.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "3c427458d3ea4ce12550848d62e11dbdd81c014e021ef4e5018665035a40636a",
-   "taille": 5872
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "ac09f592ca4e99a893c0e51c965dd415f2147e89026d81594b2d8b26bcebaf34",
+   "taille": 1533
   },
   "hr-ecorche-1-attaque-glow-5.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "3be17856894473d488eb40f17a8e075b3867ef453720d379b724f5b11df6ee25",
-   "taille": 5974
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "a6d17a8229f8bee2e1e55228b9ad8a1085cd6e8784f59aba69047d283a824ee1",
+   "taille": 1867
   },
   "hr-ecorche-1-attaque-glow-6.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "8ee3497d08aa91817f8afad5bc8e062ae7331ed62c75fd76c3c4f1e4d7479d10",
-   "taille": 5670
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "b4241cb2a612483ffde8de10920e5a919278c6ac01ea47e1e7c36a6108634125",
+   "taille": 1595
   },
   "hr-ecorche-1-attaque-glow-7.png": {
-   "hauteur": 106,
-   "largeur": 520,
-   "sha256": "15a5e605834b2a0369269e6655ee942954ba5ceb5efaad570035fbea6da386f9",
-   "taille": 5255
+   "hauteur": 190,
+   "largeur": 1088,
+   "sha256": "2a3a677fecd9fbe7847814f6f85579b64213a6f7b5104d23a90752e3019f3f4b",
+   "taille": 1399
   },
   "hr-ecorche-1-attaque-main-0.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "6f450c549dac88d5e02c7318f7e9514348e600195dd3875b6f7a75f5b53a04f9",
-   "taille": 28652
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "0f057d7531e1e277820a765c94a2bc49d0c793295b3d362febc1dc20e039673c",
+   "taille": 91935
   },
   "hr-ecorche-1-attaque-main-1.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "715aa52818b4d45d9a5050b5ac1f80f07234286949850d17868a73fbb944ddf6",
-   "taille": 35506
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "6fdeb6a720ce2cbb8c4c501afe1bdc08a2bafd8c87592c5acf4a4feb77d83311",
+   "taille": 100664
   },
   "hr-ecorche-1-attaque-main-2.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "6aee7a01250853f15676cb29e5728d6100b2835328dbba75f7b927f790d4848d",
-   "taille": 35725
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "9bdfa898656324495bfa90add890c53749f660db6e776f901161f6cfbac6bdad",
+   "taille": 100425
   },
   "hr-ecorche-1-attaque-main-3.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "3fec20b95bde6995f47db3f5bc4918bb6d690a3ec2fc29d8a57221badb380fcc",
-   "taille": 42983
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "2915f9675d8e3a820b9f4c4fa46b934fc9e7dabf87fc9b9809de8a4adf0f7ba0",
+   "taille": 103405
   },
   "hr-ecorche-1-attaque-main-4.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "a6af437d6afa56b8c38a868d7e2a9a3308b268b4bae5bad696b8c9ee7c68c9e2",
-   "taille": 37398
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "9579a90df31e20a013d1390a01cfdf6ec48655908120805be852a1c12edacefd",
+   "taille": 92920
   },
   "hr-ecorche-1-attaque-main-5.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "ff2a9f2a2791eea64569c03d5b008bdda13544c9f168f0833edbfbb375939099",
-   "taille": 33538
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "f9e3e89bdeb963028f4f992f2f6e47d48a5ac67ceb5bb65bb01dd18f48b08f67",
+   "taille": 104845
   },
   "hr-ecorche-1-attaque-main-6.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "e06ee305610d3dabef7db440d0ca82284df5003de761aa8d69153cad2ea686ff",
-   "taille": 36177
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "19437e8b95b1e8aacfd9070e801b2cd2462884907f1c5b21bc22e2a0ac0529ae",
+   "taille": 95956
   },
   "hr-ecorche-1-attaque-main-7.png": {
-   "hauteur": 122,
-   "largeur": 536,
-   "sha256": "14b59474da781aecf0079ea44dce5101897710cf4ff603804702783c6fc4d780",
-   "taille": 33375
+   "hauteur": 264,
+   "largeur": 1456,
+   "sha256": "33b6891653e403cd35cd5a1eba224879c72725fd553b4b7ffdcab18fc8796cd4",
+   "taille": 105237
   },
   "hr-ecorche-1-attaque-shadow-0.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "3aa5d38068c285da779a7df139289ecf46a609c11a642ec4ea93d552025ec852",
-   "taille": 3657
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "0800496cc8e2bfe9f31063c7a5c31cf824c436930a502ad66facff1a8581e0e0",
+   "taille": 14929
   },
   "hr-ecorche-1-attaque-shadow-1.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "b54979f16da2473e080a499f036e7930d98342b5fe6c91d5fccf618a96ca02ed",
-   "taille": 3522
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "0e66ca1a2eff9e26770b6ad87c2c784e4f0c8994d96b026cc234cabd55512c6a",
+   "taille": 15410
   },
   "hr-ecorche-1-attaque-shadow-2.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "65f0f5d216ed4339ffb86b1766434d07bae446c894efb76fe25737312e1e5092",
-   "taille": 3832
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "c13f46aabd6df64146a618cd3bcbb9836bf64a0c6d57b968838ae718a18d9cf9",
+   "taille": 13026
   },
   "hr-ecorche-1-attaque-shadow-3.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "3238afd4c26b741688de54f384406316add7d7a70d2199d0fb6bd4250a02ac7b",
-   "taille": 3689
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "87d86a569e88c7454e1484ad8496be27b1089a5ca5569bebf3f4597935afe69e",
+   "taille": 14207
   },
   "hr-ecorche-1-attaque-shadow-4.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "2471304c64d45e27a2d096d4a40db438c5c5c526d2516de5a3b2c164ecc157b0",
-   "taille": 3753
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "fa467f41b8843c3ce1bd67c40f1ea81bddb6b4827020f81ba4a852b9e70ce5e1",
+   "taille": 15770
   },
   "hr-ecorche-1-attaque-shadow-5.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "54e0a10727f51a21a9aea7c344c195572a8f3e9d376bb05b5fd10fcbb8647bc4",
-   "taille": 3161
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "57c7a7f0a13206077f7ecfb35b4bcfb4959930e8de98c5e9bcd191f8df25b314",
+   "taille": 14732
   },
   "hr-ecorche-1-attaque-shadow-6.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "f932604297fc8a371c711890c6c299580ddbd0c08ff355f915eaef962016d8c0",
-   "taille": 3125
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "b757439ed28438248cb42bf0907aed91ee3f241e152e44a555ac08f9ff6e97be",
+   "taille": 13120
   },
   "hr-ecorche-1-attaque-shadow-7.png": {
-   "hauteur": 94,
-   "largeur": 648,
-   "sha256": "a8a4663feccf5f8e4edff171acf210a68ab1f39920d7b797b462e335a6088c26",
-   "taille": 3141
+   "hauteur": 258,
+   "largeur": 1448,
+   "sha256": "b69cda57bfd7c6d485a3407ba88a79a539edcb6be5d8319f9bd460f61fe1287a",
+   "taille": 15100
   },
   "hr-ecorche-1-course-glow-0.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "653a423b3c473693523bce2c3835d929ba9cb797ede745cb4822b888b39acdb8",
-   "taille": 12886
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "9d35177040a00f20e08822c829d867a499637c3041f63af1bfadf0dde21b9d0c",
+   "taille": 1127
   },
   "hr-ecorche-1-course-glow-1.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "7a8a572c238c7efd3bf653713de6835626861f9941f2b0f652c6b46a3c610a0a",
-   "taille": 15740
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "8877fdf4b995e661b42dcd237b77c2dfd6dc1193531ecf787b28c80db5388a54",
+   "taille": 1725
   },
   "hr-ecorche-1-course-glow-2.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "72124d5c5d73f745f1fb038f7337c880c123d847c5d2d0471da2df9bdeb2348b",
-   "taille": 16760
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "ff350c01bd7ae26cd7574216791b1ade1d8bebc030479878bf1a9281484be9a1",
+   "taille": 1766
   },
   "hr-ecorche-1-course-glow-3.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "366b542631da0017ff1877e56f6c620aa58c4a03ba3df379dd7b20d0be0405fa",
-   "taille": 16185
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "446c4278dbf61a60810a24a7264256114dedcde1e48d6788a35850c7c41cb784",
+   "taille": 2078
   },
   "hr-ecorche-1-course-glow-4.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "06bebf750b7ba0e6ba880c4b24842801449063a9dce46a538fad63debe126b89",
-   "taille": 14488
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "fcbaf2179996640c841f58c1035ef8cb549f185576ee3e0ceb754db1ffc106df",
+   "taille": 1863
   },
   "hr-ecorche-1-course-glow-5.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "0c5f87513d13216c98e0083b257b7f4deb78644595f4afc570dee6a32d894ec7",
-   "taille": 16186
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "21a0fea19ba7ab1c1f3abac314f9a57e281eae2665fb96f9da5b92a94c92a5c1",
+   "taille": 1991
   },
   "hr-ecorche-1-course-glow-6.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "208017e0f0e873e27367272025ebab99c0f397801d1dfeaf1cc8dc8926b16d72",
-   "taille": 16749
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "cf96364f52043468c6e0c144cfc3de173f7ca7fd2f67196fb64016890d0b6a7a",
+   "taille": 1805
   },
   "hr-ecorche-1-course-glow-7.png": {
-   "hauteur": 104,
-   "largeur": 960,
-   "sha256": "964266b883621b56b9d43c24a35a2047f5c3c85ac7054ba9717b4269041724f4",
-   "taille": 15493
+   "hauteur": 142,
+   "largeur": 1856,
+   "sha256": "1a67ac51c1a6d3ded0b27db02ca6dc62ed29e0a356c074105a00f0cb6175e73b",
+   "taille": 1701
   },
   "hr-ecorche-1-course-main-0.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "f14927baf5d96dc2fb48f8fa8f9ac47631e71d9c47259ff5905ccb5e28e89063",
-   "taille": 97076
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "e8a8fc2868b745847c99e70357bfe67c8943c301893da03d808a24d375441da2",
+   "taille": 238809
   },
   "hr-ecorche-1-course-main-1.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "66f62eb2c115a4a99088833883400c18f4cea92405530a49e904843778fa4bd7",
-   "taille": 97664
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "5b65366d9280aaa6ec38389789007a651b6b97edb3afc16c519862be3b130f57",
+   "taille": 258542
   },
   "hr-ecorche-1-course-main-2.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "3c2818be15938f2813eb3a079ef11373c52e818c9028bcbd5174891933f3552c",
-   "taille": 96395
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "6fdc518555ad3172e22574e238a7dde7c271b60f74e45022aedb0226474b9f7b",
+   "taille": 244907
   },
   "hr-ecorche-1-course-main-3.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "34591e88336a7cf8aed7662a18c6c639612f44b959ecddae0da9ad8bbf759f56",
-   "taille": 94055
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "e702f3babb712f213a4de1f9b383f3cb2db98934fe93429cd73a86d63d4d3095",
+   "taille": 266672
   },
   "hr-ecorche-1-course-main-4.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "e8855982f3ccde8f864375e6cff98c063fee4d67cdfbb941aaf8a497f8627110",
-   "taille": 92429
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "5da2f7fd75a67f5388ca535ad011ec5a71d8f118962efb3b086f4be8c65ba2e7",
+   "taille": 240503
   },
   "hr-ecorche-1-course-main-5.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "68b224765e90bc9b56fc777b2b62b6cee9a4969160449c70d161a4ec261018ae",
-   "taille": 91794
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "98edc42ab3d6467c2737150de5e484836bc2effaa6007dcff0ed37df76abe119",
+   "taille": 264386
   },
   "hr-ecorche-1-course-main-6.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "3822e8ed05434f1fd49e99204c829a88d33645eb76e5ca6a5e81728ac3fba47d",
-   "taille": 97681
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "0b4dc1e45ac677b9eac48937b80db5cf487ab27fe8e41bfb29c6e639ee14ea47",
+   "taille": 244468
   },
   "hr-ecorche-1-course-main-7.png": {
-   "hauteur": 130,
-   "largeur": 1072,
-   "sha256": "d8856250c9a3264bc1cebc517f56833c4999ca17dc101eb93f0acdc3c2784442",
-   "taille": 99167
+   "hauteur": 532,
+   "largeur": 1464,
+   "sha256": "ed39dfef59b8eaf06a47d99734231bac8a74d22bc3c1e52307bdbd2d37ac5398",
+   "taille": 265699
   },
   "hr-ecorche-1-course-shadow-0.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "81ef568256cfdce7dce68f64565ebac9d6df93ac58ad6589c7428b86a7fcfef4",
-   "taille": 12264
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "0d073273a8a074c0cd124fb6610f3aff5b7fcfe757731ce7829e7c8a245b01ce",
+   "taille": 35192
   },
   "hr-ecorche-1-course-shadow-1.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "597c2f2fafe8acd89fd8cd45569770fc179aa33b65c2794b101e5dfc518e4645",
-   "taille": 11515
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "28ddc38d050d5f4d7d65fe2cc26d8aa659bdcbf855755e4c32b9d985a9ca9dc1",
+   "taille": 34649
   },
   "hr-ecorche-1-course-shadow-2.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "dee429a45ddd9f9166c5b350af553d940b76715cb8f877d6987da6cb3a0b0a76",
-   "taille": 12023
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "4d9da7287eace60529fd1590aaf67b41cf049d0d283eca05b1c7896df09d1ac8",
+   "taille": 31097
   },
   "hr-ecorche-1-course-shadow-3.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "57e67b28a75f469a9ca8ff1d74aa9ba2c1d60997f91bd442543a23c9af23bfbb",
-   "taille": 11675
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "5e79bb35fe95c27c52783ec579abfaa3bf09d950ca7d7ebe661fbc229ef88f1a",
+   "taille": 34491
   },
   "hr-ecorche-1-course-shadow-4.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "49b9a3a8ba028e8c2c884f96e94bf30abb323fd23d105ebd485a0b3dd4325896",
-   "taille": 12353
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "3e90ba311100c3c6474ac7c01736bf0d8c7f89c5489a7c39357f4a482e322125",
+   "taille": 35535
   },
   "hr-ecorche-1-course-shadow-5.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "7ef80af2e23053c24100466bca5bde378c97e42bf80325a617f8afb70e9c459f",
-   "taille": 11668
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "411014a44567eb6a99944790f27b9e410adb4284b42379601f1e97ca07ed8f27",
+   "taille": 34941
   },
   "hr-ecorche-1-course-shadow-6.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "b67116987e2d93c0822643844adcd07da9caf89252cc1367a0ea01a391c01ad5",
-   "taille": 12148
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "636a70fcd98d7060fdec60d9fbb8ff52a56224468f78c79a36ab01564b9648d7",
+   "taille": 31879
   },
   "hr-ecorche-1-course-shadow-7.png": {
-   "hauteur": 94,
-   "largeur": 1376,
-   "sha256": "9e082564f10a0cb313b31ebc3e4032e501f02cbb09b11e2b19054b26d809395c",
-   "taille": 11647
+   "hauteur": 520,
+   "largeur": 1456,
+   "sha256": "4dc8480879714184048992b4d45241f48a71af31718a1736c6c17249d41d0c88",
+   "taille": 35145
   },
   "hr-ecorche-2-attaque-glow-0.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "a7355042577d6a25b0b66c9490c457f33c72d94ca6f8834802ede194151c7592",
-   "taille": 11368
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "556aa18f11106e6539b336f7c64b6466c57e7290ead352077c26451f451d760d",
+   "taille": 3043
   },
   "hr-ecorche-2-attaque-glow-1.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "7e4ffd6f9dac4f9009ff2d369b8aeed7b515e5df9110fe21b9f5ab7c76e4c88c",
-   "taille": 12554
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "5c7f244569450707e1765c7c6b19f2052cde9b65a3e203e87836df98123ab7e5",
+   "taille": 2792
   },
   "hr-ecorche-2-attaque-glow-2.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "d2c0456a0228ce35e543122c11fcb6bf7348966f5cd3a7049ea8169d857fa32c",
-   "taille": 13092
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "ca0c3dcff4a843db64b330c6098f13653420092225413edefde74cf5a326de4c",
+   "taille": 3276
   },
   "hr-ecorche-2-attaque-glow-3.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "702d709db724bf903a5e77657b5229ed4b881799a3d56baa7268e382d0ffc774",
-   "taille": 12997
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "2e73f20a352b7a41df2a6833c9ac8219ae7eb65277d5194a1543f8b19bc05e07",
+   "taille": 4078
   },
   "hr-ecorche-2-attaque-glow-4.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "6924281434648819e02265310c224f8d560ea0f3ab93105870a25434c4411506",
-   "taille": 12589
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "6f78f0858e16f56422e3c55ed1454f972d5fa19d4bab9d0af514e1de185fe2b3",
+   "taille": 4756
   },
   "hr-ecorche-2-attaque-glow-5.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "534940d79589a2875b6d84bb2a7926b47002c030caf6fefd6582948e10f5b96a",
-   "taille": 12857
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "cf8cf9ac286b5ae1eea0efa54b1231ca87ee0dd9783a450f968ed592c62740ee",
+   "taille": 5671
   },
   "hr-ecorche-2-attaque-glow-6.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "d60b2385ead6f86f27360ad44c8f0eac353ed8a587fe6251d0a27524e2cb098a",
-   "taille": 12993
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "b2dbfb70d172b86ec7d1134e9c1b6177e0311878940be2bfea637bafacd034e2",
+   "taille": 5034
   },
   "hr-ecorche-2-attaque-glow-7.png": {
-   "hauteur": 112,
-   "largeur": 584,
-   "sha256": "e3da4bfc16b9b17d20fc5860406fc09933f1994fb27ba6203e5935f42ce5110d",
-   "taille": 12425
+   "hauteur": 164,
+   "largeur": 896,
+   "sha256": "6ba3e386a6f70f519b8a8a4e19fab592da5a9768778f0b4b1967e38947df6a81",
+   "taille": 4543
   },
   "hr-ecorche-2-attaque-main-0.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "cb8e6941f9baf626e4e9d72a4c724b79cefe61cb73d3819a879e5c3c463c1435",
-   "taille": 34643
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "a869eaaf41f98dd265cd6da71f23015f2af40b87531dd4f517a35237a07be29f",
+   "taille": 92277
   },
   "hr-ecorche-2-attaque-main-1.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "7f79d8d8e2f59a66748e46e95f43f967dab3b17a80e09581366150d498751f97",
-   "taille": 48230
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "5ab1ccc3480f8f34e2fcaaa97a022d547cc45a986ecc20cb22b682e147abe73d",
+   "taille": 106736
   },
   "hr-ecorche-2-attaque-main-2.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "0cdbd507a2965cd4e75df2df79e49970198704f76fd6b620155fcc733e26aa0d",
-   "taille": 40998
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "8e131d88758e01c6cb7f26cb03ada5a5d4594f34570571ce3d9291baddde7894",
+   "taille": 105865
   },
   "hr-ecorche-2-attaque-main-3.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "bdc66fb6a17fa9cd002fc3510c645a00a9feebdb61e4a560bc9be919c841f1b6",
-   "taille": 48852
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "f806db58746c700b5501d555375ab9faddb49b7d70e610803ff4eefde56cc471",
+   "taille": 106861
   },
   "hr-ecorche-2-attaque-main-4.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "18aa2bdeaf6b9d25d90d18d958f00fb540f23d147ed4f5dcfbfa912dd7a056b7",
-   "taille": 48038
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "13b06d78d4d7b77efc7db5c6eeec2f3fbc346583ecc7cd0f713d2350697554d3",
+   "taille": 100020
   },
   "hr-ecorche-2-attaque-main-5.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "b096691c70a3dd1dcc58055b58544a63fbb9134167e32459107f348a852abe7b",
-   "taille": 50263
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "83290485b6a1df9290a93a190db493483c86cbc580c9d0f8068a27903af52bc1",
+   "taille": 102611
   },
   "hr-ecorche-2-attaque-main-6.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "77728eefdc357960882a2ca2fa5ccbe54cd55904902000adf44e8a5a436d9516",
-   "taille": 46150
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "4aec3df73a8491aa8b0f8c3a2e0a1214c55297e963128d3a27217add1293de7f",
+   "taille": 104947
   },
   "hr-ecorche-2-attaque-main-7.png": {
-   "hauteur": 142,
-   "largeur": 632,
-   "sha256": "b4de1425af19d7962ef0d059abca406eb9e6e530e1744d57226fe0950f522665",
-   "taille": 42104
+   "hauteur": 212,
+   "largeur": 1096,
+   "sha256": "18afb8e1de1034ffb55156350e0dd8431ff218f11250325ecfcce30913867adb",
+   "taille": 102817
   },
   "hr-ecorche-2-attaque-shadow-0.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "ccde2435d3aea3e882c6ac4cbc091e7460daf2618ff2cc58bd23d6cef0428237",
-   "taille": 5017
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "1770356f9a87b5a87493bd7e9c3c81c3934446bb421209c650a54ee906df851c",
+   "taille": 10852
   },
   "hr-ecorche-2-attaque-shadow-1.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "f09e8680bbb8c96022ea97e916a3cb127073428501e6836496d3b2b1a3fe7b88",
-   "taille": 4643
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "b07f4585915ac293a2c514740073235c2a07e3ff3f5539582a7cb81ebd131194",
+   "taille": 10417
   },
   "hr-ecorche-2-attaque-shadow-2.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "fda05ecdf4709363755e83710985d3509ec0923bb4591738c0ab7fca86d2c334",
-   "taille": 4505
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "72bbfe48c80320a1cae20ccd4fe95201e58526c27f1a51eac36f627c5ff84dbb",
+   "taille": 8927
   },
   "hr-ecorche-2-attaque-shadow-3.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "70a2de097b0b874aa480393341bd6d3a909b1a42a496c7384ca8fd80eeae7424",
-   "taille": 4739
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "15459e78effbaa936021ef43c7b8a7c684b0413a2dc48a9e1f18f2b24e440e64",
+   "taille": 11074
   },
   "hr-ecorche-2-attaque-shadow-4.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "624185f8fe1dfd6f9fbd5184e20376a3779f24a12d7c7a3185c5e25c1e9a8ebe",
-   "taille": 4922
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "2d8598235a072be066e5302a0cc09d96311eabbadbbc2d6a328c08f4e108c17b",
+   "taille": 11211
   },
   "hr-ecorche-2-attaque-shadow-5.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "5c36b1a3993d4e5e4f2086f002b8b1071faa5d0a7c847d80e59a892f84889398",
-   "taille": 4237
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "ca7d2f64140e210cd05e804f0f4f12222bdeea18914a7341d222b5474e68f89c",
+   "taille": 10794
   },
   "hr-ecorche-2-attaque-shadow-6.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "bb7461799fbc6d470fbe2616c1e84f98a21cc3fdb29d616342c83cd290fb8f41",
-   "taille": 3906
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "2b4dd0ca5e86a229f323de1eb1eb214dd6b03a093b8e80070a8a7e98d9536311",
+   "taille": 9346
   },
   "hr-ecorche-2-attaque-shadow-7.png": {
-   "hauteur": 114,
-   "largeur": 768,
-   "sha256": "5928985db2925fd0c51f0156605549de0dd47720034155c532a75bbfb6f9d9e4",
-   "taille": 4095
+   "hauteur": 194,
+   "largeur": 1120,
+   "sha256": "7fbb0bb0af32f592fde23b7e9ecccb99adc3fc5fadb75ca287deff73f80d1fd2",
+   "taille": 9940
   },
   "hr-ecorche-2-course-glow-0.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "065b9c98e754b13c73d6bf7ac7d7baf61e690f6db74c9b481cd39a7158080db3",
-   "taille": 56539
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "162fd49dd0775a9a12c12aef645fe1d48accbc8fbe8dd5469bd6f37a4723a62b",
+   "taille": 4015
   },
   "hr-ecorche-2-course-glow-1.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "15a455c6a2815fd700865d1c9622882a86f4f7f1b7920b227574b3a20893454e",
-   "taille": 59270
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "eecfbee1eb110e56c9930b0c6d4480a4a77ca35074322f13add604b732ca10f7",
+   "taille": 3671
   },
   "hr-ecorche-2-course-glow-2.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "61710a7e5d5bb572b84b5bddf51a853f041b5a333414706f9d4e8eb457e21e30",
-   "taille": 56374
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "a12a69a8b8bec9c41252ab154a0652866fe9607d0f8b45a360858a991a22e820",
+   "taille": 4279
   },
   "hr-ecorche-2-course-glow-3.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "da9b5edecd4b3e87e51458c87b20efcbbc05a9eb22c9f9bfb84401d4edaae997",
-   "taille": 54073
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "6cfb385b6ae7d9383b42e6df836805fa0c9c138e3bdc72512d061eb96a5ac32b",
+   "taille": 5399
   },
   "hr-ecorche-2-course-glow-4.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "b9ece455f160318591866f2d11a0b3153e7cd3cb186e135323c2cc06b16f4f1d",
-   "taille": 50955
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "a2941b7bee66fd952dbe2ee67833ab21708774b8418d16cc26786eeab60a54ea",
+   "taille": 6232
   },
   "hr-ecorche-2-course-glow-5.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "3074a48b2d570b3d869c85a3383a3db69603079cc0b61ad20d47f0766ea0a582",
-   "taille": 54630
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "b52b4ed502a2d194a57e31e01d98d53d70f7190915142e7a70ff754a7e5ff648",
+   "taille": 7282
   },
   "hr-ecorche-2-course-glow-6.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "73a6d9cee05b884eab75ff7e6f1769b11bfcd2152fe534ed6b7f11f8c3bda8ae",
-   "taille": 56483
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "1f9cc505b9fc1f0af714cfbe4a8b0ee821f0f876930355b2617b85c84392baf1",
+   "taille": 6324
   },
   "hr-ecorche-2-course-glow-7.png": {
-   "hauteur": 114,
-   "largeur": 1088,
-   "sha256": "015141442b8178e9b5c8d1f1dad40f4b63ef8b92a3e3528a01f2f4c86d079c5d",
-   "taille": 59286
+   "hauteur": 158,
+   "largeur": 1632,
+   "sha256": "1ebc7c8d2e5668cb53251dad51d2932f8fd9df7f6f1acc7ae283f0f18c35ab65",
+   "taille": 5656
   },
   "hr-ecorche-2-course-main-0.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "c44096b3cd21f31b031b6221f6f14e008c77d245f64c331c510238c4ef9b2373",
-   "taille": 130790
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "91f2052534627b6495d479d9c98b5bd53d3c620be4c7f25bb3ca6d687a1c9864",
+   "taille": 224850
   },
   "hr-ecorche-2-course-main-1.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "dca652494a309b7b6aaf95342ef610717bacf3dcba34c90530788d5f1e8a73a4",
-   "taille": 141056
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "4ccb9ece38e04d6f9be7af7c0e219b6f911659c702766f0952d4f7ad6154fbbb",
+   "taille": 227447
   },
   "hr-ecorche-2-course-main-2.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "66096a02fb28e16fa29a5a3131ae4d60a68ae7e9f5d09bc38f3eeb383e1b4c9f",
-   "taille": 132116
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "84e52d509abfde7ecc795cfb0fc3110b64a7888450a95bdb863825cd1cd3fcac",
+   "taille": 237787
   },
   "hr-ecorche-2-course-main-3.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "b89c3b5b492c7dae9d0574a2f3098823d1dcd2d1a8927442c1652f6035c8db6d",
-   "taille": 137276
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "b89bea056f2e6cf6d3b474b12ea362c10e276798430170e6ce56e635054c0a65",
+   "taille": 234740
   },
   "hr-ecorche-2-course-main-4.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "81d62003f21cc0077e60bf7318df06896e80893c5a7b468c38ac09127faee980",
-   "taille": 132547
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "6dbf2ce92148c124519f0784cfe1d9e2ed4007e579e0421e97622cdf4ba5e036",
+   "taille": 234844
   },
   "hr-ecorche-2-course-main-5.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "e9c6ca6e2de34785a12cc2f55cf7b7ddcb628b76a99c30dfafbc30ff55f80ea3",
-   "taille": 134480
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "cd4401e52a64954eacb3c9a760d8fe5509ab75c7956d053c5cecb013453dda09",
+   "taille": 249074
   },
   "hr-ecorche-2-course-main-6.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "a491351af57d468f43b221196095a696317e07935657ce8d8be9593cc89e13e7",
-   "taille": 132083
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "2f8a185f513670927f68cde31d2c05c4cda9b818ce2d2602eb6a082764457e1d",
+   "taille": 235715
   },
   "hr-ecorche-2-course-main-7.png": {
-   "hauteur": 146,
-   "largeur": 1328,
-   "sha256": "de8d40f5e2e902a420a770d2c12b0d20ed6f7bcfd1f30b57f3f6ace8e6f09311",
-   "taille": 140066
+   "hauteur": 200,
+   "largeur": 1984,
+   "sha256": "d93bb5657426dc24bce922ba23ad015c84a280211e72764b546cda711e9d2e34",
+   "taille": 241593
   },
   "hr-ecorche-2-course-shadow-0.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "990bea73818f113ad7ceb07f5e738b6721aeb97d58e7587ed476877a056fce96",
-   "taille": 14211
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "4426fc4c57f317d28cae547af8776ea5fc462dc053dd3923e15781b831e50c47",
+   "taille": 24197
   },
   "hr-ecorche-2-course-shadow-1.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "b25250d5205d0a3ad07db3e1de5dd651f9ac921d8d454e3893e05a4b53177d1d",
-   "taille": 13446
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "e877a0c13438ac2565bc15a85807aae1f294d23a219fffc0c6492823c9af004a",
+   "taille": 23357
   },
   "hr-ecorche-2-course-shadow-2.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "1e9b0058ced121f7e76dcbe02d45fb6593cca985242fb40c2ccb5c108fd6e133",
-   "taille": 12090
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "b7ea7a90bbb7efd32349321e80e0ee958ffe5e1dc89e72da24a328d3c6960d79",
+   "taille": 20978
   },
   "hr-ecorche-2-course-shadow-3.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "8ae6a5396fdbaf2b072a7612e16aaba8fc8a4a0910597a4beace7ddbefdc535e",
-   "taille": 12944
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "f13d41c35903456157c062f96e52d0729ea16988a4191a0e14a241c01b9a78e2",
+   "taille": 23788
   },
   "hr-ecorche-2-course-shadow-4.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "5e7184e0ec4b85be84fc43a8de54e76fc9845ffe2449b2539f2c5f0f207d4dff",
-   "taille": 14343
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "5f9b2c1b77ed643eebfaadb6074ec44df003eb289ff74f4324a0f837e1dcac12",
+   "taille": 24281
   },
   "hr-ecorche-2-course-shadow-5.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "8c4c41e24593000f48e9725682543624bf2ad46981eac8d3cfb6f154efc1d31e",
-   "taille": 14516
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "d5f6ce621d4f06e2c8c6ec2c6810946a02b918d4b7bb68340725ba1f9fe92b47",
+   "taille": 24046
   },
   "hr-ecorche-2-course-shadow-6.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "762c921928cd1d4710896002ad2b361ba2c97c01f7e56b8d5226ab0bedf4b958",
-   "taille": 14471
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "3428012d6db57c767b627026c0343df9b5fdef7282f8c6f16816ea317b2dc659",
+   "taille": 22628
   },
   "hr-ecorche-2-course-shadow-7.png": {
-   "hauteur": 114,
-   "largeur": 1600,
-   "sha256": "fb1088265c8194db5ca2d54f35fb3636be29970c7698ac7dca058f1f034be344",
-   "taille": 14293
+   "hauteur": 352,
+   "largeur": 1080,
+   "sha256": "62d57957d765c290b39d2814aebea9868f83b849d62a19a01423e750047a7c8d",
+   "taille": 23757
   },
   "hr-ecorche-3-attaque-glow-0.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "8c5fb8698da7d6a0760c2b7ef1632fb896eff5d08abf653dd6b44fc5e18c4512",
-   "taille": 9693
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "708987dd95ffe1b175921b70f9310fd1e56026ea6e802dd8fa61a246de7de0a1",
+   "taille": 1405
   },
   "hr-ecorche-3-attaque-glow-1.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "eeae9ea9ac7a3946837ad28dbcc327c46169c510d9a2e02725d2b3f5b9e232c0",
-   "taille": 11037
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "5e5073567c6e1682c667b11547805a928ba3d234cce4a3af8da3aeccb65b7176",
+   "taille": 2603
   },
   "hr-ecorche-3-attaque-glow-2.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "f57cd39bf5f31fd18f4805ac0c51181b60c521a02847907f783ed56b270eb3a3",
-   "taille": 11748
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "745ef531c23657cca984e4a52a509fe66675475fb3b1c1a8f63930abd7e5d85b",
+   "taille": 3724
   },
   "hr-ecorche-3-attaque-glow-3.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "359c6a3fffb690b3c35a8a336ab38063415cdcc65c1703175d82a89e8b281531",
-   "taille": 11573
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "e23dcd6bd451a1a25804f3350dc7959a7a187fe06aea2036288353af04d18d8d",
+   "taille": 4884
   },
   "hr-ecorche-3-attaque-glow-4.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "dde5235892d5753357275af652fbc3a1d921ddad907582b87576f8330622b8f9",
-   "taille": 10243
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "b0812716f941bf0b744c1d70b5ff12e3c9cb993562fdc147f465de73de7b22fc",
+   "taille": 5066
   },
   "hr-ecorche-3-attaque-glow-5.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "3f60678f04dc7c935cdbb48c10c4f5b17095644631ed85fa8eb78d66fbca57da",
-   "taille": 12204
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "455eba79fde0c011f2bdd2ac9b7f1a7d0f5aa999b4eaeeb3b08c85450b59bb09",
+   "taille": 4797
   },
   "hr-ecorche-3-attaque-glow-6.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "4aa013fd70ac75259bd65ff47629cd1decf6a50db3f98ce6bfeb69adf4222519",
-   "taille": 12209
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "64f911a59e3530362ca3da1e0846520bd2201d4a20d4b15c74ea6fdade0642f3",
+   "taille": 3775
   },
   "hr-ecorche-3-attaque-glow-7.png": {
-   "hauteur": 124,
-   "largeur": 600,
-   "sha256": "d7a296dabbe875009beb5dcb5a58a4066d6d0ebcb81268522c18885b8ad937b8",
-   "taille": 11194
+   "hauteur": 186,
+   "largeur": 952,
+   "sha256": "c4ad32be90b5b26655dc6379d51bc0e9fb2cca8cb94e34d575063f147a1ff26d",
+   "taille": 2632
   },
   "hr-ecorche-3-attaque-main-0.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "0a3b747e99b77f3c7ff8eb70f76bc01699ed149c04bfa42a460b4b40f23f68c9",
-   "taille": 39260
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "fb07966f1411d5bc5c90901848d3de12e1576f517e5efcb604b6defb105c3e69",
+   "taille": 117954
   },
   "hr-ecorche-3-attaque-main-1.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "d9c4d53eaa29b8867de0690f49b2358d9b62bd93be435d79c6540c01263faa3e",
-   "taille": 50965
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "1ead0d0dba5a2daeebb542dda21022e62c8910341bfd33d90ae5d7e1f87c0c3f",
+   "taille": 122720
   },
   "hr-ecorche-3-attaque-main-2.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "3fa952366178dc990d5a9584ec610d3ca9f210f6ec68b7e1c8136383919113c8",
-   "taille": 49391
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "6d8196b84d77289daea198369adf540100430f468f0f879f5a4978b1f47efb69",
+   "taille": 109832
   },
   "hr-ecorche-3-attaque-main-3.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "d3c028e49a3136d6431061487983c05f58b5915cdb28a025b65621feb542dda6",
-   "taille": 52616
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "b602cabb3538318145bea4ddc4e27064a40611f0b1b5575c8938a069076237ba",
+   "taille": 90541
   },
   "hr-ecorche-3-attaque-main-4.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "b9b345b64a42b169425ac612c465947660c04b485e676158ca96468c996be44c",
-   "taille": 49035
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "f00bd982623bfa7e429ce1d46d398b10d45363e7f6dae123d48430312efc1620",
+   "taille": 69591
   },
   "hr-ecorche-3-attaque-main-5.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "ca47293156904fced31d34c25753750165863555a0811b547d7b71aefe50dc12",
-   "taille": 50312
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "a3ecc9b2f81dbb7f321fd8744dbccea84a71fc8f2f8fbe784885a1bb79a6a7c6",
+   "taille": 84757
   },
   "hr-ecorche-3-attaque-main-6.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "2a788d05f1fc1ce51a9fed6972d27efc7a447ad55126bc5a4539fbde3dbe07d2",
-   "taille": 54977
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "8da7517d617970f696d2750fddc68a217aa1822f1cd23a638f505139033e14a5",
+   "taille": 101575
   },
   "hr-ecorche-3-attaque-main-7.png": {
-   "hauteur": 148,
-   "largeur": 712,
-   "sha256": "61d3cbe143f1ccf13530dceafb3129894fe682f07a5b7b043c45c625c0a546d8",
-   "taille": 47982
+   "hauteur": 286,
+   "largeur": 1104,
+   "sha256": "2719b13ca65bf8017a35f9f46ccf00d5e38931c0b433d7fc7410f0a0456a628c",
+   "taille": 117268
   },
   "hr-ecorche-3-attaque-shadow-0.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "e5dbdd4b65800a26a03c4cf78b6610922e7195bc54325f33e8bcd5f9ec0d5ebd",
-   "taille": 5596
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "cf2b21471369f8a60f56e3e63e73cb9f2b11e690b19ed49863cbdc9c7de44ca9",
+   "taille": 11671
   },
   "hr-ecorche-3-attaque-shadow-1.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "1df38f15f9264c7ea2cc22d3a263cc815993f85421f504c1a9d0eff8e1382c67",
-   "taille": 5341
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "82526830d8a09b9fbd214e7dd376c4590e7b5b5c21b481cfb90c9a0e9091e47c",
+   "taille": 12167
   },
   "hr-ecorche-3-attaque-shadow-2.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "cfb5bfc2859ec6bf92e2f5145336d6a4308780bee068ec6628d507244cdebaa4",
-   "taille": 5044
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "04acf198b1e305412b7ae7198a49eb8130b457d091767d96320c3fb62b1d6221",
+   "taille": 12099
   },
   "hr-ecorche-3-attaque-shadow-3.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "b19f1fbc3bc77c52067544ea5c81ad4c0a21a155f16647377b5ab84bcf3c7c62",
-   "taille": 5493
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "29fd951778c6818e4cebdd626af71122d0ea9f6d97eba1e1c95e9698204cab7f",
+   "taille": 12440
   },
   "hr-ecorche-3-attaque-shadow-4.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "b535962924b5aaa01a549a10a018ad23ae21d009c24672883c961cee68ae6090",
-   "taille": 5496
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "5ff9b66bce6844c41972f128dd0d1902e3f46b3ecb2f3e791987394fe31cf18c",
+   "taille": 12496
   },
   "hr-ecorche-3-attaque-shadow-5.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "895dac6eac90098cd59afef1b96dbc28ae3f931fcdf00ad594ac5547a7547c28",
-   "taille": 4562
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "df50158a9708ef0b97596aad19bbc69e34af996262ee77f141fe8624b2f7ab55",
+   "taille": 10241
   },
   "hr-ecorche-3-attaque-shadow-6.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "3ba60093b76ce6062e1956fc81a9f1953dab3a5e10803c9ce2f13ea2247a082e",
-   "taille": 4346
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "19cfaecca7a37e389bd0894cf0f7fe855b179ae24c6a4a73fe85f7ee3ece8859",
+   "taille": 9093
   },
   "hr-ecorche-3-attaque-shadow-7.png": {
-   "hauteur": 126,
-   "largeur": 776,
-   "sha256": "7ac0ec55f0140695475458268ad0d44d36c3ccefea9982a173a1a20a18a95918",
-   "taille": 4621
+   "hauteur": 194,
+   "largeur": 1520,
+   "sha256": "bbd5346197bef7e010258275bb3203b9662b4e16574de37bf425afd6da24db1f",
+   "taille": 10234
   },
   "hr-ecorche-3-course-glow-0.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "eb7899d8f049a9517bfaa2490aa5f31729731702f84e82246945b6f80c81d624",
-   "taille": 24100
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "fca562c0e6701b63ff466ae1acd4ced01e169fb1e46434549079e1739339b3ba",
+   "taille": 1790
   },
   "hr-ecorche-3-course-glow-1.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "2b455eca85edc1272b3d495a0f3c7d0fbe37ce965d5dfbe4c59a3340f3344a54",
-   "taille": 26051
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "1702ceac85aee82aa6bb7f43dc2d2a3553cafd0a3ae7b38e55c61e0655b5f4ab",
+   "taille": 3358
   },
   "hr-ecorche-3-course-glow-2.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "7b2e2057e3d6e06ee6bf195dfaa74b5cec379ddcecc7a6fabbbfc833302db338",
-   "taille": 27103
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "5d9040451d3d0a129a517096d575ef1a5acffd100a9b058af932f1ccbee631e2",
+   "taille": 4324
   },
   "hr-ecorche-3-course-glow-3.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "d082fb73bcdf4087f7195c0e27068ba4168cb9b4f0f2d0fc4a87040efec814f0",
-   "taille": 25405
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "0ad2e07b03df8e835c63b7945e60b15d99c193d30b184b1bef847d8ffd4b1255",
+   "taille": 5939
   },
   "hr-ecorche-3-course-glow-4.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "775c2bb9c32427fcd8917174068534d41e69409f2fa1650c2286e17df7d5caaf",
-   "taille": 23046
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "c985ccaabdca991afcdd2ade8894e96ab518ea8f3634e7f2780afd61c2d4f8f5",
+   "taille": 5990
   },
   "hr-ecorche-3-course-glow-5.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "306e32a74b5b01568c19acfe746a64233346cbc6c39b66263f6ad7691fc6f1d9",
-   "taille": 26386
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "ecc846c4ac916c50060242a30c13c56ee88ac9975864ce0e02ad3227829cc2cd",
+   "taille": 5816
   },
   "hr-ecorche-3-course-glow-6.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "9e3f0c525de82d73ac93ce9fdf1c32feb1f3dfcc5ae94164c47f19e794e9ed99",
-   "taille": 28022
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "33be7e1dbdfbd0ea10e19b5598370352084254daa27e7544810391c598fc2c55",
+   "taille": 4576
   },
   "hr-ecorche-3-course-glow-7.png": {
-   "hauteur": 112,
-   "largeur": 1024,
-   "sha256": "f8f95db44d76afdb5abfd8b5da9da458e4684f16ecd0b64968071c3a26010b33",
-   "taille": 26222
+   "hauteur": 166,
+   "largeur": 1728,
+   "sha256": "d5cdffb289848554211abae0f2afff5d019aca4c59d6a889c32943e3334c9bf0",
+   "taille": 3368
   },
   "hr-ecorche-3-course-main-0.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "725febf40d071ab96b9e90dffb47787151368855594fc8554945e67d0ca3acc2",
-   "taille": 119994
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "03d838f51bf1169bde899524c82218ab4f5aec10718eb512499978e20d98932a",
+   "taille": 291619
   },
   "hr-ecorche-3-course-main-1.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "b2f7d32c2161f61cba943f8857b3199a79150b0feeed72aed8210a8b437b4c08",
-   "taille": 126958
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "7cc3aa70ae6320a345abab6d1b95bb9803d8c64feee2d70d403418a57b26d867",
+   "taille": 294091
   },
   "hr-ecorche-3-course-main-2.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "67823251831bfbeac6b5a286e95cde06c9cd959f345cd5398f80497c57de1eca",
-   "taille": 117275
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "3dca450c89554ec1b3b0797c64c469062973e88e5182f5ecfd3a53071408ba33",
+   "taille": 267012
   },
   "hr-ecorche-3-course-main-3.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "1982f09dbb585365773225be27deb74aa117b883c25ed9c280c9ad980b6b3182",
-   "taille": 117611
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "727723232b0e7f7cc38e25b449841ed91d0e0317acdc1083a7ca0864a4c43bc0",
+   "taille": 229433
   },
   "hr-ecorche-3-course-main-4.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "97dfd0a2d1c9c584007c53a3c5a5d0449274b12a707b3761173787777f8a6acc",
-   "taille": 112042
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "f57a88c2cf6c9ae7274d562c4f617466b3c7570c50597299e48e1c67f2e5664d",
+   "taille": 180128
   },
   "hr-ecorche-3-course-main-5.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "ffcb7f2bef834fe8119ff2b2adfd567e14db243026f9901f0dccb3e5577b6c6b",
-   "taille": 114698
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "683f5f9f672111e04f48d09d64a57adbb41eca1e29e4e70a74a69ecff9aea407",
+   "taille": 215253
   },
   "hr-ecorche-3-course-main-6.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "e06219f8468003b55e278fe9aeb182ddd3617b285ff18f0a8b583faa5f8d573a",
-   "taille": 119206
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "9cfc703f028e1e5317b6b6295d07ff63fd73d0f6023269a700d5742e3423632b",
+   "taille": 261206
   },
   "hr-ecorche-3-course-main-7.png": {
-   "hauteur": 148,
-   "largeur": 1424,
-   "sha256": "a609522ef82431b0bff46a00b158ea748fc14934b71c63654dcca16d4d9c7d6e",
-   "taille": 128926
+   "hauteur": 568,
+   "largeur": 1104,
+   "sha256": "0b5561ce28e46b1ee2cb980e35d1297e5d4f761ea96785a43403f02f8f1d11ff",
+   "taille": 297332
   },
   "hr-ecorche-3-course-shadow-0.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "07514024c19991e5ed628ad8bebc677924a507b1e39ee37d0b413aa0c482d98f",
-   "taille": 14093
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "58fef132dd68067d8a5614d205b1f71cec806db03120bd65ba808b9a60b3bd02",
+   "taille": 27906
   },
   "hr-ecorche-3-course-shadow-1.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "3e6ed9b13df076982549e8c72706baa6dae0706a20e0cb6b3ee519e7c19bdbbd",
-   "taille": 13211
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "3b6d63ae44ea988c3649abd84205c960171bf557eb0682e4f9006558e6b3a8d9",
+   "taille": 27656
   },
   "hr-ecorche-3-course-shadow-2.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "d3b6b138c9ba3b27b2cb208a209e54650f9941753c4134646d22afcc3ca19bb3",
-   "taille": 12823
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "53031bf2cc244098395603562eee5dabdb6c7a217cd7d49755d998da07ddb224",
+   "taille": 27885
   },
   "hr-ecorche-3-course-shadow-3.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "d0b8b11638397e0a8549167f90f6fd836a3b4a1f2fa74c760cb0ea40a691b9cf",
-   "taille": 13116
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "9a539fb18a8d02ee73cd8e4b03cb4582b692c0f26e5dd0e9618470043df27510",
+   "taille": 27474
   },
   "hr-ecorche-3-course-shadow-4.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "75128c13e134f08be4427571b31af19fe1b1f25ccd497682fbbaa875bc02b3f9",
-   "taille": 14291
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "da9257a7bfc7fa13f174856e71665c23ad8af882bb8a0e0c0705254b62c6cd15",
+   "taille": 27922
   },
   "hr-ecorche-3-course-shadow-5.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "623943b672dbc3cac5301a6efd6adbf553ab4e62e4f3b87655f4dafa15c5adcd",
-   "taille": 13391
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "4a1be75ff0d14dd43e7a01115213198d29aebc23f17c4b54c706c0a222a72dc3",
+   "taille": 23784
   },
   "hr-ecorche-3-course-shadow-6.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "1997f61323449488bf3b9d35d2e9b69618de83a0ca960e1d40cc48cd2a9d3f22",
-   "taille": 14081
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "53cb2992c78c33a3a2243aea1bc9829de112b90a318e231c826e7af1b3e32a06",
+   "taille": 22222
   },
   "hr-ecorche-3-course-shadow-7.png": {
-   "hauteur": 126,
-   "largeur": 1600,
-   "sha256": "cbc4cd1f66e75faa60fe06e4b234f27a91ca7fd19a9335ae9b7bd11cc8f743eb",
-   "taille": 13357
+   "hauteur": 392,
+   "largeur": 1504,
+   "sha256": "37f6d8c10ff6cae6bcf778d3a0314baa9aba8a53b8784bc81637625cf10af66e",
+   "taille": 23694
   },
   "hr-ecorcheur-attaque-glow-0.png": {
    "hauteur": 932,
@@ -7799,20 +7799,20 @@
   "icone-ecorche-1.png": {
    "hauteur": 64,
    "largeur": 64,
-   "sha256": "b18e35a80bea18a45d3fa088734d37dcf41e10bb7945da6056bf6f5cbd5ce3b7",
-   "taille": 5245
+   "sha256": "7b50725efa6f95eb0a17dfd6e73eebeb6cea81bd610d3ee22a2cc539aaa8effd",
+   "taille": 3285
   },
   "icone-ecorche-2.png": {
    "hauteur": 64,
    "largeur": 64,
-   "sha256": "cfcb849a071f8b54c250f76264ae32cf3ad93ae1fad90ee67f082ec0c0250ad6",
-   "taille": 5033
+   "sha256": "d01526eec8048aca6633eb9d914ef037465cd4a87ec0cd6fc46eba78b8c456cc",
+   "taille": 4820
   },
   "icone-ecorche-3.png": {
    "hauteur": 64,
    "largeur": 64,
-   "sha256": "0e3c0164da232b90fba830ce243a71e98529f45f282e9c6be4afbbf3ea468536",
-   "taille": 3977
+   "sha256": "fb32cd8f71a9fb7ec77312a97f0eebc455d25dbe26915057efaa0904bc7f30e2",
+   "taille": 3943
   },
   "icone-ecorcheur.png": {
    "hauteur": 64,
@@ -13379,9 +13379,9 @@
  },
  "poids_mpx": {
   "ecorche": {
-   "haute": 8.69,
+   "haute": 20.53,
    "images": 288,
-   "normale": 2.17
+   "normale": 5.13
   },
   "ecorcheur": {
    "haute": 35.99,
