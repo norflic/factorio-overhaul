@@ -504,10 +504,11 @@ local function pass(f, tick)
   local km = f.ai3f and f.ai3f.m
   -- Menaces candidates au nettoyage (vues par l'équipe), regroupées ; « a tué » : une mort de l'heure à 48 tuiles.
   local cand = {}
+  local outpost_ids = State.sorted_keys(f.outposts or {}) -- sprint 40 (défense, p5) : triés UNE fois par passage (avant : une fois par menace lointaine, puis encore plus bas)
   for _, th in ipairs(t.map.threats) do
     local ok = d2(th, f.hq_pos) <= SD.THREAT_HQ * SD.THREAT_HQ
     if not ok then
-      for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+      for _, oid in ipairs(outpost_ids) do
         local o = f.outposts[oid]
         if d2(th, o.access or o.pos) <= SD.THREAT_OUTPOST * SD.THREAT_OUTPOST then ok = true break end
       end
@@ -655,7 +656,7 @@ local function pass(f, tick)
   end
   -- Avant-postes marqués (menace ou mort à moins de 48 tuiles) : 2 gardes chacun.
   local marked = {}
-  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+  for _, oid in ipairs(outpost_ids) do
     local o = f.outposts[oid]
     local p = o.access or o.pos
     local hot = D.deaths_near(t.map, { p }, 48, tick) > 0

@@ -48,5 +48,15 @@ do
     "votre équipe sans soldats : hq_threat à chaque période (réponse du QG et mise à l'abri)")
 end
 
+print("== p5 : avant-postes triés une fois par passage")
+do
+  local n = 0
+  for _ in SRC:gmatch("State%.sorted_keys%(f%.outposts or {}%)") do n = n + 1 end
+  check(n == 1, "un seul tri des avant-postes dans soldats.lua : " .. n)
+  local a = SRC:find("local outpost_ids = State.sorted_keys(f.outposts or {})", 1, true)
+  local b = SRC:find("for _, th in ipairs(t.map.threats) do", 1, true)
+  check(a ~= nil and b ~= nil and a < b, "tri fait avant la boucle des menaces")
+end
+
 print(string.format("[S40-DEFENSE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
