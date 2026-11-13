@@ -710,8 +710,8 @@ local function pass(f, tick)
       if o.role == "clear" and not sd.clearing then started_clear = o end
       ps.role, ps.key, ps.escort = o.role, o.key, o.aid
       -- Drapeau lu par le rappel du chef (military.lua) : seulement les rôles qui éloignent légitimement du QG.
-      local far_role = o.role == "escort" or o.role == "clear"
-        or (o.role == "guard" and d2(o, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ)
+      -- Sprint 40 (défense, p1) : défense et chasse LOINTAINES comprises (Re.far_role) : les défenseurs d'un site attaqué ne sont plus rappelés.
+      local far_role = Re.far_role(o.role, d2(o, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ)
       soldiers[s.id].ia3k = far_role and o.role or nil
     elseif ps.role then
       local was = ps.role
