@@ -58,5 +58,29 @@ do
   check(idle:find('agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1', 1, true) ~= nil, "p21 : idle : le retour au QG sans tâche reste")
 end
 
+---------------------------------------------------------------------------------------------------
+-- p22 : abort rend la réservation tout de suite
+---------------------------------------------------------------------------------------------------
+do
+  local txt = fn_text(WORKER, "local function abort(agent, f, tick, reason)")
+  check(txt ~= nil, "p22 : abort trouvé dans worker.lua")
+  local released, state = 0, nil
+  local env = {
+    Board = { release = function(_, ag) released = released + 1; ag.resa_id = nil end },
+    Build = { restore_reserved = function() end },
+    main_inv = function() return {} end,
+    set = function(_, st) state = st end,
+  }
+  local chunk = txt and load(txt .. "\nreturn abort", "abort", "t", env)
+  local abort = chunk and chunk() or function() end
+  local ag = { task = { key = "t" }, resa_id = 3, steps = { { "home" }, { "take", {} } }, pc = 1 }
+  abort(ag, {}, 10, "danger")
+  check(released == 1 and ag.resa_id == nil, "p22 : abort rend la réservation (Board.release) avant le retour")
+  check(ag.steps[1][1] == "home" and #ag.steps == 1 and ag.pc == 1 and ag.failed == true and state == "step" and ag.task.fail == "danger",
+    "p22 : abort : programme « rentrer », raison écrite, état « step » (inchangé)")
+  local ok2 = pcall(abort, { task = nil, steps = {} }, nil, 10, "x")
+  check(ok2 and released == 1, "p22 : abort sans équipe : aucun appel, aucune erreur")
+end
+
 print(string.format("\n[S40-OUVRIERS] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

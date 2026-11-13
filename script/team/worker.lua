@@ -1189,6 +1189,9 @@ local function abort(agent, f, tick, reason)
     Build.restore_reserved(f, t.ia1d.pid, t.items, main_inv(agent))
   end
   if agent.task then agent.task.fail = reason end
+  -- Sprint s40 (ouvriers p22) : le programme devient « rentrer » : plus aucune étape « take ». La réservation pas encore prise est rendue au
+  -- libre TOUT DE SUITE (avant : à finish, à l'arrivée au QG ; d'ici là Board.prenable refusait les tâches qui demandent cette matière).
+  if f then Board.release(f, agent) end
   agent.failed = true
   agent.steps = { { "home" } }
   agent.pc = 1
