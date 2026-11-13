@@ -71,6 +71,7 @@ local Build = {}
 Build.Sm = require("shared.team.sol_minerai")
 Build.Sm.type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
 -- lot DEFAUTS-REVELES : bloc principal à 200 locales (limite de Lua) ; modules lus en un seul endroit = champs de Build, pas des locales
+Build.Tournee = require("shared.team.tournee_pose") -- lot CHANTIERS-FANTOMES : tournées de pose (règle pure)
 Build.RevueObst = require("shared.team.revue_obstacles") -- lot AGEBLOCAGE : curseur de la revue des obstacles
 Build.Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 Build.Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
@@ -4217,6 +4218,8 @@ function Build.work(agent, f, tick)
             if blocked then
               left = left + 1
             elseif not Tokens.take(f, tick, cost) then
+              local g = agent.task and agent.task.gt -- lot CHANTIERS-FANTOMES : pensée arrêtée faute de jetons
+              if g then g.tok = (g.tok or 0) + 1; g.built = (g.built or 0) + did end
               return "more"
             elseif revive_one(surface, f, p, x, inv, tick, e) then
               did = did + 1
@@ -4232,8 +4235,10 @@ function Build.work(agent, f, tick)
       end
     end
     job.done = (job.done or 0) + did
+    local g = agent.task and agent.task.gt -- lot CHANTIERS-FANTOMES : pièces posées par la tâche
+    if g then g.built = (g.built or 0) + did end
     if did > 0 and left > 0 then return "more" end
-    if did > 0 then return "more" end -- une pensée de plus pour constater la fin
+    if did > 0 then return "done" end -- lot CHANTIERS-FANTOMES : rien de plus à portée avec le sac (left == 0) : fini sans une pensée de plus
     if (job.done or 0) == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 16 then
       return not_there(f, agent, job, pos, inv, tick, reach2, "fail")
     end
@@ -4396,37 +4401,91 @@ local function batch_tasks(f, p, out, free_of)
   local b = f.build
   local by = {}
   local order = {}
+  local started = {} -- lot FANTOMES : points d'appui entamés (une pièce déjà posée) : servis les premiers (Build.Tournee.allot)
   for _, e in ipairs(p.ents) do
-    if not e.built and e.item and (e.fails or 0) < Build.FAIL_LIMIT * 2 then
+    if e.built then
+      if e.anchor ~= nil then started[e.anchor] = true end
+    elseif e.item and (e.fails or 0) < Build.FAIL_LIMIT * 2 then
       local k = e.anchor
-      if not by[k] then by[k] = { items = {}, ax = e.ax, ay = e.ay, n = 0, poles = 0, main = {} }; order[#order + 1] = k end
+      if not by[k] then by[k] = { k = k, ax = e.ax, ay = e.ay, pieces = {} }; order[#order + 1] = k end
       local bt = by[k]
-      bump(bt.items, e.item)
-      bt.main[#bt.main + 1] = e.item -- relecture REBUILD-RAPIDE : objets qui posent les pièces du lot (Rr.batch_ready)
-      if e.name == "burner-inserter" then bump(bt.items, "coal", 2) end
-      if e.subst then bump(bt.items, T.fuel, Rr.SUBST_FUEL) end -- lot REBUILD-RAPIDE (d) : combustible porté avec la foreuse de secours
-      if e.charge then bump(bt.items, e.charge.item, e.charge.count) end -- lot CHAMP : charge portée avec le coffre de combustible
-      bt.n = bt.n + 1
+      local extra = {} -- objets portés avec la pièce
+      if e.name == "burner-inserter" then extra[#extra + 1] = { "coal", 2 } end
+      if e.subst then extra[#extra + 1] = { T.fuel, Rr.SUBST_FUEL } end -- lot REBUILD-RAPIDE (d) : combustible porté avec la foreuse de secours
+      if e.charge then extra[#extra + 1] = { e.charge.item, e.charge.count } end -- lot CHAMP : charge portée avec le coffre de combustible
+      bt.pieces[#bt.pieces + 1] = { item = e.item, extra = extra }
     end
   end
+  if #order == 0 then return end
   table.sort(order)
-  -- Relecture REBUILD-RAPIDE : un projet ROUVERT entre en chantier sans toute sa matière (Rr.partial_go) ; un lot dont AUCUN objet n'est au
-  -- coffre (réserve du projet + stock libre, comme Build.take_reserved) n'est pas mis au tableau : le PNJ irait au coffre pour rien, à la
-  -- priorité de la reconstruction. Il y revient dès que la matière arrive (pensée suivante) ; le manque reste dit par p.missing.
-  local free = (Rr.partial_go(p) or p.progressif) and free_of and free_of() or nil -- (p.progressif : bande neuve partie sans toute sa matière, lot EXPANSION-LOINTAINE)
-  local function have(it) return (p.stock[it] or 0) + (free[it] or 0) end
-  for _, k in ipairs(order) do
-    local bt = by[k]
-    local items = {}
-    for _, it in ipairs(sorted_keys(bt.items)) do items[#items + 1] = { it, bt.items[it] } end
-    -- rien au coffre pour ce lot : pas de voyage (le manque est au journal [FO-REBUILD-ETAT] et dans p.missing)
-    if not free or Rr.batch_ready(bt.main, have) then
-      out[#out + 1] = {
-        -- lot REBUILD-RAPIDE (b) : un projet ROUVERT passe à son rang (alimentation 88, production principale 87 ; le reste inchangé)
-        key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = Rr.project_prio(p, finish_prio(p.prio)), domain = p.domain, work = 15 + 2 * bt.n,
-        items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay },
-      }
+  -- Lot CHANTIERS-FANTOMES : points d'appui déjà servis par une tâche de pose du tableau (libre ou prise) : pas repris dans une autre tournée
+  -- (deux PNJ sur la même pièce). Ils reviennent quand la tâche finit ou échoue.
+  -- Lot FANTOMES : objets PROMIS à ces tâches tant que leur PNJ n'a pas pris (t.took, script/team/worker.lua take_res) : ils sont encore dans
+  -- la réserve du projet mais ne sont plus à donner.
+  local held, promised = {}, {}
+  for _, t in pairs(Board.get(f).tasks) do -- (ensemble et sommes seulement : l'ordre de pairs n'entre dans aucune décision)
+    local j = t.ia1d
+    if j and j.mode == "build" and j.pid == p.id then
+      if j.tour then for _, a in ipairs(j.tour) do held[a.anchor] = true end
+      elseif j.anchor then held[j.anchor] = true end
+      if not t.took then
+        for _, it in ipairs(t.items or {}) do promised[it[1]] = (promised[it[1]] or 0) + it[2] end
+      end
     end
+  end
+  -- Lot FANTOMES : matière comptée d'un point d'appui au suivant (shared/team/tournee_pose.lua, Tp.allot). Avant, chaque point d'appui voyait
+  -- TOUTE la réserve du projet (Rr.batch_ready) et demandait son besoin entier : la même matière promise à toutes les tâches, PNJ au coffre
+  -- pour rien (échec « stock », 188 tâches sans pose sur 1 430, [FO-GHOST-BILAN]). Disponible = réserve du projet + stock libre (complément
+  -- de Build.take_reserved, lu une fois par pensée et décompté d'un projet au suivant) - objets promis.
+  local free = free_of and free_of() or {}
+  local function left_of(it) return (p.stock[it] or 0) + (free[it] or 0) - (promised[it] or 0) end
+  local list = {}
+  for _, k in ipairs(order) do
+    if not held[k] then
+      local bt = by[k]
+      list[#list + 1] = { k = k, started = started[k] or false, pieces = bt.pieces, ax = bt.ax, ay = bt.ay }
+    end
+  end
+  local allot, taken = Build.Tournee.allot(list, left_of)
+  for _, it in ipairs(sorted_keys(taken)) do -- part prise au stock libre : plus à donner au projet suivant de cette pensée
+    local over = taken[it] - math.max(0, (p.stock[it] or 0) - (promised[it] or 0))
+    if over > 0 and free[it] then free[it] = math.max(0, free[it] - over) end
+  end
+  local cand = {}
+  for _, c in ipairs(allot) do
+    local a = list[c.i]
+    local its = {}
+    for _, it in ipairs(c.items) do its[#its + 1] = it[1] end
+    cand[#cand + 1] = { k = c.k, x = a.ax, y = a.ay, n = c.n, items = c.items, its = its }
+  end
+  if #cand == 0 then return end
+  -- Lot CHANTIERS-FANTOMES : une tâche = une TOURNÉE de points d'appui voisins (shared/team/tournee_pose.lua) ; avant, un point d'appui par
+  -- voyage (1,3 à 7 pièces, 76 % du temps à marcher, journal [FO-GHOST-BILAN]).
+  local protos = game and game.item_prototypes
+  local function stack(nm)
+    local pr = protos and protos[nm]
+    return pr and pr.stack_size or 1
+  end
+  for _, tour in ipairs(Build.Tournee.group(cand, f.hq_pos or { x = b.lat.ox, y = b.lat.oy }, stack)) do
+    local first = cand[tour[1]]
+    local sum, names, n, list = {}, {}, 0, {}
+    for _, i in ipairs(tour) do
+      local c = cand[i]
+      n = n + c.n
+      list[#list + 1] = { anchor = c.k, ax = c.x, ay = c.y, its = c.its }
+      for _, it in ipairs(c.items) do
+        if not sum[it[1]] then sum[it[1]] = 0; names[#names + 1] = it[1] end
+        sum[it[1]] = sum[it[1]] + it[2]
+      end
+    end
+    table.sort(names)
+    local items = {}
+    for _, nm in ipairs(names) do items[#items + 1] = { nm, sum[nm] } end
+    out[#out + 1] = {
+      -- lot REBUILD-RAPIDE (b) : un projet ROUVERT passe à son rang (alimentation 88, production principale 87 ; le reste inchangé)
+      key = "ia1d:" .. p.id .. ":b:" .. first.k, kind = "ghost", prio = Rr.project_prio(p, finish_prio(p.prio)), domain = p.domain, work = 15 + 2 * n,
+      items = items, ia1d = { pid = p.id, mode = "build", anchor = first.k, ax = first.x, ay = first.y, n = n, tour = list },
+    }
   end
 end
 
