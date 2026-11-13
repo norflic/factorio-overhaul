@@ -4330,16 +4330,24 @@ function Build.work(agent, f, tick)
     -- Lot PETROLE 2 : les autres sorties du MÊME projet, à portée de la première, se vident dans le même voyage (moteur réel,
     -- etape1-guide 1618033988 : la sortie du soufre, de clé plus petite, était toujours vidée la première, celle du plastique
     -- gardait 732 plaques et le pack chimique ne se fabriquait jamais).
-    for i, o2 in ipairs(p.spec and p.spec.site and p.outs or {}) do -- sites seulement (les autres projets gardent une sortie par voyage)
-      if i ~= job.idx and (o2.x - o.x) ^ 2 + (o2.y - o.y) ^ 2 <= 40 * 40 then
-        local c2 = out_chest(o2)
-        if c2 and c2.force.name == f.force then take(c2) end
+    -- s41 lots-massifs (constat du DC : micro-lots, une sortie par voyage) : la règle des sites vaut pour tout projet SANS borne keep_stock
+    -- (champ de fonderie : fer, cuivre) : les sorties voisines du même projet, même sous leur seuil, partent dans le même voyage (le sac
+    -- borne : inv.insert). Un bloc de mall (keep_stock : la barre doit arrêter la machine) garde une sortie par voyage. Règle pure C.sweep.
+    local site = (p.spec and p.spec.site) and true or false
+    local own = got
+    for _, i in ipairs(Build.Colr.sweep(p.outs, job.idx, site, p.keep_stock ~= nil)) do
+      local o2 = p.outs[i]
+      local c2 = out_chest(o2)
+      if c2 and c2.force.name == f.force then
+        local g0 = got
+        take(c2)
+        if not site then o2.collected = (o2.collected or 0) + (got - g0) end -- arrivées au tampon (rapatriement) : chaque coffre son compte
       end
     end
     b.stats.collected = b.stats.collected + got
     -- lot RAPATRIEMENT : voyages de collecte terminés (critère C2), par sortie (o.trips) et objets pris à ce coffre (o.collected, arrivées au tampon)
     b.stats.trips_collect = (b.stats.trips_collect or 0) + 1
-    o.trips, o.collected = (o.trips or 0) + 1, (o.collected or 0) + got
+    o.trips, o.collected = (o.trips or 0) + 1, (o.collected or 0) + (site and got or own)
     return "done"
   end
   return "fail"

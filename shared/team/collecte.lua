@@ -103,4 +103,18 @@ function C.take_list(items, skipped)
   return vital
 end
 
+--- s41 lots-massifs : sorties du MÊME projet vidées dans le voyage de la sortie `idx` (indices croissants, `idx` exclu), à C.SWEEP_R tuiles
+--- au plus de celle-ci. `site` : site de pétrole (règle d'origine, lot PETROLE 2). Sinon : tout projet sans borne `keep` (keep_stock d'un
+--- bloc de mall : sa sortie doit pouvoir monter à sa barre, une seule sortie par voyage). Sortie sans position : ignorée.
+C.SWEEP_R = 40
+function C.sweep(outs, idx, site, keep)
+  local list = {}
+  local o = outs and outs[idx]
+  if not o or (keep and not site) then return list end
+  for i, o2 in ipairs(outs) do
+    if i ~= idx and o2.x and o2.y and (o2.x - o.x) ^ 2 + (o2.y - o.y) ^ 2 <= C.SWEEP_R * C.SWEEP_R then list[#list + 1] = i end
+  end
+  return list
+end
+
 return C
