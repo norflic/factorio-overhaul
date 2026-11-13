@@ -275,5 +275,25 @@ do
   check(k0 ~= nil and k0 == k1 and s0 == s1, "p46 : frontière fournie = même cible, même note")
 end
 
+-- Sprint 40 (p47) : l'exclusion (possiblement calculée à la demande) n'est lue que pour les secteurs à portée ; même cible.
+do
+  local m = K.new()
+  for sy = -2, 2 do for sx = -2, 2 do K.record(m, key(sx, sy), 0, {}) end end
+  local hq = { x = 32, y = 32 }
+  local ref = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 } })
+  local function lazy(banned)
+    local n = { reads = 0 }
+    return setmetatable({}, { __index = function(_, k) n.reads = n.reads + 1; if k == banned then return true end return nil end }), n
+  end
+  local e1, n1 = lazy(ref)
+  local k_all = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, exclude = e1 })
+  local plain = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, exclude = { [ref] = true } })
+  check(k_all ~= nil and k_all ~= ref and k_all == plain, "p47 : exclusion calculée = même cible que l'exclusion en table")
+  check(n1.reads == #K.frontier(m), "p47 : toute la frontière à portée est lue (" .. n1.reads .. ")")
+  local e2, n2 = lazy(ref)
+  check(K.best_target(m, { hq = hq, me = hq, tick = 0, max_dist = 100, exclude = e2 }) == nil and n2.reads == 0,
+    "p47 : hors de portée, l'exclusion n'est jamais lue (" .. n2.reads .. ")")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

@@ -465,10 +465,12 @@ function K.best_target(m, ctx)
   local spawn = ctx.spawn or { x = 0, y = 0 }
   -- Sprint 40 (p46) : ctx.frontier = frontière déjà calculée par l'appelant pour CETTE carte inchangée (essais successifs d'un même choix).
   for _, k in ipairs(ctx.frontier or K.frontier(m)) do
-    if not (ctx.exclude and ctx.exclude[k]) then
-      local cx, cy = A.center(A.xy(k))
-      local dh = math.sqrt((cx - ctx.hq.x) ^ 2 + (cy - ctx.hq.y) ^ 2)
-      if dh <= maxd then
+    -- Sprint 40 (p47) : la distance d'abord (deux multiplications), l'exclusion ensuite : `exclude` peut être une table calculée à la
+    -- demande (régions bloquées, nids vus, autres éclaireurs) ; lecture pure, donc même résultat, sans la payer hors de portée.
+    local cx, cy = A.center(A.xy(k))
+    local dh = math.sqrt((cx - ctx.hq.x) ^ 2 + (cy - ctx.hq.y) ^ 2)
+    if dh <= maxd then
+      if not (ctx.exclude and ctx.exclude[k]) then
         local risk = K.sector_risk(m, k, ctx.tick, ctx.rivals)
         if risk < K.DANGER.skip then
           local me = ctx.me or ctx.hq

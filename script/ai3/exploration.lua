@@ -549,21 +549,23 @@ local function make_exclude(k, tick, ex, no_blocked)
     end
   end
   local badt = k.badt or {}
+  -- Sprint 40 (p47) : rayon et durée des régions bloquées lus UNE fois (ils ne dépendent que de #k.blocked, fixe pendant ce choix),
+  -- et un seul centre par clé (il était recalculé pour les autres éclaireurs).
+  local use_blocked = not no_blocked and k.blocked ~= nil and #k.blocked > 0
+  local br, bttl
+  if use_blocked then br, bttl = block_params(k) end
   return setmetatable({}, { __index = function(_, key)
     if ex and ex.bad[key] then return true end
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
     local bx, by = K.center(K.xy(key))
-    if not no_blocked and k.blocked and #k.blocked > 0 and K.blocked_near(k.blocked, bx, by, tick, block_params(k)) then return true end
+    if use_blocked and K.blocked_near(k.blocked, bx, by, tick, br, bttl) then return true end
     -- Lot EXPLO (moteur réel, 28/10 : votre équipe, 29 fuites sur 44 départs, 5 fois au même nid) : un secteur à portée de fuite
     -- d'un nid ou d'un ver VU est écarté (l'éclaireur y fuirait de toute façon à FLEE_RADIUS).
     local nests, worms = K.enemies_near(k.m, bx, by, FLEE_RADIUS)
     if nests + worms > 0 then return true end
-    if #others > 0 then
-      local cx, cy = K.center(K.xy(key))
-      for _, o in ipairs(others) do
-        if (cx - o.x) ^ 2 + (cy - o.y) ^ 2 < SPREAD * SPREAD then return true end
-      end
+    for _, o in ipairs(others) do
+      if (bx - o.x) ^ 2 + (by - o.y) ^ 2 < SPREAD * SPREAD then return true end
     end
     return nil
   end })
@@ -573,9 +575,10 @@ end
 --- K.best_target ne la viole que si toutes les autres cibles sont exclues (table locale, jamais rangée dans global).
 local function make_soft(k, tick)
   if not (k.blocked and #k.blocked > 0) then return nil end
+  local br, bttl = block_params(k) -- sprint 40 (p47) : lus une fois par choix
   return setmetatable({}, { __index = function(_, key)
     local bx, by = K.center(K.xy(key))
-    if K.blocked_near(k.blocked, bx, by, tick, block_params(k)) then return true end
+    if K.blocked_near(k.blocked, bx, by, tick, br, bttl) then return true end
     return nil
   end })
 end
