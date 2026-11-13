@@ -39,6 +39,7 @@ local Front = require("script.team.front")
 local Events = require("script.core.events")
 local C = require("script.ai3.comportement")
 local D = require("shared.ai3.danger")
+local Nn = require("shared.ai3.nids_nuage") -- lot S42-DEFENSE (6.3) : un nid que notre nuage atteint se denonce
 
 local Prev = {}
 
@@ -449,6 +450,32 @@ function Prev.think(f, tick, opts)
   if tp then best_turret = { dps = tp.dps * force_mult(force, T.turret, tp.cat), range = tp.range } end
   -- 2. Nids CONNUS de l'équipe (carte de connaissance et carte du danger ; jamais un nid jamais vu).
   local known = nests_of(f, sites, team_map)
+  -- 2 ter. Lot S42-DEFENSE (6.3) : nids SOUS NOTRE NUAGE (shared/ai3/nids_nuage.lua). Un site par releve (tour de role), au plus
+  -- Nn.MAX_NEW nids nouveaux : ils entrent dans la carte du danger comme le regard d'un PNJ (D.mark_seen), donc dans la prevision
+  -- (vague, alerte, recrutement) et dans le raid preventif existant. Factions seulement ; votre equipe garde ses yeux.
+  if Nn.ON and poll_on and not f.is_player and #sites > 0 then
+    st.nn_turn = (st.nn_turn or 0) + 1
+    local s = sites[Nn.site_index(st.nn_turn, #sites)]
+    local cands = {}
+    for _, e in ipairs(surface.find_entities_filtered({ position = { x = s.x, y = s.y }, radius = Pv.R_ATTR, type = "unit-spawner" })) do
+      if e.valid and e.force.name ~= f.force then
+        local p = e.position
+        cands[#cands + 1] = { x = p.x, y = p.y, p = surface.get_pollution(p) or 0 }
+      end
+    end
+    table.sort(cands, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
+    local fresh = Nn.pick(cands, sites, known, Pv.R_ATTR)
+    for _, n in ipairs(fresh) do D.mark_seen(team_map, n.x, n.y, "spawner", nil, tick) end
+    if #fresh > 0 then
+      known = nests_of(f, sites, team_map)
+      if st.logs < Prev.LOGS_MAX then
+        st.logs = st.logs + 1
+        log(string.format("[FO-NIDS-NUAGE] %s %.1f min : %d nid(s) sous notre nuage denonce(s) autour du site %s (%d releve(s) a %d tuiles ; le plus proche en (%d, %d) a %d tuiles d'un site, pollution %d) ; %d nid(s) connu(s)",
+          tostring(f.key or "?"), tick / 3600, #fresh, tostring(s.key or s.kind or "?"), #cands, Pv.R_ATTR,
+          math.floor(fresh[1].x), math.floor(fresh[1].y), math.floor(math.sqrt(fresh[1].dd)), math.floor(fresh[1].p), #known))
+      end
+    end
+  end
   -- 2 bis. Unités ennemies VUES à portée d'œil d'un site (biters seulement), chacune au site le plus proche.
   local units = {}
   local seen_ids = {}

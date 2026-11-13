@@ -640,7 +640,10 @@ end
 --- Lot PRIORITE-RESSOURCES : `production_first` (le fer ne paie pas la défense ET la production, shared/team/priorite.lua) :
 --- aucune part n'est prise pour la défense ni l'armée, tout le budget va à la production (« si on peut pas se l'acheter, on
 --- investit les ressources dans la production de plus de ressources ») ; elles reviennent dès que le fer paie les deux.
-function Ca.character(traits, weights, threat, production_first)
+--- Lot S42-DEFENSE : `def_share` (pour mille, nil : regle d'avant) est la part de la defense MESUREE sur les pertes recentes
+--- (shared/ai3/budget_defense.lua) : elle remplace la part du caractere (et son doublement sous menace) ; l'armee garde la sienne
+--- tant que le total tient sous Ca.SHARE_MAX, puis cede la place a la defense.
+function Ca.character(traits, weights, threat, production_first, def_share)
   local tr, w = traits or {}, weights or {}
   local amb = clamp(tr.ambition or 1000, 0, 2000)
   local agr = clamp(tr.agressivite or 1000, 0, 2000)
@@ -649,7 +652,10 @@ function Ca.character(traits, weights, threat, production_first)
   s = clamp(s, Ca.S_MIN, Ca.S_MAX)
   local delta = math.floor(Ca.D0 * pru / 1000 * (threat and 2 or 1) * (w.defense or 1000) / 1000)
   local alpha = math.floor(Ca.A0 * agr / 1000 * (w.armee or 1000) / 1000)
-  if delta + alpha > Ca.SHARE_MAX then
+  if type(def_share) == "number" and def_share == def_share then
+    delta = clamp(math.floor(def_share), 0, 1000)
+    if delta + alpha > Ca.SHARE_MAX then alpha = math.max(0, math.min(alpha, Ca.SHARE_MAX - delta)) end
+  elseif delta + alpha > Ca.SHARE_MAX then
     local k = Ca.SHARE_MAX / (delta + alpha)
     delta, alpha = math.floor(delta * k), math.floor(alpha * k)
   end
@@ -1245,7 +1251,7 @@ local function prepare(input, st)
     -- d'avant s'applique en entier).
     reserve = (not input.threat) and input.reserve or nil }
   Lv.prepare(ctx)
-  ctx.ch = Ca.character(input.traits, input.weights, ctx.threat, input.production_first)
+  ctx.ch = Ca.character(input.traits, input.weights, ctx.threat, input.production_first, input.def_share)
   local w = input.weights or {}
   ctx.w_cap = (w.capital or 1000) / 1000
   ctx.w_rech = (w.recherche or 1000) / 1000
