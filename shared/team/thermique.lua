@@ -60,6 +60,8 @@ M.CFG = {
   raw_stock_max = 3000,   -- lot THERMIQUE2 (essai 3, décision du lead) : stock libre d'un minerai BRUT au-delà duquel plus aucun brûleur n'est posé
   cover_by_output = true, -- lot THERMIQUE6 (essai 3) : couverture lue à la production de la bande (bloquée qui a produit, sortie pleine si elle produit)
   dry_wait = 10 * 3600,   -- lot THERMIQUE6, règle B : ticks à sec avant qu'un brûleur d'un gisement à bande finie soit retiré seul
+  sib_r = 64,             -- s42 thermiques : tuiles ; deux avant-postes du même minerai plus proches sont sur le même gisement (= Champ.SIB_R, script/team/champ.lua)
+  site_satisfaction = 1.0, -- s42 thermiques : part des électriques du site qui ont leur courant, exigée pour en poser une de plus (toutes : un réseau qui flanche ne reçoit pas de charge)
 }
 
 local EPS = 1e-9
@@ -171,6 +173,80 @@ end
 function M.stop_state(done, produced, retired)
   if (done or 0) > 0 or (produced or 0) > 0 or (retired or 0) > 0 then return "partiel" end
   return "abandon"
+end
+
+--- s41 thermiques (DC, partie de 3 h 30 ; boucle du lot ELAGAGE, E273 : paires balayées, reposées par l'agrandissement du même avant-poste,
+--- rebalayées, 25 balayages et 145 paires pour une équipe en 120 min) : un avant-poste dont le balayage a retiré des paires (`o.th_swept` :
+--- tick du premier retrait, écrit par l'exécutant) ne reçoit PLUS JAMAIS de paire thermique, quelle que soit la règle qui la demande
+--- (famine de la plaque clé, extraction effondrée, fin d'une attente). Rend vrai/faux.
+function M.pairs_closed(o)
+  return type(o) == "table" and o.th_swept ~= nil
+end
+
+--- s42 thermiques (DC, partie de 4 h 15 en 0.7.96 : 71 thermiques debout à 249 min sur 5 équipes) : l'électrique est-elle POSABLE pour
+--- l'équipe ? `s` = verdict de la règle électrique (script/team/electrique.lua, f.elec.v : obtainable, plants, poles). Sans verdict : oui
+--- (un gisement balayé avait une bande qui produisait). Non seulement quand le verdict le DIT : foreuse électrique pas obtenable, aucune
+--- centrale finie, aucun poteau obtenable (azure, 214,4 min : centrale perdue, avant-poste thermique bâti à 217,5 min : secours légitime).
+function M.electric_posable(s)
+  if type(s) ~= "table" then return true end
+  if s.obtainable == false then return false end
+  if type(s.plants) == "number" and s.plants < 1 then return false end
+  if s.poles == false then return false end
+  return true
+end
+
+--- Numéros triés d'une table { [numéro] = ... } (les clés d'une table ne décident jamais par leur ordre de parcours).
+function M.sorted_ids(t)
+  local ids = {}
+  for id in pairs(t or {}) do ids[#ids + 1] = id end
+  table.sort(ids, function(a, b)
+    if type(a) == type(b) then return a < b end
+    return tostring(a) < tostring(b)
+  end)
+  return ids
+end
+
+--- s42 thermiques, voie « avant-poste NEUF sur le gisement balayé » (Outposts.build ; le verrou s41 ne fermait que l'agrandissement du MÊME
+--- avant-poste) : le site `pos` du minerai `kind` est-il fermé aux paires ? Oui quand un avant-poste balayé (Th.pairs_closed) du même minerai
+--- est à moins de `cfg.sib_r` tuiles (même gisement : la convention du champ, Champ.SIB_R) ET que l'électrique est posable. `outposts` :
+--- LISTE (ordre de l'appelant, aucune décision n'en dépend : un « ou » sur tous). Rend vrai/faux, numéro de l'avant-poste balayé.
+function M.site_closed(kind, pos, outposts, elec, cfg)
+  cfg = cfg_of(cfg)
+  if type(pos) ~= "table" or type(outposts) ~= "table" then return false end
+  if not M.electric_posable(elec) then return false end
+  local r2 = cfg.sib_r * cfg.sib_r
+  for _, q in ipairs(outposts) do
+    if M.pairs_closed(q) and q.kind == kind and type(q.pos) == "table"
+      and (q.pos.x - pos.x) ^ 2 + (q.pos.y - pos.y) ^ 2 <= r2 then
+      return true, q.id
+    end
+  end
+  return false
+end
+
+--- s42 thermiques, CONDITION DE DÉCLENCHEMENT du remplacement d'une thermique (chantier 2.5 du DC : « dès que le réseau électrique et le
+--- stock de fer sont stables, on les remplace toutes, sans transition à vide »). UNE foreuse à la fois. Entrées (nombres lus par l'exécutant) :
+---   c.powered       le réseau du poteau qui alimentera l'électrique produit (vrai/faux)
+---   c.electric, c.starved   foreuses électriques déjà sur le site, et celles qui manquent de courant (statut du moteur) : satisfaction
+---                   mesurée du site = (electric - starved) / electric ; aucun consommateur sur le site : celle du réseau (`powered`)
+---   c.stock         foreuses électriques au stock ; c.el_rate, c.th_rate : cadence d'une électrique, d'une thermique (même unité)
+---   c.removed       thermiques retirées par CE remplacement (1 + les voisines de l'échange) ; défaut 1
+---   c.pose_first    l'électrique tient à côté de la thermique en déposant sur la MÊME tuile de sortie (vrai/faux)
+--- Rend go (vrai/faux), mode (« poser-d-abord » | « retirer-puis-poser », dans le même passage), raison, électriques à poser (toujours 1).
+--- Débit : l'électrique posée extrait AU MOINS ce que les thermiques retirées extrayaient (el_rate >= removed × th_rate) et son objet est
+--- au stock : jamais de retrait à vide. Cadences absentes (non lues) : la comparaison est sautée, le stock reste exigé.
+function M.replace_one(c, cfg)
+  cfg = cfg_of(cfg)
+  c = c or {}
+  if c.powered ~= true then return false, nil, "reseau sans production", 0 end
+  local el, starved = tonumber(c.electric) or 0, tonumber(c.starved) or 0
+  local sat = el > 0 and (el - starved) / el or 1
+  if sat + EPS < cfg.site_satisfaction then return false, nil, "site sous-alimente", 0 end
+  if (tonumber(c.stock) or 0) < 1 then return false, nil, "pas d'electrique au stock", 0 end
+  local removed = math.max(1, tonumber(c.removed) or 1)
+  local er, tr = tonumber(c.el_rate), tonumber(c.th_rate)
+  if er and tr and er + EPS < removed * tr then return false, nil, "debit en baisse", 0 end
+  return true, c.pose_first == true and "poser-d-abord" or "retirer-puis-poser", "ok", 1
 end
 
 --- Le gisement est-il couvert par une bande électrique qui produit ? Rend (vrai/faux, raison).

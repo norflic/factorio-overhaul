@@ -49,6 +49,15 @@ local function facts(E)
   f.empty = C()
   local _, down = C({ active = 5, peak = 19, stalled = 1 * MIN })
   f.down_only = down
+  -- lot ELAGAGE : un retrait VOLONTAIRE (paires rendues au stock par la migration) n'est pas une perte : le pic baisse d'autant
+  -- (emerald, 271828182 : 20 paires balayées, « 16 actives pour un pic de 36 » : EFFONDREE, thermiques reposées, rebalayées 6 fois)
+  local pk, seen = E.peak_less(36, 20, 0)
+  f.vol_peak, f.vol_seen = pk, seen
+  f.vol_calm = C({ active = 16, peak = pk, stalled = 6 * MIN })
+  f.vol_once = (E.peak_less(pk, 20, seen))        -- le même cumul n'est retranché qu'une fois
+  f.vol_more = (E.peak_less(pk, 25, seen))        -- 5 de plus : 11
+  f.vol_floor = (E.peak_less(3, 9, 0))            -- jamais négatif
+  f.vol_nil = (E.peak_less(12, nil, nil))
   -- E.thermal : bascule en marche, 37 électriques ailleurs, 5 sur le fer
   local base = { obtainable = true, plants = 1, poles = true, healthy = true, el_live = 37, poles_stock = 20, res_live = 5 }
   local function th(over)
@@ -82,7 +91,13 @@ check(F0.permitted == true and F0.permitted_why, "effondrée et à l'arrêt : th
 check(F0.permitted_was == true and F0.refused_back == false, "permise tant que le débit n'est pas revenu à 80 % ; refusée de nouveau ensuite")
 check(F0.other_reason == true, "une autre raison de permettre (aucune centrale) reste vraie")
 
+check(F0.vol_peak == 16 and F0.vol_seen == 20 and F0.vol_calm == false, "retrait volontaire de 20 : pic 36 -> 16, 16 actives : pas effondrée")
+check(F0.vol_once == 16 and F0.vol_more == 11 and F0.vol_floor == 0 and F0.vol_nil == 12, "cumul retranché une seule fois, jamais négatif, absent : pic inchangé")
+
 local mutants = {
+  { "retrait volontaire non retranché", "return max(0, (num(peak) or 0) - d), max(s, r)", "return (num(peak) or 0), max(s, r)" },
+  { "cumul retranché à chaque pensée", "local d = max(0, r - s)", "local d = r" },
+  { "pic négatif", "return max(0, (num(peak) or 0) - d), max(s, r)", "return (num(peak) or 0) - d, max(s, r)" },
   { "entrée sans durée", "return down and (a.was == true or (num(a.stalled) or 0) >= cfg.stall), down", "return down, down" },
   { "toujours à l'arrêt", "return down and (a.was == true or (num(a.stalled) or 0) >= cfg.stall), down", "return down and (a.was == true or true), down" },
   { "sans hystérésis", "return down and (a.was == true or (num(a.stalled) or 0) >= cfg.stall), down", "return down and (num(a.stalled) or 0) >= cfg.stall, down" },

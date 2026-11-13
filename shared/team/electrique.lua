@@ -73,6 +73,15 @@ function E.collapsed(a, cfg)
   return down and (a.was == true or (num(a.stalled) or 0) >= cfg.stall), down
 end
 
+--- Lot ELAGAGE : pic après un retrait VOLONTAIRE. `retired` : cumul des foreuses thermiques que la migration a rendues au stock sur cette
+--- ressource ; `seen` : cumul déjà retranché. Ces foreuses ne sont pas perdues : sans cela un gisement balayé (20 paires, 16 électriques en
+--- marche) passait sous collapse_pct du pic, la thermique était de nouveau permise, les paires reposées puis rebalayées. Rend (pic, cumul vu).
+function E.peak_less(peak, retired, seen)
+  local r, s = num(retired) or 0, num(seen) or 0
+  local d = max(0, r - s)
+  return max(0, (num(peak) or 0) - d), max(s, r)
+end
+
 function E.thermal(s, cfg)
   cfg = cfg_of(cfg)
   s = s or {}

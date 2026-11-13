@@ -30,6 +30,7 @@ local P = require("shared.team.plan") -- lot FOREUSES-THERMIQUES : chaine de pot
 local Sante = require("script.team.sante_centrale") -- lot FOREUSES-THERMIQUES : puissance des chantiers (bilan d'energie existant)
 local Scheduler = require("script.core.scheduler") -- lot TRANCHES : suite d'une passe au tick suivant (minuterie)
 local Ra = require("script.team.reserve_amorcage") -- réserve d'amorçage du combustible (K lu aux DONNÉES ; partagée avec le champ)
+local Th = require("shared.team.thermique") -- s42 thermiques : avant-poste balayé hors du repli (Th.pairs_closed), condition de déclenchement (Th.replace_one)
 local Rt = require("shared.team.repli_thermique") -- partie C : repli thermique quand le réseau tombe (règle pure)
 local Profiler = require("script.core.profiler") -- mesure des tranches jouées par la minuterie (hors de la portée tt:foswap de la pensée)
 local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, sans la boucle de plans complets
@@ -167,6 +168,7 @@ local function survey_step(f, surface, pass, budget)
   -- Lu une fois par appel, au premier poteau : rien ne change pendant un appel (comme exec_step, `pset`) ; même ensemble.
   local pset
   pass.burners = pass.burners or {} -- (réserve d'amorçage ; une passe gardée dans global par une version d'avant n'en a pas)
+  pass.site = pass.site or {} -- s42 thermiques : { [avant-poste] = { el, starved } } (idem : passe d'une version d'avant)
   local retry = (f.swap and f.swap.retry) or {}
   while pass.oi <= #pass.oids do
     local oid = pass.oids[pass.oi]
@@ -188,6 +190,15 @@ local function survey_step(f, surface, pass, budget)
         pass.di = i + 1
         used = used + 1
         if fuel and d.valid and d.name == T.DRILL then pass.burners[oid] = (pass.burners[oid] or 0) + 1 end
+        -- s42 thermiques : satisfaction du site lue AU RELEVÉ (électriques de l'avant-poste, et celles en manque de courant) : une
+        -- électrique posée par cette passe n'a pas encore de statut (bloc et tranches décident pareil)
+        if d.valid and not d.burner then
+          local site = pass.site[oid] or { el = 0, starved = 0 }
+          pass.site[oid] = site
+          site.el = site.el + 1
+          local status = d.status
+          if (status == defines.entity_status.no_power or status == defines.entity_status.low_power) and d.active ~= false then site.starved = site.starved + 1 end
+        end
         if d.valid and d.name == T.DRILL and d.unit_number and not pass.refs[d.unit_number] then
           local pos = d.position
           local key = pos.x .. ":" .. pos.y
@@ -741,6 +752,23 @@ local function exec_step(f, surface, pass)
       return Swap.EXEC_COST
     end
   end
+  -- s42 thermiques (chantier 2.5 du DC) : condition de déclenchement en règle pure (Th.replace_one), lue juste avant le
+  -- retrait : réseau qui produit, aucune électrique du site en manque de courant (satisfaction mesurée au statut, au relevé), objet électrique au
+  -- stock, débit posé >= débit retiré (cadences des prototypes ; l'échange retire 1 + N thermiques pour UNE électrique). Une à la fois :
+  -- Se.swap retire puis pose dans le même passage, l'ancienne est reposée si la pose échoue (swap_one).
+  do
+    local site = (pass.site or {})[ref.o.id] or { el = 0, starved = 0 }
+    local el, starved = site.el, site.starved
+    local elp, thp = game.entity_prototypes[T.DRILL_ELECTRIC], game.entity_prototypes[T.DRILL]
+    local go, _, why = Th.replace_one({ powered = not (r.source and r.source.powered == false), electric = el, starved = starved,
+      stock = Stock.count(f, T.DRILL_ELECTRIC), el_rate = elp and elp.mining_speed, th_rate = thp and thp.mining_speed,
+      removed = 1 + ((r.exchange and r.exchange.drills) and #r.exchange.drills or 0) })
+    if not go then
+      count(st, why)
+      if why ~= "pas d'electrique au stock" then st.retry[ref.key] = t0 + Swap.RETRY end
+      return Swap.EXEC_COST
+    end
+  end
   local placed_n = #(r.poles or {})
   local prep
   local undo
@@ -1065,7 +1093,9 @@ function Swap.repli(f, surface, book, free, tick)
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
     local electric, dark = 0, {}
-    if o.migr == nil then -- (un champ en migration a les rangées du plan directeur : hors du remplacement sur place)
+    -- s42 thermiques : ni un avant-poste BALAYÉ (Th.pairs_closed) : l'électrique rendue thermique y serait balayée à la pensée suivante
+    -- (gisement couvert), puis l'extraction lue en baisse : boucle repli / balayage. L'électrique sans courant y attend le retour du réseau.
+    if o.migr == nil and not Th.pairs_closed(o) then -- (un champ en migration a les rangées du plan directeur : hors du remplacement sur place)
       for _, d in ipairs(o.drill_list or {}) do
         if d.valid and not d.burner then
           electric = electric + 1
