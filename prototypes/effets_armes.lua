@@ -474,20 +474,17 @@ do
       return false
     end
     assert(cree(orbe.action, ni, {}) and not cree(orbe.action, "big-explosion", {}), "effets_armes : impact du Méga-Bourdon non branché")
-    -- s43 MEGA-BOURDON (ordre du DC du 13/11) : explosions EN ANNEAU sur toute la zone (B.anneaux du rayon de l'arme) : copies de la
-    -- massive-explosion vanilla agrandies (B.MEGA.ANNEAU_ECHELLE), durée × DUREE_X, sans particules
-    -- ni son (UPS : un seul son, celui de l'impact central)
-    local src = assert(data.raw.explosion["massive-explosion"], "effets_armes : massive-explosion absente")
-    local an = table.deepcopy(src)
-    an.name, an.localised_name = Bm.MEGA.ANNEAU, { "entity-name." .. Bm.MEGA.NOM }
-    an.created_effect, an.sound = nil, nil
-    an.animations = K.variations(an.animations)
-    for _, a in ipairs(an.animations) do
-      K.agrandir(a, Bm.MEGA.ANNEAU_ECHELLE)   -- couleurs vanilla : teinte cyan, le feu virait au noir (captures s43 du 13/11)
-      K.duree(a, base.impact.duree * Bm.MEGA.DUREE_X)
-    end
-    out[#out + 1] = an
+    -- s43 MEGA-BOURDON (ordre du DC du 13/11) : explosions EN ANNEAU sur toute la zone (B.anneaux du rayon de l'arme) ; tranche 2 :
+    -- éclair (feuille « eclat ») et onde de choc (feuille « onde ») lumineux, teints de la lueur de l'orbe, additifs, de diamètre
+    -- B.MEGA.ANNEAU_PART × le rayon, durée de l'impact × DUREE_X ; sans particules, ni son, ni lumière moteur (UPS)
     local rayon = A.age_turret(Bm.MEGA.ARME_AGE).plasma.radius * Bm.MEGA.RAYON_X
+    local d_an, t_an = Bm.MEGA.ANNEAU_PART * rayon, base.impact.duree * Bm.MEGA.DUREE_X
+    local an = {
+      type = "explosion", name = Bm.MEGA.ANNEAU, flags = { "not-on-map", "hidden" }, subgroup = "explosions",
+      localised_name = { "entity-name." .. Bm.MEGA.NOM }, rotate = false,
+      animations = { { layers = { feuille_anim("onde", c, d_an, t_an), feuille_anim("eclat", c, 0.6 * d_an, t_an) } } },
+    }
+    out[#out + 1] = an
     ajoute_cible(orbe.action, { type = "create-entity", entity_name = an.name, offsets = Bm.anneaux(rayon) })
     nb = nb + 1
   end

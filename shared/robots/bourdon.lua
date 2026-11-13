@@ -433,10 +433,12 @@ B.MEGA = {
   -- dégâts bruts : DEGATS_X × la zone et le coup direct « au plus juste » (B.arme_mega : tuer d'un coup la plus forte unité d'essaim)
   DEGATS_X = 10,
   -- effets : durées de l'impact et des ondes × DUREE_X (bornes des armes de même) ; ANNEAUX d'explosions (part du rayon, nombre)
-  -- autour de l'impact, copies de la massive-explosion vanilla agrandies de ANNEAU_ECHELLE, sans particules ni son (UPS)
+  -- autour de l'impact : éclair et onde de choc lumineux du mod (feuilles « eclat » et « onde », teinte de l'orbe, additifs), de
+  -- diamètre ANNEAU_PART × le rayon, sans particules, ni son, ni lumière moteur (UPS) ; tranche 2 : la massive-explosion vanilla
+  -- finissait en fumées sombres (captures du 13/11)
   DUREE_X = 2,
   ANNEAUX = { { 0.3, 8 }, { 0.6, 12 }, { 0.9, 16 } },
-  ANNEAU_ECHELLE = 2.5,
+  ANNEAU_PART = 0.25,
   ANNEAU = "fo-mega-bourdon-anneau",
   -- marge de précision : le moteur calcule dégâts et résistances en simple précision (24 bits de mantisse, 2^-24 perdu par opération) ;
   -- un tir « au plus juste » laissait la plus forte à une fraction de PV (banc megabourdon-vitrine du 11/11 : 8 des 9 survivent au
