@@ -10,6 +10,21 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-13, 18 h 10 : version 0.7.95 (sprint de 40 min : audit de 50 points, 45 intégrés, aucun banc en jeu)
+
+Audit dans `AUDIT_50_POINTS_SPRINT.md` (10 agents, 5 points chacun, constats lus dans le code). Validation : tests unitaires et contrôle de chargement seulement. **Aucun effet en jeu n'est mesuré** ; le panel de 4 graines à 120 min reste à faire avant de juger.
+
+- **F607 · FAIT · [0.7.95]** Pile (decision efcd26cc) : deux fabrications « extraction de la plaque clé » payaient la même matière (17 fers pris sur un coffre de 9, reproduit hors jeu). Aussi : `P.want` et `craft()` planifient moins (51a8d0ea, 3f36ef72), refus de recherche daté (8fe7030a), `reach_of` lu une fois (c494601b).
+- **F608 · FAIT · [0.7.95]** Ouvriers (7c9917e7, be819a4d, 155e66d5, 94665663, ece4b2b8) : pas de jeton pris sans tâche libre (`Board.any_free`), réservation rendue à l'abandon, point d'appui raté écarté sans fermer la tournée, tuile de minage rendue au refus, fin de tâche d'un PNJ disparu par `Poles.task_done`.
+- **F609 · FAIT · [0.7.95]** Mall et piquage (02880b7e, 484cfb48, 6dba94e0, e0284731, 82ee2a88) : dernière section vivante lue, quais dus les plus anciens d'abord, purge des tables par quai, sources lues une fois par relevé, branche coupée qui revit quand le répartiteur est en place.
+- **F610 · FAIT · [0.7.95]** Routage (8780fc56, ef4aae8f, 04acb8fe, 8b6e43bf, 1ba87da1) : pointe bouchée défaite tout de suite, cases des tronçons défaits non interdites, bout faux passé au suivant, pas de détour cherché quand « aucun chemin » est prouvé, caches vidés aux refus précoces. Mutants de `troncons_test` non relancés après ef4aae8f.
+- **F611 · FAIT · [0.7.95]** Résilience (fc0da6a5, 854500dc, 0b359ce2, dd95d311, 2d9f0765, 78597048) : `q.poles_reopened` remis à zéro, réparations non bloquées par la pièce sous le feu, tâches « rebuild » ouvertes non recomptées, remplaçant non détruit si son objet ne rentre pas au coffre, machine adoptée ramassée retirée des listes.
+- **F612 · FAIT · [0.7.95]** Défense (c2ed44af, 7fff2bf8, 19e05cba, 19b19f24) : drapeau `ia3k` posé sur les soldats envoyés loin (ils étaient rappelés par le chef), rôle de chasse levé à la fusion d'une alerte de site, gestionnaire de 120 ticks en double retiré, avant-postes triés une fois. Aucune cause établie pour le QG d'amber perdu sur 314159265.
+- **F613 · FAIT · [0.7.95]** Champ (f4597303, cc298006, b3f0de97) : bandes écartées relues après `CFG.revive` si une bande a produit, purge de `f.swap.retry`, `Champ.report` cherche chaque pièce une fois. Capitalisation (9e0787ba, 2fdfd8d6, 92b73c6a) : kW refusés par `Ca.share_kw` comptés par `Ca.blocked_kw`, blocs morts et refus disparus du mall purgés.
+- **F614 · FAIT · [0.7.95]** Coût du script (ups-team f19e89c7 à adb5f47b ; ups-ai3, tête 066938c8) : `Team.view`, `idle_count`, `defend_turrets`, `Rt.named`, frontière et cible d'exploration, audit des avant-postes ; journal `[FO-IA3F]` corrigé. Gain non mesuré.
+
+- **E280 · OUVERT** Refus du plan qui ne ferme plus un champ portant des bandes (champ 10938dfb) : changement de comportement du pavage, non fusionné, à juger au banc. **E281 · OUVERT** `Capi.power_input` lit la puissance mesurée, des fours à l'arrêt comptent 0 kW (reinvest p17) : piste la plus directe pour la centrale qui sature, revient sur un choix du 7/11, non fait. **E282 · OUVERT** Ordre de défense réémis à chaque passage (defense p2) : non tenté sans banc.
+
 ## 2026-11-13, 16 h 45 : version 0.7.94 (sprint de 7 h : pose des ouvriers, collecte du champ, coût du script)
 
 - **F602 · FAIT · [0.7.94]** Chantiers « plan fantôme » (fantomes d83683c6, a9dbf73f, 4abcca94, 0e3006b0) : `batch_tasks` (`script/team/build.lua`) promettait toute la réserve du projet à chaque point d'appui ; le premier PNJ prenait la matière, les autres rentraient à vide (498 tâches sans pose sur 2 690, graine 123456789). Règle pure `Tp.allot` (`shared/team/tournee_pose.lua`) : matière donnée pièce par pièce, points d'appui entamés d'abord, tournées de plusieurs points. Pièces par trajet 4,4 → 21,2, temps en marche 79 % → 60 %, tâches sans pose 587 → 31. Panel 4 graines à 120 min : fer servi 693 779 → 699 328 (neutre). tournee_pose_test 31 OK, 9 mutants.

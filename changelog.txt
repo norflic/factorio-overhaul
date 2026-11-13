@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.95
+Date: 2026-11-13
+  Bugfixes:
+    - IA (F607) : deux fabrications de la pile ne paient plus la même matière.
+    - IA (F608) : un ouvrier inactif ne dépense plus de jeton quand aucune tâche n'est libre ; une tâche abandonnée rend sa réservation tout de suite.
+    - IA (F609) : une rangée du mall ne reste plus figée derrière une section refusée ; les quais du bus les plus anciens sont servis d'abord.
+    - IA (F610) : un tapis dont la pointe est bouchée ou dont un bout est faux essaie la solution suivante au lieu de refuser toute la liaison.
+    - IA (F611) : les poteaux perdus sont rouverts au-delà du 4e incident ; une pièce sous le feu ne bloque plus les autres réparations.
+    - IA (F612) : les soldats envoyés défendre un site éloigné ne sont plus rappelés aussitôt au QG.
+    - IA (F613) : les bandes de foreuses écartées sont relues quand le champ a produit depuis.
+  Changes:
+    - Performances (F614) : recherches et tris refaits à chaque pensée supprimés, tables jamais vidées purgées.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.94
 Date: 2026-11-13
   Bugfixes:
