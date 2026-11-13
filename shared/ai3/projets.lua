@@ -271,7 +271,8 @@ local function craft(E, proj, item, n, prio, tag)
   while left > 0 and E.crafts < P.MAX_CRAFTS do
     i = i + 1
     local k = math.min(per, left)
-    local q = E.book:plan({ { item, k } }, E.avail)
+    -- (s40 decision p3 : un seul morceau = la commande entière sur le même stock virtuel : le plan p0 qui a mesuré l'énergie EST ce plan)
+    local q = (chunks == 1 and i == 1) and p0 or E.book:plan({ { item, k } }, E.avail)
     E.avail = q.avail
     E.crafts = E.crafts + 1
     left = left - k
@@ -299,7 +300,9 @@ function P.want(E, proj, list, prio, fresh, tag)
       if E.book:handcraftable(item) then
         local saved = E.avail[item]
         if fresh then E.avail[item] = 0 end
-        local k = craftable_count(E.book, item, short, E.avail)
+        -- (s40 decision p2 : plafond de fabrications de la pensée atteint : rien ne partira, aucun plan à faire ici ; avant, jusqu'à 10 plans du
+        -- livre par objet, pour chaque projet suivant, rendaient toujours « 0 fabriqué »)
+        local k = E.crafts < P.MAX_CRAFTS and craftable_count(E.book, item, short, E.avail) or 0
         local made = k > 0 and craft(E, proj, item, k, prio, tag or "b") or 0
         if made < short then
           ok = false

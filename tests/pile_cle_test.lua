@@ -99,5 +99,35 @@ local function mutant(f)
 end
 local m1 = mutant(function(src) return (src:gsub("if it%[4%] then", "if false then")) end)
 check(m1 == 0, "mutant « la marque est ignorée » : retombe au défaut (" .. m1 .. ")")
+-- 4. (s40 decision p1) deux fabrications clés d'objets différents ne paient pas la même plaque : le fer pris par les tâches de la pile tient au coffre
+local ITEM2 = "iron-chest"
+local function think2(C3, B3, iron)
+  local stock = { [IRON] = iron, stone = 300, [T.fuel] = 400, ["copper-plate"] = 200 }
+  local st3 = C3.new_state(0)
+  st3.targets = { iron = 1, coal = 1, copper = 1, stone = 0 }
+  st3.iron2_set = true
+  local ctx = { tick = 0, is_player = true, weights = B3.weights({}, nil), reach = { [ORE] = 60, [T.fuel] = 60 },
+    pile = { repair = {
+      { key = "d1", item = ITEM, value = 3, prio = 75, have = 0, craftable = true, key_extraction = true },
+      { key = "d2", item = ITEM2, value = 3, prio = 75, have = 0, craftable = true, key_extraction = true },
+    } } }
+  local plan = C3.think(view({ stock = stock }), book, st3, ctx)
+  local iron_used, n = 0, 0
+  for _, t in ipairs(plan.tasks) do
+    if t.kind == "craft" and tostring(t.key):find(":pile:", 1, true) then
+      n = n + 1
+      for _, u in ipairs(t.uses or {}) do if u[1] == IRON then iron_used = iron_used + u[2] end end
+    end
+  end
+  return iron_used, n
+end
+local cost1 = book:raw_cost({ { ITEM, 1 } })[IRON] or 0
+local cost2 = book:raw_cost({ { ITEM2, 1 } })[IRON] or 0
+local tight = math.max(cost1, cost2) -- paie l'un des deux, jamais les deux
+check(cost1 > 0 and cost2 > 0, "les deux objets coûtent du fer (" .. cost1 .. " / " .. cost2 .. ")")
+local u_t, n_t = think2(C, B, tight)
+check(n_t >= 1 and u_t <= tight, "coffre à " .. tight .. " fer : les fabrications clés ne prennent pas plus que le coffre (" .. u_t .. " fer, " .. n_t .. " tâche(s))")
+local u_w, n_w = think2(C, B, cost1 + cost2)
+check(n_w == 2 and u_w == cost1 + cost2, "coffre à " .. (cost1 + cost2) .. " fer : les deux partent (" .. u_w .. " fer, " .. n_w .. " tâche(s))")
 print(string.format("[PILE-CLE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

@@ -614,7 +614,9 @@ local function research_step(f, st, book, w, tick, view)
   -- Avancement au temps des prototypes, packs consommés unité par unité.
   local cur = force.current_research
   if own and (not cur or cur.name ~= tech) then
-    if not force.add_research(tech) then return info end
+    -- (s40 decision p4 : recherche refusée : l'horloge du laboratoire est datée quand même ; avant, la sortie laissait lab.last en arrière et, à la
+    -- reprise, tout le temps du refus était compté comme du temps de laboratoire : unités et packs payés d'un coup)
+    if not force.add_research(tech) then lab.last = tick return info end
   end
   local dt = tick - (lab.last or tick)
   lab.last = tick
@@ -762,7 +764,7 @@ local function reach_of(f, st, tick, extra)
       -- l'ouvrier va au gisement connu et sûr le plus proche (Worker.far_mine, lot IA3-f), sinon il demande une
       -- exploration. Avant cette fusion, le rayon allait jusqu'à 250 tuiles sur la carte entière. Le crochet rend nil
       -- quand le brouillard est coupé (témoins) : lecture de la carte entière, comme avant.
-      local d = r > Ia3.REACH_SEEN and Ia3.known_deposits and Ia3.known_deposits(f, res, tick) or nil
+      local d = r > Ia3.REACH_SEEN and kd or nil -- (s40 decision p5 : la lecture `kd` faite plus haut, même équipe, même ressource, même tick)
       if d ~= nil then
         if d[1] and d[1].distance <= Ia3.REACH_RADII[#Ia3.REACH_RADII] then out[res] = Ia3.REACH_SEEN end
         break
