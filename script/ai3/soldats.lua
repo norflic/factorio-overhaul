@@ -817,23 +817,9 @@ Events.on_nth_tick(SD.PERIOD, function(e)
   if (f.soldiers_count or 0) > 0 then pass(f, e.tick) else hq_threat(f, C.team(f), surface, e.tick) end
 end)
 
--- Votre équipe n'a pas de soldats : seule la mise à l'abri (C7) la concerne, toutes les 120 ticks.
-Events.on_nth_tick(120, function(e)
-  if not C.enabled() then return end
-  local f = State.faction("player")
-  if not (f and f.hq and f.hq.valid and f.hq_pos) then return end
-  local en = Mn.nearest_unit(f.hq.surface, f.force, f.hq_pos, SD.HQ_THREAT_R) -- lot FIX-P5 : une UNITÉ, pas un ver ou un nid
-  if en then
-    -- Lot CORR-RALLIEMENT : profils d'attaque du groupe (même recherche que hq_threat) : pas de refuge sous une tourelle débordée.
-    local seen_foes = {} -- point 50 : en est déjà rendu par la recherche
-    for _, u in ipairs(f.hq.surface.find_entities_filtered({ position = en.position, radius = 16, force = en.force,
-      type = { "unit", "character" }, limit = 24 })) do
-      seen_foes[#seen_foes + 1] = u
-    end
-    shelter(f, C.team(f), { x = en.position.x, y = en.position.y }, e.tick, nil, nil, nil,
-      C.outrange_on() and C.foe_profiles(seen_foes) or nil)
-  end
-end)
+-- Sprint 40 (défense, p4) : le gestionnaire de 120 ticks de votre équipe sans soldats (lot IA3-k) est retiré : depuis le lot FUITE, celui de
+-- SD.PERIOD ci-dessus appelle déjà hq_threat (même recherche, puis shelter avec la réponse du QG) ; le second refaisait la recherche et un
+-- shelter SANS réponse (« stand ») au même tick : compteurs doublés, et un ouvrier laissé à sa tâche par le ralliement recevait un refuge.
 
 SD.pass = pass
 return SD

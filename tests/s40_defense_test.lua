@@ -38,5 +38,15 @@ do
   check(a.site and not a.role and a.n == 4, "alerte de chasse devenue alerte de site")
 end
 
+print("== p4 : une seule mise à l'abri par période pour votre équipe")
+do
+  local n = 0
+  for _ in SRC:gmatch("Events%.on_nth_tick%(") do n = n + 1 end
+  check(n == 2, "deux gestionnaires périodiques (factions, votre équipe), plus celui de 120 ticks : " .. n)
+  check(SRC:find("Events.on_nth_tick(120", 1, true) == nil, "gestionnaire de 120 ticks retiré")
+  check(SRC:find("if (f.soldiers_count or 0) > 0 then pass(f, e.tick) else hq_threat(f, C.team(f), surface, e.tick) end", 1, true) ~= nil,
+    "votre équipe sans soldats : hq_threat à chaque période (réponse du QG et mise à l'abri)")
+end
+
 print(string.format("[S40-DEFENSE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
