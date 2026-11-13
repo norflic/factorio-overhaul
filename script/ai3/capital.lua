@@ -299,7 +299,7 @@ local function far_best(f, surface, fam, cond)
   return Profiler.fwrap("ws:cap-far", far_best_raw, f, surface, fam, cond)
 end
 local FAR_LEVELS = 6 -- niveaux cherchés un à un depuis le haut ; en dessous, UNE recherche pour tous les niveaux restants
-local function far_best_raw(f, surface, fam, cond)
+function far_best_raw(f, surface, fam, cond) -- (affecte la locale déclarée plus haut : « local function » en ouvrait une seconde, far_best appelait nil)
   local top = math.min(cond, fam.max) - 1
   for n = top, math.max(1, top - FAR_LEVELS + 1), -1 do
     local found = surface.find_entities_filtered({ force = f.force, name = L.name(fam, n), limit = 1 })
