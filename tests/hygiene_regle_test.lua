@@ -300,8 +300,7 @@ do
   fh:close()
   check(hs:find("if Stock.insert(f, pd.item, 1) >= 1 then new.destroy() end", 1, true) ~= nil,
     "s40 : remplaçant détruit seulement si l'objet rentre au coffre")
-  check(hs:find("new.destroy()
-    Stock.insert(f, pd.item, 1)", 1, true) == nil, "s40 : plus de destruction avant le retour au coffre")
+  check(hs:find("new%.destroy%(%)%s+Stock%.insert%(f, pd%.item, 1%)") == nil, "s40 : plus de destruction avant le retour au coffre")
 end
 
 print(string.format("hygiene_regle_test : %d OK, %d ECHEC", ok_n, fail_n))
