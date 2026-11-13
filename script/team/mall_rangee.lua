@@ -189,7 +189,10 @@ Build.SITES.mall = function(f, surface, p, h)
     bd.occ_libre = function(x, y, owner)
       if owner ~= Build.Mall.OCC then return false end
       local rx, ry = Mr.from_world(x + 0.5, y + 0.5, rep_s.k, rep_s.ox, rep_s.oy)
-      return Mr.reserve_libre(floor(rx), floor(ry), rep_s.west or Mr.TETE, rep_s.north or 0)
+      rx, ry = floor(rx), floor(ry)
+      if Mr.reserve_libre(rx, ry, rep_s.west or Mr.TETE, rep_s.north or 0) then return true end
+      -- (s41 raccord-mall) avec le tronc, la place du tronc (16 tuiles entre les têtes et la base) murait le raccord : ses tuiles que le tronc n'utilise jamais sont ouvertes à la chaîne
+      return rep_s.west == Mt.WEST and rep_s.north == Mt.NORTH and Mt.place_libre(rx, ry)
     end
     local Champ = package.loaded["script.team.champ"] -- (lecture : champ.lua est chargé par le plan directeur ; aucun require pendant un événement, F24)
     if not Champ then return nil, "mall raccord : champ non charge", true end
