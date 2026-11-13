@@ -10,6 +10,12 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 01 h 00 : version 0.7.98 (sprint long, partie 2 : premiers modèles 3D validés)
+
+- **F632 · FAIT · [0.7.98]** Kaiju cristallin et Écorcheur R2 (s43-3d-kaiju-corroder 76f9b1aa à 954a1a63) : validés par l'agent de contrôle qualité sur feuilles (lum. 0,23-0,30 et 0,20-0,28 contre 0,42-0,49 et 0,37-0,45 en 0.7.96, blanc brûlé ≤ 1,7 %) puis en jeu (capture n° 1 du banc). Feuilles hors git copiées à la livraison ; anciennes feuilles gardées dans le scratchpad de session. Le « Corroder » n'existe pas dans le mod : choix provisoire, la famille d'ennemis toxique reçoit un modèle (en cours).
+- **E291 · OUVERT** Parité de l'équipe du joueur : sans humain (scénario s43-parite-seule, graine 271828182, 60 min), `player` produit 31 490 plaques de fer en 0.7.96, au niveau des factions (22 274 à 36 307). Les bridages `is_player` n'expliquent pas l'écart de la partie du DC ; la branche qui les retire régresse (14 673), non fusionnée.
+- **E292 · OUVERT** Méga-Bourdon (s43-mega-bourdon) : portée 36 → 218, rayon 20 → 100, dégâts × 10 ; 128 nids et 270 unités rasés au banc ; gel de 24 s par la cascade des couvées à 8 192 unités, plafond en cours avant fusion.
+
 ## 2026-11-13, 23 h 45 : version 0.7.97 (sprint long, partie 1 : six chantiers du DC après sa partie de 4 h 15 en 0.7.96)
 
 Journal de la partie archivé : `fo-logs/2026-11-13_partie-DC-4h15-0796/factorio-current.log`. `[FO-CUMUL]` vers 246 min, plaques de fer : amber 287 703, emerald 166 663, azure 58 176, scarlet 8 637, **player 7 836**. Cartes différentes de la partie en 0.7.95 (QG d'amber déplacé, gisements autres) : pas de régression de code établie. Validation : tests unitaires, contrôle de chargement et banc de contenu ; **aucun effet en jeu n'est mesuré**.

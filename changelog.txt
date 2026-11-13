@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.98
+Date: 2026-11-14
+  Graphics:
+    - Kaiju cristallin (F632) : refait sous Blender, quadrupède de basalte sous blindage sombre, grappes de cristaux en verre bleu nuit à noyau lumineux.
+    - Écorcheur R2 (F632) : refait sous Blender, muscle rouge sang, carapace et cage thoracique en os ivoire, épines et griffes noires.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.97
 Date: 2026-11-13
   Bugfixes:
