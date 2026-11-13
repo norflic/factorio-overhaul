@@ -82,5 +82,26 @@ do
   check(ok2 and released == 1, "p22 : abort sans équipe : aucun appel, aucune erreur")
 end
 
+---------------------------------------------------------------------------------------------------
+-- p24 : la tuile de minage réservée par Worker.program est rendue au refus de la porte
+---------------------------------------------------------------------------------------------------
+do
+  local idle = WORKER:match("FSM%.define%(MACHINE, {\n  idle = {(.-)\n  step = {") or ""
+  local refus = idle:match("if not gate_ok then(.-)Profiler%.fcredit%(\"idle\", \"idle:refus\"%)") or ""
+  check(refus:find("release_tile(f, task.target)", 1, true) ~= nil, "p24 : refus de la porte : release_tile(f, task.target)")
+  local i_rel, i_fin = refus:find("release_tile(f, task.target)", 1, true), refus:find("Board.finish(f, task, false, tick)", 1, true)
+  check(i_rel and i_fin and i_rel < i_fin, "p24 : la tuile est rendue avant la fin de la tâche")
+  -- release_tile accepte une tâche sans tuile (task.target nil) : texte de la fonction exécuté
+  local txt = fn_text(WORKER, "local function release_tile(f, p)")
+  local cl = { by_tile = { ["3,4"] = 100 } }
+  local env = { Harvest = { applies = function() return true end }, claims_of = function() return cl end,
+    tile_key = function(p) return math.floor(p.x) .. "," .. math.floor(p.y) end }
+  local chunk = txt and load(txt .. "\nreturn release_tile", "release_tile", "t", env)
+  local rel = chunk and chunk() or function() end
+  check(pcall(rel, {}, nil) and cl.by_tile["3,4"] == 100, "p24 : release_tile sans tuile : rien")
+  rel({}, { x = 3.5, y = 4.5 })
+  check(cl.by_tile["3,4"] == nil, "p24 : release_tile rend la tuile réservée")
+end
+
 print(string.format("\n[S40-OUVRIERS] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

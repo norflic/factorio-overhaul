@@ -1909,6 +1909,7 @@ FSM.define(MACHINE, {
       Profiler.fstop("ia3k:gate")
       if not gate_ok then
         return_site(f, task)
+        release_tile(f, task.target) -- sprint s40 (ouvriers p24) : tuile de minage réservée par Worker.program rendue (le PNJ ne part pas)
         task.fail = task.fail or "danger"
         Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
         Board.finish(f, task, false, tick)
