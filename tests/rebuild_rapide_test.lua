@@ -368,6 +368,9 @@ do
   local handlers = {}
   package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end,
     on_died = function(fn) handlers[defines.events.on_entity_died] = fn end } -- lot MORTS (Events.on_died)
+  -- Lot UPS : front.lua charge le profileur et le registre des machines, qui s'abonnent au chargement (on_init, on_load...) :
+  -- tout autre abonnement du bouchon est sans effet.
+  setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end })
   defines = { events = { on_entity_died = 1 } }
   local team_f
   package.loaded["script.faction.state"] = {
