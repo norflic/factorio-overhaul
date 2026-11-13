@@ -393,6 +393,13 @@ local function run_leg(st, ctx)
   end
   st.rs = nil
   if not tiles then
+    -- pointe bouchée par le monde (« depart ») : le fautif est le dernier tronçon posé, pas la cible. Il est défait tout de suite, sans interdire la bande de la cible
+    -- (avant : Tc.TIP_FAILS réparations et autant de bandes interdites à tort avant de le défaire)
+    if info == "depart" and #st.legs > 0 then
+      drop_last_leg(st)
+      st.tip_fails = 0
+      return repair(st, info, false)
+    end
     ban_stripe(st, wp, sx, sy)
     if info == "trop long" then st.long_fails = (st.long_fails or 0) + 1 end
     return repair(st, info, wp.goal)

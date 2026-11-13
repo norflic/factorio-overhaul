@@ -172,6 +172,24 @@ local function battery(Tc, silent)
       check(not has_tile(st, vx, vy), "C6a le trace final evite la tuile prise")
       check(#Tv.verify(st.tiles, st.s, st.t, 2, 0, ctx.cost) == 0, "C6a preuve")
     end
+    -- (d) s40 p26 : la tuile de POINTE (juste après le dernier tronçon posé) est prise : le tronçon fautif est défait en une réparation, sans bande interdite
+    blocked = {}
+    local fired_d, bans_d, rep_d = false, nil, nil
+    local std, statusd, whyd = run(Tc, ctx, { x = 0, y = 0 }, { x = 300, y = 0 }, 2, box, { each = function(s0)
+      if not fired_d and #s0.legs >= 3 and s0.phase == "leg" and not s0.rs then
+        fired_d = true
+        local l = s0.tiles[#s0.tiles]
+        local dv = ({ [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } })[l.dir]
+        blocked[(l.x + dv[1]) .. ":" .. (l.y + dv[2])] = true
+      elseif fired_d and not bans_d and s0.repairs_total and s0.repairs_total >= 1 then
+        bans_d, rep_d = 0, #s0.legs
+        for _ in next, s0.ban do bans_d = bans_d + 1 end
+      end end })
+    check(fired_d, "C6d la pointe a bien ete bouchee")
+    check(statusd == "done", "C6d pointe bouchee : statut " .. tostring(statusd) .. " " .. tostring(whyd))
+    check(bans_d ~= nil and bans_d <= 1, "C6d une seule case interdite (celle du troncon defait), pas de bande : " .. tostring(bans_d))
+    check((std.repairs_total or 0) <= 2, "C6d reparations : " .. tostring(std.repairs_total))
+    if statusd == "done" then check(#Tv.verify(std.tiles, std.s, std.t, 2, 0, ctx.cost) == 0, "C6d preuve") end
     -- (b) la cible est prise pendant le tracé : refus motivé, pas de plantage
     blocked = {}
     local _, status2, why2 = run(Tc, ctx, { x = 0, y = 0 }, { x = 300, y = 0 }, 2, box, { at = { [6] = function() blocked["300:0"] = true end } })
