@@ -74,6 +74,8 @@ R.ENTITY_ROLE = {
 -- Lot RB-3 : voir le point 10 de l'en-tête. Liste dans un ordre fixe (le moteur rend ses prototypes dans une table).
 R.UNIT_TYPES = { ["unit"] = "unite", ["spider-vehicle"] = "unite" }
 R.UNIT_TYPE_LIST = { "spider-vehicle", "unit" }
+-- Sprint s41 (labos) : types du moteur de la construction par robots (ordre fixe ; lus par shared/ai3/chantier_robots.lua).
+R.ROBOT_BUILD_TYPES = { "construction-robot", "roboport" }
 -- Lot INDUSTRIE I4 : voir le point 9 de l'en-tête.
 R.SOURCE_CAP = { ["furnace"] = 1 }
 R.KIT_TYPE = { ["inserter"] = "bras", ["transport-belt"] = "tapis", ["container"] = "coffre", ["electric-pole"] = "poteau" }

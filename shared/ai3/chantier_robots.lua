@@ -10,8 +10,8 @@
 ]]
 local Cr = {}
 
--- Types d'entité du moteur de la construction par robots (ordre fixe).
-Cr.TYPES = { "construction-robot", "roboport" }
+-- Types d'entité du moteur de la construction par robots (ordre fixe ; seules données nommées : shared/ai3/reglages.lua).
+Cr.TYPES = require("shared.ai3.reglages").ROBOT_BUILD_TYPES
 
 --- list = { { item, recipe } } dans un ordre fixe (toutes les recettes qui produisent un objet de la construction par robots) ;
 --- is_open(recette) -> vrai si la force sait déjà la faire. Rend { [objet] = vrai } des objets sans aucune recette ouverte, ou nil.
