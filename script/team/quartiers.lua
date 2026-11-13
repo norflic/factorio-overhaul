@@ -57,7 +57,8 @@ end
 --- requiert build.lua).
 local function idle_count(f)
   local n = 0
-  for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+  -- s40 ups-team p43 : un COMPTE (somme sans effet de bord, indépendante de l'ordre) : plus de liste triée refaite à chaque relevé
+  for id in pairs(f.engineers or {}) do
     local a = Registry.get(id)
     if a and not a.task and not a.bg then n = n + 1 end
   end

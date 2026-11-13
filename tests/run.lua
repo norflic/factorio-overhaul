@@ -289,6 +289,10 @@ do
     for _, tu in pairs(tur) do if tu.valid then new = new + 1 end end
     check(old == 3 and new == old, "p42 : même compte qu'avec la liste triée")
   end
+  local qr = src("script/team/quartiers.lua")
+  local idle = qr:sub(qr:find("local function idle_count(f)", 1, true), qr:find("local function module_starts(b)", 1, true))
+  check(not idle:find("sorted_keys", 1, true) and idle:find("for id in pairs(f.engineers or {}) do", 1, true) ~= nil,
+    "p43 : PNJ inactifs des quartiers comptés sans liste triée")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
