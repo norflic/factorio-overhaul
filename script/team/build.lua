@@ -4678,9 +4678,68 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Raccordement : fils (arbre couvrant au plus court), recettes
 ---------------------------------------------------------------------------------------------------
+--- Lot UPS : même calcul qu'avant, ligne pour ligne (mêmes poteaux, même tri, mêmes candidats dans le même ordre, mêmes unions, mêmes
+--- fils posés dans le même ordre), mais chaque poteau n'est LU au moteur qu'une fois (position, portée de fil du prototype, numéro) au
+--- lieu de l'être à chaque comparaison du tri et à chaque paire, et le voisin déjà relié est retrouvé par son numéro au lieu d'une
+--- comparaison d'entités avec TOUS les poteaux. Mesuré (graine 123456789, 72,3 min, centrale de 149 entités) : 959 ms dans un seul tick.
+--- La règle est Build.wire_poles (champ de Build : essayée hors jeu par tests/registre_types_test.lua contre l'ancienne).
+--- poles : liste d'entités (poteaux) ; rend le nombre de fils posés, le nombre de liaisons de cuivre entre ces poteaux.
+function Build.wire_poles(poles)
+  local recs = {}
+  for i, ent in ipairs(poles) do
+    local pos = ent.position
+    recs[i] = { ent = ent, x = pos.x, y = pos.y, reach = ent.prototype.max_wire_distance, u = ent.unit_number }
+  end
+  table.sort(recs, function(a, c) if a.y ~= c.y then return a.y < c.y end return a.x < c.x end)
+  local cand = {}
+  for a = 1, #recs do
+    for c = a + 1, #recs do
+      local pa, pc = recs[a], recs[c]
+      local reach = math.min(pa.reach, pc.reach)
+      local d2 = dist2(pa, pc)
+      if d2 <= reach * reach + 1e-6 then cand[#cand + 1] = { d2, a, c } end
+    end
+  end
+  table.sort(cand, function(u, v) if u[1] ~= v[1] then return u[1] < v[1] end if u[2] ~= v[2] then return u[2] < v[2] end return u[3] < v[3] end)
+  local parent, idx = {}, {}
+  for i = 1, #recs do
+    parent[i] = i
+    idx[recs[i].u] = i
+  end
+  local function find(x) while parent[x] ~= x do x = parent[x] end return x end
+  -- poteaux déjà reliés entre eux : même composante
+  for a = 1, #recs do
+    for _, nb in ipairs((recs[a].ent.neighbours or {}).copper or {}) do
+      local c = nb.valid and idx[nb.unit_number] or nil
+      if c then local ra, rc = find(a), find(c); if ra ~= rc then parent[rc] = ra end end
+    end
+  end
+  local n = 0
+  for _, c in ipairs(cand) do
+    local ra, rc = find(c[2]), find(c[3])
+    if ra ~= rc then
+      -- lot CHAMP : la liaison n'unit les deux réseaux que si le fil est POSÉ ; un poteau qui a déjà ses 5 fils (reliés par le moteur au
+      -- ravivage) refuse, et l'arête suivante doit être essayée. Avant, le refus comptait comme une liaison : des fonderies de champ restaient
+      -- sur un réseau sans centrale (mesuré : 12 à 26 bras « sans courant » par bande, graine 271828182, [FO-CHAMP-ETAT])
+      if recs[c[2]].ent.connect_neighbour(recs[c[3]].ent) then
+        n = n + 1
+        parent[rc] = ra
+      end
+    end
+  end
+  -- liaisons de cuivre des poteaux du projet (le moteur relie lui-même un poteau ravivé à ses voisins : les fils
+  -- AJOUTÉS ci-dessus ne comptent que les trous)
+  local links = 0
+  for a = 1, #recs do
+    for _, nb in ipairs((recs[a].ent.neighbours or {}).copper or {}) do
+      if nb.valid and idx[nb.unit_number] and idx[nb.unit_number] > a then links = links + 1 end
+    end
+  end
+  return n, links
+end
+
 local function wire_project(f, surface, p)
   local poles = {}
-  local b = f.build
   local seen = {}
   local function add(ent) if ent and ent.valid and not seen[ent.unit_number] then seen[ent.unit_number] = true; poles[#poles + 1] = ent end end
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
@@ -4693,48 +4752,7 @@ local function wire_project(f, surface, p)
   if #poles == 0 then return 0 end
   -- poteaux du réseau voisins
   for _, ent in ipairs(surface.find_entities_filtered({ area = { { x0 - 30, y0 - 30 }, { x1 + 30, y1 + 30 } }, type = "electric-pole", force = f.force })) do add(ent) end
-  table.sort(poles, function(a, c) if a.position.y ~= c.position.y then return a.position.y < c.position.y end return a.position.x < c.position.x end)
-  local cand = {}
-  for a = 1, #poles do
-    for c = a + 1, #poles do
-      local pa, pc = poles[a], poles[c]
-      local reach = math.min(pa.prototype.max_wire_distance, pc.prototype.max_wire_distance)
-      local d2 = dist2(pa.position, pc.position)
-      if d2 <= reach * reach + 1e-6 then cand[#cand + 1] = { d2, a, c } end
-    end
-  end
-  table.sort(cand, function(u, v) if u[1] ~= v[1] then return u[1] < v[1] end if u[2] ~= v[2] then return u[2] < v[2] end return u[3] < v[3] end)
-  local parent = {}
-  for i = 1, #poles do parent[i] = i end
-  local function find(x) while parent[x] ~= x do x = parent[x] end return x end
-  -- poteaux déjà reliés entre eux : même composante
-  for a = 1, #poles do
-    for _, nb in ipairs((poles[a].neighbours or {}).copper or {}) do
-      for c = 1, #poles do if poles[c] == nb then local ra, rc = find(a), find(c); if ra ~= rc then parent[rc] = ra end end end
-    end
-  end
-  local n = 0
-  for _, c in ipairs(cand) do
-    local ra, rc = find(c[2]), find(c[3])
-    if ra ~= rc then
-      -- lot CHAMP : la liaison n'unit les deux réseaux que si le fil est POSÉ ; un poteau qui a déjà ses 5 fils (reliés par le moteur au
-      -- ravivage) refuse, et l'arête suivante doit être essayée. Avant, le refus comptait comme une liaison : des fonderies de champ restaient
-      -- sur un réseau sans centrale (mesuré : 12 à 26 bras « sans courant » par bande, graine 271828182, [FO-CHAMP-ETAT])
-      if poles[c[2]].connect_neighbour(poles[c[3]]) then
-        n = n + 1
-        parent[rc] = ra
-      end
-    end
-  end
-  -- liaisons de cuivre des poteaux du projet (le moteur relie lui-même un poteau ravivé à ses voisins : les fils
-  -- AJOUTÉS ci-dessus ne comptent que les trous)
-  local links, idx = 0, {}
-  for i, ent in ipairs(poles) do idx[ent.unit_number] = i end
-  for a = 1, #poles do
-    for _, nb in ipairs((poles[a].neighbours or {}).copper or {}) do
-      if nb.valid and idx[nb.unit_number] and idx[nb.unit_number] > a then links = links + 1 end
-    end
-  end
+  local n, links = Build.wire_poles(poles)
   p.links = links
   return n
 end
