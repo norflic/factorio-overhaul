@@ -3073,6 +3073,7 @@ local function plan_project(f, surface, p)
         type = e.type, carries = e.carries } -- (lot CHAMP : charge du coffre de combustible, rang de pose ; lot FONDERIE : entrée ou sortie d'un souterrain ; lot MALL : objet porté par un tapis, déclaré)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
+    for _, t in ipairs(lay.sous or {}) do local k = P.tkey(t[1], t[2]); if b.occ[k] == nil then b.occ[k] = p.id end end -- lot s42 TUYAUX : sol au-dessus d'une paire souterraine, retenu au plan (aucun souterrain aligné d'un autre chantier)
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow } end -- (lot FONDERIE-BLOC : flow = débit d'un coffre de tête de champ)
     for _, o in ipairs(lay.outs or {}) do p.outs[#p.outs + 1] = { x = o.x, y = o.y, at = lay.out_at } end
     Profiler.stop("build:plan:place")

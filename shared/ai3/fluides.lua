@@ -39,6 +39,7 @@
 
 local Col = require("shared.ai3.collecteur") -- lot PETROLE-RANGEE : collecteur d'un champ de puits (règle pure)
 local Rf = require("shared.ai3.rangee_fluides") -- lot PETROLE-RANGEE, étape 2 : rangée de modules sur bus (règle pure)
+local Tu = require("shared.ai3.tuyaux") -- lot s42 TUYAUX : règle des 5 cases (conduite droite sous terre)
 
 local Fl = {}
 
@@ -1312,6 +1313,9 @@ function Fl.ext_net(rel, ents, extractor)
       end
     end
   end
+  -- lot s42 TUYAUX : les paires souterraines déjà posées portent le brut (le réseau les traverse) mais on ne s'y raccorde pas
+  local buried = Tu.buried(ents, rel.entities)
+  for _, t in ipairs(buried) do tube[tkey(t.x, t.y)] = true end
   local net = {}
   table.sort(starts)
   local stack = {}
@@ -1336,6 +1340,7 @@ function Fl.ext_net(rel, ents, extractor)
     end
   end
   for k in pairs(conn_set) do if not net[k] then forbid[k] = true end end
+  for _, t in ipairs(buried) do local k = tkey(t.x, t.y); net[k] = nil; forbid[k] = true end
   return net, forbid
 end
 
@@ -1434,10 +1439,22 @@ local function layout_ext(req)
     end
   end
   if #placed == 0 then return nil, skipped[#skipped] and skipped[#skipped].cause or "aucun chevalet relie" end
+  -- lot s42 TUYAUX : les conduites droites du collecteur et de la ligne principale passent sous terre (req.under : pièce
+  -- souterraine lue au prototype, nil = tout en surface). Restent en surface : raccords réservés, coudes, embranchements,
+  -- bouts, et toute tuile qui touche le réseau existant.
+  local ug = Tu.plan(s.tube, s.rsv, req.under, N)
+  local sous = {}
   for _, k in ipairs(sorted_keys(s.tube)) do
     local tx, ty = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
-    s:put(req.conduit, tx + 0.5, ty + 0.5, 0, { role = "tuyau", fluid = s.tube[k] })
+    if ug.piece[k] then
+      s:put(req.under.name, tx + 0.5, ty + 0.5, ug.piece[k], { role = Tu.ROLE, fluid = s.tube[k] })
+    elseif ug.mid[k] then
+      sous[#sous + 1] = { tx, ty }
+    else
+      s:put(req.conduit, tx + 0.5, ty + 0.5, 0, { role = "tuyau", fluid = s.tube[k] })
+    end
   end
+  s.npipes = s.npipes - ug.npieces - ug.nmids
   local npoles, line = 0, 0
   local electric = {}
   for _, p in ipairs(placed) do if e.electric then electric[#electric + 1] = p end end
@@ -1455,7 +1472,7 @@ local function layout_ext(req)
     end
   end
   return { ents = s.ents, quais = {}, outs = {}, box = { x0, y0, x1, y1 }, pipes = s.npipes, poles = npoles, line = line,
-    extractors = #placed, skipped = skipped, deferred = col.deferred, trunk = col.trunk, kinds = (function()
+    sous = sous, souterrains = ug.npieces, extractors = #placed, skipped = skipped, deferred = col.deferred, trunk = col.trunk, kinds = (function()
       local k = {}
       for _, x in ipairs(col.extractors) do k[x.kind] = (k[x.kind] or 0) + 1 end
       return k
