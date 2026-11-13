@@ -700,7 +700,7 @@ local function plan_once(spec)
     local xb, yb = c.xy(e.u + w - 1, e.v + h - 1)
     local x0, x1, y0, y1 = math.min(xa, xb), math.max(xa, xb), math.min(ya, yb), math.max(ya, yb)
     local o = { kind = e.kind, x = (x0 + x1 + 1) / 2, y = (y0 + y1 + 1) / 2, size = e.size,
-      dir = (e.du ~= 0 or e.dv ~= 0) and c.dir(e.du, e.dv) or 0, band = bi, group = gi, pr = pr, role = e.role, belt = belt, ug = e.ug }
+      dir = (e.du ~= 0 or e.dv ~= 0) and c.dir(e.du, e.dv) or 0, band = bi, group = gi, pr = pr, role = e.role, belt = belt, ug = e.ug, piq = e.piq, fin = e.fin }
     if e.w then o.w, o.h = x1 - x0 + 1, y1 - y0 + 1 end
     ents[#ents + 1] = o
   end
@@ -929,7 +929,7 @@ local function plan_once(spec)
       end
       if mode == "coffre" and g.info.mode == "voie" then
         -- repli : le coffre de tête (ses tuiles sont dans celles de la voie, déjà prises)
-        local list, len, info = Co.layout(spec, it.b, g.side, g.s_edge, g.count, "coffre", g.half)
+        local list, len, info = Co.layout(spec, it.b, g.side, g.s_edge, g.count, "coffre", g.half, g.info.ext)
         -- (lot COLONNE-DOUBLE) la ligne de plaques commune n'est rendue que par la demi-colonne qui l'a posée la première
         local kept = {}
         for _, e in ipairs(g.list) do if e.kind == "tapis" and e.role == "sortie" then kept[Co.tk(e.u, e.v)] = true end end
@@ -963,7 +963,7 @@ local function plan_once(spec)
       end
       cols_frame[key] = cols_frame[key] or {}
       cols_frame[key][tostring(g.side)] = { s_edge = g.s_edge, count = g.count, mode = mode, double = g.half and true or nil,
-        mirror = (g.half and g.half.mirror) or nil }
+        mirror = (g.half and g.half.mirror) or nil, ext = g.info.ext }
       g.mode = mode
       local og = out_bands[it.bi] and out_bands[it.bi].groups[it.gi]
       if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
