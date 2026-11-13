@@ -1102,6 +1102,7 @@ function Champ.report(f, surface, tick)
   local fuel = { n = 0, min = nil }
   local cds = { n = 0, d = 0, stuck = 0, fini = 0, ids = {} } -- lot COUPLAGE : bandes culs-de-sac
   local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
+  local lost_all = {} -- s42 causal : pièces manquantes des bandes finies, par rôle, toutes bandes (lu par script/ai3/causal_rt.lua)
   local S = defines.entity_status
   local tapis_on, nopow_logs = Champ.tapis(), 0
   local vlogs = 0 -- lot COMBUSTIBLE-MIGRATION : lignes [FO-CHAMP-VOIE] de ce relevé
@@ -1238,6 +1239,7 @@ function Champ.report(f, surface, tick)
         if #cds.ids < 6 then cds.ids[#cds.ids + 1] = string.format("p%d %s %d/%d", pid, p.state, pd.stuck, pd.dn) end
       end
       local lk = sorted_keys(pd.lost)
+      for _, k in ipairs(lk) do lost_all[k] = (lost_all[k] or 0) + pd.lost[k] end
       if (#lk > 0 or pd.stuck > 0 or pd.armoff > 0) and #bad < 4 then
         local lt = {}
         for _, k in ipairs(lk) do lt[#lt + 1] = k .. " " .. pd.lost[k] end
@@ -1262,7 +1264,8 @@ function Champ.report(f, surface, tick)
     end
   end
   Champ.field_burners(f, fours, tick)
-  if #ids == 0 then return end
+  local rd = { d = d, fu = fu, lost = lost_all } -- s42 causal : les comptes du relevé, rendus à l'audit des causes
+  if #ids == 0 then return rd end
   log(string.format("[FO-COUPLAGE] %s min %.0f | bandes a foreuses sans four ni coffre de sortie %d (finies %d), foreuses %d dont figees %d%s",
     f.key or "player", tick / 3600, cds.n, cds.fini, cds.d, cds.stuck, #cds.ids > 0 and (" : " .. table.concat(cds.ids, ", ")) or ""))
   local parts, mparts = {}, {}
@@ -1289,6 +1292,7 @@ function Champ.report(f, surface, tick)
     end
   end)
   log(string.format("[FO-CUMUL] %s min %.0f | %s", f.key or "player", tick / 3600, table.concat(cum, " ; ")))
+  return rd
 end
 
 return Champ
