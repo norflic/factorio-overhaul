@@ -105,8 +105,9 @@ Cap.AHEAD_TICKS = 15 * 3600
 -- Lot S42 QG-NIVEAUX (partie du DC du 13/11, 4 h 15 : Émeraude bloquée « condition:furnace » de 60,6 min à la fin pour 2 acier et 3
 -- briques, 51 remplacements de tapis payés entre-temps ; Ambre 100 min entre la première condition et le niveau 2). En mode blocs, tout
 -- candidat payable au stock passe devant celui qu'il faut fabriquer : le bâtiment de la chaîne du centre (Q16) n'était presque jamais
--- le but, donc son coût jamais demandé à la fabrication ; et un bloc de production payable lui retirait sa place de candidat.
--- Règle (ctx.lead, tenu par le runtime) : le bâtiment de la chaîne passe DEVANT tous les candidats, au plus Cap.LEAD_TICKS de but
+-- le but, donc son coût jamais demandé à la fabrication. La règle du DC du 8/11 est gardée : tant qu'un bloc de PRODUCTION est payable
+-- en entier, c'est le bloc qui monte et la chaîne n'existe pas (tests/amelioration_test.lua §7 bis).
+-- Règle (ctx.lead, tenu par le runtime) : le bâtiment de la chaîne, quand il existe, passe DEVANT tous les candidats, au plus Cap.LEAD_TICKS de but
 -- cumulé par bâtiment (ensuite il retombe à son rang ordinaire, sans se réarmer tant que la cible du centre ne change pas).
 Cap.LEAD_TICKS = 10 * 3600
 
@@ -482,7 +483,7 @@ function Cap.candidates(Ld, census, ctx)
         local share = math.floor(cv * Cap.CHAIN_PCT / 100)
         for _, k in ipairs(blockers) do
           local t = top_of[k]
-          if t and t.cand and (ctx.lead or not prod_ready) then -- lot S42 QG-NIVEAUX : la chaîne ne cède plus sa place aux blocs payables
+          if t and t.cand and not prod_ready then
             t.cand.value = t.cand.value + share
             t.cand.chain = { target = cc.key, v = share }
           end

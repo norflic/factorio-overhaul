@@ -2,8 +2,9 @@
   Lot S42 QG-NIVEAUX (chantier 2.3 du DC, partie du 13/11 : centre resté au niveau 1 chez 3 factions sur 4 et dans votre équipe).
   Test hors jeu de la règle pure (shared/ai3/capital.lua) sur les données réelles des niveaux (shared/levels/config.lua).
 
-    §1 chaîne du centre DEVANT (ctx.lead) : en mode blocs, avec un bloc de production payable au stock, le bâtiment de la famille qui
-       bloque le centre (Q16) est le but ; sans ctx.lead (comportement d'avant), il ne l'est pas ;
+    §1 chaîne du centre DEVANT (ctx.lead) : en mode blocs, avec un candidat hors production payable au stock (tourelles), le bâtiment
+       de la famille qui bloque le centre (Q16) est le but ; sans ctx.lead (comportement d'avant), il ne l'est pas ; la règle du DC du
+       8/11 est gardée : un bloc de PRODUCTION payable en entier monte d'abord (aucune chaîne) ;
     §2 borne : la clé rangée dans lead.done retombe à son rang ordinaire ; Cap.lead_step (début, cumul, borne, cible changée) ;
     §3 un bâtiment refusé par l'exécutant (ctx.exclude) cède la chaîne à un autre de sa famille ;
     §4 centre payable dont tout le coût dort au stock (ctx.cash) : il est le but, servi comme un travail court ; coût incomplet : non ;
@@ -87,13 +88,13 @@ local function stock_for(...)
 end
 local center1 = { id = 1, name = L.name(CC, 1) }
 
--- §1 Tourelles au niveau exigé, foreuses au niveau exigé pour l'une et bloc de foreuses payable au stock, fours au niveau 1 : le
--- centre est bloqué par les fours ; le stock ne contient PAS le coût du four (il faut le fabriquer).
+-- §1 Une tourelle au niveau exigé et un bloc de tourelles payable au stock, foreuses au plafond, fours au niveau 1 : le centre est
+-- bloqué par les fours ; le stock ne contient PAS le coût du four (il faut le fabriquer).
 local furn_cost = L.cost(FURN, 2)
-local drill_stock = stock_for(L.cost(DRILL, 2), L.cost(DRILL, 3))
+local drill_stock = stock_for(L.cost(GUN, 2))
 for _, it in ipairs(furn_cost) do drill_stock[it[1]] = nil end
 local function list1()
-  return join(ents(GUN, { 2, 2 }, 100), ents(DRILL, { 2, 1, 1, 1 }, 200, "p7", true), ents(FURN, { 1, 1 }, 300, "p9", true))
+  return join(ents(GUN, { 2, 1, 1, 1 }, 100), ents(DRILL, { 2, 2 }, 200, "p7", true), ents(FURN, { 1, 1 }, 300, "p9", true))
 end
 local furn_key = FURN.key .. ":2:301"
 do
@@ -113,6 +114,15 @@ do
     check(it[1] == furn_cost[i][1] and it[2] == furn_cost[i][2], "§1 coût du but = L.cost du niveau suivant (objet " .. i .. ")")
   end
   check(n_cost == #furn_cost and n_cost > 0, "§1 coût complet")
+end
+
+-- §1 bis Règle du DC du 8/11 gardée : un bloc de production payable en entier monte d'abord, la chaîne n'existe pas.
+do
+  local list = join(ents(GUN, { 2, 2 }, 100), ents(DRILL, { 1, 1, 1 }, 200, "p7", true), ents(FURN, { 1, 1 }, 300, "p9", true))
+  local st = stock_for(L.cost(DRILL, 2))
+  for _, it in ipairs(furn_cost) do if not st[it[1]] then st[it[1]] = 0 end end
+  local d = Cap.choose(L, { list = list, center = center1 }, ctx({ blocs = true, stock = st, lead = { done = {} } }))
+  check(d.bloc ~= nil and not d.chain and not d.lead, "§1 bis bloc de production payable : il monte d'abord (" .. tostring(d.key) .. ")")
 end
 
 -- §2 Borne.
