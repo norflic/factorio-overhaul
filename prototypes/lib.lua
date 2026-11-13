@@ -177,4 +177,19 @@ function lib.unlock(recipe)
   return { type = "unlock-recipe", recipe = recipe }
 end
 
+--- s42 (chantier 2.1 du DC : « les fours ajoutés par le mod n'acceptent pas les modules »). Une machine de production
+--- copiée d'un modèle sans emplacement (four en pierre ou en acier, assembleur 1) reçoit le minimum des machines du
+--- jeu (shared/content/modules.lua, MACHINE_SLOTS_MIN : celui du four électrique) et les quatre effets ; sans
+--- allowed_effects, le moteur 1.1 n'admet AUCUN effet et l'emplacement serait inutilisable. Un modèle qui a déjà des
+--- emplacements ou des effets déclarés garde les siens.
+function lib.ensure_module_slots(e)
+  local min = require("shared.content.modules").MACHINE_SLOTS_MIN
+  local ms = e.module_specification
+  if not ms or (ms.module_slots or 0) < min then
+    e.module_specification = table.deepcopy(ms or {})
+    e.module_specification.module_slots = min
+  end
+  if e.allowed_effects == nil then e.allowed_effects = { "consumption", "speed", "productivity", "pollution" } end
+end
+
 return lib

@@ -1104,6 +1104,22 @@ end
 print(string.format("Recettes par lots (MOD-2) : %d lot(s) pour %d recette(s), %d écart(s) ; auto-contrôle %d/2",
   nlots, nlot_bases, #lot_errors, lot_self))
 for i = 1, math.min(#lot_errors, 40) do print("  LOT " .. lot_errors[i]) end
+-- s42 (chantier 2.1 du DC) : chaque four et chaque machine d'assemblage du mod a un emplacement de module et des effets
+-- admis (tests/datastage/modules_slots.lua ; dispenses déclarées). Les recettes de fonte hors de la limitation des
+-- modules de productivité sont AFFICHÉES (la liste de productivité est une décision d'équilibrage, X0 « prod »).
+do
+  local MS = dofile(HERE .. "/modules_slots.lua")
+  local errs, c = MS.check(modded, vanilla)
+  local gaps, nmods = MS.limitation_gaps(modded, vanilla)
+  print(string.format("Emplacements de modules (s42) : %d four(s) et machine(s) du mod, %d avec emplacement, %d refus "
+    .. "déclaré(s), %d dispensé(s), %d erreur(s) ; fonte hors productivité : %d recette(s) sur %d module(s)",
+    c.own, c.with_slots, c.declared_none, c.exempt, #errs, #gaps, nmods))
+  for i = 1, math.min(#errs, 60) do print("  MODULES " .. errs[i]) end
+  for i = 1, math.min(#gaps, 60) do
+    print("  FONTE SANS PRODUCTIVITE " .. gaps[i].recipe .. " (" .. gaps[i].category .. ", " .. gaps[i].module .. ")")
+  end
+  FO_MODULE_SLOTS_OK = #errs == 0 and #gaps == 0 and nmods > 0 and c.own > 0 and c.with_slots > 0
+end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
   and #unlock_errors == 0 and unlock_self == 2 and #lot_errors == 0 and lot_self == 2
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
@@ -1115,4 +1131,5 @@ os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule
   and chimie_ok
   and FO_ATELIERS_SHEETS_OK
   and FO_LASER_SHEETS_OK
+  and FO_MODULE_SLOTS_OK
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)

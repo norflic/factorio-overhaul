@@ -208,6 +208,9 @@ local function machine(spec)
   else
     e.fluid_boxes = nil
   end
+  -- s42 (chantier 2.1 du DC) : un modèle copié SANS emplacement (four en acier, assembleur 1) donnait une machine qui
+  -- refusait tout module. Les puits (spec.sink : torchère) restent sans : rien à accélérer ni à multiplier.
+  if not spec.sink then lib.ensure_module_slots(e) end
   -- lot DA-ATELIERS : visuel propre (images rendues, raccords, flamme) à la place de la copie teintée, quand il existe
   local propres = AV.appliquer(e)
   local icons = propres or icon_of("item", spec.copy[2], spec.tint)

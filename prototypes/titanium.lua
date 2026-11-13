@@ -159,6 +159,7 @@ local function machine(spec)
   else
     e.fluid_boxes = nil
   end
+  lib.ensure_module_slots(e) -- s42 (chantier 2.1 du DC) : le four à coke et le concentrateur copient l'assembleur 1, sans emplacement
   local src_icon = data.raw.item[spec.copy]
   lib.set_icons(e, icon_of("item", spec.copy, spec.tint))
   CV.habiller(e)   -- lot DA-CHIMIE : vrais visuels de l'électrolyseur (4 directions)
