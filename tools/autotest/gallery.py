@@ -43,17 +43,21 @@ def read_plan(shots):
 
 
 def read_index(shots):
-    p = os.path.join(shots, "index.tsv")
+    """Captures demandées : index.tsv (liste du pilote, shots.lua), puis intermediaires.tsv (Lot PREUVES : captures prises par
+    le scénario lui-même en cours de partie, pavage_common.lua ; lignes marquées « inter », hors du compte de plan.txt)."""
     rows = []
-    if not os.path.exists(p):
-        return rows
-    with open(p, encoding="utf-8", errors="replace") as f:
-        for line in f:
-            parts = line.rstrip("\n").split("\t")
-            if not parts or parts[0] in ("", "num"):
-                continue
-            row = dict(zip(COLUMNS, parts))
-            rows.append(row)
+    for name, inter in (("index.tsv", False), ("intermediaires.tsv", True)):
+        p = os.path.join(shots, name)
+        if not os.path.exists(p):
+            continue
+        with open(p, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if not parts or parts[0] in ("", "num"):
+                    continue
+                row = dict(zip(COLUMNS, parts))
+                row["inter"] = inter
+                rows.append(row)
     rows.sort(key=lambda r: r["num"])
     return rows
 
@@ -83,8 +87,10 @@ def validate(shots):
     plan = read_plan(shots)
     if plan is None:
         problems.append("plan.txt absent : nombre de captures prevues inconnu")
-    elif plan != len(rows):
-        problems.append("%d captures prevues, %d demandees" % (plan, len(rows)))
+    else:
+        asked = sum(1 for r in rows if not r.get("inter"))
+        if plan != asked:
+            problems.append("%d captures prevues, %d demandees" % (plan, asked))
     return rows, problems
 
 
