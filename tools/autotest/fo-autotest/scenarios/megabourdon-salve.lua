@@ -63,7 +63,7 @@ return {
             local n
             n, i_n = suivant(nids, i_n)
             if n then s.create_entity({ name = n, position = { cx + dx, cy + dy }, force = "enemy" }) end
-            if (dx + dy) % (2 * PAS) == 0 then
+            if (dx + dy + 2 * r) % (2 * PAS) == 0 then -- une case sur deux (dx et dy partent de -r)
               n, i_v = suivant(vers, i_v)
               local q = n and s.find_non_colliding_position(n, { cx + dx + PAS / 2, cy + dy + PAS / 2 }, PAS, 0.5)
               if q then s.create_entity({ name = n, position = q, force = "enemy" }) end
