@@ -15,6 +15,7 @@
 ]]
 
 local State = require("script.faction.state")
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Se = {}
 
@@ -49,6 +50,7 @@ function Se.swap(surface, f, old, to, place)
   local back
   if surface.can_place_entity({ name = name, position = pos, direction = dir, force = f.force }) then
     back = surface.create_entity({ name = name, position = pos, direction = dir, force = f.force })
+    RegT.note(back) -- lot UPS : pose sans événement, notée au registre des machines
     if back and not back.valid then back = nil end
     if back and owner then State.own(back, owner.f, owner.kind, owner.oid) end
   end

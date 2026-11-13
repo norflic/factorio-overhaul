@@ -2606,6 +2606,7 @@ end -- do
 local function add_obstacle(p, o)
   local k = P.tkey(math.floor(o.x), math.floor(o.y))
   p.obst_keys = p.obst_keys or {}
+  p.obst_faits = nil -- lot UPS : un obstacle rouvert ou ajouté : la revue relit la liste (review_obstacles)
   if p.obst_keys[k] then
     for _, q in ipairs(p.obstacles) do if q.k == k then q.done = nil end end
     return
@@ -2618,6 +2619,11 @@ end
 --- Revue de Build.OBST_CHECKS obstacles ouverts (à tour de rôle) : faits quand plus aucun arbre ni rocher n'y est.
 --- Rend le nombre d'obstacles encore ouverts.
 local function review_obstacles(surface, p)
+  -- Lot UPS : la revue parcourait TOUTE la liste à chaque passe (toutes les 5 ticks, pour chaque projet en chantier), même quand tous
+  -- les obstacles étaient déjà faits. p.obst_faits garde la LISTE (la table elle-même) dont la dernière revue n'a laissé aucun obstacle
+  -- ouvert : tant que c'est encore elle (une liste neuve du plan est une autre table) et que rien n'y a été ajouté ni rouvert
+  -- (add_obstacle efface la marque ; un obstacle fait ne se rouvre que là), la revue rendrait 0 sans rien écrire : elle est sautée.
+  if p.obst_faits ~= nil and p.obst_faits == p.obstacles then return 0 end
   -- Lot AGEBLOCAGE : le curseur repart juste après le dernier obstacle revu (règle pure shared/team/revue_obstacles.lua). L'ancienne
   -- boucle faisait n pas : son curseur revenait à son départ, les mêmes obstacles étaient revus à chaque appel et les autres restaient
   -- ouverts, même vides (banc ageblocage-dc 717152950 : 68 obstacles vides d'Azur jamais revus de 37 à 57 min, curseur bloqué à n + 1,
@@ -2626,6 +2632,7 @@ local function review_obstacles(surface, p)
     return surface.count_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 }) > 0
   end)
   p.obst_cur = cur
+  p.obst_faits = (left == 0) and p.obstacles or nil
   return left
 end
 
@@ -3902,7 +3909,7 @@ local function npc_block(f, p, e, surface)
       st.npc_moved = (st.npc_moved or 0) + 1
     end
   end
-  if e.npc_blocks % Build.NPC_BLOCKS_PER_FAIL == 0 then e.fails = (e.fails or 0) + 1 end
+  if e.npc_blocks % Build.NPC_BLOCKS_PER_FAIL == 0 then e.fails = (e.fails or 0) + 1; p.fails_lus = nil end -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
   log_refusal(f, p, e, "pnj", surface)
 end
 
@@ -4059,7 +4066,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     if r ~= "ok" then
       -- lot PETROLE : sur un site défriché pendant le chantier (spec.lazy_clear), un arbre sous l'emprise n'est pas un
       -- échec (il est coupé par la tâche de défrichage ; moteur réel, petrole-site : raffinerie « bloquée » par un arbre)
-      if not (r == "obstacle" and p.spec and p.spec.lazy_clear) then e.fails = (e.fails or 0) + 1 end
+      if not (r == "obstacle" and p.spec and p.spec.lazy_clear) then e.fails = (e.fails or 0) + 1; p.fails_lus = nil end -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
       st.revive_fail = st.revive_fail + 1
       learn_cliff(f, surface, p, e, r) -- lot OBSTACLES : falaise cachée aux masques, apprise
       log_refusal(f, p, e, r, surface)
@@ -4069,7 +4076,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     st.ghosts = st.ghosts + 1
     gh = find_ghost(surface, e, f.force)
     if not gh then
-      e.fails = (e.fails or 0) + 1
+      e.fails = (e.fails or 0) + 1; p.fails_lus = nil -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
       st.revive_fail = st.revive_fail + 1
       log_refusal(f, p, e, "fantome pose mais introuvable", surface)
       return false
@@ -4081,7 +4088,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   if not (ent and ent.valid) then
     inv.insert({ name = e.item, count = 1 })
     if npc_on(surface, e) then npc_block(f, p, e, surface) return false end
-    e.fails = (e.fails or 0) + 1
+    e.fails = (e.fails or 0) + 1; p.fails_lus = nil -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
     st.revive_fail = st.revive_fail + 1
     log_refusal(f, p, e, "ravivage refuse", surface)
     return false
@@ -4453,12 +4460,18 @@ local function street_clear_tasks(f, out)
   local want = {}
   local passable = seg_passable(b)
   local hi, hj = 0, 0
+  -- Lot UPS : UN arbre de parcours depuis le QG pour tous les chantiers de la pensée (P.route_tree : mêmes règles et même ordre que
+  -- P.route_nodes, le chemin lu dans l'arbre est celui que rend P.route_nodes ; tests/plan_test.lua). Avant : un parcours en largeur
+  -- ENTIER par chantier ouvert (mesuré à 60-90 min, graine 123456789 : 14 ms par pensée d'équipe, pics de 77 ms). L'arbre n'est
+  -- calculé qu'au premier chantier ouvert, et jeté à la fin de l'appel (les tronçons ne changent pas pendant l'appel).
+  local tree
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") and p.parts[1] then
       local pt = p.parts[1]
       local ti, tj = nearest_node(b, pt.ox, pt.oy)
-      local nodes = P.route_nodes({ i = hi, j = hj }, { i = ti, j = tj }, passable, b.radius)
+      tree = tree or P.route_tree({ i = hi, j = hj }, passable, b.radius)
+      local nodes = P.tree_path(tree, { i = ti, j = tj })
       for k = 2, #(nodes or {}) do
         local a, c = nodes[k - 1], nodes[k]
         local key = a.i ~= c.i and P.seg_key("h", math.min(a.i, c.i), a.j) or P.seg_key("v", a.i, math.min(a.j, c.j))
@@ -4986,7 +4999,7 @@ local function advance(f, surface, p, tick)
           npc_block(f, p, e, surface)
         else
           e.ghosted = true
-          e.fails = (e.fails or 0) + 1
+          e.fails = (e.fails or 0) + 1; p.fails_lus = nil -- lot UPS : un refus de plus, le chantier relit ses pièces (advance)
           b.stats.ghost_refused = b.stats.ghost_refused + 1
           learn_cliff(f, surface, p, e, r) -- lot OBSTACLES
           log_refusal(f, p, e, r, surface)
@@ -5002,7 +5015,12 @@ local function advance(f, surface, p, tick)
     Profiler.fstop("ch:obst")
     if all_built(p) then
       p.state = "raccordement"
-    else
+    elseif p.fails_lus ~= true then
+      -- Lot UPS : cette boucle relisait TOUTES les pièces du projet à chaque passe (toutes les 5 ticks). Elle n'agit que sur une pièce
+      -- pas bâtie dont les refus ont atteint la limite ; chaque pièce de ce genre y est abandonnée (bâtie) ou bloque le projet (retour).
+      -- Une lecture allée au bout n'en laisse donc aucune : p.fails_lus le dit, et les cinq lignes de ce fichier qui comptent un refus
+      -- (les seules du mod à faire monter e.fails) l'effacent. Les réouvertures remettent e.fails à 0 avec e.built. Absent (sauvegarde
+      -- d'avant ce lot) : la boucle se joue, comme avant.
       -- 3 refus d'un même fantôme : le module est bloqué (raison écrite), §6.6 (4)
       for _, e in ipairs(p.ents) do
         if e.wall and not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
@@ -5036,6 +5054,7 @@ local function advance(f, surface, p, tick)
           return
         end
       end
+      p.fails_lus = true
     end
     return
   end

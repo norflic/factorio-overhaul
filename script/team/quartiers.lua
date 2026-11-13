@@ -20,6 +20,7 @@ local T = require("shared.team.config") -- noms lus dans T (registre §8 bis de 
 local Registry = require("script.companion.registry")
 local State = require("script.faction.state")
 local Enc = require("shared.team.enceinte") -- tranche 3 : menaces connues (Enc.known_threats, règle pure)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Qr = {}
 
@@ -487,7 +488,9 @@ function Qr.remote(f, cmd, arg)
     for _, e in ipairs(p.ents) do
       if not e.built then
         local found = surface.find_entities_filtered({ name = e.name, position = { e.x, e.y }, radius = 0.3, force = f.force, limit = 1 })[1]
-        if not found and surface.create_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force, recipe = e.recipe }) then
+        local made = not found and surface.create_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force, recipe = e.recipe })
+        if made then
+          RegT.note(made) -- lot UPS : pose sans événement, notée au registre des machines
           n = n + 1
         end
       end

@@ -19,6 +19,7 @@ local Ad = require("shared.ai3.anti_dispersion")
 local T = require("shared.team.config")
 local State = require("script.faction.state")
 local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local AdRt = {}
 
@@ -100,7 +101,7 @@ local function measure(f, memo)
   local assembleurs = 0
   local cats = four_cats()
   Profiler.fstart("ws:antidisp")
-  local ok, list = pcall(function() return surface.find_entities_filtered({ type = AdRt.ASM_TYPE, force = f.force }) end)
+  local ok, list = pcall(function() return RegT.list(surface, f.force, AdRt.ASM_TYPE, "antidisp") end) -- lot UPS : registre
   Profiler.fstop("ws:antidisp")
   for _, e in ipairs((ok and list) or {}) do
     if e.valid then

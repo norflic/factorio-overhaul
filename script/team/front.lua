@@ -22,6 +22,7 @@ local Sec = require("shared.team.site_securise") -- lot INTEG-ECONOMIE (D5) : si
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE (c) : cellule réattaquée chez une équipe riche
 local Stock = require("script.team.stock")
 local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Front = {}
 
@@ -112,7 +113,7 @@ local function refresh_cover(f, st, surface, tick)
   types()
   local pos = {}
   Profiler.fstart("ws:front-labs")
-  local found = surface.find_entities_filtered({ force = f.force, type = LAB_TYPES })
+  local found = RegT.list(surface, f.force, LAB_TYPES, "front-labs") -- lot UPS : registre (un type non tenu : ancienne recherche)
   Profiler.fstop("ws:front-labs")
   for _, e in ipairs(found) do
     if e.valid then pos[#pos + 1] = { x = e.position.x, y = e.position.y } end

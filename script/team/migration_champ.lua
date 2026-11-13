@@ -51,6 +51,7 @@ local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (
 local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (shared/ai3/anti_dispersion.lua)
 local Bc = require("shared.team.bilan_charbon") -- lot PURGE-FER-CHARBON : plafond du combustible (Bc.room)
 local Cap = require("script.team.plafond_charbon") -- (sa mesure en jeu)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 local Mig = {}
 
 local CFG = Mg.CFG
@@ -1206,6 +1207,8 @@ local function repose(f, surface, st)
       local s2 = sink_ent
       if need_sink then s2 = surface.create_entity({ name = sk.name, position = { sk.x, sk.y }, force = force }) end
       local d = ((not sk) or s2) and surface.create_entity({ name = u.name, position = { u.x, u.y }, direction = u.dir, force = force }) or nil
+      RegT.note(d) -- lot UPS : poses sans événement, notées au registre des machines (foreuse, et four de sortie neuf)
+      if need_sink then RegT.note(s2) end
       if d then
         for _, n in ipairs(sorted_keys(u.plan or {})) do Stock.remove(f, n, u.plan[n]) end
         local burners = { d }

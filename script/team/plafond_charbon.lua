@@ -5,6 +5,7 @@
 local T = require("shared.team.config")
 local Bc = require("shared.team.bilan_charbon")
 local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
+local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Cap = {}
 Cap.EVERY = 600 -- ticks : un relevé par force au plus toutes les 10 s (parcours de la surface)
@@ -16,7 +17,7 @@ function Cap.read(f, surface)
   local consumers, drills = {}, {}
   local status = defines.entity_status
   Profiler.fstart("ws:cap")
-  local found = surface.find_entities_filtered({ force = f.force, type = { "boiler", "furnace", "mining-drill" } })
+  local found = RegT.list(surface, f.force, { "boiler", "furnace", "mining-drill" }, "cap") -- lot UPS : registre
   Profiler.fstop("ws:cap")
   for _, e in ipairs(found) do
     local p = e.prototype
