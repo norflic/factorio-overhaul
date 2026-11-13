@@ -76,11 +76,11 @@ local function sample(ctx, st, label)
   for _, u in ipairs(r.units or {}) do if u.valid then alive = alive + 1 end end
   local da = dact(ctx, r.def)
   local line = string.format("%s | assaillants %d/%d | soldats %s a <40 : %d | foreuses <%d : %d (avant %d) | tourelles <%d : %d (avant %d)"
-    .. " | alertes site %d (loin %d) envoyees %d refusees %d | fer livre %s %d (+%d depuis l'assaut) | QG menace %s",
+    .. " | alertes site %d (loin %d) envoyees %d refusees %d critiques %d par la reserve %d | fer livre %s %d (+%d depuis l'assaut) | QG menace %s",
     label, alive, r.sent, r.def, count_near(s, r.dforce, r.pos, 40, "unit"), R_SITE,
     count_near(s, r.dforce, r.pos, R_SITE, "mining-drill"), r.drills0, R_SITE,
     count_near(s, r.dforce, r.pos, R_SITE, { "ammo-turret", "electric-turret", "fluid-turret" }), r.tur0,
-    da.site_alerts or 0, da.site_alerts_far or 0, da.site_sent or 0, da.site_refused or 0, r.def,
+    da.site_alerts or 0, da.site_alerts_far or 0, da.site_sent or 0, da.site_refused or 0, da.site_critical or 0, da.site_reserve_sent or 0, r.def,
     delivered_iron(ctx, r.def), delivered_iron(ctx, r.def) - r.iron0, tostring(r.hq_threat or "-"))
   log(TAG .. line)
   r.last = { alive = alive, drills = count_near(s, r.dforce, r.pos, R_SITE, "mining-drill"),
