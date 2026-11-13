@@ -26,6 +26,7 @@ local Chef = require("script.faction.chef")
 local Veille = require("script.faction.veille") -- lot VEILLE : bilans de la reconnaissance régulière (mission : script/ai3/exploration.lua)
 local Charge = require("script.core.charge") -- lot TV-VAPEUR (V89) : dégradation graduée, la cadence lente s'allonge sous charge
 local Cd = require("shared.faction.cadence") -- lot X10-S10 : factions lointaines et calmes plus lentes (règle pure)
+local BdRt = require("script.ai3.budget_defense") -- lot S42-DEFENSE : niveau de pertes recentes (part de la defense)
 local DefChoix = require("script.faction.defchoix") -- lot X10-S10 : ennemi près du QG (lu au créneau)
 local Storage = require("script.core.storage") -- lot X10-S10 : état des soldats de l'IA3 (nettoyage, expédition), lu sans le créer
 local Ia3k = require("script.ai3.comportement") -- lot X10-S10 : clé de l'équipe dans cet état (Ia3k.team_key)
@@ -398,6 +399,7 @@ Events.on_died(function(e)
   local entity = e.entity
   local f = State.by_force(entity.force.name)
   if not f or f.eliminated then return end
+  BdRt.note(f, entity, e.tick) -- lot S42-DEFENSE : la part de la defense suit les pertes recentes (shared/ai3/budget_defense.lua)
   f.lost_t = e.tick -- lot X10-S10 : une perte, où qu'elle soit, réveille une faction endormie (shared/faction/cadence.lua, « perte »)
   local p = entity.position
   local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y

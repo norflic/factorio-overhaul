@@ -42,7 +42,8 @@ function Pil.armee_on() return setting_on(Pil.ARMEE_SETTING) end
 function Pil.armee_input(capi)
   if not Pil.armee_on() then return nil end
   local res = capi and capi.res
-  return { parts = res and { delta = res.delta, alpha = res.alpha } or nil }
+  -- lot S42-DEFENSE : part de la defense mesuree sur les pertes (capi.def_dyn) : la reserve suit jusqu'a 1000 pour mille
+  return { parts = res and { delta = res.delta, alpha = res.alpha, max = capi.def_dyn and 1000 or nil } or nil }
 end
 
 --- Journal [FO-ARMEE] : une ligne quand la réserve de la famille change (part, matières retenues). plan = plan du cerveau (plan.ia3.armee).
