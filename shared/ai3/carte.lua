@@ -404,7 +404,9 @@ end
 --- Frontière : secteurs NON VUS voisins (8-connexité) d'un secteur vu, triés par clé.
 function K.frontier(m)
   local out, added = {}, {}
-  for _, k in ipairs(sorted_keys(m.s)) do
+  -- Sprint 40 (p46) : parcours sans tri préalable : `out` est un ENSEMBLE (added) trié juste après, donc la sortie ne dépend pas de
+  -- l'ordre du parcours ; le tri de toutes les clés vues (des milliers en fin de partie) ne servait à rien.
+  for k in pairs(m.s) do
     local sx, sy = A.xy(k)
     for dy = -1, 1 do
       for dx = -1, 1 do
@@ -461,7 +463,8 @@ function K.best_target(m, ctx)
   local best, bs, sbest, sbs
   local maxd = ctx.max_dist or K.MAX_DIST
   local spawn = ctx.spawn or { x = 0, y = 0 }
-  for _, k in ipairs(K.frontier(m)) do
+  -- Sprint 40 (p46) : ctx.frontier = frontière déjà calculée par l'appelant pour CETTE carte inchangée (essais successifs d'un même choix).
+  for _, k in ipairs(ctx.frontier or K.frontier(m)) do
     if not (ctx.exclude and ctx.exclude[k]) then
       local cx, cy = A.center(A.xy(k))
       local dh = math.sqrt((cx - ctx.hq.x) ^ 2 + (cy - ctx.hq.y) ^ 2)

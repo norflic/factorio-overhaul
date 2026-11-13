@@ -256,5 +256,24 @@ do
   check(K.blocked_near(b, 3096, 0, 940, 128, 1000) and not K.blocked_near(b, 300, 0, 940, 128, 1000), "l'entrée oubliée ne bloque plus")
 end
 
+-- Sprint 40 (p46) : la frontière ne dépend pas de l'ordre d'insertion des secteurs, et une frontière fournie (ctx.frontier) rend la
+-- même cible que la frontière recalculée.
+do
+  local a, b = K.new(), K.new()
+  local list = {}
+  for sy = -3, 3 do for sx = -3, 3 do if (sx * 7 + sy * 3) % 5 ~= 0 then list[#list + 1] = key(sx, sy) end end end
+  for i = 1, #list do K.record(a, list[i], 0, {}) end
+  for i = #list, 1, -1 do K.record(b, list[i], 0, {}) end
+  local fa, fb = K.frontier(a), K.frontier(b)
+  local same = #fa == #fb
+  for i = 1, #fa do if fa[i] ~= fb[i] then same = false end end
+  check(same and #fa > 0, "p46 : frontière identique quel que soit l'ordre d'insertion")
+  for i = 2, #fa do check(fa[i - 1] < fa[i], "p46 : frontière triée, sans doublon") end
+  local hq = { x = 32, y = 32 }
+  local k0, s0 = K.best_target(a, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 } })
+  local k1, s1 = K.best_target(a, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, frontier = fa })
+  check(k0 ~= nil and k0 == k1 and s0 == s1, "p46 : frontière fournie = même cible, même note")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

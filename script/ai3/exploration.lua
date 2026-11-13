@@ -605,7 +605,8 @@ local function retarget(f, k, a, ex, tick)
     -- Lot FIX-P2 : une cible dont le trajet depuis l'éclaireur passe près d'un nid ou d'un ver vu est écartée (comme la veille).
     local excl = make_exclude(k, tick, ex, true)
     local tctx = { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
-      rivals = rivals(f, surface), exclude = excl, soft = make_soft(k, tick) }
+      rivals = rivals(f, surface), exclude = excl, soft = make_soft(k, tick),
+      frontier = K.frontier(k.m) } -- sprint 40 (p46) : une seule frontière pour les 4 essais (la carte ne change pas entre eux)
     for _try = 1, 4 do
       key, _note, soft = K.best_target(k.m, tctx)
       if not key or K.scout_ok(k.m, me, key) then break end
