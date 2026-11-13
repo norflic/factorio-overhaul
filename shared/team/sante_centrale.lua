@@ -59,6 +59,19 @@ function S.classify(c)
     repair = has.chaudiere_detruite or has.bras_manquants or has.tapis_manquant or has.machines_manquantes or has.pompe_manquante or false }
 end
 
+--- Sprint s43 (scen-energie, banc scen-blackout, graine 271828182) : la cause « pièce manquante » (tapis, bras, machine, pompe,
+--- chaudière) était LUE par S.classify (repair) puis laissée au relevé général de reconstruction (script/team/rebuild_sweep.lua, par
+--- tranches) : tapis de charbon coupé à 30 min, centrale 12 de votre équipe « tapis_manquant » jusqu'à la fin (45 min), douze amorces à
+--- la main de suite. Pièces à rouvrir TOUT DE SUITE : posées (built), avec un objet, absentes du monde, ni retirées à la main par le
+--- joueur (hand) ni sous la menace d'un ennemi (enemy). pieces = { { built, item, alive, hand, enemy } } ; rend la liste des indices.
+function S.to_reopen(pieces)
+  local out = {}
+  for i, p in ipairs(pieces) do
+    if p.built and p.item and not p.alive and not p.hand and not p.enemy then out[#out + 1] = i end
+  end
+  return out
+end
+
 --- Chaudières à sec depuis assez longtemps pour une amorce. st : mémoire { dry_n } (nombres) ; dry : chaudières à sec à ce relevé.
 --- Rend vrai quand le compte de relevés de suite atteint S.DRY_CHECKS ; une chaudière nourrie le remet à zéro.
 function S.confirm(st, dry)
@@ -204,6 +217,9 @@ function S.line(ev)
   elseif ev.kind == "avance-rompue" then
     return string.format("[FO-SANTE-CENTRALE] %s : avance de la centrale de plus INTERROMPUE a %.1f min apres %d releve(s) sur %d (production %.0f kW + chantiers %.0f kW sous le seuil de %.0f kW) : le compteur repart a zero",
       t, min, ev.n or 0, S.ANTICIPATE_CHECKS, ev.used or 0, ev.committed or 0, S.ANTICIPATE * (ev.capacity or 0))
+  elseif ev.kind == "repare" then
+    return string.format("[FO-SANTE-CENTRALE] %s : centrale %s a %.1f min : %d piece(s) manquante(s) rouverte(s) tout de suite (%s), sans attendre le releve de reconstruction",
+      t, tostring(ev.plant), min, ev.n or 0, tostring(ev.what))
   elseif ev.kind == "bloquee" then
     return string.format("[FO-SANTE-CENTRALE] %s : reconstruction de la centrale %s sans progres depuis %.0f s (%d piece(s) posee(s)) : elle ne retient plus la centrale de plus a %.1f min",
       t, tostring(ev.plant), (ev.waited or 0) / 60, ev.built or 0, min)

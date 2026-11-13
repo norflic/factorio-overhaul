@@ -71,7 +71,25 @@ check(good["centrale-en-marche"] == "OK" and good["coupe-posee"] == "OK" and goo
 local badv = verdicts(rel(function() return 0.2 end, function() return 2 end))
 check(badv["satisfaction-revenue"] == "ECHEC" and badv["chaudieres-rallumees"] == "ECHEC", "aucun retour : ECHEC")
 
--- 6. scénarios de crise déclarés (fichiers du banc)
+-- 6. centrale : la pièce manquante est rouverte tout de suite (S.to_reopen) et le câblage (Sante.observe -> Sweep.reopen_pieces)
+local Sc = require("shared.team.sante_centrale")
+local idx = Sc.to_reopen({
+  { built = true, item = "a", alive = false },                 -- 1 : tapis coupé : rouvert
+  { built = true, item = "a", alive = true },                  -- 2 : vivant
+  { built = false, item = "a", alive = false },                -- 3 : déjà rouvert (fantôme en cours)
+  { built = true, item = "a", alive = false, hand = true },    -- 4 : retiré à la main par le joueur
+  { built = true, item = "a", alive = false, enemy = true },   -- 5 : ennemi sur place
+  { built = true, alive = false },                             -- 6 : sans objet
+  { built = true, item = "b", alive = false },                 -- 7 : rouvert
+})
+check(#idx == 2 and idx[1] == 1 and idx[2] == 7, "to_reopen : seules les pièces posées, absentes, sans main ni ennemi (" .. table.concat(idx, ",") .. ")")
+check(Sc.line({ kind = "repare", team = "player", plant = 12, tick = 3600 * 30, n = 2, what = "x, y" }):find("rouverte", 1, true) ~= nil, "ligne de journal « repare »")
+local SC = read("script/team/sante_centrale.lua")
+check(SC:find("Sweep.reopen_pieces(p, list, tick)", 1, true) ~= nil, "Sante.observe rouvre par Sweep.reopen_pieces")
+check(SC:find("if not r and e.built then missing[#missing + 1] = e end", 1, true) ~= nil, "pièce posée absente relevée")
+check(SC:find("not Sante.off(f)", 1, true) ~= nil, "règle coupée avec la santé (témoin)")
+
+-- 7. scénarios de crise déclarés (fichiers du banc)
 for _, n in ipairs({ "scen-blackout", "scen-blackout-centrale", "scen-bus-goulot" }) do
   local ok = io.open("tools/autotest/fo-autotest/scenarios/" .. n .. ".lua", "rb")
   check(ok ~= nil, "scénario " .. n .. " présent")
