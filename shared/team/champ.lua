@@ -1181,4 +1181,11 @@ function Ch.plan(spec)
   return p, why
 end
 
+--- s40 champ p1 : fin de l'ordre des bandes d'un cadre. `nbad` : bandes écartées (plan de bande refusé à l'instant de sa demande) ; `produced` :
+--- bandes qui ont produit ; `last` : valeur de `produced` au dernier tour de relecture (nil : aucun tour). Rend vrai si les bandes écartées
+--- sont à relire : il y en a, et au moins une bande a produit depuis le dernier tour (un tour sans bande neuve termine : pas de boucle).
+function Ch.bad_round(nbad, produced, last)
+  return (nbad or 0) > 0 and (produced or 0) > (last or 0)
+end
+
 return Ch

@@ -32,6 +32,7 @@ local Mod = require("shared.team.modules")
 local P = require("shared.team.plan")
 local D = require("shared.team.automatisation_donnees")
 local Mg = require("shared.team.migration_champ")
+local Ch = require("shared.team.champ") -- s40 champ : règles pures de fin d'ordre (Ch.bad_round, Ch.refuse_goes_on)
 local Mp = require("shared.team.mega_pose") -- lot MEGA-FONDERIE (A2) : bandes en avance d'un gisement à méga-fonderie décidée (règle pure)
 local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arrière d'une bande qui n'aboutit pas (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
@@ -845,6 +846,17 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   if not pr and st.ahead then
     -- lot MEGA-FONDERIE (A2) : des bandes en avance sont encore au plan : le champ n'est pas « posé » tant qu'elles ne le sont pas
     st.retry = tick + CFG.retry
+    return false
+  end
+  if not pr and Ch.bad_round(#(st.bad or {}), st.produced, st.bad_at) then
+    -- s40 champ p1 : l'ordre est épuisé mais des bandes ont été écartées (plan de bande refusé à l'instant de leur demande : place de fonderie
+    -- prise, obstacle) et le champ a posé une bande depuis : elles sont relues après CFG.revive au lieu de déclarer le champ posé. Un tour qui
+    -- ne pose aucune bande de plus termine comme avant (Ch.bad_round : st.bad_at = bandes qui produisaient au dernier tour).
+    local n = #st.bad
+    st.bad, st.bad_at = nil, st.produced
+    st.retry = tick + CFG.revive
+    say(f, ms, string.format("avant-poste %d : ordre epuise, %d bande(s) ecartee(s) relue(s) dans %.0f min (%d bande(s) produisent)", o.id, n,
+      CFG.revive / 3600, st.produced), true)
     return false
   end
   if not pr then
