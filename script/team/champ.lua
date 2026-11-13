@@ -38,6 +38,8 @@ local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
+local Rer = require("script.team.reroutage") -- lot s42 reroutage : tapis de l'équipe qui traverse le gisement, contourné avant d'être coupé
+Rer.Build = Build
 
 local Champ = {}
 
@@ -417,6 +419,7 @@ local function spec_of(f, surface, o, frame, only, axis_force)
   -- lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre de cet avant-poste a retenues pour son réseau du charbon reporté lui restent libres
   local blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft, function(_, _, owner) return Cd.own(owner, o.id) end)
   Profiler.fstop("champ:blocked")
+  Rer.note(f, surface, o, ore, blocked, mine, { x0, y0, x1, y1 }) -- lot s42 reroutage : relevé seul, le plan de ce tour garde le trou
   local spec = {
     ore = ore, blocked = blocked, mine = mine, soft = soft, foreign = foreign, nforeign = nforeign, resources = resources,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
