@@ -43,5 +43,30 @@ check(p == nil and d and d > 14 and d < 15, "trop pres du QG : aucune cible, dis
 p, d = F.cible_raid({}, hq, 40)
 check(p == nil and d == nil, "aucune foreuse")
 
+-- 4. Alertes de site critiques (maillon des refus d'emerald) : servies sous la réserve quand le QG n'est pas attaqué.
+local Da = require("shared.team.danger_actif")
+check(Da.critical("generateur", false) and Da.critical("chauffe") and Da.critical("pompe"), "centrale critique")
+check(Da.critical(nil, true) and Da.critical("militaire", true), "tourelle critique")
+check(not Da.critical("foreuse", false) and not Da.critical("militaire", false) and not Da.critical(nil, nil), "foreuse, mur : non critiques")
+local n, l, r = Da.critical_send(5, 8)
+check(n == 4 and l == 1 and r == 8, "au-dessus de la reserve : pris au-dessus, reserve intacte")
+n, l, r = Da.critical_send(1, 8)
+check(n == 4 and l == 0 and r == 5, "complete par la reserve (1 + 3)")
+n, l, r = Da.critical_send(0, 1)
+check(n == 0 and l == 0 and r == 1, "jamais un soldat isole")
+n, l, r = Da.critical_send(0, 0)
+check(n == 0, "QG attaque (res 0) : rien")
+-- emerald : 10 soldats libres, réserve 8 -> au-dessus 2 ; une alerte foreuse lointaine, une alerte centrale plus loin.
+local site = { { d2 = 100, x = 1, y = 1 }, { d2 = 900, x = 3, y = 3, critical = true } }
+local out, left = Da.site_plan(site, 2, 8)
+check(out[1].item.critical and out[1].n == 4 and out[1].reserve, "centrale servie d'abord, par la reserve")
+check(out[2].n == 0, "foreuse lointaine refusee (rien au-dessus de la reserve)")
+check(left == 0, "rien ne reste au-dessus")
+out = Da.site_plan(site, 2) -- sans res : comportement d'avant (la critique passe d'abord mais n'emprunte rien)
+check(out[1].n == 0 and out[2].n == 0, "sans res : refus comme avant")
+out = Da.site_plan({ { d2 = 100, x = 1, y = 1 }, { d2 = 50, x = 2, y = 2 } }, 8, 8)
+check(out[1].item.d2 == 50 and out[1].n == 4 and out[2].n == 4 and not out[1].reserve, "non critiques : ordre et envois d'avant")
+check(site[1].d2 == 100 and site[2].d2 == 900, "liste d'entree intacte")
+
 print(string.format("s43 scen-raid : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end

@@ -96,7 +96,7 @@ end
 
 --- Alerte d'un PNJ en fuite : les soldats les plus proches vont vers la menace (si elle est près du QG).
 --- mode « hunt » (C4) : un adversaire isolé vu par un ouvrier : 3 soldats le chassent (rôle « hunt »).
-C.on_alert = function(f, ep, kind, tick, mode)
+C.on_alert = function(f, ep, kind, tick, mode, critical) -- critical : pièce critique touchée (s43 scen-raid, Da.critical ; mode « site » seulement)
   -- Lot ARMEE-ANTICIPATION (« ils ont envoyé quatre soldats dans un endroit trop dangereux », DC 29/10) : la fuite devant un NID,
   -- un VER ou une tourelle n'appelle pas 4 soldats en attaque de zone au pied du champ (aucune mesure de sa force) ; ces menaces
   -- fixes sont déjà dans la carte de l'équipe (t.map.threats) : le nettoyage les prend, compté sur le champ entier (Sd.field_need).
@@ -115,24 +115,29 @@ C.on_alert = function(f, ep, kind, tick, mode)
       a.x, a.y, a.t = ep.x, ep.y, tick
       -- lot DANGER-ACTIF : un site touché ; ses soldats sont pris au-dessus de la réserve du QG (pass). Sprint 40 (défense, p3) : fusionnée dans une
       -- alerte de CHASSE, elle en gardait le rôle (3 chasseurs) et n'était jamais lue comme un site (pass : `a.site and not a.role`).
-      if mode == "site" then a.site, a.role, a.n = true, nil, 4 end
+      if mode == "site" then
+        a.site, a.role, a.n = true, nil, 4
+        if critical then a.critical = true end -- s43 scen-raid : une alerte reste critique jusqu'à son échéance
+      end
       return true
     end
   end
   t.alerts[#t.alerts + 1] = { x = ep.x, y = ep.y, ["until"] = tick + SD.ALERT_TICKS, n = mode == "hunt" and 3 or 4,
-    role = mode == "hunt" and "hunt" or nil, t = tick, site = (mode == "site") or nil }
+    role = mode == "hunt" and "hunt" or nil, t = tick, site = (mode == "site") or nil,
+    critical = (mode == "site" and critical) and true or nil }
   return true
 end
 
 --- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « ... ou en défendant ») : un bâtiment de l'équipe touché par une force adverse (script/team/reparation.lua, au plus
 --- une fois par Da.ALERT_GAP ticks et par équipe) alerte les soldats tout de suite, SANS attendre qu'un ouvrier fuie : ils vont vers le site (alerte de
 --- C.on_alert, mode « site » : les 4 plus proches, 3600 ticks, à toute distance du QG, UNITÉS seulement). Compteurs : t.stats.dact.site_alerts et site_alerts_far (> 226 tuiles).
-Rep.on_attack = function(f, pos, tick)
+Rep.on_attack = function(f, pos, tick, critical)
   if not C.enabled() then return end
-  if C.on_alert(f, pos, "unit", tick, "site") then
+  if C.on_alert(f, pos, "unit", tick, "site", critical) then
     local t = C.team(f)
     t.stats.dact = t.stats.dact or {}
     t.stats.dact.site_alerts = (t.stats.dact.site_alerts or 0) + 1
+    if critical then t.stats.dact.site_critical = (t.stats.dact.site_critical or 0) + 1 end
     if d2(pos, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ * 2 then t.stats.dact.site_alerts_far = (t.stats.dact.site_alerts_far or 0) + 1 end -- au-delà de 226 tuiles
   end
 end
@@ -469,7 +474,7 @@ local function pass(f, tick)
           left = 0
         end
       elseif a.site and not a.role then
-        site[#site + 1] = { a = a, d2 = d2(a, f.hq_pos), x = a.x, y = a.y }
+        site[#site + 1] = { a = a, d2 = d2(a, f.hq_pos), x = a.x, y = a.y, critical = a.critical }
       elseif n ~= 0 then
         defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n, role = a.role }
         left = (n == nil) and 0 or math.max(0, left - n)
@@ -477,10 +482,17 @@ local function pass(f, tick)
     end
   end
   local served
-  served, left = Da.site_plan(site, left)
+  -- s43 scen-raid (maillon des refus d'emerald, partie du DC 0.7.96 : 5 à 12 soldats libres, réserve Sd.RESERVE_MIN = 8, 216 refus sur 251) :
+  -- une alerte CRITIQUE (centrale, tourelle) emprunte la réserve quand le QG n'est pas attaqué (ni ennemi au QG, hq_en, ni alerte d'armée).
+  local res = (hq_en or army_on) and 0 or (#list - Sd.surplus(#list))
+  served, left = Da.site_plan(site, left, res)
   for _, sv in ipairs(served) do
     local a = sv.item.a
     if sv.n > 0 then defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = sv.n } end
+    if sv.reserve and a.served ~= "sent" then
+      t.stats.dact = t.stats.dact or {}
+      t.stats.dact.site_reserve_sent = (t.stats.dact.site_reserve_sent or 0) + 1
+    end
     -- Compté une fois par alerte et par état (servie, ou refusée faute de soldats au-dessus de la réserve du QG) ; lu par le bilan [FO-DANGER-ACTIF].
     local st = sv.n > 0 and "sent" or "refused"
     if a.served ~= st then

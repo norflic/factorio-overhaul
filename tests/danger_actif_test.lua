@@ -130,11 +130,11 @@ local RPS = read("script/team/reparation.lua")
 check(RPS:find("Rep.on_attack and hitter and hitter ~= ent.force and Da.alert_due(f.attack_alert_t, e.tick)", 1, true) ~= nil,
   "un bâtiment de l'équipe touché par une force adverse appelle le crochet d'alerte (au plus un par Da.ALERT_GAP)")
 local SDS = read("script/ai3/soldats.lua")
-check(SDS:find("Rep.on_attack = function(f, pos, tick)", 1, true) ~= nil and SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil,
+check(SDS:find("Rep.on_attack = function(f, pos, tick, critical)", 1, true) ~= nil and SDS:find('C.on_alert(f, pos, "unit", tick, "site", critical)', 1, true) ~= nil,
   "le crochet alerte les soldats par C.on_alert (existant)")
 check(RPS:find("Da.mobile_cause(cause.type)", 1, true) ~= nil and RPS:find("State.owner(u)", 1, true) ~= nil, "bâtiment touché : cause mobile seulement ; votre équipe : bâtiment enregistré seulement")
-check(SDS:find('C.on_alert(f, pos, "unit", tick, "site")', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : enregistrée à toute distance du QG")
-check(SDS:find("local left = hq_en and 0 or Sd.surplus(#list)", 1, true) ~= nil and SDS:find("served, left = Da.site_plan(site, left)", 1, true) ~= nil
+check(SDS:find('C.on_alert(f, pos, "unit", tick, "site", critical)', 1, true) ~= nil and SDS:find('mode ~= "site" and d2(ep, f.hq_pos)', 1, true) ~= nil, "alerte « site » : enregistrée à toute distance du QG")
+check(SDS:find("local left = hq_en and 0 or Sd.surplus(#list)", 1, true) ~= nil and SDS:find("served, left = Da.site_plan(site, left, res)", 1, true) ~= nil
   and SDS:find("elseif a.site and not a.role then", 1, true) ~= nil and SDS:find("left = (n == nil) and 0 or math.max(0, left - n)", 1, true) ~= nil
   and SDS:find('if mode == "site" then a.site = true end', 1, true) ~= nil and SDS:find('site = (mode == "site") or nil', 1, true) ~= nil,
   "alertes de site, proches comprises : soldats pris au-dessus de la réserve du QG, après le QG menacé, l'armée et les alertes de fuite (relecture du lead 17 h 41)")
@@ -171,8 +171,8 @@ local mutants = {
     "if left > 0 then local k = math.min(left, Da.SITE_GROUP) return k, left - k end" },
   { "alerte de site : surplus non décompté", "return Da.SITE_GROUP, left - Da.SITE_GROUP end", "return Da.SITE_GROUP, left end" },
   { "alerte de site : toujours un groupe", "if left >= Da.SITE_GROUP then", "if true then" },
-  { "réserve seulement pour les lointaines", "    n, left = Da.site_send(left)\n    out[i] = { item = it, n = n }",
-    "    if it.d2 <= 226 * 226 then n = Da.SITE_GROUP else n, left = Da.site_send(left) end\n    out[i] = { item = it, n = n }" },
+  { "réserve seulement pour les lointaines", "      n, left = Da.site_send(left)\n      out[i] = { item = it, n = n }",
+    "      if it.d2 <= 226 * 226 then n = Da.SITE_GROUP else n, left = Da.site_send(left) end\n      out[i] = { item = it, n = n }" },
   { "ordre d'arrivée au lieu de la distance", "if a.d2 ~= b.d2 then return a.d2 < b.d2 end", "if a.d2 ~= b.d2 then return a.d2 > b.d2 end" },
 }
 local refused = 0
