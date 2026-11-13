@@ -196,6 +196,8 @@ function Elec.think(f, book, tick)
       end
       local active = thermal + (lv.by[sp.resource] or 0)
       local r = st.res[k] or { peak = active, peak_t = tick, last = active, rise_t = tick, was = false }
+      -- lot ELAGAGE : les paires que la migration a rendues au stock (f.migration.retired_by, écrit par retire()) ne sont pas une perte
+      r.peak, r.retired_seen = E.peak_less(r.peak, ((f.migration or {}).retired_by or {})[k], r.retired_seen)
       -- (un pic ne vieillit PAS tant que l'extraction est effondrée : sinon, à 0 foreuse, le pic retombait à 0 au bout de 30 min et la règle se rendait
       -- toute seule alors que rien n'avait repris ; mesuré, coll-on-20261020)
       if active >= r.peak or (tick - r.peak_t > E.CFG.peak_keep and not r.was) then r.peak, r.peak_t = active, tick end

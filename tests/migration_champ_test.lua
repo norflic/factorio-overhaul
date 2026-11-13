@@ -1642,6 +1642,7 @@ do
     check((E.chest[T.DRILL] or 0) == 8 and (E.chest[T.outposts.iron.sink] or 0) == 8, "T1 : foreuses et fours rendus au stock")
     check(E.o.drills == before_drills and E.o.migr_credit == 8, "T1 : la comptabilité des foreuses de l'avant-poste ne change pas (credit " .. tostring(E.o.migr_credit) .. ")")
     check(E.ms.swept == 8 and E.ms.retired == 8, "T1 : compteurs du balayage")
+    check((E.ms.retired_by or {})[E.o.kind] == 8, "T1 : cumul des foreuses rendues par ressource (lot ELAGAGE, lu par Elec.think)")
     check(said(E, "retiree(s) de force"), "T1 : journal du balayage")
     check(said(E, "[FO-THERMIQUE]"), "T1 : ligne d'état [FO-THERMIQUE]")
     check(E.sweep() == 0, "T1 : plus rien à balayer")
@@ -1894,6 +1895,7 @@ do
       return mut("if o and st and not byid[a.id].busy then", "if o and st then")(src)
     end },
     -- lot ELAGAGE
+    { "cumul par ressource non écrit", mut("ms.retired_by[o.kind] = (ms.retired_by[o.kind] or 0) + removed", "local _ = 0") },
     { "bande bloquée par ses matières retient encore le balayage", mut("local stuck = pq ~= nil and Th.band_stuck(pq.state, pq.reason, game.tick - (st.t0 or game.tick))", "local stuck = false") },
     { "toute bande en projet lâche le balayage (dégel compris)", mut("local stuck = pq ~= nil and Th.band_stuck(pq.state, pq.reason, game.tick - (st.t0 or game.tick))", "local stuck = pq ~= nil") },
     { "âge de la bande ignoré", mut("game.tick - (st.t0 or game.tick))", "math.huge)") },

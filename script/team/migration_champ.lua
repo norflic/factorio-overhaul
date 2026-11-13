@@ -453,6 +453,12 @@ local function retire(f, surface, o, st, list, ents)
     q.drills = math.max(0, (q.drills or 0) - rem[i])
     q.ext_dead = nil
   end
+  -- lot ELAGAGE : cumul des foreuses rendues au stock par ressource, lu par Elec.think (le pic de l'extraction baisse d'autant : E.peak_less)
+  local ms = f.migration
+  if ms and removed > 0 then
+    ms.retired_by = ms.retired_by or {}
+    ms.retired_by[o.kind] = (ms.retired_by[o.kind] or 0) + removed
+  end
   return removed, got, undo
 end
 
