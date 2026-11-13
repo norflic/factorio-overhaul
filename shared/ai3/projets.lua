@@ -299,7 +299,9 @@ function P.want(E, proj, list, prio, fresh, tag)
       if E.book:handcraftable(item) then
         local saved = E.avail[item]
         if fresh then E.avail[item] = 0 end
-        local k = craftable_count(E.book, item, short, E.avail)
+        -- (s40 decision p2 : plafond de fabrications de la pensée atteint : rien ne partira, aucun plan à faire ici ; avant, jusqu'à 10 plans du
+        -- livre par objet, pour chaque projet suivant, rendaient toujours « 0 fabriqué »)
+        local k = E.crafts < P.MAX_CRAFTS and craftable_count(E.book, item, short, E.avail) or 0
         local made = k > 0 and craft(E, proj, item, k, prio, tag or "b") or 0
         if made < short then
           ok = false
