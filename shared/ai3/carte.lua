@@ -71,6 +71,27 @@ local function sorted_keys(t)
 end
 K.sorted_keys = sorted_keys
 
+--- Sprint 40 (p48) : nombre d'entrées par type (`rec.kind`, « ? » sans type) d'une table { [id] = rec }. Un comptage ne dépend pas de
+--- l'ordre du parcours : aucune liste triée n'est allouée (la mesure des bancs le refaisait à chaque passe de l'œil).
+function K.kind_counts(recs)
+  local n = {}
+  for _, rec in pairs(recs or {}) do
+    local kind = rec.kind or "?"
+    n[kind] = (n[kind] or 0) + 1
+  end
+  return n
+end
+
+--- Sprint 40 (p48) : identifiants de `recs` absents de `done`, TRIÉS (seuls les nouveaux sont triés, pas toute la table à chaque passe).
+function K.new_ids(done, recs)
+  local out = {}
+  for id in pairs(recs or {}) do
+    if not done[id] then out[#out + 1] = id end
+  end
+  if #out > 1 then table.sort(out) end
+  return out
+end
+
 --- Tick du dernier regard sur le secteur, ou nil (jamais vu).
 function K.seen(m, key)
   local s = m.s[key]

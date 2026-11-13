@@ -295,5 +295,19 @@ do
     "p47 : hors de portée, l'exclusion n'est jamais lue (" .. n2.reads .. ")")
 end
 
+-- Sprint 40 (p48) : comptage par type et identifiants nouveaux, sans dépendre de l'ordre d'insertion.
+do
+  local a = { [7] = { kind = "fer" }, [2] = { kind = "cuivre" }, [9] = { kind = "fer" }, [4] = {} }
+  local b = {}
+  b[4] = a[4]; b[9] = a[9]; b[2] = a[2]; b[7] = a[7]
+  local na, nb = K.kind_counts(a), K.kind_counts(b)
+  check(na.fer == 2 and na.cuivre == 1 and na["?"] == 1 and nb.fer == 2 and nb.cuivre == 1 and nb["?"] == 1, "p48 : comptes par type")
+  check(next(K.kind_counts(nil)) == nil and #K.new_ids({}, nil) == 0, "p48 : table absente = rien")
+  local ia, ib = K.new_ids({ [2] = true }, a), K.new_ids({ [2] = true }, b)
+  check(#ia == 3 and ia[1] == 4 and ia[2] == 7 and ia[3] == 9 and table.concat(ia, ",") == table.concat(ib, ","),
+    "p48 : identifiants nouveaux triés (" .. table.concat(ia, ",") .. ")")
+  check(#K.new_ids({ [2] = true, [4] = true, [7] = true, [9] = true }, a) == 0, "p48 : tout contrôlé = liste vide")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

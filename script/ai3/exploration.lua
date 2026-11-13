@@ -917,8 +917,9 @@ local function next_request(k, tick)
 end
 
 local function audit(f, k, tick)
-  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
-    if not k.audit.outposts[oid] then
+  -- Sprint 40 (p48) : seuls les avant-postes pas encore contrôlés sont listés et triés (même ordre de contrôle qu'avant).
+  for _, oid in ipairs(K.new_ids(k.audit.outposts, f.outposts)) do
+    do
       k.audit.outposts[oid] = true
       local p = f.outposts[oid].pos
       if K.seen_xy(k.m, p.x, p.y) then
@@ -940,11 +941,7 @@ local function measure(f, tick)
     mm = { out = {}, site = {} }
     f.ai3m = mm
   end
-  local n = {}
-  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
-    local kind = f.outposts[oid].kind or "?"
-    n[kind] = (n[kind] or 0) + 1
-  end
+  local n = K.kind_counts(f.outposts) -- sprint 40 (p48) : comptage sans liste triée des avant-postes
   for _, kind in ipairs(sorted_keys(n)) do
     local list = mm.out[kind] or {}
     mm.out[kind] = list
