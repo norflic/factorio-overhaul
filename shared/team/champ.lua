@@ -726,7 +726,9 @@ local function plan_once(spec)
         end
       end
     end
-    local bo = { pr = bd.pr, b = bd.b, groups = {} }
+    -- orphans : foreuses de la bande non posées faute de fonderie (lot COUPLAGE) ; lu par l'ordre des bandes (script/team/champ.lua,
+    -- Champ.frame) : une bande sans groupe mais à foreuses en attente reste demandée seule plus tard (lot BANDE-GELEE)
+    local bo = { pr = bd.pr, b = bd.b, groups = {}, orphans = 0 }
     for _, l in ipairs({ { bd.n, "n" }, { bd.s, "s" } }) do
       for _, a in ipairs(l[1]) do if not used[a .. l[2]] then capped = capped + 1 end end
     end
@@ -1016,6 +1018,7 @@ local function plan_once(spec)
           away = true, col_b = aw.b, mode = aw.info.mode }
       else
         orphans = orphans + #g0.n + #g0.s -- foreuses NON posées : aucune fonderie ne les recevrait
+        bo.orphans = bo.orphans + #g0.n + #g0.s
         -- leurs tuiles (rangée du collecteur, tuile devant sa sortie) restent prises dans ce plan, comme avant le lot : les autres bouts ne
         -- s'y placent pas (même plan qu'avant, foreuses et tapis en moins)
         for u = g0.cut, e_end, t.side do c.take(u, bd.b) end
