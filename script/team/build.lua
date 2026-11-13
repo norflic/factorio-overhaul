@@ -4217,7 +4217,7 @@ function Build.work(agent, f, tick)
             local cost = x.name:find("electric%-pole") and Build.COST_REVIVE_POLE or Build.COST_REVIVE
             if blocked then
               left = left + 1
-            elseif not Tokens.take(f, tick, cost) then
+            elseif not Tokens.take_pose(f, tick, cost, Build.REVIVE_PER_THINK * Build.COST_REVIVE) then -- lot JETONS : part de pose propre, par équipe (tokens.lua)
               local g = agent.task and agent.task.gt -- lot CHANTIERS-FANTOMES : pensée arrêtée faute de jetons
               if g then g.tok = (g.tok or 0) + 1; g.built = (g.built or 0) + did end
               return "more"

@@ -20,7 +20,13 @@ Tokens.COST_CLAIM = 20 -- une prise de tâche (programme d'étapes, recherche de
 --- et avec lui le gros jeton du tick (ci-dessous, une seule grosse opération pour tout le mod, au premier demandeur).
 Tokens.serve_order = O.serve_order
 
-local ledger = { tick = -1, used = {}, grant = nil, big = nil }
+local ledger = { tick = -1, used = {}, grant = nil, big = nil, pose = {} }
+
+local function reset(tick)
+  if ledger.tick ~= tick then
+    ledger.tick, ledger.used, ledger.grant, ledger.big, ledger.pose = tick, {}, nil, nil, {}
+  end
+end
 
 local function team_keys()
   local keys = {}
@@ -35,9 +41,7 @@ end
 
 --- Prend `units` jetons pour l'équipe `f` au tick `tick`. Rend vrai si la part de l'équipe le permet.
 function Tokens.take(f, tick, units)
-  if ledger.tick ~= tick then
-    ledger.tick, ledger.used, ledger.grant, ledger.big = tick, {}, nil, nil
-  end
+  reset(tick)
   if not ledger.grant then
     local keys = team_keys()
     local demands = {}
@@ -64,6 +68,29 @@ function Tokens.take(f, tick, units)
     return false
   end
   ledger.used[k] = used + units
+  return true
+end
+
+--- Lot JETONS (13/11/2026) : jetons de POSE, pour la pièce qu'un PNJ ravive sur un chantier déjà approvisionné (Build.work, mode « build »).
+--- Maillon : la part d'une équipe dans Tokens.take est O.TICK_BUDGET / nombre d'équipes (400 / 4 = 100 au banc, 400 / 5 = 80 dans la partie
+--- du DC, dont l'équipe du joueur compte), alors que le quota de pose est PAR PENSÉE de PNJ (Build.REVIVE_PER_THINK pièces, 6 × 50 = 300) :
+--- deux échelles pour une grandeur. À 5 équipes une pensée posait 1 pièce sur 6 (2 à 4 équipes), le PNJ restait sur le chantier le sac plein
+--- (banc partie-reelle-120 : 1 400 à 2 300 pensées sans jeton par équipe, pose = 32 à 37 % du temps des tâches).
+--- La pose a donc sa part propre, PAR ÉQUIPE et par tick, qui ne dépend pas du nombre d'équipes : `per_think`, le coût d'une pensée de pose
+--- entière (donné par l'appelant : Build.REVIVE_PER_THINK × Build.COST_REVIVE). Au plus une pensée de pose pleine par équipe et par tick :
+--- la borne des UPS reste (le nombre total de pièces posées est borné par la matière apportée, seule leur cadence change).
+--- Les unités prises sont aussi DÉBITÉES de la part commune de l'équipe à ce tick (plans, fantômes, évaluations passent après, ou au tick
+--- suivant) : la pose n'est plus refusée par la part commune, mais elle la consomme comme avant.
+function Tokens.take_pose(f, tick, units, per_think)
+  reset(tick)
+  local k = f.is_player and "player" or (f.key or f.id)
+  local used = ledger.pose[k] or 0
+  if used + units > per_think then
+    if f.team and f.team.org then f.team.org.stats.token_refused = f.team.org.stats.token_refused + 1 end
+    return false
+  end
+  ledger.pose[k] = used + units
+  ledger.used[k] = (ledger.used[k] or 0) + units
   return true
 end
 
