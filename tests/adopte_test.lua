@@ -181,6 +181,24 @@ end
 local function build(e) for _, h in ipairs(handlers[1]) do h({ created_entity = e }) end end
 local function count(f) return #f.smelters end
 
+-- s40 : une machine adoptée ramassée sort de f.adopt.units et de la liste d'équipe
+do
+  local n0 = #world.entities
+  local f = new_team()
+  local a = new_entity(FURNACE_TYPE, 20, 0)
+  local keep = new_entity(FURNACE_TYPE, -20, 0)
+  build(a)
+  build(keep)
+  check(count(f) == 2 and f.adopt.units[a.unit_number], "s40 : deux fours adoptés")
+  for _, h in ipairs(handlers[3]) do h({ entity = a }) end
+  check(count(f) == 1 and f.smelters[1] == keep and f.adopt.units[a.unit_number] == nil and f.adopt.units[keep.unit_number],
+    "s40 : four adopté ramassé : retiré de l'état et de la liste, l'autre reste")
+  local stranger = new_entity(FURNACE_TYPE, 95, 0)
+  for _, h in ipairs(handlers[3]) do h({ entity = stranger }) end
+  check(count(f) == 1, "s40 : four non adopté ramassé : rien ne change")
+  for i = #world.entities, n0 + 1, -1 do table.remove(world.entities, i) end -- le monde simulé est rendu tel quel aux sections suivantes
+end
+
 do
   local f = new_team()
   local a = new_entity(FURNACE_TYPE, 20, 0)

@@ -388,9 +388,23 @@ end
 --- Lot PARITE : le joueur (ou ses robots) ramasse une foreuse adoptée : elle sort de l'équipe SANS compter comme une perte d'avant-poste.
 local function on_mined(e)
   local ent = e.entity
-  if not (ent and ent.valid and ent.type == "mining-drill") then return end
+  if not (ent and ent.valid) then return end
   local f = team()
-  if f and f.adopt and f.adopt.drills and f.adopt.drills[ent.unit_number] then release_drill(f, ent.unit_number, "ramassee") end
+  if not (f and f.adopt) then return end
+  if ent.type == "mining-drill" then
+    if f.adopt.drills and f.adopt.drills[ent.unit_number] then release_drill(f, ent.unit_number, "ramassee") end
+    return
+  end
+  -- s40 : une machine adoptée ramassée sort de l'état (f.adopt.units) et de la liste d'équipe : avant, son numéro restait pour toujours
+  -- dans la table et l'entité (invalide) dans le registre
+  local reg, u = R.ADOPT[ent.type], ent.unit_number
+  if reg and u and f.adopt.units and f.adopt.units[u] then
+    f.adopt.units[u] = nil
+    local list = list_of(f, reg.registry) or {}
+    for i = #list, 1, -1 do
+      if list[i] == ent then table.remove(list, i) end
+    end
+  end
 end
 
 --- Migration : les machines déjà posées dans le rayon de service (sauvegarde d'avant le lot, réglage rallumé) sont étudiées
