@@ -186,6 +186,57 @@ local function row_drills(c, spec, row, umin, umax, origin, o, fm)
     end
     return n
   end
+  -- s41 pavage-trous : décalage o == s = rangée OPTIMALE (programmation dynamique), plus un parcours glouton. Le glouton cale toute la
+  -- rangée sur UN décalage : après un couloir de passage ou un obstacle, le tronçon suivant garde ce calage et laisse une colonne de
+  -- minerai hors de toute zone (micro-trou). Ici chaque tronçon se cale seul : le plus de minerai miné, puis le plus de foreuses, puis
+  -- les positions les plus à gauche. Mêmes gardes qu'en dessous (couloir, corps libre, autre ressource, min_ore). Les cadres déjà
+  -- écrits gardent leurs décalages 0..s-1, donc leurs rangées à l'identique.
+  if o == s then
+    local a0, a1 = umin - r - s + 1, umax + r
+    local function fits(a)
+      for u = a, a + s - 1 do
+        if corridor_col(origin, u) or not body_free(u) then return false end
+      end
+      if c.has_foreign then
+        local x0, y0, x1, y1 = Mel.zone(a, row, s, r)
+        if Mel.count(x0, y0, x1, y1, c.is_foreign) > 0 then return false end
+      end
+      local n = 0
+      for u = a - r, a + s - 1 + r do n = n + col(u) end
+      return n >= Ch.CFG.min_ore
+    end
+    local fm_, fc, fp = {}, {}, {} -- par position de la DERNIÈRE foreuse : minerai miné, foreuses, foreuse d'avant
+    local pre = {}                 -- meilleure dernière foreuse parmi les positions <= a (zones disjointes de la suivante)
+    local function better(m1, c1, m2, c2) return m1 > m2 or (m1 == m2 and c1 > c2) end
+    local last
+    for a = a0, a1 do
+      if fits(a) then
+        local full = 0
+        for u = a - r, a + s - 1 + r do full = full + col(u) end
+        local bm_, bc, bp = full, 1, nil
+        local far = pre[a - s - 2 * r]
+        if far and better(fm_[far] + full, fc[far] + 1, bm_, bc) then bm_, bc, bp = fm_[far] + full, fc[far] + 1, far end
+        for b = math.max(a0, a - s - 2 * r + 1), a - s do
+          if fm_[b] then
+            local g = 0
+            for u = math.max(a - r, b + s + r), a + s - 1 + r do g = g + col(u) end
+            if better(fm_[b] + g, fc[b] + 1, bm_, bc) then bm_, bc, bp = fm_[b] + g, fc[b] + 1, b end
+          end
+        end
+        fm_[a], fc[a], fp[a] = bm_, bc, bp
+      end
+      local q = pre[a - 1]
+      if fm_[a] and (not q or better(fm_[a], fc[a], fm_[q], fc[q])) then q = a end
+      pre[a] = q
+      last = q
+    end
+    if not last then return out, 0 end
+    local rev = {}
+    local a = last
+    while a do rev[#rev + 1] = a; a = fp[a] end
+    for i = #rev, 1, -1 do out[#out + 1] = rev[i] end
+    return out, fm_[last]
+  end
   local a = umin - r - s + 1 + o
   while a <= umax + r do
     local ok = true
@@ -223,6 +274,12 @@ local function best_row(c, spec, row, umin, umax, origin, fixed, fm)
       local l, m = row_drills(c, spec, row, umin, umax, origin, o, fm)
       if not best or m > bm or (m == bm and #l < #best) then best, bm, bo = l, m, o end
     end
+  end
+  -- s41 pavage-trous : la rangée optimale (décalage s) ne remplace le meilleur glouton que si elle mine STRICTEMENT plus de minerai
+  local so = spec.drill.size
+  if fixed == so or (fixed == nil and not spec.no_row_opt) then
+    local l, m = row_drills(c, spec, row, umin, umax, origin, so, fm)
+    if not best or m > bm then best, bm, bo = l, m, so end
   end
   return best, bm, bo
 end
@@ -320,7 +377,7 @@ function Ch.lattice_step(spec)
   return math.max(1, math.min(math.floor(spec.pole.wire + Ch.CFG.eps), spec.drill.size + 2 * spec.pole.reach))
 end
 
-local function row_poles(c, spec, row, drills, origin, reach_to)
+local function row_poles(c, spec, row, drills, origin, reach_to, known, nknown)
   local R, s = spec.pole.reach, spec.drill.size
   local P = Ch.lattice_step(spec)
   local function lattice_at_or_after(u) return u + ((origin - u) % P) end
@@ -349,12 +406,26 @@ local function row_poles(c, spec, row, drills, origin, reach_to)
         local dir = goal > from and 1 or -1
         local u = from
         local guard = 0
-        while math.abs(goal - u) > R and guard < 400 do
+        -- s41 pavage-trous : (1) la marche s'arrête dès que le poteau courant tient par un fil un poteau DÉJÀ posé de la fonderie visée
+        -- (`known`, à R tuiles au plus du but) : avant, elle avançait jusqu'à R tuiles du but, et le but pris par ce poteau la faisait
+        -- poser un poteau par tuile (trois poteaux côte à côte au bout de chaque rangée) ; (2) la tuile voulue prise, on prend la tuile
+        -- libre la plus LOIN vers le but, plus la plus proche du poteau d'avant
+        local w2 = spec.pole.wire * spec.pole.wire + Ch.CFG.eps
+        local function linked(at)
+          for i = 1, nknown or 0 do
+            local q = known[i]
+            if math.abs(q[1] - goal) <= R and (q[1] - at) * (q[1] - at) + (q[2] - row) * (q[2] - row) <= w2 then return true end
+          end
+          return false
+        end
+        while math.abs(goal - u) > R and guard < 400 and not linked(u) do
           guard = guard + 1
           local want = u + dir * P
           if (dir > 0 and want > goal) or (dir < 0 and want < goal) then want = goal end
-          local lo, hi = math.min(u + dir, want), math.max(u + dir, want)
-          local got = try(lo, hi, want)
+          local got
+          if set[want] or c.free(want, row) then add(want); got = want end
+          if not got then for x = want - dir, u + dir, -dir do if set[x] then got = x break end end end
+          if not got then for x = want - dir, u + dir, -dir do if c.free(x, row) then add(x); got = x break end end end
           if not got then break end
           u = got
         end
@@ -1045,9 +1116,10 @@ local function plan_once(spec)
   for _, e in ipairs(ents) do
     if e.kind == "poteau" then local u, v = c.uv(math.floor(e.x), math.floor(e.y)); all_poles[#all_poles + 1] = { u, v } end
   end
+  local nfound = #all_poles -- s41 pavage-trous : les poteaux des fonderies seuls (ceux des rangées s'ajoutent après)
   for _, r in ipairs(row_list) do
     table.sort(reach_to[r.row])
-    for _, u in ipairs(row_poles(c, spec, r.row, rows[r.row], origin, reach_to[r.row])) do
+    for _, u in ipairs(row_poles(c, spec, r.row, rows[r.row], origin, reach_to[r.row], all_poles, nfound)) do
       emit("poteau", u, r.row, 1, 0, 0, 0, 0, r.pr)
       all_poles[#all_poles + 1] = { u, r.row }
     end
@@ -1166,7 +1238,7 @@ end
 --- croisant pas le tracé du premier sans souterrain ; rejoué hors jeu sur le cadre de scarlet, graine 20261020 : côté + « aucun chemin »,
 --- 4 coffres de tête ; l'autre ordre : 0 coffre, une colonne refusée de l'autre côté, 13 % des foreuses) un cadre NEUF en colonne à
 --- combustible qui garde un coffre de tête ou refuse une colonne est aussi calculé dans l'autre ordre des côtés ; le meilleur est gardé.
-function Ch.plan(spec)
+local function plan_both(spec)
   local p, why = plan_order(spec)
   if not (Ch.CFG.both_orders and p and p.design == "colonne" and p.fuelled and not spec.frame and not spec.coal_first) then return p, why end
   if Ch.head_chests(p) == 0 and not (p.refused and #p.refused > 0) then return p, why end
@@ -1178,6 +1250,27 @@ function Ch.plan(spec)
     q.order_swapped = { chests = Ch.head_chests(p), drills = Ch.field_drills(p) }
     return q, qwhy
   end
+  return p, why
+end
+
+--- s41 pavage-trous : les rangées optimales (décalage s, row_drills) posent des foreuses là où le glouton laissait un trou ; sur un cadre
+--- neuf où ce plan garde un coffre de tête (voie du charbon sans chemin), le plan aux rangées gloutonnes seules est essayé, et gardé
+--- s'il a MOINS de coffres de tête (cadre réel du joueur, graine 271828182 : 4 foreuses de plus fermaient une voie du charbon).
+function Ch.plan(spec)
+  local p, why = plan_both(spec)
+  if spec.frame or spec.no_row_opt or not p or p.design ~= "colonne" or Ch.head_chests(p) == 0 then return p, why end
+  local opt = false
+  local s = spec.drill.size
+  for _, bd in ipairs(p.bands or {}) do
+    local off = p.frame and p.frame.offsets and p.frame.offsets[tostring(bd.pr)]
+    if off and (off[1] == s or off[2] == s) then opt = true end
+  end
+  if not opt then return p, why end
+  local sp = {}
+  for k, v in pairs(spec) do sp[k] = v end
+  sp.no_row_opt = true
+  local q, qwhy = plan_both(sp)
+  if q and Ch.head_chests(q) < Ch.head_chests(p) then return q, qwhy end
   return p, why
 end
 
