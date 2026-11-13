@@ -17,6 +17,7 @@
 local T = require("shared.team.config")
 local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 local E = require("shared.team.electrique")
+local Th = require("shared.team.thermique") -- s42 thermiques : gisement balayé fermé aux avant-postes thermiques neufs (Th.site_closed)
 local Dt = require("shared.team.decision_tree") -- arbre de décision Early / Mid / Late (DC, 9/11) : phase et électriques qui dorment au coffre
 local Stock = require("script.team.stock")
 local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
@@ -383,7 +384,20 @@ function Elec.filter(f, tasks, tick)
   local st = f and f.elec
   local v = st and st.v
   if not (v and v.on and tick - (v.tick or -math.huge) <= Elec.TTL) then return tasks end
-  local kept, refused = E.filter(tasks, T.DRILL, verdict_for(v))
+  -- s42 thermiques : un avant-poste neuf sur un gisement balayé (Th.site_closed) est refusé AU TABLEAU, même quand la thermique est
+  -- de nouveau permise (ressource sans électrique en marche, extraction effondrée) : pas de PNJ envoyé pour un refus de Outposts.build
+  local base, swept = verdict_for(v), nil
+  local kept, refused = E.filter(tasks, T.DRILL, function(t)
+    if t.kind == "build" and t.outpost_kind ~= nil and type(t.site) == "table" then
+      if not swept then
+        swept = {}
+        for _, oid in ipairs(Th.sorted_ids(f.outposts)) do swept[#swept + 1] = f.outposts[oid] end
+      end
+      local closed, by = Th.site_closed(t.outpost_kind, t.site, swept, v)
+      if closed then return false, "gisement balaye (avant-poste " .. tostring(by) .. ") : l'electrique est posable, pas de paire thermique" end
+    end
+    return base(t)
+  end)
   if #refused == 0 then return tasks end
   for _, r in ipairs(refused) do
     local t = r.task

@@ -434,6 +434,13 @@ Outposts.on_arrive = nil
 
 function Outposts.build(f, surface, kind, site, carrier)
   local spec = T.outposts[kind]
+  -- s42 thermiques : pas d'avant-poste thermique NEUF sur un gisement balayé tant que l'électrique est posable (Th.site_closed ; avant le
+  -- crochet des fantômes et la reprise des réceptacles : rien n'est touché). Le verrou s41 (Outposts.extend) ne fermait que le même avant-poste.
+  do
+    local list = {}
+    for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do list[#list + 1] = f.outposts[oid] end
+    if Th.site_closed(kind, site, list, f.elec and f.elec.v) then return nil end
+  end
   if Outposts.on_arrive then Outposts.on_arrive(f, site, nil) end
   -- Lot IA2-b (F209) : les réceptacles orphelins d'un avant-poste perdu ici sont repris d'abord (ils libèrent la
   -- place des paires et leurs objets resservent).

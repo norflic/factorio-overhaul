@@ -471,7 +471,9 @@ local MUT = {
   { "script", "regle eteinte ignoree", { { "  if not cfg.on then", "  if false then" } } },
   { "script", "etat du remplacement cree par le repli", { { "  if not (st and st.retry) then return 0 end", "  if not st then st = { next = 0, done = 0, failed = 0, retry = {} }; f.swap = st end" } } },
   { "script", "pose de B qui ignore dark_units (lead, 8/11)", { { '      local list = (o.migr == "en cours" or o.dark_units ~= nil) and {} or (o.drill_list or {})',
-      '      local list = o.migr == "en cours" and {} or (o.drill_list or {})' } } },
+      '      local list = o.migr == "en cours" and {} or (o.drill_list or {})' },
+    -- s42 thermiques : la satisfaction du site (Th.replace_one) refuse aussi cette pose ; le mutant retire les deux gardes
+    { "if (status == defines.entity_status.no_power or status == defines.entity_status.low_power) and d.active ~= false then site.starved = site.starved + 1 end", "" } } },
   { "script", "memoire non effacee quand la regle est eteinte", { { "      if o.dark_units then o.dark_units, o.dark_since = nil, nil end", "" } } },
   { "script", "coffre plein ignore", { { '    return false, "coffre plein"', '    mined = true' } } },
 }
