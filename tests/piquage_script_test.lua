@@ -387,6 +387,18 @@ do
   for _ = 1, Piquage.SPLIT_TRIES + 1 do cycle() end
   check(#CALLS.create == before, "5.2 remplacement refusé par le moteur : aucune pose forcée")
   check(has_log("coupe : %d+ pose%(s%) du repartiteur refusee%(s%)") ~= nil, "5.3 après les essais : coupé, la branche reste inerte, le PNJ continue")
+  -- s40 p10 : le répartiteur réapparaît après la coupe : la branche revit (verdict de livraison, plus « coupe »), puis l'état du test est remis
+  do
+    local lk = B.piquage.links["1:q1"]
+    check(lk ~= nil and lk.cut == true, "5.3 bis le lien est coupé")
+    sp0.valid = true
+    cycle()
+    local qv = B.piquage.quais["1:q1"]
+    check(lk.cut == nil and lk.split == true and lk.split_tries == 0, "5.3 ter répartiteur constaté en place : la coupe est levée")
+    check(qv and (qv.verdict == "actif" or qv.verdict == "inerte"), "5.3 quater le verdict redevient celui de la livraison : " .. tostring(qv and qv.verdict))
+    sp0.valid = false
+    lk.cut, lk.split_tries = true, Piquage.SPLIT_TRIES
+  end
   CAN_FR = true
   rebuilt.valid = true
 end
@@ -539,6 +551,61 @@ local state_block = SCRIPT:match("local function new_state%(.-\nend")
 check(state_block ~= nil and not state_block:find("function%s*%("), "6.7 l'état b.piquage ne garde aucune fonction")
 check(not code_s:find("os%.clock") and not code_s:find("math%.random") and not code_s:find("math%.sin"), "6.8 ni horloge mesurée, ni hasard, ni trigonométrie")
 check(not code_s:find("global") , "6.9 le script ne nomme pas global")
+
+-- §7 (s40 p7) tour de découverte : les quais dus les plus anciens d'abord, jamais les mêmes quais de tête
+do
+  local dus = {}
+  for i = 1, 5 do dus[i] = { key = "q" .. i, last = 100 } end
+  dus[4].last = nil; dus[5].last = 50
+  local t = Piquage.discover_turn(dus, 3)
+  check(t.q4 and t.q5 and t.q1 and not t.q2 and not t.q3, "7.1 jamais decouvert, puis le plus ancien, puis l'ordre du debit")
+  local n = 0
+  for _ in pairs(Piquage.discover_turn(dus, 9)) do n = n + 1 end
+  check(n == 5, "7.2 quota plus grand que la liste : tous")
+  check(next(Piquage.discover_turn({}, 3)) == nil, "7.3 aucun quai du : tour vide")
+  -- 20 quais toujours dus (aucun tapis) : en 7 passages chacun est decouvert au moins une fois
+  local last, seen = {}, {}
+  for pass = 1, 7 do
+    local l = {}
+    for i = 1, 20 do l[i] = { key = "k" .. i, last = last["k" .. i] } end
+    for _, k in ipairs({ "k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10", "k11", "k12", "k13", "k14", "k15", "k16", "k17", "k18", "k19", "k20" }) do
+      if Piquage.discover_turn(l, 3)[k] then last[k] = pass; seen[k] = true end
+    end
+  end
+  local all = true
+  for i = 1, 20 do if not seen["k" .. i] then all = false end end
+  check(all, "7.4 vingt quais dus : aucun n'est affame")
+end
+
+-- §8 (s40 p8) purge des tables par quai et par projet
+do
+  local st = { links = { ["3:q1"] = {} }, track = { ["1:q1"] = {}, ["2:q1"] = {}, ["3:q1"] = {} }, disc = { ["1:q1"] = 5, ["2:q1"] = 5 },
+    said = { ["1:q1"] = "a", ["2:q1"] = "b", ["2:q1#pose"] = "c", ["3:q1#vie"] = "d" }, tries = { ["1:q1"] = 1, ["2:q1"] = 2, ["9:q1"] = 1 },
+    last_try = { ["9:q1"] = 7 }, flow = { [1] = {}, [9] = false } }
+  Piquage.purge(st, { ["1:q1"] = true }, { [1] = {}, [2] = {}, [3] = {} })
+  check(st.track["1:q1"] and st.track["3:q1"] and not st.track["2:q1"], "8.1 suivi : garde le quai releve et le quai lie, retire l'absent")
+  check(st.disc["1:q1"] == 5 and st.disc["2:q1"] == nil, "8.2 decouverte purgee avec le suivi")
+  check(st.said["1:q1"] == "a" and st.said["2:q1"] == nil and st.said["2:q1#pose"] == nil and st.said["3:q1#vie"] == "d", "8.3 journal purge, suffixes compris")
+  check(st.tries["1:q1"] == 1 and st.tries["2:q1"] == 2 and st.tries["9:q1"] == nil and st.last_try["9:q1"] == nil, "8.4 essais gardes tant que le projet existe")
+  check(st.flow[1] ~= nil and st.flow[9] == nil, "8.5 debits d'un projet disparu retires")
+end
+
+-- §9 (s40 p9) sources du plan lues une fois par relevé : même filtre qu'avant (hors projet du quai, hors têtes, hors branches de piquage)
+do
+  local function belt(x, y, role) return { name = "transport-belt", x = x + 0.5, y = y + 0.5, role = role } end
+  local fx = { build = { order = { 1, 2, 3, 4 }, projects = {
+    [1] = { id = 1, state = "fini", ents = { belt(0, 0), belt(1, 0, "tete"), belt(5, 5) } },
+    [2] = { id = 2, state = "fini", ents = { belt(5, 5), belt(2, 0) }, tapis_piquable = { { x = 7, y = 7, item = "X" } } },
+    [3] = { id = 3, state = "fini", spec = { liaison = { piquage = true, item = "X" } }, ents = { belt(3, 0) } },
+    [4] = { id = 4, state = "pose", ents = { belt(4, 0) } },
+  } } }
+  local ps = Piquage.plan_sources(fx)
+  local function ok_for(pid, k) return ps.owner[k] ~= nil and (ps.multi[k] or ps.owner[k] ~= pid) or false end
+  check(ok_for(2, "0:0") and not ok_for(1, "0:0"), "9.1 tuile d'un autre projet : source ; du projet du quai : non")
+  check(ps.owner["1:0"] == nil and ps.owner["3:0"] == nil and ps.owner["4:0"] == nil, "9.2 tete, branche de piquage et projet non fini : jamais sources")
+  check(ok_for(1, "5:5") and ok_for(2, "5:5"), "9.3 tuile de deux projets : source pour chacun")
+  check(ps.opt_in["7:7"] == "X", "9.4 tapis declare piquable")
+end
 
 print(string.format("[PIQUAGE-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

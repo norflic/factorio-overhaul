@@ -82,6 +82,14 @@ function Mr.compte(row, recipe)
   return n
 end
 
+--- Dernière section VIVANTE d'une rangée (les sections refusées, `dead`, restent dans la liste : la dernière de la liste peut être morte). Rend l'entrée ou nil.
+function Mr.derniere(projects)
+  for i = #(projects or {}), 1, -1 do
+    if not projects[i].dead then return projects[i] end
+  end
+  return nil
+end
+
 --- Machines à ajouter : demandes = { { item, recipe, machines, solides } } (machines ≥ 1, entier). Un objet refusé (entrée hors voies, objet-voie) est écarté ; un
 --- objet déjà servi n'ajoute que la différence ; `max_new` borne le total (nil : aucune borne). Rend la liste { recipe, item, n } dans l'ordre reçu.
 function Mr.ajouts(row, demandes, max_new)

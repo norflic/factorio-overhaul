@@ -43,6 +43,7 @@ Piquage.EMPTY_RETRY = 3 * 3600 -- ... ou 3 min quand aucune tuile n'est suivie (
 Piquage.ROUTE_WEIGHT = 1.4 -- A* pondéré de la branche : au plus 1,4 fois le meilleur tracé, bien moins de noeuds
 Piquage.ROUTE_NODES = 300  -- noeuds développés au plus par recherche (~870 instructions chacun mesurées : ~0,26 million, test « pire cas borné »)
 Piquage.ROUTE_SLICE = 200  -- lot PIQUAGE-COUT : états développés au plus par pensée (tracé par tranches, ctx.phase_slice de Tv.route ; phase B ~1 100 instructions par état)
+Piquage.DISC_QUOTA = 3     -- découvertes au plus par relevé (inchangé : l'ancien « 3 » écrit dans finish_cycle)
 Piquage.SPLIT_TRIES = 3    -- poses du répartiteur au plus par liaison
 Piquage.EVAL_MAX = 3       -- quais évalués (lecture des côtés libres) au plus par relevé
 
@@ -245,14 +246,9 @@ local function start_cycle(b)
   return { units = units, i = 1, docks = {}, tours = 0, items = 0 }
 end
 
---- Découverte : tuiles de tapis à portée du quai qui portent son objet SEUL. Garde au plus MAX_TRACK (les plus proches du quai).
-local function discover(f, surface, st, d, tick)
-  local tr = st.track[d.key]
-  if not tr then tr = { tiles = {}, order = {} }; st.track[d.key] = tr end
-  st.disc[d.key] = tick
-  local R = Pq.SEARCH_SPAN
-  local ents = surface.find_entities_filtered({ area = { { d.x - R, d.y - R }, { d.x + R + 1, d.y + R + 1 } }, name = belt_names(), force = f.force,
-    limit = Piquage.MAX_SCAN })
+--- Sources du plan, lues UNE fois par relevé (elles étaient relues, toutes les pièces de tous les projets, à chaque découverte) : table locale au
+--- relevé, jamais sauvegardée. Rend { opt_in = { [tuile] = objet }, owner = { [tuile] = projet }, multi = { [tuile] = true } }.
+local function plan_sources(f)
   -- tapis du plan que leur projet déclare piquables (p.tapis_piquable = { {x, y, item} }, tuiles entières : lignes de rapatriement)
   local opt_in = {}
   for _, pid in ipairs(f.build.order) do
@@ -273,24 +269,40 @@ local function discover(f, surface, st, d, tick)
     end
   end
   -- lignes des AUTRES projets finis du plan (sorties de modules, lignes de fonderie, champs) : sources aussi, hors têtes d'alimentation (rôle « tete »),
-  -- hors souterrains, hors branches de piquage et hors projet du quai lui-même. Sans cela une partie avancée n'a aucun tapis « hors plan »
+  -- hors souterrains, hors branches de piquage et hors projet du quai lui-même (owner = le projet de la tuile, multi = plusieurs projets : le filtre du quai se fait à la lecture). Sans cela une partie avancée n'a aucun tapis « hors plan »
   -- (dcsave du 8/11 : « aucune_source » pour 14 à 21 quais par équipe). Le surplus seul passe au quai (priorité de sortie sur la ligne).
-  local plan_ok = {}
+  local owner, multi = {}, {}
   for _, pid in ipairs(f.build.order) do
     local q = f.build.projects[pid]
-    if q and q.state == "fini" and q.id ~= d.pid and not (q.spec and q.spec.liaison and q.spec.liaison.piquage) then
+    if q and q.state == "fini" and not (q.spec and q.spec.liaison and q.spec.liaison.piquage) then
       for _, e in ipairs(q.ents or {}) do
-        if e.role ~= "tete" and not e.type and e.name and Conv.is_belt(e.name) then plan_ok[math.floor(e.x) .. ":" .. math.floor(e.y)] = true end
+        if e.role ~= "tete" and not e.type and e.name and Conv.is_belt(e.name) then
+          local k = math.floor(e.x) .. ":" .. math.floor(e.y)
+          if owner[k] == nil then owner[k] = q.id elseif owner[k] ~= q.id then multi[k] = true end
+        end
       end
     end
   end
+  return { opt_in = opt_in, owner = owner, multi = multi }
+end
+Piquage.plan_sources = plan_sources
+
+--- Découverte : tuiles de tapis à portée du quai qui portent son objet SEUL. Garde au plus MAX_TRACK (les plus proches du quai).
+local function discover(f, surface, st, d, tick, plan)
+  local tr = st.track[d.key]
+  if not tr then tr = { tiles = {}, order = {} }; st.track[d.key] = tr end
+  st.disc[d.key] = tick
+  local R = Pq.SEARCH_SPAN
+  local ents = surface.find_entities_filtered({ area = { { d.x - R, d.y - R }, { d.x + R + 1, d.y + R + 1 } }, name = belt_names(), force = f.force,
+    limit = Piquage.MAX_SCAN })
+  local opt_in, owner, multi = plan.opt_in, plan.owner, plan.multi
   local found = {}
   for _, e in ipairs(ents) do
     local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
     local key = tx .. ":" .. ty
     -- les tapis du PLAN directeur (tuiles réservées par un projet : têtes de quai, lignes de modules, champs, liaisons) ne sont jamais piqués,
     -- sauf ceux que leur projet déclare piquables (opt_in) : seuls comptent les tapis posés hors plan (par le joueur, ou à la main par l'équipe)
-    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item or plan_ok[key]) then
+    if not tr.tiles[key] and (not f.build.occ[P.tkey(tx, ty)] or opt_in[key] == d.item or (owner[key] ~= nil and (multi[key] or owner[key] ~= d.pid))) then
       local s = sample_belt(e, d.item)
       if s.count > 0 and s.other == 0 then
         found[#found + 1] = { key = key, x = tx, y = ty, dir = e.direction, sample = s, m = Li.manhattan(tx, ty, d.x, d.y) }
@@ -498,6 +510,8 @@ local function follow_links(api, f, surface, b, st, tick)
           if not link.split then
             link.split = true
           end
+          -- le répartiteur est là (posé depuis par quelqu'un) : une branche « coupée » après ses refus revit, sinon son verdict restait « coupe » à vie
+          if link.cut then link.cut, link.split_tries = nil, 0 end
           if have.splitter_output_priority ~= lc.geo.priority then have.splitter_output_priority = lc.geo.priority end
         elseif (link.split_tries or 0) < Piquage.SPLIT_TRIES then
           local ok, why = place_split(f, surface, q, lc)
@@ -555,6 +569,44 @@ local function linked_by_liaison(b, key)
   return ln and ln.links and ln.links[key] ~= nil
 end
 
+--- Purge de fin de relevé : les tables par quai et par projet ne gardent plus les disparus (elles grossissaient à vie dans la sauvegarde).
+--- `alive` = { [clé de quai] = true } du relevé, `projects` = b.projects. Suivi, découverte et journal : retirés dès que le quai n'est plus relevé et n'a
+--- pas de lien ; essais, dernier essai et site : gardés tant que le PROJET du quai existe (un quai absent un relevé ne regagne pas d'essais).
+function Piquage.purge(st, alive, projects)
+  local function gone(key) return not alive[key] and not st.links[key] end
+  for _, name in ipairs({ "track", "disc" }) do
+    local t = st[name]
+    for _, k in ipairs(sorted_keys(t)) do if gone(k) then t[k] = nil end end
+  end
+  for _, k in ipairs(sorted_keys(st.said)) do
+    if gone(k:match("^(.-)#") or k) then st.said[k] = nil end
+  end
+  for _, name in ipairs({ "tries", "last_try", "site_i" }) do
+    local t = st[name]
+    if t then
+      for _, k in ipairs(sorted_keys(t)) do
+        local pid = tonumber(k:match("^(.-):q"))
+        if gone(k) and not (pid and projects[pid]) then t[k] = nil end
+      end
+    end
+  end
+  for _, pid in ipairs(sorted_keys(st.flow)) do
+    if not projects[pid] then st.flow[pid] = nil end
+  end
+end
+
+--- Tour de découverte : parmi les quais DUS (`dus` = liste { key, last } dans l'ordre du débit ; last = tick de la dernière découverte, nil = jamais),
+--- les `quota` plus anciens d'abord (jamais découvert avant tout, puis l'ordre reçu). Rend l'ensemble { [key] = true }. Sans cela les quais de tête,
+--- dus de nouveau toutes les EMPTY_RETRY, prenaient tous les créneaux et les quais suivants n'étaient jamais découverts.
+function Piquage.discover_turn(dus, quota)
+  local list = {}
+  for i, x in ipairs(dus) do list[i] = { key = x.key, last = x.last or -math.huge, i = i } end
+  table.sort(list, function(a, c2) if a.last ~= c2.last then return a.last < c2.last end return a.i < c2.i end)
+  local out = {}
+  for i = 1, math.min(quota, #list) do out[list[i].key] = true end
+  return out
+end
+
 local function finish_cycle(api, f, surface, b, st, c, tick)
   follow_links(api, f, surface, b, st, tick)
   local piques, linked = 0, 0
@@ -587,15 +639,23 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   local split = nil
   local evals, asked = 0, false
   local seen_now = {}
+  -- découverte (bornée : au plus Piquage.DISC_QUOTA par passage, les quais dus les plus anciens d'abord)
+  local dus = {}
   for _, d in ipairs(order) do
-    -- découverte et relevé (bornés : au plus 3 découvertes par passage)
     local tr = st.track[d.key]
     if not tr or (#tr.order < Piquage.MAX_TRACK and tick - (st.disc[d.key] or -Piquage.DISC_EVERY) >= (st.disc_every or (#tr.order == 0 and Piquage.EMPTY_RETRY or Piquage.DISC_EVERY))) then
-      if (c.discovered or 0) < 3 then
-        c.discovered = (c.discovered or 0) + 1
-        discover(f, surface, st, d, tick)
-      end
-    else
+      dus[#dus + 1] = { key = d.key, last = st.disc[d.key] }
+    end
+  end
+  local turn = Piquage.discover_turn(dus, Piquage.DISC_QUOTA)
+  local plan -- sources du plan, lues à la première découverte du relevé
+  for _, d in ipairs(order) do
+    -- un quai hors tour est relevé (dû mais hors quota, il n'était ni découvert ni relevé)
+    local tr
+    if turn[d.key] then
+      plan = plan or plan_sources(f)
+      discover(f, surface, st, d, tick, plan)
+    elseif st.track[d.key] then
       observe_tracks(f, surface, st, d)
     end
     tr = st.track[d.key]
@@ -678,6 +738,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   for _, k in ipairs(sorted_keys(st.quais)) do
     if not alive[k] and not st.links[k] then st.quais[k] = nil end
   end
+  Piquage.purge(st, alive, b.projects)
   st.bilan = { quais = #c.docks, tapis = linked, piquage = piques, tournees = c.tours, objets = c.items, tick = tick }
   if #c.docks > 0 and tick >= st.log_next then
     st.log_next = tick + Li.LOG_EVERY
