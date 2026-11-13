@@ -141,7 +141,8 @@ local function has_coal_step(plan)
 end
 check(not has_coal_step(p_base) and has_coal_step(p_burn), "un charbon qui ne couvre plus le besoin réel fait agrandir l'avant-poste de charbon")
 local team_src = read_src("script/team/team.lua")
-check(team_src:find("coal_cap = fsurface and Cap.read(f, fsurface) or nil", 1, true), "la vue publie coal_cap (plafond mesuré)")
+-- Lot UPS : la lecture passe par Profiler.fwrap (portée fine « view:5-cap », mesure seulement : fwrap rend le résultat de Cap.read).
+check(team_src:find("coal_cap = fsurface and Profiler.fwrap(\"view:5-cap\", Cap.read, f, fsurface) or nil", 1, true), "la vue publie coal_cap (plafond mesuré)")
 
 ---------------------------------------------------------------------------------------------------
 section("4. D5 : le site proche bloqué est couvert par le front")

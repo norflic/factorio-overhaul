@@ -15,9 +15,13 @@ end
 local handlers = {}
 package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end,
   on_died = function(fn) handlers[defines.events.on_entity_died] = fn end } -- lot MORTS (Events.on_died)
+-- Lot UPS : le registre des machines (script/team/registre_types.lua) et le vrai stockage s abonnent au chargement (on_init, on_load,
+-- on_configuration_changed) : tout abonnement absent du bouchon est sans effet.
+setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end })
 defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3 }, entity_status = { no_power = 7, working = 1 }, direction = { north = 0, east = 2, south = 4, west = 6 } }
 local ns = { ia3k = { teams = {} } }
-package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end }
+package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end,
+  declare = function() end } -- lot UPS : registre_types.lua déclare son espace au chargement
 local player
 local owners = {}
 package.loaded["script.faction.state"] = {

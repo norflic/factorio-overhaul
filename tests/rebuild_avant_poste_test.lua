@@ -139,6 +139,9 @@ local handlers = {}
 -- sans ce champ, le banc plantait au require (déjà sur main 0.6.18).
 package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end, on_configuration_changed = function() end,
   on_died = function(fn) handlers[defines.events.on_entity_died] = fn end } -- lot MORTS (Events.on_died)
+-- Lot UPS : le registre des machines (script/team/registre_types.lua) et le vrai stockage s abonnent au chargement (on_init, on_load,
+-- on_configuration_changed) : tout abonnement absent du bouchon est sans effet.
+setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end })
 -- Lot X10-S0 (0.6.62) : reconstruction.lua et stock.lua requièrent le profileur (portées fines, mesure seulement), qui charge le vrai
 -- stockage, qui s'abonne à Events.on_init, absent de la doublure ci-dessus. Doublure muette du profileur : toute fonction ne fait rien,
 -- fwrap appelle la sienne.

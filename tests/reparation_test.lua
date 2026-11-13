@@ -24,7 +24,8 @@ defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_
   on_built_entity = 5, on_robot_built_entity = 6, script_raised_built = 7, script_raised_revive = 8 }, -- 5 à 8 : lot PERF4
   entity_status = { no_power = 7, working = 1 }, direction = { north = 0, east = 2, south = 4, west = 6 } }
 local ns = { ia3k = { teams = {} } }
-package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end }
+package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end,
+  declare = function() end } -- lot UPS : registre_types.lua déclare son espace au chargement
 local teams = {}
 package.loaded["script.faction.state"] = {
   sorted_keys = function(t) local k = {} for key in next, t do k[#k + 1] = key end table.sort(k) return k end,
@@ -180,9 +181,13 @@ end
 
 do
   check(damaged ~= nil, "l'exécutant s'abonne à on_entity_damaged")
-  check(#inits == 1 and #loads == 1, "filtre posé à on_init et à on_load (le filtre n'est pas sauvegardé)")
-  inits[1]()
-  loads[1]()
+  -- Lot UPS : le registre des machines s'abonne lui aussi à on_init et on_load ; le contrôle porte sur l'effet : le filtre est posé
+  -- exactement une fois par l'ensemble des abonnés de on_init, puis une fois par ceux de on_load.
+  local n0 = #filters_set
+  for _, fn in ipairs(inits) do fn() end
+  local n1 = #filters_set
+  for _, fn in ipairs(loads) do fn() end
+  check(n1 == n0 + 1 and #filters_set == n1 + 1, "filtre posé à on_init et à on_load (le filtre n'est pas sauvegardé)")
   local fl = filters_set[1]
   -- Lot PERF4 : le filtre réunit les types de ce lot et ceux de l'ensemble des endommagées (script/team/abimes.lua : tourelles et
   -- infrastructure électrique), chacun une fois, tous « type » ; aucune unité.

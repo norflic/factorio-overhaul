@@ -196,6 +196,9 @@ local tick_fn, research_fn
 local research_fns = {}
 research_fn = function(e) for _, fn in ipairs(research_fns) do fn(e) end end
 package.loaded["script.core.events"] = { on = function(id, fn) if id == 1 then tick_fn = fn elseif id == 2 then research_fns[#research_fns + 1] = fn end end }
+-- Lot UPS : le registre des machines (script/team/registre_types.lua) et le vrai stockage s abonnent au chargement (on_init, on_load,
+-- on_configuration_changed) : tout abonnement absent du bouchon est sans effet.
+setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end })
 package.loaded["script.core.profiler"] = { start = function() end, stop = function() end, fstart = function() end, fstop = function() end }
 package.loaded["script.team.boite_chunks"] = { get = function() return { x0 = -2, y0 = -2, x1 = 3, y1 = 3 } end }
 local jeton = { refuse = 0, takes = 0, drops = 0, costs = {} }

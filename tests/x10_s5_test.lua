@@ -509,10 +509,11 @@ local recon_env = {}
 do
   local handlers = {}
   package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end, on_died = function(fn) handlers.died = fn end }
+  setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end }) -- lot UPS (registre)
   defines.events = defines.events or { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3 }
   defines.entity_status = defines.entity_status or { no_power = 7, working = 1 }
   defines.direction = defines.direction or { north = 0, east = 2, south = 4, west = 6 }
-  package.loaded["script.core.storage"] = { ns = function() return {} end }
+  package.loaded["script.core.storage"] = { ns = function() return {} end, declare = function() end } -- lot UPS : registre_types.lua
   local st = package.loaded["script.faction.state"]
   st.owner = function() return nil end
   st.faction = function() return nil end

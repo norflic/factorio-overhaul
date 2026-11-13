@@ -80,8 +80,12 @@ package.loaded["script.core.events"] = {
   on = function(id, fn) handlers[id] = handlers[id] or {}; table.insert(handlers[id], fn) end,
   on_configuration_changed = function(fn) config_fns[#config_fns + 1] = fn end,
 }
+-- Lot UPS : le registre des machines (script/team/registre_types.lua) et le vrai stockage s abonnent au chargement (on_init, on_load,
+-- on_configuration_changed) : tout abonnement absent du bouchon est sans effet.
+setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end })
 local ns = { pteam = {} }
-package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end }
+package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end,
+  declare = function() end } -- lot UPS : registre_types.lua déclare son espace au chargement
 local owners = {} -- lot PARITE : propriété des entités (State.own / owner / disown)
 package.loaded["script.faction.state"] = {
   sorted_keys = function(t)

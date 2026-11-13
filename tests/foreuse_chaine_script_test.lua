@@ -248,7 +248,7 @@ local function suite(text, se_text)
       and (Wx.stock.coal or 0) >= 4 and (Wx.stock["iron-plate"] or 0) >= 7, string.format("drill %s four %s charbon %s plaques %s",
       tostring(Wx.stock["burner-mining-drill"]), tostring(Wx.stock["stone-furnace"]), tostring(Wx.stock.coal), tostring(Wx.stock["iron-plate"])))
     c("H : de quoi reposer (2 entrees, positions et genres)", #undo == 2 and undo[1].kind == "drill" and undo[2].kind == "sink" and undo[1].x == 20)
-    local ex_undo = load_fn(text, "local function exchange_undo(f, surface, o, undo)", { Stock = Wx.Stock, State = Statex })
+    local ex_undo = load_fn(text, "local function exchange_undo(f, surface, o, undo)", { Stock = Wx.Stock, State = Statex, RegT = { note = function() end } }) -- (RegT : lot UPS, pose notée au registre)
     c("H : exchange_undo extraite", ex_undo ~= nil)
     if ex_undo then
       local o = { id = 3, drill_list = {}, sinks = {} }
@@ -261,7 +261,7 @@ local function suite(text, se_text)
     local compact2 = load_fn(text, "local function compact(o)", {})
     if ex_undo and compact2 then
       local Wy = world({ ["30,8"] = true })
-      local ex_undo2 = load_fn(text, "local function exchange_undo(f, surface, o, undo)", { Stock = Wy.Stock, State = Statex })
+      local ex_undo2 = load_fn(text, "local function exchange_undo(f, surface, o, undo)", { Stock = Wy.Stock, State = Statex, RegT = { note = function() end } })
       Wy.stock["burner-mining-drill"], Wy.stock["stone-furnace"] = 1, 1
       local alive, dead = { valid = true }, { valid = false }
       local o2 = { id = 4, drill_list = { alive, dead }, sinks = { { valid = false } }, drills = 2 }
