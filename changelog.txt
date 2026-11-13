@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.94
+Date: 2026-11-13
+  Bugfixes:
+    - IA (F602) : les ouvriers ne repartent plus à vide d'un chantier ; ils chargent pour une tournée de plusieurs points de pose.
+    - IA (F603) : la cadence de pose d'un ouvrier ne dépend plus du nombre d'équipes en jeu.
+    - IA (F604) : les ouvriers atteignent de nouveau les coffres de sortie des colonnes de fours du champ.
+  Changes:
+    - Performances (F605) : environ 23 % de temps de script en moins par tick entre 60 et 120 min.
+    - Journal (F606) : ligne [FO-CUMUL] par équipe (minerai extrait, plaques produites et consommées).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.93
 Date: 2026-11-13
   Bugfixes:
