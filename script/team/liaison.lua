@@ -356,14 +356,16 @@ function Liaison.plan(api, f, surface, p)
   local b = f.build
   local lc = p.spec.liaison
   local dock, src = lc.dock, lc.src
-  if not chest_at(f, surface, dock.x + 0.5, dock.y + 0.5) then return false, "liaison: coffre du quai disparu" end
-  if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return false, "liaison: coffre de sortie disparu" end
-  if not (lc.arm and lc.belt and lc.pole) then return false, "liaison: pieces inconnues" end
+  -- s40 p30 : un refus précoce vide l'état de reprise et les masques gardés du tracé de tronc (avant : gardés jusqu'à une fin de plan qui ne venait plus)
+  local function early(why) p.rs, BUS_CACHE[p.id] = nil, nil; return false, why end
+  if not chest_at(f, surface, dock.x + 0.5, dock.y + 0.5) then return early("liaison: coffre du quai disparu") end
+  if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return early("liaison: coffre de sortie disparu") end
+  if not (lc.arm and lc.belt and lc.pole) then return early("liaison: pieces inconnues") end
   local mg = 6
   local x0, y0 = math.min(dock.x, src.x) - mg, math.min(dock.y, src.y) - mg
   local x1, y1 = math.max(dock.x, src.x) + mg, math.max(dock.y, src.y) + mg
   local box = lc.bus and Bus.MAX_BOX or 120 -- lot RESEAU-GRAPHE : un tracé de bus va plus loin qu'une liaison de quai
-  if x1 - x0 > box or y1 - y0 > box then return false, "liaison: trop loin" end
+  if x1 - x0 > box or y1 - y0 > box then return early("liaison: trop loin") end
   -- lot RESEAU-GRAPHE : le tracé d'un tronc de bus se cherche PAR TRANCHES (Bus.SLICE etats par passe, p.rs = etat de reprise) ; les
   -- masques et la garde, lus une fois, restent en memoire LOCALE (hors sauvegarde) pendant la recherche : sans eux (chargement
   -- d'une sauvegarde), la recherche repart de zero
@@ -398,7 +400,7 @@ function Liaison.plan(api, f, surface, p)
   end
   local S, D = { x = src.x, y = src.y }, { x = dock.x, y = dock.y }
   local ends = Ln.pick_ends(S, D, free, Ln.ROUTE_TRIES)
-  if #ends == 0 then return false, "liaison: aucune place pour un bras et un tapis contre les coffres" end
+  if #ends == 0 then return early("liaison: aucune place pour un bras et un tapis contre les coffres") end
   local bounds = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
   local last_why = "aucun chemin"
   local chosen
@@ -453,8 +455,18 @@ function Liaison.plan(api, f, surface, p)
           planned[P.tkey(px, py)] = true
           poles[#poles + 1] = { px, py }
         end
-        if not lack then chosen = { e = e, tiles = tiles, names = tnames, poles = poles } break end
-        last_why = "aucune place pour un poteau contre un bras (contre " .. lack .. ")"
+        if not lack then
+          -- s40 p28 : la preuve géométrique se fait POUR CE BOUT ; un écart passe au bout suivant (avant : preuve après la boucle, refus de toute la liaison)
+          local vents = Ln.entities({ src = e.src, dst = e.dst, route = Tv.virtual_belts(tiles), names = { arm = lc.arm, belt = lc.belt, pole = lc.pole }, poles = poles })
+          local bad = Ln.verify(vents, S, D, function(x) return x.role == "liaison-tapis" end, function(x) return x.role == "liaison-bras" end)
+          if #bad == 0 then
+            bad = Tv.verify(tiles, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), tnames and tnames.maxd or 0, nil)
+          end
+          if #bad == 0 then chosen = { e = e, tiles = tiles, names = tnames, poles = poles } break end
+          last_why = "geometrie fausse (" .. bad[1] .. ")"
+        else
+          last_why = "aucune place pour un poteau contre un bras (contre " .. lack .. ")"
+        end
       else
         last_why = w2
       end

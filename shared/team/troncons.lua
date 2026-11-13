@@ -306,7 +306,7 @@ local function ban_stripe(st, wp, sx, sy)
 end
 
 -- Case interdite, ou retour d'un cran après Tc.TIP_FAILS échecs à la même pointe. Rend "more" ou "fail", raison.
-local function drop_last_leg(st)
+local function drop_last_leg(st, no_ban)
   local n = #st.legs
   if n == 0 then return false end
   local keep = n > 1 and st.legs[n - 1].n or 0
@@ -318,7 +318,7 @@ local function drop_last_leg(st)
   end
   local leg = st.legs[n]
   st.legs[n] = nil
-  if leg.cx then st.ban[ck(leg.cx, leg.cy)] = true end
+  if leg.cx and not no_ban then st.ban[ck(leg.cx, leg.cy)] = true end
   return true
 end
 
@@ -393,6 +393,13 @@ local function run_leg(st, ctx)
   end
   st.rs = nil
   if not tiles then
+    -- pointe bouchée par le monde (« depart ») : le fautif est le dernier tronçon posé, pas la cible. Il est défait tout de suite, sans interdire la bande de la cible
+    -- (avant : Tc.TIP_FAILS réparations et autant de bandes interdites à tort avant de le défaire)
+    if info == "depart" and #st.legs > 0 then
+      drop_last_leg(st)
+      st.tip_fails = 0
+      return repair(st, info, false)
+    end
     ban_stripe(st, wp, sx, sy)
     if info == "trop long" then st.long_fails = (st.long_fails or 0) + 1 end
     return repair(st, info, wp.goal)
@@ -450,7 +457,8 @@ local function validate(st, ctx)
     st.vi = i + 1
     return "more"
   end
-  while #st.legs >= i do drop_last_leg(st) end
+  -- (sans interdire leurs cases : les tronçons qui suivent le cassé sont intacts, et la tuile changée est déjà vue par ctx.cost ; avant : toutes ces cases interdites)
+  while #st.legs >= i do drop_last_leg(st, true) end
   st.tip_fails = 0
   return repair(st, "monde change sous un troncon fini")
 end

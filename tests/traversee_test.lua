@@ -524,5 +524,23 @@ do
     string.format("par passes : plafond 300 tenu (%d états en %d passes)", Tv.STATS.expanded - e0, k))
 end
 
+-- s40 p29 : mur sans contournement + gisement sur le tracé : la phase A prouve « aucun chemin », la base vient de la phase B ; aucune recherche de détour
+-- (sans souterrain, elle ne peut qu'échouer) : 2 recherches (A, B), pas 3, et le même tracé prouvé
+do
+  local Tv = require("shared.team.traversee")
+  local bounds = { x0 = -5, y0 = -8, x1 = 25, y1 = 8 }
+  local function cost(x, y) if x == 10 then return nil end return 1 end
+  local function ore(x, y) return x >= 4 and x <= 6 end
+  local tiles, info = Tv.route({ x = 0, y = 0 }, { x = 20, y = 0 }, 2, bounds, cost, { maxd = 5, sd = 2, ore = ore })
+  check(tiles ~= nil and type(info) == "table" and info.jumps >= 1, "p29 mur franchi par une paire : " .. tostring(info))
+  if tiles then
+    check(info.searches == 2, "p29 aucune recherche de detour apres un « aucun chemin » de surface : " .. tostring(info.searches) .. " recherches")
+    check(#Tv.verify(tiles, { x = 0, y = 0 }, { x = 20, y = 0 }, 2, 5, cost) == 0, "p29 preuve Tv.verify")
+  end
+  -- témoin : sans mur, le détour de gisement est toujours cherché
+  local t2, i2 = Tv.route({ x = 0, y = 0 }, { x = 20, y = 0 }, 2, bounds, function() return 1 end, { maxd = 5, sd = 2, ore = function(x, y) return x == 5 and y == 0 end })
+  check(t2 ~= nil and i2.searches == 2 and i2.ore == 0, "p29 temoin : detour de gisement cherche et pris quand la surface passe")
+end
+
 print(string.format("[TRAVERSEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

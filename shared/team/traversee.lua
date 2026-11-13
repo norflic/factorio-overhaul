@@ -498,6 +498,7 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   -- Phase A : recherche de TUILES (le prix de P.belt_route). Phase B (avec paires souterraines) seulement si la phase A échoue ou impose un détour de
   -- plus de Tv.NEAR_DETOUR tuiles sur la distance à vol d'oiseau : un obstacle contournable de près ne mérite pas de souterrain.
   local base, why, pending_state
+  local a_none = false -- la phase A a PROUVÉ qu'aucun tracé de surface n'existe (la base vient alors de la phase B)
   local manh = math.abs(s.x - t.x) + math.abs(s.y - t.y) + 1
   if ctx.slice or ctx.resume then
     -- lot RESEAU-GRAPHE : recherche PAR TRANCHES (tronc de bus) : une seule recherche reprenable, avec les souterrains s'il y en a ; pas de phase A
@@ -509,6 +510,7 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   else
     base, why = run(0, nil, false, "A")
     if PS and why == "pending" then stat_expanded(); return nil, "pending", PS end
+    a_none = not base and why == "aucun chemin"
     if ctx2.maxd and ctx2.maxd >= 2 and (not base or phys(base) > manh + Tv.NEAR_DETOUR) then
       local b2, why2 = run(0, nil, true, "B")
       if PS and why2 == "pending" then stat_expanded(); return nil, "pending", PS end
@@ -525,7 +527,8 @@ function Tv.route(s, t, t_dir, bounds, cost, ctx)
   local base_phys = phys(base)
   if ctx.ore and base_ore > 0 and not ctx.no_detour then
     local limit = Tv.detour_limit(base_phys)
-    for _, pen in ipairs(Tv.ORE_STEPS) do
+    -- (a_none : les recherches de détour, sans souterrain, parcourent le graphe de la phase A réduit à l'ellipse : elles échoueraient toutes)
+    for _, pen in ipairs(a_none and {} or Tv.ORE_STEPS) do
       local el, why3 = run(pen, limit, false, "O" .. pen)
       if PS and why3 == "pending" then stat_expanded(); return nil, "pending", PS end
       if el and phys(el) <= limit then
