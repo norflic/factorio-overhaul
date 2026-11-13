@@ -107,8 +107,57 @@ return function(id)
     return true, string.format("%s %d/%d", a.nom or a.type, k, #list)
   end
 
+  -- s43 scen-raid : escouade d'une faction rivale sur l'avant-poste le plus éloigné de l'équipe (F.cible_raid).
+  local TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret" }
+  function ACT.raid(a, surface, team, hq)
+    local name = "fo-" .. a.attaquant .. "-" .. a.soldat
+    local proto = game.entity_prototypes[name]
+    if not (proto and proto.type == "unit") then return false, "unite inconnue " .. name end
+    local aforce = "fo-" .. a.attaquant
+    if not game.forces[aforce] then return false, "force inconnue " .. aforce end
+    if aforce == team.force then return false, "l'equipe ne s'attaque pas elle-meme" end
+    local pts = {}
+    for _, d in ipairs(surface.find_entities_filtered({ type = "mining-drill", force = team.force })) do
+      pts[#pts + 1] = { x = d.position.x, y = d.position.y }
+    end
+    local hp = hq.position
+    local site, dist = F.cible_raid(pts, { x = hp.x, y = hp.y }, a.loin_min)
+    if not site then return false, string.format("aucun avant-poste a %d tuiles du QG (foreuse la plus loin : %s)", a.loin_min or 40,
+      dist and string.format("%.0f", dist) or "aucune") end
+    local ux, uy = (site.x - hp.x) / dist, (site.y - hp.y) / dist
+    local off = a.distance or 28
+    local c = { x = site.x + ux * off, y = site.y + uy * off }
+    local units = {}
+    for i = 1, a.n do
+      local w = (i - (a.n + 1) / 2) * 1.5
+      local pos = surface.find_non_colliding_position(name, { c.x - uy * w, c.y + ux * w }, 10, 0.5)
+      local u = pos and surface.create_entity({ name = name, position = pos, force = aforce })
+      if u then
+        u.set_command({ type = defines.command.attack_area, destination = site, radius = 20, distraction = defines.distraction.by_enemy })
+        units[#units + 1] = u
+      end
+    end
+    team.st.raid = team.st.raid or {}
+    team.st.raid[team.key] = { site = site, units = units }
+    return #units > 0, string.format("%s x%d sur l'avant-poste (%.0f, %.0f), %.0f tuiles du QG", name, #units, site.x, site.y, dist)
+  end
+
+  local function releve_raid(surface, team, r, rd)
+    r.site_foreuses = surface.count_entities_filtered({ type = "mining-drill", force = team.force, position = rd.site, radius = 30 })
+    r.site_tourelles = surface.count_entities_filtered({ type = TURRET_TYPES, force = team.force, position = rd.site, radius = 30 })
+    r.site_unites = surface.count_entities_filtered({ type = "unit", force = team.force, position = rd.site, radius = 40 })
+    local alive = 0
+    for _, u in ipairs(rd.units) do if u.valid then alive = alive + 1 end end
+    r.raid_vivants = alive
+    local stt = remote.interfaces["fo-ia3k"] and remote.call("fo-ia3k", "status", team.key)
+    local da = (stt and stt.stats and stt.stats.dact) or {}
+    r.alertes_site, r.site_envoyees, r.site_refusees = da.site_alerts or 0, da.site_sent or 0, da.site_refused or 0
+  end
+
   local function releve(surface, team, hq, row)
     local r = {}
+    local rd = team.st and team.st.raid and team.st.raid[team.key]
+    if rd then releve_raid(surface, team, r, rd) end
     local force = game.forces[team.force]
     for _, item in ipairs(S.suivre or {}) do
       local n = 0
@@ -156,7 +205,7 @@ return function(id)
     end
     local actions = F.actions_a(S, m)
     for rank, k in ipairs(st.keys) do
-      local team = { key = k, force = st.force[k] }
+      local team = { key = k, force = st.force[k], st = st } -- st : état du banc (action raid, s43 scen-raid)
       local hq = hq_of(surface, team.force)
       for _, a in ipairs(actions) do
         local ok, detail

@@ -44,6 +44,14 @@
     detruire       type = t | nom = n, part = 0..1 | n = k
                                                       détruit les entités de la force (type ou nom), dans rayon_qg, triées
                                                       par position (x puis y) : les k premières ou la part arrondie au-dessus.
+    raid           attaquant = clé de faction, soldat = suffixe, n = k, distance = d|28, loin_min = l|40   (s43 scen-raid)
+                                                      escouade de k unités « fo-<attaquant>-<soldat> » de la force de la
+                                                      faction attaquante, posée à d tuiles au-delà de l'avant-poste le plus
+                                                      éloigné du QG de l'équipe (foreuse la plus loin, F.cible_raid, au moins
+                                                      l tuiles du QG), ordre attack_area sur lui. Champs de relevé ajoutés
+                                                      pour cette équipe : site_foreuses site_tourelles (à 30 tuiles du site)
+                                                      site_unites (unités de l'équipe à 40 tuiles) raid_vivants
+                                                      alertes_site site_envoyees site_refusees (fo-ia3k status, stats.dact).
   Les noms d'objets et d'unités vivent dans la déclaration du scénario (jamais dans shared/ai3 ni script/ai3) ; un nom qui
   n'existe pas dans les prototypes chargés donne une ligne « [FO-SCEN] <nom> min <m> | mise en scene ... : ECHEC ».
 
@@ -99,7 +107,7 @@ local OPS = {
 }
 F.OPS = OPS
 
-local ACTIONS = { vider_coffres = true, attaque = true, poser = true, detruire = true }
+local ACTIONS = { vider_coffres = true, attaque = true, poser = true, detruire = true, raid = true }
 F.ACTIONS = ACTIONS
 local AGREGATS = { max = true, min = true, moyenne = true, somme = true }
 local LIGNE_FN = { nombre = true, max = true, min = true, somme = true }
@@ -170,6 +178,9 @@ function F.valider(scen)
     end
     if a.action == "poser" and type(a.entite) ~= "string" then return w .. " : entite" end
     if a.action == "detruire" and not (a.type or a.nom) then return w .. " : type ou nom" end
+    if a.action == "raid" and (type(a.attaquant) ~= "string" or type(a.soldat) ~= "string" or not is_int(a.n) or a.n < 1) then
+      return w .. " : attaquant, soldat, n >= 1"
+    end
   end
   if type(scen.theorie) ~= "table" or #scen.theorie == 0 then return "theorie : au moins un attendu" end
   local ids = {}
@@ -344,6 +355,21 @@ end
 function F.a_detruire(a, total)
   if a.n then return math.min(a.n, total) end
   return math.min(total, math.ceil((a.part or 1) * total - 1e-9))
+end
+
+--- Action raid (s43 scen-raid) : avant-poste visé = la position la plus éloignée de `hq` parmi `pts` ({ {x, y} }), à
+--- égalité la plus petite en x puis en y (aucun ordre de l'appelant) ; nil si aucune n'est à au moins `loin_min` tuiles.
+--- Rend aussi la distance (tuiles).
+function F.cible_raid(pts, hq, loin_min)
+  local best, bd = nil, -1
+  for _, p in ipairs(pts or {}) do
+    local dx, dy = p.x - hq.x, p.y - hq.y
+    local k = dx * dx + dy * dy
+    if k > bd or (k == bd and (p.x < best.x or (p.x == best.x and p.y < best.y))) then best, bd = p, k end
+  end
+  local l = loin_min or 40
+  if not best or bd < l * l then return nil, best and math.sqrt(bd) or nil end
+  return { x = best.x, y = best.y }, math.sqrt(bd)
 end
 
 return F
