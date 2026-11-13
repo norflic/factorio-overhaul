@@ -63,6 +63,8 @@ local Reco = require("script.ai3.reco")
 -- Lot IA-GARDE (règle du DC, 11/11) : garde anti-dispersion (shared/ai3/anti_dispersion.lua) ; l'exploration lointaine attend 2 colonnes de
 -- fonderie automatisées et 6 assembleurs actifs, sauf le premier gisement d'une ressource de démarrage, le minerai brut en manque et l'eau d'une centrale.
 local AdRt = require("script.ai3.anti_dispersion")
+local Rgis = require("shared.ai3.reserve_gisements") -- lot s42 reroutage (P2) : un gisement de réserve par ressource exploitée
+local T = require("shared.team.config")
 
 local X = {}
 
@@ -348,6 +350,7 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Ce que l'équipe voit de nouveau
 ---------------------------------------------------------------------------------------------------
+local reserve_wanted -- lot s42 reroutage (P2) : défini plus bas (auto_requests)
 local function on_fresh(f, k, surface, key, names, tick)
   for _, res in ipairs(names) do
     if k.m.found[res] == tick then
@@ -356,7 +359,8 @@ local function on_fresh(f, k, surface, key, names, tick)
         team_label(f), res, minutes(tick), d and d.x or 0, d and d.y or 0, d and math.floor(math.sqrt(d.d2)) or -1, k.m.n))
     end
     local r = k.req[res]
-    if r and K.count(k.m, res) > (r.known0 or 0) then close_request(f, k, res, tick, "trouve") end
+    -- (une demande de réserve ne se ferme que si le nouveau gisement est HORS des avant-postes : un morceau du gisement exploité ne suffit pas)
+    if r and K.count(k.m, res) > (r.known0 or 0) and (r.why ~= "reserve" or not reserve_wanted(f, k, tick)[res]) then close_request(f, k, res, tick, "trouve") end
     -- Une ressource demandée par le cerveau (sites d'avant-poste) : le gisement est évalué tout de suite.
     if (f.site_needs or {})[res] and f.site_needs[res] > 0 and Sites.available(f, res) == 0 then
       for _, s in ipairs(k.m.s[key].r or {}) do
@@ -890,6 +894,34 @@ local function inject_known(f, k, surface, res, tick)
   return false
 end
 
+--- Lot s42 reroutage (P2) : ressources exploitées sans gisement de réserve (shared/ai3/reserve_gisements.lua). Le rayon est celui où le
+--- plan du champ lit un gisement (script/team/champ.lua, Champ.CFG.radius), lu sans require (module déjà chargé) ; absent : aucune.
+reserve_wanted = function(f, k, tick)
+  local Champ = package.loaded["script.team.champ"]
+  local radius = type(Champ) == "table" and Champ.CFG and Champ.CFG.radius or nil
+  if not radius then return {}, {} end
+  local outposts, list, seen = {}, {}, {}
+  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    local spec = o and o.pos and T.outposts[o.kind]
+    local res = spec and spec.resource
+    if res then
+      if not seen[res] then seen[res] = true; list[#list + 1] = res; outposts[res] = {} end
+      outposts[res][#outposts[res] + 1] = { x = o.pos.x, y = o.pos.y }
+    end
+  end
+  table.sort(list)
+  local known, prospects = {}, {}
+  for _, res in ipairs(list) do
+    known[res] = K.deposits(k.m, res, f.hq_pos)
+    prospects[res] = Sites.available(f, res, tick) or 0
+  end
+  local input = { resources = list, outposts = outposts, known = known, prospects = prospects, radius = radius }
+  local set = {}
+  for _, res in ipairs(Rgis.wanted(input)) do set[res] = true end
+  return set, Rgis.bilan(input)
+end
+
 local function auto_requests(f, k, surface, tick)
   -- Besoin de site sans site en réserve : d'abord les gisements CONNUS, sinon explorer.
   local needs = f.site_needs or {}
@@ -897,6 +929,12 @@ local function auto_requests(f, k, surface, tick)
     if (needs[res] or 0) > 0 and Sites.available(f, res) == 0 then
       if not inject_known(f, k, surface, res, tick) then open_request(f, k, res, tick, "site") end
     end
+  end
+  -- Lot s42 reroutage (P2) : besoin À VENIR : une ressource exploitée sans gisement de réserve (ni site retenu, ni gisement connu hors des
+  -- avant-postes) est cherchée avant que ses avant-postes soient pleins (la garde anti-dispersion reste juge du départ).
+  local spare = reserve_wanted(f, k, tick)
+  for _, res in ipairs(sorted_keys(spare)) do
+    if not k.req[res] then open_request(f, k, res, tick, "reserve") end
   end
   -- Fermetures : besoin satisfait, demande de minage non renouvelée.
   for _, res in ipairs(sorted_keys(k.req)) do
@@ -907,6 +945,8 @@ local function auto_requests(f, k, surface, tick)
       close_request(f, k, res, tick, "expiree")
     elseif r.why == "centrale" and tick - r.t >= CENTRALE_REQ_TTL then
       close_request(f, k, res, tick, "expiree")
+    elseif r.why == "reserve" and not spare[res] then
+      close_request(f, k, res, tick, "satisfait")
     end
   end
 end

@@ -1,4 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.97
+Date: 2026-11-13
+  Bugfixes:
+    - IA (F621) : une équipe affamée (coffre vide, PNJ sans tâche) repasse en survie et remine à la main ; la purge de la pioche ne retire plus le minage de survie.
+    - IA (F622) : une attente de matière sans danger ne gèle plus le rang « améliorer » de la pile (remplacement de tapis, bras, blocs du mall, acier).
+    - IA (F623) : plus de foreuse thermique reposée sur un gisement déjà balayé ; remplacement une foreuse à la fois, seulement avec réseau sain et électrique en stock.
+    - IA (F624) : le bâtiment exigé par le centre de commandement passe devant les autres achats ; le centre monte dès que son coût dort au stock, y compris pour l'équipe du joueur.
+    - IA (F625) : modules posés un par un, productivité ou vitesse selon l'état de la machine ; les équipes sans module en commandent.
+    - IA (F626) : champ pavé dans l'autre orientation quand elle pose plus de foreuses ; les poteaux sur le minerai sont déplacés même en famine.
+    - IA (F627) : tronc du mall contrôlé toutes les 5 min, pièce manquante rouverte ; quai de réinjection rétabli à côté de la chaîne de poteaux.
+  Changes:
+    - Fours du mod (F628) : emplacements de modules (6 au niveau 2, +1 par niveau) ; haut fourneau, concasseur, four à coke, concentrateur : 2.
+    - IA (F629) : sortie directe d'une colonne de fours sur un tapis jusqu'au tronc du mall ; centrale neuve à deux entrées de combustible ; ligne de charbon dimensionnée à 130 %.
+    - IA (F630) : diagnostic causal ([FO-CAUSAL]) ; part de défense mesurée sur les pertes (5 % au calme, jusqu'à 95 %) ; nids sous le nuage de pollution connus ; tuyaux souterrains sur les extensions de puits ; reroutage d'un tapis qui traverse un gisement ; exploration de réserve.
+    - Interface (F631) : panneau de commandement de l'équipe (orientation, gisement prioritaire, liaison prioritaire) et outil de désignation.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.96
 Date: 2026-11-13
   Bugfixes:

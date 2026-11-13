@@ -122,8 +122,11 @@ function Survie.think(f, view, plan, tick)
   -- Lot VIDEO-L3 : seule la plaque dont un PNJ a PRIS la collecte (view.avail_out) n'ouvre pas la survie (D0) ; une sortie seulement « à
   -- collecter » la laisse s'ouvrir (D1 : fer au champ, personne pour le prendre ; décision du lead du 7/11).
   local short = Sv.uncovered(Sv.shortages(missing, KEYS), view.avail_out)
+  -- Lot s42 diag-joueur : coffre VIDE d'une matière clé qui manque (famine en paix, Sv.famine)
+  local starved = false
+  for _, sh in ipairs(short) do if ((view.stock or {})[sh[1]] or 0) <= 0 then starved = true end end
   local d = Sv.decide(s, { tick = tick, short = short, workers = view.workers or 0, idle = view.workers_idle or 0,
-    threatened = view.threatened })
+    threatened = view.threatened, starved = starved })
   if d.event == "entree" then
     s.said = {}
     s.relaxed, s.relax_why, s.mines, s.smelters, s.extends, s.keys = 0, {}, 0, 0, 0, {}

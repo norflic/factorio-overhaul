@@ -41,22 +41,29 @@ end
 check(not Mt.place_libre(0, 14) and not Mt.place_libre(5, 14) and not Mt.place_libre(-Mt.WEST - 1, 5) and not Mt.place_libre(-9, Mt.Y_TOP - 1), "§2 hors de la place : rien")
 check(not Mt.place_libre(-9, 5) and not Mt.place_libre(-3, 14) and not Mt.place_libre(-8, 14) and not Mt.place_libre(-9, -1), "§2 prises, tete de rangee, ligne, quai : fermes")
 
--- 3. passage continu de la tuile de passage (x = 0, libre par Mr.reserve_libre) jusqu'à l'ouest de la place, sauts <= 7 tuiles
+-- 3. (s42 bus-continu : la tuile de passage est réservée au quai de réinjection) passage continu depuis la tuile de passage (x = 0, libre par Mr.reserve_libre) jusqu'à l'ouest de la place
+--    par le couloir une tuile au nord (y mod 15 = 13), sauts <= 7,5 tuiles (fil du petit poteau)
 for _, ry in ipairs({ 14, 29, 44 }) do
-  local last, okp = 0, Mr.reserve_libre(0, ry, Mt.WEST, Mt.NORTH)
+  local okp = Mr.reserve_libre(0, ry, Mt.WEST, Mt.NORTH)
+  local lx, ly = 0, ry
   for rx = -1, -Mt.WEST - 1, -1 do
-    if Mt.place_libre(rx, ry) or Mr.reserve_libre(rx, ry, Mt.WEST, Mt.NORTH) then
-      if last - rx > 7 then okp = false end
-      last = rx
+    check(not Mt.place_libre(rx, ry), "§3 tuile de passage (" .. rx .. ", " .. ry .. ") reservee au quai de reinjection")
+    if Mt.place_libre(rx, ry - 1) or Mr.reserve_libre(rx, ry - 1, Mt.WEST, Mt.NORTH) then
+      if (lx - rx) ^ 2 + (ly - (ry - 1)) ^ 2 > 7.5 ^ 2 then okp = false end
+      lx, ly = rx, ry - 1
     end
   end
-  check(okp and last == -Mt.WEST - 1, "§3 passage y = " .. ry .. " : traverse la place par sauts de 7 tuiles au plus")
+  check(okp and lx == -Mt.WEST - 1, "§3 couloir y = " .. (ry - 1) .. " : traverse la place par sauts de 7,5 tuiles au plus")
 end
--- 4. tête de la ligne 1 (poteau en x = -9, y = -2) : une tuile ouverte à 7 tuiles au plus, elle-même à 7 tuiles au plus de l'ouest de la place ; couloir ouest continu (y >= 0)
+-- 4. tête de la ligne 1 (poteau en x = -9, y = -2) : une tuile ouverte à 7 tuiles au plus, elle-même à 7 tuiles au plus de l'ouest de la place ; couloir ouest (y >= 0) ouvert hors des
+--    tuiles du quai de réinjection de la dernière ligne (trois tuiles par rangée)
 check(Mt.place_libre(Mt.XL(Mt.KMAX) - 2, Mt.Y_TOP + 1) and Mt.XL(1) - 1 - (Mt.XL(Mt.KMAX) - 2) <= 7, "§4 tete : tuile entre les coffres de la derniere ligne ouverte, a portee")
 local col = true
-for ry = 0, 60 do if not (Mt.place_libre(-Mt.WEST, ry) and Mt.place_libre(-Mt.WEST + 1, ry)) then col = false end end
-check(col, "§4 couloir a l'ouest de la derniere ligne : ouvert sur toute la longueur")
+for ry = 0, 60 do
+  local m = ry % 15
+  if Mt.place_libre(-Mt.WEST, ry) ~= (m ~= 14) or Mt.place_libre(-Mt.WEST + 1, ry) ~= (m < 13) then col = false end
+end
+check(col, "§4 couloir a l'ouest de la derniere ligne : ouvert hors du quai de reinjection")
 
 print(string.format("s41 raccord-mall : %d OK, %d ECHEC", ok_n, ko_n))
 if ko_n > 0 then os.exit(1) end

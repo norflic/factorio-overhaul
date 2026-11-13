@@ -68,6 +68,7 @@ local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur uniqu
 local ZIrt = require("script.ai3.zero_idle_rt") -- lot ZERO-IDLE : journal [FO-ZERO-IDLE] de la minute
 local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : texte des pièces d'un kit ([FO-LOTS-KIT])
 local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
+local Co = require("shared.ai3.commande") -- lot s43 UX-COMMANDE : orientation et gisements désignés (f.team.commande ; toute équipe)
 
 local Ia3 = {}
 
@@ -845,6 +846,8 @@ function Ia3.plan_a(f, view, book, surface, tick)
   local st = t.ia3
   Profiler.start("ia3:research")
   local w = B.weights(f.chef and f.chef.mix, f.traits, (view and view.threatened) or false) -- FIX-P3 : menace
+  local cmd = t.commande -- lot s43 UX-COMMANDE : orientation choisie (bornée, shared/ai3/commande.lua)
+  if cmd then w = Co.weights(w, cmd.orient, B.W_MIN, B.W_MAX, B.FAMILIES) end
   -- Lot IA-G : gisements relus AVANT la recherche (le cerveau général en a besoin dès la première pensée).
   Profiler.fstart("ia3:reach")
   local harvest = Harvest.arbres_on(f) and harvest_items(book) or {} -- lot KIT : les factions ; lot ELECTRIQUE (d) : votre équipe aussi (Harvest.PLAYER_WOOD)
@@ -965,7 +968,8 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     industrie = Rsv.on(), -- lot INDUSTRIE I1 : le besoin est évalué à chaque pensée (f.team.ia3.noyau)
     pile = PileRt.inputs(f, book, tick), -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
     prevu = Prev.pile_rows(f), -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
-    dispersion = AdRt.cerveau(f, tick) } -- lot IA-GARDE : garde anti-dispersion (nil : pas de mesure)
+    dispersion = AdRt.cerveau(f, tick), -- lot IA-GARDE : garde anti-dispersion (nil : pas de mesure)
+    ordres = f.team.commande and Co.ready(Co.deposits(f.team.commande), f.prospects) or nil } -- lot s43 UX-COMMANDE : gisements désignés (site en réserve)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")

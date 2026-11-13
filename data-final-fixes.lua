@@ -34,6 +34,15 @@ do
     if B.recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
   end
 end
+-- Piste ÉTAIN (s42, chantier 2.1 du DC) : X3 marque « prod » la plaque d'étain (fonte), le stratifié cuivré et la carte
+-- imprimée, mais la piste ne les avait jamais inscrites : un module de productivité refusait la fonte de l'étain dans
+-- un four à emplacements (contrôle tests/datastage/modules_slots.lua, limitation_gaps). Aucune n'est réversible.
+do
+  local Sn = require("shared.content.tin")
+  for _, rr in ipairs(Sn.RECIPES) do
+    if Sn.x3_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
 
 -- Piste CALCULS (nuit du 29 au 30/10, tools/calc/equilibre.lua) : avec la productivité MULTIPLIÉE (D-17, jusqu'à
 -- × 328,67), le cycle vanilla « pile d'uranium → pile usée → retraitement → uranium 238 » rend plus d'uranium qu'il n'en
@@ -148,3 +157,8 @@ require("prototypes.effets_armes")
 -- la liste des recettes doit être complète, et les limitations de productivité posées plus haut sont étendues aux lots.
 -- Aucune technologie n'est touchée (le calcul des époques ci-dessus lit leurs effets) : le script active les lots.
 require("prototypes.lots")
+
+-- Lot S42 TAPIS-TEINTES (chantier 2.4 du DC) : tout palier de tapis, de souterrain ou de répartiteur dont l'aspect est déjà
+-- celui d'un palier plus lent reçoit une teinte propre (sprites, icône, objet) et une animation proportionnelle à sa vitesse.
+-- EN DERNIER : tous les prototypes de convoyeurs existent. Aucune recette ni technologie touchée.
+require("prototypes.tapis_teintes")

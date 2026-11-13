@@ -1855,8 +1855,37 @@ local function plan_feed(f, surface, p, place, part)
         if top > 0 then head_belt = Conv.choose(f, top, len) end
       end
       local fd = P.feeder(port, sources, quai_ins, head_belt, quai_n)
-      for _, e in ipairs(fd.entities) do e.part = part end
-      if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
+      -- lot s42 charbon-centrale (a) : centrale = DEUX entrées de combustible (deux coffres, deux bras ; le premier reste à combustion, le
+      -- second est électrique s'il y en a un au coffre), retenues seulement si chaque pièce de plus tient sur un terrain libre ; sinon la
+      -- tête d'avant, à une entrée (jamais un refus de plus : reserve_tiles est tout ou rien)
+      if g.gen == "steam" and #fd.chests > 0 then
+        local n2, arm2 = Cc.entries(M.BURNER_ARM, M.ELECTRIC_ARM, M.ELECTRIC_ARM and Stock.count(f, M.ELECTRIC_ARM) or 0)
+        local fd2 = P.feeder(port, sources, quai_ins, head_belt, n2, arm2)
+        local fits = true
+        for _, e in ipairs(Cc.extras(fd.entities, fd2.entities)) do
+          for _, t in ipairs(P.tiles_of(e)) do
+            if b.occ[P.tkey(t[1], t[2])] or (place.masks and not place.masks.free(t[1], t[2])) then fits = false end
+          end
+        end
+        for _, e in ipairs(fd2.entities) do e.part = part end
+        if fits and reserve_tiles(b, p, fd2.entities) then
+          fd = fd2
+          b.stats.cc_double = (b.stats.cc_double or 0) + 1
+          if b.stats.cc_double <= Cc.LOGS then
+            log(string.format("[FO-CHARBON-CENTRALE] %s : projet %d (centrale) : %d entrees de combustible (2e bras : %s)", f.key or "player", p.id, #fd.chests, tostring(arm2)))
+          end
+        else
+          for _, e in ipairs(fd.entities) do e.part = part end
+          if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
+          b.stats.cc_simple = (b.stats.cc_simple or 0) + 1
+          if b.stats.cc_simple <= Cc.LOGS then
+            log(string.format("[FO-CHARBON-CENTRALE] %s : projet %d (centrale) : une seule entree de combustible (pas de place libre pour la seconde)", f.key or "player", p.id))
+          end
+        end
+      else
+        for _, e in ipairs(fd.entities) do e.part = part end
+        if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
+      end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
       -- Lot IA3-e : les poteaux des bras de quai APRÈS le tapis des foreuses (posés avant, ils prenaient les tuiles de son
       -- arrivée : tapis impossible, repli sur un quai de minerai vide ; moteur réel, e7-usine, emerald, même lot qu'en
@@ -2859,7 +2888,7 @@ local function plan_alim(f, surface, p)
   for _, e in ipairs(plant.ents) do if e.role == "tete" then head = e end end -- la dernière tuile de la tête (la plus loin du module)
   if not head then return false, "centrale sans tete d'alimentation" end
   local _, kw = plant_burn_kw(plant)
-  local rate = Cc.rate(kw, M.COAL_J)
+  local rate = Cc.alim_rate(kw, M.COAL_J) -- lot s42 charbon-centrale (b) : consommation nominale des chaudières × Cc.ALIM_MARGIN
   local d = head.dir or 0
   local lx, ly = P.left_of(d)
   local last = "arrivee prise"
@@ -3073,8 +3102,11 @@ local function plan_project(f, surface, p)
         type = e.type, carries = e.carries } -- (lot CHAMP : charge du coffre de combustible, rang de pose ; lot FONDERIE : entrée ou sortie d'un souterrain ; lot MALL : objet porté par un tapis, déclaré)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
+    for _, t in ipairs(lay.sous or {}) do local k = P.tkey(t[1], t[2]); if b.occ[k] == nil then b.occ[k] = p.id end end -- lot s42 TUYAUX : sol au-dessus d'une paire souterraine, retenu au plan (aucun souterrain aligné d'un autre chantier)
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow } end -- (lot FONDERIE-BLOC : flow = débit d'un coffre de tête de champ)
     for _, o in ipairs(lay.outs or {}) do p.outs[#p.outs + 1] = { x = o.x, y = o.y, at = lay.out_at } end
+    if lay.directes and #lay.directes > 0 then p.sorties_directes = lay.directes end -- s42 bus-direct : bouts des lignes de plaques (script/team/rapatriement.lua, ligne directe)
+    if lay.piquable and #lay.piquable > 0 then p.tapis_piquable = lay.piquable end -- s41 sortie-bus : trop-plein d'une ligne de plaques (script/team/piquage.lua, plan_sources)
     Profiler.stop("build:plan:place")
     return anchors_and_obstacles(f, surface, p, lay.masks)
   end
@@ -4672,7 +4704,7 @@ local function quai_tasks(f, p, surface, out)
   local rate
   if is_plant_project(p) then
     local _, kw = plant_burn_kw(p)
-    rate = Cc.rate(kw, M.COAL_J)
+    rate = Cc.chest_rate(Cc.rate(kw, M.COAL_J), #p.quais) -- (lot s42 charbon-centrale : deux coffres se partagent la consommation)
     -- lot ENERGIE (2/11) : chaudières à sec = amorce à la main (charbon du stock versé dans la chaudière), en tête de pile
     Sante.tasks(f, p, out, function(x, y)
       local a = Build.carry_anchor(f.build, x, y)

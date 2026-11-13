@@ -583,7 +583,7 @@ function Team.view(f, tick)
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
-      id = oid, kind = o.kind, drills = o.drills, famine = Famine.key_starved(f, o, tick), full = ((o.full or o.migr ~= nil) and not Famine.open(f, o, tick)) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o, f.team.flux_fill), -- (lot FAMINE-FER : plaque clé en famine, bande en attente ; F488 : les deux champs d'avant sortis du commentaire)
+      id = oid, kind = o.kind, drills = o.drills, famine = Famine.key_starved(f, o, tick), full = ((o.full or o.migr ~= nil) and not Famine.open(f, o, tick)) or false or o.th_swept ~= nil, turrets = st.turrets, coal_needed = Outposts.coal_needed(o, f.team.flux_fill), -- (lot FAMINE-FER : plaque clé en famine, bande en attente ; F488 : les deux champs d'avant sortis du commentaire)
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       -- Lot FLUX : ce que la tournée rapportera (sorties par objet), réceptacles pleins, brûleurs (à sec), âge de la tournée libre.
       outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, unpowered = st.unpowered, free_age = Board.free_age(f, "service:" .. oid, tick),

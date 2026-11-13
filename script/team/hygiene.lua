@@ -267,10 +267,10 @@ local function live_nets(ctx, f, surface)
 end
 
 --- Gardes d'une action (lues une fois par tranche) : budget de l'impulsion, famine de la plaque clé, menace du QG. Cause ou nil.
-local function garde(f, h, ctx, tick)
+local function garde(f, h, ctx, tick, sur_gisement)
   if not Hr.budget(h.retraits, Hr.CFG) then return "budget" end
   if ctx.famine == nil then ctx.famine = Famine.team_starved(f, tick) and true or false end
-  if ctx.famine then return "famine" end
+  if Hr.famine_bloque(ctx.famine, sur_gisement) then return "famine" end -- s42 gisements : jamais pour un poteau sur gisement
   if ctx.menace == nil then
     local hm = f.team.hq_menace
     ctx.menace = ((hm and hm.crise) or (f.threatened_until and tick < f.threatened_until)) and true or false
@@ -457,7 +457,7 @@ local REMPLACABLE = { ["pas une feuille"] = true, ["consommateur propre"] = true
 local function act(surface, f, h, e, info, ctx, tick, slice)
   local feuille = info.own == 0
   if not (feuille or info.ore) then return end
-  local why = garde(f, h, ctx, tick)
+  local why = garde(f, h, ctx, tick, info.ore and true or false)
   if why then refus(h, why) return end
   local st = structure(f, h, e)
   if st.piece_plan then

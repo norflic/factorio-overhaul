@@ -68,6 +68,7 @@ Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par for
 -- et « sans la règle » du banc reconstruire-bois, réglé par l'interface fo-recon).
 Recon.GATHER = true
 
+local Th = require("shared.team.thermique") -- s42 thermiques : pas de thermique de secours sur un avant-poste balayé (Th.pairs_closed)
 local Elec = require("script.team.electrique") -- lot ELECTRIQUE : plus de foreuse thermique refaite quand l'électrique est possible
 
 local ITEM_OF = {}          -- mémoire LOCALE (prototypes seulement)
@@ -341,6 +342,7 @@ local function substitute_drills(f, s, surface, tick)
       local host = (f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid])
       local spec = host and T.outposts[host.kind]
       if spec and not Elec.allowed(f, tick, host.kind) then spec = nil end -- lot ELECTRIQUE : pas de thermique de secours
+      if spec and Th.pairs_closed(host) then spec = nil end -- s42 thermiques : avant-poste balayé, la pièce attend son objet électrique
       local bx, by
       if spec then
         local sink = Ru.sink_of(r.x, r.y, r.dir, T.drill_electric.drop, sink_boxes(f, s, surface, r, spec))

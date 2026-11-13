@@ -102,6 +102,14 @@ Cap.DEFER_PCT = 100
 -- manque en 11,6 min (Émeraude, 370 plaques de fer à 32 plaques/min de fonte à la main) ; au-delà, c'est la PRODUCTION qui manque (la
 -- tournée de charbon tenue par un PNJ coincé, étage 4), et le centre ne doit pas geler la faction.
 Cap.AHEAD_TICKS = 15 * 3600
+-- Lot S42 QG-NIVEAUX (partie du DC du 13/11, 4 h 15 : Émeraude bloquée « condition:furnace » de 60,6 min à la fin pour 2 acier et 3
+-- briques, 51 remplacements de tapis payés entre-temps ; Ambre 100 min entre la première condition et le niveau 2). En mode blocs, tout
+-- candidat payable au stock passe devant celui qu'il faut fabriquer : le bâtiment de la chaîne du centre (Q16) n'était presque jamais
+-- le but, donc son coût jamais demandé à la fabrication. La règle du DC du 8/11 est gardée : tant qu'un bloc de PRODUCTION est payable
+-- en entier, c'est le bloc qui monte et la chaîne n'existe pas (tests/amelioration_test.lua §7 bis).
+-- Règle (ctx.lead, tenu par le runtime) : le bâtiment de la chaîne, quand il existe, passe DEVANT tous les candidats, au plus Cap.LEAD_TICKS de but
+-- cumulé par bâtiment (ensuite il retombe à son rang ordinaire, sans se réarmer tant que la cible du centre ne change pas).
+Cap.LEAD_TICKS = 10 * 3600
 
 local function sorted_keys(t)
   local ks = {}
@@ -381,7 +389,11 @@ function Cap.candidates(Ld, census, ctx)
         local bw, tw = b.working and 1 or 0, t.b.working and 1 or 0
         better = bw > tw or (bw == tw and b.id < t.b.id)
       end
-      if better then top_of[fam.key] = rows[#rows] end
+      -- Lot S42 QG-NIVEAUX : un bâtiment que l'exécutant vient de refuser (place, emprise) cède la chaîne à un autre de sa famille.
+      local row = rows[#rows]
+      row.ex = (ctx.lead and ctx.exclude and ctx.exclude[fam.key .. ":" .. (n + 1) .. ":" .. b.id]) and true or false
+      if t and row.ex ~= t.ex then better = t.ex end
+      if better then top_of[fam.key] = row end
     end
   end
   local cands, blocked = {}, {}
@@ -513,7 +525,12 @@ function Cap.candidates(Ld, census, ctx)
     return 0
   end
   for _, c in ipairs(cands) do c.front = (front(c) == 1) or nil end -- lu par Cap.goal : le but passe devant le fond au stock virtuel
+  -- Lot S42 QG-NIVEAUX : le bâtiment de la chaîne du centre devant tout, tant que sa borne n'est pas atteinte (Cap.lead_step).
+  local function lead(c) return (ctx.lead and c.chain and not (ctx.lead.done and ctx.lead.done[c.key])) and 1 or 0 end
+  for _, c in ipairs(cands) do c.lead = (lead(c) == 1) or nil end
   table.sort(cands, function(a, b)
+    local la, lb = lead(a), lead(b)
+    if la ~= lb then return la > lb end
     local fa, fb = front(a), front(b)
     if fa ~= fb then return fa > fb end
     if ctx.blocs and ready(a) ~= ready(b) then return ready(a) > ready(b) end
@@ -534,12 +551,17 @@ function Cap.choose(Ld, census, ctx)
   -- Lot AGES : le centre reporté plus que son prix passe devant (Cap.starved).
   local first = res.cands[1]
   local starved = false
+  local cash = false
   for _, c in ipairs(res.cands) do
-    if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
+    if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
+    -- Lot S42 QG-NIVEAUX (chantier 2.3 du DC : « dès que le coût du niveau suivant est en stock, l'équipe paie et monte ») : le centre
+    -- payable dont TOUT le coût dort au stock libre (c.all_in) est le but, sans attendre la règle des reports.
+    elseif c.center and ctx.cash and c.all_in then first, cash = c, true end
   end
   local d = first and {} or { none = true }
   for k, v in pairs(first or {}) do d[k] = v end
   d.starved = starved or nil
+  d.cash = cash or nil
   -- Lot DEFAUT7, étage 3 : le centre passé devant est servi en tête, tant que la borne de sa cible n'est pas atteinte.
   d.ahead = (starved and not Cap.ahead_expired(ctx.defer, first.key, ctx.tick)) or nil
   d.gate_open = Cap.gate_open(res.centre)
@@ -616,6 +638,34 @@ function Cap.ahead_step(defer, d, now)
   return nil
 end
 
+--- Lot S42 QG-NIVEAUX : un pas de l'état « chaîne devant » après la décision d. st = { gate = clé du centre visé, key = bâtiment de
+--- la chaîne qui est le but, last = tick du dernier pas, spent = { [clé] = ticks cumulés comme but }, done = { [clé] = vrai } } (nombres,
+--- chaînes et booléens : tenu dans la sauvegarde par le runtime). La cible du centre change (niveau payé) : l'état repart de zéro.
+--- Rend le nouvel état (nil sans centre visé) et l'événement : "debut" (première fois que ce bâtiment est le but), "borne"
+--- (Cap.LEAD_TICKS cumulés : il retombe à son rang ordinaire), ou nil.
+function Cap.lead_step(st, d, gate_key, now)
+  if not gate_key then return nil, nil end
+  if not st or st.gate ~= gate_key then st = { gate = gate_key, spent = {}, done = {} } end
+  now = now or 0
+  local key = (d and d.chain and d.lead and d.key) or nil
+  local ev = nil
+  if key then
+    if st.spent[key] == nil then
+      st.spent[key] = 0
+      ev = "debut"
+    elseif st.key == key and st.last then
+      st.spent[key] = st.spent[key] + math.max(0, now - st.last)
+    end
+    if st.spent[key] >= Cap.LEAD_TICKS then
+      st.done[key] = true
+      ev = "borne"
+      key = nil
+    end
+  end
+  st.key, st.last = key, key and now or nil
+  return st, ev
+end
+
 --- Étage 3 : la borne de la cible `key` est-elle atteinte (ou déjà passée) ?
 function Cap.ahead_expired(defer, key, now)
   if not (defer and key and defer.key == key) then return false end
@@ -644,7 +694,7 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
+    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved or d.cash)) or nil, replace = d.replace and true or nil,
     -- Lot AMELIORATION : un lot de bâtiments d'un bloc (n bâtiments, `unit` = coût d'un seul) ; Cap.emit peut en payer moins (E.pay.n).
     bloc = d.bloc, n = (d.bloc or d.fab) and d.n or nil, unit = (d.bloc or d.fab) and d.unit or nil,
     front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi après les investissements, devant les projets ordinaires et le fond (projets.lua)

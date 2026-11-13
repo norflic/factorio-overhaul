@@ -169,7 +169,7 @@ do
   check(r[-1 .. ":" .. Mt.YA0] and r[-1 .. ":" .. ya2], "§3 la ligne 1 sert les deux rangées")
   local rb = follow(at, Mt.XL(2), Mt.Y_TOP)
   check(rb[-1 .. ":" .. Mt.YB0] and rb[-1 .. ":" .. yb2], "§3 la ligne 2 sert les deux rangées")
-  check(#s2.quais == 0, "§3 pas de nouvelle tête de ligne")
+  check(#s2.quais == 2 and s2.quais[1].y == 14.5 and s2.quais[2].y == 14.5, "§3 pas de nouvelle tête de ligne : seuls les deux quais de réinjection (s41), tuile de passage")
   local rel
   for _, e in ipairs(s2.ents) do if e.role == "mall-poteau" and e.y == 14.5 then rel = e end end
   check(rel ~= nil, "§3 relais de la rangée 2 dans la tuile de passage (y = 14,5)")
@@ -183,7 +183,7 @@ do
   for _, e in ipairs(s3.ents) do all3[#all3 + 1] = e end
   local _, dup3 = index(all3)
   check(#dup3 == 0, "§3 ligne neuve : aucune superposition (" .. table.concat(dup3, ",") .. ")")
-  check(#s3.quais == 2, "§3 ligne neuve : deux coffres de tête")
+  check(#s3.quais == 3, "§3 ligne neuve : deux coffres de tête, plus le quai de réinjection de la ligne 1 (s41)")
   local function relais(sec) for _, e in ipairs(sec.ents) do if e.name == "pole" and e.x == -4.5 and e.y == -1.5 then return true end end return false end
   check(not relais(s3), "§3 ligne ajoutée à un tronc existant : pas de second relais de tête")
   check(not relais(s2), "§3 rangée 2 sur des lignes existantes : pas de relais de tête")

@@ -264,6 +264,7 @@ end
 -- §6 runtime (tables simples)
 ---------------------------------------------------------------------------------------------------
 local RT = require("script.ai3.modules_stock")
+RT.ROI = false -- lot S42 MODULES-ROI : ce test couvre l'ancienne regle (Ms.plan) ; la passe ROI a son test (tests/s42_modules-roi_test.lua)
 local Pi = require("shared.ai3.pile")
 local logged = {}
 log = function(s) logged[#logged + 1] = s end

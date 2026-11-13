@@ -349,8 +349,10 @@ check(h.red == 2, "2 redondants candidats (A : machine aussi sous B ; D : isolé
 check(h.r0 == 0 and h.cost == 5, "relevé à la tranche 0 ; coût = 1 relevé + 4 tranches non vides (" .. tostring(h.cost) .. ")")
 check(jeton.costs[1] == 36, "coût déclaré au jeton = chunks de la boîte (6 × 6) : " .. tostring(jeton.costs[1]))
 check(#h.poles == 0 and h.logged, "liste rendue après le journal")
-check(#logs == 1 and logs[1] == "[FO-HYGIENE] 1 : impulsion a 20.0 min : 4 poteaux releves, 1 sur gisement, 2 redondants candidats (feuilles sans consommateur propre) ; cout : 5 tranches ; refus : famine 3",
-  "ligne [FO-HYGIENE] attendue (famine : rien retiré, 3 refus : A, C sur gisement, D) : " .. tostring(logs[1]))
+check(#logs == 1 and logs[1] == "[FO-HYGIENE] 1 : impulsion a 20.0 min : 4 poteaux releves, 1 sur gisement, 2 redondants candidats (feuilles sans consommateur propre) ; cout : 5 tranches ; refus : famine 2, remplacant non alimente 1",
+  -- s42 gisements : la famine ne retient plus le poteau SUR GISEMENT (C) : son remplaçant est essayé, refusé ici (réseau sans génératrice
+  -- au registre), détruit et rendu au coffre ; A et D (hors gisement) restent retenus par la famine
+  "ligne [FO-HYGIENE] attendue (famine : rien retiré, 2 refus famine : A, D ; C sur gisement essayé) : " .. tostring(logs[1]))
 check(#ents == 10 and stock["poteau-test"] == 2, "famine : aucune entité détruite, coffre inchangé")
 -- déterminisme : la même scène, rejouée, donne les mêmes compteurs
 local h1 = { n = h.n, sur = h.sur, red = h.red, cost = h.cost }

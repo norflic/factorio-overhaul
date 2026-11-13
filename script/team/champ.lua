@@ -38,6 +38,8 @@ local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
+local Rer = require("script.team.reroutage") -- lot s42 reroutage : tapis de l'équipe qui traverse le gisement, contourné avant d'être coupé
+Rer.Build = Build
 
 local Champ = {}
 
@@ -186,6 +188,7 @@ function Champ.data(f, kind)
   local fp = game.entity_prototypes[spec.sink]
   if fp and fp.type == "furnace" then
     local rec = game.recipe_prototypes[spec.product]
+    names.plate = rec and rec.products and rec.products[1] and rec.products[1].name or nil -- s41 sortie-bus : objet porté par la ligne de plaques
     local per = 1
     for _, ing in ipairs(rec and rec.ingredients or {}) do if ing.name == spec.resource then per = ing.amount end end
     if not (rec and rec.energy and rec.energy > 0) then return nil, "recette du four" end
@@ -375,7 +378,7 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
 end
 
 --- Spec de la règle pure pour l'avant-poste `o` : (spec, names) ou nil, raison.
-local function spec_of(f, surface, o, frame, only)
+local function spec_of(f, surface, o, frame, only, axis_force)
   local data, names = Champ.data(f, o.kind)
   if not data then return nil, names end
   local ore = ore_tiles(surface, o)
@@ -385,7 +388,7 @@ local function spec_of(f, surface, o, frame, only)
     x0, x1 = math.min(x0, ore[i]), math.max(x1, ore[i])
     y0, y1 = math.min(y0, ore[i + 1]), math.max(y1, ore[i + 1])
   end
-  local axis = frame and frame.axis or ((y1 - y0 > x1 - x0) and "y" or "x")
+  local axis = frame and frame.axis or axis_force or ((y1 - y0 > x1 - x0) and "y" or "x") -- s42 gisements : axis_force = autre orientation a l'essai
   local mu, mv = Champ.CFG.margin_u, Champ.CFG.margin_v
   local cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
   if axis == "x" then x0, x1, y0, y1 = x0 - mu, x1 + mu, y0 - mv, y1 + mv else x0, x1, y0, y1 = x0 - mv, x1 + mv, y0 - mu, y1 + mu end
@@ -416,11 +419,13 @@ local function spec_of(f, surface, o, frame, only)
   -- lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre de cet avant-poste a retenues pour son réseau du charbon reporté lui restent libres
   local blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft, function(_, _, owner) return Cd.own(owner, o.id) end)
   Profiler.fstop("champ:blocked")
+  Rer.note(f, surface, o, ore, blocked, mine, { x0, y0, x1, y1 }) -- lot s42 reroutage : relevé seul, le plan de ce tour garde le trou
   local spec = {
     ore = ore, blocked = blocked, mine = mine, soft = soft, foreign = foreign, nforeign = nforeign, resources = resources,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
     design = data.design, logistics = data.logistics,
+    axis = (not frame) and axis_force or nil, -- s42 gisements : orientation imposee au plan pur (cadre neuf)
     window = { x0, y0, x1, y1 }, -- lot FONDERIE-BOUT : tuiles lues (obstacles connus) ; une colonne ailleurs ne sort pas de ce rectangle
   }
   if coal then
@@ -466,6 +471,20 @@ function Champ.frame(f, surface, o)
   local plan, why = Ch.plan(spec)
   Profiler.fstop("champ:frame-plan")
   if not plan then return nil, why end
+  -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie au bout des rangees -> l'autre orientation est essayee UNE fois
+  -- (fenetre relue pour elle : les marges suivent l'axe) ; gardee seulement si elle pose strictement plus de foreuses (Ch.better_axis)
+  if Ch.axis_retry(plan) then
+    Profiler.fstart("champ:frame-axe")
+    local spec2 = spec_of(f, surface, o, nil, nil, Ch.axis_other(plan.axis))
+    local plan2 = spec2 and Ch.plan(spec2) or nil
+    Profiler.fstop("champ:frame-axe")
+    local keep = Ch.better_axis(plan, plan2)
+    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : %s a %.1f min",
+      f.key or "player", o.id, o.kind, plan.axis, Ch.field_drills(plan), plan.stats.orphans or 0, Ch.axis_other(plan.axis),
+      plan2 and tostring(Ch.field_drills(plan2)) or "-", plan2 and tostring(plan2.stats.orphans or 0) or "-",
+      keep and "gardee" or "axe long garde", game.tick / 3600))
+    if keep then spec, plan = spec2, plan2 end
+  end
   -- Lot CC-SAUT (F515, mandat du DC du 10/11, 22 h 20) : le cadre figé fixe la place de la colonne de fours de TOUTES ses bandes futures (rejouée sans
   -- recherche) ; ses tuiles hors ressource sont retenues au plan dès maintenant, sous le marqueur du cadre (Cd.frame_tiles) : libres pour les projets de
   -- cet avant-poste, évitées par tous les autres (lignes de poteaux comprises). Avant, seules celles du réseau du charbon reporté l'étaient : la ligne de
@@ -602,6 +621,8 @@ end
 --- Entités nommées d'un plan (bande seule) : ents { name, x, y, dir, role }, quais, outs, emprise { tuiles }.
 local function named(plan, names, coal_side, exclude)
   local ents, quais, outs = {}, {}, {}
+  local fins = {} -- s42 bus-direct : bouts des lignes de plaques { x, y, dir, item } (départ d'une ligne directe, script/team/rapatriement.lua)
+  local piq = {} -- s41 sortie-bus : tuiles de trop-plein de la ligne de plaques (au-delà du quai), sources de piquage déclarées
   local design = plan.design
   for _, e in ipairs(plan.ents) do
     local name
@@ -638,10 +659,12 @@ local function named(plan, names, coal_side, exclude)
       ents[#ents + 1] = ent
       if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel, flow = e.need } end -- lot FONDERIE-BLOC : débit du quai
       if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end
+      if e.piq and e.kind == "tapis" and names.plate then piq[#piq + 1] = { x = math.floor(e.x), y = math.floor(e.y), item = names.plate } end
+      if e.fin and e.kind == "tapis" and names.plate then fins[#fins + 1] = { x = math.floor(e.x), y = math.floor(e.y), dir = e.dir or 0, item = names.plate } end
     end
     ::continue::
   end
-  return ents, quais, outs
+  return ents, quais, outs, piq, fins
 end
 
 --- La bande `pr` seule : { ents, quais, outs, tiles (liste plate de son emprise), plan } ou nil, raison.
@@ -681,7 +704,7 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
     defer = Sa.split(own, shared, Champ.CFG.band_max)
     if #defer > 0 then exclude = {}; for _, sd in ipairs(defer) do exclude[sd] = true end end
   end
-  local ents, quais, outs = named(plan, names, coal_side, exclude)
+  local ents, quais, outs, piq, fins = named(plan, names, coal_side, exclude)
   if coal_side and #ents == 0 then return nil, "reseau du charbon vide" end
   -- lot COMBUSTIBLE-MIGRATION : pièces du réseau du charbon REPORTÉ dans des projets liés (pas encore planifiés) : leurs tuiles, retenues par Build.SITES.champ
   local deferred_tiles = {}
@@ -692,7 +715,7 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
   end
   local tiles = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do tiles[#tiles + 1] = t[1]; tiles[#tiles + 1] = t[2] end end
-  return { ents = ents, quais = quais, outs = outs, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer, deferred_tiles = deferred_tiles }
+  return { ents = ents, quais = quais, outs = outs, piquable = piq, directes = fins, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer, deferred_tiles = deferred_tiles }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1003,7 +1026,7 @@ Build.SITES.champ = function(f, surface, p, h)
     o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu")
     .. (comps and string.format(" (%d composante(s) de poteaux, toutes jointes au reseau alimente)", comps) or ""))
   return { key = "champ:" .. o.id .. ":" .. (cs.coal and ("charbon" .. cs.coal) or cs.pr), box = { x0, y0, x1, y1 }, ents = ents, quais = bd.quais,
-    outs = bd.outs, masks = masks }
+    outs = bd.outs, masks = masks, piquable = bd.piquable, directes = bd.directes }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1102,6 +1125,7 @@ function Champ.report(f, surface, tick)
   local fuel = { n = 0, min = nil }
   local cds = { n = 0, d = 0, stuck = 0, fini = 0, ids = {} } -- lot COUPLAGE : bandes culs-de-sac
   local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
+  local lost_all = {} -- s42 causal : pièces manquantes des bandes finies, par rôle, toutes bandes (lu par script/ai3/causal_rt.lua)
   local S = defines.entity_status
   local tapis_on, nopow_logs = Champ.tapis(), 0
   local vlogs = 0 -- lot COMBUSTIBLE-MIGRATION : lignes [FO-CHAMP-VOIE] de ce relevé
@@ -1238,6 +1262,7 @@ function Champ.report(f, surface, tick)
         if #cds.ids < 6 then cds.ids[#cds.ids + 1] = string.format("p%d %s %d/%d", pid, p.state, pd.stuck, pd.dn) end
       end
       local lk = sorted_keys(pd.lost)
+      for _, k in ipairs(lk) do lost_all[k] = (lost_all[k] or 0) + pd.lost[k] end
       if (#lk > 0 or pd.stuck > 0 or pd.armoff > 0) and #bad < 4 then
         local lt = {}
         for _, k in ipairs(lk) do lt[#lt + 1] = k .. " " .. pd.lost[k] end
@@ -1262,7 +1287,8 @@ function Champ.report(f, surface, tick)
     end
   end
   Champ.field_burners(f, fours, tick)
-  if #ids == 0 then return end
+  local rd = { d = d, fu = fu, lost = lost_all } -- s42 causal : les comptes du relevé, rendus à l'audit des causes
+  if #ids == 0 then return rd end
   log(string.format("[FO-COUPLAGE] %s min %.0f | bandes a foreuses sans four ni coffre de sortie %d (finies %d), foreuses %d dont figees %d%s",
     f.key or "player", tick / 3600, cds.n, cds.fini, cds.d, cds.stuck, #cds.ids > 0 and (" : " .. table.concat(cds.ids, ", ")) or ""))
   local parts, mparts = {}, {}
@@ -1289,6 +1315,7 @@ function Champ.report(f, surface, tick)
     end
   end)
   log(string.format("[FO-CUMUL] %s min %.0f | %s", f.key or "player", tick / 3600, table.concat(cum, " ; ")))
+  return rd
 end
 
 return Champ

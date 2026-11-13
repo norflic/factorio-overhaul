@@ -50,7 +50,9 @@ function Fa.share(parts)
   local d, a = num(parts.delta), num(parts.alpha)
   if d == nil or a == nil then return nil, "parts illisibles : delta ou alpha absent" end
   if d < 0 or a < 0 then return nil, "parts negatives" end
-  return math.min(Fa.SHARE_MAX, math.floor(d + a + Fa.EPS))
+  -- lot S42-DEFENSE : parts.max (pour mille) releve le plafond quand la part de la defense est mesuree sur les pertes (nil : Fa.SHARE_MAX)
+  local cap = num(parts.max) or Fa.SHARE_MAX
+  return math.max(0, math.min(cap, 1000, math.floor(d + a + Fa.EPS)))
 end
 
 --- UNE liste de besoins en objets finis pour les deux voies. goals = buts du cerveau (triés par l'appelant) ; kit_of(but) rend la liste

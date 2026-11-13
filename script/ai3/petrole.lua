@@ -32,6 +32,7 @@ local D = require("shared.team.petrole_donnees")
 local Col = require("shared.ai3.collecteur") -- lot PETROLE-RANGEE : collecteur d'un champ de puits (règle pure)
 local Rb = require("shared.team.rangee_bus") -- règle COMMUNE de rangée extensible (propriétaire : lot MEGA-FONDERIE) : cible de la rangée et sa cause
 local Rf = require("shared.ai3.rangee_fluides") -- lot PETROLE-RANGEE, étape 2 : rangée de modules sur bus (règle pure)
+local Tu = require("shared.ai3.tuyaux") -- lot s42 TUYAUX : règle des 5 cases
 local Dg = require("shared.ai3.danger") -- carte du danger (lot IA3-k) : lue seulement
 local State = require("script.faction.state")
 local AdRt = require("script.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (shared/ai3/anti_dispersion.lua)
@@ -131,6 +132,7 @@ local function size_of(p)
   return w, h
 end
 
+local under_of -- lot s42 TUYAUX (défini plus bas)
 local function boxes_of(p)
   local out = {}
   for _, fb in ipairs(get(p, "fluidbox_prototypes") or {}) do
@@ -146,6 +148,70 @@ local function boxes_of(p)
     out[#out + 1] = { type = get(fb, "production_type") or "none", conns = conns }
   end
   return out
+end
+
+--- Lot s42 TUYAUX (règle des 5 cases) : la pièce SOUTERRAINE d'une conduite, trouvée par TYPE de prototype (jamais par nom) : une
+--- entité d'une tuile, posable, non cachée, dont l'unique boîte à fluide a un raccord de surface et un raccord souterrain
+--- (max_underground_distance, la portée). Préférée : même boîte que le tuyau de surface (hauteur, niveau, aire), puis la plus longue portée, puis le nom.
+--- Rend { name, item, reach, open = { [direction] = {dx, dy} } (tuile du raccord de surface) } ou nil.
+function under_of(tube)
+  local pfb = tube and (get(tube, "fluidbox_prototypes") or {})[1]
+  local best
+  -- le TYPE du moteur est celui des prototypes dont la boîte à fluide porte un raccord souterrain : relevé une fois, par structure
+  -- (aucun nom, aucun type écrit ici) ; un seul type est gardé, celui du premier prototype trouvé par ordre de nom
+  local protos, utype = {}, nil
+  local all = {}
+  for name in pairs(game.entity_prototypes) do all[#all + 1] = name end
+  table.sort(all)
+  for _, name in ipairs(all) do
+    local p = game.entity_prototypes[name]
+    local w, h = size_of(p)
+    if w == 1 and h == 1 and (utype == nil or p.type == utype) then
+      local fbs = get(p, "fluidbox_prototypes") or {}
+      local deep = false
+      if #fbs == 1 then
+        for _, pc in ipairs(get(fbs[1], "pipe_connections") or {}) do
+          if (pc.max_underground_distance or 0) > 0 then deep = true end
+        end
+      end
+      if deep then utype = utype or p.type; protos[name] = p end
+    end
+  end
+  local names = {}
+  for name in pairs(protos) do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local p = protos[name]
+    local items = get(p, "items_to_place_this")
+    local fb = (get(p, "fluidbox_prototypes") or {})[1]
+    if items and items[1] and fb and not p.has_flag("hidden") then
+      local reach, open = 0, nil
+      for _, pc in ipairs(get(fb, "pipe_connections") or {}) do
+        local md = pc.max_underground_distance or 0
+        if md > 0 then
+          if md > reach then reach = md end
+        elseif not open then
+          open = {}
+          for i, d in ipairs({ 0, 2, 4, 6 }) do
+            local v = pc.positions and pc.positions[i]
+            if v then
+              local x, y = v.x or v[1], v.y or v[2]
+              open[d] = { (x > 0.25 and 1) or (x < -0.25 and -1) or 0, (y > 0.25 and 1) or (y < -0.25 and -1) or 0 }
+            end
+          end
+        end
+      end
+      if reach >= 2 and open then
+        local same = (pfb and get(fb, "height") == get(pfb, "height") and get(fb, "base_level") == get(pfb, "base_level")
+          and get(fb, "base_area") == get(pfb, "base_area")) and 1 or 0
+        if not best or same > best.same or (same == best.same and reach > best.reach) then
+          best = { name = name, item = items[1].name, reach = reach, open = open, same = same }
+        end
+      end
+    end
+  end
+  if best then best.same = nil end
+  return best
 end
 
 --- Relevé de l'exécutant depuis le relevé du catalogue `d` (General.dump()).
@@ -171,6 +237,14 @@ function Pet.releve(d)
     if p and not rel.entities[n] then
       rel.entities[n] = { role = "piece", w = 1, h = 1, electric = get(p, "electric_energy_source_prototype") ~= nil }
     end
+  end
+  rel.under = under_of(game.entity_prototypes[D.PIPE]) -- lot s42 TUYAUX
+  if rel.under then
+    local u = rel.under
+    local e = rel.entities[u.name] or { role = "piece", w = 1, h = 1 }
+    e.item = e.item or u.item
+    e.under = { reach = u.reach, open = u.open }
+    rel.entities[u.name] = e
   end
   REL = rel
   return rel
@@ -935,6 +1009,9 @@ local function step_ext(f, surface, p, h, pj)
   local blocked, masks = ext_terrain(b, fz, h)
   local req = { ents = rel.entities, conduit = D.PIPE, extractor = fz.extractor, fluid = spec.res, poles = fz.pole, network = fz.netpt,
     blocked = blocked, wells = fz.wells, net = fz.net, toward = fz.toward, max_n = spec.batch, hint = spec.hint }
+  -- lot s42 TUYAUX : conduites droites neuves sous terre, si l'équipe a la pièce ou sa recette (gelé avec le plan : une reprise rejoue pareil)
+  if fz.under == nil then fz.under = (rel.under and obtainable(f, rel.under.item)) and rel.under or false end
+  req.under = fz.under or nil
   local okc, status, lay = pcall(Fl.ext_step, req, pj.jb, pj.steps == 0 and 1 or Pet.PLAN_SLICE)
   pj.steps = pj.steps + 1
   if not okc then
@@ -953,6 +1030,10 @@ local function step_ext(f, surface, p, h, pj)
   lay.masks = masks
   lay.out_at = Pet.OUT_AT
   lay.key = "petrole-champ:" .. tostring(spec.res)
+  if (lay.souterrains or 0) > 0 then
+    log(string.format("[FO-TUYAUX] %s : extension : %d piece(s) souterraine(s), %d tuile(s) de sol liberee(s), %d tuyau(x) de surface",
+      f.key or "?", lay.souterrains, #(lay.sous or {}), lay.pipes or 0))
+  end
   p.champ = { n = lay.extractors, deferred = lay.deferred or 0, skipped = lay.skipped, trunk = lay.trunk, kinds = lay.kinds, pipes = lay.pipes,
     poles = lay.poles, line = lay.line, total = fz.total }
   log(string.format("[FO-PETROLE] %s : extension planifiee a %.1f min : puits equipes %d / %d du champ (lot de %d), collecteur %s, "
@@ -981,7 +1062,14 @@ local function freeze_rangee(f, surface, p, h)
   if not (base and base.ents) then return nil, "site de base absent" end
   local mod, why = Rf.analyze(rel, base.ents, { quais = base.quais, outs = base.outs })
   if not mod then return nil, "module non copiable : " .. tostring(why) end
-  local L0, conn0 = Rf.world0(rel, ext_ents(b, spec.projects))
+  -- lot s42 TUYAUX : les paires souterraines posées (extension du champ) portent leur fluide : l'étiquetage les traverse (tuiles
+  -- LOGIQUES, sinon un tuyau de brut isolé derrière une paire serait lu « interne ») ; puis leurs tuiles sortent du relevé : un bout
+  -- ne se raccorde que par sa face ouverte (déjà prise par sa conduite), le milieu ne porte rien : ni piquage, ni contact.
+  local site_ents = ext_ents(b, spec.projects)
+  local buried = Tu.buried(site_ents, rel.entities)
+  for _, t in ipairs(buried) do site_ents[#site_ents + 1] = { name = D.PIPE, x = t.x + 0.5, y = t.y + 0.5, dir = 0, role = "tuyau" } end
+  local L0, conn0 = Rf.world0(rel, site_ents)
+  for _, t in ipairs(buried) do L0[Fl.tkey(t.x, t.y)] = nil end
   -- relevé : l'emprise du module, élargie le long de l'axe de toute la rangée voulue et de la hauteur des bus de l'autre côté
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
   for _, t in ipairs(mod.tiles) do

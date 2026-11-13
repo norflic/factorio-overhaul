@@ -207,7 +207,7 @@ end
 --- 6 par ligne débordaient sous un 3×3) : au plus 2 × côté − 1 par ligne (icône d'une demi-tuile), autant de lignes
 --- qu'il faut.
 local function apply_module_slots(p, family, n)
-  local slots = L.module_slots(family, n)
+  local slots = require("shared.content.modules").level_slots(L, family, n)
   if not slots then return end
   local side = L.footprint(family, n)
   local per_row = math.max(1, 2 * side - 1)
@@ -216,6 +216,9 @@ local function apply_module_slots(p, family, n)
   ms.module_slots = slots
   ms.module_info_max_icons_per_row = per_row
   ms.module_info_max_icon_rows = math.ceil(slots / per_row)
+  -- s42 (chantier 2.1) : un prototype source sans effets admis (four en acier vanilla) aurait des emplacements que le
+  -- moteur laisse inutilisables (allowed_effects absent = aucun effet) : les quatre effets, comme le four électrique.
+  if p.allowed_effects == nil then p.allowed_effects = { "consumption", "speed", "productivity", "pollution" } end
 end
 
 --- Emprise au sol du niveau n (lot V3-T ; table L.footprints, géométrie shared/levels/footprint.lua). Si le côté

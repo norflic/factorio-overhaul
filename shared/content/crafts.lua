@@ -44,6 +44,7 @@ C.FLUIDS = { "fo-ethylene", "fo-carbon-dioxide" }
 -- Bâtiments de X0 mis en jeu par ce lot. Visuel PROVISOIRE : copie teintée d'une machine vanilla (palette de
 -- docs/DESIGN_EPOQUES.md §1.5 ; F36, F38 : une teinte multiplie).
 --   copy = { type, nom } de la machine vanilla copiée ; side = côté de la copie (tuiles).
+--   sink = true : puits (détruit un fluide, ne produit rien) : aucun emplacement de module (s42, prototypes/lib.lua).
 C.BUILDINGS = {
   { name = "fo-blast-furnace", copy = { "furnace", "steel-furnace" }, side = 2, tint = { r = 0.80, g = 0.62, b = 0.52 } },
   { name = "fo-crusher", copy = { "assembling-machine", "assembling-machine-1" }, side = 3, tint = { r = 0.78, g = 0.70, b = 0.58 } },
@@ -52,7 +53,7 @@ C.BUILDINGS = {
   -- sa recette d'après l'OBJET de son entrée (une recette sans objet n'y serait jamais choisie : non prouvé en moteur
   -- réel, prudence). ÉCART : machine à recette, le joueur choisit le fluide à brûler.
   { name = "fo-flare-stack", copy = { "assembling-machine", "assembling-machine-1" }, side = 3, tint = { r = 1.00, g = 0.55, b = 0.40 },
-    as_assembler = true },
+    as_assembler = true, sink = true },
   { name = "fo-steam-cracker", copy = { "assembling-machine", "chemical-plant" }, side = 3, tint = { r = 0.92, g = 0.86, b = 0.62 } },
   -- Étape 4 (âges 8 et 10).
   { name = "fo-reformer", copy = { "assembling-machine", "chemical-plant" }, side = 3, tint = { r = 0.62, g = 0.82, b = 0.70 } },

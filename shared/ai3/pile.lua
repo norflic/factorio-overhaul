@@ -76,6 +76,21 @@ Pi.GROWTH_POSTS = { front = true }
 Pi.OPTIONAL_POSTS = { ilot = true }
 -- Raisons du planificateur (plan.defend.posts[i].why) qui avancent ou peuvent avancer ; « recette » : aucune voie.
 Pi.POST_STUCK = { recette = true }
+-- Lot S42-UPGRADES (partie du DC en 0.7.96 : rang « améliorer » SUSPENDU de 12 à 247 min chez scarlet par « proteger:plant(0/2,fer) »,
+-- de 4 à 189 min chez player par des postes « manque ») : raisons du planificateur où le poste ATTEND SA MATIÈRE (aucune tâche prise,
+-- aucune fabrication en cours). Sans danger MESURÉ (sig.danger == false), un tel poste ne retient plus l'amélioration et sa défense
+-- sort du noyau du budget : la matière qui manque reste demandée (cadres « produire », priorité du planificateur, réserve de la
+-- capitalisation). Un poste qui AVANCE (tâche, fabrication) retient comme avant ; sous danger mesuré, tout retient comme avant.
+Pi.POST_WAITS = { manque = true, fer = true, ressources = true }
+-- Le poste du QG (identifiant du planificateur, shared/team/planner.lua) retient TOUJOURS : un QG sous son minimum de tourelles est
+-- un danger en soi (sa perte finit la partie de l'équipe) ; le calme ne lève que la retenue des avant-postes et de la centrale.
+Pi.CORE_POSTS = { hq = true }
+
+--- Le poste `p` (sous son minimum) attend-il sa matière AU CALME ? `sig.danger` : faux = aucun danger mesuré ; nil (appelant
+--- d'avant ce lot) ou vrai : la règle d'avant.
+function Pi.post_calm(sig, p)
+  return sig ~= nil and sig.danger == false and Pi.POST_WAITS[p.why or ""] == true and not Pi.CORE_POSTS[p.id]
+end
 
 local function sorted_keys(t)
   local ks = {}
@@ -109,6 +124,7 @@ end
 ---   production_first = vrai : « production d'abord » (shared/team/priorite.lua) ;
 ---   penurie     = vrai : mode survie-pénurie (R2 sans parent) ;
 ---   prep        = { { id, have, want, exec, nohold, why } } : sites à PRÉPARER (lot PREVISION, Pc.pile_rows) ;
+---   danger      = faux : aucun danger mesuré (lot S42-UPGRADES, Pi.post_calm) ; nil ou vrai : la règle d'avant ;
 ---   (lot PILE-BUDGET, facultatifs ; sans `book` la retenue est celle d'avant) book = livre de recettes, avail = stock libre,
 ---   upgrades = { { key, cost = { {objet, n} } } } améliorations connues (dans l'ordre), plan_wants = { {objet, n} } objets du
 ---   projet rouvert }
@@ -178,7 +194,8 @@ function Pi.update(st, sig, tick)
         if not has_source(sig, m) then exec = false end
       end
       frames[#frames + 1] = { key = "proteger:" .. tostring(p.id), rank = Pi.ADAPTER, kind = "proteger", have = p.have or 0,
-        want = p.want or 0, why = p.why, exec = exec, sub = pf and 1 or 0, depth = 0 }
+        want = p.want or 0, why = p.why, exec = exec, sub = pf and 1 or 0, depth = 0,
+        nohold = Pi.post_calm(sig, p) or nil } -- lot S42-UPGRADES : au calme, un poste qui attend sa matière ne retient pas
     end
   end
   -- Lot PREVISION : R1 PRÉPARER (une vague IMMINENTE prévue dépasse la défense d'un site ; shared/ai3/prevision_choix.lua). Le cadre
@@ -270,7 +287,8 @@ function Pi.update(st, sig, tick)
     local claims = { defense = {}, rebuild = {}, upgrades = sig.upgrades or {} }
     for _, it in ipairs(sig.recruit_claim or {}) do claims.defense[#claims.defense + 1] = it end
     for _, p in ipairs(sig.posts or {}) do
-      if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id] then
+      if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id]
+        and not Pi.post_calm(sig, p) then -- lot S42-UPGRADES : le poste qui ne retient pas ne pèse pas au noyau
         for _, it in ipairs(p.claim or {}) do claims.defense[#claims.defense + 1] = it end
       end
     end
@@ -475,7 +493,11 @@ function Pi.signals(view, base, inp, s, ctx, bud)
   for _, d in ipairs((base.defend and base.defend.posts) or {}) do
     posts[#posts + 1] = { id = d.id, have = d.have, want = d.want, why = d.why, raw = d.raw, claim = d.claim }
   end
-  return { survive = survive, repair = inp.repair, plan_reopened = inp.plan_reopened, plan_path = inp.plan_path, posts = posts,
+  -- Lot S42-UPGRADES : le danger MESURÉ de cette pensée (perte récente près du QG, menace tenue, QG menacé, effectif sous le plancher,
+  -- vague imminente prévue au-dessus d'une défense). Faux : calme (Pi.POST_WAITS).
+  local danger = (survive ~= nil or view.threatened or view.threat_held or view.hq_threat
+    or (ctx ~= nil and ctx.prevu ~= nil and #ctx.prevu > 0)) and true or false
+  return { danger = danger, survive = survive, repair = inp.repair, plan_reopened = inp.plan_reopened, plan_path = inp.plan_path, posts = posts,
     raw_need = base.raw_need, sources = sources, inputs = inputs,
     production_first = (base.priorite and base.priorite.production_first) or false,
     penurie = view.survie and true or false,

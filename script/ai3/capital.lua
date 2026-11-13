@@ -469,6 +469,25 @@ local function census_of(f, c)
         table.sort(list, function(a, b) return a.id < b.id end)
         census.list, census.center = list, { id = cc.unit_number, name = cc.name }
         c.ents, c.by_family = ents, by_family
+        -- Lot S42 QG-NIVEAUX (chantier 2.3 du DC : centre de votre équipe resté au niveau 1 pendant 4 h 15, « equipe-joueur ») : le
+        -- centre de votre force devient un candidat de votre équipe, payé avec son coffre d'équipe (Capital.pay). La condition Q16 est
+        -- comptée par le jeu sur TOUTE la force (vos bâtiments compris) : le refus « cc-families » nomme les familles (c.eblock), et
+        -- seules celles-là sont revérifiées ici, une recherche chacune. La chaîne ne monte que les bâtiments des projets de l'équipe
+        -- (jamais les vôtres) : une famille que vous seul possédez reste dite au journal ([FO-CAPITAL-CENTRE], condition:<famille>).
+        census.no_center = nil
+        local lvl0 = c.cc_level or 0
+        local eb = c.eblock
+        if eb and eb.level == lvl0 and lvl0 >= 1 and lvl0 < CFAM.max then
+          local cond = L.cc_condition_level(lvl0)
+          local bl = {}
+          for _, key in ipairs(eb.keys) do
+            local fam = L.by_key[key]
+            if fam and not top_exists(f, f.hq.surface, fam, cond) then bl[#bl + 1] = key end
+          end
+          if #bl > 0 then census.blockers = bl else c.eblock = nil end
+        else
+          c.eblock = nil
+        end
       end
     end
   else
@@ -579,7 +598,7 @@ end
 --- condition:<famille> = Q16, ou l'objet manquant du coût, ou « refus » récent de l'exécutant).
 function Capital.centre_cause(f, d)
   if not Capital.on() then return "reglage-eteint" end
-  if f.is_player then return "equipe-joueur" end
+  if f.is_player and not (d and d.centre and d.centre.key) then return "equipe-joueur" end -- lot S42 QG-NIVEAUX : candidat s'il a une cible
   local ce = d and d.centre
   return ce and ce.state or "inconnu"
 end
@@ -626,6 +645,7 @@ function Capital.goal(f, view, book, tick, w)
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
     exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
+    lead = c.lead or { done = {} }, cash = true, -- lot S42 QG-NIVEAUX : chaîne du centre devant (bornée), centre payé dès que son coût dort au stock
     blocs = (census.list ~= nil and Capital.blocs_on()) or nil, -- lot AMELIORATION
     recon = Capital.blocs_on() and Capital.recon_needs(f) or nil, -- gel de la reconstruction levé sauf manque, objet par objet
     continu = Capital.blocs_on() or nil, -- lot AMELIORATION-CONTINUE : bloc entier à la fabrication, groupe fini d'abord, rang réclamé à la recherche
@@ -705,6 +725,24 @@ function Capital.goal(f, view, book, tick, w)
   elseif ev == "borne" then
     log(string.format("[FO-CAPITAL-CENTRE] %s : fin du collant de '%s' apres %.1f min (borne atteinte : retour a la regle des reports) a %.1f min",
       f.key or "?", c.defer.key, Cap.AHEAD_TICKS / 3600, minutes(f, tick)))
+  end
+  -- Lot S42 QG-NIVEAUX : un pas de l'état « chaîne devant » (shared/ai3/capital.lua, Cap.lead_step) ; une ligne par changement.
+  local lev
+  c.lead, lev = Cap.lead_step(c.lead, d, d.gate_key, tick)
+  if lev == "debut" then
+    log(string.format("[FO-CAPITAL-CENTRE] %s : chaine du centre devant : '%s' ouvre '%s' (borne %d min de but cumule) a %.1f min",
+      f.key or "?", tostring(d.key), tostring(d.gate_key), math.floor(Cap.LEAD_TICKS / 3600), minutes(f, tick)))
+  elseif lev == "borne" then
+    log(string.format("[FO-CAPITAL-CENTRE] %s : chaine du centre : borne atteinte pour '%s' (retour au rang ordinaire) a %.1f min",
+      f.key or "?", tostring(d.key), minutes(f, tick)))
+  end
+  if d.cash then
+    local sigc = "cash|" .. tostring(d.key)
+    if c.cash_sig ~= sigc then
+      c.cash_sig = sigc
+      log(string.format("[FO-CAPITAL-CENTRE] %s : cout du centre au stock libre, '%s' devient le but (prix %d) a %.1f min", f.key or "?",
+        tostring(d.key), d.work or 0, minutes(f, tick)))
+    end
   end
   c.wanted = {}
   for _, k in ipairs(sorted_keys(d.wanted)) do c.wanted[k] = true end
@@ -1078,7 +1116,10 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
         else
           e = find_entity(c, d.id)
         end
-        if e then
+        if e and f.is_player and not d.center then
+          -- Lot S42 QG-NIVEAUX : bâtiment de la chaîne de VOTRE équipe : coffre d'équipe et gabarit du plan (Capital.own_upgrade), jamais Levels.start.
+          ok, why = upgrade_one(f, c, e, d)
+        elseif e then
           local owner = State.owner(d.id)
           local res, info, new
           -- Lot PD-CENTREQG : le centre lié (indestructible, non minable) est libéré le temps du remplacement, puis le

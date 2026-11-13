@@ -747,7 +747,7 @@ end
 --- Lot FIX-P4 : le tapis des foreuses arrive sur la tête PAR LE CÔTÉ (at(2, side) ci-dessous) : ses deux voies tombent sur une seule
 --- voie de la tête. Lu par Build.debit_pairs (Db.head_pairs) pour ne pas dimensionner la ligne de foreuses sur deux voies.
 P.FEEDER_SIDE_LOAD = true
-function P.feeder(port, sources, quai_inserter, belt, arms)
+function P.feeder(port, sources, quai_inserter, belt, arms, arm2) -- arm2 (lot s42 charbon-centrale) : bras de la SECONDE entrée (défaut : le même)
   arms = arms or 1 -- lot RESEAU-GRAPHE : bras par voie de quai (1 : comme avant) ; le second est à la profondeur 3, la tuile la plus reculée de la tête
   local d = port.dir
   local v = DV[d]
@@ -774,7 +774,7 @@ function P.feeder(port, sources, quai_inserter, belt, arms)
       if arms > 1 then
         local jx, jy = at(3, -side)
         local kx, ky = at(3, -2 * side)
-        ents[#ents + 1] = { name = q_arm, x = jx + 0.5, y = jy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
+        ents[#ents + 1] = { name = arm2 or q_arm, x = jx + 0.5, y = jy + 0.5, dir = dir_of(-side * lx, -side * ly), role = "quai-bras" }
         ents[#ents + 1] = { name = q_chest, x = kx + 0.5, y = ky + 0.5, dir = 0, role = "quai", item = item }
         chests[#chests + 1] = { x = kx + 0.5, y = ky + 0.5, item = item, lane = lane }
       end

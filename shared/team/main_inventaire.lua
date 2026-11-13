@@ -52,7 +52,11 @@ end
 --- d'un objet que la foreuse électrique extrait (`drillable(objet)`, lu aux prototypes par l'appelant), dès que l'ère électrique de l'équipe
 --- est datée (`era`, tick ; nil avant). Seul cas gardé : le démarrage, où la pioche est le seul moyen d'extraire. Le bois des arbres n'est
 --- pas extractible par la foreuse : il reste.
+--- Lot s42 diag-joueur (partie du DC en 0.7.96, 13/11) : le minage du MODE SURVIE (`t.survie`, script/team/survie.lua) reste. Sans lui,
+--- une équipe à 0 plaque après l'ère électrique n'a plus aucun moyen d'extraire : votre équipe a passé 3 h en survie avec « minages
+--- demandes 0 », l'Ordre Écarlate est resté à 40 plaques de finir sa bande. La survie ne dure que le temps d'une pénurie (Sv.decide).
 function Mi.gone(t, era, drillable)
+  if t.survie then return false end
   return era ~= nil and t.kind == "mine" and t.worker == nil and drillable(t.resource) == true
 end
 

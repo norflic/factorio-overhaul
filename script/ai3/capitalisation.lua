@@ -98,6 +98,7 @@ local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements 
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
+local BdRt = require("script.ai3.budget_defense") -- lot S42-DEFENSE : part de la defense selon les pertes recentes
 local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant d'étendre (Capi.portes, decide_finish)
 local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : la couverture en boucle passe la porte du transport, modules posés cumulés
 local Pal = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
@@ -1394,6 +1395,8 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- Lot L12 (partie 3) : la menace TENUE (view.threat_held, script/team/menace_equipe.lua : jusqu'à 2 pensées calmes avec une tourelle armée
   -- au QG, ou 5 min après la dernière perte) ferme aussi les gisements. Avant, la décision ne voyait la menace que par fenêtres de 15 s
   -- (f.threatened_until). Ni le budget couvert (Pi.threat_open) ni l'échéance ne la lèvent : seule la règle tenue ; le mode survie, si (Sv.capi).
+  local def_share = BdRt.share(f, tick) -- lot S42-DEFENSE (nil : regle coupee ou votre equipe)
+  cs.def_dyn = def_share ~= nil or nil
   local threat_why = threat and "menace recente du QG (view.threatened)" or nil -- lot BLOCAGE-SORTIE-2 : origine écrite au journal du puits fermé
   if not threat and view.threat_held then
     threat = (Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), true, production_first))
@@ -1532,6 +1535,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
     production_first = production_first,
+    def_share = def_share, -- lot S42-DEFENSE : part de la defense (pour mille) mesuree sur les pertes recentes (nil : part du caractere)
     defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
     power = Capi.power_input(f, plant_state, plant_why, wait_plant), -- étape 5a de VIDEO-INTEG : courant des centrales finies ; lot TV-ENERGIE (W02) : amorce ou relevé fermé sans centrale finie
     solid_mesure = true, -- lot CONSOLIDATION-TIERS : `flows` est mesuré (statistiques de production de la force) ; la porte de rang juge la maturité des tiers
@@ -2558,6 +2562,12 @@ function Capi.think_tail(f, cs, tick)
   -- à cs.open ; la tâche est postée plus bas comme pour tout ordre « equiper »).
   Capi.MS.think(f, cs, tick, { Ca = Ca, D = Capi.data(), minutes = minutes, held = held,
     count = function(item) return Stock.count(f, item) end,
+    -- lot S42 MODULES-ROI : l'équipe sait-elle fabriquer ce module ? (recette de moindre coût du relevé, ouverte pour la force)
+    craftable = function(item)
+      local rn = (Capi.data().mu_recipe or {})[item]
+      local r = rn and f.force and f.force.valid and f.force.recipes[rn]
+      return (r and r.enabled) and true or false
+    end,
     power = function() return Capi.power_input(f, Auto.plant_state(f)) end,
     threat = (f.threatened_until or 0) > tick })
   -- Laboratoires visés : ceux du QG plus le reste des ordres ouverts.
