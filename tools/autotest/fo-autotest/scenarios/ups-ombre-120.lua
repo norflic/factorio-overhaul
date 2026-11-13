@@ -3,11 +3,15 @@
 -- avec le recensement du stockage. Mêmes décisions que partie-reelle-120 (l'ombre ne fait que lire).
 local S = require("scenarios/ups-recensement-120")
 S.description = "UPS : partie-reelle-120, ombre du registre des machines, recensement"
-S.init = function(ctx)
-  ctx.remote("fo-ups-registre", "ombre", true)
-end
+-- L'ombre est une copie LOCALE du mod (jamais dans le stockage) : le banc crée la carte dans un processus et la rejoue dans un autre ;
+-- elle est donc allumée au premier tick vu par CE processus (drapeau local du scénario, perdu au chargement comme elle).
+local ombre_on = false
 local tick0 = S.tick
 S.tick = function(ctx, e)
+  if not ombre_on then
+    ombre_on = true
+    ctx.remote("fo-ups-registre", "ombre", true)
+  end
   tick0(ctx, e)
   if e.tick == 216001 or e.tick == 432001 then
     local b = ctx.remote("fo-ups-registre", "bilan")
