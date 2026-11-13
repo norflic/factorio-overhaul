@@ -107,5 +107,15 @@ check(last(m1) == 3, "§5 patron à barre 2, quota de 4 : la plus petite, barre 
 check(last(m2) == 2, "§5 patron à barre 2, quota de 1 : barre 2 (" .. tostring(last(m2)) .. ")")
 Rsv.on = rsv_on
 
+-- s40 p19 : les blocs morts (refusés ou perdus, report déjà posé) quittent la liste suivie ; les vivants gardent leur ordre
+do
+  local a, b, c, d = { id = 1 }, { id = 2, dead = true }, { id = 3 }, { id = 4, dead = true }
+  local out = Ind.vivants({ a, b, c, d })
+  check(#out == 2 and out[1] == a and out[2] == c, "s40 p19 : blocs morts retirés, ordre des vivants gardé")
+  local same = { a, c }
+  check(Ind.vivants(same) == same, "s40 p19 : aucun mort : la même table est rendue (rien n'est réécrit)")
+  check(#Ind.vivants({}) == 0 and #Ind.vivants({ b }) == 0, "s40 p19 : liste vide, liste de morts")
+end
+
 print(string.format("[QUOTA-BARRE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

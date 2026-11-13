@@ -436,6 +436,17 @@ function Ind.ruban_wanted(st, cands, width)
   return #blocks >= 2 and Mp.compact(blocks, Mp.GAP).w > Pt.LOT
 end
 
+--- s40 p19 : blocs encore suivis. Un bloc mort (b.dead : refuse ou perdu, etats finaux du module ; ses objets sont deja reportes par st.hold)
+--- restait pour toujours dans la liste : relu a chaque decision et a chaque Ind.status. Rend la MEME table quand aucun n'est mort.
+function Ind.vivants(blocs)
+  local out, morts = {}, 0
+  for _, b in ipairs(blocs) do
+    if b.dead then morts = morts + 1 else out[#out + 1] = b end
+  end
+  if morts == 0 then return blocs end
+  return out
+end
+
 function Ind.think(f, cs, res, view, book, tick)
   if not Rsv.on() then return nil end
   local lec = lecture()
@@ -468,6 +479,7 @@ function Ind.think(f, cs, res, view, book, tick)
   for _, o in ipairs(cs.open or {}) do if o.exec == "module" and o.item then served[o.item] = true end end
   for it in pairs(MallRt.served(f)) do served[it] = true end -- lot MALL : un objet servi (ou demandé) par une rangée du mall (union d'ensemble : l'ordre n'a aucun effet)
   local mods = {}
+  st.blocs = Ind.vivants(st.blocs) -- s40 p19 : les blocs morts de la passe d'avant (report deja pose, etat final) ne sont plus relus
   for _, b in ipairs(st.blocs) do
     local m = Auto.module(f, b.id)
     b.state = m and tostring(m.state) or "perdu"
