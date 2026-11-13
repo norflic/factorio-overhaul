@@ -4898,10 +4898,15 @@ local function advance(f, surface, p, tick)
     -- Lot FUITES-PILE (fuite b) : un module NEUF est une amélioration (R3) ; pendant qu'un cadre réparer, protéger ou survivre retient,
     -- il ne prend rien au coffre (et rend ce qu'il avait déjà pris), sauf s'il produit une matière d'un cadre ouvert ou qui manque
     -- (PileRt.porte). Avant, il réservait le fer des tourelles comme un module rouvert pour reconstruction.
-    if Build.reserve_suspended(f, p, tick) then return end
+    Profiler.fstart("rs:pile") -- lot UPS : portées fines de la réserve (mesure seulement)
+    local susp = Build.reserve_suspended(f, p, tick)
+    Profiler.fstop("rs:pile")
+    if susp then return end
     if p.spec.enceinte then craft_walls(f, p) end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
+    Profiler.fstart("rs:reserve")
     local full, need = reserve(f, p)
+    Profiler.fstop("rs:reserve")
     -- Lot EXPANSION-LOINTAINE : une bande de champ NEUVE n'attend plus TOUTE sa matière (azure, bande 393 : 40 min en « reserve:materiaux »
     -- avec 283 pièces sur 311 au coffre) : elle part dès que chaque objet est réservé au plancher de Build.Cp (règle pure) ; le reste est pris
     -- au coffre à la prise du PNJ (Build.take_reserved), suivi par refresh_missing (p.progressif), fabriqué par le cerveau comme en réserve.
@@ -4953,7 +4958,9 @@ local function advance(f, surface, p, tick)
   -- depuis la fin de la réserve), le PNJ échouait « stock » en boucle
   if (p.reopened or p.progressif or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
     p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
+    Profiler.fstart("ch:missing")
     refresh_missing(f, p)
+    Profiler.fstop("ch:missing")
   end
   if p.state == "defrichage" then
     if review_obstacles(surface, p) == 0 then p.state = "fantomes" end
@@ -4990,7 +4997,9 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "chantier" then
+    Profiler.fstart("ch:obst") -- lot UPS : portées fines du chantier (mesure seulement)
     review_obstacles(surface, p)
+    Profiler.fstop("ch:obst")
     if all_built(p) then
       p.state = "raccordement"
     else
@@ -5653,7 +5662,7 @@ function Build.think(f, surface, tick)
     end
   end
   Profiler.fstart("e2:rues")
-  street_clear_tasks(f, tasks)
+  Profiler.fwrap("e2:rues-routes", street_clear_tasks, f, tasks)
   Build.Place.defprev_tasks(f, tasks, tick) -- lot TV-PLACE (G38) : défrichage préventif de 50 x 50, un lot à la fois, priorité la plus basse
   Profiler.fstop("e2:rues")
   Profiler.fstart("e2:board")

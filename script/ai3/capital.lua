@@ -288,11 +288,18 @@ end
 local function top_exists(f, surface, fam, cond)
   local names = {}
   for n = math.min(cond, fam.max), fam.max do names[#names + 1] = L.name(fam, n) end
-  return surface.count_entities_filtered({ force = f.force, name = names, limit = 1 }) > 0
+  Profiler.fstart("ws:cap-top")
+  local n = surface.count_entities_filtered({ force = f.force, name = names, limit = 1 })
+  Profiler.fstop("ws:cap-top")
+  return n > 0
 end
 
-local FAR_LEVELS = 6 -- niveaux cherchés un à un depuis le haut ; en dessous, UNE recherche pour tous les niveaux restants
+local far_best_raw
 local function far_best(f, surface, fam, cond)
+  return Profiler.fwrap("ws:cap-far", far_best_raw, f, surface, fam, cond)
+end
+local FAR_LEVELS = 6 -- niveaux cherchés un à un depuis le haut ; en dessous, UNE recherche pour tous les niveaux restants
+local function far_best_raw(f, surface, fam, cond)
   local top = math.min(cond, fam.max) - 1
   for n = top, math.max(1, top - FAR_LEVELS + 1), -1 do
     local found = surface.find_entities_filtered({ force = f.force, name = L.name(fam, n), limit = 1 })

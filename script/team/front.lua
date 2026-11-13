@@ -21,6 +21,7 @@ local Outposts = require("script.faction.outposts")
 local Sec = require("shared.team.site_securise") -- lot INTEG-ECONOMIE (D5) : sites proches bloqués à couvrir
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE (c) : cellule réattaquée chez une équipe riche
 local Stock = require("script.team.stock")
+local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 
 local Front = {}
 
@@ -110,7 +111,10 @@ local function refresh_cover(f, st, surface, tick)
   st.cover_tick = tick
   types()
   local pos = {}
-  for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = LAB_TYPES })) do
+  Profiler.fstart("ws:front-labs")
+  local found = surface.find_entities_filtered({ force = f.force, type = LAB_TYPES })
+  Profiler.fstop("ws:front-labs")
+  for _, e in ipairs(found) do
     if e.valid then pos[#pos + 1] = { x = e.position.x, y = e.position.y } end
   end
   table.sort(pos, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)

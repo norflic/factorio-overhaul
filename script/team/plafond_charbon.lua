@@ -4,6 +4,7 @@
 --- foreuses à brûleur s'ils marchent ou attendent leur combustible), une foreuse du combustible est celle dont la ressource rend T.fuel.
 local T = require("shared.team.config")
 local Bc = require("shared.team.bilan_charbon")
+local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 
 local Cap = {}
 Cap.EVERY = 600 -- ticks : un relevé par force au plus toutes les 10 s (parcours de la surface)
@@ -14,7 +15,10 @@ function Cap.read(f, surface)
   local fuel = game.item_prototypes[T.fuel]
   local consumers, drills = {}, {}
   local status = defines.entity_status
-  for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = { "boiler", "furnace", "mining-drill" } })) do
+  Profiler.fstart("ws:cap")
+  local found = surface.find_entities_filtered({ force = f.force, type = { "boiler", "furnace", "mining-drill" } })
+  Profiler.fstop("ws:cap")
+  for _, e in ipairs(found) do
     local p = e.prototype
     local b = p.burner_prototype
     if fuel and b and b.fuel_categories[fuel.fuel_category] and (e.type == "boiler" or e.status == status.working or e.status == status.no_fuel) then

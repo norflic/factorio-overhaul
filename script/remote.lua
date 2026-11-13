@@ -26,6 +26,7 @@ local Free = require("script.levels.free")
 local Storage = require("script.core.storage")
 local Veille = require("script.faction.veille") -- lot VEILLE
 local Config = require("script.core.config")
+local Recensement = require("script.core.recensement") -- lot UPS : taille du stockage persistant (bancs)
 
 local function surface() return game.surfaces[1] end
 
@@ -282,6 +283,10 @@ remote.add_interface("factorio-overhaul", {
   end,
   reset_stats = function()
     Bench.reset_stats(game.tick)
+  end,
+  -- Lot UPS : recensement du stockage persistant au journal ([FO-RECENSEMENT], bancs seulement ; lecture seule).
+  storage_census = function(label, depth, min)
+    Recensement.log(Storage.raw(), label, depth, min)
   end,
   log_report = function(label)
     log("[FO-AUTOTEST] ===== " .. tostring(label) .. " (tick " .. game.tick .. ") =====")

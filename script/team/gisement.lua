@@ -19,6 +19,7 @@ local G = require("shared.team.gisement")
 local S = require("shared.team.foreuse_swap")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
+local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 local El = require("shared.team.elagage") -- lot P1-ELAGAGE : foreuses sans ressource sous leur zone démontées
 
 local Gis = {}
@@ -195,7 +196,9 @@ function Gis.prune(f, surface, tick)
   f.elagage = f.elagage or {}
   return El.step(f.elagage, tick, {
     list = function()
+      Profiler.fstart("ws:elagage")
       local l = surface.find_entities_filtered({ type = "mining-drill", force = f.force })
+      Profiler.fstop("ws:elagage")
       table.sort(l, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
       return l
     end,

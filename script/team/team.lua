@@ -823,7 +823,7 @@ function Team.view(f, tick)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, Outposts.smelters(f)),
-    coal_cap = fsurface and Cap.read(f, fsurface) or nil, -- lot PURGE-FER-CHARBON : plafond du combustible (besoin réel, extraction posée)
+    coal_cap = fsurface and Profiler.fwrap("view:5-cap", Cap.read, f, fsurface) or nil, -- lot PURGE-FER-CHARBON : plafond du combustible (besoin réel, extraction posée)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
     turret_groups = groups,
@@ -840,7 +840,7 @@ function Team.view(f, tick)
     -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = threatened,
-    threat_held = MenaceEq.observe(f, tick) or nil, -- lot L12 (partie 3) : menace tenue (une mesure par pensée), lue SEULEMENT par la capitalisation
+    threat_held = Profiler.fwrap("view:5-menace", MenaceEq.observe, f, tick) or nil, -- lot L12 (partie 3) : menace tenue (une mesure par pensée), lue SEULEMENT par la capitalisation
     -- Lot ARMEE-ANTICIPATION : vague annoncée (script/ai3/soldats.lua, f.armee) : l'armée visée monte au besoin estimé, avec la
     -- priorité de la défense (shared/team/planner.lua). Factions seulement (votre équipe n'a pas de soldats : soldiers_max = 0).
     -- Lot PREVISION : alerte d'ÉTAT (cadre « préparer » de la première vague ouvert, script/ai3/prevision.lua ; plus d'horloge) ;
@@ -849,7 +849,7 @@ function Team.view(f, tick)
     army_soon = (f.prevision and f.prevision.pc and (f.prevision.pc.army_soon or 0) > 0 and f.prevision.pc.army_soon) or nil,
     qg_peril = Profiler.fwrap("view:5-survieqg", SurvieQg.update, f, tick), -- lot S1 : péril du QG (shared/team/survie_qg.lua) ; lu par le planificateur (priorité, planchers, tourelles du QG)
     survie = Survie.on(f) or nil, -- lot SURVIE-PENURIE : mode survie (décidé à la pensée précédente) : la production passe avant la défense
-    open = Board.open(f),
+    open = Profiler.fwrap("view:5-open", Board.open, f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)
     -- Lot IA3-d : effectif visé atteint selon la règle (aucun bras ne manque) ; le cerveau d'IA-V2 attendait sinon le
     -- plafond (workers ≥ workers_wanted) pour dire l'économie « faite », jamais atteint par une faction qui n'a pas besoin
@@ -864,7 +864,7 @@ function Team.view(f, tick)
     -- Lot IA1-b2 (D-17) : défendre d'abord (tourelles avant les ouvriers ; shared/team/planner.lua) ; recrues retenues
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
-    thermal_off = Elec.view_off(f, tick), -- lot ELECTRIQUE (a) : types d'avant-poste refusés en thermique ({ [type] = raison } ou nil), lu par shared/ai3/projets.lua
+    thermal_off = Profiler.fwrap("view:5-elec", Elec.view_off, f, tick), -- lot ELECTRIQUE (a) : types d'avant-poste refusés en thermique ({ [type] = raison } ou nil), lu par shared/ai3/projets.lua
     recul_wait = recul_wait, -- EFFONDREMENT : recrue gratuite en recul (planificateur, bloc de reprise)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     front = Profiler.fwrap("view:5-front", Front.view, f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
@@ -1244,7 +1244,9 @@ TT.e5 = function(f, surface, tick, et)
   FoSwap.repli(f, surface, book_for(f), et.stock, tick)
   Profiler.fstop("tt:repli")
   -- lot ELECTRIQUE (a) : verdict relu à chaque pensée, retenue de la pile ou non (lu par le tableau : Board.sync, Board.add)
+  Profiler.fstart("tt:elec")
   Elec.think(f, book_for(f), tick)
+  Profiler.fstop("tt:elec")
   if not et.pile_hold then
     Profiler.fstart("tt:foswap")
     FoSwap.think(f, surface, book_for(f), et.stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
