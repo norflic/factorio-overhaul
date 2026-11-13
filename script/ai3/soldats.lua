@@ -113,7 +113,9 @@ C.on_alert = function(f, ep, kind, tick, mode)
       if tick - (a.t or 0) < 3600 and mode == "hunt" then return false end
       a["until"] = tick + SD.ALERT_TICKS
       a.x, a.y, a.t = ep.x, ep.y, tick
-      if mode == "site" then a.site = true end -- lot DANGER-ACTIF : un site touché ; ses soldats sont pris au-dessus de la réserve du QG (pass)
+      -- lot DANGER-ACTIF : un site touché ; ses soldats sont pris au-dessus de la réserve du QG (pass). Sprint 40 (défense, p3) : fusionnée dans une
+      -- alerte de CHASSE, elle en gardait le rôle (3 chasseurs) et n'était jamais lue comme un site (pass : `a.site and not a.role`).
+      if mode == "site" then a.site, a.role, a.n = true, nil, 4 end
       return true
     end
   end

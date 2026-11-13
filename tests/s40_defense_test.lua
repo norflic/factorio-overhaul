@@ -26,5 +26,17 @@ check(not Re.far_role("patrol", true) and not Re.far_role("muster", true) and no
 check(SRC:find("local far_role = Re.far_role(o.role, d2(o, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ)", 1, true) ~= nil,
   "soldats.lua pose le drapeau par Re.far_role")
 
+print("== p3 : alerte de site fusionnée dans une alerte de chasse")
+check(SRC:find('if mode == "site" then a.site, a.role, a.n = true, nil, 4 end', 1, true) ~= nil,
+  "fusion en mode site : le rôle de chasse tombe (l'alerte passe par Da.site_plan)")
+check(SRC:find('if mode == "site" then a.site = true end', 1, true) == nil, "ancienne fusion (rôle de chasse gardé) retirée")
+do
+  -- Même fusion rejouée sur une alerte de chasse : la branche des sites de pass (`a.site and not a.role`) la prend.
+  local a = { x = 0, y = 0, n = 3, role = "hunt", t = 0 }
+  local mode = "site"
+  if mode == "site" then a.site, a.role, a.n = true, nil, 4 end
+  check(a.site and not a.role and a.n == 4, "alerte de chasse devenue alerte de site")
+end
+
 print(string.format("[S40-DEFENSE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
