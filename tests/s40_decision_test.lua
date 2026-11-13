@@ -57,5 +57,22 @@ local same = true
 for k, v in pairs(want_raw) do if not (Ep.raw[k] and Ep.raw[k].n == math.ceil(v)) then same = false end end
 check(same and next(want_raw) ~= nil and plans == 1, "plafond atteint, matière absente : manques bruts du plan entier, un seul plan (" .. plans .. ")")
 
+-- p3 : un morceau = le plan de mesure réutilisé ; la tâche est la même qu'avec un plan refait.
+plans = 0
+local E1 = run(counted, 0, 1)
+check(#E1.tasks == 1 and E1.crafts == 1, "une fabrication courte : une tâche")
+check(plans == 2, "une fabrication courte : 2 plans (fabricable ?, puis la fabrication), relevé " .. plans)
+local t = E1.tasks[1]
+local ref = book:plan({ { ITEM, 1 } }, stock())
+check(t.count == 1 and ser(t.steps) == ser(ref.crafts) and ser(E1.avail) == ser(ref.avail), "une fabrication courte : étapes et stock restant du plan du livre")
+local uses = {}
+for _, u in ipairs(t.uses) do uses[u[1]] = u[2] end
+check(ser(uses) == ser(ref.uses), "une fabrication courte : prélèvements du plan du livre")
+-- plusieurs morceaux : inchangé (somme des tâches = commande, stock restant = plans enchaînés)
+local En = run(book, 0, 40)
+local total = 0
+for _, tk in ipairs(En.tasks) do total = total + tk.count end
+check(total == 40 and #En.tasks >= 1 and #En.tasks <= P.MAX_CRAFTS, "grosse commande : " .. #En.tasks .. " morceau(x), 40 objets")
+
 print(string.format("[S40-DECISION] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

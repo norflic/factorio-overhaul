@@ -271,7 +271,8 @@ local function craft(E, proj, item, n, prio, tag)
   while left > 0 and E.crafts < P.MAX_CRAFTS do
     i = i + 1
     local k = math.min(per, left)
-    local q = E.book:plan({ { item, k } }, E.avail)
+    -- (s40 decision p3 : un seul morceau = la commande entière sur le même stock virtuel : le plan p0 qui a mesuré l'énergie EST ce plan)
+    local q = (chunks == 1 and i == 1) and p0 or E.book:plan({ { item, k } }, E.avail)
     E.avail = q.avail
     E.crafts = E.crafts + 1
     left = left - k
