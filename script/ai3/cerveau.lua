@@ -969,7 +969,7 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     pile = PileRt.inputs(f, book, tick), -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
     prevu = Prev.pile_rows(f), -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
     dispersion = AdRt.cerveau(f, tick), -- lot IA-GARDE : garde anti-dispersion (nil : pas de mesure)
-    ordres = f.team.commande and Co.deposits(f.team.commande) or nil } -- lot s43 UX-COMMANDE : gisements désignés
+    ordres = f.team.commande and Co.ready(Co.deposits(f.team.commande), f.prospects) or nil } -- lot s43 UX-COMMANDE : gisements désignés (site en réserve)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")

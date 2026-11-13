@@ -269,6 +269,16 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
     if o.pos then ops[#ops + 1] = { kind = o.kind, x = o.pos.x, y = o.pos.y } end
   end
   local done = Co.resolve(f.team.commande, ops)
+  -- Un ordre sans site en réserve (réserve pleine, ressource pas encore voulue) : une nouvelle sonde par passe, la plus ancienne d'abord.
+  local ready = {}
+  for _, o in ipairs(Co.ready(Co.deposits(f.team.commande), f.prospects)) do ready[o.id] = true end
+  for _, o in ipairs(Co.deposits(f.team.commande)) do
+    local surface = game.surfaces[o.surface or 1]
+    if not ready[o.id] and f.hq_pos and surface then
+      Sites.probe_at(f, surface, o.x, o.y, game.tick)
+      break
+    end
+  end
   for _, id in ipairs(done) do
     local o = Co.cancel(f.team.commande, id)
     if o then

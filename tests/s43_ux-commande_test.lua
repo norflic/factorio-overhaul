@@ -165,6 +165,11 @@ do
   local p3 = { dock = { x = -50, y = -55 }, src = { x = 9, y = 9 } }
   local pp = Co.prefer_pairs({ p1, p2, p3 }, orders)
   check(pp[1] == p2 and pp[2] == p3 and pp[3] == p1, "paires de la zone de liaison d'abord (un bout suffit)")
+  local rd = Co.ready(orders, { a, c })
+  check(#rd == 0, "aucun site de la ressource dans la zone : ordre pas prêt (aucun but)")
+  rd = Co.ready(orders, { a, b })
+  check(#rd == 1 and rd[1].id == 1, "site dans la zone : ordre prêt")
+  check(#Co.ready(nil, { b }) == 0, "sans ordre : rien")
   local st = { orders = orders }
   check(#Co.resolve(st, { { kind = "k1", x = 0, y = 0 } }) == 0, "avant-poste hors zone : rien")
   check(#Co.resolve(st, { { kind = "k2", x = 100, y = 100 } }) == 0, "autre type : rien")
@@ -189,7 +194,7 @@ do
   local i_w = cerv:find("w = Co.weights(w, cmd.orient", 1, true)
   local i_b = cerv:find("local w = B.weights(", 1, true)
   check(i_w and i_b and i_w > i_b, "orientation appliquée juste après B.weights (toute équipe)")
-  check(cerv:find("ordres = f.team.commande and Co.deposits", 1, true) ~= nil, "gisements désignés passés au cerveau")
+  check(cerv:find("ordres = f.team.commande and Co.ready(Co.deposits(f.team.commande), f.prospects)", 1, true) ~= nil, "gisements désignés prêts passés au cerveau")
   local sc = read("shared/ai3/cerveau.lua")
   check(sc:find("goals = Co.goals(goals, ctx.ordres", 1, true) ~= nil, "buts des ordres après B.generate")
   local sites = read("script/faction/sites.lua")

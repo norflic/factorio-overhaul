@@ -31,6 +31,7 @@ Co.ORDER_VALUE = 88   -- but d'un gisement désigné : sous l'amorçage du fer (
 Co.MAX_ORDERS = 8     -- ordres vivants au plus (gisements et liaisons ensemble)
 Co.R_MIN, Co.R_MAX = 8, 96 -- rayon d'une zone (tuiles)
 Co.DONE_MARGIN = 16   -- un avant-poste posé à rayon + 16 tuiles du centre remplit l'ordre de gisement
+Co.SITE_MARGIN = 24   -- un site de la réserve (centre de sonde, à un demi-chunk près) à rayon + 24 tuiles est dans la zone
 
 local function clamp(x, a, b)
   if x < a then return a end
@@ -141,6 +142,20 @@ function Co.deposits(state)
   return out
 end
 
+--- Ordres de gisement PRÊTS : ceux dont la zone contient un site de la réserve (même ressource). Seuls ceux-là font un but : sans site
+--- dans la zone, le but ferait bâtir ailleurs, à chaque pensée (le site pris par un chantier quitte la réserve : plus de but en double).
+function Co.ready(orders, prospects)
+  local out = {}
+  for _, o in ipairs(orders or {}) do
+    if o.kind == "gisement" then
+      for _, s in ipairs(prospects or {}) do
+        if (o.resource == nil or o.resource == s.resource) and inside(o, s.x, s.y, Co.SITE_MARGIN) then out[#out + 1] = o break end
+      end
+    end
+  end
+  return out
+end
+
 --- Buts du cerveau après les ordres de gisement : un but d'extraction (« ordre:<type> ») par type désigné, de valeur Co.ORDER_VALUE
 --- (× poids d'extraction, bornée à 100) ; un but d'extraction déjà émis pour ce type est relevé à cette valeur s'il est plus bas
 --- (et n'est plus « fond » ni « extend_only » : l'ordre demande un NOUVEAU site). Rend la liste (même table, complétée).
@@ -177,7 +192,7 @@ function Co.prefer(list, orders)
   for _, s in ipairs(list or {}) do
     local hit = false
     for _, o in ipairs(orders) do
-      if o.kind == "gisement" and (o.resource == nil or o.resource == s.resource) and inside(o, s.x, s.y) then hit = true break end
+      if o.kind == "gisement" and (o.resource == nil or o.resource == s.resource) and inside(o, s.x, s.y, Co.SITE_MARGIN) then hit = true break end
     end
     if hit then first[#first + 1] = s else rest[#rest + 1] = s end
   end
@@ -192,7 +207,7 @@ function Co.restrict(cands, orders)
   local out = {}
   for _, s in ipairs(cands or {}) do
     for _, o in ipairs(orders) do
-      if o.kind == "gisement" and (o.resource == nil or o.resource == s.resource) and inside(o, s.x, s.y) then
+      if o.kind == "gisement" and (o.resource == nil or o.resource == s.resource) and inside(o, s.x, s.y, Co.SITE_MARGIN) then
         out[#out + 1] = s
         break
       end
