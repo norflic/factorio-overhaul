@@ -216,8 +216,8 @@ do
     local out = {}
     if q.position then
       local e = world[Rr.key(math.floor(q.position[1]), math.floor(q.position[2]))]
-      if e and q.type == "transport-belt" then out[1] = e end
-    elseif q.type == "transport-belt" then
+      if e and q.name then out[1] = e end
+    elseif q.name then
       for y = q.area[1][2], q.area[2][2] - 1 do for x = q.area[1][1], q.area[2][1] - 1 do
         local e = world[Rr.key(x, y)]; if e then out[#out + 1] = e end
       end end
@@ -239,6 +239,7 @@ do
     insert = function(_, _, n) stock = stock + n end }
   _G.game = { tick = 1000, entity_prototypes = { ["tapis-a"] = { type = "transport-belt", items_to_place_this = { { name = "objet-tapis" } } } } }
   _G.log = function() end
+  package.loaded["script.team.convoyeurs"] = { belts = function() return { { name = "tapis-a", speed = 1, item = "objet-tapis" } } end }
   local Rer = require("script.team.reroutage")
   -- ligne ouest -> est en y = 3, gisement en x = 4..7, y = 2..4
   for x = 1, 10 do put(x, 3, 2) end

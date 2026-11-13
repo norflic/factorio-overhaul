@@ -22,6 +22,8 @@ local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
 local Tv = require("shared.team.traversee")
 local Rr = require("shared.team.reroutage")
+local T = require("shared.team.config")
+local Conv = require("script.team.convoyeurs") -- tapis des données (noms lus aux prototypes)
 
 local Rer = {}
 
@@ -30,8 +32,7 @@ Rer.EVERY = 120                 -- ticks entre deux pas de l'automate (toutes é
 Rer.NOTE_GAP = 1800             -- ticks au moins entre deux relevés d'une même équipe (le plan du champ est relu souvent)
 Rer.LOGS = 60                   -- lignes au plus par équipe
 Rer.REPLANS = 2                 -- tracés refaits au plus quand une tuile du contournement est prise avant la pose
-Rer.BELT, Rer.DRILL, Rer.ARM = "transport-belt", "mining-drill", "inserter" -- TYPES de prototype (aucun nom d'objet)
-Rer.LINES = { "underground-belt", "splitter" }
+Rer.LINES = { T.LOGISTIC_TYPES.underground, T.LOGISTIC_TYPES.splitter } -- pièces de ligne non simples (types lus à la config)
 Rer.Build = nil                 -- posé par script/team/champ.lua (Build.cede_piece), sans require circulaire
 
 function Rer.set_enabled(on) Rer.ENABLED = on and true or false end
@@ -49,19 +50,18 @@ local function state_of(f)
   return st
 end
 
-local TYPE_OF = {}
-local function type_of(name)
-  local t = TYPE_OF[name]
-  if t == nil then
-    local pr = game.entity_prototypes[name]
-    t = pr and pr.type or false
-    TYPE_OF[name] = t
-  end
-  return t
+local BELTS = nil -- cache local (jamais dans global) : noms des tapis simples des données
+local function belt_names()
+  if BELTS then return BELTS end
+  local list, set = {}, {}
+  for _, b in ipairs(Conv.belts()) do list[#list + 1] = b.name; set[b.name] = true end
+  BELTS = { list = list, set = set }
+  return BELTS
 end
+local function is_belt(name) return belt_names().set[name] == true end
 
 local function belt_at(surface, f, x, y)
-  local e = surface.find_entities_filtered({ position = { x + 0.5, y + 0.5 }, type = Rer.BELT, force = f.force, limit = 1 })[1]
+  local e = surface.find_entities_filtered({ position = { x + 0.5, y + 0.5 }, name = belt_names().list, force = f.force, limit = 1 })[1]
   if e and e.valid then return e end
   return nil
 end
@@ -76,7 +76,7 @@ end
 local function read_belts(f, surface, x0, y0, x1, y1)
   local area = { { x0, y0 }, { x1 + 1, y1 + 1 } }
   local belts, at = {}, {}
-  for _, e in ipairs(surface.find_entities_filtered({ area = area, type = Rer.BELT, force = f.force })) do
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, name = belt_names().list, force = f.force })) do
     local b = { x = math.floor(e.position.x), y = math.floor(e.position.y), dir = e.direction, plain = true, human = e.last_user ~= nil,
       name = e.name }
     belts[#belts + 1] = b
@@ -95,11 +95,15 @@ local function read_belts(f, surface, x0, y0, x1, y1)
     end
   end
   local wide = { { x0 - 3, y0 - 3 }, { x1 + 4, y1 + 4 } }
-  for _, e in ipairs(surface.find_entities_filtered({ area = wide, type = { Rer.DRILL, Rer.ARM } })) do
-    local d = e.drop_position
+  for _, e in ipairs(surface.find_entities_filtered({ area = wide, collision_mask = "object-layer" })) do
+    -- machine qui DÉPOSE (foreuse, bras) ou bras qui LIT : reconnue au prototype (vitesse de minage, position de prise), aucun type écrit
+    local pr = e.prototype
+    local drill = pr.mining_speed ~= nil and pr.resource_categories ~= nil
+    local arm = pr.inserter_pickup_position ~= nil
+    local d = (drill or arm) and e.drop_position or nil
     local b = d and at[Rr.key(math.floor(d.x), math.floor(d.y))]
     if b then b.fed = true end
-    if e.type == Rer.ARM then
+    if arm then
       local pk = e.pickup_position
       b = pk and at[Rr.key(math.floor(pk.x), math.floor(pk.y))]
       if b then b.fed = true end -- un bras qui LIT le tapis : la ligne sert, elle reste
@@ -135,7 +139,7 @@ function Rer.note(f, surface, o, ore, blocked, mine, win)
   for i = 1, #ore - 1, 2 do
     local k = Ch.key(ore[i], ore[i + 1])
     local w = blocked[k]
-    if w and not mine[k] and type_of(tostring(w)) == Rer.BELT then hit = true; break end
+    if w and not mine[k] and is_belt(tostring(w)) then hit = true; break end
   end
   if not hit then return end
   st.next_note = tick + Rer.NOTE_GAP
