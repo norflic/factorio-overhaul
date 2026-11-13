@@ -16,7 +16,15 @@ local logs = {}
 function log(s) logs[#logs + 1] = s end
 
 local config_fns = {}
-package.loaded["script.core.events"] = { on_configuration_changed = function(fn) config_fns[#config_fns + 1] = fn end }
+-- Lot UPS : le vrai stockage et le registre des machines s'abonnent eux aussi à on_configuration_changed ; seuls les abonnements
+-- venus de outposts.lua sont comptés et rejoués ici (source de l'appelant).
+package.loaded["script.core.events"] = { on_configuration_changed = function(fn)
+  local src = debug.getinfo(2, "S").source or ""
+  if src:find("outposts%.lua$") then config_fns[#config_fns + 1] = fn end
+end }
+-- Lot UPS : le registre des machines (script/team/registre_types.lua) et le vrai stockage s abonnent au chargement (on_init, on_load,
+-- on_configuration_changed) : tout abonnement absent du bouchon est sans effet.
+setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end })
 -- Lot X10-S0 (0.6.62) : stock.lua requiert le profileur (portées fines, mesure seulement), qui charge le vrai stockage, qui s'abonne à
 -- Events.on_init, absent de la doublure ci-dessus. Doublure muette du profileur : toute fonction ne fait rien, fwrap appelle la sienne.
 package.loaded["script.core.profiler"] = setmetatable({ fwrap = function(_, fn, ...) return (fn(...)) end },

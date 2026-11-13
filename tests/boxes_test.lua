@@ -150,6 +150,9 @@ section("§4 moteur script/team/boxes_rt.lua sur un moteur minimal")
 ---------------------------------------------------------------------------------------------------
 local research_fn
 package.loaded["script.core.events"] = { on = function(id, fn) if id == 18 then research_fn = fn end end }
+-- Lot UPS : le registre des machines (script/team/registre_types.lua) et le vrai stockage s abonnent au chargement (on_init, on_load,
+-- on_configuration_changed) : tout abonnement absent du bouchon est sans effet.
+setmetatable(package.loaded["script.core.events"], { __index = function() return function() end end })
 local factions = {}
 package.loaded["script.faction.state"] = {
   alive = function()

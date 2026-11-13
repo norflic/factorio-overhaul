@@ -238,7 +238,8 @@ do
   local b = cm:find("f.threat_loss_t = e.tick", 1, true)
   check(a and b and b > a and b - a < 80, "§3 commander.lua : f.threat_loss_t pose juste apres f.threatened_until (perte pres du QG)")
   local tm = read("script/team/team.lua"):gsub("%-%-[^\n]*", "")
-  check(tm:find("threat_held = MenaceEq.observe(f, tick) or nil,", 1, true) ~= nil, "§3 team.lua : view.threat_held rendu par MenaceEq.observe")
+  -- Lot UPS : l'appel passe par Profiler.fwrap (portée fine « view:5-menace », mesure seulement : fwrap rend le résultat de l'appel).
+  check(tm:find("threat_held = Profiler.fwrap(\"view:5-menace\", MenaceEq.observe, f, tick) or nil,", 1, true) ~= nil, "§3 team.lua : view.threat_held rendu par MenaceEq.observe")
   check(tm:find("local threatened = tick < (f.threatened_until or 0)", 1, true) ~= nil, "§3 team.lua : view.threatened d'avant inchange")
   check(tm:find('local MenaceEq = require("script.team.menace_equipe")', 1, true) ~= nil, "§3 require en tete de team.lua (F24)")
   local cap = read("script/ai3/capitalisation.lua"):gsub("%-%-[^\n]*", "")

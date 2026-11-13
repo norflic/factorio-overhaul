@@ -132,7 +132,10 @@ check("purge des comptes anciens (Q2)", B:find("if Rc.purge_due(b.path_purge_t, 
 local W = read("script/team/worker.lua")
 local arr = W:match("nav_arrived = function%(agent, tick%)\n(.-)\n      end,")
 check("B2 remise a 0 a l'arrivee (nav_arrived)", arr ~= nil and arr:find("agent.walk_retries = 0", 1, true) ~= nil)
-check("B2 remise a 0 a la prise de tache", W:find("agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil\n      agent.walk_retries = 0", 1, true) ~= nil)
+-- Lot CHANTIERS-FANTOMES : la mesure de la tâche de pose (task.gt) s'intercale entre la prise et la remise ; le contrôle porte sur le
+-- bloc de prise entier (de l'affectation de agent.task au passage à l'état « step »), où la remise doit toujours figurer.
+local take = W:match("agent%.task, agent%.steps, agent%.pc, agent%.failed = task, steps, 1, nil\n(.-)\n      set%(agent, \"step\", tick%)")
+check("B2 remise a 0 a la prise de tache", take ~= nil and take:find("\n      agent.walk_retries = 0", 1, true) ~= nil)
 check("B2 essais par la regle", W:find("again, agent.walk_retries = Rc.walk_fail(agent.walk_retries, reason)", 1, true) ~= nil
   and W:find("agent.walk_retries <= 3", 1, true) == nil)
 check("journal [FO-NAV-REPLI] (12 lignes par equipe)", B:find("[FO-NAV-REPLI]", 1, true) ~= nil and B:find("repli_logs <= 12", 1, true) ~= nil)

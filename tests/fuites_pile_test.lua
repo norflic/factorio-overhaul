@@ -400,7 +400,8 @@ has(prt, "local short = f.team.ia3.short_core or {}", "runtime : la porte lit le
 has(auto, "pile = rq.capi and \"capi\" or \"capital\", product = rq.product,", "automatisation : famille et produit portés par la demande")
 has(auto, "local grow_ok = (s and s.grow and #s.grow > 0) and PileRt.porte(f, \"invest\", m.product) or false",
   "automatisation : pièces d'agrandissement plus fabriquées pendant une retenue")
-has(build, "if Build.reserve_suspended(f, p, tick) then return end", "plan directeur : la réserve passe par la porte")
+-- Lot UPS : l'appel est encadré par une portée fine du profileur (« rs:pile », mesure seulement) ; la porte et la sortie sont deux lignes.
+has(build, "    local susp = Build.reserve_suspended(f, p, tick)\n    Profiler.fstop(\"rs:pile\")\n    if susp then return end", "plan directeur : la réserve passe par la porte")
 has(build, "if not Build.grow_suspended(f, p, ln, tick) and ligne_one(f, surface, p, ln, cfg, tick) then return end",
   "plan directeur : l'agrandissement des lignes passe par la porte")
 has(build, "local conv_ok, conv_why = PileRt.porte(f, \"upgrade\", nil)", "plan directeur : amélioration des tapis suspendue")
