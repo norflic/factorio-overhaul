@@ -90,6 +90,16 @@ return {
     local s = ctx.surface()
     local m = remote.call("fo-bourdon", "etat", st.mega) or {}
     local tirs = m.tirs or 0
+    if t == 500 or t == 420 then -- diagnostic : vers en vie (nom, santé, position) après le premier impact
+      local n = 0
+      for _, w in ipairs(s.find_entities_filtered({ force = "enemy", type = "turret", area = { { X0 - 60, Y0 - 60 }, { X1 + 60, Y1 + 60 } } })) do
+        n = n + 1
+        if n <= 6 then
+          ctx.log(string.format("[FO-MEGA-SALVE] t%d ver %s sante %.0f / %.0f en (%.0f, %.0f)", t, w.name, w.health or -1,
+            w.prototype.max_health or -1, w.position.x - XM, w.position.y - Y))
+        end
+      end
+    end
     if t == 420 then st.avant = compte(s) ctx.log("[FO-MEGA-SALVE] avant (t420) : " .. txt(st.avant)) end
     if tirs >= 1 and not st.t1 then st.t1 = t ctx.log(string.format("[FO-MEGA-SALVE] premiere orbe partie a t%d", t)) end
     if tirs >= 4 and not st.t4 then st.t4 = t ctx.log(string.format("[FO-MEGA-SALVE] quatrieme orbe (fin de la salve) partie a t%d", t)) end
