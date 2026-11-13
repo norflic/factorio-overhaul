@@ -285,5 +285,27 @@ do
   check(f.reroutage.run == nil, "ligne avec un tapis pose par un joueur : jamais inscrite")
 end
 
+section("10. P2 : reserve de gisements (shared/ai3/reserve_gisements.lua)")
+do
+  local Rg = require("shared.ai3.reserve_gisements")
+  local base = { resources = { "ra", "rb", "rc" }, radius = 96,
+    outposts = { ra = { { x = 0, y = 0 } }, rb = { { x = 500, y = 0 } } },
+    known = { ra = { { x = 30, y = 40 }, { x = 60, y = 60 } }, rb = { { x = 500, y = 50 }, { x = 900, y = 0 } }, rc = { { x = 10, y = 10 } } },
+    prospects = {} }
+  local w = Rg.wanted(base)
+  check(#w == 1 and w[1] == "ra", "ra : morceaux du gisement exploite seulement -> exploration ; rb : reserve a 400 tuiles ; rc non exploitee")
+  base.prospects.ra = 1
+  check(#Rg.wanted(base) == 0, "un site retenu par la prospection suffit")
+  base.prospects.ra = 0
+  base.known.ra[#base.known.ra + 1] = { x = 97, y = 0 }
+  check(#Rg.wanted(base) == 0, "gisement connu juste hors du rayon lu : reserve")
+  local b = Rg.bilan(base)
+  check(#b == 2 and b[1].res == "ra" and b[1].spare == 1 and b[2].spare == 1, "bilan : ressources exploitees seulement, dans l'ordre")
+  base.radius = 2000
+  local w2 = Rg.wanted(base)
+  check(#w2 == 2 and w2[1] == "ra" and w2[2] == "rb", "rayon plus grand que la carte : tout est le gisement exploite")
+  check(#Rg.wanted({ resources = { "ra" }, outposts = {}, known = {}, radius = 96 }) == 0, "aucune ressource exploitee : aucune demande")
+end
+
 print(string.format("s42_reroutage : %d OK, %d echec(s)", passes, failures))
 if failures > 0 then os.exit(1) end
