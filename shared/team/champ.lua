@@ -628,7 +628,7 @@ local function plan_once(spec)
     local xb, yb = c.xy(e.u + w - 1, e.v + h - 1)
     local x0, x1, y0, y1 = math.min(xa, xb), math.max(xa, xb), math.min(ya, yb), math.max(ya, yb)
     local o = { kind = e.kind, x = (x0 + x1 + 1) / 2, y = (y0 + y1 + 1) / 2, size = e.size,
-      dir = (e.du ~= 0 or e.dv ~= 0) and c.dir(e.du, e.dv) or 0, band = bi, group = gi, pr = pr, role = e.role, belt = belt, ug = e.ug, piq = e.piq }
+      dir = (e.du ~= 0 or e.dv ~= 0) and c.dir(e.du, e.dv) or 0, band = bi, group = gi, pr = pr, role = e.role, belt = belt, ug = e.ug, piq = e.piq, fin = e.fin }
     if e.w then o.w, o.h = x1 - x0 + 1, y1 - y0 + 1 end
     ents[#ents + 1] = o
   end

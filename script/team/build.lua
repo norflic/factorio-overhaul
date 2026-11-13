@@ -3075,6 +3075,7 @@ local function plan_project(f, surface, p)
     if not reserve_tiles(b, p, ents) then return false, "place" end
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item, flow = q.flow } end -- (lot FONDERIE-BLOC : flow = débit d'un coffre de tête de champ)
     for _, o in ipairs(lay.outs or {}) do p.outs[#p.outs + 1] = { x = o.x, y = o.y, at = lay.out_at } end
+    if lay.directes and #lay.directes > 0 then p.sorties_directes = lay.directes end -- s42 bus-direct : bouts des lignes de plaques (script/team/rapatriement.lua, ligne directe)
     if lay.piquable and #lay.piquable > 0 then p.tapis_piquable = lay.piquable end -- s41 sortie-bus : trop-plein d'une ligne de plaques (script/team/piquage.lua, plan_sources)
     Profiler.stop("build:plan:place")
     return anchors_and_obstacles(f, surface, p, lay.masks)

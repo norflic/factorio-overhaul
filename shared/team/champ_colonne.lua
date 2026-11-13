@@ -208,6 +208,7 @@ function Co.layout(spec, b, side, s_edge, count, mode, half, ext)
     for cc = last_unit + 1, last_unit + ext do
       put("tapis", cc, b_ob, 1, side, 0, "sortie")
       ents[#ents].piq = (cc < last_unit + ext) or nil
+      ents[#ents].fin = (cc == last_unit + ext) or nil -- s42 bus-direct : bout de la ligne de plaques (départ d'une ligne directe vers le tronc du mall)
     end
     far = last_unit + ext
   end

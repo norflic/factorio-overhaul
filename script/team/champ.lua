@@ -603,6 +603,7 @@ end
 --- Entités nommées d'un plan (bande seule) : ents { name, x, y, dir, role }, quais, outs, emprise { tuiles }.
 local function named(plan, names, coal_side, exclude)
   local ents, quais, outs = {}, {}, {}
+  local fins = {} -- s42 bus-direct : bouts des lignes de plaques { x, y, dir, item } (départ d'une ligne directe, script/team/rapatriement.lua)
   local piq = {} -- s41 sortie-bus : tuiles de trop-plein de la ligne de plaques (au-delà du quai), sources de piquage déclarées
   local design = plan.design
   for _, e in ipairs(plan.ents) do
@@ -641,10 +642,11 @@ local function named(plan, names, coal_side, exclude)
       if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel, flow = e.need } end -- lot FONDERIE-BLOC : débit du quai
       if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end
       if e.piq and e.kind == "tapis" and names.plate then piq[#piq + 1] = { x = math.floor(e.x), y = math.floor(e.y), item = names.plate } end
+      if e.fin and e.kind == "tapis" and names.plate then fins[#fins + 1] = { x = math.floor(e.x), y = math.floor(e.y), dir = e.dir or 0, item = names.plate } end
     end
     ::continue::
   end
-  return ents, quais, outs, piq
+  return ents, quais, outs, piq, fins
 end
 
 --- La bande `pr` seule : { ents, quais, outs, tiles (liste plate de son emprise), plan } ou nil, raison.
@@ -684,7 +686,7 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
     defer = Sa.split(own, shared, Champ.CFG.band_max)
     if #defer > 0 then exclude = {}; for _, sd in ipairs(defer) do exclude[sd] = true end end
   end
-  local ents, quais, outs, piq = named(plan, names, coal_side, exclude)
+  local ents, quais, outs, piq, fins = named(plan, names, coal_side, exclude)
   if coal_side and #ents == 0 then return nil, "reseau du charbon vide" end
   -- lot COMBUSTIBLE-MIGRATION : pièces du réseau du charbon REPORTÉ dans des projets liés (pas encore planifiés) : leurs tuiles, retenues par Build.SITES.champ
   local deferred_tiles = {}
@@ -695,7 +697,7 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
   end
   local tiles = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do tiles[#tiles + 1] = t[1]; tiles[#tiles + 1] = t[2] end end
-  return { ents = ents, quais = quais, outs = outs, piquable = piq, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer, deferred_tiles = deferred_tiles }
+  return { ents = ents, quais = quais, outs = outs, piquable = piq, directes = fins, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer, deferred_tiles = deferred_tiles }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1006,7 +1008,7 @@ Build.SITES.champ = function(f, surface, p, h)
     o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu")
     .. (comps and string.format(" (%d composante(s) de poteaux, toutes jointes au reseau alimente)", comps) or ""))
   return { key = "champ:" .. o.id .. ":" .. (cs.coal and ("charbon" .. cs.coal) or cs.pr), box = { x0, y0, x1, y1 }, ents = ents, quais = bd.quais,
-    outs = bd.outs, masks = masks, piquable = bd.piquable }
+    outs = bd.outs, masks = masks, piquable = bd.piquable, directes = bd.directes }
 end
 
 ---------------------------------------------------------------------------------------------------

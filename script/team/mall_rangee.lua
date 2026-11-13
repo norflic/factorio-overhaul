@@ -1045,6 +1045,38 @@ function Rt.contexte(f, mods, feeds, stock, book, feed_stock)
 end
 
 --- Rapport (bancs) : rangées et compteurs.
+--- (s42 bus-direct) Têtes des lignes du tronc, dans le monde : { { k, item, x, y, dir } } (tuile la plus haute de la ligne et son sens), dans l'ordre des
+--- lignes. Vide sans tronc. Lu par la ligne directe d'une colonne de fours (script/team/rapatriement.lua) : « une arrivée de tapis se pose sur la tuile la
+--- plus haute de la ligne » (shared/team/mall_tronc.lua).
+function Rt.tetes(f)
+  local out = {}
+  local st = f and f.build and f.build.mall
+  local rep = st and st.rep
+  if not (rep and st.lines and rep.west == Mt.WEST) then return out end
+  for _, ln in ipairs(st.lines) do
+    local wx, wy, d = Mr.to_world(Mt.XL(ln.k) + 0.5, Mt.Y_TOP + 0.5, 4, rep.k, rep.ox, rep.oy, 1)
+    out[#out + 1] = { k = ln.k, item = ln.item, x = floor(wx), y = floor(wy), dir = d }
+  end
+  return out
+end
+
+--- (s42 bus-direct) La tuile (x, y) est-elle la tuile d'ARRIVÉE d'une tête du tronc (celle qui verse sur la tête, dans la marge du secteur) encore tenue par
+--- la réserve du secteur ? `ouvrir` vrai : elle quitte la réserve (le projet de la ligne directe la réserve aussitôt). Aucune autre tuile n'est ouverte.
+function Rt.arrivee(f, x, y, ouvrir)
+  local b = f and f.build
+  if not b then return false end
+  for _, h in ipairs(Rt.tetes(f)) do
+    local v = P.DV[h.dir]
+    if v and h.x - v[1] == x and h.y - v[2] == y then
+      local k = P.tkey(x, y)
+      if b.occ[k] ~= Build.Mall.OCC then return false end
+      if ouvrir then b.occ[k] = nil end
+      return true
+    end
+  end
+  return false
+end
+
 function Rt.report(f)
   local st = f and f.build and f.build.mall
   if not st then return nil end

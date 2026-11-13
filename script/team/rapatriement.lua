@@ -35,6 +35,7 @@ local Stock = require("script.team.stock") -- Stock.skip_fn : les objets que le 
 local Pur = require("script.team.purete") -- lot PURETE-TAPIS : aucun tapis étranger ne verse sur la ligne, la ligne ne verse sur aucun tapis étranger
 local Tc = require("shared.team.troncons") -- lot BUS-LONG : le tracé d'une ligne longue, par tronçons (souterrains compris)
 local Tv = require("shared.team.traversee")
+local Sd = require("shared.team.sortie_directe") -- s42 bus-direct : ligne directe d'une colonne de fours au tronc du mall (ni bras ni coffre)
 local Trav = require("script.team.traversee") -- portée et nom du souterrain débloqué, tuiles de gisement
 
 local Rap = {}
@@ -101,6 +102,13 @@ end
 
 local function chest_at(f, surface, x, y)
   return surface.find_entities_filtered({ position = { x, y }, radius = 0.4, force = f.force, type = "container", limit = 1 })[1]
+end
+
+--- (s42 bus-direct) Tapis bâti de l'équipe sur la tuile (x, y), dans le sens `dir` : l'entité, ou nil.
+local function belt_at(f, surface, x, y, dir)
+  local e = surface.find_entities_filtered({ position = { x + 0.5, y + 0.5 }, radius = 0.4, force = f.force, type = "transport-belt", limit = 1 })[1]
+  if e and e.direction == dir then return e end
+  return nil
 end
 
 local function inflow_of(st, p)
@@ -331,10 +339,117 @@ local function rebuild_tampons(b, st)
   st.tampons = out
 end
 
+--- (s42 bus-direct) Barre (on) ou débarre les coffres du quai de la colonne d'une ligne directe. Rend (coffres touchés, cases laissées).
+local function quai_bars(f, surface, b, l, on)
+  local sp = b.projects[l.src_pid]
+  local outs = sp and sp.outs or {}
+  local proto = game.item_prototypes[l.item]
+  local stack = proto and proto.stack_size or 1
+  local n, cases = 0, 0
+  for _, i in ipairs(Sd.quai(l.exit, outs)) do
+    local o = outs[i]
+    local ch = chest_at(f, surface, o.x, o.y)
+    local inv = ch and ch.get_inventory(defines.inventory.chest)
+    if inv and inv.supports_bar() then
+      local want = on and Sd.bar(o.at or Rp.COLLECT_BATCH, stack, #inv) or (#inv + 1)
+      if inv.get_bar() ~= want then inv.set_bar(want) end
+      n, cases = n + 1, want - 1
+    end
+  end
+  return n, cases
+end
+
+--- (s42 bus-direct) LIGNES DIRECTES : suivi des lignes demandées (fin : quai barré ; coupure ou refus : quai débarré), puis au plus UNE demande, quand
+--- aucune n'est en construction : Sd.choose (bouts de colonne bâtis des projets finis, têtes bâties du tronc du mall). État : st.directes.
+function Rap.directes(api, f, surface, b, st, tick)
+  local Rt = package.loaded["script.team.mall_rangee"] -- (lecture : aucun require pendant un événement, F24)
+  if not (Rt and Rt.tetes) then return end
+  st.directes = st.directes or {}
+  st.dir_retry = st.dir_retry or {}
+  local dl = st.directes
+  local busy = false
+  local taken = { exits = {}, heads = {} }
+  for _, key in ipairs(sorted_keys(dl)) do
+    local l = dl[key]
+    local q = b.projects[l.pid]
+    if not q or DEAD[q.state] or q.abandoned then
+      quai_bars(f, surface, b, l, false)
+      st.dir_retry[key .. ">" .. l.k] = tick
+      say(f, tick, Sd.text("refusee", { team = f.key, tick = tick, pid = l.pid, cause = q and tostring(q.reason) or "projet disparu" }))
+      dl[key] = nil
+    else
+      taken.exits[key], taken.heads[l.k] = true, true
+      if q.state == "fini" then
+        local n, cases = quai_bars(f, surface, b, l, true)
+        if not l.done then
+          l.done = true
+          say(f, tick, Sd.text("finie", { team = f.key, tick = tick, pid = l.pid, item = l.item, pieces = #q.ents, barres = n, cases = cases }))
+        end
+      else
+        busy = true
+        if l.done then
+          l.done = false
+          local n = quai_bars(f, surface, b, l, false)
+          say(f, tick, Sd.text("coupee", { team = f.key, tick = tick, pid = l.pid, state = q.state, barres = n }))
+        end
+      end
+    end
+  end
+  if busy then return end
+  local heads = {}
+  for _, h in ipairs(Rt.tetes(f)) do
+    if belt_at(f, surface, h.x, h.y, h.dir) then heads[#heads + 1] = h end
+  end
+  if #heads == 0 then return end
+  local exits, seen, belts = {}, {}, {}
+  for _, id in ipairs(b.order) do
+    local p = b.projects[id]
+    if p and p.state == "fini" and not p.abandoned and p.sorties_directes then
+      for i, e in ipairs(p.sorties_directes) do
+        local pk = e.x .. ":" .. e.y
+        local be = not seen[pk] and belt_at(f, surface, e.x, e.y, e.dir)
+        if be then
+          seen[pk] = true
+          local key = id .. ":d" .. i
+          exits[#exits + 1] = { key = key, pid = id, x = e.x, y = e.y, dir = e.dir, item = e.item }
+          belts[key] = be.name
+        end
+      end
+    end
+  end
+  local pick, why = Sd.choose(exits, heads, taken, function(e, h)
+    local t0 = st.dir_retry[e.key .. ">" .. h.k]
+    return t0 ~= nil and tick - t0 < Sd.RETRY
+  end)
+  if not pick then
+    if why ~= st.dir_why then
+      st.dir_why = why
+      say(f, tick, Sd.text("aucune", { team = f.key, tick = tick, cause = why }))
+    end
+    return
+  end
+  local e, h = pick.exit, pick.head
+  if hq_threat(f, surface) or enemy_near(f, surface, e.x, e.y) or enemy_near(f, surface, h.x, h.y) then return end
+  local arm, arm_rate, pole = names_of(st, b, e.pid)
+  local sp = b.projects[e.pid]
+  local flow = math.max(1, #Sd.quai(e, sp.outs)) * (arm_rate or 0.83)
+  local spec = { rapatriement = { key = e.key, item = e.item, flow = flow, arm = arm, pole = pole, belt = belts[e.key], chest = CHEST,
+    src = { pid = e.pid, idx = 1, x = e.x, y = e.y }, point = { x = h.x, y = h.y },
+    direct = { exit = { x = e.x, y = e.y, dir = e.dir }, head = { k = h.k, x = h.x, y = h.y, dir = h.dir } } },
+    prio = api.prio, domain = "infrastructures", pile = "capital", product = e.item }
+  local id = api.request(f, spec)
+  if id then
+    dl[e.key] = { pid = id, src_pid = e.pid, item = e.item, k = h.k, exit = { x = e.x, y = e.y, dir = e.dir }, done = false, since = tick }
+    st.dir_why = nil
+    say(f, tick, Sd.text("demandee", { team = f.key, tick = tick, pid = id, ex = e.x, ey = e.y, src_pid = e.pid, k = h.k, hx = h.x, hy = h.y, item = e.item, d = pick.d }))
+  end
+end
+
 local function finish_cycle(api, f, surface, b, st, c, tick)
   if Rap.prune_jobs then Rap.prune_jobs(f, b) end -- recherches de tracé des projets qui ne planifient plus
   follow_lines(f, surface, b, st, tick)
   rebuild_tampons(b, st)
+  Rap.directes(api, f, surface, b, st, tick) -- s42 bus-direct
   for _, s in ipairs(c.srcs) do
     s.linked = st.lines[s.key] ~= nil
     local _, ar = names_of(st, b, s.pid)
@@ -556,7 +671,12 @@ local function advance(J)
     local sp = J.spots[J.si]
     J.D = { x = sp.x, y = sp.y }
     J.planned = {}
-    J.ends = Rp.ends_ok(Li.pick_ends(J.S, J.D, J.free), J.ok.arm, Rp.ROUTE_TRIES)
+    if J.direct then
+      local dr = J.p.spec.rapatriement.direct
+      J.ends = { Sd.ends(dr.exit, dr.head) } -- s42 bus-direct : une seule paire de bouts (les deux sont des tapis bâtis)
+    else
+      J.ends = Rp.ends_ok(Li.pick_ends(J.S, J.D, J.free), J.ok.arm, Rp.ROUTE_TRIES)
+    end
     J.ei = 1
   end
 end
@@ -582,11 +702,12 @@ local function bind(api, f, surface, p, J)
     local c = J.chunk(math.floor(x / CHUNK), math.floor(y / CHUNK))
     if not c then return nil end
     local k = P.tkey(x, y)
-    if c.water[k] or c.blocked[k] or b.occ[k] then return nil end
+    if c.water[k] or c.blocked[k] or (b.occ[k] and k ~= J.occ_open) then return nil end
     return c, k
   end
   function J.free(x, y)
     local c, k = J.ground(x, y)
+    if J.open and k and J.open[k] then return not J.planned[k] end -- s42 bus-direct
     return c ~= nil and not (J.guard[k] or J.planned[k]) and not J.wf(x, y)
   end
   -- lot SORTIE-COFFRE : jamais de poteau sur la tuile du tapis d'un autre coffre du quai (second rendu de Rp.quai_guard, refait à chaque appel)
@@ -600,7 +721,7 @@ local function bind(api, f, surface, p, J)
     local c = J.chunk(math.floor(x / CHUNK), math.floor(y / CHUNK))
     return c and c.res[P.tkey(x, y)] or false
   end
-  local function ptype(name) local pr = game.entity_prototypes[name] return pr and pr.type end
+  local function ptype(name) local pr = name and game.entity_prototypes[name] return pr and pr.type end
   J.ok = { chest = Rp.off_ore(ptype(lc.chest), ore), arm = Rp.off_ore(ptype(lc.arm), ore) }
   function J.cost(x, y)
     if not J.free(x, y) then return nil end
@@ -618,8 +739,13 @@ local function strip(J) for _, k in ipairs(STRIP) do J[k] = nil end end
 local function new_job(f, surface, p)
   local lc = p.spec.rapatriement
   local src = lc.src
-  if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return nil, "rapatriement: coffre de sortie disparu" end
-  if not (lc.arm and lc.belt and lc.pole and lc.chest) then return nil, "rapatriement: pieces inconnues" end
+  local dr = lc.direct -- s42 bus-direct : { exit = { x, y, dir }, head = { k, x, y, dir } } ; le départ est un tapis (le bout de la colonne), l'arrivée la tête d'une ligne du tronc
+  if dr then
+    if not lc.belt then return nil, "rapatriement: pieces inconnues" end
+  else
+    if not chest_at(f, surface, src.x + 0.5, src.y + 0.5) then return nil, "rapatriement: coffre de sortie disparu" end
+    if not (lc.arm and lc.belt and lc.pole and lc.chest) then return nil, "rapatriement: pieces inconnues" end
+  end
   local reuse = lc.reuse
   if reuse and not chest_at(f, surface, reuse.x + 0.5, reuse.y + 0.5) then reuse = nil end -- tampon disparu : on en pose un neuf
   local px, py = lc.point.x, lc.point.y
@@ -636,6 +762,18 @@ local function new_job(f, surface, p)
   local J = { box = { x0 = math.floor(x0), y0 = math.floor(y0), x1 = math.ceil(x1), y1 = math.ceil(y1) }, reuse = reuse, px = px, py = py, planned = {}, total = 0, runs = 0, si = 0, ei = 1,
     last_why = "aucun chemin", slices = 0, stage = "guard", gi = 1, gj = 1, guard = { [P.tkey(src.x, src.y)] = true }, grid = { cost = {}, done = false } }
   J.S = { x = src.x, y = src.y }
+  if dr then
+    local e = Sd.ends(dr.exit, dr.head)
+    if not e then return nil, "rapatriement: ligne directe, direction fausse" end
+    J.direct = true
+    J.guard = {}
+    -- la première tuile (devant le bout de la colonne) et la tuile d'arrivée (derrière la tête) sont celles où un tapis DOIT verser : ni garde ni front étranger
+    J.open = { [P.tkey(e.src.bx, e.src.by)] = true, [P.tkey(e.dst.bx, e.dst.by)] = true }
+    local Rt = package.loaded["script.team.mall_rangee"]
+    if Rt and Rt.arrivee and Rt.arrivee(f, e.dst.bx, e.dst.by, false) then J.occ_open = P.tkey(e.dst.bx, e.dst.by) end -- (tuile de la marge du secteur du mall, rendue à la réservation)
+    J.arr = { x = e.dst.bx, y = e.dst.by }
+    return J
+  end
   -- lot SORTIE-COFFRE : les voisines des autres coffres de sortie du projet de S (le quai) restent à leurs bras (Rp.quai_guard ; la tuile
   -- derrière chacune, sans poteau, est relue par bind : J.pole_free)
   local sp = f.build.projects[src.pid]
@@ -686,6 +824,13 @@ end
 local function stage_spots(f, surface, b, p, J)
   local lc = p.spec.rapatriement
   local src = lc.src
+  if J.direct then -- s42 bus-direct : ni bras ni tampon ; les deux bouts sont relus dans le moteur
+    local dr = lc.direct
+    if not belt_at(f, surface, dr.exit.x, dr.exit.y, dr.exit.dir) then return "rapatriement: ligne directe, bout de la colonne disparu" end
+    if not belt_at(f, surface, dr.head.x, dr.head.y, dr.head.dir) then return "rapatriement: ligne directe, tete de la ligne du tronc disparue" end
+    J.spots = { { x = dr.head.x, y = dr.head.y } }
+    return nil
+  end
   local wire = (M.spec(lc.pole) or {}).wire or 7.5
   local near = wire - 2
   local at_src = pole_probe(f, surface, src.x, src.y, near + 4)
@@ -747,7 +892,12 @@ local function purity(J, e, tiles, nxt)
   local targets
   if nxt then targets = { [P.tkey(nxt.x, nxt.y)] = true }
   else targets = { [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(J.D.x, J.D.y)] = true } end
-  return Pur.check_route(J.f, J.surface, J.p, "rapatriement", tiles, lc.item, targets, nil)
+  local opts = nil
+  if J.direct then -- s42 bus-direct : le bout de la colonne verse sur la ligne, la ligne verse sur la tête du tronc (même objet, voulu)
+    local dr = lc.direct
+    opts = { own = { [P.tkey(dr.exit.x, dr.exit.y)] = true, [P.tkey(dr.head.x, dr.head.y)] = true } }
+  end
+  return Pur.check_route(J.f, J.surface, J.p, "rapatriement", tiles, lc.item, targets, opts)
 end
 
 --- Lot BUS-LONG : le contexte d'une tranche de Tc.step (les fonctions du monde, refaites à chaque appel).
@@ -803,6 +953,24 @@ local function stage_ents(f, surface, b, p, J)
   local chosen = J.chosen
   local e, tiles, D = chosen.e, chosen.tiles, chosen.D
   J.planned = { [P.tkey(e.src.ax, e.src.ay)] = true, [P.tkey(e.dst.ax, e.dst.ay)] = true, [P.tkey(D.x, D.y)] = true }
+  if J.direct then -- s42 bus-direct : des tapis seulement ; preuve Sd.verify (tracé virtuel) puis celle des paires souterraines
+    for _, t in ipairs(tiles) do J.planned[P.tkey(t.x, t.y)] = true end
+    local dr = lc.direct
+    local ug = J.ug or nil
+    local bad = Sd.verify(Tv.virtual_belts(tiles), dr.exit, dr.head)
+    if #bad == 0 then bad = Tv.verify(tiles, { x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Li.end_dir(e.dst), ug and ug.maxd or 0, nil) end
+    if #bad > 0 then return "rapatriement: geometrie fausse (" .. bad[1] .. ")" end
+    local ents = {}
+    for _, x in ipairs(Rp.entities({ src = e.src, dst = e.dst, route = tiles, names = { arm = lc.belt, belt = lc.belt, pole = lc.belt, chest = lc.belt, ug = ug and ug.name or nil }, poles = {}, reuse = true })) do
+      if x.role == "liaison-tapis" then
+        x.part = 1; x.rank = P.kind_rank(x.name)
+        ents[#ents + 1] = x
+      end
+    end
+    if #ents ~= #tiles then return "rapatriement: geometrie fausse (pieces de la ligne directe)" end
+    J.ents, J.ai = ents, 1
+    return nil
+  end
   local taken = {}
   for _, t in ipairs(tiles) do J.planned[P.tkey(t.x, t.y)] = true; taken[t.x .. ":" .. t.y] = true end
   taken[e.src.ax .. ":" .. e.src.ay], taken[e.dst.ax .. ":" .. e.dst.ay], taken[D.x .. ":" .. D.y] = true, true, true
@@ -915,6 +1083,13 @@ local function stage_close(api, f, p, J)
     local a, c, d = tiles[i - 1], tiles[i], tiles[i + 1]
     if a.dir == c.dir and c.dir == d.dir and not c.ug and not a.ug and not d.ug then p.tapis_piquable[#p.tapis_piquable + 1] = { x = c.x, y = c.y, item = lc.item } end
   end
+  if J.direct then
+    p.rap = { item = lc.item, flow = lc.flow, direct = true }
+    log(string.format("[FO-BUS-DIRECT] %s : projet %d planifie (%s) : %d tuile(s) de tapis %s, aucun bras, aucun coffre, du bout de colonne (%d, %d) a la tete de la ligne %d du tronc (%d, %d), %d obstacle(s), %d appel(s), %d noeud(s), %d troncon(s), %d paire(s) souterraine(s)",
+      f.key or "player", p.id, tostring(lc.item), #tiles, lc.belt, lc.direct.exit.x, lc.direct.exit.y, lc.direct.head.k, lc.direct.head.x, lc.direct.head.y, #p.obstacles, J.slices, J.total,
+      chosen.legs or 0, chosen.pairs or 0))
+    return true
+  end
   if not J.reuse then
     -- le tampon est une sortie comme les autres : collecté à Rp.TAMPON_AT, et seulement si le QG est sous Rp.KEEP_STOCK (out_wanted)
     p.outs[#p.outs + 1] = { x = D.x + 0.5, y = D.y + 0.5, at = Rp.TAMPON_AT }
@@ -965,6 +1140,10 @@ local function plan_step(api, f, surface, p, J)
     J.stage = "reserve"
     return waiting(J)
   elseif J.stage == "reserve" then
+    if J.direct and J.occ_open and J.arr then -- s42 bus-direct : la tuile d'arrivée quitte la réserve du secteur du mall, ce projet la prend aussitôt
+      local Rt = package.loaded["script.team.mall_rangee"]
+      if Rt and Rt.arrivee then Rt.arrivee(f, J.arr.x, J.arr.y, true) end
+    end
     if not api.reserve_tiles(b, p, J.ents) then return stop("place") end -- refusée si un autre projet a pris des tuiles entre-temps
     if #p.ents ~= #J.ents then P.sort_build(p.ents) end -- p.ents n'était pas vide : retrié
     J.stage = "close"
