@@ -330,6 +330,13 @@ check(i_plan and i_loop and i_pole and i_end and i_loop < i_pole and i_pole < i_
 local i_geo = SCRIPT:find("Ln%.verify%(", i_loop or 1)
 check(i_geo and i_end and i_geo < i_end and SCRIPT:find('last_why = "geometrie fausse %(', i_loop or 1) ~= nil,
   "11.7d s40 p28 : la preuve geometrique se fait DANS la boucle des bouts (un bout faux : le suivant)")
+do -- s40 p30 : tout refus d'avant la boucle des bouts vide p.rs et BUS_CACHE[p.id]
+  local head = SCRIPT:sub(i_plan or 1, i_loop or 1)
+  local n_early = 0
+  for _ in head:gmatch("return early%(") do n_early = n_early + 1 end
+  check(head:find("local function early%(why%) p%.rs, BUS_CACHE%[p%.id%] = nil, nil; return false, why end") ~= nil and n_early == 5
+    and not head:find('return false, "liaison:', 1, true), "11.7e s40 p30 : les 5 refus precoces vident l'etat de reprise et le cache (" .. n_early .. ")")
+end
 local n_pairs = 0
 local code_s = SCRIPT:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
 for _ in code_s:gmatch("[^i%.]pairs%(") do n_pairs = n_pairs + 1 end
