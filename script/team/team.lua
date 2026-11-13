@@ -546,6 +546,7 @@ function Team.view(f, tick)
   Profiler.fstart("view:2-avant-postes")
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
+  local need_t = {} -- s40 ups-team p44 : seuil de tourelles de chaque avant-poste, calculé UNE fois (même rang que `outposts`)
   local fsurface = f.hq and f.hq.valid and f.hq.surface
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
@@ -567,6 +568,7 @@ function Team.view(f, tick)
     -- Seul l'avant-poste de la plaque clé (le fer) est gardé selon sa menace : « les ressources d'abord » (le DC, 29/10) ; les autres gardent la règle
     -- d'avant (mesure 1618033988 : une tourelle de plus demandée à un avant-poste de pierre à 211 tuiles, fer dépensé, PNJ perdu en chemin).
     local base_t = T.defend_turrets(o.drills)
+    need_t[#outposts + 1] = base_t
     local want_t, wave_t, why_t = base_t, 0, "base"
     local ospec_t = T.outposts[o.kind]
     if ospec_t and ospec_t.product == T.outposts.iron.product then want_t, wave_t, why_t = SurvieQg.garde(f, oid, tick, base_t) end
@@ -700,8 +702,8 @@ function Team.view(f, tick)
     and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
     and iron0 >= grow_iron + 10 + (f.engineers_count or 0) then
     grow_due = true
-    for _, o in ipairs(outposts) do
-      if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
+    for i, o in ipairs(outposts) do
+      if (o.turrets or 0) < need_t[i] then grow_due = false break end
     end
   end
   if grow_due then recruit_held = false end
@@ -710,7 +712,7 @@ function Team.view(f, tick)
   local iron_reserve
   if f.is_player then
     local needs = {}
-    for _, o in ipairs(outposts) do needs[#needs + 1] = { turrets = o.turrets, need = T.defend_turrets(o.drills) } end
+    for i, o in ipairs(outposts) do needs[#needs + 1] = { turrets = o.turrets, need = need_t[i] } end
     local defended = FerEquipe.defended({ turret_ok = grow, hq_turrets = hq_turrets, defend_hq = T.defend_hq, outposts = needs })
     iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended, evaluated)
   end
