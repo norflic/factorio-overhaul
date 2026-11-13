@@ -1222,6 +1222,21 @@ function Champ.report(f, surface, tick)
     f.key or "player", tick / 3600, #ids, table.concat(parts, ", "), #mparts > 0 and (" ; manque " .. table.concat(mparts, ", ")) or "",
     d.n, d.run, d.stuck, d.nopow, fu.n, fu.run, fu.noin, fu.nofuel, fu.full, out.n, out.sum, out.max, out.due, fuel.n, tostring(fuel.min or "-"))
     .. (#bad > 0 and (" | " .. table.concat(bad, " ; ")) or ""))
+  -- Lot CUMUL (13/11, demande du DC : « vérifiez bien vos chiffres ») : cumuls du MOTEUR depuis le début de la partie, les
+  -- mêmes compteurs que la fenêtre de production du jeu (item_production_statistics : entrée = extrait ou produit, sortie =
+  -- consommé), pour que la partie du DC et le banc se comparent ligne à ligne. Lecture seule.
+  local cum = {}
+  pcall(function()
+    local stats = game.forces[f.force].item_production_statistics
+    for _, k in ipairs(sorted_keys(T.outposts)) do
+      local o = T.outposts[k]
+      if o.resource ~= o.product then
+        cum[#cum + 1] = string.format("%s extrait %d consomme %d", o.resource, stats.get_input_count(o.resource), stats.get_output_count(o.resource))
+      end
+      cum[#cum + 1] = string.format("%s produit %d consomme %d", o.product, stats.get_input_count(o.product), stats.get_output_count(o.product))
+    end
+  end)
+  log(string.format("[FO-CUMUL] %s min %.0f | %s", f.key or "player", tick / 3600, table.concat(cum, " ; ")))
 end
 
 return Champ
