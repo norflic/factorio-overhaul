@@ -133,5 +133,14 @@ do
   check(not Ch.better_axis(fake(10, 0), nil) and not Ch.axis_retry(nil), "choix : sans second plan")
 end
 
+-- 4. Poteau gênant sur gisement : la famine de la plaque clé ne retient que les poteaux HORS gisement (shared/team/hygiene_regle.lua)
+do
+  local Hr = require("shared.team.hygiene_regle")
+  check(Hr.famine_bloque(true, false) == true, "famine : poteau hors gisement retenu")
+  check(Hr.famine_bloque(true, true) == false, "famine : poteau sur gisement deplace quand meme")
+  check(Hr.famine_bloque(false, false) == false and Hr.famine_bloque(false, true) == false, "sans famine : rien de retenu")
+  check(Hr.famine_bloque(nil, false) == false, "famine non lue : rien de retenu")
+end
+
 print(string.format("s42 gisements : %d OK, %d echec(s)", passes, failures))
 if failures > 0 then os.exit(1) end

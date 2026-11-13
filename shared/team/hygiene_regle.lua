@@ -43,6 +43,14 @@ Hr.CFG = {
   max_sondes = 24,  -- candidats de remplacement sondés au moteur (minerai, place) au plus par poteau : coût borné d'une tranche
 }
 
+--- s42 gisements (chantier 4.3 du DC, partie 0.7.96 : 639 impulsions sur 904 refusées pour « famine », 13 poteaux déplacés en 4 h 15) : la
+--- famine de la plaque clé ne retient plus un poteau SUR GISEMENT. Aucune plaque n'y est dépensée (feuille : l'objet rentre au coffre ;
+--- remplaçant : pris au coffre, l'ancien y rentre à la tranche suivante), et le poteau gêne l'extraction du minerai qui manque. Hors
+--- gisement, la famine retient toujours (comportement d'avant). Rend vrai si l'action est refusée.
+function Hr.famine_bloque(famine, sur_gisement)
+  return famine == true and not sur_gisement
+end
+
 --- Retraits encore permis dans l'impulsion : (vrai si `n` retraits faits en laissent au moins un, reste).
 function Hr.budget(n, cfg)
   cfg = cfg or Hr.CFG
