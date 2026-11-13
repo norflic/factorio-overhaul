@@ -81,6 +81,7 @@ local Rg = require("shared.ai3.rang") -- lot VIDEO-L1b : rang de la décision (R
 local Cf = require("shared.ai3.confirmation") -- lot VIDEO-COUVERTURE 5 : module suivant retenu en amont (Cf.upstream)
 local Pr = require("shared.ai3.porte_rang") -- lot VIDEO-L2 : porte de rang ciblée
 local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : saturation totale des gisements revendiqués (Cv.saturation)
+local Mg = require("shared.ai3.marge") -- lot MARGE-TIERS : marge de 20 % des tiers 0 et 1, gel des tiers supérieurs
 
 local Ca = {}
 
@@ -2227,6 +2228,38 @@ local function rank_gate(ctx, plan, req, out)
   return kept
 end
 
+--- Lot MARGE-TIERS (P1 du DC, shared/ai3/marge.lua) : marge des tiers 0 et 1 (offre = max(production mesurée, capacité posée plan.P)
+--- + stock ÷ H, contre la consommation mesurée, input.marge) ; sous 20 % (hystérésis st.marge), les options de CHAÎNE d'un rang
+--- supérieur à 2 qui ne servent ni la défense ni foreuses et fonderies sont refusées « marge T0/T1 : … ». Verdict calculé une fois
+--- par décision (ctx.mg), sur le posé : un ordre décidé ce tour ne lève pas le gel avant d'être bâti. Sous menace : rien.
+local function marge_gate(ctx, plan, out)
+  if ctx.threat or ctx.rang == nil then return out end
+  local D = ctx.D
+  if ctx.mg == nil then
+    local skip = {}
+    for _, i in ipairs(sorted_keys(ctx.input.marge)) do
+      if D.items[i] == nil or (D.res[i] and D.res[i].fluid) then skip[i] = true end
+    end
+    local rows = Mg.rows(ctx.input.marge, ctx.rang.rank, plan.P, ctx.stock, skip)
+    local st = ctx.st or {}
+    st.marge = st.marge or {}
+    ctx.mg = Mg.step(st.marge, rows)
+    ctx.mg_ex = Mg.exempt(D, ctx.rang.rank, { entity_role = R.ENTITY_ROLE, kit = R.KIT_TYPE, plant = set_of(R.PLANT_TYPES) })
+    ctx.mg_n = 0
+  end
+  if not ctx.mg.gel then return out end
+  local kept = {}
+  for _, c in ipairs(out) do
+    if Mg.frozen(ctx.mg, c.o, ctx.rang.rank, ctx.mg_ex) then
+      refuse(ctx, c.o.key, c.o.kind, c.o.item, Mg.cause(ctx.mg))
+      ctx.mg_n = ctx.mg_n + 1
+    else
+      kept[#kept + 1] = c
+    end
+  end
+  return kept
+end
+
 --- Toutes les options du plan courant.
 function Ca.options(ctx, plan, req)
   local D = ctx.D
@@ -2260,6 +2293,7 @@ function Ca.options(ctx, plan, req)
   power_options(ctx, plan, out)
   Lv.options(Ca, ctx, plan, req, out) -- lot LEVIERS : modules dans les machines posées, recherches à effet
   if Ca.PORTE_RANG and Ca.RANG and ctx.rang then out = rank_gate(ctx, plan, req, out) end -- lot VIDEO-L2 (allumé à l'étape 8)
+  if Mg.ON and ctx.input.marge then out = marge_gate(ctx, plan, out) end -- lot MARGE-TIERS : gel des tiers supérieurs sous 20 % de marge
   out = Pf.gate(out, ctx.input.excl, { labos = plan.labs }, function(k, kd, it, w) refuse(ctx, k, kd, it, w) end) -- lot VIDEO-PLAFONDS : exclusion (V99), plafond de sûreté des laboratoires (G02, G03, G64)
   table.sort(out, function(a, b) return Ca.before(a.o, b.o) end)
   -- Lot GISEMENTS (DC 31/10 : « la gestion des ressources […] on doit l'appliquer à toutes les ressources ») : la matière la plus en manque
@@ -2710,6 +2744,7 @@ local function decide_report(J)
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open, rstar = ctx.rstar, rang_held = ctx.rang_held,
+    marge = ctx.mg and { gel = ctx.mg.gel, short = #ctx.mg.short, rows = ctx.mg.rows, frozen = ctx.mg_n } or nil, -- lot MARGE-TIERS (nil : pas de mesure)
     sat = ctx.input.saturation and ctx.sat or nil, -- lot COUVERTURE : verdict de saturation par gisement (nil : saturation éteinte) -- lot VIDEO-L2 : porte de rang (nil quand elle est éteinte)
     -- lot VIDEO-COUVERTURE 5 (C5.1) : cycles de la décision, graine de l'amorce. Seulement s'il y a un cycle ou une graine (intégrateur,
     -- 7/11 23 h 55) : sinon le champ casserait l'identité de la décision rang allumé / éteint (rang_cablage_test §2) sans rien semer.

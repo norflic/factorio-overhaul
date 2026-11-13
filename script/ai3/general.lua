@@ -267,7 +267,8 @@ function General.dump()
   end
   for _, name in ipairs(keys_list(game.item_prototypes)) do
     local it = game.item_prototypes[name]
-    d.items[name] = { type = it.type, fuel_value = it.fuel_value or 0 }
+    local pr = it.place_result -- lot MARGE-TIERS : type du bâtiment posé (défense, logistique, courant : jamais gelés)
+    d.items[name] = { type = it.type, fuel_value = it.fuel_value or 0, place = pr and pr.type or nil }
   end
   return d
 end
