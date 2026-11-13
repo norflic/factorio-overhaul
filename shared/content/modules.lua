@@ -29,6 +29,24 @@ M.mult = MM
 
 M.TIERS = 10
 M.VANILLA_TIERS = 3
+-- s42 (chantier 2.1 du DC) : emplacements d'une machine de production du mod dont le modèle copié n'en a aucun
+-- (haut fourneau, concasseur, four à coke, concentrateur) : le minimum du jeu, celui du four électrique.
+M.MACHINE_SLOTS_MIN = 2
+-- Familles à niveaux SANS modules dans shared/levels/config.lua (family.modules absent) qui en reçoivent quand même à
+-- partir d'un niveau : clé de famille → premier niveau. Four : 2, car le niveau 1 EST le four en acier vanilla, laissé
+-- sans emplacement comme le jeu ; ensuite la même échelle que l'assembleur (Q-B2 : 5 + 1 par niveau, donc 6 au niveau 2
+-- et 34 au niveau 30).
+M.LEVEL_SLOTS_FROM = { furnace = 2 }
+
+--- Emplacements du niveau n d'une famille à niveaux (L = shared/levels/config.lua) : la règle de L.module_slots, sinon
+--- celle de M.LEVEL_SLOTS_FROM ; nil = aucun emplacement.
+function M.level_slots(L, family, n)
+  local slots = L.module_slots(family, n)
+  if slots then return slots end
+  local from = M.LEVEL_SLOTS_FROM[family.key]
+  if from and n >= from then return L.MODULE_SLOTS_FIRST + L.MODULE_SLOTS_STEP * (n - 1) end
+  return nil
+end
 
 --- D-17 : bonus de vitesse par palier, en CENTIÈMES (entiers) : 20, puis +10 par palier (D-15 : 50, 80, 110, +30).
 M.SPEED_CENTS = { 20, 30, 40, 50, 60, 70, 80, 90, 100, 110 }
