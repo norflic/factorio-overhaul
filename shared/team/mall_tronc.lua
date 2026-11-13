@@ -138,4 +138,20 @@ function Mt.section(lines, row, names)
   return { ents = ents, quais = quais, y_to = y_to, routes = routes }
 end
 
+--- (s41 raccord-mall) Vrai si cette tuile de la PLACE du tronc (x de −WEST à −1, y ≥ Y_TOP, repère canonique) n'est utilisée par aucune ligne, tête, prise ni amenée, quel que soit le nombre de
+--- lignes et de rangées : une chaîne de poteaux peut y passer. La place entière était fermée au raccord : 16 tuiles de profondeur entre les têtes des rangées et la base, plus que la portée
+--- d'un fil : aucune rangée ne rejoignait le réseau (partie du DC 0.7.95 : rangées 1, 2 et 3 refusées « sans chaine »). Ouvert : la tuile entre les deux coffres de chaque tête ; à l'ouest de
+--- la dernière ligne (y ≥ 0) ; la tuile de passage entre deux rangées, hors colonnes des lignes et hors des tuiles de tête (x ≥ LEAD_FROM, laissées aux rangées à quais). Pur.
+function Mt.place_libre(rx, ry)
+  if rx >= 0 or rx < -Mt.WEST or ry < Mt.Y_TOP then return false end
+  local ligne, coffre = false, false
+  for k = 1, Mt.KMAX do
+    if rx == Mt.XL(k) then ligne = true end
+    if rx == Mt.XL(k) - 2 then coffre = true end
+  end
+  if ry < 0 then return coffre and ry == Mt.Y_TOP + 1 end
+  if rx < Mt.XL(Mt.KMAX) then return true end
+  return ry % 15 == 14 and rx < Mt.LEAD_FROM and not ligne
+end
+
 return Mt
