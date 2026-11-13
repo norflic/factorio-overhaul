@@ -270,5 +270,15 @@ check(labels == 0, "étiquettes de rendu détruites")
 run_ticks(2000) -- les résultats de chemin en retard doivent être ignorés sans erreur
 check(true, "résultats périmés ignorés sans erreur")
 
+-- s40 ups-team (axe 5) : travail refait par pensée (lecture statique du source)
+do
+  local function src(p) local h = assert(io.open(p, "rb")); local t = h:read("*a"); h:close(); return t end
+  local team = src("script/team/team.lua")
+  local view = team:sub(team:find("function Team.view(", 1, true), team:find("function Team.measure(", 1, true))
+  local _, n_sm = view:gsub("Outposts%.smelters%(f%)", "")
+  check(n_sm == 1, "p41 : Team.view ne revalide les fours qu'une fois par pensée (" .. n_sm .. ")")
+  -- S40-SUITE
+end
+
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

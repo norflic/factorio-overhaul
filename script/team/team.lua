@@ -812,6 +812,7 @@ function Team.view(f, tick)
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   -- Lot X10-S0 : le constructeur final (appels compris, même ordre) mesuré par « view:5-queue » et ses sous-portées (mesure seulement)
   Profiler.fstart("view:5-queue")
+  local smelters_now = Outposts.smelters(f) -- s40 ups-team p41 : fours valides lus UNE fois par pensée (avant : deux revalidations de suite)
   local out = {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = incoming, repat = repat,
@@ -820,9 +821,9 @@ function Team.view(f, tick)
     mq = mq and { need = mq.need, build = mq.build } or nil, avail_out = mq and mq.dispo_sorties or nil, dort = mq and mq.dort or nil,
     sorties_on = f.team.sorties_regle ~= false or nil, -- lot CHARBON-MAIN : règle « sorties brutes d'abord » (shared/team/sorties_main.lua)
     outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
-    smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
+    smelters = #smelters_now, smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
-    smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, Outposts.smelters(f)),
+    smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, smelters_now),
     coal_cap = fsurface and Profiler.fwrap("view:5-cap", Cap.read, f, fsurface) or nil, -- lot PURGE-FER-CHARBON : plafond du combustible (besoin réel, extraction posée)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
