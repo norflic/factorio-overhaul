@@ -238,7 +238,7 @@ def torse(lot, M, stage, r):
     for (z, w, h, yy) in ((25.0, 2.6, 2.4, 1.7), (25.0, 2.6, 2.4, -1.7), (22.2, 3.6, 1.8, 0.0), (20.2, 3.0, 1.5, 0.0)):
         lot.put(M["blind2"], plaque((3.0 if z > 24 else 2.9, yy, z), G.norm((1.0, yy * 0.15, 0.25)), w, h, 0.3))
     # conduit central lumineux (poitrine) et fentes de ventilation lumineuses
-    lot.put(M["conduit"], G.boite((3.15, 0.0, 23.2), (0.22, 0.5, 5.2)))
+    lot.put(M["conduit"], G.boite((3.15, 0.0, 21.2), (0.22, 0.5, 1.6)))
     for yy in (-1.2, 1.2):
         lot.put(M["turq"], G.boite((2.95, yy, 21.4), (0.2, 1.0, 0.25)))
     # épaulières (stage 1 : simples ; 2 : étagées ; 3 : lourdes avec cristal)
@@ -253,7 +253,7 @@ def torse(lot, M, stage, r):
             for k in range(2):
                 lot.put(M["cristal"], pointe(G.add(c, (-0.6 + 1.2 * k, s * 1.4, 2.9)), G.norm((-0.3 + 0.2 * k, s * 0.5, 1.0)), 2.6 - 0.5 * k, 0.4))
     # TITANS2 : chevrons lumineux de la poitrine (concept : V cyan au plexus) et traces abdominales
-    for (z0, z1, w) in ((26.6, 24.4, 2.2), (25.4, 23.4, 1.5)):
+    for (z0, z1, w) in ((27.2, 26.0, 2.2),):
         lot.put(M["conduit"], G.tube([(3.32, -w, z0), (3.45, 0.0, z1), (3.32, w, z0)], 0.13, 5))
     for yy in (-2.2, -1.2, 1.2, 2.2):
         lot.put(M["conduit"], G.tube([(3.2, yy, 19.6), (3.2, yy, 20.6), (3.25, yy * 0.8, 21.2)], 0.09, 5))
@@ -277,6 +277,20 @@ def torse(lot, M, stage, r):
     lot.put(M["coeur"], G.sphere((1.0, 0.0, 31.3), 0.42, 10, 5))
     for s in (-1, 1):
         lot.put(M["struct"], G.sphere((0.3, s * 1.15, 31.1), 0.28, 8, 4))
+    # s43 (charte V3) : RÉACTEUR PECTORAL à vortex (point focal de face : avant, le seul cœur était dans le dos) : cuvette sombre, disque
+    # incandescent, trois bras de vortex, couronne de quatre patins magnétiques et émetteurs
+    P0 = (3.25, 0.0, 23.9)
+    lot.put(M["struct"], G.oriente(G.tour([(0.0, 1.55), (0.35, 1.5), (0.4, 0.0)], 20, "z", cap1=True), P0, (1.0, 0.0, 0.12)))
+    lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, 1.05)], 20, "z", cap1=True), G.add(P0, (0.42, 0.0, 0.05)), (1.0, 0.0, 0.12)))
+    for b_ in range(3):
+        pts = []
+        for j in range(9):
+            t = j / 8.0
+            a_ = G.TAU * b_ / 3 + t * 2.2 * math.pi
+            rr = 0.2 + 1.0 * t
+            pts.append((P0[0] + 0.55, rr * math.cos(a_), P0[2] + 0.06 + rr * math.sin(a_)))
+        lot.put(M["conduit"], G.tube(pts, 0.09, 5))
+    anneau_seg(lot, M, (P0[0] + 0.3, 0.0, P0[2]), "x", 1.6, 0.35, 0.2, n=4, jour=0.18, noeud=0.16)
     # dos : cœur à vortex dans une cage, anneau magnétique flottant autour (axe x), gorge lumineuse
     C = (-3.3, 0.0, 24.2)
     lot.put(M["coeur"], G.sphere(C, 1.35, 16, 8))

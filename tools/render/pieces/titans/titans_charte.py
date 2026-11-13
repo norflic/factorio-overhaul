@@ -25,7 +25,7 @@ import mat as MT  # noqa: E402
 import titans_mat as TM  # noqa: E402
 
 NUIT = (0.075, 0.085, 0.105)          # blindage principal : acier de nuit bleuté
-NUIT2 = (0.050, 0.056, 0.070)         # plaques secondaires, un ton plus bas
+NUIT2 = (0.150, 0.165, 0.200)         # plaques secondaires : acier canon CLAIR (deux tons : chaque plaque se lit sur le blindage de nuit)
 VIF = (0.72, 0.78, 0.88)              # arêtes usées : acier vif
 CREUX = (0.010, 0.011, 0.015)
 SKY_GLOSSY = 4.0
@@ -66,9 +66,9 @@ def charte(S, M, prefix, gris=False):
     if gris:
         return M
     M["blind"] = MT.surface(prefix + "v3_blind", NUIT, rough=0.20, met=0.92, tole=(1.6, 0.9), joint=0.05, joint_l=0.022, var=0.10,
-                            usure=0.62, nu=VIF, crasse=0.35, crasse_col=CREUX, relief=0.45, grain=0.03, biseau=0.04, graine=21)
+                            usure=0.62, nu=VIF, crasse=0.08, crasse_col=CREUX, relief=0.45, grain=0.0, biseau=0.04, graine=21)
     M["blind2"] = MT.surface(prefix + "v3_blind2", NUIT2, rough=0.24, met=0.90, tole=(0.8, 0.5), joint=0.05, joint_l=0.026, var=0.12,
-                             usure=0.62, nu=VIF, crasse=0.4, crasse_col=CREUX, relief=0.4, grain=0.03, biseau=0.04, graine=22)
+                             usure=0.62, nu=VIF, crasse=0.08, crasse_col=CREUX, relief=0.4, grain=0.0, biseau=0.04, graine=22)
     iris, TM.IRIS = TM.IRIS, IRIS_NUIT       # rampe d'iridescence de la charte V3 (rendue après usage : Kaiju & co gardent la leur)
     try:
         TM.iridescence(M["blind"], part=0.55, blend=0.32)
@@ -76,9 +76,9 @@ def charte(S, M, prefix, gris=False):
     finally:
         TM.IRIS = iris
     M["canon"] = MT.surface(prefix + "v3_canon", (0.11, 0.12, 0.14), rough=0.22, met=0.95, tole=(0.5, 0.25), joint=0.08, joint_l=0.03,
-                            var=0.08, usure=0.6, nu=VIF, crasse=0.4, crasse_col=CREUX, relief=0.7, biseau=0.03, graine=25)
+                            var=0.08, usure=0.6, nu=VIF, crasse=0.1, crasse_col=CREUX, relief=0.7, grain=0.0, biseau=0.03, graine=25)
     M["struct"] = MT.surface(prefix + "v3_struct", (0.016, 0.017, 0.022), rough=0.38, met=0.8, usure=0.5, nu=(0.40, 0.44, 0.52),
-                             crasse=0.6, crasse_col=(0.004, 0.004, 0.006), biseau=0.03, graine=23)
+                             crasse=0.15, crasse_col=(0.004, 0.004, 0.006), grain=0.0, biseau=0.03, graine=23)
     M["anneau"] = anneau_mag(S, prefix + "anneau_v3")
     M["halo"] = halo_discret(S, prefix + "halo_v3")
     M["conduit"] = S.mat_emissive(prefix + "conduit_v3", TM.CYAN, strength=3.8, base=(0.02, 0.30, 0.36), main_scale=0.55)
