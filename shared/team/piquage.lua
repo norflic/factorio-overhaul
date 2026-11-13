@@ -341,4 +341,32 @@ function Pq.bilan_line(team, n)
     n.causes and n.causes ~= "" and (" ; verdict/cause par quai : " .. n.causes) or "")
 end
 
+---------------------------------------------------------------------------------------------------
+-- Tour d'évaluation (sprint s43, scen-energie, scénario « goulot sur un bus »)
+---------------------------------------------------------------------------------------------------
+--[[ Défaut prouvé (partie du DC, 0.7.96, 4 h 15 : amber, 12 quais « attente/releves_insuffisants » figés de 154 à 229 min, 0 piquage en
+  4 h 15 pour toutes les équipes) : script/team/piquage.lua finish_cycle évaluait au plus EVAL_MAX quais prêts PAR RELEVÉ, toujours les mêmes
+  (ordre du débit décroissant) : un quai prêt classé au-delà n'était JAMAIS évalué, et gardait le verdict d'avant sa préparation. Et la
+  confirmation (st.seen, Li.CONFIRM relevés de suite) était remise à zéro pour toute paire non évaluée au relevé.
+  Correction : les quais prêts sont évalués À TOUR DE RÔLE (le plus anciennement évalué d'abord, jamais évalué = premier ; à égalité l'ordre
+  du débit) ; la confirmation d'une paire n'est remise à zéro que si son quai a été évalué à ce relevé. ]]
+
+--- Quais à évaluer à ce relevé. ready = liste ordonnée (débit décroissant) de clés de quais prêts ; last = { [clé] = tick de la dernière
+--- évaluation } ; quota. Rend { [clé] = true } (au plus `quota` clés).
+function Pq.eval_turn(ready, last, quota)
+  local list = {}
+  for i, k in ipairs(ready) do list[i] = { key = k, last = last[k] or -math.huge, i = i } end
+  table.sort(list, function(a, b) if a.last ~= b.last then return a.last < b.last end return a.i < b.i end)
+  local out = {}
+  for i = 1, math.min(quota, #list) do out[list[i].key] = true end
+  return out
+end
+
+--- La confirmation de la paire `pk` (« <quai>><tuile> ») se perd-elle ? Seulement si elle n'a pas été revue ET que son quai a été évalué.
+function Pq.seen_lost(pk, seen_now, evaluated)
+  if seen_now[pk] then return false end
+  local dock = pk:match("^(.*)>") or pk
+  return evaluated[dock] == true
+end
+
 return Pq
