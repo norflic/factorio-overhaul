@@ -376,6 +376,19 @@ do
   surface.enemies = 3
   surface.consumers = { dmg("pole-x", 10, 10, 10, 100) }
   check(Recon.repair_think(f, surface, 9000) == 0 and next(f.team.board.tasks) == nil, "ennemis près de la pièce : pas de réparation")
+  -- s40 : la pièce la plus abîmée sous le feu ne retient plus la réparation d'une pièce abîmée ailleurs
+  do
+    local far = dmg("pole-x", 300, 300, 30, 100)
+    surface.consumers = { dmg("pole-x", 10, 10, 10, 100), far }
+    local old_units = surface.find_enemy_units
+    surface.find_enemy_units = function(p) return (p.x == 10) and { {} } or {} end
+    local n2 = Recon.repair_think(f, surface, 9000 + Recon.REPAIR_SCAN + 1)
+    local t2
+    for _, tk in pairs(f.team.board.tasks) do if tk.kind == "repair" then t2 = tk end end
+    check(n2 == 1 and t2 and #t2.targets == 1 and t2.targets[1].x == 300, "s40 : pièce sous le feu écartée, la pièce abîmée ailleurs est réparée")
+    surface.find_enemy_units = old_units
+    f.team.board.tasks = {}
+  end
   surface.enemies = 0
   local fa = new_team()
   fa.is_player = false

@@ -738,6 +738,7 @@ function Recon.repair_think(f, surface, tick)
   for _, k in ipairs(State.sorted_keys(b.tasks)) do
     if b.tasks[k].kind == "repair" then return 0 end
   end
+  local under_fire = false
   local function scan(types, below)
     local cands = {}
     -- Lot PERF4 : l'ensemble des endommagées (script/team/abimes.lua, crochet Recon.damaged) remplace la recherche sur toute la
@@ -752,7 +753,19 @@ function Recon.repair_think(f, surface, tick)
           x = e.position.x, y = e.position.y, ratio = ratio }
       end
     end
-    return Rc.repair_batch(cands, below)
+    -- s40 : la pièce la plus abîmée sous le feu ne retient plus les réparations d'ailleurs : son lot est écarté des candidats et le lot
+    -- suivant est essayé (3 lots au plus par relevé). Avant : le relevé rendait 0 et retombait sur la même pièce au relevé suivant.
+    for _ = 1, 3 do
+      local batch = Rc.repair_batch(cands, below)
+      if #batch == 0 then return batch end
+      if #surface.find_enemy_units({ x = batch[1].x, y = batch[1].y }, Recon.SAFE_RADIUS, f.force) == 0 then return batch end
+      under_fire = true
+      local out, rest = {}, {}
+      for _, c in ipairs(batch) do out[c.key] = true end
+      for _, c in ipairs(cands) do if not out[c.key] then rest[#rest + 1] = c end end
+      cands = rest
+    end
+    return {}
   end
   local batch = {}
   if infra_due then
@@ -765,11 +778,8 @@ function Recon.repair_think(f, surface, tick)
     batch = scan(Ac.REPAIR_TYPES, Ac.TURRET_REPAIR_BELOW)
     turrets = #batch > 0
   end
+  if under_fire and f.is_player then stat(f.recon or Recon.state(f), "repair_deferred") end
   if #batch == 0 then return 0 end
-  if #surface.find_enemy_units({ x = batch[1].x, y = batch[1].y }, Recon.SAFE_RADIUS, f.force) > 0 then
-    if f.is_player then stat(f.recon or Recon.state(f), "repair_deferred") end
-    return 0
-  end
   local targets = {}
   for _, c in ipairs(batch) do targets[#targets + 1] = { name = c.name, x = c.x, y = c.y } end
   local n = Board.add(f, { { key = "repair:" .. batch[1].key, kind = "repair", prio = Rc.REPAIR_PRIO, domain = "defense", work = 10 + 2 * #batch,
