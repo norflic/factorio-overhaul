@@ -779,8 +779,8 @@ end
 --- Lot MALL-LIQUIDATION : les pièces d'UNE section de la rangée, lues au plan de sa dernière section finie (aucun nom en dur) : liste triée { objet, n, machine }
 --- (machine = vrai pour la pièce posée au rôle de machine de la rangée). Rend nil sans section finie.
 local function pieces_section(b, r)
-  local last = r.projects[#r.projects]
-  local p = last and not last.dead and b.projects[last.id]
+  local last = Mr.derniere(r.projects)
+  local p = last and b.projects[last.id]
   if not (p and p.state == "fini" and p.ents) then return nil end
   local machines = {}
   for _, e in ipairs(p.ents) do if e.role == "mall-machine_asm" then machines[item_of(e.name)] = true end end
@@ -861,9 +861,9 @@ function Rt.minute(f, surface, lec, sources, afford, tick, libre)
     local rate_of = {}
     for _, c in ipairs(sources or {}) do rate_of[c.item] = c.rate end
     for _, r in ipairs(st.rows) do
-      local last = r.projects[#r.projects]
+      local last = Mr.derniere(r.projects) -- (la dernière section VIVANTE : une section refusée reste dans la liste et figeait la rangée)
       local p = last and b.projects[last.id]
-      if not r.stop and p and p.state == "fini" and #r.cells < Mr.MAX_CELLS then
+      if not r.stop and not (r.retry_at and r.retry_at > tick) and p and p.state == "fini" and #r.cells < Mr.MAX_CELLS then
         local want = {}
         local seen = {}
         for _, c in ipairs(r.cells) do

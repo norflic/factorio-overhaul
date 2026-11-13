@@ -393,5 +393,13 @@ do
   end
 end
 
+-- s40 p6 : la dernière section vivante (une section refusée reste dans la liste)
+do
+  local a, b, c = { id = 1 }, { id = 2 }, { id = 3, dead = true }
+  check(Mr.derniere({ a, b, c }) == b, "derniere : saute la section morte en fin de liste")
+  check(Mr.derniere({ a, b }) == b, "derniere : la derniere quand elle vit")
+  check(Mr.derniere({ c }) == nil and Mr.derniere({}) == nil and Mr.derniere(nil) == nil, "derniere : nil sans section vivante")
+end
+
 print(string.format("[MALL-RANGEE] BILAN : %d OK, %d ECHEC(S)", ok_n, ko_n))
 os.exit(ko_n == 0 and 0 or 1)
