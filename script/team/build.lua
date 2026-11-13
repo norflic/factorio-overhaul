@@ -4394,44 +4394,62 @@ local function batch_tasks(f, p, out, free_of)
   local b = f.build
   local by = {}
   local order = {}
+  local started = {} -- lot FANTOMES : points d'appui entamés (une pièce déjà posée) : servis les premiers (Build.Tournee.allot)
   for _, e in ipairs(p.ents) do
-    if not e.built and e.item and (e.fails or 0) < Build.FAIL_LIMIT * 2 then
+    if e.built then
+      if e.anchor ~= nil then started[e.anchor] = true end
+    elseif e.item and (e.fails or 0) < Build.FAIL_LIMIT * 2 then
       local k = e.anchor
-      if not by[k] then by[k] = { items = {}, ax = e.ax, ay = e.ay, n = 0, poles = 0, main = {} }; order[#order + 1] = k end
+      if not by[k] then by[k] = { k = k, ax = e.ax, ay = e.ay, pieces = {} }; order[#order + 1] = k end
       local bt = by[k]
-      bump(bt.items, e.item)
-      bt.main[#bt.main + 1] = e.item -- relecture REBUILD-RAPIDE : objets qui posent les pièces du lot (Rr.batch_ready)
-      if e.name == "burner-inserter" then bump(bt.items, "coal", 2) end
-      if e.subst then bump(bt.items, T.fuel, Rr.SUBST_FUEL) end -- lot REBUILD-RAPIDE (d) : combustible porté avec la foreuse de secours
-      if e.charge then bump(bt.items, e.charge.item, e.charge.count) end -- lot CHAMP : charge portée avec le coffre de combustible
-      bt.n = bt.n + 1
+      local extra = {} -- objets portés avec la pièce
+      if e.name == "burner-inserter" then extra[#extra + 1] = { "coal", 2 } end
+      if e.subst then extra[#extra + 1] = { T.fuel, Rr.SUBST_FUEL } end -- lot REBUILD-RAPIDE (d) : combustible porté avec la foreuse de secours
+      if e.charge then extra[#extra + 1] = { e.charge.item, e.charge.count } end -- lot CHAMP : charge portée avec le coffre de combustible
+      bt.pieces[#bt.pieces + 1] = { item = e.item, extra = extra }
     end
   end
+  if #order == 0 then return end
   table.sort(order)
-  -- Relecture REBUILD-RAPIDE : un projet ROUVERT entre en chantier sans toute sa matière (Rr.partial_go) ; un lot dont AUCUN objet n'est au
-  -- coffre (réserve du projet + stock libre, comme Build.take_reserved) n'est pas mis au tableau : le PNJ irait au coffre pour rien, à la
-  -- priorité de la reconstruction. Il y revient dès que la matière arrive (pensée suivante) ; le manque reste dit par p.missing.
-  local free = (Rr.partial_go(p) or p.progressif) and free_of and free_of() or nil -- (p.progressif : bande neuve partie sans toute sa matière, lot EXPANSION-LOINTAINE)
-  local function have(it) return (p.stock[it] or 0) + (free[it] or 0) end
   -- Lot CHANTIERS-FANTOMES : points d'appui déjà servis par une tâche de pose du tableau (libre ou prise) : pas repris dans une autre tournée
   -- (deux PNJ sur la même pièce). Ils reviennent quand la tâche finit ou échoue.
-  local held = {}
-  for _, t in pairs(Board.get(f).tasks) do -- (ensemble seulement : l'ordre de pairs n'entre dans aucune décision)
+  -- Lot FANTOMES : objets PROMIS à ces tâches tant que leur PNJ n'a pas pris (t.took, script/team/worker.lua take_res) : ils sont encore dans
+  -- la réserve du projet mais ne sont plus à donner.
+  local held, promised = {}, {}
+  for _, t in pairs(Board.get(f).tasks) do -- (ensemble et sommes seulement : l'ordre de pairs n'entre dans aucune décision)
     local j = t.ia1d
     if j and j.mode == "build" and j.pid == p.id then
       if j.tour then for _, a in ipairs(j.tour) do held[a.anchor] = true end
       elseif j.anchor then held[j.anchor] = true end
+      if not t.took then
+        for _, it in ipairs(t.items or {}) do promised[it[1]] = (promised[it[1]] or 0) + it[2] end
+      end
     end
   end
-  local cand = {}
+  -- Lot FANTOMES : matière comptée d'un point d'appui au suivant (shared/team/tournee_pose.lua, Tp.allot). Avant, chaque point d'appui voyait
+  -- TOUTE la réserve du projet (Rr.batch_ready) et demandait son besoin entier : la même matière promise à toutes les tâches, PNJ au coffre
+  -- pour rien (échec « stock », 188 tâches sans pose sur 1 430, [FO-GHOST-BILAN]). Disponible = réserve du projet + stock libre (complément
+  -- de Build.take_reserved, lu une fois par pensée et décompté d'un projet au suivant) - objets promis.
+  local free = free_of and free_of() or {}
+  local function left_of(it) return (p.stock[it] or 0) + (free[it] or 0) - (promised[it] or 0) end
+  local list = {}
   for _, k in ipairs(order) do
-    local bt = by[k]
-    -- rien au coffre pour ce lot : pas de voyage (le manque est au journal [FO-REBUILD-ETAT] et dans p.missing)
-    if not held[k] and (not free or Rr.batch_ready(bt.main, have)) then
-      local items = {}
-      for _, it in ipairs(sorted_keys(bt.items)) do items[#items + 1] = { it, bt.items[it] } end
-      cand[#cand + 1] = { k = k, x = bt.ax, y = bt.ay, n = bt.n, items = items }
+    if not held[k] then
+      local bt = by[k]
+      list[#list + 1] = { k = k, started = started[k] or false, pieces = bt.pieces, ax = bt.ax, ay = bt.ay }
     end
+  end
+  local allot, taken = Build.Tournee.allot(list, left_of)
+  for _, it in ipairs(sorted_keys(taken)) do -- part prise au stock libre : plus à donner au projet suivant de cette pensée
+    local over = taken[it] - math.max(0, (p.stock[it] or 0) - (promised[it] or 0))
+    if over > 0 and free[it] then free[it] = math.max(0, free[it] - over) end
+  end
+  local cand = {}
+  for _, c in ipairs(allot) do
+    local a = list[c.i]
+    local its = {}
+    for _, it in ipairs(c.items) do its[#its + 1] = it[1] end
+    cand[#cand + 1] = { k = c.k, x = a.ax, y = a.ay, n = c.n, items = c.items, its = its }
   end
   if #cand == 0 then return end
   -- Lot CHANTIERS-FANTOMES : une tâche = une TOURNÉE de points d'appui voisins (shared/team/tournee_pose.lua) ; avant, un point d'appui par
@@ -4447,7 +4465,7 @@ local function batch_tasks(f, p, out, free_of)
     for _, i in ipairs(tour) do
       local c = cand[i]
       n = n + c.n
-      list[#list + 1] = { anchor = c.k, ax = c.x, ay = c.y }
+      list[#list + 1] = { anchor = c.k, ax = c.x, ay = c.y, its = c.its }
       for _, it in ipairs(c.items) do
         if not sum[it[1]] then sum[it[1]] = 0; names[#names + 1] = it[1] end
         sum[it[1]] = sum[it[1]] + it[2]

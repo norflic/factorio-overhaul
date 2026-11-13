@@ -433,11 +433,12 @@ do
   check(r and g and m and r < g and g < m, "build.lua : un projet rouvert repart sans toute sa matière (après la réserve, avant l'attente « materiaux »)")
 end
 check(BUILD:find("prio = Rr.project_prio(p, finish_prio(p.prio))", 1, true) ~= nil, "build.lua : tâches d'un projet rouvert à leur rang")
-check(BUILD:find("if not free or Rr.batch_ready(bt.main, have) then", 1, true) ~= nil and BUILD:find("batch_tasks(f, p, tasks, free_of)", 1, true) ~= nil,
+-- (lot FANTOMES : la règle « rien au coffre, pas de voyage » est devenue la matière comptée de Tp.allot, tests/tournee_pose_test.lua)
+check(BUILD:find("local allot, taken = Build.Tournee.allot(list, left_of)", 1, true) ~= nil and BUILD:find("batch_tasks(f, p, tasks, free_of)", 1, true) ~= nil,
   "build.lua : un lot d'un projet rouvert sans aucun objet au coffre n'envoie pas de PNJ")
 check(read("script/team/rebuild_sweep.lua"):find("Rr.hot_set_list(st, Rr.hot_next(later, keep))", 1, true) ~= nil, "rebuild_sweep.lua : budget et rotation de la liste chaude")
 check(BUILD:find("if e.subst then bump(need, T.fuel, Rr.SUBST_FUEL) end", 1, true) ~= nil
-  and BUILD:find("if e.subst then bump(bt.items, T.fuel, Rr.SUBST_FUEL) end", 1, true) ~= nil
+  and BUILD:find("if e.subst then extra[#extra + 1] = { T.fuel, Rr.SUBST_FUEL } end", 1, true) ~= nil
   and BUILD:find("if e.subst and inv.get_item_count(T.fuel) >= 1 then", 1, true) ~= nil, "build.lua : combustible réservé, porté et mis dans la foreuse de secours")
 local RECON = read("script/team/reconstruction.lua")
 check(RECON:find("Sweep.note_died(f, pos, e.tick)", 1, true) ~= nil, "reconstruction.lua : la mort d'une pièce du plan entre dans la liste chaude")

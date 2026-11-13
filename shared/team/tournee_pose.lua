@@ -88,4 +88,70 @@ function Tp.group(anchors, origin, stack)
   return tours
 end
 
+--[[
+  Lot FANTOMES (13/11) : MATIÈRE COMPTÉE d'un point d'appui au suivant. PUR : aucune API du moteur, aucun nom d'objet.
+  Défaut mesuré (fo-logs/2026-11-13_CHANTIERS-FANTOMES-avant-123, [FO-GHOST-BILAN]) : 188 tâches de pose sur 1 430 finissent sans une pièce
+  posée ; avec les tournées seules 135 sur 354 (échecs « stock »). Cause : batch_tasks (script/team/build.lua) montrait TOUTE la réserve du
+  projet à CHAQUE point d'appui (Rr.batch_ready) et chaque tâche demandait le besoin entier de son lot : la même matière était promise à
+  toutes les tâches du projet ; le premier PNJ la prenait, les suivants allaient au coffre pour rien.
+  Règle : la matière disponible (`left(nom)` : réserve du projet + stock libre - objets promis aux tâches déjà au tableau qui n'ont pas
+  encore pris) est donnée pièce par pièce, d'abord aux points d'appui ENTAMÉS (une pièce déjà posée : un chantier ouvert est fini avant
+  qu'un autre soit ouvert), puis dans l'ordre des clés. Une pièce sans son objet n'est pas donnée ; un point d'appui sans aucune pièce
+  donnée ne fait pas de tâche. La tâche ne demande que ce qui lui est donné.
+    Tp.allot(anchors, left) -> liste (triée par clé) de { i = indice dans anchors, k, n = pièces données, items = { { nom, compte } } triée,
+                               short = vrai s'il manque de la matière au point d'appui } , prise = { [nom] = total donné }
+      anchors : liste de { k = clé, started = booléen, pieces = { { item = nom, extra = { { nom, compte }, ... } }, ... } } ;
+      les objets d'accompagnement (`extra` : combustible porté avec la pièce) sont donnés avec la pièce, dans la limite du disponible.
+]]
+function Tp.allot(anchors, left)
+  local idx = {}
+  for i = 1, #anchors do idx[i] = i end
+  table.sort(idx, function(a, b)
+    local sa, sb = anchors[a].started and 1 or 0, anchors[b].started and 1 or 0
+    if sa ~= sb then return sa > sb end
+    local ka, kb = tostring(anchors[a].k), tostring(anchors[b].k)
+    if ka ~= kb then return ka < kb end
+    return a < b
+  end)
+  local rem, taken = {}, {}
+  local function avail(nm)
+    if rem[nm] == nil then rem[nm] = math.max(0, math.floor(tonumber(left(nm)) or 0)) end
+    return rem[nm]
+  end
+  local function take(nm, n, counts, names)
+    n = math.min(n, avail(nm))
+    if n <= 0 then return 0 end
+    rem[nm] = rem[nm] - n
+    taken[nm] = (taken[nm] or 0) + n
+    if counts[nm] == nil then counts[nm] = 0; names[#names + 1] = nm end
+    counts[nm] = counts[nm] + n
+    return n
+  end
+  local out = {}
+  for _, i in ipairs(idx) do
+    local a = anchors[i]
+    local counts, names, n, short = {}, {}, 0, false
+    for _, pc in ipairs(a.pieces or {}) do
+      if take(pc.item, 1, counts, names) == 1 then
+        n = n + 1
+        for _, ex in ipairs(pc.extra or {}) do take(ex[1], ex[2], counts, names) end
+      else
+        short = true
+      end
+    end
+    if n >= 1 then
+      table.sort(names)
+      local items = {}
+      for _, nm in ipairs(names) do items[#items + 1] = { nm, counts[nm] } end
+      out[#out + 1] = { i = i, k = a.k, n = n, items = items, short = short }
+    end
+  end
+  table.sort(out, function(a, b)
+    local ka, kb = tostring(a.k), tostring(b.k)
+    if ka ~= kb then return ka < kb end
+    return a.i < b.i
+  end)
+  return out, taken
+end
+
 return Tp

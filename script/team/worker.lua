@@ -545,7 +545,7 @@ local function ia1d_program(task)
     if j.tour and #j.tour > 0 then
       local steps = { { "home" }, { "take_res", j.pid, task.items } }
       for i, a in ipairs(j.tour) do
-        steps[#steps + 1] = { "goto", { x = a.ax, y = a.ay }, 1 }
+        steps[#steps + 1] = { "goto", { x = a.ax, y = a.ay }, 1, i } -- (i : point d'appui de la tournée, lu par l'étape goto)
         steps[#steps + 1] = { "ia1d", i }
       end
       steps[#steps + 1] = { "home" }
@@ -1726,9 +1726,24 @@ local function run_steps(agent, tick)
         return
       end
     elseif kind == "goto" then
-      if not goto_step(agent, step[2], step[3] or 4, tick) then return end
-      agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
-      agent.pc = agent.pc + 1
+      -- Lot FANTOMES : point d'appui d'une tournée dont le PNJ ne porte AUCUN objet (prise incomplète, objets déjà posés au point d'avant) :
+      -- ni marche ni travail, la tournée passe au point suivant (avant : marche jusqu'au point pour constater qu'il n'y a rien à poser).
+      local ta = step[4] and agent.task and agent.task.ia1d and agent.task.ia1d.tour and agent.task.ia1d.tour[step[4]]
+      local nothing = false
+      if ta and ta.its then
+        nothing = true
+        local inv = main_inv(agent)
+        for _, nm in ipairs(ta.its) do if inv.get_item_count(nm) > 0 then nothing = false break end end
+      end
+      if nothing then
+        local g = agent.task.gt
+        if g then g.skip = (g.skip or 0) + 1 end
+        agent.pc = agent.pc + 2
+      else
+        if not goto_step(agent, step[2], step[3] or 4, tick) then return end
+        agent.street_off = nil -- lot IA1-d : le repli vers le PathService ne vaut que pour ce trajet
+        agent.pc = agent.pc + 1
+      end
     elseif kind == "take_depot" or kind == "put_depot" then
       -- Lot TV-ARCHI (V91) : prise au dépôt du quartier, puis retour du reste au même dépôt (script/team/quartiers.lua, Qr.depot_step)
       local ok = Build.Quartiers.depot_step(f, kind, step[2], step[3], main_inv(agent))
