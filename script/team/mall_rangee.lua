@@ -117,7 +117,30 @@ Build.SITES.mall = function(f, surface, p, h)
     if not row.cells[i] then return nil, "mall : cellules rendues" end
   end
   local extra = nil
-  if sp.bus and sp.lines then extra = Mt.section(sp.lines, row, sp.names) end
+  if sp.bus and sp.lines then
+    extra = Mt.section(sp.lines, row, sp.names)
+    -- (s42 bus-continu) le quai de réinjection ne fait jamais refuser la section : si une de ses tuiles est prise dans le monde (poteau de chaîne d'une partie d'avant, réserve d'un autre
+    -- projet, eau), la section se pose SANS lui : la ligne reste continue, la tête la nourrit seule comme avant.
+    -- La décision est tenue par le projet (sp.reinj : « oui » une fois le plan rendu avec le quai, « non » dès qu'il est écarté) : un plan refait ne change pas de liste de pièces.
+    local pris = nil
+    for _, e in ipairs(extra.ents) do
+      if e.reinj and not pris and not sp.reinj then
+        local wx, wy = Mr.to_world(e.x, e.y, e.dir, st.rep.k, st.rep.ox, st.rep.oy, 1)
+        local tx, ty = floor(wx), floor(wy)
+        local k = P.tkey(tx, ty)
+        local occ = b.occ[k]
+        local m = h.read_masks(tx, ty, tx, ty)
+        if (occ and occ ~= Build.Mall.OCC and occ ~= p.id) or m.water[k] or m.blocked[k] then pris = { tx, ty } end
+      end
+    end
+    if pris or sp.reinj == "non" then
+      extra = Mt.section(sp.lines, row, sp.names, { sans_reinjection = true })
+      if pris then
+        sp.reinj = "non"
+        say(f, st, game.tick, string.format("rangee %d : quai de reinjection ecarte (tuile prise en (%d, %d)) : section posee sans lui (projet %d)", row.j, pris[1], pris[2], p.id))
+      end
+    end
+  end
   -- lot MALL-DIRECTIONS : au-delà du secteur, les rues du treillis sont franchies par un souterrain par tapis (rien sur la rue) ; sans souterrain
   -- débloqué, la section qui devrait franchir est refusée « obstacle:rue » (la rangée s'arrête, comme au bout du secteur)
   local serie, swhy = Rt.serie_of(f, st, row, sp.to, sp.names.souterrain)
@@ -209,6 +232,7 @@ Build.SITES.mall = function(f, surface, p, h)
       if b.occ[k] == Build.Mall.OCC then b.occ[k] = nil end
     end
   end
+  if extra and sp.reinj ~= "non" then sp.reinj = "oui" end
   return { key = "mall-rangee-" .. row.j, box = bx, ents = sec.ents, quais = sec.quais, outs = sec.outs, masks = masks, out_at = 50 }
 end
 
