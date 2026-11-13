@@ -41,5 +41,25 @@ check(#S.retry_expired({ a = 11 }, 10) == 0, "p3 : essai encore retenu (t0 < ret
 local sw = read("script/team/foreuse_swap.lua")
 check(sw:find("for _, k in ipairs(S.retry_expired(st.retry, tick)) do st.retry[k] = nil end", 1, true) ~= nil, "p3 : Swap.think purge au départ d'une passe")
 
+-- p4 : Champ.report ne cherche chaque pièce qu'une fois au moteur
+local ch = read("script/team/champ.lua")
+local r0 = ch:find("function Champ.report", 1, true)
+local rep = r0 and ch:sub(r0) or ""
+local nfind = select(2, rep:gsub("surface%.find_entity%(e%.name", ""))
+local nmemo = select(2, rep:gsub("local ent = ent_of%(i, e%)", ""))
+check(nfind == 1 and nmemo == 4, "p4 : une seule recherche par pièce (dans ent_of), lue par les quatre lecteurs : " .. nfind .. " / " .. nmemo)
+-- la mémoire rend la même entité, et nil pour une pièce absente ou invalide
+do
+  local calls = 0
+  local surface = { find_entity = function(name) calls = calls + 1; if name == "a" then return { valid = true, name = "a" } elseif name == "b" then return { valid = false } end return nil end }
+  local i0 = rep:find("local found = {}", 1, true)
+  local i1 = rep:find("      for i, e in ipairs(p.ents) do", i0, true)
+  local fn = assert(load("local surface = ...\n" .. rep:sub(i0, i1 - 1) .. "\nreturn ent_of"))(surface)
+  local a1, a2 = fn(1, { name = "a", x = 0, y = 0 }), fn(1, { name = "a", x = 0, y = 0 })
+  check(a1 ~= nil and a1 == a2 and calls == 1, "p4 : pièce présente : même entité, une recherche")
+  check(fn(2, { name = "b", x = 0, y = 0 }) == nil and fn(2, { name = "b", x = 0, y = 0 }) == nil and calls == 2, "p4 : entité invalide : nil, une recherche")
+  check(fn(3, { name = "c", x = 0, y = 0 }) == nil and fn(3, { name = "c", x = 0, y = 0 }) == nil and calls == 3, "p4 : pièce absente : nil, une recherche")
+end
+
 print(string.format("[S40-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

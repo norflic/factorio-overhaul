@@ -1087,14 +1087,26 @@ function Champ.report(f, surface, tick)
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
       local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0, dn = 0 }
-      for _, e in ipairs(p.ents) do
-        if e.built and not e.skipped and not e.dropped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
+      -- s40 champ p4 : UNE recherche au moteur par pièce et par relevé (les trois boucles ci-dessous relisaient la même pièce jusqu'à trois
+      -- fois : état, voie de charbon, sans courant) ; `found[i]` : l'entité valide de la pièce i, ou false ; mêmes lignes de journal
+      local found = {}
+      local function ent_of(i, e)
+        local c = found[i]
+        if c == nil then
           local ent = surface.find_entity(e.name, { e.x, e.y })
+          c = (ent and ent.valid) and ent or false
+          found[i] = c
+        end
+        return c or nil
+      end
+      for i, e in ipairs(p.ents) do
+        if e.built and not e.skipped and not e.dropped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
+          local ent = ent_of(i, e)
           if not (ent and ent.valid) then pd.lost[e.role or "?"] = (pd.lost[e.role or "?"] or 0) + 1
           elseif e.role == "champ-bras" and (ent.status == S.no_power or ent.status == S.low_power) then pd.armoff = pd.armoff + 1 end
         end
         if e.built and not e.skipped and not e.dropped and (e.role == "champ-foreuse" or e.role == "champ-four") then
-          local ent = surface.find_entity(e.name, { e.x, e.y })
+          local ent = ent_of(i, e)
           if not (ent and ent.valid) and p.state == "fini" then pd.lost[e.role] = (pd.lost[e.role] or 0) + 1 end
           if ent and ent.valid then
             local s = ent.status
@@ -1117,11 +1129,11 @@ function Champ.report(f, surface, tick)
       -- de sa bande : lecture seule, une ligne par projet qui porte du charbon ou des fours, 8 lignes au plus par relevé (cause des fours à sec des fins de partie)
       if vlogs < 8 then
         local planned, belts, withc, empty, dr, drun, dstuck = 0, 0, 0, 0, 0, 0, 0
-        for _, e in ipairs(p.ents) do
+        for i, e in ipairs(p.ents) do
           if e.role == "champ-charbon" and not e.skipped and not e.dropped then
             planned = planned + 1
             if e.built then
-              local ent = surface.find_entity(e.name, { e.x, e.y })
+              local ent = ent_of(i, e)
               if ent and ent.valid then
                 local pr = ent.prototype -- (un tapis a une vitesse de tapis, une foreuse une vitesse de minage : lus au prototype, aucun nom écrit)
                 if pr.belt_speed ~= nil and ent.get_max_transport_line_index() > 0 then
@@ -1147,9 +1159,9 @@ function Champ.report(f, surface, tick)
       -- de 50 à 130 min, vus par aucun relevé)
       if tapis_on then
         local cons, off, at, at_net = 0, 0, nil, nil
-        for _, e in ipairs(p.ents) do
+        for i, e in ipairs(p.ents) do
           if e.built and not e.skipped and (e.role == "champ-bras" or e.role == "champ-foreuse" or e.role == "champ-charbon") then
-            local ent = surface.find_entity(e.name, { e.x, e.y })
+            local ent = ent_of(i, e)
             if ent and ent.valid and ent.prototype.electric_energy_source_prototype then
               cons = cons + 1
               if ent.status == S.no_power then
