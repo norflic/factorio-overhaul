@@ -4341,1732 +4341,1732 @@
    "taille": 13885
   },
   "hr-ravageur-1-attaque-glow-0.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "24dab474bc34aef6908478cd8286e62975478deaf0f78bccc19fc45d23aef875",
-   "taille": 12134
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "c831c4d1efb0f04146b4c2ab8905d965e34d29aa44aaadd6481f9529a6684e2d",
+   "taille": 10578
   },
   "hr-ravageur-1-attaque-glow-1.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "8199fdda5b880b89833cdce7031047299bc3fef1876a5f7a1f78ecda2e2da94f",
-   "taille": 11850
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "80a7ccd82691a9a16938601ef594cf8617db771954eed7b5a4263b11dd44626a",
+   "taille": 10416
   },
   "hr-ravageur-1-attaque-glow-10.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "4c58b8cff287e3f2231853f4c2d2b719c3dec6a21a2c65fa840086569f7eed55",
-   "taille": 21316
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "ff6e13bd702e0f4556a8287c73fab59a3dabd0970318aafd91bd1e2cee7c534b",
+   "taille": 17586
   },
   "hr-ravageur-1-attaque-glow-11.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "32b10e4ebc44acb84ac10f371416947cf77edbf68038b90f12834d804a7e6cca",
-   "taille": 18946
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "226f7f7c353e08db0609b1f505205303603dbdf49311bb415f5de97c49c01380",
+   "taille": 17411
   },
   "hr-ravageur-1-attaque-glow-12.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "4890c617f1e3979bb8a65d8d69ca891b6f1bf75e515c2ef76664cf2a7a331384",
-   "taille": 17814
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "4a9a42a2c906751585364d97b5167423b44ce91cfbfaf5b98153195291153a9a",
+   "taille": 15514
   },
   "hr-ravageur-1-attaque-glow-13.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "f4ebb53d65e4a9d728824a3f6428e6510881622f67c5a46a46410efcdde13176",
-   "taille": 17849
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "c6c03cb867ffe705c69b0e5eeeadec0def2a75307c83a3d824f814112f67bf0e",
+   "taille": 15086
   },
   "hr-ravageur-1-attaque-glow-14.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "71c370390b18422713328ae4825d90433aaca68580a9a6608d25a69a47434b06",
-   "taille": 16431
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "db2772c04f2eda27477d6d4d8600ffba548e775699c793d8908a2384f6513366",
+   "taille": 14478
   },
   "hr-ravageur-1-attaque-glow-15.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "5763d37e7fa1f08cbfcb792df01f8f502d60f30f8bcb0ab5eec2e18e4558c5de",
-   "taille": 14839
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "457561f1eb7c775851f284505e7ce2840719f06196a4d7f9018175cb2b777822",
+   "taille": 12741
   },
   "hr-ravageur-1-attaque-glow-2.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "34ae4a0f16e9540f21e217d4e5a6b517ca0bdf580f1268a6f2f2711b93b9bc7d",
-   "taille": 11643
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "0a69f60986fbf59f53c48d9c8e50622b80cd1ed512199c87948dbb19003517d7",
+   "taille": 11295
   },
   "hr-ravageur-1-attaque-glow-3.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "14efbc6e9cc9b39bbeb7803fd91777add00ffd9d47d0f4725c7c72bb3df3fa66",
-   "taille": 12429
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "da50576bdc5db00dd0168cb25caa8c5673ed2c640d20139b65a09c8df3d3bfd1",
+   "taille": 10801
   },
   "hr-ravageur-1-attaque-glow-4.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "7ad8c4ad3c6d77b25cfec238218aec432d84c8c9c7c368bf32298a945f723210",
-   "taille": 13690
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "2fe584885784c4abff5aeb22de4f517dbc7b915a3c2c478d1918d26d3009f38d",
+   "taille": 12226
   },
   "hr-ravageur-1-attaque-glow-5.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "9f7bb44e4a99f6ce00ce60fa6d3e9be2caed4949be4d56c6db5736ee631ad565",
-   "taille": 18203
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "fdfd66f0cdf82ee487cab1faf2509b8a3d586c73ee8767dc1181c4b5a308afb4",
+   "taille": 14845
   },
   "hr-ravageur-1-attaque-glow-6.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "51fc514ab47ee8c175caf001a531e6928c86aa89aacfb3cea49ae5d083d0aaab",
-   "taille": 20941
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "c7987b3024056addf375a4bde3557c1c6c12cfcc036db07862b230f5a0d94874",
+   "taille": 17304
   },
   "hr-ravageur-1-attaque-glow-7.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "0f4fd4abff6e234011904aef8b257e02d6b4996ee9e0c371c987c8d24c6875ef",
-   "taille": 21706
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "d49cd400f3e7d6690544bffd589a1fdd145c369b8e681365655051c8114df2ad",
+   "taille": 18142
   },
   "hr-ravageur-1-attaque-glow-8.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "97ce67ac837b46a94f859891505c852bebaf8ad2f8b437a6ff6386392a1d4874",
-   "taille": 22312
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "849136c982f01708ca53078a718cb3498d2429ccbe4a8f4a232451273c8f165a",
+   "taille": 19135
   },
   "hr-ravageur-1-attaque-glow-9.png": {
-   "hauteur": 104,
-   "largeur": 424,
-   "sha256": "38751aeff595a1af500609b953ef2c5a491d22851d7c10acc48374bb8db7f38d",
-   "taille": 22440
+   "hauteur": 112,
+   "largeur": 456,
+   "sha256": "c51e120cf6f5cc13fc0823267fbeb8a78cb1e1e2341ece6f4b6072d1ce9cc281",
+   "taille": 18787
   },
   "hr-ravageur-1-attaque-main-0.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "882a42423a90f123d5e56f43533c8ed1ce425e24f796cd69d3cf4f03e6153307",
-   "taille": 204719
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "2399c469e9914d7c661eb1033b134eae7d1252be7679e46ab361098eb54e35e2",
+   "taille": 218500
   },
   "hr-ravageur-1-attaque-main-1.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "dc10acfd19855b4d45fa055050ce148db5065cde87601ef08cb42365d89f9e73",
-   "taille": 222484
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "ef065d280fc2dcd33598868edf5c7fe3f9e372d1a40d438b344b16cff038a870",
+   "taille": 230582
   },
   "hr-ravageur-1-attaque-main-10.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "0c11875d3ef123281bab8de9ea2328431119054d298263a2849e0f937027db10",
-   "taille": 338531
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "ac5a28c53f349a0d7bd27409d2f39952aa891ffefdc55520d738d36e4ab0c471",
+   "taille": 348841
   },
   "hr-ravageur-1-attaque-main-11.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "4c6ec2de21988edaf82c7484c909ccc382962ad7d599308fa27cbddd25989793",
-   "taille": 310831
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "34e8e3fef0e47fc95ffc56d0fd7801be2a534184771977532c85d3053227c132",
+   "taille": 313270
   },
   "hr-ravageur-1-attaque-main-12.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "9104151b006cb637a88f3316c4dca42599a1d813cc7bd493dd8e0e5a64901558",
-   "taille": 242315
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "03338a89c3e5a60e4433fa4d3316f6973f64efecffb71c166e9fd5863db04e1e",
+   "taille": 240230
   },
   "hr-ravageur-1-attaque-main-13.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "a0aea0d0b7e448d11bae913f9c61bc66d20663f92bd3263d64ecd82ff6bc6737",
-   "taille": 360543
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "0df1e88132e2899ca07836a5a41d9c4cbd933ab0f93abebd3009fc95c7291fcb",
+   "taille": 425744
   },
   "hr-ravageur-1-attaque-main-14.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "ba19e296733f0b3d87ec5d118d3283a368ac37c22359538de0e7e38e428d37c0",
-   "taille": 361330
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "08d461fa389ef3040cdef1338e519672fa4c5e26e9582d63fe2b48192830a242",
+   "taille": 385418
   },
   "hr-ravageur-1-attaque-main-15.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "b01938acb99e26fd56d0d1651551938bc914e9601335f0f9b6654ee28045fabb",
-   "taille": 283238
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "5e94bff219403326419ebb3a26ea88b3f21ed61c5fbd27d045fc48867a06755e",
+   "taille": 297276
   },
   "hr-ravageur-1-attaque-main-2.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "f5ba340bcb4bcf8e1e5b7b02f0053ea0f15d2b50e975c8b1784feaea039bc418",
-   "taille": 200418
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "b76a48ebbad641108f91c3e18e91952df8b2a8fa93fa363d80c4af8c0ca1b49f",
+   "taille": 227543
   },
   "hr-ravageur-1-attaque-main-3.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "40d3fd752abca356fc6db0c922c30998f8cdfa71715185c61425452e3c25fad6",
-   "taille": 214185
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "d9d92c941cd3c702a34df04c32fbbd0ad809eee0a7de2b398b7a89747fb9f797",
+   "taille": 214729
   },
   "hr-ravageur-1-attaque-main-4.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "1c6f88afdaa836123e9cbf00513cbd67ff9d2dc2f0ad1eb3e244a17cd08d5158",
-   "taille": 203014
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "574af2a1426fcbe74ecbb51dfd749089f444055c908eaf11391cfe91a5145452",
+   "taille": 222506
   },
   "hr-ravageur-1-attaque-main-5.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "cf6c4d648d9e3309db129d78da97859ed559e14eafbe1bdedde93ba24352b4d5",
-   "taille": 273052
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "c746dbcf887148d456b4b2a738c6c128257faba6908d3bc9b42c07ce607ceed1",
+   "taille": 263257
   },
   "hr-ravageur-1-attaque-main-6.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "4ef423eb9815a0a282719b6deed8a5efcee530483faae88bc0f3c77d27831104",
-   "taille": 408372
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "9f1226baa7b81116386a5a47f5453c309123c0c17c665fc250077ccb8512c067",
+   "taille": 347707
   },
   "hr-ravageur-1-attaque-main-7.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "45d12dad010088925b763c9dc6784a04c9a81b3bc3355a869fae7ebbef999f89",
-   "taille": 381778
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "eded52490e63cfd7dfdb7f929d5322a655ff89a0506581cebafb9a491800082a",
+   "taille": 352518
   },
   "hr-ravageur-1-attaque-main-8.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "91980c3f9de9f8cfaa168e5e5d985c8c60c5a79cdd7c98488b38ccba8e2d72ab",
-   "taille": 333885
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "b284c7b8dd00741968f5055654b23817231a71a8566b5653af65fd2ea19ea136",
+   "taille": 357233
   },
   "hr-ravageur-1-attaque-main-9.png": {
-   "hauteur": 440,
-   "largeur": 1688,
-   "sha256": "a86d8153306a64aad5644e2e9f14f08294f35569a727def1ffc41e24fb673878",
-   "taille": 337568
+   "hauteur": 448,
+   "largeur": 1784,
+   "sha256": "ac3dfe09465f19094a128d89d21cc470a18c2a46c786a33de07718ee6550697d",
+   "taille": 407957
   },
   "hr-ravageur-1-attaque-shadow-0.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "b56b2b57f6c577e85ca420dc4d38cc2b9f583d608f44c3b6c64b73cab7005933",
-   "taille": 4815
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "ab47e334058287da12370238db0ea4c21ae25a1913d7899d41b6f900340880f8",
+   "taille": 4932
   },
   "hr-ravageur-1-attaque-shadow-1.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "910e6538254969355e20b8ee99c0329673d9263f156de833d0d0aeef47ad7fe2",
-   "taille": 5398
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "d60dcaeb6c453ca491d0e27ba2cdfdc30e037a41a4e024dbb31745edddd77a7d",
+   "taille": 5462
   },
   "hr-ravageur-1-attaque-shadow-10.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "c5c359c571aa1982cc0b9c698230273dacf476f179aeeea7e19365752de29dcd",
-   "taille": 5464
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "42d42abafef8a6b513d0105cae5760e449e7c5aec2bd60724fd6c2ce4e34838c",
+   "taille": 5901
   },
   "hr-ravageur-1-attaque-shadow-11.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "b7d639a7a6819d7dd479a497eedd6767782686d2a87dd029fde8c3a594ad6682",
-   "taille": 5131
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "aef82d9287ee009d8d0be12f0ff9e1b8a0920fa7aab2b1ba7abb4a929597312d",
+   "taille": 5656
   },
   "hr-ravageur-1-attaque-shadow-12.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "c0346494235a9563538962fd35b7096290eb3e03440c422acd39a76c0ef46455",
-   "taille": 5056
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "ac209fc28f24c4b2a80ff9f17fb20758f9aa1cddde1754ef981bbca144bb285b",
+   "taille": 5778
   },
   "hr-ravageur-1-attaque-shadow-13.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "324f284eec051ecff3be1bcd30bf02b1fcb9ed2012cf4bc4e151a2d2144d4c37",
-   "taille": 4527
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "47ac64dbc50df3a0b6af16cbdf38d717e8b9c924a8ba6ad2cc5f20130c75837f",
+   "taille": 5232
   },
   "hr-ravageur-1-attaque-shadow-14.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "ff81d67a46dfe97d713e88b9060c4242a5082ed30c185a691c219a154215d098",
-   "taille": 4159
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "5e37dd6fbef57c3505c37d6f16846bace6fa3eaf1c5bbb84a8f610e6d217a98a",
+   "taille": 4485
   },
   "hr-ravageur-1-attaque-shadow-15.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "3d3ef45e2308a5aec3202c6e57d1cc25e4e6c47ac4f4821217cb50fa5ba4cdea",
-   "taille": 4363
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "78475fe6f5ca9e26273325af0ecf661785f3e04edaf717500f334436a8f99d87",
+   "taille": 4404
   },
   "hr-ravageur-1-attaque-shadow-2.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "95e7532c405cd1705bcbf589021648c68378bd4a239842d1b8ec27acf52af311",
-   "taille": 5035
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "087e7c72d341a0ce67ee33ed4710447ec0549c3ac24334c716ef1ab5a11f6f4f",
+   "taille": 5247
   },
   "hr-ravageur-1-attaque-shadow-3.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "b03aa0fa5c24650f2f773da7740b906f050873774a7f1839c380485b94bb228b",
-   "taille": 4705
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "4e46a419f7bef5ae842e489dabd435f8a9ccfeca9a1964abf6e555659449e8a5",
+   "taille": 4941
   },
   "hr-ravageur-1-attaque-shadow-4.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "4c8e839d39475003bd74ce9f148976e740a28ae7617178d7785f2ca6ac593eee",
-   "taille": 4352
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "a60406c98db450a01f3838647c56168721e97be0855d3e93fedc068d89b3fe14",
+   "taille": 4764
   },
   "hr-ravageur-1-attaque-shadow-5.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "7508a914933fc19663d53bb61020501856de404cfe0cab07409cc73cd2eb35fb",
-   "taille": 4645
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "b8a0ad7677584e46c08aeafc16fdc7b8539cc909e2c877b08e9a88131de494dd",
+   "taille": 4839
   },
   "hr-ravageur-1-attaque-shadow-6.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "3688db84138eab2db967e0497b0600b90f520588ac7f23820bb821fbb979b4e8",
-   "taille": 4747
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "d696240f87d8b25992d9dfba9914d3e25ea3d0fdbdcedf99ecc08ad1a6e359b7",
+   "taille": 4965
   },
   "hr-ravageur-1-attaque-shadow-7.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "afa6557cd69418d247cf87e4977a24826ce9bf6771e1be9a05e2a66eeea1f34b",
-   "taille": 4904
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "5e0ef7739ddb4c2ea9661ae4e5aeb0987611f58502d7c8b3515690f830bb6074",
+   "taille": 5343
   },
   "hr-ravageur-1-attaque-shadow-8.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "a3fe688e603dc23af0efc5b20e36036a5a0d2b4f114d880192928c2f395bb300",
-   "taille": 4859
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "7e900af4fd1dee331b6bfac48964f1858c4228575d834a8cccd654aec7115fe1",
+   "taille": 5452
   },
   "hr-ravageur-1-attaque-shadow-9.png": {
-   "hauteur": 76,
-   "largeur": 576,
-   "sha256": "727471c361d8d3043d21644d9bb379546349068a9e7ed8e039bcb97988cfb112",
-   "taille": 5400
+   "hauteur": 80,
+   "largeur": 592,
+   "sha256": "144772c6b80670e106927c51f76d7d12533795002ce41a124656e229dc45ec53",
+   "taille": 5617
   },
   "hr-ravageur-1-course-glow-0.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "fb2a3057de22e294850a4b9e90e843e7514cca8bb3724e76895791c71cccea3e",
-   "taille": 35914
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "f73b6dd59b098cfc18b40875e4e085278a889d33566827421578c2c363e47b0e",
+   "taille": 29571
   },
   "hr-ravageur-1-course-glow-1.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "2d92e4f561d7512f35450ca22ae550badfa11cd4318a1e6cde4f748c116677b5",
-   "taille": 37669
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "5df505a4ea76fe0ff79d0e248b93adabae777f003309bd40f4d8ea19833e9c3a",
+   "taille": 28270
   },
   "hr-ravageur-1-course-glow-10.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "327528d8391567566333a3b218b6bac258f28ac21a7ad724c9112d230384e6a6",
-   "taille": 54057
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "52fc7a4a6870708c952ba959cab732bc7fe76e9cbd5010033472531fdc41dec1",
+   "taille": 43405
   },
   "hr-ravageur-1-course-glow-11.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "ed661938233cbaeadfc7b835928ee5fcd5ce4711ec407db838834ac0ab61c972",
-   "taille": 47987
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "62ae96429c991948a67b3bc172c721dfdadd198e53ffce4e282abb8881164101",
+   "taille": 37536
   },
   "hr-ravageur-1-course-glow-12.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "2937afdea5f3a6982d604111317da59a094ecb53988f908a399ed9cf1655824b",
-   "taille": 43307
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "155f13c7a7759c3d441c7844b269022ad0fe4b9ad65e58c6d9c41606df046655",
+   "taille": 33647
   },
   "hr-ravageur-1-course-glow-13.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "9d1f22eee30a3712f7825371f2ed5b8e3a21a65bb7d021aac565679608ab8b13",
-   "taille": 42410
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "773e4485101165fe1420fd5f16f95553d356f1c5334f918fb03209b51513f1fb",
+   "taille": 32232
   },
   "hr-ravageur-1-course-glow-14.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "f8eea46012015f831abf8c51d392c1be5d710a0e85dc8e49685a9009744b5a6c",
-   "taille": 42928
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "694cfd5145ad0440474ffaffb3d64aa1c9a287c3d0bbdf3621e17fed139412e2",
+   "taille": 34831
   },
   "hr-ravageur-1-course-glow-15.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "943c30cff1f16b8c45338694db2ae16dbfb6207d1d738a71babc4872516e1af0",
-   "taille": 40467
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "aa66fe04bf6149d7923a280ea2546ebe5813c6e466abcaa8b76c6694e867597f",
+   "taille": 32286
   },
   "hr-ravageur-1-course-glow-2.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "0a6a26a6712336de14d3bb2bb2d4e2c3a8250d86c898677b7615053eb35dce11",
-   "taille": 38874
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "6c7dc6d72059da10f8fb7066d6b2f68c28976b6f3209adb5c9744ccf0c6bd91f",
+   "taille": 29854
   },
   "hr-ravageur-1-course-glow-3.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "285a84b9907d1e33e56c6112725bee8b033cb6fba8ae0a43f94e8935070fa477",
-   "taille": 41391
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "36b85851ea59baec1dbc0bc126b0d25add2ee9d918211aa50d5e82216f8be9a7",
+   "taille": 28311
   },
   "hr-ravageur-1-course-glow-4.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "57199c0cd47ac4ff4cd5a970354dcd559553e7696607b65e76e1ff651452024e",
-   "taille": 43376
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "84a0adc1548abca4ba4f87f37cb770f1bb99caeb2e5b85d38fa665930567732a",
+   "taille": 31977
   },
   "hr-ravageur-1-course-glow-5.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "8a4ee93c192367b89d2c1ffb5bd15d440359fcb07359be9ae2015ebf9924ec8e",
-   "taille": 48819
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "515c4c8972f26be6c7f28721ea753e5886f055b149a367f82198968dc9b19080",
+   "taille": 36204
   },
   "hr-ravageur-1-course-glow-6.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "1de942bc1b69ab3536954e246ac3ead7930a52f7096f7b92f80568081685e8a4",
-   "taille": 56307
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "69ffb0d83c63d88563639c5c664c85b43002abec7f56acf60718f82f0725e9c7",
+   "taille": 42301
   },
   "hr-ravageur-1-course-glow-7.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "b1559b30702842fab96d649a856999ac614fe61c554a13e040e9cb7d944f332d",
-   "taille": 55224
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "0c80edaad1413df04b01a2e11f1cd280daeed74e011b10b2f15b6828b2b43ca3",
+   "taille": 45140
   },
   "hr-ravageur-1-course-glow-8.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "d7b9b7b4263f34744aa9e4221ed8394311212b8845e9d2a28635b09a17fb8a74",
-   "taille": 52565
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "f9e7cb2c33bdc483ac68eb55421e46802cba708ae2ce13da7e27d692ecea1b60",
+   "taille": 44997
   },
   "hr-ravageur-1-course-glow-9.png": {
-   "hauteur": 110,
-   "largeur": 752,
-   "sha256": "0e23fb80fcf27c37f0b7cb052e0451ab70227feabb12ce358a0261508449cb76",
-   "taille": 54432
+   "hauteur": 114,
+   "largeur": 784,
+   "sha256": "0ae23ad1abf51dc5ca6e70877ff51facd1462076912eb87ea2b3fe9341d8600f",
+   "taille": 46515
   },
   "hr-ravageur-1-course-main-0.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "c1ba493111d171862abe8a216ae4efa9eb2c29bc00e808c3910c31a22e71f795",
-   "taille": 628231
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "24c8a4d9356ead498ac715338a78726760cf24dfa87cae244d1084793afc62c7",
+   "taille": 741911
   },
   "hr-ravageur-1-course-main-1.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "f5165761e25565074d9b0ad9318e3c5f6a191c0a538ef093bfc431ddf297feda",
-   "taille": 668516
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "9f205b13e7840a9ed7526d121c7c4dbdefdc122a90fab1a22c44920abfbe5144",
+   "taille": 704978
   },
   "hr-ravageur-1-course-main-10.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "3e58b90ee6bf0d7554f592cca9a02b5bdef5b35d368169596991db2387274124",
-   "taille": 814899
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "20aa86e39b9251a170e2ba9eb17f4a08628622cc31d39705790e97954e3341f4",
+   "taille": 848127
   },
   "hr-ravageur-1-course-main-11.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "4f3521c47ae7aaad2208838a199da863289d19363eafc9a30b02a9b4b4aac756",
-   "taille": 727375
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "556490670cfec40c721435b15e33081581ab8329cd05f836f5809c63c34e08ca",
+   "taille": 737232
   },
   "hr-ravageur-1-course-main-12.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "e635ca094f045b3317b5ab3328b9bd47a76715974b77761ddd769c100e71901b",
-   "taille": 665742
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "5eafd9a720af3b1c66254d065efde488002177e0fae5068bd9e2b9048b3ce0db",
+   "taille": 676815
   },
   "hr-ravageur-1-course-main-13.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "072af88808fe263e020cc4481bc0d7a43178c3dfa705ff74edc1363e30bd0a6d",
-   "taille": 700611
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "3dd0d9994b5648348c0a3faf80208bf5aa3ad9dba1e4782a5698002125f27110",
+   "taille": 760198
   },
   "hr-ravageur-1-course-main-14.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "41da8e70ef0d63cf005b4b099cc302b30c9f913ac3ffaa651394b153c452440b",
-   "taille": 762716
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "525bcb092629270c8b703cb95fca8fcfcf89be7bec5814c5d295b6eb0a8228e2",
+   "taille": 826664
   },
   "hr-ravageur-1-course-main-15.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "4c63aa1fb33196bd4538eb87203707075507805aecab5dd422e2bab2f9f12915",
-   "taille": 739494
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "8b110ec9470159d687ca5c150738fc3d0db2c2150723892e85f6b17f5ebed3da",
+   "taille": 764829
   },
   "hr-ravageur-1-course-main-2.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "0b32dd606c2e3be33a71a4498c39ec95466362db1faf0516632d82caa07b31a7",
-   "taille": 686818
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "6f8abb7a1d398f557ec5a747899d1695b42635e2c2a837da375885db90fb47e6",
+   "taille": 761859
   },
   "hr-ravageur-1-course-main-3.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "fb31c384b384d2c8120a00952fce13af4109fa46f415b9a573c775782308bd71",
-   "taille": 687766
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "8cd5994e0675b7c33b471605077c9d705a8959fcce3a092b1ad268c302adb6a1",
+   "taille": 703191
   },
   "hr-ravageur-1-course-main-4.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "a4af073541b2469a7b04dee9baf8a2347e67a8d073f341c12090cf56a430dd12",
-   "taille": 693521
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "c9b4f3066bd1e5de56a5a716f5a74f5570b0ebf099783a5aee556a9616a554de",
+   "taille": 702712
   },
   "hr-ravageur-1-course-main-5.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "50b3ccc22488dece1d36defacb9a265da2bae50928b04c9bc57e234939a1a5f3",
-   "taille": 788994
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "6717e2bda926a389a39e2dcc8188e3717079257a84f08b13f9f8615ba3cf423e",
+   "taille": 780807
   },
   "hr-ravageur-1-course-main-6.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "62d9d6e1f36591fb613fa09fbfd20430654359e4364807a8eb32d7e9ac6de7ef",
-   "taille": 875742
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "c6a27aedd37e616fbc991631b479e528affeca85146e673c4579c83a800daa00",
+   "taille": 878098
   },
   "hr-ravageur-1-course-main-7.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "ce3b37ea22a2834edddcead4b6e3849b5f48fcca6290881256684235d8ee310e",
-   "taille": 825780
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "66620c3dd2fa97e1c4eb0bf678861b24824f5fabde82468fd75b2e9b363970fe",
+   "taille": 892727
   },
   "hr-ravageur-1-course-main-8.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "74a1e76a4f833fa004e8eee50b55db5c76d1aff137f38ee66e4d386297ed263c",
-   "taille": 761163
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "a0a8863b6176acf08a54253499e15676c21aa2efdfbf3fde9b0fe929837901dd",
+   "taille": 838110
   },
   "hr-ravageur-1-course-main-9.png": {
-   "hauteur": 452,
-   "largeur": 2928,
-   "sha256": "d1fcf593bc519a175f7de4b24fadbf7395b267c9678924536fcec654d87ffb21",
-   "taille": 809246
+   "hauteur": 460,
+   "largeur": 3104,
+   "sha256": "71a2d375d40833d02c0186dc2c0e99827b23f91b08c1c4bd9028f39ac5907ef3",
+   "taille": 856712
   },
   "hr-ravageur-1-course-shadow-0.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "5ed690703446797ee2e7e89e8dcf069ff36bc7d39a186d02ecf801f802892ed7",
-   "taille": 14903
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "7dfe80ab6f7bf75034d5796e78a8eda7bc363f88774fead15a221b0d23092c6a",
+   "taille": 15213
   },
   "hr-ravageur-1-course-shadow-1.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "2375ac0e5d21a7355527734c5d543746901dd70694aeae3896b9da605c3cd418",
-   "taille": 15600
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "1fe24b40864ff12f576afd3ab08cd9963d1b8ff1c541396a6f0e82987416a61e",
+   "taille": 16222
   },
   "hr-ravageur-1-course-shadow-10.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "208c702ec823db65b7d0018131864d48a8f07db95cf9d36242caf264c5ac5d7b",
-   "taille": 18425
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "ddcde2f1cefde8f44356a67d4c63c66d424c629b9f6c54f7066016181cab748f",
+   "taille": 19602
   },
   "hr-ravageur-1-course-shadow-11.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "894215410e7159b82fc9d298440dc48b44a4041fc0d694ecc163138b45a4028e",
-   "taille": 17912
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "2ec2c09c81e11b5534526b9c10716ef010fa5a30791742e7058b21c16e98ca22",
+   "taille": 21142
   },
   "hr-ravageur-1-course-shadow-12.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "18c290b53eb3d85ae407f9707dc32cb64d9977ef74252d9d652d53adbb6147e0",
-   "taille": 16932
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "571240a86f90b237eebcf3850cc4c1405e414bfe5206c8d59f4f1b2447e8222f",
+   "taille": 20457
   },
   "hr-ravageur-1-course-shadow-13.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "e2191a4b28aea1028fb71221b116165ea39c620408c13ea036f5ffb41ebfe1ee",
-   "taille": 18125
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "3472360cbb95af1133f1d1de7f9bb05035a21536644d6ce0658f09bbe30ae4b9",
+   "taille": 20760
   },
   "hr-ravageur-1-course-shadow-14.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "e4307d13b8dc5535270dbf754421de684cd8d88eb7daea70faaf25d4bf15b97e",
-   "taille": 17787
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "cc7e5d49c981dc0fa7cc3f9648bad78fc9fad100019c48007590e3eb321ad17b",
+   "taille": 18944
   },
   "hr-ravageur-1-course-shadow-15.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "b6a0a1b37a8f0aa3cceac69128dab501527d6fc3b7114eb3f483653dbdf7ac3d",
-   "taille": 15151
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "cd548f7d1b4623015a82a05ab9a0cf7975c6bd86dbc70d66241ce2441a5d3d8e",
+   "taille": 16181
   },
   "hr-ravageur-1-course-shadow-2.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "5f8bf76aa50d097e2ae31db9b64f527607bc9a1bbb469f710c754df0e45e439f",
-   "taille": 16238
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "54aca87a0f7bb97c199729c44227ff5bd3e41a6c5cb6df64e789aa91c99805bb",
+   "taille": 17198
   },
   "hr-ravageur-1-course-shadow-3.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "6b53e1313021214a652f95ed5c4c494d341a3261413ea0e0fe032d7a680fc76b",
-   "taille": 14705
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "6070086301727dad0617d92871d73ed2f4474f2b6238f594b52aa5012b0ff5b0",
+   "taille": 16021
   },
   "hr-ravageur-1-course-shadow-4.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "a9f486229841ff5975f7310eb0013cabc3e877598e2175f93cd9eefc87cc42ad",
-   "taille": 12451
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "1bc590faff445b350c9aa7746b0d8ba585ba3ce7bb3de0a51f78e8ab1007a137",
+   "taille": 15109
   },
   "hr-ravageur-1-course-shadow-5.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "855c56c53306117226a4c862e5b90231bb56dc4221ccfb2407dbc1f64424d25a",
-   "taille": 13788
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "7fffc8883850a67947202adcdc074c9211673e87b650b9eb792984a8baf39588",
+   "taille": 15454
   },
   "hr-ravageur-1-course-shadow-6.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "b969e6b6dd95dc11895e0dce7459d3e9642fa7381b7f023765da888f9d58aabc",
-   "taille": 15344
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "d7d3cf8df9109082f4056423b4f57d074249766247694e43a43524c8ab51537e",
+   "taille": 15818
   },
   "hr-ravageur-1-course-shadow-7.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "6f114b45c9d6f4984c7867c0c6e84fb265b04da0970e1b66a60b49c306b5bd75",
-   "taille": 14556
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "f069ce259ba834bc2c0dad09e11be6c49f287061ecd09cfe9022110dd06eee46",
+   "taille": 15549
   },
   "hr-ravageur-1-course-shadow-8.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "e20b0ca24ef7116cdb4a7626c3a2d74c3cc7a1ac758e0c3dc2997bbf381fdec0",
-   "taille": 15165
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "2d4043e404d696cae2d60cf7ea91e8472d56e8b84fdfda69aa1fad8bc8555517",
+   "taille": 16006
   },
   "hr-ravageur-1-course-shadow-9.png": {
-   "hauteur": 66,
-   "largeur": 1200,
-   "sha256": "fe166568a09a23c61c1c510a58c1c656f63f0d4c263a41328eeb25ce245dedd1",
-   "taille": 16016
+   "hauteur": 70,
+   "largeur": 1216,
+   "sha256": "6445fbbfcf46b50a023b30893e31a08b26b2dabf645273f8d193b01a2d11582f",
+   "taille": 17035
   },
   "hr-ravageur-2-attaque-glow-0.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "310e58987dec6df02dc730e66e50ec25a52c7ae1f8b2bb83fab8b4b730623b7f",
-   "taille": 11999
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "6ef854e256048f399f041189fe5c8a1ef6a1072bae08492592a4e8a1685d6b59",
+   "taille": 10720
   },
   "hr-ravageur-2-attaque-glow-1.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "e698b45192b70c2fc7e8498b63194b764ae233bc0c3a218f0c102792057a1b8d",
-   "taille": 11765
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "126d378a7ad01055d95ec9dcf5caff0e4c5d6993fbda05ba29d9805c9f2fcd99",
+   "taille": 10538
   },
   "hr-ravageur-2-attaque-glow-10.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "ab21ecd97f8a8fa827c23cf7d7c9b24b29acf10ab38b5e766c9a50db7add3ba4",
-   "taille": 22056
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "02bfe02eaca153ad6e1f4e5fb687ac6f8e360aceec0aa35ad06e777b520712c6",
+   "taille": 18329
   },
   "hr-ravageur-2-attaque-glow-11.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "607ce9a837ea48c718221cab4be112b7a4f6fe92734b5cc828c1201f539d5667",
-   "taille": 19605
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "ee154f4491c23f169be9f8acb2aecb94273b8f697b54c270e5c1b081d142efcb",
+   "taille": 18192
   },
   "hr-ravageur-2-attaque-glow-12.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "26065d4e554cb1991112aaf47ae9374597e7e0988efafbc669e98b90227085f6",
-   "taille": 18022
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "5c3f981287dc062ce0bad6cbc0096a6f56231ef7bb8354430825b72214086688",
+   "taille": 15818
   },
   "hr-ravageur-2-attaque-glow-13.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "1c84dbbeb15e92722456c65a2992789159efa71a832210ea6751cb5ac5c8806a",
-   "taille": 17753
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "5ee92bd4894f2e3e267371bf0b96ce8c0176f73031c535a435229a876b0e0407",
+   "taille": 15545
   },
   "hr-ravageur-2-attaque-glow-14.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "809e663ba4882d4aa2b6281c38c15a2c6a3bbcf57bcaa1b90c1bf797cb3e62d6",
-   "taille": 16446
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "6e5a05807b2af72ce70936a224a3677362e1ca9817a591c23edcea9f10146805",
+   "taille": 14802
   },
   "hr-ravageur-2-attaque-glow-15.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "47f280aa0a7c8434bf9843b015efd028a50ec941ddb01082c8183888ef6ab783",
-   "taille": 14950
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "dc671cfabc41eca40366d3acb743bacf6a9ad8693ff9bef3112f849c49baa927",
+   "taille": 13143
   },
   "hr-ravageur-2-attaque-glow-2.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "e2531f88a6c4495351f3518de4144eeae31f9ae0fcffa17ef30ef943f5ca4391",
-   "taille": 11932
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "04d026198814f105eecaa24d17ec23bdc5e4e7fc3c739cd3d7daec5db5e331b3",
+   "taille": 11269
   },
   "hr-ravageur-2-attaque-glow-3.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "597dcfaa3eabb84e1b8b7c2e980ff4d012427e3e5ce6937402f691f2516bd9a5",
-   "taille": 12506
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "933ee42a956554f8edaaef0b365fccdf1bf4f68eb8f142b396abe88abec9da40",
+   "taille": 11069
   },
   "hr-ravageur-2-attaque-glow-4.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "523faf2c154548d8de0879af424ba1f2d41a9a07f201c58a090caf832eaf3e58",
-   "taille": 14293
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "8907131bae6c72700cc623467779f2b5c1a8c0bffb7fa9103d63aab8369bed1f",
+   "taille": 12754
   },
   "hr-ravageur-2-attaque-glow-5.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "790e4345c04727b1ecad0afe792b6e5bd62df1c9062eae4cb4f2bb4b3639d0e7",
-   "taille": 18810
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "142f2344992bcf66a90e569ca502609e8d5fddc08fae3b91aff1b232712f7bb5",
+   "taille": 15508
   },
   "hr-ravageur-2-attaque-glow-6.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "f9fbec5f44a11597f1c88800ab96a8a5cc37d6060a97893529ea60ec828b5126",
-   "taille": 21686
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "173b9f542336c9764e08610ea29d8f25013b10794bbb9e180ec7e3f4f099ee72",
+   "taille": 17975
   },
   "hr-ravageur-2-attaque-glow-7.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "a8806f783704754c14a014089b31840a534146fb357969706177367c3d551613",
-   "taille": 22814
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "bfa4df19699c435db168391149ab507baf13c2f3c568946ef6a5d92c4b0a260c",
+   "taille": 19287
   },
   "hr-ravageur-2-attaque-glow-8.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "4e02b0853438f2b8404ffadc6a3281e0d6335213757d6c5906b5c37b65bbbe3b",
-   "taille": 23148
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "ef71262f90d3e86d9f89514f2d0888cd46c962049f2d7a11382278a37ea25fa1",
+   "taille": 20058
   },
   "hr-ravageur-2-attaque-glow-9.png": {
-   "hauteur": 110,
-   "largeur": 424,
-   "sha256": "82bd843c6d4d3a50c3293b4678b68961def9f2dbac15d15989438a4fe91e5926",
-   "taille": 23120
+   "hauteur": 116,
+   "largeur": 456,
+   "sha256": "4b1d6db34bac77d91d2115c1f0ac202dd52ae965bf6ec78320aa30425882327f",
+   "taille": 19835
   },
   "hr-ravageur-2-attaque-main-0.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "5c0e537879aad204d811957f511045c634111889e5d66cd2a8eee97ca35def0d",
-   "taille": 201226
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "342d35142b4055dbc73943d258e616ef87f45e0449e210de8bde7fd521657423",
+   "taille": 214268
   },
   "hr-ravageur-2-attaque-main-1.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "028ebf5a20d2167e8ac91110dadaf9a54c878950052104e15e819ebb3cb262f3",
-   "taille": 205611
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "09599ac0860e0cc85aa116483f2707b9485edfef5a45796d25cfd0a432ff408a",
+   "taille": 222527
   },
   "hr-ravageur-2-attaque-main-10.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "85feddbe0d9f1d4794aa00ff32c777a4badcedfc129b338ba3d26e7d3be05586",
-   "taille": 294383
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "5ca2e441b694741f06b46f3288ce870e46e8b522119f9650a56568ec7c9b5e44",
+   "taille": 351332
   },
   "hr-ravageur-2-attaque-main-11.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "7b04beda997a37a670573e694c09346f20553286d674e1654a5107c929b0240b",
-   "taille": 319603
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "4c9327a0901d2dc8818ea22e9af157477414973b7cdeceed12cd9bd622d3d0e7",
+   "taille": 273227
   },
   "hr-ravageur-2-attaque-main-12.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "9f91fe3e7462bd356e984e41e7ba85ef45d3005e6253d8a5a5158acff1f1d188",
-   "taille": 247136
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "e560aa687fe3b499b1b0cb9dd46b23287c24f59cca6b23be1cefd4c57d54d715",
+   "taille": 242950
   },
   "hr-ravageur-2-attaque-main-13.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "35db7bb7d12ce590c7cc7d76988284430d271782eb63263105297688ad9c4756",
-   "taille": 406556
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "fe15ea6e4776017eb24191071d82ca59d718f9356d490c7b00d83cd7f916f15a",
+   "taille": 380418
   },
   "hr-ravageur-2-attaque-main-14.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "c5b898bc4d19a4a7bb256218874492bb85e3f5750ed4740b35aee1bad33864cf",
-   "taille": 376195
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "eabe6e631f47bd49bd665df1a7ecd43621845aca24b9ff444edbdf6f1b93ab84",
+   "taille": 333307
   },
   "hr-ravageur-2-attaque-main-15.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "99435dc12577ffb8397bac91b6af9fd8face45e1c4ae7b57dbeed9798150b4f2",
-   "taille": 304101
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "3163ac0d17dd4ebfb3f2b4915acae319bb70b3b235d44f779a575c4724e22d2b",
+   "taille": 310645
   },
   "hr-ravageur-2-attaque-main-2.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "2292d7f85e34370fb4155a6494df6fae5b10c0ca163c79a1946824fb6497ffb1",
-   "taille": 206401
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "f200342f50307d8686deec1a8c565c43745d91e4642b2e1b997481e7cbb58cf5",
+   "taille": 224255
   },
   "hr-ravageur-2-attaque-main-3.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "e252ac60c25935daf6edc50d4b3a4a9c88419334e4fccb6b54d153960ee2c916",
-   "taille": 209506
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "c3938db41d82f0b53873c28ad357697e210e713c2cfee6c37aa414502a781318",
+   "taille": 220993
   },
   "hr-ravageur-2-attaque-main-4.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "ef82a46d2dbd0682338800d7927b1f62b213e6c2227c22d5ce4edefe2082da6d",
-   "taille": 219964
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "ff35cc56684f9d8cb6de922eb9cd1112e17638e5b29adc4d748e9c611e700d4c",
+   "taille": 226893
   },
   "hr-ravageur-2-attaque-main-5.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "97dc8cdc3b41901fc4360c2bf1a5d4cbca5c52b5e4696ea65124fb4ae8a1803b",
-   "taille": 277943
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "970f84b2ba53b45735497a195761e49649d29f385ecdf5a81ca0de1c4ae82c0c",
+   "taille": 341827
   },
   "hr-ravageur-2-attaque-main-6.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "44820b915d10d3af6c35a2b48b29d3ff6217ca0c8ceeb43ecbbbcf9e35a0257e",
-   "taille": 365758
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "891150725f8cdc5f5372a0026308ccc86b01ec013e3f89daf5f33e387b364ce0",
+   "taille": 306463
   },
   "hr-ravageur-2-attaque-main-7.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "ff1c0095c72b2971e8aef7ae4082ff76bf679b6e1668a1d7753adf9b9f568f3e",
-   "taille": 349793
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "d6612477b09838d0555f42bfcb19622491d2a359cf665bd7e14087e46f2088d7",
+   "taille": 362348
   },
   "hr-ravageur-2-attaque-main-8.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "494e58a2d2e436ae91ea0a46b5ec88e8b9961fae4903d446290a0e9491cc5ac9",
-   "taille": 344503
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "72a4e26d77f9d5709c4a051cc50a54a65fd5ae837f61279086eea28a51f6a12c",
+   "taille": 362498
   },
   "hr-ravageur-2-attaque-main-9.png": {
-   "hauteur": 460,
-   "largeur": 1688,
-   "sha256": "2bae68a79ba555abd015e2e424242008d1754cbf2e491937cda0abe296cb5144",
-   "taille": 347501
+   "hauteur": 468,
+   "largeur": 1784,
+   "sha256": "e1d12ca6bdde5f263237a3afa278dc5b47615904f60d3d883868cb79736f94c9",
+   "taille": 361906
   },
   "hr-ravageur-2-attaque-shadow-0.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "4d67fab9928b0d441e4b31dd62a4109c40b6908b738d38ad52c589938aa15ecf",
-   "taille": 5080
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "aa3da1c8245fd7ec99d95cdfb8ad9cea5bef6e795c762c7131fe528fecc589aa",
+   "taille": 5168
   },
   "hr-ravageur-2-attaque-shadow-1.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "0666a302c08fdc56bbe455d18ffe6da1108f2fa6d39d879016941784c0438bfa",
-   "taille": 5652
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "ee52547bd941fefae7a7a5476eac79de4258a2be3bf8f5eb3650ba39df387a1a",
+   "taille": 5707
   },
   "hr-ravageur-2-attaque-shadow-10.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "2fa5cd32215a9e4cb188f605995c23f6de5588963798d3a12adb4d3763d83ac2",
-   "taille": 5691
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "760d3f56e0a123b1f7829669f61675a85e03cabca2e496ad40c488f8b754a3e5",
+   "taille": 6148
   },
   "hr-ravageur-2-attaque-shadow-11.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "7a034bb6e3749c095abf86868a91326b06c1f7ea7d523829b7a526d3b1bb6b08",
-   "taille": 5429
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "79c288c42305fa78f3f4c7689977c5f01bfb371e0fcc43b4ef04ff0fcdb54398",
+   "taille": 5815
   },
   "hr-ravageur-2-attaque-shadow-12.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "161a44a18fa22f87fa721e72d5e9424e3555020fc32f7fc2ad598941258815a2",
-   "taille": 5335
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "dd7245294b6a403daa936c65d02297c7cc0656a5dfe10126a64e314d689ee3bc",
+   "taille": 6026
   },
   "hr-ravageur-2-attaque-shadow-13.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "3034617097294b0ed56fb0ab3e7ee71ea2e38fa1309805b37de45e3559b42582",
-   "taille": 4726
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "96e8004a17b985dfcb9458caf476a240b75b54dea51fc741c3141a7f024d0e3c",
+   "taille": 5315
   },
   "hr-ravageur-2-attaque-shadow-14.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "41deaff513532bb8056c82453c3ca215a3d2fb2c97de3a02c95bbb7ab4fb526c",
-   "taille": 4420
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "592b8c4475e11e15231c171f85b3c3c2127a380e32348dc95a774d242a7cafef",
+   "taille": 4653
   },
   "hr-ravageur-2-attaque-shadow-15.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "162c2083c63c168466abe3626b923b774097d8585cc23ede29004769f206740a",
-   "taille": 4651
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "79a1fe4cd6013cdea937e7af6010442d26a72277daa2e3fa62e4067a954ba9e6",
+   "taille": 4677
   },
   "hr-ravageur-2-attaque-shadow-2.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "a8efe8224d8c93b273e3c62421bbd3406ba7d552f9dc84f7a8edba5a1312fb40",
-   "taille": 5377
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "55d06e8d93fa34e0564edb4035d6fdb2d1560a9b75e417e80dbd87922c9c8dd2",
+   "taille": 5485
   },
   "hr-ravageur-2-attaque-shadow-3.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "4d721f75d6f46201f238470909c2d370be9c90b22e072e7437eb0423bf792ee0",
-   "taille": 4799
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "ddd6a872260236f4e0e3e19b02192c536f26c68d400bb4c8abbf5cee73c3cf1d",
+   "taille": 5055
   },
   "hr-ravageur-2-attaque-shadow-4.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "ace8e1f9b114a96821d32670201ed45cf54ba1d5c6841ed7d39d8640653c6a73",
-   "taille": 4317
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "6e636932e2558928bbee4b20b37318e99cd01d3865dbe33e712be58d16f5d805",
+   "taille": 4790
   },
   "hr-ravageur-2-attaque-shadow-5.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "c98f1064498a65b8d841b67a083050baf3795e5a0a070544ad978b5d9d81ff60",
-   "taille": 4595
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "1e77af0e06793b963bb41f7f1fab095cf92c1b6027dc89c95796521d6602d123",
+   "taille": 4889
   },
   "hr-ravageur-2-attaque-shadow-6.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "99ec15fd9837f740623613bc90a59b21a0573bcc14d18b9a529d3d9d4ff3bb2f",
-   "taille": 4919
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "2d5c9a0266f87f2835fa9745e9ac5594cf3c0c758cf003af15b7020c3e8b1d7a",
+   "taille": 5034
   },
   "hr-ravageur-2-attaque-shadow-7.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "2e46fe18415672973ef2f3aebede07aaf1fa15201e7f3a0409929a5fe3ffd2b9",
-   "taille": 5169
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "81795a2030936246840df11c3467dfcdec1c59c2cfbd0ea3bec251961992237b",
+   "taille": 5565
   },
   "hr-ravageur-2-attaque-shadow-8.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "20a2635762e704c9ee1aacdead7d2b610056ff8f388c5913302a2fe0c415154e",
-   "taille": 5267
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "08eca9637865a0e1992dff309ad27dfe4bbc14406466035f0f7316ad3a46e5bb",
+   "taille": 5733
   },
   "hr-ravageur-2-attaque-shadow-9.png": {
-   "hauteur": 76,
-   "largeur": 608,
-   "sha256": "d6dddbcaf7dad9c5ba1a1eb00f90031bf21bbca7470b5f0ac1bb6789304f629b",
-   "taille": 5671
+   "hauteur": 80,
+   "largeur": 616,
+   "sha256": "70c8c6e29d390f9a886af48ad470848dadd0afcdf796ff1f3378710b319bf33b",
+   "taille": 5854
   },
   "hr-ravageur-2-course-glow-0.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "2a3a3b38d4b1eb1aed3acd3de2a0d262faeaef7c8bacbb628701e5e388031cf4",
-   "taille": 35495
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "8d12628a1ac781a4a9c64db7405a5ecb67d8211ac4497a0f7c4079a0143c2973",
+   "taille": 29669
   },
   "hr-ravageur-2-course-glow-1.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "e440a09f3d7750bd41e9fb507e8ea58ebf7addfbd7dbbe8263523f2de0a1e4ea",
-   "taille": 37074
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "126e0ad0c555322dd5f41feca37d9f218976cd88bcfa858b02c2ae39a32ee019",
+   "taille": 28587
   },
   "hr-ravageur-2-course-glow-10.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "7465b4e3380710751c012192e81e96042653d15d97b2b59428257a4e86927c15",
-   "taille": 54947
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "e46d812a8d93cd932267e9e3d698b4c4d2a809920f78599c448f7ad4579a65d8",
+   "taille": 44594
   },
   "hr-ravageur-2-course-glow-11.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "048aede3035c1d6688ee4b68feb8a609e37d8b7f5816a6ffe12f2878d38cf4ed",
-   "taille": 48715
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "6aadbdafb9390ab7a8b4ba0ecb8c0f356426b2db756276e1e4ad7ab79ec0f54d",
+   "taille": 38785
   },
   "hr-ravageur-2-course-glow-12.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "66d0d820cfa15f2657e3d32a6e3f0e901fea6cbe520f550413197b0d50984361",
-   "taille": 43779
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "dbb47aae18fa7ffaee31502af12fa9db37bc3b6d7e53a73e8521f893d6f11f8d",
+   "taille": 34429
   },
   "hr-ravageur-2-course-glow-13.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "5e19f62004baebe9d0757b3c1c380eabf45fdc5e2b7930c585d23c270580ebe8",
-   "taille": 41936
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "b808dcf381b13a7beb4766e5b39d187dd4640ab26d6634a11cccecce73e2be13",
+   "taille": 32768
   },
   "hr-ravageur-2-course-glow-14.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "a55e3f9afafcfc5abd935a835640668791e23ae4aaf42592c57e971b181256e9",
-   "taille": 42925
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "63f402a503d753d706c6689fa5d6a3ca1dd58f4d450e840f5aa60dfea198c831",
+   "taille": 34958
   },
   "hr-ravageur-2-course-glow-15.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "0afbcce128c3114f69cc5edf652bdb1430e068fba46733b617aee1419cb9a038",
-   "taille": 40035
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "7dbb11489bca2cfe676447153f5f5f6d4553d4ecfe99b7b929ac2dad16194b56",
+   "taille": 32325
   },
   "hr-ravageur-2-course-glow-2.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "e55fb1debb616932d7b823184a006716b1825449b94c7d231f11c82abe9e2746",
-   "taille": 38435
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "9382ee42109add5ab45fb193f94f0f62994be909475210a3eeacb0a68496af00",
+   "taille": 30100
   },
   "hr-ravageur-2-course-glow-3.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "e783b7cbaa1b1d7255ba0689c33e3a4d17a9e423b0cfc9e140f63603b63d95c3",
-   "taille": 41444
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "bc60c67882a3b3e287ef292f86c4c770a2fb15d3dd2b9205863ac0b7b87dcc18",
+   "taille": 28872
   },
   "hr-ravageur-2-course-glow-4.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "26361fd9ce288452d5152a6fb8d63592560a16bca8ba68a44bf70b30af4caa13",
-   "taille": 43921
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "25ebc2197436fb6f0595d682976a293d1b67cf83a097eb056521753bc82583cb",
+   "taille": 32793
   },
   "hr-ravageur-2-course-glow-5.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "171d6c7862af26880ccc0734bf0666de7ec377f50715f5918fbfd57ef66b2796",
-   "taille": 49685
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "6bcb19687fc9859c11e07ceaeefce74be54cbf41f70bfc5dddb3742e407e4359",
+   "taille": 37381
   },
   "hr-ravageur-2-course-glow-6.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "3372ff994038a7f06d4fcc2ef888cf9584f29c33972acb92a39227de523cb412",
-   "taille": 57423
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "9ceeada5f71953824dfec267c2178de676808a3a86c49acf8b98ded83bb6018f",
+   "taille": 43702
   },
   "hr-ravageur-2-course-glow-7.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "e7f60183e2888c124a3c26d4f116ad5e9c94e33c2569d7ded7dd3e37ea677ede",
-   "taille": 56062
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "7bc9b9099c323137a70e6f71a205d8d8c0d5a9161199bdd228936b5e64d6e7b0",
+   "taille": 46436
   },
   "hr-ravageur-2-course-glow-8.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "f8ec67e98d79c222e44da528908a2fb02a56bd5b6770dcce7b41939403321431",
-   "taille": 53856
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "b9ab2e332e15bae4d0b1064159012296b16a6b697d0e4120a2eeb5e23bef3c14",
+   "taille": 46501
   },
   "hr-ravageur-2-course-glow-9.png": {
-   "hauteur": 114,
-   "largeur": 752,
-   "sha256": "9fed262995969ddc2cc4b72d4ec5fe8c6551d8c5291c41a1eb010bf59194a600",
-   "taille": 54832
+   "hauteur": 120,
+   "largeur": 816,
+   "sha256": "28f4445ba26774319a3d6f82b66e4b65b39865d3fe6402d5bb54ee772162a4cb",
+   "taille": 48232
   },
   "hr-ravageur-2-course-main-0.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "c14877cea7fac397170533b25b65aa62e37ddd5d05df9391928f90e7f9a45fdc",
-   "taille": 654561
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "c08017cbea5ef92e82eac82211e54f74b6ff35b9c6d5bfac597e3649b5600fe5",
+   "taille": 763651
   },
   "hr-ravageur-2-course-main-1.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "680c4547b0765b178564845c301a28564f2666e07b73441db222d3906227dca1",
-   "taille": 695817
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "7e2f2f6757eb58c1feb7e04249704ee052e0fe8da92bc5134bd9f8efb8e2c199",
+   "taille": 728539
   },
   "hr-ravageur-2-course-main-10.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "e4d310f6f62165cf7cb78bc7091f2d21ca92ce48ef3eb2c80db24045489d335d",
-   "taille": 836618
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "1da89bafb357f908faee5213d0ef3770690dbd4f96ebc6d125a8fe05ddc618f2",
+   "taille": 876727
   },
   "hr-ravageur-2-course-main-11.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "91577f7e75962790e6711761b65722266a7ec3a1521541c11bc97b258c33108b",
-   "taille": 743116
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "679da3de4ce62dbb4603da8af89f96461f496aa3097429ae7e0472d79277bfa6",
+   "taille": 764341
   },
   "hr-ravageur-2-course-main-12.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "b5cea862385d4ad549799e4b657f07230c8e6b5bd65b0a15ae9210895a3c145b",
-   "taille": 704370
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "7d3f46eb75a2b005c2b936b14acf96e867fb188310fc4bc41f945db4aebaba84",
+   "taille": 717005
   },
   "hr-ravageur-2-course-main-13.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "8919f1d52c226a31cc547c4a38c8e1673ce06be719b71526f34d5bab294da40e",
-   "taille": 754089
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "2da8b3bfefa4800e9f9cac94e942a091a6034acaab3f6bdace83839328e582c7",
+   "taille": 736347
   },
   "hr-ravageur-2-course-main-14.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "21c36bb656444b687144103ad9a240ad6099ea29dcff651c58acaf7de91070f2",
-   "taille": 786097
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "5b4d432b8fc880c3192886429687cace6cc8248d9f6f711fff683a6d5b89187b",
+   "taille": 858063
   },
   "hr-ravageur-2-course-main-15.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "1f10d47cf30321d6f870c2adee23564187914d13510c6313469290bd09cb7af9",
-   "taille": 722734
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "55291ec5374e17f7a47286dd2515c7baeb80004d275aea1cc1bcd68864e89cad",
+   "taille": 795939
   },
   "hr-ravageur-2-course-main-2.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "3ffc38c338d99c5005521d5a9054894ab8e89769800c81b8b0eb711d677d39a0",
-   "taille": 716014
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "08d77d71fd552d56a5b8e2a7c56adce9d34956ef75a2bfb9ada7e5951e8870fe",
+   "taille": 776541
   },
   "hr-ravageur-2-course-main-3.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "f9b1c2dfdda2b3bd4d2abfd03620c5199d0354ef4ef5a55ece12a94b883d6eb0",
-   "taille": 703982
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "018fd6f6746ceda211f8c9a7e66cf2986e6947b0615327cfa13535a71b9a0651",
+   "taille": 720917
   },
   "hr-ravageur-2-course-main-4.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "56892816c0fd87c3c742c388cfa81a954c148b5635d51c7dee3c18959bfb2334",
-   "taille": 722465
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "1cd09a1f8e2002ef11dbe85c8ac0e3aeeacf905653285527d391883555cdfd63",
+   "taille": 728790
   },
   "hr-ravageur-2-course-main-5.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "40af3218e5b587c1e331a6113b3a809134ca8741e5e32acf143e583062fa1aac",
-   "taille": 816223
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "21f4ea15583447ce074bb4fd218a474d70605bdba55d45377d21c22ae4627a78",
+   "taille": 826824
   },
   "hr-ravageur-2-course-main-6.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "4388a496929c92222c8a10514332d726ab21b5eafcc0aa4f686b37f7e2094dc7",
-   "taille": 916208
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "e94fe338ff637b1a0e0601026111180cc3a04ae5ada78f1dc167a6939e0d5880",
+   "taille": 937515
   },
   "hr-ravageur-2-course-main-7.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "e856e85e95640b2657e1483395609db10b05fd989bc8767e76c74540016ff732",
-   "taille": 898815
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "7736ef0b3d50f6db12148f890067fc1cb3842c4c083ffd7bd19c00592ae64d32",
+   "taille": 939789
   },
   "hr-ravageur-2-course-main-8.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "fbfee4f17a5c4267aa407598c193cc88e5157417da4c2f4bcbfc8e5687cd9fa6",
-   "taille": 802126
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "56e2854718ea5bb215ef71f1a56896ec175d8045cb5ced206a10608de500095d",
+   "taille": 868321
   },
   "hr-ravageur-2-course-main-9.png": {
-   "hauteur": 474,
-   "largeur": 2992,
-   "sha256": "f23f100e386629bc2db0de8de4d6d76a50db76e8c07252f50e1447bf7c345021",
-   "taille": 835162
+   "hauteur": 480,
+   "largeur": 3200,
+   "sha256": "9245b4025749636f76bde0b491d36a26b40b2413105de694c5733d4ad994b314",
+   "taille": 875175
   },
   "hr-ravageur-2-course-shadow-0.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "9b771d774d9a5c129cb80bda4b7190d6fa05f07b845f9040aae051b8c8c333d3",
-   "taille": 15613
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "3a776721f6072b2a499334017e13d27370541d7945390004a3fa96f118bb2031",
+   "taille": 15946
   },
   "hr-ravageur-2-course-shadow-1.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "36f34dfa82f8a8c497f9d57975bd24a7dd80061589bdc6883e3f382e36ac8a80",
-   "taille": 16223
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "6640ddf03bb7a4f6f3e9dc275197acf78ec2ae5a3f4331883713c45076513f1d",
+   "taille": 16915
   },
   "hr-ravageur-2-course-shadow-10.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "7b24663095eefd45eb4c9db5aad4d4cd10898ae9236eb1d9e51a9b5ff3a87f87",
-   "taille": 19116
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "0962bc4a947471ef18368b0d8e9cd0526c38d3b56fc1ec45fccf8d780b9beccd",
+   "taille": 20513
   },
   "hr-ravageur-2-course-shadow-11.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "c2507bc8239571ecdd6f1dbcdf42538a92a35f4e150b63f6a9f172e5ccdfe542",
-   "taille": 18402
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "10b7b3497932d62ec2009375ceec09d2ba4abe0bad52c28694b664fc5bd99a79",
+   "taille": 21478
   },
   "hr-ravageur-2-course-shadow-12.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "42aa840c2e2dab4d50965ec7685a26b3547dbd6fe13dda71cc9e995b81f16886",
-   "taille": 17589
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "92e25ea6cb39ffabd629fb6c7bf74047d807784519b4ec0dde9e7f1577121044",
+   "taille": 21097
   },
   "hr-ravageur-2-course-shadow-13.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "92f59f068bc6140581a53cd329ac60eb968f640c2050089c63140ea6f41404d8",
-   "taille": 18461
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "d9acd794a465e3d8a54cd9c16ffcbe01efa219ab85a20095123db54ba80f3165",
+   "taille": 21235
   },
   "hr-ravageur-2-course-shadow-14.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "cfb45e849d0c5853cf24e5a250260f50bcff22c5a2083326645c27ee236335fa",
-   "taille": 18581
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "191c620282686712341acbd3d52e5f8a9337ca4d67a32c41c0f2ecf53aa8de4b",
+   "taille": 19552
   },
   "hr-ravageur-2-course-shadow-15.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "408c0059326b60dfd4646f558560cf655c84dbe030be4e1d5987f18f3b7d85cf",
-   "taille": 15737
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "2220a11efd04cbf7e4789ce5c5ee42fc3d0d3fab374b2636ea9c17c50ba5934f",
+   "taille": 16830
   },
   "hr-ravageur-2-course-shadow-2.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "d5fb6ee9e0c4255f01782ea65611aa02687d413b6cd8884888be2213db78f211",
-   "taille": 16605
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "deee6e5d74720ae7af90e0f3e650968184b1f17c6cccd754ca0c16e3317db582",
+   "taille": 17408
   },
   "hr-ravageur-2-course-shadow-3.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "b7f9743f255e05b1a37df221bfa54f98b8ca691f21c64b84403a117ff35d2552",
-   "taille": 15005
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "8a106e20a6a346f24a7c0204c7e74559c9ebb24fe9f22ab8147e2d1776391092",
+   "taille": 16270
   },
   "hr-ravageur-2-course-shadow-4.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "315070b7ba8b977559d053570a353f5b86fa42c261473a9e841942cd90b40d60",
-   "taille": 12710
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "18497db9b787185a1ea7674c36aee44368847841d3cce6015e31f09d64bb4882",
+   "taille": 15200
   },
   "hr-ravageur-2-course-shadow-5.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "8a466f8bcf0d392ed37dcfa7a11dc020cef3846cd250dad8fead769ffac92da4",
-   "taille": 14393
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "50d27610259fd6396c9009e4230e8c4ace65732004876717de04882162ef3882",
+   "taille": 15734
   },
   "hr-ravageur-2-course-shadow-6.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "a721ebd64fd7a924ec046d8ee6a0ac08f01da718182cb3764e58bb6d772d0aaf",
-   "taille": 15704
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "e60b1ca7046e613ab2f14161658a0518843342c1e67a4e53863e5f7b3d5c84d7",
+   "taille": 15762
   },
   "hr-ravageur-2-course-shadow-7.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "0cc69c4a4f9e7aa3d1b3a75b615e30f375c02d7518ec87c9714c1f0e1aa24fcc",
-   "taille": 15157
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "09ca17c7d548ccc02c58f2d046841d14e9ecb4feaa1085a8d2a1c6e84599dd8a",
+   "taille": 16014
   },
   "hr-ravageur-2-course-shadow-8.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "796bfeb67098aebcc78eedd9024f6564b033ffa4d56f094c7102e3e1fbb655e1",
-   "taille": 16012
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "6fc1a8463c7847f25b0f134dc11b60f292adbb0d7c9e94f6e12df4b2de931d9b",
+   "taille": 16726
   },
   "hr-ravageur-2-course-shadow-9.png": {
-   "hauteur": 68,
-   "largeur": 1248,
-   "sha256": "7a2357e815e0977e965d668284ca176a0af5f1e1b44f652e4a1df0ff8bb7c309",
-   "taille": 16685
+   "hauteur": 72,
+   "largeur": 1280,
+   "sha256": "414306c477dccce7cb9ed745b23b63129ec79883937f5d1265c3f8d5185a1f4f",
+   "taille": 17760
   },
   "hr-ravageur-3-attaque-glow-0.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "92a532586efacc7305729c18cc66d3d05d94a4aa66ee0ff722db0609c801fa93",
-   "taille": 12680
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "888b72b5c168438f797398e822c36e03c5b846f28950fca5864b865634aa50f3",
+   "taille": 11267
   },
   "hr-ravageur-3-attaque-glow-1.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "25230ff7a75e536af48f2380785a7ad8b0388de4b644540a595e2fe975137ff4",
-   "taille": 12916
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "ebfee42bc74c72e34f37759cc2eb946491768ece0c5b1ac05ef5e60ae2428b4f",
+   "taille": 11565
   },
   "hr-ravageur-3-attaque-glow-10.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "459a5eea9926f7c8bdbad34703a18e22a1f8b8d1e54b8170b803612585e16bad",
-   "taille": 24035
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "0361cccb28d8cf8d14011ba5c1ee418fb126f7dbd243b48ba572a0d6c32e7f5e",
+   "taille": 20364
   },
   "hr-ravageur-3-attaque-glow-11.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "593281fb4b72a9b250b28487bf33289acdc425b0ce28fabba3a7f0a2e15a8134",
-   "taille": 21506
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "cc3bacaff28931b7e217eab642f7911d3654177bc9c93f1c487d46bc8c456d79",
+   "taille": 19954
   },
   "hr-ravageur-3-attaque-glow-12.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "752d424bd62f645f10165c276041b57a38d98c421ac5e06b07e5933ebb9865b5",
-   "taille": 19908
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "083db5341fb3f11ab28b778f7064f9802017af1cf8937afb13dfe13d481ec723",
+   "taille": 17453
   },
   "hr-ravageur-3-attaque-glow-13.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "5b87030e789a0747b7533df3c6c9f732f85f23effda1b2707e067029a0210cc4",
-   "taille": 19408
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "d7e20753c366d69e1a2e4d8c420767046cf256322cda703254931f8bae16167e",
+   "taille": 16921
   },
   "hr-ravageur-3-attaque-glow-14.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "8e9e78116c7f4f3448006e73fb4f854222f7afa43f091c27f842d0fc992e8365",
-   "taille": 17938
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "64499f2a159fb6120ba5992a070b4242ed2143b2988f86302fa3cd0f8c825248",
+   "taille": 16322
   },
   "hr-ravageur-3-attaque-glow-15.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "4f5cf42987ad42b3c93523f10d345aafa4d68cc3fae0785596daa93fd69c1a9c",
-   "taille": 16210
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "a523bb4c303e2f7ae4d99372a37c96db929ff840bc5b51ee9a0aa67addf3bc94",
+   "taille": 14148
   },
   "hr-ravageur-3-attaque-glow-2.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "f2581014591d71c8ea9d3759bfaff3a14b0f365405f2eff42a7dfd5f419f2967",
-   "taille": 13172
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "35e583d46a1df59826d6a5b2578dcbf8f4bcf00ea26a00d1748309f6bbd7ca34",
+   "taille": 12640
   },
   "hr-ravageur-3-attaque-glow-3.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "4c54ae12398757171f1bdf80341b4bad0c7f5f1cfc6f6f54a389ef83d634e93d",
-   "taille": 13835
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "97269f88c7a79212dec4a908f1add37f82ef0218bb0746fe6b9b4d5a0842f691",
+   "taille": 12495
   },
   "hr-ravageur-3-attaque-glow-4.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "c900124c5e91e07fc6bcd7c26d8c2273aeb9c8d1b2a6590dd11c256eb350ab75",
-   "taille": 15778
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "8e6380cc8635818214c6d961d66ca3b0d5d518ba4a7651216622f9e97cbca16d",
+   "taille": 14536
   },
   "hr-ravageur-3-attaque-glow-5.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "1e0e3731bd4a04d17b30f83f134f531b51a3bfc5106fe0b7e390277cc0e8d099",
-   "taille": 20475
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "c88bec6e6e6bb92f15802b841fe90fba7cfbd3a2c0b409c8f6f08b1e7666a700",
+   "taille": 17357
   },
   "hr-ravageur-3-attaque-glow-6.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "62d6f317112f62b35bcfc6f6f1486bb1a6d2b23519633dd7a6edd72023c85a54",
-   "taille": 23588
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "7b451e3e6a0305493e43d27e1ab04be030b9aaa93c382e49375ab196a1f9d781",
+   "taille": 19834
   },
   "hr-ravageur-3-attaque-glow-7.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "b0b409e2d4e98bc7a90b7d9409eeea303833273541f9c06d1cd6f77044525837",
-   "taille": 24831
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "b7e4e17f2d0271d3ac394f58f0a910ca28c772d6e6323806fc1423f929f96357",
+   "taille": 21145
   },
   "hr-ravageur-3-attaque-glow-8.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "9439fb1bf94096b99ea8aaa6f53dd22e796746355c93d3c09b6dbc3d586e61b6",
-   "taille": 24841
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "ff815532a831b40fb45b157053bc22f026a4c82517a268fab39af22cf3880bf9",
+   "taille": 22076
   },
   "hr-ravageur-3-attaque-glow-9.png": {
-   "hauteur": 126,
-   "largeur": 440,
-   "sha256": "5e64bec978ec7dd9ad8f0fe9f9bb8e29e2b02a5aaa66d5f40b8075b02ff77286",
-   "taille": 25138
+   "hauteur": 134,
+   "largeur": 456,
+   "sha256": "36726767045aa570a1ce8a45483f6755d466e97c0d7679e064761d27d9443c91",
+   "taille": 22081
   },
   "hr-ravageur-3-attaque-main-0.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "58c7bd08aff4033b4e504b39fe6dc4c43bbf4b618d0d7371f1aa8faf331d471c",
-   "taille": 203458
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "6254dfe771de4d0c3d434b71cc59c432c5240d6d196f626a64cbf5987b628fc4",
+   "taille": 213546
   },
   "hr-ravageur-3-attaque-main-1.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "beabcfd7ec4bd79dd113e9b613deac0f1edf73081deee0623236d1d6e6634513",
-   "taille": 221333
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "e5c3fbe12a45d27f7e894846b6c305574c289688f4c384092f68299209b6bda5",
+   "taille": 229451
   },
   "hr-ravageur-3-attaque-main-10.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "8ef627aba6ba6465147df59649d5b1ab766e548783e19418929bb062e7f3e910",
-   "taille": 310373
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "cb8505de68f9796cae3a34c05192d81bcf55a779171337c4f564427e5bf79200",
+   "taille": 302786
   },
   "hr-ravageur-3-attaque-main-11.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "c2f1b70554d4f4cb74f7bfb0a11cd8c4f9c437acc0c014a5a11a126661dd0c63",
-   "taille": 290448
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "9ed349cc33df3434fbfa0f182e10edc21e990863be4e9928091ebb35d2bd6c5d",
+   "taille": 288889
   },
   "hr-ravageur-3-attaque-main-12.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "995a716a272a80bdd35a6b732794ec0a83f8fa8ae855656db14a7e8baadb1f3c",
-   "taille": 262538
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "05ae5533c2d77d730788b429850ed8113ba088ea6d5dc57e26e2b23029915b38",
+   "taille": 252305
   },
   "hr-ravageur-3-attaque-main-13.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "c5a8c43b8836e84f0752960c217769cd6b96c026af494c4c4ef28b15949cf6f5",
-   "taille": 277388
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "cf45689d3b61fb2391b5e82c27749fe46000fa28e42b0c9148a499aed97ac090",
+   "taille": 267080
   },
   "hr-ravageur-3-attaque-main-14.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "ceb6c99fdc98ebbfdb39868ea69936f4a08c83a25a8abae6ac5509bacc92af9b",
-   "taille": 341434
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "ef1b890eb106a65835ff4e670f9b67f32f233c5ffa43def282d9feaa0c89be33",
+   "taille": 275057
   },
   "hr-ravageur-3-attaque-main-15.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "07add8e2e641303e208817ea8f2f49cad7c7e8fdb0aeb1db144c99048fb60495",
-   "taille": 245340
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "3e098d4021b4f3f1a67d659b5f5d925e8bc2e1c71c1cb66b4c16d25ee487730e",
+   "taille": 243236
   },
   "hr-ravageur-3-attaque-main-2.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "d33cb3d649bfcd52c433f164b064d84f01ea6eb95b77361a89b2edb309853734",
-   "taille": 231198
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "ac0ee535fd9b308ca6b4f4029e39e7914b6e3dfedf8e5ae522f290860857e6ae",
+   "taille": 235821
   },
   "hr-ravageur-3-attaque-main-3.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "235c1a292d05ae2fb4184c3110f93b695c367165a386b962e48e76066cdecb7e",
-   "taille": 225558
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "a15bb55be475611a167199d3f30a38e6ee80ea0db3e00fe53a97c30d8395e7e9",
+   "taille": 231909
   },
   "hr-ravageur-3-attaque-main-4.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "21c2e0b9e528fa69f577225da7ac02f5d03300eedff2aed3672ed915e54afab0",
-   "taille": 238699
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "576922e6b9bbbba2ed297f5b83d395d35bc15e246e2acff290429f36fd40839a",
+   "taille": 240616
   },
   "hr-ravageur-3-attaque-main-5.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "f33fba2c1582ec10a454046ab318b02f67f6e4c982e83e3a1370a304b6bb552d",
-   "taille": 293845
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "1b65fe51a00a3004e90c80c5575b1ac8e606f010487f38fe643d46c248245a8c",
+   "taille": 292076
   },
   "hr-ravageur-3-attaque-main-6.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "4c30e2ef2a9e1de895751c8961ceb477b348e48ac3aae6dcfb922bfe0c8fd9b3",
-   "taille": 318167
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "bc1516e7e45c4cc917a82d3792af35a708a1a5177057fe4514be9d152b10fb2f",
+   "taille": 311687
   },
   "hr-ravageur-3-attaque-main-7.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "00df750f140b5d52657de2a93fe0071f81b03f7f579719b572c7a5a6861968ca",
-   "taille": 378948
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "52f26bbc65a2095dc3519ea8a98302cdcbec80724c27248b8100765c46a98de6",
+   "taille": 385622
   },
   "hr-ravageur-3-attaque-main-8.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "20122b269feed884e63b897ba641a23891e222ca6158d796ff45188cdea90b32",
-   "taille": 314812
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "69b9b0fa769abbb95eb1f56c306956447a6f6cf6784644e18f534c77ad2b09a3",
+   "taille": 315606
   },
   "hr-ravageur-3-attaque-main-9.png": {
-   "hauteur": 528,
-   "largeur": 1720,
-   "sha256": "38d3f35e0f928420937efc2d4a6d5e77c32cb7f00763a85b8631544ac286e0a4",
-   "taille": 378070
+   "hauteur": 536,
+   "largeur": 1816,
+   "sha256": "e8331f8b60988544ff150e116199d6bc25d960347ac174c1a75b030beb5748af",
+   "taille": 312941
   },
   "hr-ravageur-3-attaque-shadow-0.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "398139a0aaf8037414a11f0c9e22c8286f4aaad0ab185e7158bf48338f7a4699",
-   "taille": 5577
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "56820fea9fd19bd10158d21ac797d26090f228a4fe2e3eb417b9849c37937272",
+   "taille": 5591
   },
   "hr-ravageur-3-attaque-shadow-1.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "240e6af0c5539cca576f5d3cf990ee7106bec8e4a9111c01d5b6722c8c818199",
-   "taille": 6101
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "5e1f3640ac026df31e9c2c8b2451f3caab8a40c717598655b63f481b1929dd0e",
+   "taille": 6100
   },
   "hr-ravageur-3-attaque-shadow-10.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "7bb7f296a91c7a66f8883081afe199e047b319d4ca1c3dddd006dfd1a6e9bceb",
-   "taille": 6364
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "9de45da8052e6ef8bd31bf5ef9f24abfabb66ba511854b50ea5739a43f493c53",
+   "taille": 6728
   },
   "hr-ravageur-3-attaque-shadow-11.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "a559e5c9340c307f01d98509ea7009ee1e7a5291ce702fe7e1ef31fc26687aa0",
-   "taille": 5883
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "42c60fc89f1d8ccc14ee20a037a634c582990b846175768339bd433081a93f2e",
+   "taille": 6331
   },
   "hr-ravageur-3-attaque-shadow-12.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "22651d2e2602cbe9c6915aac9a9813d09bec019af6ad4b90fd632e168d137839",
-   "taille": 5751
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "759375ab8ff25827bc848e0ccaa6d1fd217e0df6a5a1773427012301caf0aa18",
+   "taille": 6528
   },
   "hr-ravageur-3-attaque-shadow-13.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "dfd9833d3c149a74e0b0f23f4c97ae0cea272c7f3a3676c52bc4af812a9f04e1",
-   "taille": 5254
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "0dca1ec3dba5314e06770eb266ef1ad780c594b7cb6d23c588b91c75bb204c0f",
+   "taille": 5673
   },
   "hr-ravageur-3-attaque-shadow-14.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "fbc076f0676831b93edb9153ad1b5a30a7255c0e1b5353f462f496be30c25a85",
-   "taille": 4828
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "8b4352593a137ddf7c032b85b5a87d524f09590e585fd5f5d69a764b8b711b1e",
+   "taille": 5154
   },
   "hr-ravageur-3-attaque-shadow-15.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "c57bd00336a8c14b68297a75a119e2a888c04f18eb7e359cf7c71b79bd2788f3",
-   "taille": 5214
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "cee0a322b7a0f479f44b99dd703e322863780cffc678c35d097757136432a0b1",
+   "taille": 5216
   },
   "hr-ravageur-3-attaque-shadow-2.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "1b185969659d80c7e7b52eff2ed4d0654a967228fec1940f687d1b322f0db38e",
-   "taille": 5788
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "aa01d5c167fde7ad0dc7a55f26f8c5bcae5de37a1405731bfef92e361052d42f",
+   "taille": 5863
   },
   "hr-ravageur-3-attaque-shadow-3.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "01fb911608f464f67147b9f0aaaec409fce6082a4b6337d9f35a8ad9c04360d2",
-   "taille": 5141
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "d1e3ddea1f6fc951d8e656b4a2a9264a36b1d051d9a82b21de91e73611572313",
+   "taille": 5440
   },
   "hr-ravageur-3-attaque-shadow-4.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "af35d0652e49dfa0a316b443c0e1efff1bb0bb38149cafde1d340efd3764b507",
-   "taille": 4501
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "1b91ed54ee2924d31e71489812d086d1850e5452b3a8cc212875ced8cd39e31a",
+   "taille": 4995
   },
   "hr-ravageur-3-attaque-shadow-5.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "c7fd2a0535c14e3919e7aca65316a59e44cd7530bdea9b1ded14dc4010c46179",
-   "taille": 4905
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "da15462f4b31a3867f086666af208a0ffd60723e85bd7de190564abd711a4bf9",
+   "taille": 5165
   },
   "hr-ravageur-3-attaque-shadow-6.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "ebacd1656e41b60507253428dbba2e9b86afd3c4d11df42c4287b5818baba9a1",
-   "taille": 5309
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "092f6a17bf49f7f353784a38cbffe1fbba4282eaee2589c6689362333242143f",
+   "taille": 5472
   },
   "hr-ravageur-3-attaque-shadow-7.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "c406ec3e5b60ecee4d0e8c8aee5ea893642ebd41f346b3c023f3e0cba7923fcd",
-   "taille": 5552
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "4d273176c1040fb484173cd7214c4d50e24bfb77773970e1f21032e1dab7e00a",
+   "taille": 6005
   },
   "hr-ravageur-3-attaque-shadow-8.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "874c99580a113e92aa080b765c30c7d8a01563c49babc237d2cbfa0974290e47",
-   "taille": 5676
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "26735009cf5a4786815bc752c28f130ffbe9ad45ca9747d169ad0dc1e0ab7cf3",
+   "taille": 6237
   },
   "hr-ravageur-3-attaque-shadow-9.png": {
-   "hauteur": 76,
-   "largeur": 688,
-   "sha256": "98b2689f4ff87da4d6ffe18e044f0ac07b8feede8d6edb92fc868f889bebac75",
-   "taille": 6170
+   "hauteur": 82,
+   "largeur": 704,
+   "sha256": "2db23804a9ee81fd518eff132d53b411d6d7fe4aa041329cb5a3168b834c0eaa",
+   "taille": 6367
   },
   "hr-ravageur-3-course-glow-0.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "c00662b84abf346ed7ea82f1602a747bc6ced3cd1881363760f997c1f45e14ce",
-   "taille": 37959
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "d719da2a32423394fd48bc5ae3a381fa88eae3c34de0891ff545a1438e7695a5",
+   "taille": 32472
   },
   "hr-ravageur-3-course-glow-1.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "3fce85b794d543ce2caa00f31e4eb8af457604f3b0389b73f2e8c43f33c5a2f4",
-   "taille": 40809
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "c61b1d6486649bb7dba7809166a0150b8495d274f173b8012a71d5697f7d8f39",
+   "taille": 31778
   },
   "hr-ravageur-3-course-glow-10.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "7c47b59baa44fa307168f5bdb2908d9b4fb29f8fa2861e51c1afeb652fe8feb3",
-   "taille": 60458
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "b05bfdf275ae72bbc75eefe8bbcaa8f88502d722a9c70473c4362dce7937ce57",
+   "taille": 50575
   },
   "hr-ravageur-3-course-glow-11.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "c5cb417c348211264b3aff8a754ca6fc7e3bf5a15dbcf2d7adb4d7907a952e41",
-   "taille": 53646
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "ef7d17ef9d7b23a9be019c50dcb99404f7739f5d21179b92222e65871eb3ea4e",
+   "taille": 43450
   },
   "hr-ravageur-3-course-glow-12.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "a99a2be83aa0520aa58e68440f9272bc6207fd56bd242b2883ef894554ec7641",
-   "taille": 48046
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "fa21d807f5e9f1c7aebadfdc3db07bbf0a02c8866c580db7d2670d13be4a0144",
+   "taille": 38432
   },
   "hr-ravageur-3-course-glow-13.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "14ae5c4836104093ca0edbfbb7ad3d56c7bf6b534ed2192ea8637d0c3c91a169",
-   "taille": 45463
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "39f39062a5d52f14b84a43eb0c0813bb605f73e74303aa996ba50f60fe6aa564",
+   "taille": 35843
   },
   "hr-ravageur-3-course-glow-14.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "c7524ef5a1e1b2718e5293c79cbcd5e3cd27f2009d50fea68c8971ef7ba3ef21",
-   "taille": 46563
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "0d6cfca670d93fe2467a14d52a1e0edc951c05f9bf3c6953b4bfabd42070d030",
+   "taille": 38188
   },
   "hr-ravageur-3-course-glow-15.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "572679dbdcd89ea8cec4160e47b4a8c5e8ab6460eba1268760694704dd995f7d",
-   "taille": 43528
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "ff4aca6e72a893dcacb21e626fad4e7c29bd1ba4d7f38999408703e18c1b1b19",
+   "taille": 35397
   },
   "hr-ravageur-3-course-glow-2.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "b17828fd8f06af9cb2e81c6249180b66d23dbbdf6f1b1b7e47b0568becf9aeb7",
-   "taille": 42189
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "742e9f4865bc53220fedd931eb56f5a230f29fd6ee43000a8f3b8517b00698ad",
+   "taille": 33451
   },
   "hr-ravageur-3-course-glow-3.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "cedec1226226531e903e28ee0bf9673b71608a02129adc0f72578971484fee24",
-   "taille": 44658
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "66940e3d52245cc0d4569fd736a4b0ac5a151cc87b216af96de52a4e9f989e6c",
+   "taille": 32354
   },
   "hr-ravageur-3-course-glow-4.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "6188c1a10fb87f3c7d5ab0b72e9ae2f1d359c2f88264ab21b643e0e596ea259b",
-   "taille": 47903
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "7e1fa2e5bac47d057bbe857485d7327c6b482d5361d20115377df8860971bab0",
+   "taille": 37029
   },
   "hr-ravageur-3-course-glow-5.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "917be4ca0b8aae66ec9d056a2c003174df96da50388da5b847b7401febc59900",
-   "taille": 54261
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "359f18cbd7b86a5c6f5737e08dd415b43f28f6d89c54343eaeb2a89c6b9fb472",
+   "taille": 42391
   },
   "hr-ravageur-3-course-glow-6.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "e08f550e5fff24aeb5068d37202465a99be43a874dec345d53b01c3608574e2e",
-   "taille": 62550
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "75b366bb9ae88952b231d1749b37b15a259641850c7d498f1002dcc798773f49",
+   "taille": 49720
   },
   "hr-ravageur-3-course-glow-7.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "5e86aaaa3793ae9e4a90246dc27fe6858bfff3b5a79808a6abf4b69167459339",
-   "taille": 61980
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "6b0e832bcda23d41ccfa3064a5b8eb44a66788266141f97e078566904a46647d",
+   "taille": 51991
   },
   "hr-ravageur-3-course-glow-8.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "1db11b7cd65a1b914eb23bff932f081c8ae96848db2f3412b9f89d5c2392f92c",
-   "taille": 59622
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "6a64b3d2714ef56028463518b1e18462caab4b3588a05df3e7715544ff0d0a82",
+   "taille": 52302
   },
   "hr-ravageur-3-course-glow-9.png": {
-   "hauteur": 132,
-   "largeur": 784,
-   "sha256": "609532f7f946f254e9221b7d60d3b3c15698e4327d331a36d38e689b10379c6b",
-   "taille": 60472
+   "hauteur": 136,
+   "largeur": 832,
+   "sha256": "d2a03d44e829b64a51a365324feffa1b5b72a311c5bfdfec2722fa810f1a948b",
+   "taille": 54471
   },
   "hr-ravageur-3-course-main-0.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "dfb4fbcd10152144ea3de85b69f32fa11431fc7f57b55e6427dac60809dfa188",
-   "taille": 683799
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "6bd74480859d8bb87a84b7f0264f44ce4d9c6e6481c00b685519fe78aad37b2b",
+   "taille": 798472
   },
   "hr-ravageur-3-course-main-1.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "6b5104310581a646e8366718a8d15a74c2fbeea19db92b2919659d523ed227c1",
-   "taille": 731863
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "0acecf47cc4baaaf6964b02f8fcd5302e5778a79089160a57374b4a2acc87ac7",
+   "taille": 770036
   },
   "hr-ravageur-3-course-main-10.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "6d20be96ebf31e877bb8046d00592e440ca2b3a359983bdc0dedd0a14bff094a",
-   "taille": 909943
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "0371644c606b009cba97d9a13e2c1236699273e6ab5d5070eeeef834491bb598",
+   "taille": 933618
   },
   "hr-ravageur-3-course-main-11.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "5ddc8fa448f7a88518500217cd6963f738479467a7f25ede3720963f3fdb1158",
-   "taille": 820107
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "018b889771ac7f923943e92f7466088e924ec8ad341aab5032801af458314e97",
+   "taille": 828972
   },
   "hr-ravageur-3-course-main-12.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "85c6157b81316a293e44efb39b9ae25241daaa446f40b37d141bef347fc7c0c1",
-   "taille": 747043
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "dc0e83ad4a32bc387c011f036e0271541bb8d6d1655f36bedea625f6b469637e",
+   "taille": 739830
   },
   "hr-ravageur-3-course-main-13.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "34d3840b2970a0e48cee52dfac64b0f7e6e93d6268f04cf1cfb10d789e8a6388",
-   "taille": 779601
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "30cbca57bf2626982786ce939357faeece1a93b4036468627e9e75a40ca372a7",
+   "taille": 801110
   },
   "hr-ravageur-3-course-main-14.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "5e562ff65f00ec49788328d1b22d9ac3691cf6c3340bbf846579314f6cfdbd42",
-   "taille": 822660
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "071c7b93370c6e564a8d12fc96f2da8dd4463b6a9da4ea9456003687d9164033",
+   "taille": 878660
   },
   "hr-ravageur-3-course-main-15.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "f712f801b5ba5374bf0e67468ad472d57cfd75b41969b1f1c9c71507f9990715",
-   "taille": 788073
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "1bfdf7857260c1c1cee4eac54854e07aead517547eda9e466d58230f19b7c1e3",
+   "taille": 829796
   },
   "hr-ravageur-3-course-main-2.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "d587ac1fb1293506488d9ca33bdd47336898d2fef2eb0035c0b84c7729c050f1",
-   "taille": 737560
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "47aaccf1f74320f8083053ce62166db70f8d3b877f36729b2c33d1151e74bcf8",
+   "taille": 810315
   },
   "hr-ravageur-3-course-main-3.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "136df6ce5bdaa0c7a75908fbdbeebfc929ca30357fb47616cf38028047ba04e4",
-   "taille": 741890
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "fe9278540d92fde071a96c03edbade76ec44566ec83f1f25fb1e178177a39a3d",
+   "taille": 733024
   },
   "hr-ravageur-3-course-main-4.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "db4c89c2f5e66ea861f8195ec89ea13a17607b99855eb8fc87116c8f8ba35c5d",
-   "taille": 758933
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "48b9578c029220ac4b869fb4feef669d0b28504598486604ea6069255dee3d34",
+   "taille": 722417
   },
   "hr-ravageur-3-course-main-5.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "c935b5e52800b8c0104650fee54f31b41db0b0a2ffe55032599ba27e23b4ddd7",
-   "taille": 817000
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "d86105b82c34311dbf30ca34af1075d165b200d249e5e79d8a4b0b1aa3fd82c9",
+   "taille": 812163
   },
   "hr-ravageur-3-course-main-6.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "f7e6487574be115f64f65fbbb649cd71a130f0fff882dd7607934c61baa493b4",
-   "taille": 935398
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "88206702a177ba13044bf13c0ee1f0e5f032335eba7cf086059c16aa95195c74",
+   "taille": 945057
   },
   "hr-ravageur-3-course-main-7.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "97a583784e7bcec2b73bc5f26451558ae69776eebfdc3b804d52bd88f9519714",
-   "taille": 905069
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "8a28b8341b30fde6f6bc538e09aebff62822f4244a62479eec95fd24cfcca115",
+   "taille": 931018
   },
   "hr-ravageur-3-course-main-8.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "35443e42baeda4deacd705737b428408afa8903b1fc85f359b85ec9f69215a11",
-   "taille": 859525
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "f060f30544dd6ee4f3a00eef793bf8a19b499792f713ca35aacb5dc68a9ffae9",
+   "taille": 922464
   },
   "hr-ravageur-3-course-main-9.png": {
-   "hauteur": 540,
-   "largeur": 3088,
-   "sha256": "1dc36a85173d055de1d47688425866184386899f42f0aab4b214bf350e7f6ec3",
-   "taille": 899511
+   "hauteur": 548,
+   "largeur": 3264,
+   "sha256": "a3b057507dc2f6351d2e07dc878421c5610587ad30120c9b26912327da30a061",
+   "taille": 959533
   },
   "hr-ravageur-3-course-shadow-0.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "4c1dcc9a08d031223732109712a44b56cf31dd2955651c278f8b1c20ce3c6366",
-   "taille": 16951
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "ab6735b5d8ee7e9268345a7b5702a42ba087c65a048e851b81386fd0ec79998a",
+   "taille": 17498
   },
   "hr-ravageur-3-course-shadow-1.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "54018ebc1afa53410ce2254a3da190a23237fff62cb22908e5939d1aa11ff9a7",
-   "taille": 17002
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "243a210add8e1e681cf348a0414e65935c00f9a232f6ea502644f53253399053",
+   "taille": 17816
   },
   "hr-ravageur-3-course-shadow-10.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "d6d80a2c065d68116f97f9d2f4bee51f74db7918667ef896a26b4fe5d04ddd0c",
-   "taille": 20420
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "5a3b9605de02bff7e7201380fe11076019d196858d68ff3b53015a12ebdaa7a9",
+   "taille": 22055
   },
   "hr-ravageur-3-course-shadow-11.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "ce20280438d927c6e67d15675252aec2249a631d9110727ee97381c8c4ddda79",
-   "taille": 20316
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "d7b5b04f37d96f13e99503d79f4a639609422c9df0b593b29b215c016adfa404",
+   "taille": 23003
   },
   "hr-ravageur-3-course-shadow-12.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "9040ce6f32aa9ff474b94d6a71be58a9bc1f11e5dbe391c539f84ac0b1899a74",
-   "taille": 19091
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "d55f3e32a02d4fa5ecd8868973f247c7c60aafa9068f708d56bf5d17d60b80b9",
+   "taille": 22468
   },
   "hr-ravageur-3-course-shadow-13.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "b543ce5beb1e42793583fb540cfc311b11d71f24707d459a7673b41ec531af88",
-   "taille": 19934
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "4519065f7773e94c1529621e6f3e83dbd708f5e324b8568b92b8017833c5f567",
+   "taille": 22606
   },
   "hr-ravageur-3-course-shadow-14.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "97c2debefdb12b81d05d1449e5592cff5ec7d2bdffa5b24f83782f885f31e2f1",
-   "taille": 20436
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "b59b873ae295df7235af784b31ef4b46c72dd7a0ba1b3b32c04dae11982a27d6",
+   "taille": 21451
   },
   "hr-ravageur-3-course-shadow-15.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "0d4d47f90c9b7ce8ed77e2410f7e7c7f8ad53d6f6903c5fbc7e06cc6d8c46c3b",
-   "taille": 17560
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "e04b852ad842d816354a1105a09922acf04fc85497bb43a0f7ecdb4c1c54b380",
+   "taille": 18520
   },
   "hr-ravageur-3-course-shadow-2.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "2d9cec26b051df1aedf40f7df7ea8474e4a29e741e582b911539ccd701081330",
-   "taille": 17509
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "820bb43d4d0642065eaec3f5c0172be53bb5512c07758328577e0cdae964ec3b",
+   "taille": 18479
   },
   "hr-ravageur-3-course-shadow-3.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "750dbb91e8ec9c7c8fcd0c9e07216fc516c2623b7fc345a365e7b45ab00a3f85",
-   "taille": 15698
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "3d6a6fb2a3eb185b11b33157598d728fe3f3d0a427d0386c35ba54735430dce6",
+   "taille": 16943
   },
   "hr-ravageur-3-course-shadow-4.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "2af8502ca175e3523c0090376e50f7eb284ed4685f2fde78030bced2e114c3ea",
-   "taille": 13150
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "f264ccc3315c224363249b394a4baf6807d7b8c528c4fad5d472e6dd6aff45b1",
+   "taille": 15765
   },
   "hr-ravageur-3-course-shadow-5.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "339c8f9ebd762795c2de260f8e206f7130dc1044f9cb6a4850ed1326230c5bab",
-   "taille": 15209
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "e4909df4c2d0d0f9bcda8e263b1611281b1698829933bb2debc61bd7bd74282a",
+   "taille": 16598
   },
   "hr-ravageur-3-course-shadow-6.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "9035207054f3c3c87312bdde45cfd8d24282df16bef1d0cebd52994cec1ced72",
-   "taille": 16879
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "8ead2e309a81199a16b008311f8fdf47217c8f5e5b9e62205b051e832008fd0d",
+   "taille": 16948
   },
   "hr-ravageur-3-course-shadow-7.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "72d924ae7900074a784645a12c4b151b0ee044a7fa81f4c2da20887106f806fe",
-   "taille": 16153
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "9bc6c345084cc888339eee3a792931bc61cc1d0dd6bde96e33a4d301b920ad4a",
+   "taille": 16897
   },
   "hr-ravageur-3-course-shadow-8.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "249912bad9c9c83ee3a7edc975907a09f5f1fd2237c4c8c4c00f81666d46cbce",
-   "taille": 17210
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "f2b422fbded291845b5757acbf3c90b7a481fa5d665520e39857276899808632",
+   "taille": 18143
   },
   "hr-ravageur-3-course-shadow-9.png": {
-   "hauteur": 70,
-   "largeur": 1424,
-   "sha256": "48d07ba578f7654f4d7bbb96ef44674a3c9171c6faea92624f91a22fd6c7987d",
-   "taille": 18418
+   "hauteur": 74,
+   "largeur": 1440,
+   "sha256": "3a12cac5f9bda5887e1302e8c25a05352f9543b1159e4537ae313b4ea83a8ea6",
+   "taille": 19700
   },
   "hr-sentinelle-1-attaque-glow-0.png": {
    "hauteur": 102,
@@ -7853,20 +7853,20 @@
   "icone-ravageur-1.png": {
    "hauteur": 64,
    "largeur": 64,
-   "sha256": "8fd01bd763979fc097256b93da079bd21e5efbc5701eb56d8d1772756bddd0db",
-   "taille": 6037
+   "sha256": "2a7a8a14e67450f045ae4e46d4638a378f0e14c8a826e09df0f37ab423afb185",
+   "taille": 6373
   },
   "icone-ravageur-2.png": {
    "hauteur": 64,
    "largeur": 64,
-   "sha256": "98b853e5d5b838af4fff44258e92dca60c4229b99c9b66886b34a160806d11e0",
-   "taille": 5782
+   "sha256": "29b5f574828dab13c29e7d61af1780df04b2df76f6aca11c0177708cb2e6265a",
+   "taille": 6133
   },
   "icone-ravageur-3.png": {
    "hauteur": 64,
    "largeur": 64,
-   "sha256": "c908075f6c3abd6831755b14587105a5113a8db7d330b9baa12d5c5829a775e2",
-   "taille": 5341
+   "sha256": "7a3a93d753d16faf8d473876274b497119f8ffea5a09c09d6580b4298f82de3f",
+   "taille": 5642
   },
   "icone-sentinelle-1.png": {
    "hauteur": 64,
@@ -9921,1732 +9921,1732 @@
    "taille": 4705
   },
   "ravageur-1-attaque-glow-0.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "20b7bb6aa2b08e50d7983fbaeb232be735dc0c3db439b5534eba8cedc0899d34",
-   "taille": 4236
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "dc0a721fdda015fe8ee4d07c9a235bd3a2df86b2b6e37a30d4d7baa86dfcea54",
+   "taille": 3617
   },
   "ravageur-1-attaque-glow-1.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "0f5a3ab242d36bb43eb1538b8a3dfeb6fb654814c7e91683738130f4fd68dac3",
-   "taille": 4080
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "90686f95f87d992e13b222bd47f901c44490366b209a935bf25e1cedfa099734",
+   "taille": 3713
   },
   "ravageur-1-attaque-glow-10.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "b938c439074501f8c7885d084be50f516463bf74588e7324c051cca7373e8bbb",
-   "taille": 6760
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "7c37e14ad64d9b326d6b76592e7b6d9b185acea7c40a2299fccf54833720c63a",
+   "taille": 5956
   },
   "ravageur-1-attaque-glow-11.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "6225097cf15eb9a4a3a783eb5bed55523b6166b5a257e9dd9f144877c8d00bb4",
-   "taille": 5995
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "3fa554f50c71596e366870cc89014c169faf4126ca715e95029de4cf7a61660c",
+   "taille": 5880
   },
   "ravageur-1-attaque-glow-12.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "eefeb2283658dd9c93fffdcccdfca473ab09188404ce160c951d84a49c171526",
-   "taille": 5909
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "f176f5894d3762138e455868f48d38f5623b41ba469f3408753925b8c783f33e",
+   "taille": 5575
   },
   "ravageur-1-attaque-glow-13.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "827d5e585146a425eaec059085feb577ad552c2f322b116e4dae45dd7a9e4049",
-   "taille": 5954
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "ec9c25a9ad6368791a48bf9f3c149b977d86b5bcfa4d6e196e57d44409a6530f",
+   "taille": 5080
   },
   "ravageur-1-attaque-glow-14.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "295151d53375657540bd5ae969c1269b693e781aa1749cc80a0424291d4c237c",
-   "taille": 5415
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "e67236d7412f0820bb873a9d36527827347e3241c2edfb7075c85d9431cb2cdf",
+   "taille": 4834
   },
   "ravageur-1-attaque-glow-15.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "215e7bee66609ede702e3e2da94cda8799839b04acfd599f00dca7efd431cae5",
-   "taille": 4876
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "381e7bb5d74fe0432203c23f1d4ff27a7b3ac4087d780bf1a811678b07f4b237",
+   "taille": 4374
   },
   "ravageur-1-attaque-glow-2.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "f6d1fbccccc8262c11d50641fae5fb5f6311e8997669e27c3451ac11029ed415",
-   "taille": 3904
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "80a8d6eff4e033bf5f8f6251feaab485a416d21d973140c3edd5e3fb8360c2e0",
+   "taille": 3858
   },
   "ravageur-1-attaque-glow-3.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "6b065e895a6e0cebf5dbe62f7fe7c2847fdbec4451806715c2c87dbcf75a797f",
-   "taille": 4173
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "03aeb3b4d6172d5e8219d3cf29ed2798ff27a8d29a997ee8e188561848e73980",
+   "taille": 3776
   },
   "ravageur-1-attaque-glow-4.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "e90c60e7b5f148a485f36368639981000239155bc7a411ee3498377b4f6a5f9a",
-   "taille": 4593
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "3e6d924bc561f9c50047cd9bb8999145be36751646378bc78b7d1297904235f2",
+   "taille": 4260
   },
   "ravageur-1-attaque-glow-5.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "cf87b2e7cf19036ceebd45ae66aeea5df41c8c7f836401c38a5944e496194bfd",
-   "taille": 5887
-  },
-  "ravageur-1-attaque-glow-6.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "59c57800be6200aa888ead9750ae89a267ecbd25b8291942bd40cd72fdd110a5",
-   "taille": 6882
-  },
-  "ravageur-1-attaque-glow-7.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "b34fe14d6c763a28a0b58494650e602e31b199147e90008a46772813d2c5dbbb",
-   "taille": 7110
-  },
-  "ravageur-1-attaque-glow-8.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "632db81b4dadbbce7fa870927560384053a6dd848a7184c50295bdf9e95dd77b",
-   "taille": 7092
-  },
-  "ravageur-1-attaque-glow-9.png": {
-   "hauteur": 52,
-   "largeur": 212,
-   "sha256": "7e869de849932c232bd65296da49a364dc4b06c2187a577290473a3a49934a7e",
-   "taille": 7177
-  },
-  "ravageur-1-attaque-main-0.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "cfa19d69236432000e1103fd319bade62988cef204fcafcb5acca15470ddb404",
-   "taille": 61539
-  },
-  "ravageur-1-attaque-main-1.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "6aec8a75ab333ac883a5811c7f6cdf91e87df101120f6a378917d0aac36e3142",
-   "taille": 65674
-  },
-  "ravageur-1-attaque-main-10.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "ccb29f56237f6770b8f6161a300c250146961fd72d6cb1aa6f60a8942ba65d19",
-   "taille": 101625
-  },
-  "ravageur-1-attaque-main-11.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "2ff151d0a68c7e60e597fa060b2591ffb79bf0e253bcef1ecebf618c069b693e",
-   "taille": 93124
-  },
-  "ravageur-1-attaque-main-12.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "9179da1551ddc36dc7b03665725860abec83aecd55e798c0604db811a3702a09",
-   "taille": 73341
-  },
-  "ravageur-1-attaque-main-13.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "47f5839d919fd23239461b96281f81c9ed05076ed7d9750c3da216cd23c5e4b1",
-   "taille": 109295
-  },
-  "ravageur-1-attaque-main-14.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "8026c918f293d86dfaaa0582de14f833cfc9e276010ad14568c6dc829f6c2c06",
-   "taille": 109963
-  },
-  "ravageur-1-attaque-main-15.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "54ba95e580e9cca9a7eb8c7a1b38283e392f9ddbb68ba80e61831b7dbce7c7bb",
-   "taille": 85757
-  },
-  "ravageur-1-attaque-main-2.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "24ad1cbf63b6dcf5135876bbc32fc6bb6e71df43e85e56f4b19e2936ef5acff4",
-   "taille": 60101
-  },
-  "ravageur-1-attaque-main-3.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "827303c90b712c231c6667866bb9fb7bc8f0ccca4b95a06ff5ee1538f1ac4796",
-   "taille": 63517
-  },
-  "ravageur-1-attaque-main-4.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "70a007e88c814fdc60a6a1cbb956d130e75ae5f6e4b5b3df3463650f3ced9a11",
-   "taille": 62186
-  },
-  "ravageur-1-attaque-main-5.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "eb1dad7302b0404f2c5c7adea5e8ae72e5be8b840d8462f968dfbfbf5e4c0e53",
-   "taille": 82804
-  },
-  "ravageur-1-attaque-main-6.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "89fbc0bf047a54f21af7683920cc51541590ea06f4a34d26c57452dffc0e0f93",
-   "taille": 122968
-  },
-  "ravageur-1-attaque-main-7.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "a43ef56453084fd2a6a1a03f64367d1ecba10cf3346487b357533193da116710",
-   "taille": 114864
-  },
-  "ravageur-1-attaque-main-8.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "1b1168a2640a7c8267625fdaaf76ff2e9ca57f1b18c4c3b02dde24a721def7aa",
-   "taille": 100201
-  },
-  "ravageur-1-attaque-main-9.png": {
-   "hauteur": 220,
-   "largeur": 844,
-   "sha256": "15a2652ad7c8b47818552ce814ea8165146f675130b9c6d520ed5a3b12d41dc5",
-   "taille": 101540
-  },
-  "ravageur-1-attaque-shadow-0.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "0711e01c3a55c1cdcdb3e7906485e7d1ba91fe9e7bb6b118023286154950963e",
-   "taille": 1917
-  },
-  "ravageur-1-attaque-shadow-1.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "efff95f6dee00fc833666cbdeda120fab2f0795e53a7addce86daa832aac77a4",
-   "taille": 2234
-  },
-  "ravageur-1-attaque-shadow-10.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "283cf881e3d8a216a7702984f2497ce599579620c7ef53602dd4c69d64c45990",
-   "taille": 2253
-  },
-  "ravageur-1-attaque-shadow-11.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "b1388d4746e8b1da194bbba8335a8955acecfdada101565adf31189255b04b30",
-   "taille": 2160
-  },
-  "ravageur-1-attaque-shadow-12.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "df2f9d71ef1e23ba0fd11574c8b89cf24ecb27e290cf2fe3380ce6f1931b7469",
-   "taille": 2068
-  },
-  "ravageur-1-attaque-shadow-13.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "b4affc2a87a4965ae1e85d8b0d237eba597babd32af2cd4463aac2e2dd7aee1f",
-   "taille": 1893
-  },
-  "ravageur-1-attaque-shadow-14.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "6a783336fd954cea0fffe196547e17ad74794e7425f180a55174551a8627bc89",
-   "taille": 1664
-  },
-  "ravageur-1-attaque-shadow-15.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "a0ae0b03af2cedb7b0cff3e1d91213b4c0d135023f2364cb1dcf8a09c154ab6e",
-   "taille": 1745
-  },
-  "ravageur-1-attaque-shadow-2.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "1d2c25f2c54aa097d5dabe357737da5dabf95b33f2d0a4f9bd19534f13e2190d",
-   "taille": 2117
-  },
-  "ravageur-1-attaque-shadow-3.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "dcf1b494acfe44dd7aceb068d691faf5f238d5a5c7015a803e92da693ccc8636",
-   "taille": 1950
-  },
-  "ravageur-1-attaque-shadow-4.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "a48c70d00e5a253a01496f6bbd3f2b88c1f0da282dee7025224d094da23e8176",
-   "taille": 1794
-  },
-  "ravageur-1-attaque-shadow-5.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "9d3428d081ddae76f28191035c0652cbc78bdb792438503d5181cc39309e623b",
-   "taille": 1928
-  },
-  "ravageur-1-attaque-shadow-6.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "f5d393c11964a3046403c23e1cf5af640c5a3626f9a3cc70af02acd81a951072",
-   "taille": 1902
-  },
-  "ravageur-1-attaque-shadow-7.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "361f6afb868f4380642741d5c82134a03d58e05ad282c97091c92fb860082325",
-   "taille": 2007
-  },
-  "ravageur-1-attaque-shadow-8.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "76c814dd7c80f68cc38d809ad63d8426253c39315c1e8ffffbfc43cce59a5e4a",
-   "taille": 2043
-  },
-  "ravageur-1-attaque-shadow-9.png": {
-   "hauteur": 38,
-   "largeur": 288,
-   "sha256": "ba825309c4e4a19c1d4ead7ec59faa8bb2ec696e7157f953b2bc28cba333ddfe",
-   "taille": 2133
-  },
-  "ravageur-1-course-glow-0.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "687c98c889f33c1caaa5cc3666f4511ff6d17fbe0827a18e6c9a687f1450106a",
-   "taille": 12187
-  },
-  "ravageur-1-course-glow-1.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "b2e3e4f264d17d9315381fa7e32fc27d9a56df3c89d59c3593b0e28a5d2f9931",
-   "taille": 12652
-  },
-  "ravageur-1-course-glow-10.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "4d55b53888f09ad891d0ed26cfe7d3c0926e5593f8645679fea1f98395ba00b3",
-   "taille": 17373
-  },
-  "ravageur-1-course-glow-11.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "d55f7904c3a75f74089c69240a70432b36481681593080358c98ce2afabd450b",
-   "taille": 15251
-  },
-  "ravageur-1-course-glow-12.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "6b547ec650a41ca437b3d02f1ac57a224e30d0e51d9fcd6c25e6f2f2c5fa0a3d",
-   "taille": 13892
-  },
-  "ravageur-1-course-glow-13.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "9f2478ed012de8182263322af7364ff6c2ff4af9d01d993cd4a2e442bf203344",
-   "taille": 13842
-  },
-  "ravageur-1-course-glow-14.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "1b4683ab69e648557345741be723caa3f1f1d90928f0d452e4a4584b6b521546",
-   "taille": 14132
-  },
-  "ravageur-1-course-glow-15.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "1dcd8576e6268bed1a300fe0fc3604e8edfc27c4bf1509853b5b976886ec8da3",
-   "taille": 13329
-  },
-  "ravageur-1-course-glow-2.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "7e6c4c4a02312e8c516ac4840051fc58bdb78a9a916a6f67db663e9a7aa7094b",
-   "taille": 13192
-  },
-  "ravageur-1-course-glow-3.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "5eb58cb9c31a41dd00da029c7b5a66c80d93567e3b2f1e973ed09ab028b7d110",
-   "taille": 13580
-  },
-  "ravageur-1-course-glow-4.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "29f6fc3f985714bcd3bcab20b89bf4d74ab76d4d109360e47e5d40e568d0bc5f",
-   "taille": 14077
-  },
-  "ravageur-1-course-glow-5.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "9b929beecc59569e46f45230dc2484d6b8ff89c39c3ced219367e50c58203c96",
-   "taille": 15628
-  },
-  "ravageur-1-course-glow-6.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "17a014a3632f39e8c5e17a7f21c33024636ff2ad3b4dbb6d513921910e1da005",
-   "taille": 17848
-  },
-  "ravageur-1-course-glow-7.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "746298e0a75aacabe10fe9be1b1c037378987ec78e85a529bd652af4912fe48b",
-   "taille": 17752
-  },
-  "ravageur-1-course-glow-8.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "80107904052d961dadbf984e29409d21888883ac3b460e23a889b6a3d2f9370c",
-   "taille": 16598
-  },
-  "ravageur-1-course-glow-9.png": {
-   "hauteur": 55,
-   "largeur": 376,
-   "sha256": "cbc8c8397cfad33f41b1110ca6bc7e7d0f4cb490afa8255e8fec919824a1ec21",
-   "taille": 17449
-  },
-  "ravageur-1-course-main-0.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "a4dc4c31f082f491fcef2e389f837db23c06b2292101eeaec6dccfaa1217883a",
-   "taille": 191386
-  },
-  "ravageur-1-course-main-1.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "8236247b14925a8389a86969cc67867c86a995dba1a2a39858a8a5b663d17e08",
-   "taille": 204532
-  },
-  "ravageur-1-course-main-10.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "5cae7f65adf9507407b07a80b053c8a2a033e3ad417d864391669095544ed2a5",
-   "taille": 251892
-  },
-  "ravageur-1-course-main-11.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "9877d25e2a094390f1262fb3cd81851c778aa38d59a44bc4e527ef107aea312d",
-   "taille": 224129
-  },
-  "ravageur-1-course-main-12.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "63d94d3eab8fdbac380111d997f366f87cff7d129bd44a2be5367e2023a66bce",
-   "taille": 205638
-  },
-  "ravageur-1-course-main-13.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "dcb0307225ba2d2beb7aaa2cb4a72c2855f03b597fa8db27c22cc03f701dcdcc",
-   "taille": 215179
-  },
-  "ravageur-1-course-main-14.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "48ddc297c936cc12a2842ce3e335cc59285265edf98a2935662e230215cde882",
-   "taille": 234401
-  },
-  "ravageur-1-course-main-15.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "869921a7de143012578912a749dfd916c063da528a5ad6f2c9e3a698329bfbb9",
-   "taille": 225245
-  },
-  "ravageur-1-course-main-2.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "d90a10ce2fb8d9c162cd54b64d3e9000bbd38de400b70e4f385c2be026e5f10a",
-   "taille": 211178
-  },
-  "ravageur-1-course-main-3.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "c90fc971c7dabb2f259a35c5cf62f74b069aa3a57178725211800ad07b41e867",
-   "taille": 211289
-  },
-  "ravageur-1-course-main-4.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "97a315072f849a1c2394352e20d29aacfa10645d7461f45b002fed58d4341c00",
-   "taille": 213165
-  },
-  "ravageur-1-course-main-5.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "e9ac1f84fe6c7c96aa0772c6beaf38a871f91cba968a762030b954a48a96e1fb",
-   "taille": 244196
-  },
-  "ravageur-1-course-main-6.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "aa64b8869e0039f8ae67665e901233beb5fb67aae428f402937ba9a7fdccefcb",
-   "taille": 270930
-  },
-  "ravageur-1-course-main-7.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "de56093b82767f831229a2e6511f7acea0c665123af2483bcb7601772b89a0e0",
-   "taille": 254695
-  },
-  "ravageur-1-course-main-8.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "e872f541aa8ef4bf343c3b4055e79da7d67a1c63f029192d147196fa95b7da84",
-   "taille": 235519
-  },
-  "ravageur-1-course-main-9.png": {
-   "hauteur": 226,
-   "largeur": 1464,
-   "sha256": "f7e6eb7523d5c6a2d8778f69ade1c9c2a3f42d38e3344f386fd6801390eddaa7",
-   "taille": 249959
-  },
-  "ravageur-1-course-shadow-0.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "e96936cb6eb8215af375ae21bf9d5edc4f00b116b369ce64956131fd385655d3",
-   "taille": 5839
-  },
-  "ravageur-1-course-shadow-1.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "dfbd8f6494f71e292ba2decc8afa3270112f77423d663655230eae67c9d8874a",
-   "taille": 6141
-  },
-  "ravageur-1-course-shadow-10.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "4a1e803e1e735602fbe3ce3cfc4a4e41f0d2d57550907a1d4c2fe1ef895a893a",
-   "taille": 7144
-  },
-  "ravageur-1-course-shadow-11.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "e5417c5a3ff3e0be3379fbb3c57f57dacc3de62a7b7eac6773947d58c6aa1829",
-   "taille": 7070
-  },
-  "ravageur-1-course-shadow-12.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "6648e5031707366f9063d682b47209f95caf89868728155c5037fb21b0db44af",
-   "taille": 6650
-  },
-  "ravageur-1-course-shadow-13.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "d4dd915dfcf674971ac78ee083a38dc49fe2ed51b2c09e7e1dde59dc0a88e1b2",
-   "taille": 7125
-  },
-  "ravageur-1-course-shadow-14.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "6dfeb2a999257c3aab71839e36ae4b5c4bf51077df9efa73332835e8683480bb",
-   "taille": 6913
-  },
-  "ravageur-1-course-shadow-15.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "bc84630e32b54ef91229f97a75b109bef30c57e237f20004e02a6f813d9da69e",
-   "taille": 6124
-  },
-  "ravageur-1-course-shadow-2.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "5925acc618f3f36b1a4a34e2c8352906d38519a0f05d91210cecaddfb0b1606e",
-   "taille": 6311
-  },
-  "ravageur-1-course-shadow-3.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "f01847e5cc0a68e8668d2851395e02f351032950139c099c9b965f4caa3505ee",
-   "taille": 5687
-  },
-  "ravageur-1-course-shadow-4.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "b641c8c296ab0493cfae564bf218af1962cd99c3d3bbe477554f648e01138481",
-   "taille": 5049
-  },
-  "ravageur-1-course-shadow-5.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "4c1e15982d0e2ee32e4a33681b2107d98b76cdd066406ee0ddb68e00f63e5745",
-   "taille": 5419
-  },
-  "ravageur-1-course-shadow-6.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "f417a770611ec9f6af729c54153508cff10b426f6c4c91104d4e8aacea3e3f36",
-   "taille": 5992
-  },
-  "ravageur-1-course-shadow-7.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "13c5d7820a2e54a5defd6b36ec469793d66280b390be1e83fb195b3dccf33763",
-   "taille": 5716
-  },
-  "ravageur-1-course-shadow-8.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "060aa01fb01c9fb98825705862ceaa67aa5945a5290e9af46ac17cb260b1b7e1",
-   "taille": 5709
-  },
-  "ravageur-1-course-shadow-9.png": {
-   "hauteur": 33,
-   "largeur": 600,
-   "sha256": "e0fb55593fb14979156e2f9dc1fc003fb98eae3811596e16e06a09387f3a45ce",
-   "taille": 6287
-  },
-  "ravageur-2-attaque-glow-0.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "01e2c4a102ca6bc9eb048d006ff5ecce64679ea6bca7ea8c4ef83f75a6e9aa1b",
-   "taille": 4218
-  },
-  "ravageur-2-attaque-glow-1.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "f0281e2bc4dfe01b0249b695bde285f3fbff5699457bdf752d457bd08efd67cd",
-   "taille": 4067
-  },
-  "ravageur-2-attaque-glow-10.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "bba7eba2c8c96956d5dab2b5cbe64b00f3d8b1793276c7d05379d5dc709897df",
-   "taille": 7004
-  },
-  "ravageur-2-attaque-glow-11.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "e62945287bdd53136194f070baf85fc80f1aa757e103c3e54accee68b911cee8",
-   "taille": 6201
-  },
-  "ravageur-2-attaque-glow-12.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "ae27349b9757882cf25c34da779e8c1ce05379ceb21932aa7bfff525cf604356",
-   "taille": 6015
-  },
-  "ravageur-2-attaque-glow-13.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "57556ca37fd6a716243371661c6f970299767a9ec7fa439b788db748ac76de8e",
-   "taille": 5934
-  },
-  "ravageur-2-attaque-glow-14.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "7026c90524eac38289b5a7410aafcaae85d821954b7d38d945bb635c0cb2b1b8",
-   "taille": 5426
-  },
-  "ravageur-2-attaque-glow-15.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "0c4586ed4bff2811855cc4cfffb9509750ed36d5f7132ff86b49d1e285842cf9",
-   "taille": 5035
-  },
-  "ravageur-2-attaque-glow-2.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "617029016390e41a0a6383beebf9877465d21f16bc9268b99ca46c0c53c9f0c8",
-   "taille": 3998
-  },
-  "ravageur-2-attaque-glow-3.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "304189f68cfb547e3114c32d70df2882d1f1d16cf9dd8e7580dc5d699d7e909d",
-   "taille": 4152
-  },
-  "ravageur-2-attaque-glow-4.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "d942b376b68d56ddac6f85e8f41130e96d7dbe160374c04bc9c4e4c56b19f61d",
-   "taille": 4741
-  },
-  "ravageur-2-attaque-glow-5.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "3f7280142a7a3df7f6a0b30e22eab43edc8aa37af3755cbcfeb3a81fa780356e",
-   "taille": 6132
-  },
-  "ravageur-2-attaque-glow-6.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "539383a37f2c0b4e8170fe5707a0ce13d01a79022d76b25aab77b8ceff3285e3",
-   "taille": 7071
-  },
-  "ravageur-2-attaque-glow-7.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "0cd97af582b5b8f60e551449bd11462e77a1789daf4da255b855ef0d3d313ba1",
-   "taille": 7446
-  },
-  "ravageur-2-attaque-glow-8.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "0b5cb0bc41d6001b93deef05558cd72e7cbb27cf2a20f660c6f839af952ac218",
-   "taille": 7449
-  },
-  "ravageur-2-attaque-glow-9.png": {
-   "hauteur": 55,
-   "largeur": 212,
-   "sha256": "a6742a697595cf761ee9e5a301ddccf564d819f3637e0134d8e33d533193a812",
-   "taille": 7469
-  },
-  "ravageur-2-attaque-main-0.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "62929428030087d3332948912489b51e0a588acc9d40bd0511bc72f6677e9ca1",
-   "taille": 60187
-  },
-  "ravageur-2-attaque-main-1.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "97ac30568782202c6a5cedec4a69561588f6f06d79df40122f80b0e7a03b02de",
-   "taille": 61825
-  },
-  "ravageur-2-attaque-main-10.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "7afa04f092b1fa7a4cf626cc79d303c9976f2268c911041cac15d1e5e8e05a40",
-   "taille": 87520
-  },
-  "ravageur-2-attaque-main-11.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "c92d13526bb64462e4e9e3b4a02f3fddbd3493066b43516b814acc7ca1d48efb",
-   "taille": 96167
-  },
-  "ravageur-2-attaque-main-12.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "c2c35e3596aa6ba28a58bc62d22caee6cc5f944bb92cc906b4713eadb095d569",
-   "taille": 75473
-  },
-  "ravageur-2-attaque-main-13.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "2344ee3d0e7217d60a0bc29a93b2bf9ef6d6843e1f98f33514f344ecf96bcff8",
-   "taille": 122543
-  },
-  "ravageur-2-attaque-main-14.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "c5aeb2ac4c8f9faba378115b8f9c8deee5db0fa64d55b46dd9443b622e9188bd",
-   "taille": 114091
-  },
-  "ravageur-2-attaque-main-15.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "29393544fc5fd99982fc63941dfdbcb845c04b38e7cd2d0a7fd6c9f501890a63",
-   "taille": 90992
-  },
-  "ravageur-2-attaque-main-2.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "b3abb150400ea96b5c7671861b7d47cff1be12832642eed16be78647b762c057",
-   "taille": 61681
-  },
-  "ravageur-2-attaque-main-3.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "679c9d90968ef1bec9aa3f5d79c4ac86283000625d8d2eee37bb66bcb483324a",
-   "taille": 62829
-  },
-  "ravageur-2-attaque-main-4.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "c3abaa97033c56b8e17ec7e33b7140d9ddc45b67a45263db9037c7bdea1fb863",
-   "taille": 67076
-  },
-  "ravageur-2-attaque-main-5.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "edc0885c9f8e8084041767cd7a2f8ad3d4341a8c99288371528de408b5f916c1",
-   "taille": 83772
-  },
-  "ravageur-2-attaque-main-6.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "6552131cd311a40393f14d86669f6de6d15bf4af789c5201c15b712b8bf0159b",
-   "taille": 110563
-  },
-  "ravageur-2-attaque-main-7.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "64dbd7442060b5d25ebde0cbd1d6807fdc6f36e7e01eddc2fba560c540845513",
-   "taille": 105283
-  },
-  "ravageur-2-attaque-main-8.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "75988dc910bf1571204dedf51c5f659a7040f1ba1d1bed555bf281a4a5689017",
-   "taille": 103291
-  },
-  "ravageur-2-attaque-main-9.png": {
-   "hauteur": 230,
-   "largeur": 844,
-   "sha256": "93e5cb55cf9a53db0dbe1490cd6c1f3863901e9b100d9dce03ffd69f53ae3053",
-   "taille": 104674
-  },
-  "ravageur-2-attaque-shadow-0.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "ac9a1359ebe127a0221d20541f7830ec7d3e7d3ed5148fc6d47c6e8359e56de6",
-   "taille": 1999
-  },
-  "ravageur-2-attaque-shadow-1.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "baf5960fa4fc5b62f230a80a2d598d7312d1f08b24ab0b88975b7ff4eec28f6c",
-   "taille": 2329
-  },
-  "ravageur-2-attaque-shadow-10.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "60e4202883ac3d1e41d65729dc4a9e8132e6de6d55daf9fb39ca78e3112fc3a3",
-   "taille": 2327
-  },
-  "ravageur-2-attaque-shadow-11.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "767606ab46548b26b7545f9bfb26309f5c8eedbbf01653a10f6a6a528b935184",
-   "taille": 2207
-  },
-  "ravageur-2-attaque-shadow-12.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "bde2020a2679dfec915f4362143f09badbf53d17d32419550ec60afd11a1f903",
-   "taille": 2165
-  },
-  "ravageur-2-attaque-shadow-13.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "0e4de4748aaef9c10ecca43a4368690c02c6c15e4f9b2fb6e148846f847ec179",
-   "taille": 1946
-  },
-  "ravageur-2-attaque-shadow-14.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "196baf34b0aa10c733ea2aa0dc1056fa94f0e259b287b9f80e923fb90e5130eb",
-   "taille": 1733
-  },
-  "ravageur-2-attaque-shadow-15.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "4e4f2ce8b70081a1352a6b93823b1d88ef7e99f2402440a45a829cd2548f9be8",
-   "taille": 1853
-  },
-  "ravageur-2-attaque-shadow-2.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "50dc0650b508607c0eca888f6c4e87710b9c9b3a438faf4316448bab90a4bf92",
-   "taille": 2227
-  },
-  "ravageur-2-attaque-shadow-3.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "8312d55e17a48a82f7176a90011fedc1da62f656f874ded5b79f26ce194fbd94",
-   "taille": 2044
-  },
-  "ravageur-2-attaque-shadow-4.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "9ed14ff3085ac65379125723ca5c0e19d8e8f281a4757f1ef44cd6a50d09633f",
-   "taille": 1821
-  },
-  "ravageur-2-attaque-shadow-5.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "1e56b8bb6a8d5dd3b8e7d21b5052cf5d72c4e93bb6a3cd2649776e75f111fffc",
-   "taille": 1972
-  },
-  "ravageur-2-attaque-shadow-6.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "7f4b1ade54bef0c26e77bd1575f2967c85aa128c6ab9bb6e247903a8b62e9ab3",
-   "taille": 1998
-  },
-  "ravageur-2-attaque-shadow-7.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "1a49acb5618f1de78c8c67ecd4e98c83fcede325b439543cb4cb82e381828ca3",
-   "taille": 2133
-  },
-  "ravageur-2-attaque-shadow-8.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "db36635b420d345ff607cbb8153560cafd1e6a417d3cce7b278cbf793adca044",
-   "taille": 2128
-  },
-  "ravageur-2-attaque-shadow-9.png": {
-   "hauteur": 38,
-   "largeur": 304,
-   "sha256": "c7f6734fd8a61d489cc23e4cee2ecd1bb93d14178f225a203d7f0031493db7aa",
-   "taille": 2237
-  },
-  "ravageur-2-course-glow-0.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "b8de4e50dc37fa1964d744e1a87d4ac6f98978d48b931091032c949aa9630c3b",
-   "taille": 12193
-  },
-  "ravageur-2-course-glow-1.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "e893c75a608badcedcb7a56f583783fc2cbab4d9ece84a177e177833a5ea396f",
-   "taille": 12578
-  },
-  "ravageur-2-course-glow-10.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "cc79c05e4ecbaeccc6ebc023ff211e01e451603ec07f7e992ab21cc0b6d231aa",
-   "taille": 17587
-  },
-  "ravageur-2-course-glow-11.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "a48125dc6351268f01a407c9c7ed6f9625149f892e895d7d12ea8fac61fa6cfd",
-   "taille": 15534
-  },
-  "ravageur-2-course-glow-12.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "efac6e64fff3099994577d6c4ee68559355cde2384fb9f3838b709b210a05096",
-   "taille": 14157
-  },
-  "ravageur-2-course-glow-13.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "006ae2152c7e6496e22adbfb93e6bec9b2794c639dc342d71e73f95621fe0f04",
-   "taille": 13914
-  },
-  "ravageur-2-course-glow-14.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "768968d3ae39e735108f305721da51064461e41e97a46203c427afb69d18f041",
-   "taille": 14161
-  },
-  "ravageur-2-course-glow-15.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "3ab836943d57aa7e56b31fd63cfd9b61e22b62bb136cc1b6ee970cd7ee421598",
-   "taille": 13251
-  },
-  "ravageur-2-course-glow-2.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "d0c4135429bb33094f135e20130718626707953960b49e5a80e53ba50c006780",
-   "taille": 13089
-  },
-  "ravageur-2-course-glow-3.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "1f22273462dd1a1b427eeb8240d6e10fa03a9280861551d6898a9712d1e251dd",
-   "taille": 13564
-  },
-  "ravageur-2-course-glow-4.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "a76ccda3ebcd117fc5de905a41de9afcc3b361e62add09f7da9d1ead9de38631",
-   "taille": 14346
-  },
-  "ravageur-2-course-glow-5.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "c05ea58e3273e9114d46fe7f1ffa3ea15c79976e0d8a702f133f9a55075c1b69",
-   "taille": 15993
-  },
-  "ravageur-2-course-glow-6.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "bb357e1be559c4159f108ad586ee20ffc72a9d40a617d7824a7765dd7a06d468",
-   "taille": 18163
-  },
-  "ravageur-2-course-glow-7.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "d1ede2c1d83797daf0f157db7b6b7c4a12394c0bd4d3e602326bd403bd6320fb",
-   "taille": 18020
-  },
-  "ravageur-2-course-glow-8.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "dda4a14454917be02478b843ccfd600c67505cd75cc13eaa25914db976061bdd",
-   "taille": 16954
-  },
-  "ravageur-2-course-glow-9.png": {
-   "hauteur": 57,
-   "largeur": 376,
-   "sha256": "19b641b33a5deb7bf6489654ac94f8a35aedae9c3928f8bae1dc296f5e149c09",
-   "taille": 17546
-  },
-  "ravageur-2-course-main-0.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "78055ee571424ae8ac37f63832b69b89bf134170336311f3c1d04b658929245f",
-   "taille": 199393
-  },
-  "ravageur-2-course-main-1.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "04d32f3848548b8ea7562917cd89a9032143631c364f443cfea5977aea8b8e60",
-   "taille": 212465
-  },
-  "ravageur-2-course-main-10.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "651e32056f6e5e73e01d58e1e97c177be5bfc95aafb1387ce871c42d5d951c31",
-   "taille": 258089
-  },
-  "ravageur-2-course-main-11.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "00ff252fc1f40616dc3710f464130dfd1d172a7b3a579db6cc62b924cddac273",
-   "taille": 229046
-  },
-  "ravageur-2-course-main-12.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "40375c7accda26222be3d18ecb7f04109de5e408222c758a9d35470c2701a944",
-   "taille": 217259
-  },
-  "ravageur-2-course-main-13.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "bc4b717c81834a53946fb5288617a7fa7134b36cec4bcf00b675a40b3632cf32",
-   "taille": 231906
-  },
-  "ravageur-2-course-main-14.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "7ed89065a768a2298e220473667bafdbcfc051a5ed9c1e126cc5eb0e9aafa0e5",
-   "taille": 240117
-  },
-  "ravageur-2-course-main-15.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "cfe44743e577ab6071e8f37050727f79a79ee5451e13ee3e2f54ef75a5b04226",
-   "taille": 219829
-  },
-  "ravageur-2-course-main-2.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "e9c4e8c2d6d4b788e0866797a1678ab4ee244bba412fbcd2ddc0693c28aba6d8",
-   "taille": 219169
-  },
-  "ravageur-2-course-main-3.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "6a1ab0cce1f95b11337a078436fd9dfd26caa61044cd09da6909db431451549f",
-   "taille": 215421
-  },
-  "ravageur-2-course-main-4.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "45e202209ad8cfa156bebf39cc9652e15accc461d908d1dcd5da3ba6a7754675",
-   "taille": 221995
-  },
-  "ravageur-2-course-main-5.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "4b17608b910c1fd29a85e0dd4c2b280730c82a99fb7917fe4986398c6aa67039",
-   "taille": 251849
-  },
-  "ravageur-2-course-main-6.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "58d4af9bda77aac5891c3a348e63064bcf787e023667623b9ffd57402c9f8a9a",
-   "taille": 283749
-  },
-  "ravageur-2-course-main-7.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "7258cae0dfd76aa1ee92566a5a15cbbefd7b5bb579f6eee2569874da9f01935b",
-   "taille": 277492
-  },
-  "ravageur-2-course-main-8.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "8aa158e9cab7ca26b0a47fa8f12cbbe4281a54acf838014a036df00b5b2e669b",
-   "taille": 248267
-  },
-  "ravageur-2-course-main-9.png": {
-   "hauteur": 237,
-   "largeur": 1496,
-   "sha256": "136e1ead3e31bdc01717c2a8ecc320f34b903f237f6d45ad1ce3583e9b443eef",
-   "taille": 258027
-  },
-  "ravageur-2-course-shadow-0.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "1c71ef9d2c3c5edfa866fa16a6a9d7721c72fefd9adf7f7a2fc3a01f38979c89",
-   "taille": 6228
-  },
-  "ravageur-2-course-shadow-1.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "b8140d1faa63b9c09139ccadf06f46974c3c7294eac1b98c44b45716d6099b6b",
-   "taille": 6408
-  },
-  "ravageur-2-course-shadow-10.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "660ce07a6c44b4bc8a0c2f637c2fbec2681a0e1eb848e3bd8c9aff34d94a9356",
-   "taille": 7297
-  },
-  "ravageur-2-course-shadow-11.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "31dda4beff1d7efadaaf362fb21ff8e08d0c49772808ca096421b7a00ec9e695",
-   "taille": 7219
-  },
-  "ravageur-2-course-shadow-12.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "8ecafce7475bf2fca37997358ccd19d8ec7fdab0ea51753ecb444158aa82635d",
-   "taille": 6845
-  },
-  "ravageur-2-course-shadow-13.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "52bd2089b4052a27dc11f378719be620fc9fb2cd2a25d67011b1976f88f80b42",
-   "taille": 7230
-  },
-  "ravageur-2-course-shadow-14.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "f58bec767482b55e642d2548d682c1c915c62bedb1c763429e1656f0ae57ea28",
-   "taille": 7111
-  },
-  "ravageur-2-course-shadow-15.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "b32b5b9ff91f8f3747b8ffcf6b9b2728a512c86f67b55937b0c452eeccffa764",
-   "taille": 6299
-  },
-  "ravageur-2-course-shadow-2.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "5df670ddbf3e00647a23988070656600ae6d3f3ee6da136e5ede9a2be2be1a92",
-   "taille": 6543
-  },
-  "ravageur-2-course-shadow-3.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "eabb7d3d8227a1b139214c9478fc4bc3928157bc2c479330a4f3600b8d789494",
-   "taille": 5902
-  },
-  "ravageur-2-course-shadow-4.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "8397014f4ed86c87836bbfdeb07f1533e599170bf08a2fe4d17437c0344918df",
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "b4c24ff081e476bc9c67dfb5e6dbed40b8a0be8074d49b7ac348dbc1538d5f16",
    "taille": 5079
   },
+  "ravageur-1-attaque-glow-6.png": {
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "168a10b4a8782742ea85a828e73c29fd919e1a8246051d88528c3db43981e7dc",
+   "taille": 5881
+  },
+  "ravageur-1-attaque-glow-7.png": {
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "dfa37405d25629197f6f3598a9da9f03abaf3bd25b493f7b6be37f9d7e520296",
+   "taille": 6164
+  },
+  "ravageur-1-attaque-glow-8.png": {
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "43fe8cb5a804039786a2ac35833d6274d3b269f00d99cabc7d491f3b7a6f1f59",
+   "taille": 6573
+  },
+  "ravageur-1-attaque-glow-9.png": {
+   "hauteur": 56,
+   "largeur": 228,
+   "sha256": "a7ea52b4fc17c1dc7a8fe2c423380a18d96f4542d3386084c69ca2cbcbcf61eb",
+   "taille": 6491
+  },
+  "ravageur-1-attaque-main-0.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "8c93da0bad6689008be5ed84a0c4fbdac7200a4ef5522912a2c57e6958672a84",
+   "taille": 65089
+  },
+  "ravageur-1-attaque-main-1.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "d48dbb2f8465a9c7dd46a4db429e2290fc25209583e7b0721fbbf05e897f7f44",
+   "taille": 68114
+  },
+  "ravageur-1-attaque-main-10.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "31f45fc8a54b72f935aa16273e947c36b56ff2c283dffd61cf28e0d903ddf106",
+   "taille": 105720
+  },
+  "ravageur-1-attaque-main-11.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "e507009f8e4b76ddfa3312691dc81f1e441b55d0cbe21ecbed1be3605db427d0",
+   "taille": 94239
+  },
+  "ravageur-1-attaque-main-12.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "67a065cd15776bec12b0c38097be575e2bb82f457528bd3e26bb57a2f8e2c193",
+   "taille": 72814
+  },
+  "ravageur-1-attaque-main-13.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "f6391b26893461044ec47460e5009556babc1f1eb314d5efe0f560446ee1b1dd",
+   "taille": 128963
+  },
+  "ravageur-1-attaque-main-14.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "d3d473d9ffd65b811ba80708ae59a165f228406e50de2eefd1ac47434b2b3d15",
+   "taille": 116178
+  },
+  "ravageur-1-attaque-main-15.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "52cd044b3d06a3dbce09d5ac885077cb64e9c30c8e9abd0637aa312f4210cd24",
+   "taille": 89365
+  },
+  "ravageur-1-attaque-main-2.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "02e71c24db6a417c93b9759a647519978600b69959202d25fcf89612c340eef9",
+   "taille": 68524
+  },
+  "ravageur-1-attaque-main-3.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "a373a8eb8d21b3e54366b4b4d81d9adc9da34906e8578afa495b52ab307900f6",
+   "taille": 64590
+  },
+  "ravageur-1-attaque-main-4.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "333f18b85ae640151a1eeeeaccde45e0e92f3a28ecf0e617727198d09719897a",
+   "taille": 67109
+  },
+  "ravageur-1-attaque-main-5.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "edbeced854eb324a57f72771ca745957088ff96a0dd975f565684bf7f892a67a",
+   "taille": 79909
+  },
+  "ravageur-1-attaque-main-6.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "07c3e840948b5dcead3014ec0fea16c4a0808ed326a3050c09077faa4a989ab6",
+   "taille": 106340
+  },
+  "ravageur-1-attaque-main-7.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "f7b0b21b863faa5c34828be53b1ea99f424621b1f99877343eeeb7f5a60a9ea7",
+   "taille": 106824
+  },
+  "ravageur-1-attaque-main-8.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "9e42ecdfc1119f2837b9a9372323c979a1154a1c8f5e4b2bb8abfdf8ebb553fa",
+   "taille": 108896
+  },
+  "ravageur-1-attaque-main-9.png": {
+   "hauteur": 224,
+   "largeur": 892,
+   "sha256": "0625587395ae1d4996c8a8f687eb0c3e35bfd0d2a6f89718c552fd4c19c2d9e7",
+   "taille": 124011
+  },
+  "ravageur-1-attaque-shadow-0.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "a0f1e5243b5bd2cf7d0b1286dc4a13fd00d9633cf7a11ebe7ed130f57eb6229f",
+   "taille": 1881
+  },
+  "ravageur-1-attaque-shadow-1.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "4bd980fec795e1ca0b0de5d9fe67d3d12d182ef87ba0f3be0f81d42d3063aced",
+   "taille": 2136
+  },
+  "ravageur-1-attaque-shadow-10.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "bc4d438ffd783de6a5e5a2c7387852d6bda60acfaa456900e23756ac61d3effc",
+   "taille": 2318
+  },
+  "ravageur-1-attaque-shadow-11.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "cddaf1b9b5a2c38a4b9b2648d46fb442e9d2d97d3bd167b9e5d8a56fadc5beb0",
+   "taille": 2222
+  },
+  "ravageur-1-attaque-shadow-12.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "62a46cf42b43c54c47bbb4885e531423226de16dc0690bab1c7ed7b317d496bf",
+   "taille": 2306
+  },
+  "ravageur-1-attaque-shadow-13.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "ddb5722682b97a63db0c623736a4e2db77aaaaf7181cf7bffabce1aa85e03e57",
+   "taille": 2088
+  },
+  "ravageur-1-attaque-shadow-14.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "1dc1952145574375eda7fea28fcc60493a2cdec39c3013997ecbee1d40ebd928",
+   "taille": 1804
+  },
+  "ravageur-1-attaque-shadow-15.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "de6208125530d73fdbb22f2e1735223935045de56eab0535c139e895be5e05c3",
+   "taille": 1743
+  },
+  "ravageur-1-attaque-shadow-2.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "b510b61caeeed7f795859bde4d5cf6dc4b04e3e298a41b4a723ab5e5d113bf9c",
+   "taille": 2109
+  },
+  "ravageur-1-attaque-shadow-3.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "ac46963a53c340dcd813ff148e1a2407038100833c8c994290ed5f8565924b4c",
+   "taille": 1996
+  },
+  "ravageur-1-attaque-shadow-4.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "536ef55a9ddffadb4d8ec1a0524ee002215be66e2a1c4446537fab0bd8bd6083",
+   "taille": 1946
+  },
+  "ravageur-1-attaque-shadow-5.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "be05cc709a4646638e94f6660885ae6e93ac34c59a083a707f3dfdefdc669b12",
+   "taille": 1965
+  },
+  "ravageur-1-attaque-shadow-6.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "7bf1da4febbe538466f316a40cca04b92d874f04f1d407b27cd1d94d8c14115c",
+   "taille": 2051
+  },
+  "ravageur-1-attaque-shadow-7.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "e251c78865e55dba1ce4279ac9b66aa4eaf510d30d281c9ce234457778eaa846",
+   "taille": 2041
+  },
+  "ravageur-1-attaque-shadow-8.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "05faaa8a6aa20f77c65f23588f3ec1187a751fa91561eeb6a212d122ec8c10dd",
+   "taille": 2149
+  },
+  "ravageur-1-attaque-shadow-9.png": {
+   "hauteur": 40,
+   "largeur": 296,
+   "sha256": "ead88b3519da77ae4113942771ebb9c0dbc9d7f1a64821d159b87a3d79926895",
+   "taille": 2223
+  },
+  "ravageur-1-course-glow-0.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "312bce4a423b50d050204ad0c10687f5ef4131d02b14b0383ed8a15b4a4b49cd",
+   "taille": 10286
+  },
+  "ravageur-1-course-glow-1.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "8fdc4c87236886b40b680ee240df6d6e3a6e6d024ea178987aa35d0bf5bfb44c",
+   "taille": 9839
+  },
+  "ravageur-1-course-glow-10.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "647b1626f46219431929fb0cca8dae6e7f5b230d05032cfb048bb63e5abec4b4",
+   "taille": 14782
+  },
+  "ravageur-1-course-glow-11.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "2745b289a763bfb8ea2b7904c2a69dedff5548dd867d52a398f76b7471cf6d56",
+   "taille": 12687
+  },
+  "ravageur-1-course-glow-12.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "6f2c9fbb16acf24b40e86c2db23c9fa4ceb8a0933483468336b7d04fd75418e2",
+   "taille": 11261
+  },
+  "ravageur-1-course-glow-13.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "456ec0a51f7f4da45dc59920718b6c675a52ea001c51e1d3ca8f753da4a3d6bf",
+   "taille": 10673
+  },
+  "ravageur-1-course-glow-14.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "49f92538d843a49f34c3c9922d644a19379fb3a8fe0bac16e12c3b322e361e1b",
+   "taille": 11612
+  },
+  "ravageur-1-course-glow-15.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "08d690fb9d2b7af4bcbcc9b65573ec88909f6cb152abaa5a358282450f595e90",
+   "taille": 11068
+  },
+  "ravageur-1-course-glow-2.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "5a4e3dde68b8ec1448133943ef70d8d0e8cab919157fa5ed6c8dd758711f7dae",
+   "taille": 10228
+  },
+  "ravageur-1-course-glow-3.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "ae5322a65f97c777b621f2abfd4cd1afe5f3449df354e33f7305dda0c81ec5d6",
+   "taille": 9769
+  },
+  "ravageur-1-course-glow-4.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "c184ba1bdcecce15980077de4ec43cf49410fbda71e2b2505a572eff9ce5e6c9",
+   "taille": 10937
+  },
+  "ravageur-1-course-glow-5.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "b3831f8c673fa5e863eef63c18d7f5dd2ec566473bded9ff3b43c20c46907016",
+   "taille": 12330
+  },
+  "ravageur-1-course-glow-6.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "b00845b8b7271b00ab8c3cb9d99608430fbb4c0fee7c4d9ca4e2c2f18f19b896",
+   "taille": 14488
+  },
+  "ravageur-1-course-glow-7.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "18969b0a921c6e6dba045d7b720e5a5771d28f6d2ba417d5dcb4d3a4049c5e9e",
+   "taille": 15502
+  },
+  "ravageur-1-course-glow-8.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "bcab67931b1c88c73255856ebf6d95163484cd39fa650654767015d07870d91f",
+   "taille": 15386
+  },
+  "ravageur-1-course-glow-9.png": {
+   "hauteur": 57,
+   "largeur": 392,
+   "sha256": "12c978ddf86745ba9b7aa6f89992ee3524f010d3b6c07322664db9206864241e",
+   "taille": 15748
+  },
+  "ravageur-1-course-main-0.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "60490b06607fcd50a613f361af0a54740aa4894a4201e4ba673e70ef4b4791bc",
+   "taille": 224452
+  },
+  "ravageur-1-course-main-1.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "36c257cdbaa2bc1091ced451451fe91d0921ce75e9c7f8af3c7148c263fe9d3f",
+   "taille": 214530
+  },
+  "ravageur-1-course-main-10.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "a1412aa03e2cccb2f2a64215e2fef6c8025669d5e9bf193be8933fabc28a14e2",
+   "taille": 261910
+  },
+  "ravageur-1-course-main-11.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "4048e96fc4d5a7e5efb06073943c4139ea9f913a77d911f01a07416ebaa6f6af",
+   "taille": 226979
+  },
+  "ravageur-1-course-main-12.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "d693243d0cd70ba050f91288adb69c8d36d33ed3dc83597256bbffbd32c2af5f",
+   "taille": 205748
+  },
+  "ravageur-1-course-main-13.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "f260af33199e6eab67a80ec9f02ce439da2657f4489a28d9d06d7d2fb973d73d",
+   "taille": 231695
+  },
+  "ravageur-1-course-main-14.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "f17e0fc2214d6e21f10864c6d98ba5d8e5b8c412bd4c110a3b14128d45d6ee05",
+   "taille": 252547
+  },
+  "ravageur-1-course-main-15.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "53dde90b65919714109e89adc990670ee2f731fa466c0d01841a4cb2df70bd9c",
+   "taille": 232819
+  },
+  "ravageur-1-course-main-2.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "01b9357c4718c0293ce2c1df5ff2c9d81b4316cb1326784a99d1e230f9b56fe1",
+   "taille": 233826
+  },
+  "ravageur-1-course-main-3.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "b3fd627dc381486ea1f294832b71676920bc6901401ca214457e41875367b7a1",
+   "taille": 214198
+  },
+  "ravageur-1-course-main-4.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "0b98e1fc6908b39d3b922791c17da478e4cc4ea530fb7fda34ee71d61d203aef",
+   "taille": 214016
+  },
+  "ravageur-1-course-main-5.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "c24b2b1de8f0af5f075b176d1f900bde4ebdf622efe5671f33bcb5b3c50af469",
+   "taille": 240217
+  },
+  "ravageur-1-course-main-6.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "84766f94b0919797e8a52107a30e6ed2082e8c6513f1f61f2a75a425a7060f58",
+   "taille": 269693
+  },
+  "ravageur-1-course-main-7.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "bcfa4d928f263f141aa8466de1af499c86f10c0112c21dda32a0806cf5c20b95",
+   "taille": 276729
+  },
+  "ravageur-1-course-main-8.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "ec00421134ecf26d3caff68193dbdeb39300249f10a9824867c72e425d7494fa",
+   "taille": 260584
+  },
+  "ravageur-1-course-main-9.png": {
+   "hauteur": 230,
+   "largeur": 1552,
+   "sha256": "757dd80584e77ec1b4fe4ed1945a4222ffd69998591bd7353554221be67a0cda",
+   "taille": 265166
+  },
+  "ravageur-1-course-shadow-0.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "f7ce25c9c90e91a2c7b0d543dbd588a40a8a8c366c2aa5c0044db4a703709038",
+   "taille": 5900
+  },
+  "ravageur-1-course-shadow-1.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "92231a7927902870720e70e32075f4f2f58eae6ec90df7fecd1e60d5453fe6ef",
+   "taille": 6226
+  },
+  "ravageur-1-course-shadow-10.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "8a8e4996df35a8d174263b842e509cf68322664f14b46344d654295b62f0e017",
+   "taille": 7328
+  },
+  "ravageur-1-course-shadow-11.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "02d61b5ceea3ea84990deb05037bfc14d78f7c3af2e5968ecec7aa63f579ca45",
+   "taille": 7947
+  },
+  "ravageur-1-course-shadow-12.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "f8b1cbe18b58561a244106e2301784ba18ae7e8da190f5fefadb8dbac2324f30",
+   "taille": 7998
+  },
+  "ravageur-1-course-shadow-13.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "93c205cfb09203d843f81964bcac9b1176ba63d984443456c2e2bc36ef7aa916",
+   "taille": 7848
+  },
+  "ravageur-1-course-shadow-14.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "607b1343ec1103d314c3746ad980ff5c9ba36de9aeb053b1f4f1e2a9d7400b9a",
+   "taille": 7227
+  },
+  "ravageur-1-course-shadow-15.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "e0891664839db43f590863cb93d33188a437b6cd4c933436acd0a179ab845942",
+   "taille": 6005
+  },
+  "ravageur-1-course-shadow-2.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "6d156ccbab1070fa639d7930a4e86f94c662b5a9dc1777cff4630b5d4f9d0aa9",
+   "taille": 6378
+  },
+  "ravageur-1-course-shadow-3.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "fd0f9b414f939561d1567c52f07de66c37348187abba751b64fa2e7863653038",
+   "taille": 5901
+  },
+  "ravageur-1-course-shadow-4.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "df5c7081e2d06d2e38ca3346ce2a1fd5b7ad563180405f559cbc317a20cc544b",
+   "taille": 5699
+  },
+  "ravageur-1-course-shadow-5.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "2474215205b6e3a3f31d12bba7b28247628a69c66b093775b86089f54f78581b",
+   "taille": 6038
+  },
+  "ravageur-1-course-shadow-6.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "fb698b345bc0acf33617b31cdd30ffdc6e14326bf6335a3ea6c6b4bc076c723d",
+   "taille": 6104
+  },
+  "ravageur-1-course-shadow-7.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "15575dc99361240c6864309f24c83142a83f128a49d3c4e80ac69a4e7b43797a",
+   "taille": 5957
+  },
+  "ravageur-1-course-shadow-8.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "2146b83042c520da11578f656742dc3bf0bb3877e95ada17f9ae04f28e84ba47",
+   "taille": 6107
+  },
+  "ravageur-1-course-shadow-9.png": {
+   "hauteur": 35,
+   "largeur": 608,
+   "sha256": "a687a301c5b1d23eb8f8876f014b29c4f7e9c5d453f4dabda97702f572fdf970",
+   "taille": 6523
+  },
+  "ravageur-2-attaque-glow-0.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "98ee343838b9804f4b3dc2fe22681026ff3522e05eebc47520bc4f87fc2a9456",
+   "taille": 3652
+  },
+  "ravageur-2-attaque-glow-1.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "d876b9d12327aa9b1e8c374f15dc094845ddcf64d5daea81bbe952184f5d9df7",
+   "taille": 3751
+  },
+  "ravageur-2-attaque-glow-10.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "13f3d89ef9985d703d9d475aed04fe591bb0689c38464d7007da9fb34bbe38fb",
+   "taille": 6156
+  },
+  "ravageur-2-attaque-glow-11.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "3c5250d2223f0e2019ea39801586143f8b32e922767d3d6c1936a1edaa8c51f6",
+   "taille": 5959
+  },
+  "ravageur-2-attaque-glow-12.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "c958e95aec5e90d7738415981fcbd7d3a538b7127a64297ca4a0c841888b46da",
+   "taille": 5655
+  },
+  "ravageur-2-attaque-glow-13.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "a4d05f4663077b72b9be6d04163b56a2205e64e2b632cc64848ffef0572fa0a0",
+   "taille": 5248
+  },
+  "ravageur-2-attaque-glow-14.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "6d835b25f85fd36e9608de77b674286fb81a6115c07bc06042fe048d8ad5e944",
+   "taille": 4911
+  },
+  "ravageur-2-attaque-glow-15.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "4d4ed4745bbd9c5affd18e143e5159a3fa55a32e60c03a0cfc2176020956aadf",
+   "taille": 4406
+  },
+  "ravageur-2-attaque-glow-2.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "babcbd3f21f60e46f851c0335d268040a06c2880604d108186a95dca73b77da8",
+   "taille": 3785
+  },
+  "ravageur-2-attaque-glow-3.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "f5831bdb4633912c8f118ca2ad131c3e677bd96cfa78bfaa597cd860c069bd50",
+   "taille": 3790
+  },
+  "ravageur-2-attaque-glow-4.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "ba3c01fc16f5acf90b02407932e578df9b48b31e34bc86021336306336d1c032",
+   "taille": 4465
+  },
+  "ravageur-2-attaque-glow-5.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "bb0ff11b5596239daf452713270f9100735970c8182ef662530fab35b950575d",
+   "taille": 5363
+  },
+  "ravageur-2-attaque-glow-6.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "0674fe986243a5d02f5b897703576813474b18ec44129ae615058d3b1b085e38",
+   "taille": 6079
+  },
+  "ravageur-2-attaque-glow-7.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "e4b1e5bcc7dd15bc615b26fc50f4c51bcae4c4199eb9972812c43a60d1c1e0ee",
+   "taille": 6554
+  },
+  "ravageur-2-attaque-glow-8.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "89977809905bb36ddef7a8653c415fcbf52ac0c422b3da681acd31c1dc1e23eb",
+   "taille": 6703
+  },
+  "ravageur-2-attaque-glow-9.png": {
+   "hauteur": 58,
+   "largeur": 228,
+   "sha256": "58b487f5e6e819478c33e333725480bb39500f76ade426cb0fbb98e20cbde825",
+   "taille": 6837
+  },
+  "ravageur-2-attaque-main-0.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "def9eededa96b5974504c4154e1f52b92048d98cc12396f0b0ba44f35175a6dd",
+   "taille": 63641
+  },
+  "ravageur-2-attaque-main-1.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "c9c10a4443b2fdd6995864927dc772dec319e4b76efc9a2236d182d180ad7dcf",
+   "taille": 66463
+  },
+  "ravageur-2-attaque-main-10.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "ecaf6275a95bb764cd10082ffc9f3659d9c0d09e65dcb8da54aa1bf74daca506",
+   "taille": 105956
+  },
+  "ravageur-2-attaque-main-11.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "d2e479d0f9361fbe44660e8d633efcb3898d98f513bf3606e00a9d14d60cc068",
+   "taille": 81539
+  },
+  "ravageur-2-attaque-main-12.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "601a39bf6db2831cb58509aabe70c58e93652f75908236e0c5fa30d607a0f404",
+   "taille": 73365
+  },
+  "ravageur-2-attaque-main-13.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "45298b15f219dd8a1d58bc22e2a08e92a7337cad7a5c972cf7d7c0c7caa082ca",
+   "taille": 115190
+  },
+  "ravageur-2-attaque-main-14.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "f772950dec0e229d3a496210426c9da06a624afab57cbeeb68b3d65bf4e0d898",
+   "taille": 100638
+  },
+  "ravageur-2-attaque-main-15.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "c4867971bf62d50c289d57450bd39ed77b501b07c95efd59bfaf455bdbfdb0bd",
+   "taille": 93799
+  },
+  "ravageur-2-attaque-main-2.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "5d6763ce3cbf575816c9ecf2a9dc16a4db2936e08583121d1d31d887b2e4ddc3",
+   "taille": 67491
+  },
+  "ravageur-2-attaque-main-3.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "f6d0140ee0b322c136ea1adffdf32aa2bb3f20f504cc3b0b3dcaefa16e6f6fa7",
+   "taille": 66698
+  },
+  "ravageur-2-attaque-main-4.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "a934a7b6952b26beaa4ec63adbb8d80f4e3017136b1f3a292f61e410f7ee38a3",
+   "taille": 68588
+  },
+  "ravageur-2-attaque-main-5.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "bbb61a9906d1b1b7e6eacf1ef48d263dec468552e79488ce49666bf5f3621c7d",
+   "taille": 104008
+  },
+  "ravageur-2-attaque-main-6.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "0f69436dd8326f51c23767f410ba1f17c67bd988eaca3e2dd705110c9a054936",
+   "taille": 93278
+  },
+  "ravageur-2-attaque-main-7.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "8609342f4b450a7571191c2b7a8c3d54e10785878e2575f68710311b1c418218",
+   "taille": 109596
+  },
+  "ravageur-2-attaque-main-8.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "f6f86263de0726dc49d94cfa777bd9b6f3fedce5a5c05841c3ac95f9e6266b70",
+   "taille": 110215
+  },
+  "ravageur-2-attaque-main-9.png": {
+   "hauteur": 234,
+   "largeur": 892,
+   "sha256": "696a744fbbb1386a5cd25351094ef4aba88197dea1b09215caeb4f7b81ff8a8b",
+   "taille": 109495
+  },
+  "ravageur-2-attaque-shadow-0.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "65a522cf99bb00279a7ae1dd313355766a4db46e9f49ef1e13beea808fcf1383",
+   "taille": 1957
+  },
+  "ravageur-2-attaque-shadow-1.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "3d36c4a35171b566687693601858c32068a99c198d3a88903b749b8d33d25108",
+   "taille": 2230
+  },
+  "ravageur-2-attaque-shadow-10.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "87794e6110b574501d0de934b625fd0ccc55b184fc3f12d61fa8342878d23d8b",
+   "taille": 2422
+  },
+  "ravageur-2-attaque-shadow-11.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "91ba5e465b02510012031476fcb9abf1b6e4db8d98de043e14d027e402523138",
+   "taille": 2346
+  },
+  "ravageur-2-attaque-shadow-12.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "552a02b64e77ce07d02a7bb479e49cbbdef46f2f515dbfc67734126c9c04d0a8",
+   "taille": 2358
+  },
+  "ravageur-2-attaque-shadow-13.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "86856c759f5701f43d72bb312d88b9bb25752751a37fa2fc32d2b2ce9501bd5e",
+   "taille": 2129
+  },
+  "ravageur-2-attaque-shadow-14.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "59e7a636d1b29c2ca5adc7cafdd5ff2f13e8dcdc101e1f40c6de283011e91940",
+   "taille": 1887
+  },
+  "ravageur-2-attaque-shadow-15.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "eca399e505079462f5f13276140e494fca3cef9c2b2cab875203d48cfa6a7089",
+   "taille": 1851
+  },
+  "ravageur-2-attaque-shadow-2.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "b76957544317f4fa28ded85e6f2c448e77a0a1a7e38f01047f7468ad9e006fc8",
+   "taille": 2169
+  },
+  "ravageur-2-attaque-shadow-3.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "5acdc61c99e9dc47c57496dd3282cc992645f9308e728f39faa37272cb75b1f2",
+   "taille": 2091
+  },
+  "ravageur-2-attaque-shadow-4.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "b7effeebb933e573f5250cbf523e3ab5172df6d78b92e170d8f63905dcf1489b",
+   "taille": 1968
+  },
+  "ravageur-2-attaque-shadow-5.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "a2cdc00f8568e0a4cc0599ff266156dd7a344be87772842dd97a6c229d6f99ef",
+   "taille": 1950
+  },
+  "ravageur-2-attaque-shadow-6.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "3a6770988e3ddcb815da73129bb7f80ab37d1b8f2fc7d1b29141640af4f7c738",
+   "taille": 2098
+  },
+  "ravageur-2-attaque-shadow-7.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "4537ae2bb8761fa2bfbf32f944291551f3efe849514991fcf25eceb1fd94d299",
+   "taille": 2146
+  },
+  "ravageur-2-attaque-shadow-8.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "036671c44e62f98ea38bf3a18c17cc80649a99addd9214c9bae230a0e21ccdfe",
+   "taille": 2235
+  },
+  "ravageur-2-attaque-shadow-9.png": {
+   "hauteur": 40,
+   "largeur": 308,
+   "sha256": "78502f4cf05307c6b725dabf2d570f1496d280c07415f426c98baf1e87803416",
+   "taille": 2332
+  },
+  "ravageur-2-course-glow-0.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "016d6e617b68cd10e0cbd85c7e9c5f3af5d46f4351ce30c153bf25b5241cfe16",
+   "taille": 10280
+  },
+  "ravageur-2-course-glow-1.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "0e0e9e90bffd97028fe6c730c926eb908943b2fa2fff77e4797b5707c8ad48f8",
+   "taille": 9920
+  },
+  "ravageur-2-course-glow-10.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "e477dc74c3dc5ffd658b80040843d5800aa793b46d6eb0c8eb2e6862070cda82",
+   "taille": 15301
+  },
+  "ravageur-2-course-glow-11.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "0308aeaa9059fb5ec3d01b9341ba81a588b307b21b0b3c7016d1d76091af562b",
+   "taille": 13102
+  },
+  "ravageur-2-course-glow-12.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "7d86712d2767666404d5bae3c879a3418f1ef3bdc17a687cadf3ba28ef71b49a",
+   "taille": 11587
+  },
+  "ravageur-2-course-glow-13.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "4f9790906108a4d87692a1b34ecc5ed550931edd2e3523a2b90a745d1a0ce594",
+   "taille": 10963
+  },
+  "ravageur-2-course-glow-14.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "0938360cb9a4732e982152d8319214bea9477254a3286cd9b8c331d4de6ce08e",
+   "taille": 11708
+  },
+  "ravageur-2-course-glow-15.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "c0bd026cf70c65f41613b38cce4f39485ed621f4268fcd062ecaf9e620d3ec6b",
+   "taille": 11123
+  },
+  "ravageur-2-course-glow-2.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "92eb4793a6e5c7bd89960d521656b42326dc125a92c8c8d1ebf67d6a78628e0a",
+   "taille": 10290
+  },
+  "ravageur-2-course-glow-3.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "e54c927331cfa2604309a05ee007c4a6914b7b0d6dbec87772a95a52fdad78ae",
+   "taille": 10001
+  },
+  "ravageur-2-course-glow-4.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "3deccb2208cc9daa5dd75565e30166af77f7c14a9a5365e505ae716ae12e0993",
+   "taille": 11230
+  },
+  "ravageur-2-course-glow-5.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "c81bc9746af4c6937c744f61560f889969dea79bc964b1e21ac4cd3f4beb4735",
+   "taille": 12804
+  },
+  "ravageur-2-course-glow-6.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "5b7088f1d6fc4d9f168272440ac94588ae1375554f61e1e15d8f67d16ff7bc99",
+   "taille": 14981
+  },
+  "ravageur-2-course-glow-7.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "c4cf88ce058355cc038f60ed368cbad5e6c7907e869b0eaec209723256887f78",
+   "taille": 15949
+  },
+  "ravageur-2-course-glow-8.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "75e5e38a1560aa28868c46b0edd03b48bad286781541d2774f230ebf42f02d0b",
+   "taille": 15749
+  },
+  "ravageur-2-course-glow-9.png": {
+   "hauteur": 60,
+   "largeur": 408,
+   "sha256": "1aa9a9c6c9716203e9655f92b5b7b6349473d2615de6cb5b74a0f5517688be9b",
+   "taille": 16238
+  },
+  "ravageur-2-course-main-0.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "96cf6be9d2a21f5d9760f976dd9d5368cf4e08cfb40e65ae5b599129a44ca672",
+   "taille": 231494
+  },
+  "ravageur-2-course-main-1.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "86105c8a7908f95a162d727ec68488784a765d265c112c18d0776f892d59456c",
+   "taille": 222703
+  },
+  "ravageur-2-course-main-10.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "20e2a156f3f9ff690fe9b1fa20e35cd9adfad9f7929d20db57422aabb8df2c85",
+   "taille": 271074
+  },
+  "ravageur-2-course-main-11.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "c280e0f27e0873d5fc03967832b7a36d5c0ee5bfc32f229cbdad6a51419bb44e",
+   "taille": 234688
+  },
+  "ravageur-2-course-main-12.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "b0308bb4da14353cdebf9c8ceb43e2458ef80792d052f8e0dab9511ae44c4dbb",
+   "taille": 218984
+  },
+  "ravageur-2-course-main-13.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "a135c7b40135d2d72273b8d7a7733a9d5702c8866ee5ad50998c88f8a5fdda41",
+   "taille": 224014
+  },
+  "ravageur-2-course-main-14.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "92adc1675e46dc4a4a06fae916a680ae37a92bfd75c93e6174fce2d2e0d1813b",
+   "taille": 262275
+  },
+  "ravageur-2-course-main-15.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "94e59d0d7b0c00e538086ae404dc9f112d922b85a1aa458640c05c96682596b8",
+   "taille": 241440
+  },
+  "ravageur-2-course-main-2.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "eb0d096312fbf6b7a390e04b857fa7962948567629b342a2da692af5a112a3ad",
+   "taille": 238152
+  },
+  "ravageur-2-course-main-3.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "269e1accd151b49001327833a04797e868377784f80b77693938b32644dabdfe",
+   "taille": 219499
+  },
+  "ravageur-2-course-main-4.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "98048e7a3593a224a55b924d7b384bbde597ed8e6fd5dbe8ce4cdaf29aaac70a",
+   "taille": 222243
+  },
+  "ravageur-2-course-main-5.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "37f4de2f55fb87be6bce9c298d003b7820740ab886e1fd59267bf3512fba259d",
+   "taille": 253973
+  },
+  "ravageur-2-course-main-6.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "b508b1337f5bac745279aed533eb7fd0b47d91f1b5986bef0580e27c65f80d5e",
+   "taille": 288809
+  },
+  "ravageur-2-course-main-7.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "e7c8ff0f8e59ab79d8090a44d0931c3fd12a25b4b37111f529dd35d922efb246",
+   "taille": 291326
+  },
+  "ravageur-2-course-main-8.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "e11532d83b632a527fe2fa4ee10ad908e2af966d9add3644bc759987ae72a8df",
+   "taille": 269898
+  },
+  "ravageur-2-course-main-9.png": {
+   "hauteur": 240,
+   "largeur": 1600,
+   "sha256": "7bd5045b91d8bb5e2112a949329470d9d5a03a5acadda5d132a3a832fa67d700",
+   "taille": 271248
+  },
+  "ravageur-2-course-shadow-0.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "7b8abf12e94aba7e6604ebcfed40240d254f4e03807deedf708b1f03c938fdd3",
+   "taille": 6115
+  },
+  "ravageur-2-course-shadow-1.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "56d934cd4452a80b0d3269a379ea508a8de8deb4a44b831208572a5fca9befe6",
+   "taille": 6406
+  },
+  "ravageur-2-course-shadow-10.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "55fbc424a36307be934c7b7f3b1459b39efbd987ee80c52217d25d458f565788",
+   "taille": 7725
+  },
+  "ravageur-2-course-shadow-11.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "28df0bbdf907f73c75de72d80fcc3a32f2dd8175c116f1d71cc569b641019db9",
+   "taille": 8155
+  },
+  "ravageur-2-course-shadow-12.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "c80fc8e2c8956fed400701e5c5492fbfd41cd2a4fc52512e1ed4a0113622f58b",
+   "taille": 8187
+  },
+  "ravageur-2-course-shadow-13.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "8a5732d88db9743fd0bca161ce08b34f40212ecc86fd539afc9ad56e64fdb915",
+   "taille": 8051
+  },
+  "ravageur-2-course-shadow-14.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "52059e6d605b633dd1d6b83ab037310fd5c685530cba5448d30a44bd90f1634a",
+   "taille": 7352
+  },
+  "ravageur-2-course-shadow-15.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "66d392115ff3a5e50d4c6c754232df5f6226cd6f55fbccd77585ebb5d7318fe0",
+   "taille": 6306
+  },
+  "ravageur-2-course-shadow-2.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "4bf8e4a381a8389f0172774ec67b2c85a6e8dc901e61339c38974efefda2905a",
+   "taille": 6491
+  },
+  "ravageur-2-course-shadow-3.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "cca3716fef67d72a68fbac2e90dc8e9da30a59db5a1fd10414e3b158009faefa",
+   "taille": 6100
+  },
+  "ravageur-2-course-shadow-4.png": {
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "37f9cf114aa5cbae896d7905867a464cad50e9bb613792c7e7cff4619f5191ea",
+   "taille": 5802
+  },
   "ravageur-2-course-shadow-5.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "3c10f3aeaefc16c51431b30b8f828ca99a42cf30519371598723c0416f24445b",
-   "taille": 5584
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "9130e71ecbdb7c98e3fafc8ddd0ca3668c41c7ccbc4828109485b360737d391c",
+   "taille": 6081
   },
   "ravageur-2-course-shadow-6.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "082776b88cab35f7fd84f16539c4f913b68820441231f57c44e676d539070eab",
-   "taille": 6183
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "6df85c7455d824ecf8f0b8c91ac1d677667584fb1427bb72f97442e0e2f7bb9c",
+   "taille": 6100
   },
   "ravageur-2-course-shadow-7.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "e1df58acb792fcb0b51111b0813316c1ef37de78f69cf63df71137da77aa0c0a",
-   "taille": 5979
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "65be864179a1cd0eefef4b271b2f630f676f79e7a6bcf3e6a44fca3e5c205af2",
+   "taille": 5942
   },
   "ravageur-2-course-shadow-8.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "5a0bb9cac4dadbc22463465b8ddb6b24ab7929ec495341666ef28aa9b2383a2b",
-   "taille": 5977
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "95104ba40f52bb2e989f044825551fb366d090727e015335d5daf637099fb306",
+   "taille": 6298
   },
   "ravageur-2-course-shadow-9.png": {
-   "hauteur": 34,
-   "largeur": 624,
-   "sha256": "e317376f33b820595559c3dfbeddb61644202fdf2c8a4639c2c79dcce33b46db",
-   "taille": 6680
+   "hauteur": 36,
+   "largeur": 640,
+   "sha256": "5711d971ba4050f18d6c406bc764e703023c3e5d97e14513d63d6f19b41ee7c7",
+   "taille": 6838
   },
   "ravageur-3-attaque-glow-0.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "813128f349ddb98547a2bc94ead1d99716ee51cf364bbd29f654a59b570acff4",
-   "taille": 4402
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "5ebcf665bd4c0f2a9621ebcf821e89b5d0c5e9a87c7a8172e60f0d79cfd2ab01",
+   "taille": 3811
   },
   "ravageur-3-attaque-glow-1.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "5ac8b066240a21b32527159ccd30c12215cc48910021697ad37645c5459311db",
-   "taille": 4467
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "9a2a4b3d41d752f5b2b6fb99615fc9750c1e3ad19302f92a73a19767ba0e17c2",
+   "taille": 4004
   },
   "ravageur-3-attaque-glow-10.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "5e1d8de810ae5bb0d1503279daf1e07e4759ead98d0e4e9cc2cc66417c5697da",
-   "taille": 7730
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "d90743d79f06e64d91b61e4663125a1221c212aa66a6d71f96ac3a017d06639d",
+   "taille": 6882
   },
   "ravageur-3-attaque-glow-11.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "82112f705a3d371e04b3f9b64ba8c68b1d5348ebe4bff90d88cc4fd564d50a9a",
-   "taille": 6936
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "0c6f67718b2625b8e010a389cf4ba245e0244894908bba7178c176cf43d50a18",
+   "taille": 6566
   },
   "ravageur-3-attaque-glow-12.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "e43b7273a22f552f56ab94a30d1cff0624de4ed9124ea092d8870e2c5c5c41a2",
-   "taille": 6556
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "8d36deabc89228c7fcf4873bc62159b365d967eebf73d68dec24b79f9d9c33c8",
+   "taille": 6117
   },
   "ravageur-3-attaque-glow-13.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "7b7dae680f52647fbf1d1073e72bbc18082b5a32583ff3c7f6e6a03fbe2eb738",
-   "taille": 6474
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "a31da2aae7b5f2a269890f18c4aa4b00955dcf25a055a077a81843c07c7c9ee9",
+   "taille": 5704
   },
   "ravageur-3-attaque-glow-14.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "05c9598296160af864672b2e65c4d7685065c83d43afe746ff4937dfaa76b3be",
-   "taille": 6034
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "981bb0cd9d377eef8d2bb03ade53bbb76de3818760aeb01acb663d7781108a8e",
+   "taille": 5444
   },
   "ravageur-3-attaque-glow-15.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "e0199235415a23aa92cb4b9f918d5b7b4c2ded7aeb693b6aa019bf498faf7501",
-   "taille": 5419
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "51a672a62f89a45b8fc740cc2e0e1550193942fee5747ee11fafeb92b96a9344",
+   "taille": 4730
   },
   "ravageur-3-attaque-glow-2.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "666bbb4ca63c783026280fcb7b82db4e8a0188538fc7fe1f3f9f6a5bff537271",
-   "taille": 4433
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "ed19362ba0b1c3a58206639f8456246773d39b54adf46222108ba4899b0ec429",
+   "taille": 4228
   },
   "ravageur-3-attaque-glow-3.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "e4a1933ba092314cfa9dd62dd6c835dadb3b55761e814bcb674c3b8db30490ad",
-   "taille": 4720
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "cae6f6d325cc2df2d32a36812d26df0ca8dd69c591d4b89398f5f00ee71d8bd7",
+   "taille": 4283
   },
   "ravageur-3-attaque-glow-4.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "8d9b032e951ef97cdfcf487bb31e8ceff3664ef88a9fbf1a0a88f98acfa54929",
-   "taille": 5323
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "118c4909de2b40a97e50d4d5de8e92d20bbb29672a784a90feb4a3e5075f04f5",
+   "taille": 5110
   },
   "ravageur-3-attaque-glow-5.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "e5e32868b42533197fac3d9d62b2b745ddd93fba86df14e2de4f03cd91667c38",
-   "taille": 6690
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "ef3801d6dc413b25868dd18ce01abe40bdccd2762b756ad255bb96ac0cfc87f0",
+   "taille": 6073
   },
   "ravageur-3-attaque-glow-6.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "514bcd1335f61afe8317ad1e1a6c74a2b11ad4c5d665d93335ed1c63a1568b8e",
-   "taille": 7663
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "a4a970d8075cc0ce1b839123a374ccdf62dfc6df61f5468ea0934abb2a74828e",
+   "taille": 6822
   },
   "ravageur-3-attaque-glow-7.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "7a6af09bb9063e0651c07ff17c33c9bd87225061ba59e573fddaf7e726f5e857",
-   "taille": 8169
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "625c92f209b637a2648382412eb6f52b02b23bd264caca7ef8c355f2b162a690",
+   "taille": 7226
   },
   "ravageur-3-attaque-glow-8.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "01db513790c0d19b5bfbe9dfec82f685674e0997ae25a34ce44f2e3b2636ca91",
-   "taille": 7902
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "42c970cc341b6dec9f7f488640452246a0dcb60eddca36ca88b8e76e72323140",
+   "taille": 7475
   },
   "ravageur-3-attaque-glow-9.png": {
-   "hauteur": 63,
-   "largeur": 220,
-   "sha256": "7090ef15d416334336a01b301ddcdef0b30c2ba7b58011f50107b274e283e7ce",
-   "taille": 8219
+   "hauteur": 67,
+   "largeur": 228,
+   "sha256": "bca237f585befb97c1e20e70fe12ec1fec61f76cca682f5b51bf9360c6bc97d6",
+   "taille": 7634
   },
   "ravageur-3-attaque-main-0.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "e1ae38ba299adbbc5cea79ede3cad81097ab2f00fc00b6b3af19236c502b46f1",
-   "taille": 61260
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "78ececd917a609f0c48d78c719f2f8cbab5272f21be02fce2a331386925284b2",
+   "taille": 63559
   },
   "ravageur-3-attaque-main-1.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "7794b4b25bf856d93ddb724a2103738b8f0cdbb3e49973a49780875552232de1",
-   "taille": 66168
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "0c642f34beefeec0053a47dc5db287259e5d02988932c680ff89f5ea201b0f43",
+   "taille": 68582
   },
   "ravageur-3-attaque-main-10.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "360b693bd3b1554c537e54b1249c6a396bf153c347fc16b97d098f8fde4ab143",
-   "taille": 92876
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "321bc1e7d53fd442a8bcf00456d1bf2ba5df7189ab5d7dc09da64d6702696195",
+   "taille": 91364
   },
   "ravageur-3-attaque-main-11.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "e27a1703c7f34fb98e2d00a7382698be3b30ff56d6adf20462523f4b31473eda",
-   "taille": 86514
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "fadf453dab68fbcf7e37f9af959f36796e468898d7aa8f1f2f5537a903427dfa",
+   "taille": 86426
   },
   "ravageur-3-attaque-main-12.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "3b8ea9d503b49f0e384e56e374b15fd7a2bd9a7524a50654115bc511da690801",
-   "taille": 79732
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "5918a72f34d7083565bc16d605bb5ad182abbae1c7e5be371521e90c3f9f0692",
+   "taille": 76978
   },
   "ravageur-3-attaque-main-13.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "9e393150a0637dcbfc2edb62bc05ef71180533b6c0a01b466c2114351c87e71e",
-   "taille": 84332
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "58a08f8119716e998ee9f0f498d2f0a634b129e73b3bf2a64d1925f813c91978",
+   "taille": 81141
   },
   "ravageur-3-attaque-main-14.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "86cfdd8b5df7e17482d2fe23dfcb649b14757051be74a2b4db6e9c7d16eab34d",
-   "taille": 104009
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "14bab567cf9924b361b4d80faf002fbd33aac00763688823f9bf14b27881b92f",
+   "taille": 83311
   },
   "ravageur-3-attaque-main-15.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "ac9851076e9c3741280a49acc4d745c2a7ff914564cafd76b5b3acd67a3460cd",
-   "taille": 73603
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "9705aba306bede1da32a1ef50c4ffe170f93387071d01e1a379be56f3d37d45b",
+   "taille": 72943
   },
   "ravageur-3-attaque-main-2.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "f8f184fe7750035e640c50ee7081aa92e83a8bf8efe1f6a120c2980b7962faa5",
-   "taille": 68798
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "827fc3c5d39cf85daa8e0ddc751de4ef3f8cdc1f94dab2c156abc4fb426fe195",
+   "taille": 71358
   },
   "ravageur-3-attaque-main-3.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "5fc1c6f79f8fe0d49bc243f1a2bf70b6b06b53e0e325c4fe20423f6712ae0a3c",
-   "taille": 67746
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "cf9a8642660a727a12bb6f16b6d97b4abf3fa3b1aa304d5022b6a174a73b21c1",
+   "taille": 69916
   },
   "ravageur-3-attaque-main-4.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "8b40a6332d6b9c4e4f04a0c48ac6ad1e172a6ab1498b7265069b65fdd842b876",
-   "taille": 73144
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "16eeb38402362a9c3e55a93261ced180126b0dab16980194288bf49c2ece5e10",
+   "taille": 73953
   },
   "ravageur-3-attaque-main-5.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "078d6f1928b27cfa244a30b0e126f800b75c2066eccf98c319d74cf07990240a",
-   "taille": 88912
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "d2547769fad2a2cbc8a98f8e87cedd6150a98cd5d61afe8c0c95c794e199525b",
+   "taille": 88823
   },
   "ravageur-3-attaque-main-6.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "265a4af1d72dc9ebe204fcf22a11e1db805f70aed848e303311530893d069c0b",
-   "taille": 96067
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "985409587a5951a8fad4f02176d1f918a0e233930a217dd51dc655bba28a657f",
+   "taille": 94622
   },
   "ravageur-3-attaque-main-7.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "7db76ecaad05a7e78f7ee77f5e425e50a8522698fe5f5d71c579c2d4df4766c5",
-   "taille": 114365
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "739148bc12fc54cb6585e90cdc1271929d0882740b14679b4da0895e668511f2",
+   "taille": 117860
   },
   "ravageur-3-attaque-main-8.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "7354f5734c3939a27035f0d524636c39860200d60864a61e70471154f48f038f",
-   "taille": 94877
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "9e7878cc7734cfc9e939ed60259169c25a1981b62436981ccaa69e75477116f5",
+   "taille": 96272
   },
   "ravageur-3-attaque-main-9.png": {
-   "hauteur": 264,
-   "largeur": 860,
-   "sha256": "c5a3557811d7d184621890501d05e46d3f7e84fa8aec5e656067c668adb64804",
-   "taille": 114410
+   "hauteur": 268,
+   "largeur": 908,
+   "sha256": "fe83862c239b206997a56e1f7a7fc0fa3b7bce002455a6c2a6ecdaffe4a3bd72",
+   "taille": 94529
   },
   "ravageur-3-attaque-shadow-0.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "2c223835f5898a959bf3e1b74e9e0cc4535b459fcad202829bdb89bd5efee333",
-   "taille": 2176
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "933d24513ff01b0038b769d524312e9fe721bd2f3fa97815d317a99d2cd761b0",
+   "taille": 2179
   },
   "ravageur-3-attaque-shadow-1.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "4cead50c3a16bb39f40e7b28ee31d2568ba90d7f4a1ae83bf353588a2acbcf97",
-   "taille": 2509
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "18ed7037279c62f23326148825f75ac09644145e1ab3fa2210a29286b2fd9a9b",
+   "taille": 2413
   },
   "ravageur-3-attaque-shadow-10.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "97806a6e315594f5b6d330ed6b4693d7a8ad5a5948ea936bf64ac95566914b28",
-   "taille": 2531
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "80160b61b0438c56c5263be49c98361650f1eb761996098b47111df43632fd5a",
+   "taille": 2669
   },
   "ravageur-3-attaque-shadow-11.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "a35638a18a5146f8ebc9ad06ba1aaeb736c2ea3788a51a095fdec2ed8a402f64",
-   "taille": 2426
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "38c7c8308508ef6e1a8c99707f1f94dca4cdd640204ac18ec63f2abfc6931a04",
+   "taille": 2542
   },
   "ravageur-3-attaque-shadow-12.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "d681fbce4add341e3f02455ce3b0a212000fd00afa137bb6d30d0d425f188d51",
-   "taille": 2368
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "e80756dcde3a705b8919fb35360a30964c538ebd6c13603c2f3cf23d4eb9996a",
+   "taille": 2562
   },
   "ravageur-3-attaque-shadow-13.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "80cbd7d13b8abd3cfae74e24e6c369de7b4d660dccd9291268e501b875d9b1d4",
-   "taille": 2171
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "5baf21663a79cdedce15f176ab4180504b188c97dde943591f651962f053c491",
+   "taille": 2315
   },
   "ravageur-3-attaque-shadow-14.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "ae7efc6384db5ad068a6fc02f0b2d5d596f8d19762ab4335e43cfe3a5e8b6967",
-   "taille": 1975
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "bc270ae8775d6f650fe329e945090bcfdfd4630eec624431710458c89d327054",
+   "taille": 2098
   },
   "ravageur-3-attaque-shadow-15.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "96f32c56ff0ef2202c6c0099746efb890a53435857de60aa9d16d94ffebaf7b5",
-   "taille": 2105
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "1181cfebfa43a815d1a59560dd9d063c65a72fa889cb5a8c4ac2af6b9ef4e8c7",
+   "taille": 2074
   },
   "ravageur-3-attaque-shadow-2.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "d38ba14688fbb343d70918927e47684af3e053fd8264645ab33e9eca80307a30",
-   "taille": 2382
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "671a0333831122c14cda8d66df62d7e9b812666abe47a9117bc7107553d09a31",
+   "taille": 2325
   },
   "ravageur-3-attaque-shadow-3.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "ebfd2a423d8f77b9a6d784b44faca4f2f8e29f45c27fa5dffeca0f9a82fa116f",
-   "taille": 2188
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "08c82417d3b3b2786098b2389c6c2257200a5c4fa9baf6e722f154548d39f345",
+   "taille": 2182
   },
   "ravageur-3-attaque-shadow-4.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "1dc42e257219a482750c15289691bd6f75b790cd6ebcab513ff7223aeac17b70",
-   "taille": 1935
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "71d6b06ecf01adf12d3e2b2bf601d1e29da14f0297c8df53f1d70f5f2a363a7f",
+   "taille": 2024
   },
   "ravageur-3-attaque-shadow-5.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "39a04e76cafe1c46ae7b5da67b2756c4c2abcd30c4c5ea9928081b1169c691c2",
-   "taille": 2069
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "836be4fa001e5713150c257e9474ebafbe99a0edc6b9c6b980ecfcd0a8557c9e",
+   "taille": 2050
   },
   "ravageur-3-attaque-shadow-6.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "1cd4a855f480f5d3dfb759c0c5226ea25ec7c22e8aaa5d4afc447118f39f6e82",
-   "taille": 2131
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "118cad7fcd27d82c321de79096ffc220b8d7020ba2a0c21ce684c63b0df2cb7c",
+   "taille": 2300
   },
   "ravageur-3-attaque-shadow-7.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "f990d8370acec26f946149017c84934e190f1a911b97f2777c34569371bf5522",
-   "taille": 2289
-  },
-  "ravageur-3-attaque-shadow-8.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "7e9f381118a208bc4d99fa8de184e0cf0dfdab73f8bd95f2e7f7524c7ff98539",
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "c4ab51ec9008078b6872150962498e0c6aa46825be8cbab6bb6b6a3df76b9ba2",
    "taille": 2305
   },
+  "ravageur-3-attaque-shadow-8.png": {
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "4d33c02b7e0160bd90f2aa71c6dd52402807bf20f22ce998cc85541a16676059",
+   "taille": 2492
+  },
   "ravageur-3-attaque-shadow-9.png": {
-   "hauteur": 38,
-   "largeur": 344,
-   "sha256": "93910ebacc0a0af1c790d05455aa34319a03e30d4b5716d6d9173f0838bfc3ce",
-   "taille": 2455
+   "hauteur": 41,
+   "largeur": 352,
+   "sha256": "13a2d41c7c778bc45d795a72c23de38036b6d5722f54db8e4bc129f7d96b1f4d",
+   "taille": 2584
   },
   "ravageur-3-course-glow-0.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "86fa044e6b020b8bba534d4486181cb083fd13d338d1943f13363b5484eceef2",
-   "taille": 12925
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "e319cd869d55a1f614d837e2cb6436591bdd4f89177441fd98b5f1f23fc6f13a",
+   "taille": 11216
   },
   "ravageur-3-course-glow-1.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "61f23f24367fe67f3676851a49421b5234454ab836f332b18a9cfa32184eb513",
-   "taille": 13829
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "b27c890c88945abec8a577d5b81049433653758c6de5489f6f700a16a810da69",
+   "taille": 11041
   },
   "ravageur-3-course-glow-10.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "96b65d32f59f5cf700794a3fdecc08462a8d5921bdb673198e321d9a2f42b7ce",
-   "taille": 19376
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "e32f450adfb1c66c9e0ae0afbf15ee2e29312371fb245e44d9bc76a42dda4675",
+   "taille": 17275
   },
   "ravageur-3-course-glow-11.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "2a66fcbcd398d7acff29ed9d211c8ae4cdc4325c38ed168f8b5173bd4c3f9c7d",
-   "taille": 17189
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "6c95b19a12e1b37c536f47684c5aadd8a8dbcf16e2d84bbb669a8554d362d173",
+   "taille": 14677
   },
   "ravageur-3-course-glow-12.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "6713b4ca60e083341a0b69da6444b9391e9222784ea15a11369ca623c7b59b8c",
-   "taille": 15604
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "a7c91a5efe7d40c0ee439fe3e8eff78b9f0327022461ccdaccfbc21b4ae5ca63",
+   "taille": 12885
   },
   "ravageur-3-course-glow-13.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "daf7624d34af3c38ce56877a84e57ca543817502c4eab272e94f98b157abb481",
-   "taille": 15145
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "3bad13796e7e6166b27db0586d57ec066f95cb93c140f8d9b0a2e0d927601b2f",
+   "taille": 12019
   },
   "ravageur-3-course-glow-14.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "332e8d3e231cf6fd588016fb019904457074ed3e4d44fe1f4d796522e37413db",
-   "taille": 15426
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "b8ae0c2667d6af832701f44ac5c10c0b6b7ce7fdf33930fb97fcfc1fc1010015",
+   "taille": 12830
   },
   "ravageur-3-course-glow-15.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "25f090a5157d222be2026db214a88f781fc2cf5d9102dd666ddfdd9d86d5d4f3",
-   "taille": 14436
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "aab07e60346e97851ada8863f2f9ebc22e31131f5c2394dd00fe547f9ea0f0fe",
+   "taille": 12149
   },
   "ravageur-3-course-glow-2.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "7c70cbbc6a9927658e50d9c066c3a71a7a7bb07dad6a75a3d8aaf93b6cbc2c1b",
-   "taille": 14409
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "e9e6a126851e9a7424ecf5c1e074fc8585436e4cf2cf170b5dbe0126ab69d0c5",
+   "taille": 11717
   },
   "ravageur-3-course-glow-3.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "028ede5b9c62e3c2c4f614af7f3e66b5578cd55a2e29cbecb6ea4f7e5f6eeabf",
-   "taille": 14828
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "d71fb1e26df461c7f93b71956c394b71e167a5e6be34aafa95e60461e66a0e3a",
+   "taille": 11256
   },
   "ravageur-3-course-glow-4.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "4750dd348901a3924452f697a7f3ef238bc0e98e51e17f342faa863c8d0ad99b",
-   "taille": 15656
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "f35a2624cac0bf2b3109c4dde6acd5aa6ed38f2f6bcc386dd7f4a440566c0a59",
+   "taille": 12704
   },
   "ravageur-3-course-glow-5.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "7e97ccdbda98ca7d3e08ccc2f028b075a68a7dda35be0384f54aae942055b489",
-   "taille": 17466
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "ab2e69db74064d9339cbe456d7a8f32d756d267b202c03ccfb01bffef207aa9c",
+   "taille": 14648
   },
   "ravageur-3-course-glow-6.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "61339fd4ab3210a34aa1f29112e56f82bfb22515c6b58638c6420455cd1ff8d9",
-   "taille": 20033
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "ddb82ccadadda1cfeb66448a532e3afbca6bb02cd543b0b4a954ce0a9a6833ca",
+   "taille": 17094
   },
   "ravageur-3-course-glow-7.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "e01bb0a2359bbca44abdffcc58fdd1fdfd5d6b9529cc357ef8963370a806c0b1",
-   "taille": 20047
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "b860d33fe45e947143acdba2341401a9e27b26df750ca510171110a88654b95a",
+   "taille": 17925
   },
   "ravageur-3-course-glow-8.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "ad4ec78edf1a35b2b6ad7e300d4ddf46531cbf610486f738fe0ad4da5bdc0f66",
-   "taille": 18887
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "341399bbd056e03bb0880e515208a241ceb2c9e9c18bb36c916b11a24b7a4129",
+   "taille": 17756
   },
   "ravageur-3-course-glow-9.png": {
-   "hauteur": 66,
-   "largeur": 392,
-   "sha256": "ddc1f504a1ba910a9a3953ad05418f5e8bb59e1fd63e6383f1c82b344e2fcd87",
-   "taille": 19457
+   "hauteur": 68,
+   "largeur": 416,
+   "sha256": "6f15d69c6ab79a012fe742538ef82a312e5d09167622f5955f889e40626b7bd5",
+   "taille": 18364
   },
   "ravageur-3-course-main-0.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "80281d8478a92b98cd7cfff72dceab7967441f308f0ccacdc67a612134d1cf98",
-   "taille": 207779
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "aec43d88e23b8d940394885e50ad0188356ffa151f645de917f8f666acff20bc",
+   "taille": 242982
   },
   "ravageur-3-course-main-1.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "c433671ab8b82dcb4e117a993e57349bd54122314dffaed3b2b0b5b4b57650b6",
-   "taille": 224734
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "2ea20adf05aba2d4f7f388be35d911d572506c75074f4736f594d49113b357b6",
+   "taille": 235425
   },
   "ravageur-3-course-main-10.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "009990d40a3e969ca0feb4a5c2f6f27896e43765e36ad06d51ac3395599dbe0f",
-   "taille": 281611
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "f45c684fcefd7ae62070414a6db87ed1e7e3caea305268cf525a4bc49d188b4c",
+   "taille": 290183
   },
   "ravageur-3-course-main-11.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "d938d7ab44f9bf1b8febe64c02a338897041fd763f8d5e3f1562d51f7977a970",
-   "taille": 253281
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "6387bb67c06490b78a912378c334f015642a3b0dfde6c2e5968956f9247a6775",
+   "taille": 255653
   },
   "ravageur-3-course-main-12.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "6a1f9f0ad2d2d3db4a63823a084b7574eab651230e80287edf4cf65fb015d9ff",
-   "taille": 231004
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "66dd1e793f0878d44cb0cb6766a10b176962bb5417a09b18f0fde10dc84e1792",
+   "taille": 227162
   },
   "ravageur-3-course-main-13.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "ce8079ff4ded9b3862ac3c0a54c98677a46a8e727256599ce3228a7d96b9d25d",
-   "taille": 239375
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "7f1690c932f000fccd4adc0cf10e868434cc4e2ae852ec9d28c934bde5741ce5",
+   "taille": 244321
   },
   "ravageur-3-course-main-14.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "2985eb788c2e4fe192d4261a8dca9641dba7b377dbc9850d2d2260f1fb04468b",
-   "taille": 251871
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "16783678015ce9f70b8c423dab9f7f6f8c8016942c9e4586cb6dee6c27cd435c",
+   "taille": 267865
   },
   "ravageur-3-course-main-15.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "6db658c2430c017b295ba2eb9db5bfc6ac733250f2c7879c805a394951cf92e4",
-   "taille": 240954
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "55b179cd2c3a37df90abb5f630808fbfc2d9dc09c98507c214b659b579d3ce80",
+   "taille": 252274
   },
   "ravageur-3-course-main-2.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "38971c5780f0d622a1fdea09d26d20f99e6d90d94a78a55b9b0cf44d16dd22e4",
-   "taille": 226078
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "b458b34b9b9707ecf09d8dfa04010c5932362a873a5f0d1490910e29d8b20287",
+   "taille": 248956
   },
   "ravageur-3-course-main-3.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "405328ec24b5082a809c4b1358513b79454bb333d945d3e6a345ffe4b2c74872",
-   "taille": 227396
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "59c9ffb42f23fc604f013038c4b1b829d0ee2aacb7119e0185a3b50cf9cad42d",
+   "taille": 224285
   },
   "ravageur-3-course-main-4.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "37cdeb1e97c76427cba5179bfd3a25d32fe622400ef9cd182fa5b55370a032e4",
-   "taille": 233517
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "c1ebf58c934e6728673df93e56c6a16cb7e72b3af2fd086321c7d05e97b2e0d7",
+   "taille": 220851
   },
   "ravageur-3-course-main-5.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "2d97d80366d99f62c2e654217f67ff8196262a6d747011a7ef87d4c5e9a8e42d",
-   "taille": 252082
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "f452bd4cb5dda93cd47ef71d36301abeb757f20bbeb171c57727e7b11b097729",
+   "taille": 250499
   },
   "ravageur-3-course-main-6.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "ae9505c85fcb9d639634e81632d151cb7578512e17fb2f7de4d1fd9bfc47a40a",
-   "taille": 290537
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "d317168c44dafe066c29c10dbe409f34e2d3d96a6adb02a555a19983552eb272",
+   "taille": 292705
   },
   "ravageur-3-course-main-7.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "cdd6e58f1a14e430cebad6e8801840bfdfd7e0f4eba7edfc6da73aa63e4f66fe",
-   "taille": 280184
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "9cbe39d30cc622ba32a77dec767b666290d6ff0140394548e7ef6f502a0d76f3",
+   "taille": 289383
   },
   "ravageur-3-course-main-8.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "20fa9c6776a172f06996e7543622f7b23a07a37adc31d38895cfe582b2d612c3",
-   "taille": 267814
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "6970527a01efba8164e12322dc73903d6ffcd106b803b9ca079e896f16d83bec",
+   "taille": 288642
   },
   "ravageur-3-course-main-9.png": {
-   "hauteur": 270,
-   "largeur": 1544,
-   "sha256": "e793e325a29a71ef3a1d1bd33845564c1e7e5befe483ee6bda34c4425aa17e66",
-   "taille": 278664
+   "hauteur": 274,
+   "largeur": 1632,
+   "sha256": "797848d62b4e6b3921a637d1de8fcfef2978d58ee0b6fcd40a21458622e81fdb",
+   "taille": 299007
   },
   "ravageur-3-course-shadow-0.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "ca75d18ec71b6ae13efcff3fc4f78fe74967ccd9619d92096730970a2f89766f",
-   "taille": 6659
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "936166b0db0970b13edd900e4b1adefb407bf598adef7b3a2078084a137722a6",
+   "taille": 6727
   },
   "ravageur-3-course-shadow-1.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "72b2e293cf0ffc8519916cea9fa17a01993a0ed437ae9ce64bd7ebd98a179b11",
-   "taille": 6770
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "68b12c003493c02c4a4b0cb01b7954275dd46f3a03b545a2c7c32242dbf71d93",
+   "taille": 6776
   },
   "ravageur-3-course-shadow-10.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "fc3e31a6e2f48b434f917875c448036df5a47f130640df1664f9be5ef8ee8855",
-   "taille": 8072
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "9d3f37e173615e60b02956d4c23e83574e8173a7c0d8a78309b77363ea2a23e6",
+   "taille": 8375
   },
   "ravageur-3-course-shadow-11.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "333f1283c1ff1a2cd20741e58edeab22bb14015bf324a946a7f1a4ca8e4d670a",
-   "taille": 8052
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "65ee37989b38924f2eeb50b2a34e70cd98ab966060e7fb2f0240080928d8f153",
+   "taille": 8703
   },
   "ravageur-3-course-shadow-12.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "9d81553dcc70186c8a75d05af048383cc81cda50b3f01f6570928091b52b8df7",
-   "taille": 7500
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "f2eef84a9f4a633e2e2a936ac86be5c22b758f88e7a44a864d9579f9926dfe69",
+   "taille": 8750
   },
   "ravageur-3-course-shadow-13.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "a0ec6efb026734c44420839fd14090c0c946332aaf2e06f1b931b5e2b0750a78",
-   "taille": 7862
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "cf929839c6275ef48cc541f38d72eb1e6e9519a565725d3f60ac129e54226ce7",
+   "taille": 8572
   },
   "ravageur-3-course-shadow-14.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "5bdfe3c290611846b98d0e723f46d94e14ecc28d6df124ec9629e0134cf5dd89",
-   "taille": 8013
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "b40120d3f62bad073616729320ec08a96ca1b978224756ed418ba5335b1b876a",
+   "taille": 8073
   },
   "ravageur-3-course-shadow-15.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "c2854f9539129f1a1b005be667860282c0bfae0417770d384574579b2c190e96",
-   "taille": 6895
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "9e57c2cb4e6f839b262f06cec3418d71dd9d68ed9dd86343f2503f8a25457af5",
+   "taille": 7099
   },
   "ravageur-3-course-shadow-2.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "77061b03cfef8f9b08dfbc4f0fdca2f75ca4995278fb4c362ca86363d03fc4d3",
-   "taille": 6917
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "160c678065b1d9eaeb9852ee48ce70ea92fcd4b1c18398d81b2aa2fe1d66b2eb",
+   "taille": 6967
   },
   "ravageur-3-course-shadow-3.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "992ba371f49a66f5fe8dc8c5c004bbf8056ebff56fd15f9db9bcfb4b955c6f6a",
-   "taille": 6178
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "d0e3e8378e9850e800abe82e451ae3df4972bb144dba966a9ce13a7f2a734710",
+   "taille": 6246
   },
   "ravageur-3-course-shadow-4.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "52d286ab80c17b405b530bff52f53c9bada89881474681d9f5107b8ea3bca62d",
-   "taille": 5405
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "587977b98f1dbfb7f775fa98daf5b86db9d3ea2b38f8ae17312d6ccb8265d354",
+   "taille": 6039
   },
   "ravageur-3-course-shadow-5.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "2167917affae44ce1ab165ec55404b5d7ed8e6679c982b8797b5b91b397f6ce0",
-   "taille": 6008
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "0d92a62fc792bbc3a4377a00fdde96e5bb7c5f4d5f0451e630c5deeb9a154b12",
+   "taille": 6370
   },
   "ravageur-3-course-shadow-6.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "3caed14d54e1f0e38a99fe45fda51456fb1ba7ce18442b214da450c716a57fa1",
-   "taille": 6562
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "d636f255750eaa201a894a053af16fb02c15fcd8b3e8550bf4c2ddf632d6dd96",
+   "taille": 6496
   },
   "ravageur-3-course-shadow-7.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "5c2466875415b373eda62a9ef35358396ebbf340b3a6eee008b17d84b940bf51",
-   "taille": 6350
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "398258b981114d9cc00c1eae2aaf4616d5103b71ce69cf2aa78b3a6e3495ca11",
+   "taille": 6297
   },
   "ravageur-3-course-shadow-8.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "70a67c06a93ad24577ef75d0d87e6f2956d257f7ccb2562a5a303968aaef1b17",
-   "taille": 6528
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "fa799065abe97d5d96f976dcb17c3f2b66cbd07f76a85473ae44be8941c65622",
+   "taille": 6867
   },
   "ravageur-3-course-shadow-9.png": {
-   "hauteur": 35,
-   "largeur": 712,
-   "sha256": "4af4c78fb3ff70c021209a4b152af1f63b07f086f1436d5d93d194d335bd5dc6",
-   "taille": 7336
+   "hauteur": 37,
+   "largeur": 720,
+   "sha256": "af10b113f4eb884aafbc34c7768c7ab58a8493157d95e39bcbe9b62309fa78fd",
+   "taille": 7522
   },
   "sentinelle-1-attaque-glow-0.png": {
    "hauteur": 51,
@@ -13404,9 +13404,9 @@
    "normale": 0.01
   },
   "ravageur": {
-   "haute": 72.64,
+   "haute": 79.93,
    "images": 576,
-   "normale": 18.16
+   "normale": 19.98
   },
   "sentinelle": {
    "haute": 69.91,
