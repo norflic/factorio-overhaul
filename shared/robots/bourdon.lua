@@ -423,7 +423,21 @@ B.MEGA = {
   -- Bourdon ») : échelle du rendu (bourdon.py, MEGA_ECHELLE ; feuilles_mega.py l'écrit dans sprites.lua, « echelle », le test les compare).
   -- Tout ce que le Méga-Bourdon emprunte au Bourdon en est multiplié : chaînes, ancres, battant, griffes, boîtes, lumière.
   ECHELLE = 2.2,
-  RAYON_X = 4,    -- lot MEGA-BALISTIQUE : rayon de zone de l'orbe = rayon de l'orbe Bastion × 4 (ordre du DC)
+  -- lot MEGA-BALISTIQUE : rayon de zone de l'orbe = rayon de l'orbe Bastion × RAYON_X (ordre du DC) ; s43 MEGA-BOURDON (ordre du DC du
+  -- 13/11 : « au moins × 4 par rapport à aujourd'hui », une salve rase une base à 600 % et ses voisines) : 4 → 20, soit 20 → 100 tuiles
+  RAYON_X = 20,
+  -- s43 MEGA-BOURDON (même ordre) : portée « à son gabarit », bien au-delà du bord de son image : PORTEE_BORD × le plus grand écart de
+  -- sa boîte de dessin à son origine (2,2 × 66 = 145 tuiles : 218 tuiles, l'ordre de la portée d'artillerie vanilla, 224) ; la vitesse
+  -- de l'orbe suit (temps de vol de l'orbe Bastion gardé)
+  PORTEE_BORD = 1.5,
+  -- dégâts bruts : DEGATS_X × la zone et le coup direct « au plus juste » (B.arme_mega : tuer d'un coup la plus forte unité d'essaim)
+  DEGATS_X = 10,
+  -- effets : durées de l'impact et des ondes × DUREE_X (bornes des armes de même) ; ANNEAUX d'explosions (part du rayon, nombre)
+  -- autour de l'impact, copies de la massive-explosion vanilla agrandies de ANNEAU_ECHELLE, sans particules ni son (UPS)
+  DUREE_X = 2,
+  ANNEAUX = { { 0.3, 8 }, { 0.6, 12 }, { 0.9, 16 } },
+  ANNEAU_ECHELLE = 2.5,
+  ANNEAU = "fo-mega-bourdon-anneau",
   -- marge de précision : le moteur calcule dégâts et résistances en simple précision (24 bits de mantisse, 2^-24 perdu par opération) ;
   -- un tir « au plus juste » laissait la plus forte à une fraction de PV (banc megabourdon-vitrine du 11/11 : 8 des 9 survivent au
   -- premier impact). Tuer, c'est infliger au moins PV × (1 + 2^-10).
@@ -555,6 +569,54 @@ function B.arme_mega(spec, salve_laser, salve_explosion, cibles)
   return a
 end
 
+--- s43 MEGA-BOURDON (ordre du DC du 13/11) : plus grand écart à l'origine d'une boîte { { x1, y1 }, { x2, y2 } } ou { left_top = { x, y },
+--- right_bottom = { x, y } } (forme lue en jeu) ; 0 sans boîte valide.
+function B.bord(boite)
+  local m = 0
+  if type(boite) ~= "table" then return 0 end
+  local coins = boite.left_top and { boite.left_top, boite.right_bottom } or boite
+  for _, p in ipairs(coins) do
+    if type(p) == "table" then
+      for _, v in ipairs({ p[1] or p.x, p[2] or p.y }) do
+        if type(v) == "number" and math.abs(v) > m then m = math.abs(v) end
+      end
+    end
+  end
+  return m
+end
+
+--- s43 MEGA-BOURDON : l'arme LOURDE du Méga-Bourdon depuis l'arme au plus juste a (B.arme_mega) et sa boîte de dessin : portée
+--- max(portée de l'orbe Bastion, PORTEE_BORD × bord de l'image), vitesse de l'orbe à proportion (temps de vol gardé), coup direct et
+--- zones × DEGATS_X (a.juste garde les valeurs au plus juste). Nouvelle table ; nil si a n'est pas une table.
+function B.arme_lourde(a, boite)
+  if type(a) ~= "table" then return nil end
+  local o = {}
+  for kk, v in pairs(a) do o[kk] = v end
+  o.portee = math.max(a.portee, math.ceil(B.MEGA.PORTEE_BORD * B.bord(boite)))
+  o.vitesse = a.vitesse * o.portee / a.portee
+  o.juste = { direct = a.direct, zone_laser = a.zone_laser, zone_explosion = a.zone_explosion }
+  o.direct = math.ceil(B.MEGA.DEGATS_X * a.direct)
+  o.zone_laser = math.ceil(B.MEGA.DEGATS_X * a.zone_laser)
+  o.zone_explosion = math.ceil(B.MEGA.DEGATS_X * a.zone_explosion)
+  return o
+end
+
+--- s43 MEGA-BOURDON : décalages { x, y } des explosions en anneau autour de l'impact pour un rayon de zone r : B.MEGA.ANNEAUX (part du
+--- rayon, nombre), directions par la table B.dir (sans trigonométrie), un anneau sur deux tourné d'un demi-pas. Liste dans l'ordre.
+function B.anneaux(r)
+  local o = {}
+  if type(r) ~= "number" or r <= 0 then return o end
+  for i, an in ipairs(B.MEGA.ANNEAUX) do
+    local rr, n = an[1] * r, an[2]
+    local dec = (i % 2 == 0) and 0.5 or 0
+    for k = 0, n - 1 do
+      local c, sn = B.dir((k + dec) / n)
+      o[#o + 1] = { sn * rr, -c * rr }
+    end
+  end
+  return o
+end
+
 --- Impact de l'orbe du Méga-Bourdon : copie de la recette d'impact de l'orbe Bastion (Fx.MODES.plasma.impact) à l'échelle du rayon
 --- (B.MEGA.RAYON_X) : explosion, onde de choc, onde, lumière et portée des étincelles de plasma ; nombre d'étincelles et durées gardés ;
 --- sans brûlure (celle de l'orbe reste). nil si i n'est pas une table.
@@ -574,6 +636,12 @@ function B.impact_mega(i)
   end
   if c.lumiere then c.lumiere.taille = c.lumiere.taille * k end
   if c.etincelles then c.etincelles.vitesse = c.etincelles.vitesse * k end
+  -- s43 MEGA-BOURDON : durées de l'explosion et des ondes × DUREE_X (nombre d'étincelles gardé)
+  local dx = B.MEGA.DUREE_X
+  if c.duree then c.duree = c.duree * dx end
+  for _, q in ipairs({ "choc", "onde", "distorsion" }) do
+    if c[q] and c[q].duree then c[q].duree = c[q].duree * dx end
+  end
   c.brulure = nil
   return c
 end
@@ -584,6 +652,7 @@ function B.bornes_mega(b)
   for kk, v in pairs(b) do o[kk] = v end
   o.vortex_echelle_max = b.vortex_echelle_max * B.MEGA.RAYON_X
   o.lumiere_taille_max = b.lumiere_taille_max * B.MEGA.RAYON_X
+  o.duree_max = b.duree_max * B.MEGA.DUREE_X -- s43 MEGA-BOURDON
   return o
 end
 

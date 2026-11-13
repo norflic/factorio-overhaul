@@ -85,7 +85,7 @@ local function regles(B, muet)
     ck(a.portee == spec.range and a.portee_min == spec.min_range and a.recharge == spec.cooldown, "portée et cadence de l'orbe Bastion")
     ck(a.vitesse == P.speed, "vitesse de l'orbe Bastion")
     -- lot MEGA-BALISTIQUE : rayon × 4 (« radius = radius * 4 »), le Bastion ne change pas
-    ck(B.MEGA.RAYON_X == 4 and a.rayon == 4 * P.radius, "rayon de zone : 4 fois celui de l'orbe Bastion (ordre du DC)")
+    ck(B.MEGA.RAYON_X == 20 and a.rayon == 20 * P.radius, "rayon de zone : 20 fois celui de l'orbe Bastion (ordre du DC du 13/11 : au moins 4 fois les 20 tuiles d'avant)")
     ck(A.age_turret(B.MEGA.ARME_AGE).plasma.radius == P.radius, "l'orbe du Bastion garde son rayon")
     ck(a.direct == math.ceil(sl * P.direct / tot / n), "coup direct : part de la salve de l'âge 15 par casemate")
     ck(a.zone_laser == math.ceil(sl * P.area.laser / tot / n), "zone laser : part de la salve laser")
@@ -150,8 +150,8 @@ local function regles(B, muet)
     "onde de choc : même part du rayon que l'orbe Bastion")
   ck(type(J) == "table" and J.lumiere.taille == I.lumiere.taille * K and J.etincelles.vitesse == I.etincelles.vitesse * K,
     "lumière et portée des étincelles de plasma à l'échelle du rayon")
-  ck(type(J) == "table" and J.duree == I.duree and J.choc.duree == I.choc.duree and J.etincelles.nombre == I.etincelles.nombre,
-    "durées et nombre d'étincelles gardés (UPS)")
+  ck(type(J) == "table" and J.duree == I.duree * B.MEGA.DUREE_X and J.choc.duree == I.choc.duree * B.MEGA.DUREE_X and J.etincelles.nombre == I.etincelles.nombre,
+    "durées × DUREE_X (s43), nombre d'étincelles gardé (UPS)")
   ck(type(J) == "table" and J.brulure == nil and I.choc.echelle == choc0 and I.lumiere.taille == lum0, "copie : la recette Bastion intacte")
   local Bo = B.bornes_mega(Fx.BORNES)
   ck(Bo.vortex_echelle_max == Fx.BORNES.vortex_echelle_max * K and Bo.lumiere_taille_max == Fx.BORNES.lumiere_taille_max * K,
@@ -377,7 +377,7 @@ local MUTANTS = {
   { "boîte non agrandie", "local k = B.MEGA.ECHELLE\n  return", "local k = 1\n  return" },
   -- lot MEGA-BALISTIQUE
   { "rayon du Bastion gardé", "rayon = P.radius * B.MEGA.RAYON_X,", "rayon = P.radius," },
-  { "rayon × 2", "RAYON_X = 4,", "RAYON_X = 2," },
+  { "rayon × 2", "RAYON_X = 20,", "RAYON_X = 2," },
   { "pourcentage de résistance ignoré", "return x * (1 - pct / 100)", "return x" },
   { "réduction fixe ignorée", "if dec < d then x = d - dec else", "if true then x = d else" },
   { "zone sans la plus forte", "      k = hi\n", "" },

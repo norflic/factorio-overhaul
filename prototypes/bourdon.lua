@@ -347,8 +347,19 @@ do
       end
     end
     table.sort(noms)
-    for _, un in ipairs(noms) do
-      local u = assert(data.raw.unit[un], "mega-bourdon : unité d'essaim absente " .. un)
+    local protos_essaim = {}
+    for _, un in ipairs(noms) do protos_essaim[#protos_essaim + 1] = assert(data.raw.unit[un], "mega-bourdon : unité d'essaim absente " .. un) end
+    -- s43 MEGA-BOURDON (ordre du DC du 13/11 : une salve RASE la base) : les nids et les vers aussi (unit-spawner, turret ; titans exclus)
+    for _, ty in ipairs({ "unit-spawner", "turret" }) do
+      local ns = {}
+      for nn in pairs(data.raw[ty] or {}) do
+        if nn:sub(1, #T.PREFIX) ~= T.PREFIX then ns[#ns + 1] = nn end
+      end
+      table.sort(ns)
+      for _, nn in ipairs(ns) do protos_essaim[#protos_essaim + 1] = data.raw[ty][nn] end
+    end
+    for _, u in ipairs(protos_essaim) do
+      local un = u.name
       local res = {}
       for _, r in ipairs(u.resistances or {}) do
         if r.type == "laser" or r.type == "explosion" then res[r.type] = { decrease = r.decrease or 0, percent = r.percent or 0 } end
@@ -369,6 +380,13 @@ do
   log(string.format("[FO-MEGA] orbe : rayon %g (Bastion %g) ; direct %d, zone laser %d, zone explosion %d (facteur %.3f) ; %d unités"
     .. " d'essaim ; plus forte (zone) %s ; plus blindée (direct) %s", arme.rayon, spec.plasma.radius, arme.direct, arme.zone_laser,
     arme.zone_explosion, arme.facteur, #cibles, tostring(arme.plus_forte), tostring(arme.plus_blindee)))
+  -- s43 MEGA-BOURDON (ordre du DC du 13/11) : arme lourde (dégâts × DEGATS_X, portée au gabarit de sa boîte de dessin)
+  local boite_mega
+  for _, p in ipairs(protos) do if p.name == Bm.MEGA.NOM then boite_mega = p.drawing_box end end
+  arme = assert(Bm.arme_lourde(arme, boite_mega), "mega-bourdon : arme lourde")
+  log(string.format("[FO-MEGA] arme lourde : portee %d (Bastion %d, bord de l'image %g), vitesse %.3f ; direct %d, zone laser %d,"
+    .. " zone explosion %d (x %g) ; rayon %g", arme.portee, spec.range, Bm.bord(boite_mega), arme.vitesse, arme.direct, arme.zone_laser,
+    arme.zone_explosion, Bm.MEGA.DEGATS_X, arme.rayon))
   local base = assert(data.raw.projectile[spec.name .. "-orb"], "mega-bourdon : orbe du Bastion absente")
   local orbe = table.deepcopy(base)
   orbe.name = Bm.MEGA.ORBE

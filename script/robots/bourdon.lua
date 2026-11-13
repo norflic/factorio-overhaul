@@ -802,7 +802,10 @@ end
 local ARME_MEGA -- valeurs pures (B.arme_mega), calculées une fois
 local function arme_mega()
   if ARME_MEGA == nil then
-    ARME_MEGA = B.arme_mega(A.age_turret(B.MEGA.ARME_AGE), Ech.salve(B.AGE, "laser"), Ech.salve(B.AGE, "explosion")) or false
+    -- s43 MEGA-BOURDON : arme lourde, portée au gabarit de sa boîte de dessin (lue dans son prototype)
+    local pr = game.entity_prototypes[B.MEGA.NOM]
+    ARME_MEGA = B.arme_lourde(B.arme_mega(A.age_turret(B.MEGA.ARME_AGE), Ech.salve(B.AGE, "laser"), Ech.salve(B.AGE, "explosion")),
+      pr and pr.drawing_box) or false
   end
   return ARME_MEGA or nil
 end
