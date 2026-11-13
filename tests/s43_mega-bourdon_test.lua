@@ -69,8 +69,36 @@ ck(P:find('for _, ty in ipairs({ "unit-spawner", "turret" }) do', 1, true) ~= ni
 ck(P:find("arme = assert(Bm.arme_lourde(arme, boite_mega)", 1, true) ~= nil, "prototype : l'orbe prend l'arme lourde")
 ck(P:find("{ type = \"area\", radius = arme.rayon,", 1, true) ~= nil and P:find("amount = arme.zone_laser", 1, true) ~= nil, "prototype : zone au rayon et aux dégâts de l'arme")
 ck(X:find("ajoute_cible(orbe.action, { type = \"create-entity\", entity_name = an.name, offsets = Bm.anneaux(rayon) })", 1, true) ~= nil, "effets : anneaux branchés")
-ck(X:find("an.created_effect, an.sound = nil, nil", 1, true) ~= nil, "effets : anneaux sans particules ni son")
+ck(X:find("layers = { feuille_anim(\"onde\", c, d_an, t_an), feuille_anim(\"eclat\", c, 0.6 * d_an, t_an) }", 1, true) ~= nil
+  and X:find("massive-explosion", 1, true) == nil, "effets : anneaux lumineux (onde et éclair du mod), plus de fumée vanilla")
 ck(S:find("ARME_MEGA = B.arme_lourde(B.arme_mega(", 1, true) ~= nil and S:find("pr and pr.drawing_box) or false", 1, true) ~= nil,
   "script : arme lourde, boîte de dessin lue dans le prototype")
+-- 5. tranche 2 : plafond de la cascade des couvées (shared/combat/couvee.lua)
+local Cv = require("shared.combat.couvee")
+local f = Cv.file()
+for i = 1, 3 do ck(Cv.ajouter(f, i), "petite file : naissance gardée") end
+local t = Cv.tranche(f, 32)
+ck(#t == 3 and t[1] == 1 and t[3] == 3 and Cv.taille(f) == 0, "petit combat : toutes les naissances au tick suivant, dans l'ordre")
+-- cascade : chaque tick, toutes les unités nées meurent (arme de zone) et chacune demande 2 naissances
+local vivants, pire, total = 2 ^ 11, 0, 0 -- une couvée du palier 12 : 2 048 descendants au dernier palier sans plafond
+f = Cv.file()
+for _ = 1, vivants do Cv.ajouter(f, 1) end
+for _ = 1, 200 do
+  local nes = #Cv.tranche(f, Cv.BUDGET_TICK)
+  if nes > pire then pire = nes end
+  total = total + nes
+  for _ = 1, 2 * nes do Cv.ajouter(f, 1) end
+end
+ck(pire <= Cv.BUDGET_TICK, "cascade : au plus BUDGET_TICK naissances par tick (" .. pire .. ")")
+ck(Cv.taille(f) <= Cv.ATTENTE_MAX and f.abandons > 0, "cascade : file bornée, le surplus abandonné (" .. f.abandons .. ")")
+ck(#f.l <= 2 * Cv.ATTENTE_MAX + Cv.BUDGET_TICK, "file jamais vide : la liste ne grandit pas sans fin (" .. #f.l .. ")")
+f = Cv.file()
+for i = 1, Cv.ATTENTE_MAX + 5 do Cv.ajouter(f, i) end
+ck(Cv.taille(f) == Cv.ATTENTE_MAX and f.abandons == 5, "au-delà d'ATTENTE_MAX : abandon compté")
+local M = lire("script/world/enemy_mechanics.lua")
+ck(M:find("Cv.ajouter(f, { n = child,", 1, true) ~= nil and M:find("Cv.tranche(f, Cv.BUDGET_TICK)", 1, true) ~= nil
+  and M:find("Events.on_nth_tick(1, naissances)", 1, true) ~= nil, "enemy_mechanics : naissances par la file plafonnée")
+local _, nce = M:gsub("create_entity", "")
+ck(nce == 1, "enemy_mechanics : une seule pose d'unité")
 print(string.format("[S43-MEGA-BOURDON] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 os.exit(ko == 0 and 0 or 1)
