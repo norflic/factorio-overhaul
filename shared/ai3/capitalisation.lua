@@ -2623,6 +2623,13 @@ function Ca.share_kw(ctx, plan, opts)
   for _, c in ipairs(opts) do
     local o = c.o
     local a = o.kw_unit and allot[o.key]
+    -- s40 p16 : les kW qu'une option perd a la repartition sont RETENUS faute de courant comme ceux de power_cap : inscrits dans
+    -- ctx.power_block, donc comptes par Ca.blocked_kw (la centrale grandit pour eux). Avant : rognes ou refuses sans trace.
+    if a ~= nil and a < o.n then
+      ctx.power_block = ctx.power_block or {}
+      ctx.power_block[#ctx.power_block + 1] = { key = o.key, kw = (o.n - a) * o.kw_unit, n = o.n - a, item = o.item or o.resource, p = 0, va = 0,
+        share = 1, partage = true }
+    end
     if a == nil or a >= o.n then
       out[#out + 1] = c
     elseif a >= 1 and c.mk then

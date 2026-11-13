@@ -2016,6 +2016,11 @@ local function s23()
   local cut = Ca.share_kw(ctx2, { kw_have = 200, kw_used = 0, amorce_left = 0 }, opts2)
   check(made.A == 1 and #cut == 1 and cut[1].o.n == 1 and cut[1].o.why:find("kW partages : 1 machine(s) sur 3", 1, true) ~= nil,
     "§23 200 kW pour 3 + 2 machines de 90 : A est ramenée à 1 (taille refaite par sa fonction), B sans fonction de taille est retirée")
+  -- s40 p16 : les kW perdus à la répartition sont retenus (comptés par Ca.blocked_kw), rien quand les kW suffisent
+  check(Ca.blocked_kw(ctx2) == 2 * 90 + ctx2.power_block[2].kw and #ctx2.power_block == 2 and ctx2.power_block[2].kw >= 90
+    and ctx2.power_block[1].key == "A" and ctx2.power_block[1].kw == 180 and ctx2.power_block[2].key == "B",
+    "s40 p16 : les kW rognés (A : 2 machines) et refusés (B) par la répartition sont inscrits dans power_block")
+  check(fake_ctx.power_block == nil, "s40 p16 : kW suffisants : rien n'est retenu")
   -- décision entière : les kW insuffisants sont répartis, aucun objet qui veut du courant n'en voit zéro tant qu'un autre en a deux
   local r = Ca.decide(rich(D, { power = { have_kw = 450, used_kw = 0 } }), {})
   local per_item = {}
