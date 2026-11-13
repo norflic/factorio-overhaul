@@ -475,7 +475,7 @@ do
     end
     assert(cree(orbe.action, ni, {}) and not cree(orbe.action, "big-explosion", {}), "effets_armes : impact du Méga-Bourdon non branché")
     -- s43 MEGA-BOURDON (ordre du DC du 13/11) : explosions EN ANNEAU sur toute la zone (B.anneaux du rayon de l'arme) : copies de la
-    -- massive-explosion vanilla agrandies (B.MEGA.ANNEAU_ECHELLE), teintes de la lueur de l'orbe, durée × DUREE_X, sans particules
+    -- massive-explosion vanilla agrandies (B.MEGA.ANNEAU_ECHELLE), durée × DUREE_X, sans particules
     -- ni son (UPS : un seul son, celui de l'impact central)
     local src = assert(data.raw.explosion["massive-explosion"], "effets_armes : massive-explosion absente")
     local an = table.deepcopy(src)
@@ -483,8 +483,7 @@ do
     an.created_effect, an.sound = nil, nil
     an.animations = K.variations(an.animations)
     for _, a in ipairs(an.animations) do
-      K.agrandir(a, Bm.MEGA.ANNEAU_ECHELLE)
-      K.teinter(a, rgba(c))
+      K.agrandir(a, Bm.MEGA.ANNEAU_ECHELLE)   -- couleurs vanilla : teinte cyan, le feu virait au noir (captures s43 du 13/11)
       K.duree(a, base.impact.duree * Bm.MEGA.DUREE_X)
     end
     out[#out + 1] = an

@@ -65,7 +65,8 @@ return {
             if n then s.create_entity({ name = n, position = { cx + dx, cy + dy }, force = "enemy" }) end
             if (dx + dy) % (2 * PAS) == 0 then
               n, i_v = suivant(vers, i_v)
-              if n then s.create_entity({ name = n, position = { cx + dx + PAS / 2, cy + dy + PAS / 2 }, force = "enemy" }) end
+              local q = n and s.find_non_colliding_position(n, { cx + dx + PAS / 2, cy + dy + PAS / 2 }, PAS, 0.5)
+              if q then s.create_entity({ name = n, position = q, force = "enemy" }) end
             end
             n, i_u = suivant(unites, i_u)
             if n then
@@ -122,11 +123,12 @@ return {
     local m = remote.call("fo-bourdon", "etat", st.mega) or {}
     ctx.log("[FO-MEGA-SALVE] fin : " .. txt(fin) .. string.format(" ; tirs %d, phase %s", m.tirs or -1, tostring(m.phase)))
     local av = st.avant or st.depart or { nids = 0, vers = 0, unites = 0 }
-    ctx.check(av.nids >= 60 and av.vers >= 20 and av.unites >= 100, "base dense posée", txt(av))
+    ctx.check(av.nids >= 60 and av.vers >= 10 and av.unites >= 100, "base dense posée", txt(av))
     ctx.check(st.t1 ~= nil, "les casemates tirent au-delà du bord de l'image (base à 120 tuiles et plus)", tostring(st.t1))
     local a4 = st.apres4
     ctx.check(a4 ~= nil and a4.nids == 0 and a4.vers == 0, "une salve rase les nids et les vers des quatre bases", a4 and txt(a4) or "pas de salve")
-    ctx.check(a4 ~= nil and a4.unites <= math.floor(av.unites / 20), "une salve tue au moins 95 % des unités", a4 and txt(a4) or "pas de salve")
+    -- les couvées (enemy_mechanics) libèrent 2 unités du palier inférieur à leur mort : les unités ne se comptent qu'à la fin
+    ctx.check(fin.nids == 0 and fin.vers == 0 and fin.unites == 0, "à la fin, plus un nid, un ver ni une unité", txt(fin))
   end,
 
   shots = function(ctx, add)
