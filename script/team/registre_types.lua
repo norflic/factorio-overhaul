@@ -49,6 +49,7 @@ Rt.ENABLED = true
 Rt.TYPES = { "assembling-machine", "boiler", "furnace", "lab", "mining-drill" } -- union des types lus par les sites servis, triée
 local TRACKED = {}
 for _, t in ipairs(Rt.TYPES) do TRACKED[t] = true end
+local NAMED_TYPE = {} -- [nom de prototype] = type (Rt.named) : copie LOCALE, jamais dans global, jamais lue par une décision autrement que comme le prototype
 local armed = false -- copie LOCALE (jamais dans global) : vraie après on_init, on_load ou on_configuration_changed
 
 Storage.declare("regtypes", function() return { by = {} } end)
@@ -252,8 +253,14 @@ end
 --- Machines de `force` qui portent le NOM `name` (même résultat que find_entities_filtered{name, force}) : le registre ne sert que si
 --- le prototype de ce nom est d'un type tenu ; sinon (nom inconnu du jeu compris) l'ancienne recherche, telle quelle.
 function Rt.named(surface, force, name, site)
-  local proto = game and game.entity_prototypes and game.entity_prototypes[name]
-  local etype = proto and proto.type
+  -- s40 ups-team p45 : type du prototype gardé (table du MODULE, jamais dans global ; un prototype ne change pas pendant une session,
+  -- on_configuration_changed la vide) : plus d'accès au moteur à chaque lecture. Un nom inconnu n'est pas gardé (relu, comme avant).
+  local etype = NAMED_TYPE[name]
+  if etype == nil then
+    local proto = game and game.entity_prototypes and game.entity_prototypes[name]
+    etype = proto and proto.type
+    if type(etype) == "string" then NAMED_TYPE[name] = etype end
+  end
   if not (etype and TRACKED[etype]) then
     return surface.find_entities_filtered({ name = name, force = force })
   end
@@ -297,6 +304,7 @@ if Events.on_load then Events.on_load(arm) end
 -- Données changées (types de prototypes, autre mod) : tout est relevé à nouveau, ici, hors du temps d'un tick de jeu.
 Events.on_configuration_changed(function()
   armed = true
+  for k in pairs(NAMED_TYPE) do NAMED_TYPE[k] = nil end -- (données changées : types relus)
   local S = root()
   if S then rescan_all(S) end
 end)

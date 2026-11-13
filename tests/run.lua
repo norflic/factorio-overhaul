@@ -296,6 +296,35 @@ do
   local idle = qr:sub(qr:find("local function idle_count(f)", 1, true), qr:find("local function module_starts(b)", 1, true))
   check(not idle:find("sorted_keys", 1, true) and idle:find("for id in pairs(f.engineers or {}) do", 1, true) ~= nil,
     "p43 : PNJ inactifs des quartiers comptés sans liste triée")
+  -- Rt.named : le type d'un prototype n'est lu au moteur qu'une fois par nom ; même liste rendue ; un nom inconnu reste relu
+  do
+    local old_game = rawget(_G, "game")
+    local reads = 0
+    local protos = setmetatable({}, { __index = function(_, k)
+      reads = reads + 1
+      if k == "foreuse-x" then return { type = "mining-drill" } end
+      return nil
+    end })
+    local found = {}
+    local surface = { index = 1, find_entities_filtered = function(q) found[#found + 1] = q; return { { name = "foreuse-x", valid = true }, { name = "autre", valid = true } } end }
+    _G.game = { entity_prototypes = protos }
+    local ok, Rt2 = pcall(require, "script.team.registre_types")
+    if ok then
+      local was = Rt2.ENABLED
+      Rt2.ENABLED = false -- (ancienne recherche : la liste rendue ne dépend que du nom et du type)
+      local a = Rt2.named(surface, "f1", "foreuse-x")
+      local b = Rt2.named(surface, "f1", "foreuse-x")
+      check(reads == 1 and #a == 1 and #b == 1 and a[1].name == "foreuse-x" and found[2].type == "mining-drill",
+        "p45 : type du prototype lu une seule fois, même liste (" .. reads .. " lecture(s))")
+      Rt2.named(surface, "f1", "inconnu")
+      Rt2.named(surface, "f1", "inconnu")
+      check(reads == 3 and found[#found].name == "inconnu", "p45 : nom inconnu relu et cherché par son nom, comme avant")
+      Rt2.ENABLED = was
+    else
+      check(false, "p45 : module chargé (" .. tostring(Rt2) .. ")")
+    end
+    _G.game = old_game
+  end
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
