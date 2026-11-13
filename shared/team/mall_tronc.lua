@@ -124,29 +124,6 @@ function Mt.section(lines, row, names)
   end
   if row.bus.a then poser(row.bus.a, ya) end
   if row.bus.b then poser(row.bus.b, yb) end
-  -- RÉINJECTION (s41) : une ligne déjà posée (donc déjà dérivée par une rangée d'avant) que CETTE rangée dérive encore reçoit un quai de plus (bras et coffre à l'ouest, comme à la tête),
-  -- dans la tuile de passage au nord de la rangée, en amont de la prise : sans lui, la tête (deux bras) nourrissait seule toutes les prises et le débit en aval tombait de moitié à chacune.
-  -- Poteaux : deux relais depuis le poteau de passage (3,5) puis un poteau par ligne, de la ligne 1 à la plus lointaine réinjectée (fils ≤ 5,1 tuiles). Rien n'est remplacé.
-  do
-    local kmax = 0
-    for _, ln in ipairs(lines) do if ln.y_to and split_y[ln.k] and ln.k > kmax then kmax = ln.k end end
-    if kmax > 0 then
-      local yp = (row.j - 1) * 15 - 1
-      ents[#ents + 1] = { name = names.poteau, x = -1.5, y = yp + 0.5, dir = 0, role = "mall-poteau" }
-      ents[#ents + 1] = { name = names.poteau, x = -6.5, y = yp + 0.5, dir = 0, role = "mall-poteau" }
-      for _, ln in ipairs(lines) do
-        if ln.k <= kmax then
-          local x = Mt.XL(ln.k)
-          ents[#ents + 1] = { name = names.poteau, x = x - 0.5, y = yp - 0.5, dir = 0, role = "mall-poteau" }
-          if ln.y_to and split_y[ln.k] then
-            ents[#ents + 1] = { name = names.bras, x = x - 0.5, y = yp + 0.5, dir = 6, role = "quai-bras" }
-            ents[#ents + 1] = { name = names.coffre, x = x - 1.5, y = yp + 0.5, dir = 0, role = "quai", item = ln.item }
-            quais[#quais + 1] = { x = x - 1.5, y = yp + 0.5, item = ln.item }
-          end
-        end
-      end
-    end
-  end
   if row.j > 1 then
     -- (comme la tête d'une rangée à quais) relais vers la rangée précédente, dans la tuile de passage
     ents[#ents + 1] = { name = names.poteau, x = 3.5, y = (row.j - 1) * 15 - 0.5, dir = 0, role = "mall-poteau" }
