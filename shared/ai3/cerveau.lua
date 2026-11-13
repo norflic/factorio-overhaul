@@ -50,6 +50,7 @@ local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite de v
 local Sa = require("shared.ai3.saturation") -- lot VIDEO-SAT (V79) : pente mesurée du stock, saturation jugée sur le stock projeté
 local ZI = require("shared.ai3.zero_idle") -- lot ZERO-IDLE : agrandissement de fonderie par PNJ libre, tout de suite
 local Ad = require("shared.ai3.anti_dispersion") -- lot IA-GARDE : garde anti-dispersion (sur-stockage d'un minerai brut)
+local Co = require("shared.ai3.commande") -- lot s43 UX-COMMANDE : buts des gisements désignés (ctx.ordres)
 
 local C = {}
 
@@ -269,6 +270,11 @@ function C.think(view, book, st, ctx)
   local starved_pass = Gi.passent(Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need)), pile.focus)
   -- 3. Buts ; 4. projets.
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
+  if ctx.ordres and #ctx.ordres > 0 then -- lot s43 UX-COMMANDE : un gisement désigné = un but d'extraction de son type
+    local prod = {}
+    for _, k in ipairs(T.OUTPOST_ORDER) do prod[k] = T.outposts[k].product end
+    goals = Co.goals(goals, ctx.ordres, (s.weights or {}).extraction, prod)
+  end
   -- Lot ZERO-IDLE (DC, 8/11) : PNJ libres et stock qui paie un kit de fonderie (foreuses + fours) : un agrandissement par PNJ libre, tout
   -- de suite, en FOND (shared/ai3/zero_idle.lua) ; ni la saturation, ni les capacités visées, ni la capitalisation ne le retiennent.
   if ZI.ON then

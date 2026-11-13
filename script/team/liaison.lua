@@ -35,6 +35,7 @@ local Rsv = require("script.ai3.reserve") -- le réglage maître (fo-war-industr
 local Registry = require("script.companion.registry")
 local Trav = require("script.team.traversee") -- lot TRAVERSEE : tapis qui enjambent les obstacles par des souterrains, gisements évités
 local Tv = require("shared.team.traversee")
+local Co = require("shared.ai3.commande") -- lot s43 UX-COMMANDE : liaisons désignées d'abord (toute équipe)
 local Pur = require("script.team.purete") -- lot PURETE-TAPIS : aucun tapis étranger ne verse sur un tracé, le tracé ne verse sur aucun tapis étranger
 
 local Liaison = {}
@@ -258,6 +259,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil or (b.piquage ~= nil and b.piquage.links[d.key] ~= nil) end -- un quai servi par un piquage (lot PIQUAGE) n'est plus apparié par la liaison
   for _, s in ipairs(c.srcs) do s.linked = taken[s.key] == true end
   local pairs_ = Ln.pairs(c.docks, c.srcs)
+  if f.team and f.team.commande then pairs_ = Co.prefer_pairs(pairs_, f.team.commande.orders) end -- lot s43 UX-COMMANDE
   -- synthèse : quais servis par tapis
   local served, active, open = 0, 0, 0
   for _, dkey in ipairs(sorted_keys(st.links)) do
