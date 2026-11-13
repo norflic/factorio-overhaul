@@ -92,8 +92,8 @@ def vortex(lot, M, C, rc, e=1.0):
             a = G.TAU * b / 3 + t * 2.6 * math.pi
             rr = (0.35 + (rc - 1.4) * t) * e
             pts.append((C[0] + math.sqrt(max(R_ * R_ - rr * rr, 0.0)) + 0.14, C[1] + rr * math.cos(a), C[2] + rr * math.sin(a)))
-        lot.put(M["coeur"], G.tube(pts, 0.2, 6, rfun=lambda s_, i: 0.26 * (1.0 - 0.65 * i / 13.0)))
-    lot.put(M["coeur"], G.sphere((C[0] + R_ - 0.25, C[1], C[2]), 0.6 * e, 14, 7))
+        lot.put(M["conduit"], G.tube(pts, 0.2, 6, rfun=lambda s_, i: 0.26 * (1.0 - 0.65 * i / 13.0)))   # s43 : cyan saturé (blanc brûlé > 1 % en d4)
+    lot.put(M["conduit"], G.sphere((C[0] + R_ - 0.25, C[1], C[2]), 0.6 * e, 14, 7))   # s43 : noyau cyan saturé (le cœur blanchissait)
 
 
 def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
@@ -106,8 +106,11 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
         a = G.TAU * (k + 0.5) / 8
         p = (C[0] + 0.3, C[1] + (rc + 1.1) * math.cos(a), C[2] + (rc + 1.1) * math.sin(a))
         lot.put(M["blind2"], plaque(p, G.norm((0.0, math.cos(a), math.sin(a))), 2.2, 1.6, 0.5, up=(1, 0, 0), coins=0.75))
-    lot.put(M["turq"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc + 0.2, 0.08))
-    lot.put(M["conduit"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc - 0.3, 0.06))
+    # s43 (contrôle qualité du 13/11 : barre blanche verticale en d4) : les gorges lumineuses de la couronne, vues par la tranche, se
+    # projetaient en un trait plein de toute la hauteur ; remplacées par huit émetteurs ponctuels (lisibles de face comme de profil)
+    for k in range(8):
+        a = G.TAU * k / 8
+        lot.put(M["conduit"], G.sphere((C[0] + 0.95, (rc + 0.05) * math.cos(a), C[2] + (rc + 0.05) * math.sin(a)), 0.26, 8, 4))
     # singularité : vortex (cœur) + halo large ; sous-disque sombre derrière
     # s43 (contrôle qualité du 13/11 : « grande plage cyan floue qui mange le corps ») : singularité réduite à 0,55 du rayon, posée au fond
     # d'une cuvette sombre ; les bras du vortex (cœur) restent à leur rayon et lui donnent sa forme
@@ -161,7 +164,6 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     if stage >= 2:
         # anneau de lévitation autour de la couronne
         anneau_seg(lot, M, (C[0] - 0.6, 0.0, ZC), "x", rc + 2.6, 0.5, 0.22, n=8, jour=0.16, noeud=0.26)   # s43 : patins magnétiques
-        lot.put(M["turq"], rainure((C[0] - 0.84, 0.0, ZC), "x", rc + 2.85, 0.06))
         for q in range(4):
             a = G.TAU * (q + 0.5) / 4
             lot.put(M["struct"], G.boite((C[0] - 0.6, (rc + 2.8) * math.cos(a), ZC + (rc + 2.8) * math.sin(a)), (0.4, 0.6, 0.5), rx=a))
