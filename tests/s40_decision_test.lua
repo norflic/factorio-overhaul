@@ -82,6 +82,10 @@ fh:close()
 check(src:find("if not force.add_research(tech) then lab.last = tick return info end", 1, true) ~= nil
   and src:find("if not force.add_research(tech) then return info end", 1, true) == nil,
   "p4 : un add_research refusé date lab.last avant de sortir (le temps du refus n'est pas du temps de laboratoire)")
+-- p5 : reach_of lit la carte de connaissance une seule fois par ressource
+local body = src:match("local function reach_of%(.-\nend\n") or ""
+local _, calls = body:gsub("Ia3%.known_deposits%(f, res, tick%)", "")
+check(body ~= "" and calls == 1, "p5 : reach_of appelle Ia3.known_deposits une fois par ressource (relevé " .. calls .. ")")
 
 print(string.format("[S40-DECISION] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
