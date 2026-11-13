@@ -166,6 +166,45 @@ function Cc.refused(st, tick, grew)
   st.alim = nil
 end
 
+-- Lot s42 charbon-centrale (chantier 3.1 du DC, partie de 4 h 15 en 0.7.96 : « toute l'électricité dépend d'un seul coffre et d'un bras
+-- thermique ») : (a) DEUX entrées de combustible indépendantes par centrale neuve (deux coffres, deux bras ; le premier bras reste à
+-- combustion pour le démarrage à froid, le second est électrique quand l'équipe en a un) ; (b) la ligne de foreuses de la centrale est
+-- dimensionnée à la consommation nominale des chaudières × Cc.ALIM_MARGIN.
+Cc.ALIM_MARGIN = 1.3    -- marge de la ligne de charbon dédiée (exigence du DC : besoin = consommation nominale × 1,3)
+Cc.ENTRIES = 2          -- entrées de combustible (coffre + bras) d'une centrale neuve
+
+--- Débit (objets/s) que la ligne de foreuses de la centrale doit porter : consommation nominale (Cc.rate) × Cc.ALIM_MARGIN.
+function Cc.alim_rate(kw, coal_kj)
+  return Cc.rate(kw, coal_kj) * Cc.ALIM_MARGIN
+end
+
+--- Entrées de combustible d'une centrale neuve. burner = nom du bras à combustion ; electric = nom du bras électrique (ou nil) ;
+--- stock = bras électriques au coffre de l'équipe. Rend (nombre d'entrées, bras de la 2e entrée). Le bras de la PREMIÈRE entrée reste
+--- `burner` (démarrage à froid : sans courant, un bras électrique ne bouge pas) ; la seconde prend un bras électrique s'il y en a un
+--- au coffre (jamais une réserve de matériaux en attente pour lui), sinon un second bras à combustion.
+function Cc.entries(burner, electric, stock)
+  if electric and electric ~= burner and (stock or 0) >= 1 then return Cc.ENTRIES, electric end
+  return Cc.ENTRIES, burner
+end
+
+--- Consommation attribuée à UN coffre d'une centrale qui en a `chests` (seuil et cible de Cc.refill par coffre) : la consommation
+--- partagée, pour que deux coffres ne retiennent pas deux fois l'avance. Un seul coffre (ou compte inconnu) : la consommation entière.
+function Cc.chest_rate(rate, chests)
+  rate = rate or 0
+  if not chests or chests <= 1 then return rate end
+  return rate / chests
+end
+
+--- Pièces de la tête à deux entrées (`two`) qui ne sont pas à la place d'une pièce de la tête à une entrée (`one`) : celles dont le
+--- terrain est à vérifier avant de retenir les deux entrées (listes de { x, y }). Ordre de `two` gardé.
+function Cc.extras(one, two)
+  local seen = {}
+  for _, e in ipairs(one or {}) do seen[e.x .. "," .. e.y] = true end
+  local out = {}
+  for _, e in ipairs(two or {}) do if not seen[e.x .. "," .. e.y] then out[#out + 1] = e end end
+  return out
+end
+
 --- Arrivées possibles du tapis des foreuses à la tête d'alimentation (tuile x, y du dernier tapis de la tête, direction d ; dv = vecteur
 --- de d ; lv = vecteur de la gauche de d) : derrière la tête, tout droit (les deux voies), puis par la gauche et par la droite (la tête
 --- devient un virage). Rend { { x, y, dir } } (dir : sens de la dernière tuile du tapis qui arrive) ; dir_of(dx, dy) donne la direction.
