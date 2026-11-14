@@ -78,6 +78,7 @@ local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base 
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
 local Scheduler = require("script.core.scheduler") -- lot DÉCOUPAGE-PENSÉE : minuteurs des étapes d'une pensée
 local Et = require("shared.team.etapes") -- lot DÉCOUPAGE-PENSÉE : état gardé de la vue et du plan pour E4
+local CoCmd = require("shared.ai3.commande") -- commandes-0716 : bastion du joueur devant le front de couverture
 local Lourd = require("script.core.lourd") -- lot LOURD (point 2 c) : chaque étape d'une pensée prend le jeton des travaux lourds
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : recrue gratuite sous l'effectif de départ (journal [FO-RECRUE])
 local ManqueVue = require("script.team.manque_vue") -- lot VIDEO-L3 : manque mesuré (modules, sorties, transit), à côté du stock
@@ -886,6 +887,25 @@ function Team.view(f, tick)
   }
   -- Lot DEFENSE-STOCK : après le front (la cellule qu'il sert n'est pas doublée) ; poste facultatif, stock seulement
   out.reserve = Profiler.fwrap("view:5-reserve", DefStock.view, f, fortify_open, out, stock_free, hq_turrets, outposts)
+  -- commandes-0716 : un BASTION du joueur pas encore servi passe devant le front de COUVERTURE et la garde de la centrale non attaquée
+  -- (journal du banc : tourelles fabriquées pour le bastion à 5,1 min, posées à la centrale à 6,2 min et au front à 7,2 min, bastion servi
+  -- à 8,6 min). Un front ATTAQUÉ et une centrale visée gardent leurs tourelles. Règle : Co.bastion_yield.
+  local bw = f.team and f.team.commande and CoCmd.bastion_want(f.team.commande, tick, CoCmd.BASTION_YIELD_TICKS) or 0
+  if bw > 0 then
+    local pl_threat = false
+    for _, pl in ipairs(out.plant and out.plant.plants or {}) do if pl.threat then pl_threat = true end end
+    local yf, yp = CoCmd.bastion_yield(bw, out.front and out.front.pick and out.front.pick.kind, out.plant ~= nil, pl_threat)
+    if yf then out.front = { busy = out.front.busy } end
+    if yp then out.plant = nil end
+    if (yf or yp) and f.team.bastion_yield_t ~= tick then
+      f.team.bastion_yield_t = tick
+      if (f.team.bastion_yield_n or 0) < 40 then
+        f.team.bastion_yield_n = (f.team.bastion_yield_n or 0) + 1
+        log(string.format("[FO-COMMANDE] %s : bastion du joueur d'abord (%d tourelle(s) voulues) : front de couverture %s, garde de centrale %s a %.1f min",
+          tostring(f.key or f.id), bw, yf and "en attente" or "garde", yp and "en attente" or "garde", tick / 3600))
+      end
+    end
+  end
   Profiler.fstop("view:5-queue")
   return out
 end

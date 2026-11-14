@@ -423,12 +423,23 @@ end
 
 --- ordres-0715 : tourelles voulues par les bastions vivants (Co.BASTION_WANT par ordre non fini), 0 sans bastion.
 Co.BASTION_WANT = 8
-function Co.bastion_want(state)
+Co.BASTION_YIELD_TICKS = 10 * 3600 -- commandes-0716 : le front de couverture et la centrale attendent un bastion au plus 10 min
+function Co.bastion_want(state, now, horizon)
   local n = 0
   for _, o in ipairs((state or {}).orders or {}) do
-    if o.kind == "bastion" and not o.done then n = n + math.max(0, Co.BASTION_WANT - (o.have or 0)) end
+    local fresh = not (now and horizon) or (now - (o.tick or 0)) <= horizon -- commandes-0716 : borne de la priorite sur le front
+    if o.kind == "bastion" and not o.done and fresh then n = n + math.max(0, Co.BASTION_WANT - (o.have or 0)) end
   end
   return n
+end
+
+--- commandes-0716 : un bastion du joueur pas servi (`want` tourelles > 0) fait attendre le front de couverture (genre de la cellule
+--- choisie `front_kind` autre que « attaque ») et la garde d'une centrale non visée. Rend (front en attente ?, centrale en attente ?).
+function Co.bastion_yield(want, front_kind, has_plant, plant_threat)
+  if (want or 0) <= 0 then return false, false end
+  local yf = front_kind ~= nil and front_kind ~= "attaque"
+  local yp = (has_plant and not plant_threat) and true or false
+  return yf, yp
 end
 
 --- commandes-0716 : DÉLAIS d'un ordre (preuve « effet instantané ») : premier ouvrier en route vers la zone (`route`), premier fantôme

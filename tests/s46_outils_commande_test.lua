@@ -165,6 +165,23 @@ do -- commandes-0716 : jalons des délais (Co.progress), un seul relevé par jal
   m = Co.progress(q, { pose = true }, 600)
   ok(m[1].what == "route" and m[1].ticks == 600 and q.t_route == 600, "delais : une pose vaut un ouvrier venu")
   ok(#Co.progress(nil, {}, 0) == 0, "delais : sans ordre, rien")
+  -- bastion devant le front de couverture et la centrale non visée, borné dans le temps
+  local yf, yp = Co.bastion_yield(8, "couverture", true, false)
+  ok(yf and yp, "bastion : front de couverture et centrale en attente")
+  yf, yp = Co.bastion_yield(8, "attaque", true, true)
+  ok(not yf and not yp, "bastion : front attaque et centrale visee gardent leurs tourelles")
+  yf, yp = Co.bastion_yield(0, "couverture", true, false)
+  ok(not yf and not yp, "bastion servi : rien en attente")
+  local cb = Co.new_state()
+  Co.add(cb, { kind = "bastion", x = 0, y = 0, r = 10, tick = 1000 })
+  ok(Co.bastion_want(cb, 1000 + Co.BASTION_YIELD_TICKS, Co.BASTION_YIELD_TICKS) == Co.BASTION_WANT
+    and Co.bastion_want(cb, 1001 + Co.BASTION_YIELD_TICKS, Co.BASTION_YIELD_TICKS) == 0 and Co.bastion_want(cb) == Co.BASTION_WANT,
+    "bastion : priorite bornee a Co.BASTION_YIELD_TICKS, fabrication non bornee")
+  local tsrc = io.open("script/team/team.lua"):read("*a")
+  ok(tsrc:find("CoCmd.bastion_yield(", 1, true), "bastion : regle branchee dans la vue de l'equipe")
+  local ssrc = io.open("script/faction/sites.lua"):read("*a")
+  ok(ssrc:find("prospect_blocker(f, site, designated and best or nil)", 1, true) and ssrc:find("State.war(), res ~= nil)", 1, true),
+    "gisement designe : seul un site de sa ressource le gene (branche par Sites.probe_at)")
   local gsrc = io.open("script/gui/commande.lua"):read("*a")
   ok(gsrc:find("track_init(f, order)", 1, true) and gsrc:find("Events.on_nth_tick(60", 1, true), "delais : suivi branche a la pose et chaque seconde")
   for _, lang in ipairs({ "fr", "en" }) do

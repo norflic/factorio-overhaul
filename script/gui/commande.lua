@@ -176,6 +176,21 @@ local function cancel(f, id, player)
   log(string.format("[FO-COMMANDE] %s : ordre %d (%s) annule", tostring(f.key or f.id), id, o.kind))
 end
 
+--- commandes-0716 : orientation choisie : effet à la pensée SUIVANTE (décision d'amélioration relue tout de suite, au lieu d'attendre le
+--- relevé de la minute : Capital.SCAN_EVERY), annoncée à la force et écrite au-dessus du QG (texte flottant).
+local function set_orientation(f, k, who)
+  cstate(f).orient = k
+  if f.team and f.team.capital then f.team.capital.scan_n = 0; f.team.capital.goal = nil end
+  local force = game.forces[f.force]
+  if force then force.print({ "fo-commande.orient-choisie", who, { "fo-commande.or-" .. k } }) end
+  if f.hq and f.hq.valid then
+    pcall(f.hq.surface.create_entity, { name = "flying-text", position = { f.hq.position.x, f.hq.position.y - 3 },
+      color = COLOR.amelioration, text = { "fo-commande.or-" .. k } })
+  end
+  log(string.format("[FO-COMMANDE] %s : orientation %s (tick %d) : decision d'amelioration relue a la pensee suivante", tostring(f.key or f.id),
+    k, game.tick))
+end
+
 Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
   if not (el and el.valid) then return end
@@ -204,11 +219,7 @@ Events.on(defines.events.on_gui_click, function(e)
   end
   if name:sub(1, #P_ORIENT) == P_ORIENT then
     local k = name:sub(#P_ORIENT + 1)
-    if Co.valid_orientation(k) then
-      cstate(f).orient = k
-      game.forces[f.force].print({ "fo-commande.orient-choisie", player.name, { "fo-commande.or-" .. k } })
-      log(string.format("[FO-COMMANDE] %s : orientation %s (tick %d)", tostring(f.key or f.id), k, game.tick))
-    end
+    if Co.valid_orientation(k) then set_orientation(f, k, player.name) end
   else
     local id = tonumber(name:sub(#P_CANCEL + 1))
     if id then cancel(f, id, player) end
@@ -642,6 +653,14 @@ remote.add_interface("fo-commande", {
     log(string.format("[FO-COMMANDE-BANC] ordre %s slot %d zone (%d, %d)-(%d, %d) : %d entite(s), gestionnaire %s, ordre %s (tick %d)",
       tostring(outil), slot, x0, y0, x1, y1, #ents, tostring(called), after > before and tostring(after - 1) or "aucun", game.tick))
     return { appel = called, id = after > before and (after - 1) or nil, prints = prints }
+  end,
+  --- commandes-0716 : orientation de l'équipe « player » (même chemin que le bouton du panneau). Rend vrai si elle est prise.
+  orient = function(k)
+    local f = State.faction("player")
+    if not (f and f.team and Co.valid_orientation(k)) then return false end
+    set_orientation(f, k, "banc")
+    refresh(f)
+    return true
   end,
   --- État lisible : QG, ordres vivants, traces (Co.note), avant-postes de l'équipe, liaison point A.
   etat = function()

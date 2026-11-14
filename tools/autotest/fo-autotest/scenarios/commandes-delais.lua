@@ -118,7 +118,11 @@ base.tick = function(ctx, e)
     local excl = {}
     for _, op in ipairs(st.outposts or {}) do excl[#excl + 1] = { x = op.x, y = op.y } end
     local p = nearest(ctx, res_names("iron"), hq, excl, 40)
-    if p then order(ctx, "fo-cmd-gisement", 1, p.x - 16, p.y - 16, p.x + 16, p.y + 16, "Maj+A fer")
+    -- 1er banc : une zone de 32 tuiles sur le gisement mêlé de la carte du DC donnait un ordre de CHARBON (majorité) : zone de 16 tuiles
+    -- (la zone de 32 tuiles est gardée en second ordre : gisement mêlé, refusé 25 min au 1er banc pour « espacement » avec le site de fer)
+    if p then
+      order(ctx, "fo-cmd-gisement", 1, p.x - 8, p.y - 8, p.x + 8, p.y + 8, "Maj+A fer")
+      order(ctx, "fo-cmd-gisement", 2, p.x - 16, p.y - 16, p.x + 16, p.y + 16, "Maj+A gisement mele (zone 32)")
     else ctx.log(TAG .. "BANC Maj+A : aucun gisement de fer sans avant-poste") end
     order(ctx, "fo-cmd-amelioration", 1, hq.x - 29, hq.y - 29, hq.x + 29, hq.y + 29, "Maj+Z QG")
     local sf = ctx.surface()

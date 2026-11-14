@@ -93,7 +93,7 @@ end
 
 --- Revendication qui bloque le site `site` ({ x, y, resource, radius }) : { dist, x, y } ou nil. Une entrée ancienne
 --- sans ressource est migrée à la lecture (claim_resource) ; sans position : prudence.
-local function claim_blocker(war, site)
+local function claim_blocker(war, site, same_res)
   local claims = war.claims
   if next(claims) == nil then return nil end
   local cx, cy = math.floor(site.x / 32), math.floor(site.y / 32)
@@ -105,7 +105,7 @@ local function claim_blocker(war, site)
         local p = cpos[key]
         if not p then return { key = key } end -- ancienne sauvegarde sans position : prudence
         if p.resource == nil then p.resource = claim_resource(war, key, p) end
-        if V.too_close(site, p) then
+        if (not same_res or p.resource == nil or p.resource == same_res) and V.too_close(site, p) then
           return { key = key, dist = math.sqrt((p.x - site.x) ^ 2 + (p.y - site.y) ^ 2), x = p.x, y = p.y }
         end
       end
@@ -314,10 +314,10 @@ local function enough(f, surface, cx, cy, area, tick)
 end
 
 --- Site de la réserve qui bloque `pos` ({ x, y, resource, radius }) : { site, dist } ou nil.
-local function prospect_blocker(f, pos)
+local function prospect_blocker(f, pos, same_res)
   for _, p in ipairs(f.prospects) do
     local dx, dy = p.x - pos.x, p.y - pos.y
-    if V.too_close(pos, p) then return { site = p, dist = math.sqrt(dx * dx + dy * dy) } end
+    if (not same_res or p.resource == same_res) and V.too_close(pos, p) then return { site = p, dist = math.sqrt(dx * dx + dy * dy) } end
   end
   return nil
 end
@@ -479,7 +479,7 @@ end
 --- Examine UN chunk (cx, cy) : gisement d'une ressource demandée, libre, centré sur ses tuiles, lu une fois (carte de
 --- valeur), mis en réserve s'il n'est ni hostile, ni pris, ni injoignable. Renvoie true si un site a été ajouté.
 --- (Corps de la boucle de Sites.prospect, sorti tel quel au lot IA3-f pour servir aussi à Sites.probe_at.)
-local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, war)
+local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, war, designated)
   local center = { x = cx * 32 + 16, y = cy * 32 + 16 }
   Profiler.start("prospect:checks")
   -- Contrôles du moins cher au plus cher.
@@ -535,7 +535,9 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
         note_blocked(f, site, best, "injoignable", unreachable_until(war, site))
         return false
       end
-      local cb, pb = claim_blocker(war, site), prospect_blocker(f, site)
+      -- commandes-0716 : gisement DÉSIGNÉ par le joueur : seul un site de la MÊME ressource le gêne (journal du banc : ordre de charbon
+      -- refusé 25 min de suite, « espacement à 4 tuiles du site iron-ore » sur un gisement mêlé)
+      local cb, pb = claim_blocker(war, site, designated and best or nil), prospect_blocker(f, site, designated and best or nil)
       if cb then
         refuse(f, tick, "revendique", best, site, cb.dist and string.format("a %d tuiles de (%d, %d)", cb.dist, cb.x, cb.y) or "sans position")
         return false
@@ -599,7 +601,7 @@ function Sites.probe_at(f, surface, x, y, tick, res)
   local wanted = res and { res } or wanted_resources(f)
   if #wanted == 0 then return false end
   local spawn = game.forces.player.get_spawn_position(surface)
-  return probe(f, surface, math.floor(x / 32), math.floor(y / 32), tick, wanted, nil, other_hqs_of(f), spawn, State.war())
+  return probe(f, surface, math.floor(x / 32), math.floor(y / 32), tick, wanted, nil, other_hqs_of(f), spawn, State.war(), res ~= nil)
 end
 
 function Sites.prospect(f, surface, tick)
@@ -1061,7 +1063,12 @@ function Sites.find(f, surface, tick, resource)
   local list = f.prospects or {}
   local i = 1
   local deps = Sites.deposits(f)
-  local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
+  local orders = f.team and f.team.commande and f.team.commande.orders
+  local function valid(s)
+    -- commandes-0716 : un site désigné n'est gêné que par une revendication de SA ressource (gisement mêlé)
+    local same = Co.designated(s, orders) and s.resource or nil
+    return claim_blocker(war, s, same) == nil and not unreachable(war, s, tick)
+  end
   while i <= #list do
     local site = list[i]
     -- R3 (lot PAVAGE-GEANT) : un site plus lointain qu'un gisement ouvert pas plein reste en réserve (plancher de valeur : règle d'avant, aucun)
