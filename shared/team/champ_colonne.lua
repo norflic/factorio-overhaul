@@ -395,6 +395,7 @@ Co.tk = tk
 --- droit imposé ou non), « trop long » sinon. Quand la borne ne tranche pas, l'A* tourne comme avant. Rend "aucun chemin" ou nil (rien de prouvé).
 --- Tentée UNE fois, quand l'A* a développé Co.PREUVE_APRES états sans conclure (un tracé ordinaire finit bien avant : rien ne change
 --- pour lui) ; si rien n'est prouvé, l'A* reprend là où il en était.
+Co.EXPANDED = 0         -- s49 opti : compteur d'états développés par Co.route (diagnostic, aucune décision ne le lit)
 Co.PREUVE = true        -- (tests : faux = l'A* seul, la référence)
 Co.PREUVE_APRES = 2000  -- états développés par l'A* avant la tentative
 Co.PREUVE_TUILES = 3000 -- tuiles développées au plus par chacun des deux remplissages
@@ -519,6 +520,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
     if not closed[cur.k] then
       closed[cur.k] = true
       expanded = expanded + 1
+      Co.EXPANDED = Co.EXPANDED + 1 -- s49 opti : états développés, tous tracés (banc tests/perf_champ_bench.lua)
       if expanded > cap then return nil, "trop long" end
       if expanded == Co.PREUVE_APRES and Co.PREUVE then
         local why = Co.unreachable(s, t, free, ug, box, cap) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*
