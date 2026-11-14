@@ -83,6 +83,18 @@ function Li.sites(tx, ty, free)
   return out
 end
 
+--- s45 liaison-directe : pourquoi un coffre n'a aucun site. why(x, y) -> nom de la garde qui refuse la tuile (nil : libre).
+--- Rend une chaîne « N:occ,E:libre/guard,... » (bras/tapis par côté, ordre N, E, S, O), pour le journal [FO-LIAISON].
+function Li.block_report(tx, ty, why)
+  local names, parts = { [0] = "N", [2] = "E", [4] = "S", [6] = "O" }, {}
+  for _, d in ipairs(DIRS) do
+    local v = DV[d]
+    local ax, ay = tx + v[1], ty + v[2]
+    parts[#parts + 1] = names[d] .. ":" .. (why(ax, ay) or "libre") .. "/" .. (why(ax + v[1], ay + v[2]) or "libre")
+  end
+  return table.concat(parts, ",")
+end
+
 --- Paires de bouts (site du coffre de départ S, site du coffre d'arrivée D), les plus courtes d'abord (Manhattan des deux tuiles de
 --- tapis), départage par directions ; au plus `max`. Une paire où un bras tombe sur l'autre bras ou sur le tapis de l'autre est écartée.
 --- src_sites : sites du départ (Li.sites par défaut).

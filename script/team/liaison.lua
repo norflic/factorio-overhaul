@@ -412,7 +412,21 @@ function Liaison.plan(api, f, surface, p)
   end
   local S, D = { x = src.x, y = src.y }, { x = dock.x, y = dock.y }
   local ends = Ln.pick_ends(S, D, free, Ln.ROUTE_TRIES)
-  if #ends == 0 then return early("liaison: aucune place pour un bras et un tapis contre les coffres") end
+  if #ends == 0 then
+    -- s45 liaison-directe : la garde qui refuse chaque tuile (bras/tapis par côté) part au journal avec le refus
+    local function why(x, y)
+      if not inside(x, y) then return "hors" end
+      local k = P.tkey(x, y)
+      if masks.water[k] then return "eau" end
+      if masks.blocked[k] then return "bloque" end
+      if b.occ[k] then return "occ" end
+      if guard[k] then return "guard" end
+      if worldf(x, y) then return "fronts" end
+      return nil
+    end
+    return early(string.format("liaison: aucune place pour un bras et un tapis contre les coffres (sortie %s ; quai %s)",
+      Ln.block_report(S.x, S.y, why), Ln.block_report(D.x, D.y, why)))
+  end
   local bounds = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
   local last_why = "aucun chemin"
   local chosen
