@@ -16,6 +16,7 @@ local C = require("shared.team.centrale") -- lot CORR-ENERGIE : croissance de la
 local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (taille, perte)
 local Cp = require("shared.team.centrale_pole") -- lot CENTRALE-PRES : poteau obtenable, taille de la centrale
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : santé de la centrale, amorce à la main, croissance avant saturation
+require("script.team.vapeur") -- lot VAPEUR (14/11) : relevé [FO-VAPEUR], demande nominale (abonnement au bus)
 
 local PA = {}
 
