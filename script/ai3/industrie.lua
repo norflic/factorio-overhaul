@@ -46,6 +46,7 @@ local Events = require("script.core.events")
 local MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : rangée du mall, avant le module isolé (docs/MALL.md §3)
 local Mp = require("shared.team.mall_paving") -- lot MALL-RUE : la demande du mall dépasse-t-elle un lot ? (Mp.compact, règle pure) : le gabarit RUBAN
 local Bi = require("shared.team.bus_intermediaires") -- lot BUS-INTERMEDIAIRES : lignes d'intermédiaires pivots (graphe des recettes), repli à la main
+local Mo = require("shared.ai3.moteurs") -- s44 moteurs : intermédiaires hors main demandés au mall dès le déblocage
 local T = require("shared.team.config") -- (matières que le bus fournit : produits des avant-postes et combustible, lus aux données)
 
 local Ind = {}
@@ -522,6 +523,20 @@ function Ind.think(f, cs, res, view, book, tick)
   -- lot VIDEO L7 : la liste de matériel des prochains projets du plan directeur, graine du mall (sans attendre 3 épisodes à la main) ;
   -- stock BRUT du coffre (la liste est brute)
   AmRt.seed(f, ml, tick, book, function(it) return Stock.count(f, it) end)
+  -- s44 moteurs : un intermédiaire que la main ne fait pas (charge à la main toujours nulle) est demandé dès sa recette débloquée, tampon borné
+  local force = game.forces[f.force]
+  if force then
+    local list = Mo.wants(lec.fab, function(rn) local r = force.recipes[rn] return r ~= nil and r.enabled end,
+      function(n) return book:handcraftable(n) or (Stock.count(f, n) or 0) > 0 end, function(it) return Stock.count(f, it) end)
+    Mo.seed(ml, tick, list, Ml)
+    local msig = {}
+    for _, w in ipairs(list) do msig[#msig + 1] = w.item .. "(" .. w.recipe .. ", " .. w.need .. " pour le tampon, " .. w.users .. " recette(s) l'utilisent)" end
+    msig = table.concat(msig, " ")
+    if msig ~= (st.moteurs_sig or "") then
+      st.moteurs_sig = msig
+      if msig ~= "" then say(f, tick, "intermediaire hors main demande des le deblocage : " .. msig) end
+    end
+  end
   local sources = Ml.sources(ml, tick)
   local keep = {}
   for _, c in ipairs(sources) do if not (st.hold[c.item] and st.hold[c.item] > tick) then keep[#keep + 1] = c end end
