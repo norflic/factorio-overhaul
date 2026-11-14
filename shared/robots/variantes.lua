@@ -70,7 +70,7 @@ V.SPECS = {
     ingredients = { { "engine-unit", 40 }, { "steel-plate", 30 }, { "fo-tungsten-plate", 100 }, { "plastic-bar", 60 },
       { "electronic-circuit", 40 } }, time = 10,
     calibre = { hp = 1340, damage = 49.7 },
-    look = { k = 0.85, tint = { r = 0.95, g = 0.92, b = 0.70 } },
+    look = { k = 0.72, tint = { r = 0.40, g = 0.72, b = 1.00 } }, -- s43-robots2 : bleu acier franc et plus petit, distinct du Trotte-Vapeur (laiton)
     tech = { name = "fo-robot-skitter", epoch = 5, count = 120, time = 30, prerequisites = { "fo-robot-heavy" } },
   },
   {

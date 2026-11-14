@@ -215,6 +215,14 @@ for _, r in ipairs(VAR) do
   end
   check(pre_ok, "§8 " .. r.id .. " : prérequis du lot, d'un âge antérieur ou égal")
 end
+-- s43-robots2 : le Furet se distingue du Trotte-Vapeur à l'œil (capture du 14/11 : teinte claire et 0,85 indiscernables) : nettement plus
+-- petit, corps teinté bleu (le parent est laiton : rouge dominant), écart de teinte d'au moins 0,5 sur le bleu et sur le rouge.
+do
+  local sk = Ro.robot("skitter")
+  local t = sk and sk.look.tint
+  check(sk and sk.look.scale <= 0.75 and t and t.b - t.r >= 0.5, "§8 Furet distinct du Trotte-Vapeur : échelle " .. tostring(sk and sk.look.scale)
+    .. " (≤ 0,75), teinte bleue (b − r ≥ 0,5)")
+end
 check(#VAR == 3 and Ro.PLAN_COUNT == 12 and Ro.ROBOTS[12].id == "crowned" and Ro.ROBOTS[13].id == "mender", "§8 les 12 du plan d'abord (indices inchangés), puis les 3 variantes")
 local P = read("prototypes/robots.lua")
 check(P:find("SPR[r.look and r.look.sheet or r.id]", 1, true) ~= nil and P:find('both(body, "tint", rgba(look.tint))', 1, true) ~= nil,
