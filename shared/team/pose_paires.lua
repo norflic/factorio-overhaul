@@ -401,6 +401,29 @@ function P.border_first(list, reach)
   return near
 end
 
+--- Lot CHARBON-JOUEUR (partie du DC, 0.7.114, carte 600 %) : le site d'un avant-poste neuf est le barycentre d'un chunk de minerai ; au cœur
+--- d'un gisement géant (coal, (-166, -93), 2,8 millions), aucun bord n'est dans le rayon lu (P.EXTEND_RADIUS) : les 40 essais partent vers
+--- les tuiles du bord du CERCLE lu (fausses bordures), tous ratés au moteur (« pose ratee, motif pose », deux fois), le site est perdu.
+--- Bord réel le plus proche du site : marche sur 8 directions (ordre fixe), pas d'une tuile, jusqu'à `max_dist` ; `is_ore(x, y)` dit si la
+--- tuile (x, y) porte une ressource (n'importe laquelle : un réceptacle ne se pose que sur le sol neutre). Rend { x, y, d } (centre de la
+--- première tuile sans ressource, distance de Chebyshev en pas) le plus proche (égalité : la première direction), ou nil.
+P.BORDER_DIRS = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
+function P.border_point(site, is_ore, max_dist)
+  local sx, sy = math.floor(site.x), math.floor(site.y)
+  local best
+  for _, dv in ipairs(P.BORDER_DIRS) do
+    local lim = best and (best.d - 1) or max_dist
+    for s = 1, lim do
+      local tx, ty = sx + dv[1] * s, sy + dv[2] * s
+      if not is_ore(tx, ty) then
+        best = { x = tx + 0.5, y = ty + 0.5, d = s }
+        break
+      end
+    end
+  end
+  return best
+end
+
 --- Libellé d'un projet d'avant-poste (lot EXTENSION-FER, point C). c = { tasks = { { kind, lost }... } des tâches ouvertes du
 --- projet, cause = cause du blocage ("site:iron"...), extendable = un avant-poste du type peut encore grandir }.
 --- "extend" : agrandir l'extraction sur le gisement de la base ; "build" : nouvel avant-poste ailleurs ; "rebuild" : refaire un

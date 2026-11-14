@@ -433,6 +433,29 @@ end
 -- Crochet posé par script/team/fantomes.lua : le PNJ arrive et va poser, l'aperçu en fantômes de sa tâche part d'abord.
 Outposts.on_arrive = nil
 
+--- Lot CHARBON-JOUEUR : centre de POSE d'un avant-poste neuf. Site au cœur d'un gisement géant (bord réel au-delà de Paires.BUILD_RADIUS) :
+--- le centre passe au bord réel le plus proche (Paires.border_point, tuiles lues au moteur), sinon le site lui-même. Gardé sur le site
+--- (`site.pose`, données simples) : la pose et l'aperçu des fantômes lisent le même centre, la marche n'est faite qu'une fois. [FO-POSE-BORD].
+Outposts.BORDER_MAX = 3 * Paires.EXTEND_RADIUS -- pas au plus par direction (96 tuiles)
+function Outposts.pose_center(f, surface, kind, site)
+  if site.pose then return site.pose end
+  local function is_ore(x, y)
+    return surface.count_entities_filtered({ area = { { x + 0.01, y + 0.01 }, { x + 0.99, y + 0.99 } }, type = "resource", limit = 1 }) > 0
+  end
+  local bp = Paires.border_point(site, is_ore, Outposts.BORDER_MAX)
+  local c = { x = site.x, y = site.y }
+  if bp and bp.d > Paires.BUILD_RADIUS then
+    c = { x = bp.x, y = bp.y }
+    log(string.format("[FO-POSE-BORD] %s : avant-poste %s, site (%.0f, %.0f) au coeur du gisement : bord reel a %d tuiles, pose centree en (%.1f, %.1f) a %.1f min",
+      f.key or "player", tostring(kind), site.x, site.y, bp.d, c.x, c.y, game.tick / 3600))
+  elseif not bp then
+    log(string.format("[FO-POSE-BORD] %s : avant-poste %s, site (%.0f, %.0f) : aucun bord reel a moins de %d tuiles, pose au site a %.1f min",
+      f.key or "player", tostring(kind), site.x, site.y, Outposts.BORDER_MAX, game.tick / 3600))
+  end
+  site.pose = c
+  return c
+end
+
 function Outposts.build(f, surface, kind, site, carrier)
   local spec = T.outposts[kind]
   -- s42 thermiques : pas d'avant-poste thermique NEUF sur un gisement balayé tant que l'électrique est posable (Th.site_closed ; avant le
@@ -445,13 +468,14 @@ function Outposts.build(f, surface, kind, site, carrier)
   if Outposts.on_arrive then Outposts.on_arrive(f, site, nil) end
   -- Lot IA2-b (F209) : les réceptacles orphelins d'un avant-poste perdu ici sont repris d'abord (ils libèrent la
   -- place des paires et leurs objets resservent).
-  Outposts.reclaim(f, site, carrier, 24)
-  local drills, sinks = place_pairs(f, surface, kind, site, carrier, spec.drills, Outposts.RADIUS.build)
+  local pc = Outposts.pose_center(f, surface, kind, site) -- lot CHARBON-JOUEUR : bord réel d'un gisement géant
+  Outposts.reclaim(f, pc, carrier, 24)
+  local drills, sinks = place_pairs(f, surface, kind, pc, carrier, spec.drills, Outposts.RADIUS.build)
   if #drills == 0 then return nil end
   f.next_oid = f.next_oid + 1
   local oid = f.next_oid
   local outpost = {
-    id = oid, kind = kind, pos = { x = site.x, y = site.y }, drills = #drills,
+    id = oid, kind = kind, pos = { x = pc.x, y = pc.y }, drills = #drills,
     drill_list = drills, sinks = sinks, turret_list = {}, last_service = game.tick,
     -- Lot IA2-b : lectures du site (carte de valeur), rendues à la réserve si l'avant-poste est perdu.
     site_info = { rich = site.rich, tiles = site.tiles, deposit = site.deposit, water = site.water, rough = site.rough, cliffs = site.cliffs },
