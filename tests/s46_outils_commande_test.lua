@@ -44,6 +44,21 @@ P.EMIT.outpost(E, { prio = 50, id = 1, key = "x" }, { outpost = kind }, { tick =
 t = emitted(E)
 ok(t and t.kind == "extend" and t.outpost == 1, "sans zone : le plus proche du QG (règle d'avant)")
 
+-- 2 bis. commandes-0716 : un ordre ne s'arrête pas au chantier d'un autre avant-poste du type ; sa construction a sa clé
+do
+  local view = { outposts = { far }, pending = { [kind] = 1 }, sites = { [kind] = 1 }, stock = {} }
+  local avail = setmetatable({}, { __index = function() return 1e6 end })
+  local E2 = P.context(avail, { handcraftable = function() return false end }, view, {})
+  local st2 = P.EMIT.outpost(E2, { prio = 50, id = 1, key = "x" }, { outpost = kind, ordre = 3, zones = { { x = 300, y = 0, r = 20 } } }, { tick = 0 })
+  local t2 = E2.tasks[#E2.tasks]
+  ok(st2 == "ok" and t2 and t2.kind == "build" and t2.key == "build:ordre:" .. kind, "ordre : construit malgre un chantier du type, cle propre")
+  local E3 = P.context(avail, { handcraftable = function() return false end }, view, {})
+  ok(P.EMIT.outpost(E3, { prio = 50, id = 1, key = "x" }, { outpost = kind }, { tick = 0 }) == "en_cours", "sans ordre : attend le chantier (regle d'avant)")
+  local s9 = Co.new_state()
+  Co.add(s9, { kind = "gisement", x = 0, y = 0, r = 10, outpost = "k1", after_oid = 0 })
+  ok(#Co.resolve(s9, { { kind = "k1", x = 30, y = 0, id = 1 } }) == 1, "ordre rempli a la marge de Co.ready (r + 24)")
+end
+
 -- 3. Co.resolve : un avant-poste déjà là, agrandi au plafond, remplit l'ordre
 local s = Co.new_state()
 Co.add(s, { kind = "gisement", x = 0, y = 0, r = 10, outpost = "k1", after_oid = 5 })

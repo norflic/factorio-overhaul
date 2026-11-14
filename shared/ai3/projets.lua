@@ -426,7 +426,9 @@ EMIT.outpost = function(E, proj, g, ctx)
   local view, kind = E.view, g.outpost
   local spec = T.outposts[kind]
   local prio = proj.prio
-  if (view.pending[kind] or 0) > 0 then return "en_cours" end
+  -- commandes-0716 : un ordre du joueur n'attend pas le chantier d'un AUTRE avant-poste du type (3e banc : ordre de charbon prêt à 5 min,
+  -- servi à 22 min, l'agrandissement continu de l'avant-poste 2 tenait « en_cours ») ; sa propre construction a sa clé (plus bas)
+  if (view.pending[kind] or 0) > 0 and not g.ordre then return "en_cours" end
   -- lot ELECTRIQUE (a, DC 8/11) : centrale finie, foreuse électrique et poteau obtenables : plus de paire thermique de ce type (agrandir ou
   -- bâtir) ; le gisement se couvre en électrique (capitalisation, remplacement). view.thermal_off : script/team/electrique.lua (Elec.view_off)
   if view.thermal_off and view.thermal_off[kind] then return "bloque", "electrique:" .. kind end
@@ -488,7 +490,7 @@ EMIT.outpost = function(E, proj, g, ctx)
     list[#list + 1] = { T.turret_ammo, nt * T.defend_ammo }
   end
   E.site_needs[kind] = math.max(E.site_needs[kind] or 0, 1)
-  local key = "build:" .. kind
+  local key = g.ordre and ("build:ordre:" .. kind) or ("build:" .. kind) -- commandes-0716 : clé propre à l'ordre
   if E.open[key] then return "en_cours" end
   -- Porte au build (lot SITE-PROCHE, audit « avant-poste de fer ») : tant qu'un avant-poste du type a des places libres
   -- (ni plein, ni au plafond de foreuses), le projet reste en « agrandir » ; on ne bâtit qu'au-delà, ou quand R1 a écarté
