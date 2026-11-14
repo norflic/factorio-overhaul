@@ -336,7 +336,10 @@ function Cap.replace_candidates(Ld, census, ctx)
   for _, pd in ipairs(pending) do
     -- Un rang (tapis, bras) à monter en nombre attire la recherche qui débloque la cible ; une machine seule, non.
     local p0 = ctx.mproto(pd.name)
+    -- s50 tiers : un parc de fours (type d'entité de Cap.PIECE_FIRST_TYPES, jamais un nom) en nombre réclame aussi la
+    -- recherche de son successeur (journal DC 14/11 : 366 fours en pierre, recherche du four suivant à 137 min seulement).
     local want = ctx.continu and p0 and p0.rang and (count[pd.name] or 0) >= Am.RESEARCH_MIN
+    want = want or (ctx.continu and p0 and Cap.PIECE_FIRST_TYPES[p0.type or ""] and (count[pd.name] or 0) >= Am.RESEARCH_MIN)
     -- no_want reste vrai (Capital.wanted n'est pas touchée) : le rang réclamé passe par l'API Voulues (script/ai3/voulues.lua), UN seul chemin.
     pd.entry.rang_want, pd.entry.count = want and true or nil, count[pd.name]
   end

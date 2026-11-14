@@ -285,7 +285,10 @@ local function run(Cap, Am, quiet)
     local di, bi = wanted_for(40, "inserter")
     check(bi and bi.rang_want == true and di.rang_wanted["fast-inserter"] == true, "§5 40 bras : l'objet du bras rapide est voulu")
     local df, bf = wanted_for(40, "stone-furnace")
-    check(bf and not bf.rang_want and next(df.rang_wanted) == nil, "§5 40 fours de pierre : ce n'est pas un rang, rien de voulu par le remplacement")
+    -- s50 tiers : un parc de fours (type furnace, Cap.PIECE_FIRST_TYPES) en nombre réclame la recherche de son successeur.
+    check(bf and bf.rang_want == true and df.rang_wanted["steel-furnace"] == true, "§5 40 fours de pierre : le four suivant est voulu (s50 tiers)")
+    local df2, bf2 = wanted_for(23, "stone-furnace")
+    check(bf2 and not bf2.rang_want and next(df2.rang_wanted) == nil, "§5 23 fours (< 24) : rien de voulu")
     local do_, bo = wanted_for(30, "transport-belt", { available = LOCKED, continu = false })
     check(bo and not bo.rang_want and next(do_.rang_wanted) == nil, "§5 règle éteinte : rien de voulu (comportement d'avant)")
     -- Modules posés avec des bras simples (RECHERCHE-BRAS B) : dès que le bras rapide est obtenable, le bloc de bras simples du module est un
