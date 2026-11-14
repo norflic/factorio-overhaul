@@ -123,7 +123,8 @@ function Cp.go(p)
   -- 0.7.114 (F676) : bande de champ dont les foreuses sont données (p.lead, build.lua) : départ par les foreuses, voie entière si dégel
   local c0 = s and s.champ
   if c0 and c0.coal == nil and c0.link == nil and p.lead and next(p.lead) ~= nil and not s.ext then
-    return Cp.ready_band(p.need or {}, p.stock or {}, p.lead, s.degel ~= nil and not p.degele)
+    -- 0.7.115 (autopsie JALONS30-c3) : le dégel n'exige plus TOUT le reste (64 foreuses livrées, 0 posée à 30 min) : têtes à Cp.BAND_LEAD, reste au plancher
+    return Cp.ready_band(p.need or {}, p.stock or {}, p.lead, false)
   end
   -- Lot SORTIE-PLAQUES (B5) : partir sans toute sa matière déclenchait le degel, qui retire les paires thermiques qui PRODUISENT ; la matière qui
   -- manque (tapis de la voie de charbon) ne se fabriquait plus sans leur fer (scarlet, graine 2507543475 : 23 fours sans charbon, fer 0/min).
