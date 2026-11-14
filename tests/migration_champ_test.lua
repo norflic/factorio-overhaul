@@ -2261,13 +2261,14 @@ do
     end
   end
   -- (IA-GARDE, f03e5c64 : la garde anti-dispersion s'est glissée entre le cadre et « local bad = {} » : le repère vise le retour du cadre)
-  local m1 = { run_w3(mutsrc3("même après un chargement)\n    return false\n", "même après un chargement)\n")) }
+  -- (s49 tranches : le pas du cadre est dans frame_take, partagé avec le tick suivant ; le retour de la pensée est resté dans begin_band)
+  local m1 = { run_w3(mutsrc3("if not st.frame then frame_take(f, surface, ms, o, st, tick); return false end", "if not st.frame then frame_take(f, surface, ms, o, st, tick) end")) }
   check(m1[1] ~= "frame", "W3 : mutant refusé : la première bande part dans la pensée du cadre (" .. m1[1] .. ")")
   local m2 = { run_w3(mutsrc3("    Champ.flush(f) -- (journal seulement : la perte des attentes par un chargement ne change aucune décision)\n", "")) }
   check(m2[2] ~= "frame,flush", "W3 : mutant refusé : la vérification du cadre n'est jamais appelée par la migration (" .. m2[2] .. ")")
   local m3 = { run_w3(mutsrc3("ne change aucune décision)\n    return 0\n  end", "ne change aucune décision)\n  end")) }
   check(m3[2] ~= "frame,flush", "W3 : mutant refusé : la vérification partage sa pensée avec le reste (" .. m3[2] .. ")")
-  local m4 = { run_w3(mutsrc3("    ms.verify_due = true -- lu par Mig.think (drapeau de global : la pensée suivante est celle de la vérification, même après un chargement)\n", "")) }
+  local m4 = { run_w3(mutsrc3("  ms.verify_due = true -- lu par Mig.think (drapeau de global : la pensée suivante est celle de la vérification, même après un chargement)\n", "")) }
   check(m4[2] ~= "frame,flush", "W3 : mutant refusé : drapeau de global jamais levé (" .. m4[2] .. ")")
 end
 

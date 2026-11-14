@@ -29,4 +29,18 @@ function Ax.better(m, b)
   return not (Ch.refuse_keeps(db, da))
 end
 
+--- s49 tranches : file des avant-postes dont le plan de cadre attend son pas suivant (Ax.WAIT). `q` : liste { { key, ... } } ; une clé n'y
+--- est qu'une fois (rien n'est ajouté si elle y est déjà). Rend vrai si l'entrée est ajoutée.
+function Ax.push(q, e)
+  for _, x in ipairs(q) do if x.key == e.key then return false end end
+  q[#q + 1] = e
+  return true
+end
+
+--- s49 tranches : la première entrée de la file (ordre d'arrivée), retirée ; nil si la file est vide. Une entrée par tick (appelant).
+function Ax.pop(q)
+  if #q == 0 then return nil end
+  return table.remove(q, 1)
+end
+
 return Ax

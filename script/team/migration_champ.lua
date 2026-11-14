@@ -56,6 +56,8 @@ local Cap = require("script.team.plafond_charbon") -- (sa mesure en jeu)
 local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 local CausalRt = require("script.ai3.causal_rt") -- s42 causal : audit des causes après le relevé des champs
 local Mig = {}
+local Events = require("script.core.events") -- s49 tranches : pas suivant du plan de cadre au tick suivant (Mig.frame_tick)
+local Ax = require("shared.team.champ_axe") -- s49 tranches : Ax.WAIT, file des plans reportés (Ax.push, Ax.pop)
 
 local CFG = Mg.CFG
 -- Lot CHAMP : règles de la migration en BANDES du champ (la règle de shared/team/migration_champ.lua, ces seuils changés) :
@@ -811,29 +813,58 @@ local function band_cut(bd, list)
   return ids, thaw, cx / math.max(1, n), cy / math.max(1, n)
 end
 
+-- s49 tranches : avant-postes dont le plan de cadre attend son pas suivant (Ax.WAIT) : { key, f, surface, oid } (local au module, non sauvegardé :
+-- vide après chargement, la séquence repart alors à la pensée suivante de Mig.think, sur une spec neuve). Lue par le tick (Events.on_nth_tick(1)).
+local FRAME_WAIT = {}
+
+--- Pas du plan de cadre d'un avant-poste sans cadre (pensée de Mig.think, ou tick suivant par FRAME_WAIT) : Champ.frame, puis le cadre gardé
+--- (vérification à la pensée suivante) ou l'échec compté ; un plan reporté (Ax.WAIT) met l'avant-poste dans la file du tick suivant.
+local function frame_take(f, surface, ms, o, st, tick)
+  -- lot COUT-600 : un seul cadre planifié par passe de Mig.think (le drapeau est levé par le premier ; une autre avant-poste attend la passe suivante)
+  if ms.verify_due then st.retry = tick; return end
+  local frame, order = Champ.frame(f, surface, o)
+  if not frame and order == Ax.WAIT then -- s47 axe : plan reporté (un pas par tick), pas un échec ; s49 tranches : repris dès le tick suivant
+    st.retry = tick + 1
+    Ax.push(FRAME_WAIT, { key = tostring(f.key or "player") .. ":" .. tostring(o.id), f = f, surface = surface, oid = o.id })
+    return
+  end
+  if not frame then
+    st.fails, st.retry = st.fails + 1, tick + CFG.retry
+    say_why(f, ms, st, "champ:" .. tostring(order), string.format("avant-poste %d : pas de plan de champ (%s), essai %d/%d", o.id, tostring(order), st.fails, CFG.max_fails))
+    if st.fails >= CFG.max_fails then st.abandoned, st.abandoned_at = true, tick end
+    return
+  end
+  st.frame, st.order, st.done_pr = frame, order, {}
+  -- lot COUT-600 : le plan du cadre (5 à 12 M d'instructions sur un champ de 600 %) ne partage plus sa pensée avec la première bande (jusqu'à
+  -- 1 M) : celle-ci part à la pensée suivante de la migration (st.retry = ce tick : aucune attente de plus)
+  st.retry = tick
+  ms.verify_due = true -- lu par Mig.think (drapeau de global : la pensée suivante est celle de la vérification, même après un chargement)
+end
+
+--- s49 tranches : UN avant-poste de la file par tick (ordre d'arrivée) fait son pas de plan, sans attendre la pensée de Mig.think (600 ticks).
+--- Rien si la file est vide. Une entrée dont l'avant-poste n'attend plus de cadre (cadre déjà pris, abandon, avant-poste perdu, autre cadre en
+--- vérification) est laissée : la pensée normale reprend. Le verrou d'un plan par tick (Champ.frame, PLAN_TICK) reste : une pensée de Mig.think au
+--- même tick reçoit Ax.WAIT, aucun pas n'est fait deux fois.
+function Mig.frame_tick(tick)
+  local w = Ax.pop(FRAME_WAIT)
+  if not w then return false end
+  local f = w.f
+  if not (w.surface and w.surface.valid and f and f.outposts and f.hq and f.hq.valid and f.build and f.migration) then return false end
+  local ms = f.migration
+  local st, o = ms.o and ms.o[w.oid], Champ.target(f, w.oid)
+  if not (st and o) or st.frame or st.abandoned or ms.verify_due then return false end
+  frame_take(f, w.surface, ms, o, st, tick)
+  return true
+end
+Mig.FRAME_WAIT = FRAME_WAIT -- (tests : la file même)
+Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] then Mig.frame_tick(e.tick) end end) -- (file vide : rien)
+
 local function begin_band(f, surface, ms, o, st, list, tick, free)
   st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE
   -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
   -- colonne à tapis ; dès qu'une bande est posée ou demandée, le cadre garde son motif (les bandes voisines partagent leurs rangées)
   if Champ.tapis() and st.frame and st.frame.design == nil and not Champ.has_band(f, o) then st.frame, st.order, st.done_pr = nil, nil, nil end
-  if not st.frame then
-    -- lot COUT-600 : un seul cadre planifié par passe de Mig.think (le drapeau est levé par le premier ; une autre avant-poste attend la passe suivante)
-    if ms.verify_due then st.retry = tick; return false end
-    local frame, order = Champ.frame(f, surface, o)
-    if not frame and order == "pas-encore" then st.retry = tick + 1; return false end -- s47 axe : plan reporté (un par tick), pas un échec
-    if not frame then
-      st.fails, st.retry = st.fails + 1, tick + CFG.retry
-      say_why(f, ms, st, "champ:" .. tostring(order), string.format("avant-poste %d : pas de plan de champ (%s), essai %d/%d", o.id, tostring(order), st.fails, CFG.max_fails))
-      if st.fails >= CFG.max_fails then st.abandoned, st.abandoned_at = true, tick end
-      return false
-    end
-    st.frame, st.order, st.done_pr = frame, order, {}
-    -- lot COUT-600 : le plan du cadre (5 à 12 M d'instructions sur un champ de 600 %) ne partage plus sa pensée avec la première bande (jusqu'à
-    -- 1 M) : celle-ci part à la pensée suivante de la migration (st.retry = ce tick : aucune attente de plus)
-    st.retry = tick
-    ms.verify_due = true -- lu par Mig.think (drapeau de global : la pensée suivante est celle de la vérification, même après un chargement)
-    return false
-  end
+  if not st.frame then frame_take(f, surface, ms, o, st, tick); return false end
   -- Lot IA-GARDE (règle du DC, 11/11) : sous 2 colonnes de fonderie automatisées et 6 assembleurs actifs, une bande d'un minerai BRUT (charbon,
   -- pierre) n'est demandée que si sa matière manque par rapport au besoin (partie du DC 0.6.96 : 46 foreuses de charbon du joueur, bandes 4, 7
   -- et 21, de 12 à 30 min, pour 10 foreuses de fer) ; les paires thermiques en place continuent de produire.
