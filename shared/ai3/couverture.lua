@@ -41,6 +41,17 @@ function Cv.loop(a)
   return true, string.format("debouche : %s non sature, %d place(s) libre(s)", a.product, math.floor(a.free))
 end
 
+--- Lot s44 GISEMENTS : places libres du gisement AVANT l'ordre. `res.coverage[].free` est relu dans le plan APRÈS application des ordres
+--- de la décision (Ca.apply -> add_drills compte la couverture de l'ordre) : un ordre couvrir de n foreuses qui remplit à lui seul le reste du
+--- gisement y laissait 0 place et Cv.loop le refusait (« gisement sans place libre ») ; retenu alors par la porte du transport, il ne passait
+--- jamais (journal 0.7.102 : « couvrir:iron-ore@-382,388 x57 : ... boucle non retenue : gisement sans place libre », emerald minute 80).
+--- Rend free + own (own = foreuses de l'ordre lui-même) ; free illisible reste nil (inconnu), own illisible compte 0.
+function Cv.free_before(free, own)
+  if type(free) ~= "number" or free ~= free then return nil end
+  local n = (type(own) == "number" and own == own and own > 0 and own < math.huge) and math.floor(own) or 0
+  return math.max(0, free) + n
+end
+
 -- SATURATION TOTALE DES GISEMENTS (directive du DC du 8/11, 14 h 50 : « Un speedrunner ne laisse jamais un champ de minerai à moitié vide. Il le
 -- sature de foreuses [...] La règle est binaire : s'il reste une tuile de minerai exploitable sur un gisement revendiqué, l'ordre de
 -- construction de foreuses reste actif. »). Mesuré sur la partie du DC (39 à 44 min) : les grands gisements revendiqués sont à 0,3 à 11 %
