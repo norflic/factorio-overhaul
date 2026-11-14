@@ -422,6 +422,22 @@ local EMIT = {}
 P.EMIT = EMIT -- lot IA3-e : méthodes d'émission enregistrées par d'autres modules purs (EMIT.module, shared/ai3/automatiser.lua)
 
 --- Avant-poste (construction ou agrandissement) : comme l'échelle d'avant, mais PAR BESOIN et en parallèle.
+--- commandes-0716 : objets d'un avant-poste ORDONNÉ par le joueur : le combustible ramené à ce que le stock virtuel en a (0 : retiré). 5e banc
+--- (carte du DC) : ordre de charbon prêt à 5 min, « matiere, manque coal x8 » jusqu'à 30 min (le charbon dort dans les coffres de sortie,
+--- jamais au coffre) ; les tournées de ravitaillement des avant-postes amènent le combustible après la pose. Nouvelle liste.
+function P.order_fuel(items, have)
+  local out = {}
+  for _, it in ipairs(items) do
+    if it[1] == T.fuel then
+      local n = math.min(it[2], math.max(0, have or 0))
+      if n > 0 then out[#out + 1] = { it[1], n } end
+    else
+      out[#out + 1] = it
+    end
+  end
+  return out
+end
+
 EMIT.outpost = function(E, proj, g, ctx)
   local view, kind = E.view, g.outpost
   local spec = T.outposts[kind]
@@ -440,6 +456,7 @@ EMIT.outpost = function(E, proj, g, ctx)
   if pf then turret_ok = false end
   local und = Planner.no_go(view, turret_ok)
   local items = Planner.outpost_items(kind)
+  if g.ordre then items = P.order_fuel(items, E.avail[T.fuel] or 0) end -- commandes-0716 : l'ordre part sans attendre le combustible
   local ext = extendable(view, kind, und, g.zones)
   if ext then
     local key = "extend:" .. ext.id

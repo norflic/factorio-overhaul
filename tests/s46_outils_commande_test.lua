@@ -54,6 +54,17 @@ do
   ok(st2 == "ok" and t2 and t2.kind == "build" and t2.key == "build:ordre:" .. kind, "ordre : construit malgre un chantier du type, cle propre")
   local E3 = P.context(avail, { handcraftable = function() return false end }, view, {})
   ok(P.EMIT.outpost(E3, { prio = 50, id = 1, key = "x" }, { outpost = kind }, { tick = 0 }) == "en_cours", "sans ordre : attend le chantier (regle d'avant)")
+  local fuel_items = P.order_fuel({ { "a", 4 }, { T.fuel, 8 } }, 3)
+  ok(#fuel_items == 2 and fuel_items[2][2] == 3, "ordre : combustible ramene au stock")
+  fuel_items = P.order_fuel({ { "a", 4 }, { T.fuel, 8 } }, 0)
+  ok(#fuel_items == 1 and fuel_items[1][1] == "a", "ordre : sans combustible au stock, l'avant-poste part quand meme")
+  local view4 = { outposts = {}, pending = {}, sites = { [kind] = 1 }, stock = {} }
+  local avail4 = setmetatable({ [T.fuel] = 0 }, { __index = function() return 1e6 end })
+  local E4 = P.context(avail4, { handcraftable = function() return false end }, view4, {})
+  ok(P.EMIT.outpost(E4, { prio = 50, id = 1, key = "x" }, { outpost = kind, ordre = 3, zones = { { x = 300, y = 0, r = 20 } } }, { tick = 0 }) == "ok",
+    "ordre : construit sans combustible au stock")
+  local E5 = P.context(avail4, { handcraftable = function() return false end }, view4, {})
+  ok(P.EMIT.outpost(E5, { prio = 50, id = 1, key = "x" }, { outpost = kind }, { tick = 0 }) == "matiere", "sans ordre : attend son combustible (regle d'avant)")
   local s9 = Co.new_state()
   Co.add(s9, { kind = "gisement", x = 0, y = 0, r = 10, outpost = "k1", after_oid = 0 })
   ok(#Co.resolve(s9, { { kind = "k1", x = 30, y = 0, id = 1 } }) == 1, "ordre rempli a la marge de Co.ready (r + 24)")
