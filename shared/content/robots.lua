@@ -17,6 +17,7 @@
 ]]
 
 local Ech = require("shared.robots.echelle")
+local Va = require("shared.robots.variantes") -- lot s43-robots : variantes complémentaires
 
 local Ro = {}
 
@@ -236,6 +237,16 @@ Ro.GIANT_AMMO = { min = 2, top = 4 }
 Ro.GIANT_PATH_STEP = 6  -- un point de chemin sur 6 pousse l'autopilote (RB0 E3)
 Ro.GIANT_PATH_BOX = 1   -- demi-boîte de la demande de chemin d'un géant (RB0 E3)
 Ro.GIANT_HOLD = 4       -- tuiles : un géant est « arrivé » quand il est à moins de cette distance de son but
+
+--- Lot s43-robots : 3 VARIANTES complémentaires (shared/robots/variantes.lua : soutien de terrain âge 4, éclaireur âge 5,
+--- anti-blindé âge 9), dérivées d'un parent par règle pure, ajoutées APRÈS les 12 du plan (ordre et indices des 12 inchangés).
+do
+  local plan = {}
+  for _, r in ipairs(Ro.ROBOTS) do plan[r.id] = r end
+  for _, v in ipairs(Va.build(function(id) return plan[id] end)) do Ro.ROBOTS[#Ro.ROBOTS + 1] = v end
+  for _, t in ipairs(Va.techs()) do Ro.TECHS[#Ro.TECHS + 1] = t end
+end
+Ro.PLAN_COUNT = 12 -- les 12 robots du plan ; au-delà, des variantes (r.variant = id du parent)
 
 local by_id, by_kit, by_recipe, by_factory = {}, {}, {}, {}
 
