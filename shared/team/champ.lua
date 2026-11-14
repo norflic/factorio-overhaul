@@ -87,7 +87,7 @@ local DIRS = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } 
 -- s52 bandes : les lectures (fonctions) du contexte sont posées par bind sur ses SEULES données (c.axis, c.taken, c.ore, c.ore_uv,
 -- c.foreign, c.resources, c.blocked, c.mine) : un plan repris d'une étape à l'autre (Ch.once_step) garde le contexte sans fonction
 -- (unbind) et le relie au début de l'étape suivante, mêmes réponses
-local CTX_FN = { "xy", "uv", "is_ore", "is_foreign", "is_resource", "free", "take", "dir" }
+local CTX_FN = { "xy", "uv", "is_ore", "is_foreign", "is_resource", "free", "take", "dir", "nfree" }
 local function bind(c)
   if c.axis == "x" then
     c.xy = function(u, v) return u, v end
@@ -109,11 +109,14 @@ local function bind(c)
     local x, y = c.xy(u, v)
     return all[Ch.key(x, y)] == true
   end
+  local nfree = 0 -- perf-frame : lectures de place libre de l'étape (compte du travail, Ch.once_step ; jamais une décision)
   c.free = function(u, v)
+    nfree = nfree + 1
     local x, y = c.xy(u, v)
     local k = Ch.key(x, y)
     return not c.taken[k] and (c.mine[k] or not c.blocked[k])
   end
+  c.nfree = function() return nfree end
   c.take = function(u, v) local x, y = c.xy(u, v); c.taken[Ch.key(x, y)] = true end
   c.dir = function(du, dv)
     local dx, dy = c.xy(du, dv)
@@ -135,7 +138,10 @@ Ch.CTX_CHUNK = 6000
 -- perf-frame : budget de travail d'un pas de plan (Ch.once_step) : états développés des tracés (Co.route), places et tuiles lues des
 -- recherches de colonne ailleurs (Co.away). Un compte fixe : même découpage, même plan sur toutes les machines.
 Ch.STEP_WORK = 3000
-Ch.ROW_WORK = 1 -- travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
+Ch.STEP_BASE = 500 -- travail compté pour tout pas (en plus de ses recherches)
+Ch.HEAVY_WORK = 3000 -- forfait d'une étape d'un bloc (une bande, les bras, les poteaux, une tranche du contexte)
+Ch.FREE_WORK = 0.5 --travail compté par lecture de place libre du contexte (c.free) pendant le pas
+Ch.ROW_WORK = 1 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
 local function context_new(spec, axis)
   return { axis = axis, taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {},
     resources = spec.resources or {}, ore_uv = {}, has_foreign = next(spec.foreign or {}) ~= nil }
@@ -875,6 +881,7 @@ end
 
 function ONCE.ctx(s)
   s.ci = context_part(s.c, s.spec, s.ci, Ch.CTX_CHUNK, s.box)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une tranche par appel de Ch.plan_steps)
   if s.ci then return true end
   local cm = ctx_memo(s.spec, s.axis)
   if cm then
@@ -974,6 +981,7 @@ function ONCE.band(s)
   local bi, bd = s.bi, s.bands[s.bi]
   if not bd then s.bi = nil; s.stage = "charbon" return false end
   s.bi = bi + 1
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une bande par appel de Ch.plan_steps)
   local spec, c, F = s.spec, s.c, s.F
   local d, colonne, exit, umin, umax, lane, fuelled = spec.drill, s.colonne, s.exit, s.umin, s.umax, s.lane, s.fuelled
   local shared_plate = function(u, v, e) return s.plate_dir[Co.tk(u, v)] == e.du end
@@ -1201,6 +1209,7 @@ function ONCE.net(s)
 end
 
 function ONCE.branch(s)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : seul dans son appel de Ch.plan_steps)
   local spec, c, F = s.spec, s.c, s.F
   local d, exit, nets, coal_frame, ents = spec.drill, s.exit, s.nets, s.coal_frame, s.ents
   s.zone, s.coal_set, s.coal_list, s.ugs, s.first, s.side_i = nil, nil, nil, nil, nil, nil
@@ -1444,6 +1453,7 @@ end
 -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
 -- FONDERIE : seule la rangée pr, du côté des fours, va jusqu'à la colonne ; l'autre passerait sur la colonne de la bande voisine)
 function ONCE.poles(s)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : seul dans son appel de Ch.plan_steps)
   local spec, c, pitch, colonne = s.spec, s.c, s.pitch, s.colonne
   local rows, row_list, reach_to = {}, {}, {}
   for bi, bd in ipairs(s.bands) do
@@ -1543,6 +1553,8 @@ function Ch.once_step(s)
   Co.WORK, Co.WORK_LIM = 0, Ch.STEP_WORK
   repeat ran[#ran + 1] = s.stage; heavy = ONCE[s.stage](s) until heavy or s.done
   Co.WORK_LIM = nil
+  -- (étapes non comptées : une bande, les poteaux... : un forfait et leurs lectures de place libre ; borne les pas groupés par Ch.plan_steps)
+  Co.WORK = Co.WORK + Ch.STEP_BASE + ((s.c and s.c.nfree) and math.floor(s.c.nfree() * Ch.FREE_WORK) or 0)
   -- mesure : étapes faites dans cet appel et tailles (journal [FO-PERF-ETAPE] du câblage ; jamais lu pour une décision)
   Ch.LAST_STEP = string.format("%s tuiles=%d bandes=%d bi=%s ph=%s pending=%d bare=%d/%d ents=%d", table.concat(ran, ">"),
     s.c and #s.c.list or 0, s.bands and #s.bands or 0, tostring(s.bi), tostring(s.ph), s.pending and #s.pending or 0,
@@ -1769,6 +1781,21 @@ function Ch.plan_step(st)
   return st.cur == nil and Ch.plan_next(st.spec, st.res) == nil
 end
 function Ch.plan_result(st) return Ch.plan_pick(st.spec, st.res) end
+
+--- perf-frame : plusieurs pas d'une MÊME variante dans un appel, tant que leur travail cumulé (Co.WORK de chaque pas, un compte) reste sous
+--- `tick_work` : chaque pas reçoit le budget qui reste (au plus Ch.STEP_WORK) ; l'appel s'arrête au bout d'une variante (le pas suivant en
+--- commence une : jamais deux variantes finies dans un appel). Même suite de pas que Ch.plan_step seul : même plan. Rend vrai à la fin.
+function Ch.plan_steps(st, tick_work)
+  local used, w0 = 0, Ch.STEP_WORK
+  local done
+  repeat
+    Ch.STEP_WORK = math.max(1, math.min(w0, tick_work - used))
+    done = Ch.plan_step(st)
+    Ch.STEP_WORK = w0
+    used = used + Co.WORK
+  until done or not st.inner or used >= tick_work
+  return done
+end
 
 --- Plan du champ en un appel : la séquence pas à pas enchaînée (même plan ; jusqu'à 4 plan_order dans l'appel).
 function Ch.plan(spec)

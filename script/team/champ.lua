@@ -46,6 +46,9 @@ local Champ = {}
 Champ.SIB_R = 64 -- tuiles : deux avant-postes du même minerai plus proches sont sur le même gisement (un seul champ)
 
 Champ.CFG = {
+  -- perf-frame : travail des étapes du plan groupées dans un appel (Ch.plan_steps ; compte d'états et de tuiles, jamais un temps :
+  -- même découpage sur toutes les machines). Banc 0.7.113 carte du DC : 3 000 unités de recherche ~ 1,5 à 2 ms
+  tick_work = 6000,
   radius = 96,      -- tuiles autour de l'avant-poste où le gisement est lu
   side = 8,         -- foreuses par côté et par groupe au plus (une bande coûte ce que sa fonderie coûte : la suivante l'agrandit)
   margin_v = 10,    -- tuiles lues en travers au-delà du gisement
@@ -378,11 +381,21 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
 end
 
 --- Spec de la règle pure pour l'avant-poste `o` : (spec, names) ou nil, raison.
-local function spec_of(f, surface, o, frame, only, axis_force)
+--- perf-frame (carte du DC à 600 % : la lecture d'une spec de cadre neuf tenait 80 à 200 ms dans UN tick) : lecture en ÉTAPES, une par
+--- appel de spec_step (même code, même ordre, mêmes lectures ; le monde peut changer entre deux étapes, comme entre deux pas du plan) :
+---   ore      données, tuiles du gisement, boîte, axe, gisement de charbon
+---   foreign  place nôtre (mine_of), autres ressources du rectangle lu
+---   blocked  obstacles du rectangle lu (eau, bâtiments, falaises, réserves, couloirs)
+---   fin      relevé du reroutage, spec, autres ressources autour du charbon, souterrains posés
+--- J = spec_begin(...) ; spec_step(J) -> fini, spec, names (fini : spec, ou nil et raison). spec_of enchaîne les étapes (bande seule).
+local SPEC_STAGES = { "ore", "foreign", "blocked", "fin" }
+local SPEC = {}
+function SPEC.ore(J)
+  local f, surface, o, frame, axis_force = J.f, J.surface, J.o, J.frame, J.axis_force
   local data, names = Champ.data(f, o.kind)
-  if not data then return nil, names end
+  if not data then return true, nil, names end
   local ore = ore_tiles(surface, o)
-  if #ore < 2 then return nil, "gisement epuise" end
+  if #ore < 2 then return true, nil, "gisement epuise" end
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
   for i = 1, #ore - 1, 2 do
     x0, x1 = math.min(x0, ore[i]), math.max(x1, ore[i])
@@ -394,7 +407,7 @@ local function spec_of(f, surface, o, frame, only, axis_force)
   if axis == "x" then x0, x1, y0, y1 = x0 - mu, x1 + mu, y0 - mv, y1 + mv else x0, x1, y0, y1 = x0 - mv, x1 + mv, y0 - mu, y1 + mu end
   -- lot FONDERIE : un cadre NEUF d'un four à combustible lit aussi le gisement de charbon le plus proche, et la boîte lue va jusqu'à lui
   -- (le tracé du charbon ne passe que sur des tuiles lues) ; une bande seule rejoue le réseau gardé dans le cadre
-  local coal, ugs
+  local coal
   if not frame and data.design == "colonne" and data.furnace and data.furnace.fuel and data.coal_rate then
     local box
     coal, box = coal_tiles(surface, { x = cx, y = cy })
@@ -403,6 +416,12 @@ local function spec_of(f, surface, o, frame, only, axis_force)
       x0, y0, x1, y1 = math.min(x0, box[1] - m), math.min(y0, box[2] - m), math.max(x1, box[3] + m), math.max(y1, box[4] + m)
     end
   end
+  J.data, J.names, J.ore, J.coal, J.rect = data, names, ore, coal, { x0, y0, x1, y1 }
+  return false
+end
+function SPEC.foreign(J)
+  local f, surface, o, data, names, ore, coal = J.f, J.surface, J.o, J.data, J.names, J.ore, J.coal
+  local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
   local mine = mine_of(f, o)
   local soft = coal and {} or nil
   -- lot MELANGE : autres ressources minables autour du gisement (une foreuse se pose au plus côté + portée hors du minerai)
@@ -415,13 +434,26 @@ local function spec_of(f, surface, o, frame, only, axis_force)
   -- F500 : relevées aussi sur tout le rectangle lu (x0..x1, y0..y1), où la fonderie se place : aucun four sur un autre gisement
   local foreign, nforeign, resources = foreign_in(surface, names.resource, names.cats, math.min(ox0 - fm, x0), math.min(oy0 - fm, y0),
     math.max(ox1 + fm, x1), math.max(oy1 + fm, y1))
+  J.mine, J.soft, J.fm, J.foreign, J.nforeign, J.resources = mine, soft, fm, foreign, nforeign, resources
+  return false
+end
+function SPEC.blocked(J)
+  local f, surface, o = J.f, J.surface, J.o
+  local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
   Profiler.fstart("champ:blocked")
   -- lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre de cet avant-poste a retenues pour son réseau du charbon reporté lui restent libres
-  local blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft, function(_, _, owner) return Cd.own(owner, o.id) end)
+  J.blocked = blocked_in(f, surface, x0, y0, x1, y1, J.mine, J.soft, function(_, _, owner) return Cd.own(owner, o.id) end)
   Profiler.fstop("champ:blocked")
+  return false
+end
+function SPEC.fin(J)
+  local f, surface, o, frame, only, axis_force = J.f, J.surface, J.o, J.frame, J.only, J.axis_force
+  local data, names, ore, coal, blocked, mine, fm = J.data, J.names, J.ore, J.coal, J.blocked, J.mine, J.fm
+  local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
+  local ugs
   Rer.note(f, surface, o, ore, blocked, mine, { x0, y0, x1, y1 }) -- lot s42 reroutage : relevé seul, le plan de ce tour garde le trou
   local spec = {
-    ore = ore, blocked = blocked, mine = mine, soft = soft, foreign = foreign, nforeign = nforeign, resources = resources,
+    ore = ore, blocked = blocked, mine = mine, soft = J.soft, foreign = J.foreign, nforeign = J.nforeign, resources = J.resources,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
     design = data.design, logistics = data.logistics,
@@ -451,7 +483,25 @@ local function spec_of(f, surface, o, frame, only, axis_force)
     fr.only = only
     spec.frame = fr
   end
-  return spec, names
+  return true, spec, names
+end
+local function spec_begin(f, surface, o, frame, only, axis_force)
+  return { f = f, surface = surface, o = o, frame = frame, only = only, axis_force = axis_force, i = 1 }
+end
+-- UNE étape de la lecture ; rend (fini, spec, names) ; J.last : nom de l'étape faite (journal de mesure)
+local function spec_step(J)
+  local name = SPEC_STAGES[J.i]
+  J.last = name
+  local fin, spec, names = SPEC[name](J)
+  J.i = J.i + 1
+  return fin, spec, names
+end
+local function spec_of(f, surface, o, frame, only, axis_force)
+  local J = spec_begin(f, surface, o, frame, only, axis_force)
+  while true do
+    local fin, spec, names = spec_step(J)
+    if fin then return spec, names end
+  end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -463,6 +513,7 @@ local PLAN_TICK = nil -- s47 axe : tick du dernier Ch.plan de cadre (local au mo
 -- s49 tranches : séquence de variantes du plan en cours, par avant-poste : { f, key, spec, st (Ch.plan_begin), tick du dernier pas } (local, non
 -- sauvegardé : absente après chargement, la séquence est reprise du début sur une spec neuve ; même plan pour la même spec)
 local SEQ = {}
+local SPECJOB = {} -- perf-frame : lectures de spec en cours (étapes spec_step), par équipe et avant-poste : { f, key, J, tick } (local, non sauvegardé)
 local SEQ_GAP = 1800 -- s49 tranches : un pas de plus de 30 s après le précédent repart du début (spec relue : le monde a pu changer)
 local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
 
@@ -474,7 +525,9 @@ local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres
 local function okey(f, oid) return tostring(f and f.key or "player") .. ":" .. tostring(oid) end
 function Champ.inner_step(f, oid)
   local seq = SEQ[okey(f, oid)]
-  return seq ~= nil and seq.st.inner == true
+  -- perf-frame : la lecture de la spec en étapes (SPECJOB) et le premier pas après elle suivent aussi l'espacement court
+  if SPECJOB[okey(f, oid)] ~= nil then return true end
+  return seq ~= nil and (seq.st.inner == true or seq.st.k == 0)
 end
 
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
@@ -493,15 +546,31 @@ function Champ.frame(f, surface, o)
   local g = game
   local prof_spec, prof_step = nil, nil -- mesure [FO-PERF-ETAPE] : affichage seul, aucune décision
   if not (seq and seq.f == f and seq.key == key and game.tick - seq.tick <= SEQ_GAP) then
+    -- perf-frame : la spec est lue en étapes (spec_step), une par appel (SPECJOB, mémoire locale comme SEQ : perdue au chargement, la
+    -- lecture repart du début) ; le premier pas du plan part à l'appel suivant
+    local sj = SPECJOB[sk]
+    if not (sj and sj.f == f and sj.key == key and game.tick - sj.tick <= SEQ_GAP) then
+      sj = { f = f, key = key, J = spec_begin(f, surface, o, nil, nil, axis_force) }
+      SPECJOB[sk] = sj
+    end
+    sj.tick = game.tick
+    PLAN_TICK = game.tick
     prof_spec = g.create_profiler and g.create_profiler() or nil
     Profiler.fstart("champ:frame-spec")
-    local spec, names = spec_of(f, surface, o, nil, nil, axis_force)
+    local fin, spec, names = spec_step(sj.J)
     Profiler.fstop("champ:frame-spec")
+    if prof_spec then
+      prof_spec.stop()
+      log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=spec pass=- k=0 spec:%s tuiles=%d bandes=0 x spec=", tostring(f.key or "player"), o.id,
+        step, tostring(sj.J.last), sj.J.ore and math.floor(#sj.J.ore / 2) or 0), prof_spec, " pas=", prof_spec })
+    end
+    if not fin then return nil, Ax.WAIT end
+    SPECJOB[sk] = nil
     if not spec then SEQ[sk] = nil; o.axis_try = nil; return nil, names end
     Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
     seq = { f = f, key = key, spec = spec, st = Ch.plan_begin(spec), tick = game.tick }
     SEQ[sk] = seq
-    if prof_spec then prof_spec.stop() end
+    return nil, Ax.WAIT
   end
   local spec = seq.spec
   Profiler.fstart("champ:frame-plan")
@@ -509,12 +578,14 @@ function Champ.frame(f, surface, o)
   seq.tick = game.tick
   prof_step = g.create_profiler and g.create_profiler() or nil
   Ch.LAST_STEP = "-"
-  local done = Ch.plan_step(seq.st)
+  local k0 = seq.st.k
+  -- perf-frame : plusieurs étapes d'une même variante par appel sous le budget de travail du tick (un compte : même découpage partout)
+  local done = Ch.plan_steps(seq.st, Champ.CFG.tick_work)
   if prof_step then
     prof_step.stop()
     local cur = seq.st.cur
-    log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=%s pass=%s k=%d %s spec=", tostring(f.key or "player"), o.id, step,
-      tostring(cur and cur.i or "fin"), tostring(cur and cur.o.pass or "-"), seq.st.k, Ch.LAST_STEP), prof_spec or "0", " pas=", prof_step })
+    log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=%s pass=%s k=%d %s n=%d spec=", tostring(f.key or "player"), o.id, step,
+      tostring(cur and cur.i or "fin"), tostring(cur and cur.o.pass or "-"), seq.st.k, Ch.LAST_STEP, seq.st.k - k0), "0 pas=", prof_step })
   end
   Profiler.fstop("champ:frame-plan")
   if not done then return nil, Ax.WAIT end
