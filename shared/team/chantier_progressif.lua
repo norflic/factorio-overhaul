@@ -130,6 +130,10 @@ function Cp.go(p)
   -- Une bande à dégeler garde le tout-ou-rien, comme Rr.partial_go (build.lua) ; la vue porte p.degele.
   if s and s.degel and not p.degele then return false, "degel" end
   if s and s.ext == true and not s.rangee then return Cp.ready_lead(p.need or {}, p.stock or {}, p.lead or {}) end -- lot CC-PETROLE
+  -- lot VAPEUR (14/11, banc 2026-11-14_VAPEUR-1, carte du DC) : l'ALIMENTATION d'une centrale (foreuses de charbon + tapis jusqu'à sa tête) restait
+  -- en « reserve:materiaux » 25 min et plus (player : 161 pièces, 0 bâtie de 4,7 à 30 min ; amber : 419 pièces) pendant que le fer manquait :
+  -- elle part au plancher commun de chaque objet, le tapis se pose à mesure que la matière arrive
+  if s and s.alim ~= nil then return Cp.ready(p.need or {}, p.stock or {}) end
   local c = p.spec and p.spec.champ
   if not c then return false, "pas une bande" end
   if c.coal ~= nil or c.link ~= nil then return false, "reseau de charbon" end
