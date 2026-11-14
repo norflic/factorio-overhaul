@@ -49,7 +49,7 @@ Champ.CFG = {
   -- perf-frame : travail des étapes du plan groupées dans un appel (Ch.plan_steps ; compte d'états et de tuiles, jamais un temps :
   -- même découpage sur toutes les machines). Banc 0.7.113 carte du DC : 3 000 unités de recherche ~ 1,5 à 2 ms
   -- perf-astar (banc carte du DC, 30 min, 6 000 : appels de 90 à 166 ms en jeu, une unité y coûte bien plus que hors jeu) : 2 000
-  tick_work = 2000,
+  tick_work = 3000, -- perf-astar 2 : 2000 retardait les plans (fer -9 % a T+30, graine de la carte du DC)
   radius = 96,      -- tuiles autour de l'avant-poste où le gisement est lu
   side = 8,         -- foreuses par côté et par groupe au plus (une bande coûte ce que sa fonderie coûte : la suivante l'agrandit)
   margin_v = 10,    -- tuiles lues en travers au-delà du gisement

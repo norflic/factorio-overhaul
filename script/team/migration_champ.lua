@@ -829,7 +829,7 @@ Mig.STEP_GAP = 120
 -- s52 bandes : un pas est une ÉTAPE d'une variante (Ch.once_step : une phase, une bande, un réseau du charbon ; la variante entière prenait
 -- 2,3 à 5,1 s d'un bloc sur la carte du DC à 600 %) : les étapes d'une même variante sont espacées de Mig.INNER_GAP ticks, Mig.STEP_GAP reste
 -- entre deux variantes (Champ.inner_step)
-Mig.INNER_GAP = 2
+Mig.INNER_GAP = 1 -- perf-astar : 2 avant ; les étapes sont bornées par le budget de travail (Champ.CFG.tick_work), le plan finit deux fois plus tôt
 local NEXT_STEP = {} -- 0.7.114 (F675) : clé d'équipe -> tick du pas suivant permis (local, vide après chargement comme la file)
 local function team_key(f) return tostring(f.key or "player") end
 local function frame_take(f, surface, ms, o, st, tick)
