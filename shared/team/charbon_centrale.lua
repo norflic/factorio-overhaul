@@ -228,4 +228,12 @@ function Cc.arrivals(x, y, dv, lv, d, dir_of)
   }
 end
 
+-- Lot s50 centrale-tapis (partie du DC en 0.7.107 : « foreuses : attente » = moitié des refus du tapis, centrales 7 et 8 de player à
+-- la main toute la partie) : « attente » (paire du tracé en pause après un échec, Trav.route) et « budget tick » (plafond d'états du
+-- tick) ne sont pas des refus du plan : le projet reste ouvert et réessaie après Cc.TRANSIENT_WAIT, sans compter vers la pause longue.
+Cc.TRANSIENT_WAIT = 1800 -- 30 s avant le nouvel essai du plan après un échec passager du tracé
+function Cc.transient(why)
+  return why == "attente" or why == "budget tick"
+end
+
 return Cc
