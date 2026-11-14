@@ -73,7 +73,8 @@ def charte(S, M, prefix, gris=False):
         TM.iridescence(M["blind2"], part=0.65, blend=0.32)
     finally:
         TM.IRIS = iris
-    M["canon"] = MT.surface(prefix + "v3_canon", (0.11, 0.12, 0.14), rough=0.22, met=0.95, tole=(0.5, 0.25), joint=0.08, joint_l=0.03,
+    # canon : acier satiné (rugosité 0,42) : poli, ses tubes horizontaux renvoyaient le ciel en traits blancs (2,1 % du corps en d4/d12, salve)
+    M["canon"] = MT.surface(prefix + "v3_canon", (0.09, 0.10, 0.12), rough=0.42, met=0.85, tole=(0.5, 0.25), joint=0.08, joint_l=0.03,
                             var=0.08, usure=0.6, nu=VIF, crasse=0.1, crasse_col=CREUX, relief=0.7, grain=0.0, biseau=0.03, graine=25)
     M["struct"] = MT.surface(prefix + "v3_struct", (0.016, 0.017, 0.022), rough=0.38, met=0.8, usure=0.5, nu=(0.40, 0.44, 0.52),
                              crasse=0.15, crasse_col=(0.004, 0.004, 0.006), grain=0.0, biseau=0.03, graine=23)
