@@ -19,6 +19,7 @@ local T = require("shared.team.config")
 local P = require("shared.team.plan")
 local Tv = require("shared.team.traversee")
 local Ti = require("shared.team.tapis_infranchissable")
+local RG = require("shared.team.route_garde") -- s45 astar-budget : plafond par tick, mémo d'échec, boucle
 
 local Trav = {}
 
@@ -199,6 +200,7 @@ end
 -- Tapis
 ---------------------------------------------------------------------------------------------------
 local BUDGET = { key = nil, box = nil }
+local TICK_BOX = { tick = nil, spent = 0 } -- s45 : états dépensés au tick, tous tracés (table LOCALE)
 --- Budget d'états PARTAGÉ par tous les tracés d'un même projet au même tick (les 3 essais de plan_drills, les 4 paires de bouts d'une liaison).
 --- opts.budget (table { left }) l'emporte. Table LOCALE : jamais dans global, rien à sauvegarder.
 function Trav.budget(f, p, opts)
@@ -211,6 +213,22 @@ end
 --- Trace d'un tapis de s à t (voir le haut du fichier). `p` : le projet (numéro et nature au journal), facultatif.
 function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
   opts = opts or {}
+  -- s45 astar-budget : une paire en échec attend (1, 2, 4 … BASE, borné à 30 min) ; plafond global d'états par tick
+  local memo = f.build and (function() f.build.route_memo = f.build.route_memo or {} return f.build.route_memo end)() or nil
+  -- clé : la paire triée, plus ce qui change le tracé (boîte, poids, plafond, nature) : un 2e essai différent n'est pas bloqué
+  local pkey = RG.pair_key(s, t) .. "|" .. tostring(opts.kind) .. "|" .. tostring(opts.weight) .. "|" .. tostring(opts.max) .. "|" ..
+    tostring(bounds.x0) .. "," .. tostring(bounds.y0) .. "," .. tostring(bounds.x1) .. "," .. tostring(bounds.y1)
+  if memo and not opts.resume and RG.blocked(memo, pkey, game.tick) then return nil, "attente" end
+  if RG.tick_left(TICK_BOX, game.tick) <= 0 then return nil, "budget tick" end
+  local tiles, info, extra = Trav.route_inner(f, surface, p, s, t, t_dir, bounds, cost, opts)
+  if tiles and RG.has_loop(tiles) then tiles, info, extra = nil, "boucle", nil end
+  if memo and info ~= "pending" and info ~= "budget tick" then
+    if tiles then RG.success(memo, pkey) else RG.fail(memo, pkey, game.tick) end
+  end
+  return tiles, info, extra
+end
+
+function Trav.route_inner(f, surface, p, s, t, t_dir, bounds, cost, opts)
   -- s45 astar-tapis : tuile portant un tapis, un souterrain ou un séparateur (posé ou fantôme) = infranchissable (lecture paresseuse de la boîte)
   do
     local occ
@@ -250,7 +268,19 @@ function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
   }
   local tiles, info, resume_state
   if Trav.ENABLED then
+    local left0 = ctx.budget and ctx.budget.left
+    local cap = left0 and math.min(left0, RG.tick_left(TICK_BOX, game.tick)) or nil
+    if cap then ctx.budget.left = cap end
     tiles, info, resume_state = Tv.route(s, t, t_dir, bounds, cost, ctx)
+    if cap then
+      local used = math.max(0, cap - ctx.budget.left)
+      RG.spend(TICK_BOX, game.tick, used)
+      ctx.budget.left = left0 - used
+      -- coupé par le plafond du tick (pas par le sien) : ni verdict ni mémo, on réessaie à une passe suivante
+      if not tiles and info == "trop long" and cap < left0 then return nil, "budget tick" end
+    elseif type(info) == "table" and info.expand then
+      RG.spend(TICK_BOX, game.tick, info.expand)
+    end
     if not tiles and info == "pending" then return nil, "pending", resume_state end -- tranche finie : ni verdict, ni journal
   else
     -- réglage éteint : l'ancien tracé (P.belt_route), compteur de gisement seulement
