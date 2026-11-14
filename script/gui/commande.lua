@@ -22,6 +22,7 @@ local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local T = require("shared.team.config")
 local Co = require("shared.ai3.commande")
+local Om = require("shared.team.outil_main") -- s46 crash
 
 local Cmd = {}
 
@@ -42,8 +43,10 @@ local function team_of(player)
 end
 
 --- Lot s45 OUTILS : met l'outil `name` dans la main du joueur (joueur d'une équipe seulement).
+-- s46 crash : gardes valid / nil (joueur, prototype, main sans curseur, outil déjà en main) dans shared/team/outil_main.lua.
 local function give_tool(player, name)
-  if player and team_of(player) and player.clear_cursor() then player.cursor_stack.set_stack({ name = name, count = 1 }) end
+  if not (player and player.valid and team_of(player)) then return end
+  Om.give(player, name, name ~= nil and game.item_prototypes[name] ~= nil)
 end
 
 local function cstate(f)
