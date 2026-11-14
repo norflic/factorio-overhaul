@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.107
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F662) : quand l'essai de l'autre orientation d'un gisement perd, le premier plan est repris au lieu d'être recalculé (deux plans complets au lieu de trois).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.106
 Date: 2026-11-14
   Bugfixes:
