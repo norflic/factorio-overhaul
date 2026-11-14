@@ -440,6 +440,11 @@ B.MEGA = {
   ANNEAUX = { { 0.3, 8 }, { 0.6, 12 }, { 0.9, 16 } },
   ANNEAU_PART = 0.25,
   ANNEAU = "fo-mega-bourdon-anneau",
+  -- tranche 3 : éclair central lumineux (feuilles « onde » et « eclat », diamètres ECLAIR_PART × le rayon) au lieu de la big-explosion
+  -- agrandie (sa fumée sombre couvrait la zone). Les vers que la zone tue restent ~45 ticks à 0 PV avant de disparaître : mort
+  -- différée du moteur (banc du 14/11 : LuaEntity.die() sur eux à l'impact ne les retire pas plus tôt), pas un défaut de dégâts
+  ECLAIR = "fo-mega-bourdon-eclair",
+  ECLAIR_PART = { onde = 1.2, eclat = 0.5 },
   -- marge de précision : le moteur calcule dégâts et résistances en simple précision (24 bits de mantisse, 2^-24 perdu par opération) ;
   -- un tir « au plus juste » laissait la plus forte à une fraction de PV (banc megabourdon-vitrine du 11/11 : 8 des 9 survivent au
   -- premier impact). Tuer, c'est infliger au moins PV × (1 + 2^-10).
@@ -645,6 +650,7 @@ function B.impact_mega(i)
     if c[q] and c[q].duree then c[q].duree = c[q].duree * dx end
   end
   c.brulure = nil
+  c.source = nil -- s43 tranche 3 : plus de big-explosion (fumée sombre) ; l'onde de choc au sol porte l'impact, l'éclair central s'y ajoute
   return c
 end
 
