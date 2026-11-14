@@ -252,7 +252,6 @@ local function note_handout(f, site, tick)
 end
 
 local PROBES_PER_STEP = 4
-local MAX_PROSPECTS = 8
 local MAX_PER_KIND = 2
 -- Lot IA2-b : une faction garde un CHOIX de sites (besoin + 2, au plus 3 par ressource, 12 en tout), choisit par valeur
 -- (Sites.find), et prospecte un tour sur deux autour d'un FRONT (un de ses avant-postes lointains, 6 chunks de rayon).
@@ -357,15 +356,14 @@ local function faction_limits(f)
 end
 
 function Sites.room_for(f, resource)
-  local per, total = MAX_PER_KIND, MAX_PROSPECTS
-  if not f.is_player then per, total = faction_limits(f) end
+  local per, total = faction_limits(f) -- joueur-parite : bornes des factions pour votre equipe (2 et 8 avant)
   return prospects_of(f, resource) < per and #(f.prospects or {}) < total
 end
 
 local function want_of(f, res)
   local need = (f.site_needs or {})[res] or 0
   local want = math.min(MAX_PER_KIND, need)
-  if not f.is_player and need > 0 then want = math.min((faction_limits(f)), need + FACTION_EXTRA) end
+  if need > 0 then want = math.min((faction_limits(f)), need + FACTION_EXTRA) end -- joueur-parite
   return want
 end
 
@@ -380,7 +378,6 @@ local function wanted_resources(f)
 end
 
 local function max_prospects(f)
-  if f.is_player then return MAX_PROSPECTS end
   local _per, total = faction_limits(f) -- (local : jamais `_`, variable globale du mod)
   return total
 end
@@ -1167,7 +1164,7 @@ function Sites.unblock(f, surface, site, resource, tick)
       end
       if drop then dropped[#dropped + 1] = { drop, table.remove(f.prospects, drop) } end
     end
-    if prospects_of(f, resource) >= (f.is_player and MAX_PER_KIND or (faction_limits(f))) then drop_farthest(resource) end
+    if prospects_of(f, resource) >= (faction_limits(f)) then drop_farthest(resource) end -- joueur-parite
     if #f.prospects >= max_prospects(f) then drop_farthest(nil) end
     added = probe(f, surface, math.floor(site.x / 32), math.floor(site.y / 32), tick, { resource }, nil, other_hqs_of(f),
       game.forces.player.get_spawn_position(surface), war)

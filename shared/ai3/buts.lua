@@ -309,7 +309,7 @@ function B.generate(s, st)
     local spec = T.outposts[kind]
     local want = tg[kind] or 0
     local have = (s.cap[kind] or 0) + (s.pending[kind] or 0)
-    local via_releve = s.extension and not s.is_player and want > base_max and not (s.room or {})[kind]
+    local via_releve = s.extension and want > base_max and not (s.room or {})[kind] -- joueur-parite : votre equipe aussi (aucun ordre du joueur ne passe par la releve)
     if not via_releve and want > 0 and have < want * 0.75 and not ((s.cap[kind] or 0) > 0 and B.saturated(s, spec.product))
       and not ((s.cap[kind] or 0) > 0 and B.raw_full(s, spec)) then
       local base
@@ -344,7 +344,7 @@ function B.generate(s, st)
   -- d'affilée de 60 à 150 min et porte un gisement de charbon de 4 à 166 foreuses thermiques avec 49 000 charbons libres au
   -- coffre ; le champ, lui, n'agrandit qu'en dessous de 3 000. Le fer et le cuivre (paire avec four) gardent leur couverture :
   -- leurs paires sont remplacées par les bandes du champ et balayées (shared/team/thermique.lua).
-  if not s.is_player and not s.recruiting then
+  if not s.recruiting then -- joueur-parite : la couverture vaut pour votre equipe (0 but couverture chez player, 40 chez amber, autopsie JALONS30-c3)
     local emitted = {}
     for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
     local fuel_kind = key.fuel
@@ -370,7 +370,7 @@ function B.generate(s, st)
   -- un site en réserve. Ici : tout type exploité sans place reçoit un but de nouveau site (build, hors couverture). Les causes
   -- d'allure (« posture », « extension ») sont des buts de FOND (aucune place parmi les K projets, servis avec le reste du stock),
   -- bornés comme la couverture ; « manque » et « plein » sont des projets ordinaires. Réglage maître éteint (s.extension faux) : rien.
-  if s.extension and not s.is_player then
+  if s.extension then -- joueur-parite : la releve vaut pour votre equipe
     local rel = B.releve(s, st)
     local emitted = {}
     for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
@@ -385,10 +385,10 @@ function B.generate(s, st)
     end
   end
   -- Capital : fonderie du QG.
-  local smelters_want = s.is_player and 2 or B.SMELTERS_WANT
+  local smelters_want = B.SMELTERS_WANT -- joueur-parite : votre equipe n'est plus bornee a 2 fours du QG
   -- Lot SCALE (capacité de FONTE) : une faction dont une plaque manque alors que son minerai attend au coffre agrandit sa
   -- fonderie, par vagues, jusqu'à la moitié de son effectif (shared/ai3/bras.lua, Br.smelters).
-  if not s.is_player then smelters_want = Br.smelters(B.smelt_situation(s, st), st, B.SMELTERS_WANT, B.GROW_THINKS) end
+  smelters_want = Br.smelters(B.smelt_situation(s, st), st, B.SMELTERS_WANT, B.GROW_THINKS)
   if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and (s.cap[key.top] or 0) >= 0.75 then
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
       n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }

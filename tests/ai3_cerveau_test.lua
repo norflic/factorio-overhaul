@@ -348,7 +348,8 @@ local pf2 = C.think(fer_view({ stock = { ["iron-plate"] = 6, coal = 12, stone = 
 local put = find(pf2, function(t) return t.kind == "smelters" and t.why == "fonderie" end)
 check(put ~= nil and put.count == 2, "fours du coffre posés selon le charbon (12 charbons : " .. tostring(put and put.count) .. " fours)")
 -- (b) Saturation (A5) : rien ne manque : la tournée de l'avant-poste de pierre saturé continue ; le fer manque : retirée.
-local calm = dc_view({ smelters = 2, stock = { stone = 600, coal = 800, ["iron-plate"] = 900, ["copper-plate"] = 900,
+-- joueur-parite : votre équipe reçoit la couverture et la fonderie d'une faction (besoin de pierre plus haut) : 6 000 pierres, 4 fours
+local calm = dc_view({ smelters = B.SMELTERS_WANT, stock = { stone = 6000, coal = 800, ["iron-plate"] = 900, ["copper-plate"] = 900,
   ["firearm-magazine"] = 60 }, outposts = { op(1, "stone", 2), op(2, "iron", 4), op(3, "coal", 4), op(4, "copper", 4) } })
 local stc = C.new_state(0)
 local pc = C.think(calm, book, stc, ctx)
