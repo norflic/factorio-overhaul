@@ -441,7 +441,7 @@ M("courant ignore", "if k < 1 then return 0, \"courant insuffisant", "if false t
 M("modules non decomptes entre ordres", "avail[o.nm] = avail[o.nm] - k * o.per", "")
 M("machines par ordre non bornees", "local k = math.min(o.nunits, Ms.BATCH_MAX, math.floor(avail[o.nm] / o.per))", "local k = math.min(o.nunits, math.floor(avail[o.nm] / o.per))")
 M("menace ignoree", "if v.threat then refuse(key, nil, \"menace : machines du QG seulement\") return end", "")
-M("cle deja ouverte ignoree", "if taken[key] then return end", "")
+M("cle deja ouverte ignoree", "if taken[key] then skipped(\"ordre deja ouvert\") return end", "")
 M("repli ignore", "if held then refuse(key, nil, held) return end", "")
 M("reserve remise", "Roi.RESERVE = 0", "Roi.RESERVE = 4")
 check(n_caught == n_mut, string.format("§5 mutants : %d refuses sur %d", n_caught, n_mut))

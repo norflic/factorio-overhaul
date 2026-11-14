@@ -245,6 +245,11 @@ function RT.think(f, cs, tick, c)
     view.craftable = c.craftable
     view.max_wants = (fab_open > 0) and 0 or nil -- un seul ordre de fabrication de modules ouvert à la fois par équipe
     orders, refus, info, wants = Roi.plan(Ca, D, view)
+    -- Lot MODULES-0716 : bilan de la passe (à chaque changement) : groupes vus, ordres, souhaits, refus, écartés par cause
+    local sk = {}
+    for _, k in ipairs(sorted_keys(info.skip)) do sk[#sk + 1] = k .. "=" .. info.skip[k] end
+    state(string.format("%d module(s) au coffre, fabrication %s ; passe : %d groupe(s) de machines, %d de foreuses -> %d pose(s), %d souhait(s), %d refus ; ecartes {%s}",
+      total, can_make and "possible" or "non lue", #views_m, #views_d, #orders, #wants, #refus, table.concat(sk, " ")))
     for _, w in ipairs(wants) do orders[#orders + 1] = w end
   else
     orders, refus, info = Ms.plan(Ca, D, view)

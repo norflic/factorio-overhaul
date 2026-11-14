@@ -250,25 +250,31 @@ function Roi.plan(Ca, D, v)
   local function refuse(key, nm, why) refus[#refus + 1] = { key = key, module = nm, why = why } end
   local opts = {}
 
+  -- Lot MODULES-0716 : groupes écartés sans refus écrit, comptés par cause (info.skip ; journal [FO-MODULES] « etat »)
+  local skip = {}
+  info.skip = skip
+  local function skipped(why) skip[why] = (skip[why] or 0) + 1 end
   local function consider(g, is_drill)
     local ent = is_drill and D.drill_by[g.entity] or D.maker_by[g.entity]
     local sl = L.slots[g.entity]
-    if not ent or not sl or (g.n or 0) <= 0 then return end
+    if not ent then skipped("machine hors releve") return end
+    if not sl then skipped("sans emplacement") return end
+    if (g.n or 0) <= 0 then skipped("groupe vide") return end
     local filled = Lv.filled(g.mods or {})
     local free = sl.n - filled
-    if free <= 0 then return end
+    if free <= 0 then skipped("emplacements pleins") return end
     local item, r
     if is_drill then
       item = g.resource
-      if not item or not D.res[item] or D.res[item].fluid then return end
+      if not item or not D.res[item] or D.res[item].fluid then skipped("ressource fluide ou inconnue") return end
     else
       r = D.recipes[g.recipe]
-      if not r or r.fluid or #r.products == 0 then return end
+      if not r or r.fluid or #r.products == 0 then skipped("recette fluide ou absente") return end
       item = r.products[1].name
     end
     local where = is_drill and (g.deposit ~= nil and tostring(g.deposit) or Ca.HQ) or (g.where or Ca.HQ)
     local key = Ms.key(g, is_drill, where)
-    if taken[key] then return end
+    if taken[key] then skipped("ordre deja ouvert") return end
     local state = Roi.state(g.run)
     if state == Roi.S_OUT or state == Roi.S_STOP then
       refuse(key, nil, "machine arretee : " .. tostring(g.run and g.run.stop or "sans travail"))
@@ -284,7 +290,7 @@ function Roi.plan(Ca, D, v)
       end
     end
     local nunits = #units
-    if nunits <= 0 then return end
+    if nunits <= 0 then skipped("aucune unite qui travaille") return end
     if where ~= Ca.HQ then
       if v.threat then refuse(key, nil, "menace : machines du QG seulement") return end
       if (v.danger or {})[where] then refuse(key, nil, "lieu " .. where .. " dangereux") return end
