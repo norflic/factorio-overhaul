@@ -34,4 +34,5 @@ base.finish = function(ctx)
   report(ctx, game.tick)
   finish0(ctx)
 end
-return base
+-- s43 sonde-charbon : combustible du QG par minute et par equipe (lignes [FO-SONDE-CHARBON]).
+return require("scenarios/sonde_charbon")(base, 60)
