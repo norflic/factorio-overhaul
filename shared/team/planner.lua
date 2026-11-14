@@ -632,29 +632,41 @@ function P.plan(view, book)
   end
   -- Lot PURGE-FER-CHARBON (DC 11/11) : un avant-poste de charbon de plus seulement sous le besoin réel des chaudières et des brûleurs actifs, lu en
   -- jeu (view.coal_cap, shared/team/bilan_charbon.lua) ; il remplace le bilan à cadences et sa marge de 40 %. Avant la réserve de tournée.
+  -- Lot charbon-dim (14/11) : view.coal_cap est désormais NOMINAL (toutes les machines à combustible posées à pleine puissance, + 30 %, contre
+  -- le débit nominal des foreuses posées : Bc.dim) ; la décision prise ici est rendue dans out.coal_dim (journal [FO-CHARBON-DIM]).
   do
-    if #view.outposts > 0 and Bc.room(view.coal_cap) and (view.pending.coal or 0) == 0
-      and not Th.raw_full(T.outposts.coal, view.stock) then
+    local cc = view.coal_cap
+    if cc == nil then out.coal_dim = "sans releve"
+    elseif #view.outposts == 0 then out.coal_dim = "aucun avant-poste"
+    elseif not Bc.room(cc) then out.coal_dim = "offre suffisante"
+    elseif (view.pending.coal or 0) > 0 then out.coal_dim = "avant-poste de combustible deja en cours"
+    elseif Th.raw_full(T.outposts.coal, view.stock) then out.coal_dim = "stock de combustible plein"
+    else
       local items = outpost_items("coal")
       local ext = extendable(view, "coal", undefended)
       if ext and not open["extend:" .. ext.id] then
         if take(items) then
           add({ key = "extend:" .. ext.id, kind = "extend", prio = 85, outpost = ext.id, outpost_kind = "coal", items = items })
+          out.coal_dim = "agrandir avant-poste " .. tostring(ext.id)
         else
           want(items, 52, "charbon")
+          out.coal_dim = "agrandir avant-poste " .. tostring(ext.id) .. " (pieces demandees)"
         end
-      elseif not ext and not (df and extendable(view, "coal")) then
+      elseif ext then out.coal_dim = "agrandissement deja ouvert (avant-poste " .. tostring(ext.id) .. ")"
+      elseif not (df and extendable(view, "coal")) then
         -- (lot IA1-b2 : un avant-poste de charbon qui attend ses tourelles pour s'agrandir ne fait pas bâtir ailleurs)
         out.site_needs.coal = math.max(out.site_needs.coal or 0, 1)
         local list = build_items("coal", items, T.outposts.coal.drills)
         if list then
           if (view.sites.coal or 0) > 0 and take(list) then
             add({ key = "build:coal", kind = "build", prio = 85, outpost_kind = "coal", items = list })
+            out.coal_dim = "batir un avant-poste"
           else
             want(list, 52, "charbon")
+            out.coal_dim = (view.sites.coal or 0) > 0 and "batir un avant-poste (pieces demandees)" or "batir un avant-poste (site cherche)"
           end
-        end
-      end
+        else out.coal_dim = "batir un avant-poste (pieces introuvables)" end
+      else out.coal_dim = "avant-poste en attente de ses tourelles" end
     end
   end
 

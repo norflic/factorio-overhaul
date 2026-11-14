@@ -27,9 +27,12 @@ local function t_charbon(bsrc, psrc)
     check(Bc.drill_counts ~= nil and Bc.drill_counts(S[k], S) == false, "1. foreuse " .. k .. " : pas comptée")
   end
   check(Bc.drill_counts ~= nil and Bc.drill_counts(nil, S) == false, "1. statut illisible : pas comptée")
-  -- le relevé en jeu lit le prédicat dans la condition des foreuses du combustible
-  local line = psrc:match("\n([^\n]*mp%.products%[1%]%.name == T%.fuel[^\n]*)\n")
-  check(line ~= nil and line:find("Bc.drill_counts(e.status, status)", 1, true) ~= nil, "1. plafond_charbon : la foreuse n'entre dans drills que par Bc.drill_counts")
+  -- Lot charbon-dim (14/11) : l'OFFRE qui décide est nominale (Bc.drill_nominal : toute foreuse posée sauf épuisée ou arrêtée par script
+  -- ou circuit) ; le prédicat de FIX-P1 ne sert plus qu'au relevé d'avant, écrit au journal [FO-CHARBON-DIM] pour comparaison.
+  check(psrc:find("if Bc.drill_nominal(e.status, status) then drills[#drills + 1] = rate end", 1, true) ~= nil,
+    "1. plafond_charbon : la foreuse n'entre dans l'offre (drills) que par Bc.drill_nominal")
+  check(psrc:find("if Bc.drill_counts(e.status, status) then live_drills[#live_drills + 1] = rate end", 1, true) ~= nil,
+    "1. plafond_charbon : le relevé d'avant (live_drills) garde Bc.drill_counts")
 end
 
 local function t_centrale(csrc)
@@ -89,7 +92,7 @@ local mutants = {
   { "b", "1. la foreuse en attente de place ne compte plus", " or status == S.waiting_for_space_in_destination", "" },
   { "b", "1. toute foreuse compte", "return S ~= nil and status ~= nil and (status == S.working or status == S.waiting_for_space_in_destination)", "return true" },
   { "b", "1. la foreuse à sec compte", "(status == S.working or", "(status == S.working or status == S.no_minable_resources or" },
-  { "p", "1. le relevé n'appelle plus le prédicat", " and Bc.drill_counts(e.status, status) then", " then" },
+  { "p", "1. l'offre n'appelle plus le prédicat nominal", "if Bc.drill_nominal(e.status, status) then drills", "if true then drills" },
   -- (P0-CENTRALE, 80305871 : la garde F491 laisse passer une demande engagée au-delà de la capacité, C.engaged_over : repères suivis)
   { "c", "2. l'avance contourne F491", "C.engaged_over(n.engaged_kw, n.cap_kw) then", "C.engaged_over(n.engaged_kw, n.cap_kw) and not n.anticipate then" },
   { "c", "2. la garde F491 tombe pour tous", "n.load ~= nil and n.load < C.GROW_LOAD and not C.engaged_over(n.engaged_kw, n.cap_kw) then", "false then" },
