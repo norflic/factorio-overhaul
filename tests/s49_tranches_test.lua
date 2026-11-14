@@ -1,5 +1,6 @@
 --[[
-  s49 tranches : le plan d'un cadre neuf pas à pas (Ch.plan_begin / Ch.plan_step / Ch.plan_result), UN plan_order par pas, et Champ.frame
+  s49 tranches : le plan d'un cadre neuf pas à pas (Ch.plan_begin / Ch.plan_step / Ch.plan_result), au plus UN plan_order fini par pas (s52 bandes : un pas = une
+  étape de plan_once), et Champ.frame
   qui fait un pas par appel. Le plan ne change pas : empreintes des plans de v0.7.107 (Ch.plan d'avant, variantes enchaînées dans le même
   appel) sur des specs qui demandent 1, 2, 3 et 4 variantes ; plan pas à pas == Ch.plan ; séquence reprise du début (chargement) == même plan.
   Usage, depuis la racine du mod :   lua5.2 tests/s49_tranches_test.lua
@@ -93,25 +94,28 @@ local REF107 = { -- lua5.2 sur le champ.lua de v0.7.107 (Ch.plan d'avant s49), m
 }
 for _, cs in ipairs(CASES) do cs[4] = cs[4] or REF107[cs[1]] end
 
-print("== s49 tranches : un plan_order par pas, plan identique à Ch.plan et à v0.7.107")
+print("== s49 tranches : au plus un plan_order fini par pas, plan identique à Ch.plan et à v0.7.107")
 local seen_n = {}
 for _, cs in ipairs(CASES) do
-  -- pas à pas : chaque pas calcule exactement UN plan_order
+  -- pas à pas : un pas finit AU PLUS un plan_order (s52 bandes : un pas est une étape de plan_once, une variante en prend plusieurs)
   local st = Ch.plan_begin(cs[2]())
   local one, steps = true, 0
+  local ends = 0
   repeat
     local o0 = Ch.ORDERS
     local done = Ch.plan_step(st)
     steps = steps + 1
-    if Ch.ORDERS - o0 ~= 1 then one = false end
-  until done or steps > 8
+    if Ch.ORDERS - o0 > 1 then one = false end
+    ends = ends + (Ch.ORDERS - o0)
+  until done or steps > 5000
   local hs = ph(Ch.plan_result(st))
-  check(one and steps == st.n and steps <= 4, string.format("%s : %d pas, un plan_order par pas", cs[1], steps))
-  seen_n[steps] = true
+  local variants = st.n
+  check(one and ends == st.n and variants <= 4 and steps == st.k, string.format("%s : %d pas, %d variante(s), au plus un plan_order fini par pas", cs[1], steps, variants))
+  seen_n[variants] = true
   -- Ch.plan (les pas enchaînés dans le même appel) : même plan, mêmes variantes
   local o0 = Ch.ORDERS
   local hp = ph(Ch.plan(cs[2]()))
-  check(hp == hs and Ch.ORDERS - o0 == steps, string.format("%s : pas à pas %s == Ch.plan %s (%d plan_order)", cs[1], tostring(hs), tostring(hp), Ch.ORDERS - o0))
+  check(hp == hs and Ch.ORDERS - o0 == variants, string.format("%s : pas à pas %s == Ch.plan %s (%d plan_order)", cs[1], tostring(hs), tostring(hp), Ch.ORDERS - o0))
   -- empreinte du plan de v0.7.107
   check(cs[4] ~= nil and hs == cs[4], string.format("%s : empreinte %s == v0.7.107 %s", cs[1], tostring(hs), tostring(cs[4])))
   -- reprise : une séquence coupée (mémoire locale perdue au chargement) recommencée sur une spec neuve donne le même plan
@@ -120,7 +124,7 @@ for _, cs in ipairs(CASES) do
   local st3 = Ch.plan_begin(cs[2]())
   while not Ch.plan_step(st3) do end
   check(ph(Ch.plan_result(st3)) == hs, cs[1] .. " : séquence recommencée, même plan")
-  print(string.format("  %s : %d variante(s), empreinte %s", cs[1], steps, tostring(hs)))
+  print(string.format("  %s : %d variante(s) en %d pas, empreinte %s", cs[1], variants, steps, tostring(hs)))
 end
 check(seen_n[1] and seen_n[2] and seen_n[3] and seen_n[4], "les quatre longueurs de séquence (1 à 4 variantes) sont couvertes")
 

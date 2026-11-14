@@ -84,37 +84,26 @@ end
 local DIRS = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
 
 --- Lectures du champ dans le repère de l'axe : minerai, place libre, tuiles prises par le plan (clés en x, y).
-local function context(spec, axis)
-  local c = { taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {} }
-  if axis == "x" then
+-- s52 bandes : les lectures (fonctions) du contexte sont posées par bind sur ses SEULES données (c.axis, c.taken, c.ore, c.ore_uv,
+-- c.foreign, c.resources, c.blocked, c.mine) : un plan repris d'une étape à l'autre (Ch.once_step) garde le contexte sans fonction
+-- (unbind) et le relie au début de l'étape suivante, mêmes réponses
+local CTX_FN = { "xy", "uv", "is_ore", "is_foreign", "is_resource", "free", "take", "dir" }
+local function bind(c)
+  if c.axis == "x" then
     c.xy = function(u, v) return u, v end
     c.uv = function(x, y) return x, y end
   else
     c.xy = function(u, v) return v, u end
     c.uv = function(x, y) return y, x end
   end
-  local o = spec.ore
-  -- Lot PERF3 : le minerai aussi en clés du repère de l'axe (u, v) : is_ore sans changement de repère (même réponse : xy et uv sont
-  -- deux bijections inverses l'une de l'autre ; c.ore n'est plus modifié après ce relevé)
-  local ore_uv = {}
-  for i = 1, #o - 1, 2 do
-    local k = Ch.key(o[i], o[i + 1])
-    if not c.ore[k] then
-      c.ore[k] = true
-      local u, v = c.uv(o[i], o[i + 1])
-      c.list[#c.list + 1] = { u, v }
-      ore_uv[Ch.key(u, v)] = true
-    end
-  end
+  local ore_uv = c.ore_uv
   c.is_ore = function(u, v) return ore_uv[Ch.key(u, v)] == true end
-  c.ore_uv = ore_uv
   -- lot MELANGE : une tuile d'une autre ressource minable (jamais une tuile du minerai visé : celui-ci gagne s'il y est aussi)
-  c.has_foreign = next(c.foreign) ~= nil
   c.is_foreign = function(u, v) local x, y = c.xy(u, v); local k = Ch.key(x, y); return c.foreign[k] == true and not c.ore[k] end
   -- F500 (directive du DC du 10/11, 22 h) : toute ressource sous l'emprise d'une fonderie, le minerai visé comme celui d'un autre gisement
   -- lot TAMPON-MINERAI (emerald, graine 271828182 : 16 fours et 30 bras de la colonne du fer n° 1 posés sur le fer n° 2, voisin) : le MÊME
   -- minerai d'un autre gisement n'est ni `ore` (ce gisement) ni `foreign` (autre nom) ; spec.resources = toutes les tuiles de ressource lues
-  local all = spec.resources or {}
+  local all = c.resources
   c.is_resource = function(u, v)
     if c.is_ore(u, v) or c.is_foreign(u, v) then return true end
     local x, y = c.xy(u, v)
@@ -132,6 +121,29 @@ local function context(spec, axis)
     return 0
   end
   return c
+end
+local function unbind(c) for _, k in ipairs(CTX_FN) do c[k] = nil end end
+
+local function context(spec, axis)
+  local c = { axis = axis, taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {},
+    resources = spec.resources or {} }
+  local uv = axis == "x" and function(x, y) return x, y end or function(x, y) return y, x end
+  local o = spec.ore
+  -- Lot PERF3 : le minerai aussi en clés du repère de l'axe (u, v) : is_ore sans changement de repère (même réponse : xy et uv sont
+  -- deux bijections inverses l'une de l'autre ; c.ore n'est plus modifié après ce relevé)
+  local ore_uv = {}
+  for i = 1, #o - 1, 2 do
+    local k = Ch.key(o[i], o[i + 1])
+    if not c.ore[k] then
+      c.ore[k] = true
+      local u, v = uv(o[i], o[i + 1])
+      c.list[#c.list + 1] = { u, v }
+      ore_uv[Ch.key(u, v)] = true
+    end
+  end
+  c.ore_uv = ore_uv
+  c.has_foreign = next(c.foreign) ~= nil
+  return bind(c)
 end
 
 local function corridor_col(origin, u)
@@ -669,18 +681,71 @@ local function copy_bands(bands)
   return out
 end
 
-local function plan_once(spec)
-  if not (spec and spec.ore and #spec.ore >= 2 and spec.drill and spec.pole and spec.belts and #spec.belts > 0) then return nil, "donnees" end
+--- s52 bandes (priorité du DC : gels de 2 à 5 s d'UNE variante du plan sur la carte à 600 %) : plan_once en machine à états reprenable.
+--- Ch.once_begin(spec) -> état (tables simples : aucune fonction, le contexte est délié entre deux étapes) ; Ch.once_step(st) fait UNE
+--- étape bornée et rend vrai quand le plan est fini ; Ch.once_result(st) -> plan, ou nil et raison. Étapes, dans l'ordre du calcul d'avant :
+---   init   contrôles, contexte, boîte (cadre figé : ses bandes ; mémoire de phase : la copie)   1 étape
+---   phase  recherche de la phase : UNE phase par étape (0 .. pas - 1)                       pas étapes (cadre neuf, mémoire vide)
+---   band   UNE bande par étape : ses groupes, leur colonne (Co.place), le tapis                une étape par bande
+---   net    réseau du charbon d'UN côté (Co.network)                                            0 à 2 étapes
+---   branch bras des colonnes, replis au coffre de tête, réserves d'un cadre figé              1 étape
+---   bare   UN bout de bande sans fonderie (Co.away)                                            une étape par bout
+---   poles  poteaux des rangées ; bridge : relais entre réseaux, puis le plan                    2 étapes
+--- Ce qui passe d'une étape à l'autre est dans l'état : tuiles prises (contexte), entités émises, bandes rendues, compteurs, colonnes en
+--- attente de leur charbon, bouts sans fonderie, réseaux. Chaque étape fait les mêmes calculs, dans le même ordre, que plan_once d'avant :
+--- même plan (empreintes de tests/s46_champ-cout_ref.lua, tests/perf_champ_ref.lua, tests/s52_bandes_test.lua).
+local function emit(s, kind, u, v, size, du, dv, bi, gi, pr, role, belt, module)
+  local c, ents = s.c, s.ents
+  local x, y = c.xy(u, v)
+  local x2, y2 = c.xy(u + size - 1, v + size - 1)
+  ents[#ents + 1] = { kind = kind, x = math.min(x, x2) + size / 2, y = math.min(y, y2) + size / 2, size = size,
+    dir = (du ~= 0 or dv ~= 0) and c.dir(du, dv) or 0, band = bi, group = gi, pr = pr, role = role, belt = belt, module = module }
+end
+-- (lot FONDERIE) une entité de la colonne ou du réseau de charbon : rectangle w × h (répartiteur), sens de souterrain
+local function emit_e(s, e, bi, gi, pr, belt)
+  local c, ents = s.c, s.ents
+  local w, h = e.w or e.size, e.h or e.size
+  local xa, ya = c.xy(e.u, e.v)
+  local xb, yb = c.xy(e.u + w - 1, e.v + h - 1)
+  local x0, x1, y0, y1 = math.min(xa, xb), math.max(xa, xb), math.min(ya, yb), math.max(ya, yb)
+  local o = { kind = e.kind, x = (x0 + x1 + 1) / 2, y = (y0 + y1 + 1) / 2, size = e.size,
+    dir = (e.du ~= 0 or e.dv ~= 0) and c.dir(e.du, e.dv) or 0, band = bi, group = gi, pr = pr, role = e.role, belt = belt, ug = e.ug, piq = e.piq, fin = e.fin }
+  if e.w then o.w, o.h = x1 - x0 + 1, y1 - y0 + 1 end
+  ents[#ents + 1] = o
+end
+local function note_plates(s, list)
+  for _, e in ipairs(list) do if e.kind == "tapis" and e.role == "sortie" then s.plate_dir[Co.tk(e.u, e.v)] = e.du end end
+end
+local function half_of(s, pr, fixed)
+  local spec, pitch = s.spec, s.pitch
+  -- cadre figé : la forme qu'il a posée (cadres d'avant le lot : demi-colonnes seules)
+  if fixed then return fixed.double and Co.half(spec, pitch, fixed.mirror) or nil end
+  local i = math.floor((pr - (s.box.v0 - s.phase)) / pitch + 0.5)
+  return s.double and Co.half(spec, pitch, Co.is_facing(i) and s.band_at[pr - Co.SF * pitch] == true) or nil
+end
+local function belt_for(s, g) -- tapis du groupe : le plus lent qui porte ses foreuses
+  local spec = s.spec
+  local need_lane = s.fuelled and (#g.n + #g.s) or math.max(#g.n, #g.s)
+  for i, bt in ipairs(spec.belts) do if Ch.lane_drills(bt.lane, spec.drill.rate) >= need_lane then return i end end
+  return #spec.belts
+end
+local function once_fail(s, why) s.done, s.why = true, why; return true end
+
+local ONCE = {} -- étapes : ONCE[nom](état) rend vrai si l'étape a fait son calcul borné (sinon l'étape suivante part dans le même pas)
+
+function ONCE.init(s)
+  local spec = s.spec
+  if not (spec and spec.ore and #spec.ore >= 2 and spec.drill and spec.pole and spec.belts and #spec.belts > 0) then return once_fail(s, "donnees") end
   local d, F = spec.drill, spec.frame
   -- lot FONDERIE : colonne à tapis (shared/team/champ_colonne.lua) pour un cadre neuf qui la demande ; un cadre figé garde SON motif
   -- (un cadre d'une sauvegarde 0.6.38 n'a pas `design` : ses bandes gardent la fonderie à coffres, rien n'est migré)
   local colonne = spec.furnace ~= nil and ((F and F.design) or (not F and spec.design)) == "colonne"
-  if spec.furnace and spec.furnace.size > d.size - 1 then return nil, "four trop grand pour la bande" end
+  if spec.furnace and spec.furnace.size > d.size - 1 then return once_fail(s, "four trop grand pour la bande") end
   if colonne then
-    if spec.furnace.size < 2 then return nil, "four trop petit pour les poteaux de la colonne" end
+    if spec.furnace.size < 2 then return once_fail(s, "four trop petit pour les poteaux de la colonne") end
   else
-    if spec.furnace and spec.furnace.fuel and spec.furnace.size < 2 then return nil, "four trop petit pour son coffre de combustible" end
-    if spec.furnace and 2 * spec.furnace.size + 3 > spec.pole.wire + Ch.CFG.eps then return nil, "portee des poteaux" end
+    if spec.furnace and spec.furnace.fuel and spec.furnace.size < 2 then return once_fail(s, "four trop petit pour son coffre de combustible") end
+    if spec.furnace and 2 * spec.furnace.size + 3 > spec.pole.wire + Ch.CFG.eps then return once_fail(s, "portee des poteaux") end
   end
   -- s42 gisements : spec.axis impose l'orientation d'un cadre NEUF (essai de l'autre orientation, Ch.axis_retry) ; un cadre figé garde la sienne
   local axis = (F and F.axis) or ((spec.axis == "x" or spec.axis == "y") and spec.axis) or long_axis(spec)
@@ -690,36 +755,51 @@ local function plan_once(spec)
     box.u0, box.u1 = math.min(box.u0, t[1]), math.max(box.u1, t[1])
     box.v0, box.v1 = math.min(box.v0, t[2]), math.max(box.v1, t[2])
   end
-  local origin = (F and F.origin) or box.u0
-  local pitch = 2 * d.size + 2
-  local bands, phase
+  s.F, s.colonne, s.axis, s.c, s.box = F, colonne, axis, c, box
+  s.origin = (F and F.origin) or box.u0
+  s.pitch = 2 * d.size + 2
   if F and F.phase then
-    phase = F.phase
+    s.phase = F.phase
     box.v0 = F.v0 or box.v0
-    bands = bands_for(c, spec, phase, box, origin, F)
+    s.bands = bands_for(c, spec, s.phase, box, s.origin, F)
+    s.stage = "setup"
   else
     -- s46 champ-cout : la recherche de la phase ne lit que le minerai, les obstacles et l'axe (rien n'est encore pris) : elle est faite
     -- UNE fois par Ch.plan et par axe (les passes du refus, l'autre ordre des côtés et les rangées gloutonnes la refaisaient à l'identique)
     local m = phase_memo(spec, axis)
     if m and m.bands then
-      bands, phase = copy_bands(m.bands), m.phase
+      s.bands, s.phase = copy_bands(m.bands), m.phase
+      s.stage = "setup"
     else
-      local bt
-      local rows = { fm = {} }
-      for ph = 0, pitch - 1 do
-        local bs, total = bands_for(c, spec, ph, box, origin, nil, rows)
-        if not bands or total > bt then bands, bt, phase = bs, total, ph end
-      end
-      bands = copy_bands(bands) -- listes propres au plan (une rangée est partagée entre deux phases)
-      if m then m.bands, m.phase = copy_bands(bands), phase end
+      s.m, s.ph, s.rows = m, 0, { fm = {} }
+      s.stage = "phase"
     end
   end
-  for _, bd in ipairs(bands) do
+  return true
+end
+
+function ONCE.phase(s)
+  local bs, total = bands_for(s.c, s.spec, s.ph, s.box, s.origin, nil, s.rows)
+  if not s.bands or total > s.bt then s.bands, s.bt, s.phase = bs, total, s.ph end
+  s.ph = s.ph + 1
+  if s.ph > s.pitch - 1 then
+    s.bands = copy_bands(s.bands) -- listes propres au plan (une rangée est partagée entre deux phases)
+    if s.m then s.m.bands, s.m.phase = copy_bands(s.bands), s.phase end
+    s.m, s.ph, s.rows, s.bt = nil, nil, nil, nil
+    s.stage = "setup"
+  end
+  return true
+end
+
+function ONCE.setup(s)
+  local spec, c, F, box = s.spec, s.c, s.F, s.box
+  local d = spec.drill
+  for _, bd in ipairs(s.bands) do
     for _, a in ipairs(bd.n) do for u = a, a + d.size - 1 do for v = bd.pr + 1, bd.pr + d.size do c.take(u, v) end end end
     for _, a in ipairs(bd.s) do for u = a, a + d.size - 1 do for v = bd.b + 1, bd.b + d.size do c.take(u, v) end end end
   end
   local umin, umax = box.u0, box.u1
-  for _, bd in ipairs(bands) do
+  for _, bd in ipairs(s.bands) do
     for _, l in ipairs({ bd.n, bd.s }) do for _, a in ipairs(l) do umin = math.min(umin, a); umax = math.max(umax, a + d.size - 1) end end
   end
   if F and F.umin then umin, umax = F.umin, F.umax end
@@ -731,433 +811,461 @@ local function plan_once(spec)
   local lane = spec.belts[#spec.belts].lane
   local cap = Ch.lane_drills(lane, d.rate)
   if spec.max_side then cap = math.min(cap, spec.max_side) end
-  if cap < 1 then return nil, "tapis trop lent pour une foreuse" end
+  if cap < 1 then return once_fail(s, "tapis trop lent pour une foreuse") end
   -- lot FONDERIE : avec du combustible, la tête charge tout le minerai sur UNE voie (l'autre porte le charbon)
-  local fuelled = colonne and spec.furnace.fuel
+  local fuelled = s.colonne and spec.furnace.fuel
+  s.umin, s.umax, s.exit, s.lane, s.fuelled = umin, umax, exit, lane, fuelled
   -- F555 : foreuses que le PREMIER bout d'une bande prend (partage entre les deux bouts, jamais un plafond de la bande)
-  local first_k = fuelled and math.min(2 * cap, Ch.lane_drills(lane, d.rate)) or 2 * cap
-  local ents, out_bands = {}, {}
-  local capped, flow_all, cap_all, no_smelter = 0, 0, 0, 0
-  local orphans = 0 -- lot COUPLAGE : foreuses d'un bout sans fonderie, non posées
-  local no_smelter_at -- 9/11 : première tuile prise qui empêche la colonne de fonderie d'un groupe (diagnostic du refus « sans place de fonderie »)
-  local function emit(kind, u, v, size, du, dv, bi, gi, pr, role, belt, module)
-    local x, y = c.xy(u, v)
-    local x2, y2 = c.xy(u + size - 1, v + size - 1)
-    ents[#ents + 1] = { kind = kind, x = math.min(x, x2) + size / 2, y = math.min(y, y2) + size / 2, size = size,
-      dir = (du ~= 0 or dv ~= 0) and c.dir(du, dv) or 0, band = bi, group = gi, pr = pr, role = role, belt = belt, module = module }
-  end
-  -- (lot FONDERIE) une entité de la colonne ou du réseau de charbon : rectangle w × h (répartiteur), sens de souterrain
-  local function emit_e(e, bi, gi, pr, belt)
-    local w, h = e.w or e.size, e.h or e.size
-    local xa, ya = c.xy(e.u, e.v)
-    local xb, yb = c.xy(e.u + w - 1, e.v + h - 1)
-    local x0, x1, y0, y1 = math.min(xa, xb), math.max(xa, xb), math.min(ya, yb), math.max(ya, yb)
-    local o = { kind = e.kind, x = (x0 + x1 + 1) / 2, y = (y0 + y1 + 1) / 2, size = e.size,
-      dir = (e.du ~= 0 or e.dv ~= 0) and c.dir(e.du, e.dv) or 0, band = bi, group = gi, pr = pr, role = e.role, belt = belt, ug = e.ug, piq = e.piq, fin = e.fin }
-    if e.w then o.w, o.h = x1 - x0 + 1, y1 - y0 + 1 end
-    ents[#ents + 1] = o
-  end
-  local offsets = {}
-  local pending = {} -- (lot FONDERIE) colonnes posées, émises après le choix de leur charbon
-  local bare_todo = {} -- (lot DECOUPLAGE) bouts de bande sans place de fonderie : groupes « tapis collecteur seul », formés après les fonderies
+  s.first_k = fuelled and math.min(2 * cap, Ch.lane_drills(lane, d.rate)) or 2 * cap
+  s.ents, s.out_bands = {}, {}
+  s.capped, s.flow_all, s.cap_all, s.no_smelter = 0, 0, 0, 0
+  s.orphans = 0 -- lot COUPLAGE : foreuses d'un bout sans fonderie, non posées
+  s.no_smelter_at = nil -- 9/11 : première tuile prise qui empêche la colonne de fonderie d'un groupe (diagnostic du refus « sans place de fonderie »)
+  s.offsets = {}
+  s.pending = {} -- (lot FONDERIE) colonnes posées, émises après le choix de leur charbon
+  s.bare_todo = {} -- (lot DECOUPLAGE) bouts de bande sans place de fonderie : groupes « tapis collecteur seul », formés après les fonderies
   -- lot COLONNE-DOUBLE (DC, 11/11) : une bande sur deux (parité de son rang dans le cadre) porte la demi-colonne d'en face, ses fours vers
   -- ceux de sa voisine ; les deux demi-colonnes d'un même bout partagent la ligne de plaques centrale (plate_dir : tuile -> sens, posée une fois)
-  local double = colonne and Co.half(spec, pitch, false) ~= nil
-  local band_at = {} -- pr -> vrai : la demi-colonne d'en face n'est posée que si la bande de sa voisine existe (sinon ses poteaux sans voisin)
-  for _, bd in ipairs(bands) do band_at[bd.pr] = true end
-  local plate_dir = {}
-  local function shared_plate(u, v, e) return plate_dir[Co.tk(u, v)] == e.du end
-  local function note_plates(list)
-    for _, e in ipairs(list) do if e.kind == "tapis" and e.role == "sortie" then plate_dir[Co.tk(e.u, e.v)] = e.du end end
+  s.double = s.colonne and Co.half(spec, s.pitch, false) ~= nil
+  s.band_at = {} -- pr -> vrai : la demi-colonne d'en face n'est posée que si la bande de sa voisine existe (sinon ses poteaux sans voisin)
+  for _, bd in ipairs(s.bands) do s.band_at[bd.pr] = true end
+  s.plate_dir = {}
+  s.bi = 1
+  s.stage = "band"
+  return false
+end
+
+function ONCE.band(s)
+  local bi, bd = s.bi, s.bands[s.bi]
+  if not bd then s.bi = nil; s.stage = "coal" return false end
+  s.bi = bi + 1
+  local spec, c, F = s.spec, s.c, s.F
+  local d, colonne, exit, umin, umax, lane, fuelled = spec.drill, s.colonne, s.exit, s.umin, s.umax, s.lane, s.fuelled
+  local shared_plate = function(u, v, e) return s.plate_dir[Co.tk(u, v)] == e.du end
+  s.offsets[tostring(bd.pr)] = { bd.on, bd.os }
+  local used, groups = {}, {}
+  -- F555 : le premier bout prend `first_k` foreuses (les plus près de son bord), le second bout TOUT le reste, sans plafond ; premier
+  -- groupe sans fonderie : le second prend toute la bande
+  local cus = {}
+  for _, l in ipairs({ bd.n, bd.s }) do for _, a in ipairs(l) do cus[#cus + 1] = a + math.floor(d.size / 2) end end
+  table.sort(cus)
+  local k = s.first_k
+  local limit = nil
+  if Ch.CFG.both_ends and #cus > k then
+    -- les foreuses que le second bout ne joint pas (son tapis barré avant elles) restent au premier
+    local far = exit > 0 and umin or umax
+    local u2 = far
+    while u2 >= umin and u2 <= umax and c.free(u2, bd.b) do u2 = u2 + exit end
+    if exit > 0 then limit = math.min(cus[#cus - k], u2 - 1) else limit = math.max(cus[k + 1], u2 + 1) end
   end
-  local function half_of(pr, fixed)
-    -- cadre figé : la forme qu'il a posée (cadres d'avant le lot : demi-colonnes seules)
-    if fixed then return fixed.double and Co.half(spec, pitch, fixed.mirror) or nil end
-    local i = math.floor((pr - (box.v0 - phase)) / pitch + 0.5)
-    return double and Co.half(spec, pitch, Co.is_facing(i) and band_at[pr - Co.SF * pitch] == true) or nil
-  end
-  local function belt_for(g) -- tapis du groupe : le plus lent qui porte ses foreuses
-    local need_lane = fuelled and (#g.n + #g.s) or math.max(#g.n, #g.s)
-    for i, bt in ipairs(spec.belts) do if Ch.lane_drills(bt.lane, d.rate) >= need_lane then return i end end
-    return #spec.belts
-  end
-  for bi, bd in ipairs(bands) do
-    offsets[tostring(bd.pr)] = { bd.on, bd.os }
-    local used, groups = {}, {}
-    -- F555 : le premier bout prend `first_k` foreuses (les plus près de son bord), le second bout TOUT le reste, sans plafond ; premier
-    -- groupe sans fonderie : le second prend toute la bande
-    local cus = {}
-    for _, l in ipairs({ bd.n, bd.s }) do for _, a in ipairs(l) do cus[#cus + 1] = a + math.floor(d.size / 2) end end
-    table.sort(cus)
-    local k = first_k
-    local limit = nil
-    if Ch.CFG.both_ends and #cus > k then
-      -- les foreuses que le second bout ne joint pas (son tapis barré avant elles) restent au premier
-      local far = exit > 0 and umin or umax
-      local u2 = far
-      while u2 >= umin and u2 <= umax and c.free(u2, bd.b) do u2 = u2 + exit end
-      if exit > 0 then limit = math.min(cus[#cus - k], u2 - 1) else limit = math.max(cus[k + 1], u2 + 1) end
-    end
-    for _, side in ipairs(Ch.CFG.both_ends and { exit, -exit } or { exit }) do
-      local edge = side > 0 and umax or umin
-      local g = take_group(c, spec, bd, side, edge, used, limit)
-      limit = nil
-      if g then
-        local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
-        local list, len, s_edge, count, info
-        local refused, half
-        if colonne then
-          local fixed = F and F.cols and F.cols[tostring(bd.pr)] and F.cols[tostring(bd.pr)][tostring(side)]
-          refused = (fixed and fixed.mode == "refusee") or (spec.refuse and spec.refuse[tostring(bd.pr) .. ":" .. tostring(side)])
-          if refused then
-            list = nil -- (lot FONDERIE) colonne refusée : pas de voie de charbon
-          elseif not (F and F.cols) or fixed then
-            local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
-            half = half_of(bd.pr, fixed)
-            list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
-              c.is_resource, mode, fixed, half, shared_plate, run_memo("places"))
-            if not list and not no_smelter_at then
-              -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
-              local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
-              local pu, pv
-              for u = edge + side, s0 - side, side do if not pu and not c.free(u, bd.b) then pu, pv = u, bd.b end end
-              if not pu then
-                local lay = Co.layout(spec, bd.b, side, s0, fixed and fixed.count or Fd.count(spec, flow), mode, half)
-                for _, e in ipairs(lay or {}) do
-                  for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do if not pu and not c.free(u, v) then pu, pv = u, v end end end
-                end
-              end
-              if pu then
-                local px, py = c.xy(pu, pv)
-                no_smelter_at = { x = px, y = py, fixed = fixed ~= nil, band = bd.pr, side = side }
-              end
-            end
-          end
-        else
-          list, len, s_edge, count = Fd.place(spec, bd.b, side, edge, flow, Ch.CFG.gap, Ch.CFG.shift, c.free, c.is_resource)
-        end
-        if list then
-          for _, a in ipairs(g.n) do used[a .. "n"] = true end
-          for _, a in ipairs(g.s) do used[a .. "s"] = true end
-          for _, e in ipairs(list) do for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end end
-          if colonne then note_plates(list) end
-          g.side, g.flow, g.s_edge, g.len, g.count, g.list, g.info, g.half = side, flow, s_edge, len, count, list, info, half
-          g.belt = belt_for(g)
-          groups[#groups + 1] = g
-          limit = g.cut
-        else
-          no_smelter = no_smelter + 1
-          bare_todo[#bare_todo + 1] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }
-        end
-      end
-    end
-    -- orphans : foreuses de la bande non posées faute de fonderie (lot COUPLAGE) ; lu par l'ordre des bandes (script/team/champ.lua,
-    -- Champ.frame) : une bande sans groupe mais à foreuses en attente reste demandée seule plus tard (lot BANDE-GELEE)
-    local bo = { pr = bd.pr, b = bd.b, groups = {}, orphans = 0 }
-    for _, l in ipairs({ { bd.n, "n" }, { bd.s, "s" } }) do
-      for _, a in ipairs(l[1]) do if not used[a .. l[2]] then capped = capped + 1 end end
-    end
-    for gi, g in ipairs(groups) do
-      for _, a in ipairs(g.n) do emit("foreuse", a, bd.pr + 1, d.size, 0, 1, bi, gi, bd.pr) end
-      for _, a in ipairs(g.s) do emit("foreuse", a, bd.b + 1, d.size, 0, -1, bi, gi, bd.pr) end
-      -- tapis de la bande : jusqu'au bout de la fonderie (motif à coffres), jusqu'à la tête de la colonne (lot FONDERIE)
-      local s_end = colonne and (g.s_edge - g.side) or (g.s_edge + g.side * (g.len - 1))
-      local nb = 0
-      for u = g.cut, s_end, g.side do
-        c.take(u, bd.b)
-        emit("tapis", u, bd.b, 1, g.side, 0, bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
-        nb = nb + 1
-      end
+  for _, side in ipairs(Ch.CFG.both_ends and { exit, -exit } or { exit }) do
+    local edge = side > 0 and umax or umin
+    local g = take_group(c, spec, bd, side, edge, used, limit)
+    limit = nil
+    if g then
+      local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
+      local list, len, s_edge, count, info
+      local refused, half
       if colonne then
-        pending[#pending + 1] = { bi = bi, gi = gi, pr = bd.pr, b = bd.b, g = g }
-      else
-        for _, e in ipairs(g.list) do emit(e.kind, e.u, e.v, e.size, e.du, e.dv, bi, gi, bd.pr, e.role, nil, e.module) end
-      end
-      local capa = Fd.capacity(spec, g.count)
-      flow_all, cap_all = flow_all + g.flow, cap_all + capa
-      bo.groups[#bo.groups + 1] = { side = g.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = g.flow, belt = g.belt,
-        count = g.count, capacity = capa, belt_tiles = nb, s_edge = g.s_edge, len = g.len, cut = g.cut,
-        pole_u = g.s_edge + g.side * (colonne and g.info.head_pole or Fd.pole_col(spec)),
-        pole_u2 = colonne and g.s_edge or nil, -- (lot FONDERIE) poteau de liaison de tête, rejoint par la rangée pr + pas
-        col_b = g.half and (bd.b + g.half.jog) or nil } -- (lot COLONNE-DOUBLE) demi-colonne d'en face : son tapis sur la rangée de son minerai
-    end
-    out_bands[#out_bands + 1] = bo
-  end
-  -- lot FONDERIE : charbon des colonnes, un réseau par côté du champ (cadre neuf : calculé ; bande seule : rejoué du cadre)
-  local cols_frame, coal_frame, coal_stats = nil, nil, {}
-  local fallback = nil -- (lot FONDERIE) colonnes d'un cadre neuf retombées sur le coffre de tête : { pr, side, why }
-  if colonne then
-    cols_frame, coal_frame = {}, {}
-    local nets = {}
-    if fuelled and not F then
-      local zone = { u0 = math.huge, u1 = -math.huge, v0 = math.huge, v1 = -math.huge }
-      local function grow(u, v) zone.u0, zone.u1 = math.min(zone.u0, u), math.max(zone.u1, u); zone.v0, zone.v1 = math.min(zone.v0, v), math.max(zone.v1, v) end
-      grow(umin, box.v0 - pitch); grow(umax, box.v1 + pitch)
-      for _, it in ipairs(pending) do
-        grow(it.g.s_edge, it.b); grow(it.g.s_edge + it.g.side * it.g.info.far, it.b)
-      end
-      local coal_set, coal_list = {}, {}
-      local co = spec.coal
-      if co and co.tiles then
-        for i = 1, #co.tiles - 1, 2 do
-          local u, v = c.uv(co.tiles[i], co.tiles[i + 1])
-          local k = Co.tk(u, v)
-          if not coal_set[k] then coal_set[k] = true; coal_list[#coal_list + 1] = { u, v } end
-        end
-      end
-      local lg = spec.logistics or {}
-      local ugs = {}
-      for _, k in ipairs(spec.ug_tiles or {}) do local u, v = c.uv(k[1], k[2]); ugs[Co.tk(u, v)] = true end
-      -- (revue-fonderie, 3/11) ordre des côtés : le premier réseau prend ses tuiles, le second ne croise son tracé qu'en souterrain ;
-      -- spec.coal_first (posé par Ch.plan) fait passer l'autre côté d'abord
-      local first = spec.coal_first or exit
-      for _, side in ipairs({ first, -first }) do
-        local cols = {}
-        for _, it in ipairs(pending) do
-          if it.g.side == side then
-            cols[#cols + 1] = { key = tostring(it.pr), coal_v = it.g.info.b_coal, link_v = it.g.info.b_link, s_edge = it.g.s_edge,
-              far = it.g.info.far, need = it.g.info.need }
-          end
-        end
-        if #cols > 0 then
-          local env = {
-            free = c.free, coal = { tiles = coal_list, is_coal = function(u, v) return coal_set[Co.tk(u, v)] == true end, rate = co and co.rate,
-              -- lot MELANGE : tuiles d'une autre ressource minable autour du charbon (le minerai du champ compris)
-              is_foreign = co and co.foreign and function(u, v)
-                if coal_set[Co.tk(u, v)] then return false end
-                local x, y = c.xy(u, v)
-                return co.foreign[Ch.key(x, y)] == true
-              end or nil },
-            forbid = function(u, v) return u >= zone.u0 - 1 and u <= zone.u1 + 1 and v >= zone.v0 - 1 and v <= zone.v1 + 1 end,
-            -- (banc-2, 3/11) pas de répartiteur sur le tronc même débloqué : la cascade 50/50 n'a pas de plafond par colonne, les dernières
-            -- attendent que les tampons d'amont se remplissent (mesuré : 12, 6, 4 et 4 fours garnis le long du tronc) ; le bras de
-            -- dérivation, lui, borne la prise de chaque colonne. Les souterrains restent (passer sous un obstacle).
-            drill = d, pole = spec.pole, ug = lg.underground, split = false, ugs = ugs, box = zone,
-            inserter_rate = spec.inserter and spec.inserter.rate,
-            soft = spec.soft and function(u, v) local x, y = c.xy(u, v); return spec.soft[Ch.key(x, y)] == true end or nil,
-            lane_drills = co and co.rate and Ch.lane_drills(spec.belts[1].lane, co.rate) or nil,
-            route_memo = run_memo("routes"), line_memo = run_memo("lines"), -- s49 opti : tracés du charbon refaits à l'identique d'un plan_order à l'autre
-            bridge = function(poles, free)
-              local extra = {}
-              local cc = { free = function(u, v) return not extra[Co.tk(u, v)] and free(u, v) end, take = function(u, v) extra[Co.tk(u, v)] = true end }
-              return bridge(cc, spec, poles)
-            end,
-          }
-          nets[side] = Co.network(cols, side, env)
-          local nt = nets[side]
-          -- le réseau prend ses tuiles (poteaux des rangées et relais du champ ne s'y posent pas)
-          for _, e in ipairs(nt.ents) do
-            for u = e.u, e.u + (e.w or e.size) - 1 do for v = e.v, e.v + (e.h or e.size) - 1 do c.take(u, v) end end
-          end
-          local last_key
-          for _, cl in ipairs(cols) do if cl.last then last_key = cl.key end end
-          local why = nt.why
-          if nt.dropped and #nt.dropped > 0 then why = (why and (why .. " ; ") or "") .. table.concat(nt.dropped, " ; ") end
-          coal_frame[tostring(side)] = { uT = nt.uT, dv = nt.dv, split = nt.split, last = last_key, ents = nt.ents, why = why,
-            drills = nt.drills, undergrounds = nt.undergrounds }
-        end
-      end
-    elseif F and F.coal then
-      for _, side in ipairs({ exit, -exit }) do
-        local cf = F.coal[tostring(side)]
-        if cf then nets[side] = { uT = cf.uT, dv = cf.dv, split = cf.split, ents = cf.ents or {}, last = cf.last, why = cf.why } end
-      end
-    end
-    local shared_done = {}
-    fallback = {}
-    for _, it in ipairs(pending) do
-      local g = it.g
-      local key = tostring(it.pr)
-      local nt = nets[g.side]
-      local mode = g.info.mode
-      if mode == "voie" then
-        if F and F.cols then
-          mode = F.cols[key][tostring(g.side)].mode
-        else
-          mode = (nt and nt.modes and nt.modes[key]) or "coffre"
-        end
-      end
-      if mode == "coffre" and g.info.mode == "voie" and not F then
-        local cf = coal_frame[tostring(g.side)]
-        fallback[#fallback + 1] = { pr = it.pr, side = g.side, why = (cf and cf.why) or "pas de reseau du charbon" }
-      end
-      if mode == "coffre" and g.info.mode == "voie" then
-        -- repli : le coffre de tête (ses tuiles sont dans celles de la voie, déjà prises)
-        local list, len, info = Co.layout(spec, it.b, g.side, g.s_edge, g.count, "coffre", g.half, g.info.ext)
-        -- (lot COLONNE-DOUBLE) la ligne de plaques commune n'est rendue que par la demi-colonne qui l'a posée la première
-        local kept = {}
-        for _, e in ipairs(g.list) do if e.kind == "tapis" and e.role == "sortie" then kept[Co.tk(e.u, e.v)] = true end end
-        local own = {}
-        for _, e in ipairs(list) do if not (e.kind == "tapis" and e.role == "sortie") or kept[Co.tk(e.u, e.v)] then own[#own + 1] = e end end
-        g.list, g.info = own, info
-        g.len = math.min(g.len, len)
-      end
-      for _, e in ipairs(g.list) do
-        emit_e(e, it.bi, it.gi, it.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil)
-        -- lot FONDERIE-BLOC : le coffre de tête porte le charbon/s que sa colonne brûle (son quai a un débit : la liaison, le piquage et
-        -- l'alimentation de quai le voient ; avant, 0 et « ne_se_paie_pas »)
-        if e.kind == "coffre" and e.role == "combustible" then ents[#ents].need = g.info.need end
-      end
-      if mode == "voie" and nt and nt.uT then
-        local cf = (F and F.cols) and nt or coal_frame[tostring(g.side)]
-        local col = { coal_v = g.info.b_coal, link_v = g.info.b_link, s_edge = g.s_edge, far = g.info.far, last = (cf and cf.last) == key }
-        for _, e in ipairs(Co.branch(col, nt, g.side, spec.pole.wire)) do
-          for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
-          emit_e(e, it.bi, it.gi, it.pr, e.kind == "tapis" and 1 or nil)
-        end
-        if not shared_done[g.side] then
-          shared_done[g.side] = true
-          -- (projet séparé, 3/11) pièces COMMUNES du réseau du charbon d'un côté, marquées : le runtime les pose dans le projet « réseau du
-          -- charbon » de ce côté, pas dans la bande
-          for _, e in ipairs(nt.ents) do
-            emit_e(e, 0, 0, nil, (e.kind == "tapis" or e.kind == "souterrain" or e.kind == "repartiteur") and 1 or nil)
-            ents[#ents].coalnet = g.side
-          end
-        end
-      end
-      cols_frame[key] = cols_frame[key] or {}
-      cols_frame[key][tostring(g.side)] = { s_edge = g.s_edge, count = g.count, mode = mode, double = g.half and true or nil,
-        mirror = (g.half and g.half.mirror) or nil, ext = g.info.ext }
-      g.mode = mode
-      local og = out_bands[it.bi] and out_bands[it.bi].groups[it.gi]
-      if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
-    end
-    for _, side in ipairs({ exit, -exit }) do
-      local nt = nets[side]
-      if nt then
-        local why = nt.why
-        if nt.dropped and #nt.dropped > 0 then why = (why and (why .. " ; ") or "") .. table.concat(nt.dropped, " ; ") end
-        coal_stats[#coal_stats + 1] = { side = side, voie = nt.uT ~= nil, why = why, drills = nt.drills, undergrounds = nt.undergrounds, split = nt.split }
-      end
-    end
-    if F and F.coal then coal_frame = F.coal end
-    -- bande seule : les colonnes des AUTRES bandes du cadre sont réservées (non posées) avant les poteaux des rangées, qui les
-    -- contournent comme dans le plan entier (sinon un poteau prolongé prendrait la tuile d'un bras d'une colonne voisine à venir)
-    if F and F.cols then
-      local keys = {}
-      for k in pairs(F.cols) do keys[#keys + 1] = k end
-      table.sort(keys, function(a, b) return tonumber(a) < tonumber(b) end)
-      for _, k in ipairs(keys) do
-        for _, sk in ipairs({ "1", "-1" }) do
-          local fc = F.cols[k][sk]
-          if fc and fc.mode ~= "refusee" and not (F.only and F.only[tonumber(k)]) then
-            local l = Co.layout(spec, tonumber(k) + d.size + 1, tonumber(sk), fc.s_edge, fc.count, fc.mode,
-              fc.double and Co.half(spec, pitch, fc.mirror) or nil)
-            for _, e in ipairs(l or {}) do
-              for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
+        local fixed = F and F.cols and F.cols[tostring(bd.pr)] and F.cols[tostring(bd.pr)][tostring(side)]
+        refused = (fixed and fixed.mode == "refusee") or (spec.refuse and spec.refuse[tostring(bd.pr) .. ":" .. tostring(side)])
+        if refused then
+          list = nil -- (lot FONDERIE) colonne refusée : pas de voie de charbon
+        elseif not (F and F.cols) or fixed then
+          local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
+          half = half_of(s, bd.pr, fixed)
+          list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
+            c.is_resource, mode, fixed, half, shared_plate, run_memo("places"))
+          if not list and not s.no_smelter_at then
+            -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
+            local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
+            local pu, pv
+            for u = edge + side, s0 - side, side do if not pu and not c.free(u, bd.b) then pu, pv = u, bd.b end end
+            if not pu then
+              local lay = Co.layout(spec, bd.b, side, s0, fixed and fixed.count or Fd.count(spec, flow), mode, half)
+              for _, e in ipairs(lay or {}) do
+                for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do if not pu and not c.free(u, v) then pu, pv = u, v end end end
+              end
+            end
+            if pu then
+              local px, py = c.xy(pu, pv)
+              s.no_smelter_at = { x = px, y = py, fixed = fixed ~= nil, band = bd.pr, side = side }
             end
           end
         end
+      else
+        list, len, s_edge, count = Fd.place(spec, bd.b, side, edge, flow, Ch.CFG.gap, Ch.CFG.shift, c.free, c.is_resource)
+      end
+      if list then
+        for _, a in ipairs(g.n) do used[a .. "n"] = true end
+        for _, a in ipairs(g.s) do used[a .. "s"] = true end
+        for _, e in ipairs(list) do for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end end
+        if colonne then note_plates(s, list) end
+        g.side, g.flow, g.s_edge, g.len, g.count, g.list, g.info, g.half = side, flow, s_edge, len, count, list, info, half
+        g.belt = belt_for(s, g)
+        groups[#groups + 1] = g
+        limit = g.cut
+      else
+        s.no_smelter = s.no_smelter + 1
+        s.bare_todo[#s.bare_todo + 1] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }
       end
     end
   end
-  -- lot DECOUPLAGE (directive du DC du 11/11 ; maillon prouvé par PAVAGE-GEANT, 0.7.5, graine 2507543475 : émeraude fer, 37 foreuses sur
-  -- 42 retirées faute de place pour les fours) : une foreuse ne dépend QUE du minerai. Une fois TOUTES les fonderies posées (colonnes ET réseau du charbon :
-  -- formé plus tôt, son tapis barrait le tracé du charbon, banc 2507543475 : azure fer 58 fours -> 10), les
-  -- foreuses qu'aucun groupe n'a prises au bout d'une bande sans place de fonderie forment un groupe « tapis collecteur seul » (g.bare :
-  -- tapis jusqu'au bord du champ, tuile devant sa sortie réservée, aucune fonderie dans ce plan : elle se pose ailleurs sur le sol neutre).
-  -- lot FONDERIE-BOUT : tuiles lues (spec.window, repère x, y) et souterrains déjà posés, dans le repère (u, v) du plan
-  local win, away_why -- away_why : première raison d'un bout resté sans colonne (journal du plan)
+  -- orphans : foreuses de la bande non posées faute de fonderie (lot COUPLAGE) ; lu par l'ordre des bandes (script/team/champ.lua,
+  -- Champ.frame) : une bande sans groupe mais à foreuses en attente reste demandée seule plus tard (lot BANDE-GELEE)
+  local bo = { pr = bd.pr, b = bd.b, groups = {}, orphans = 0 }
+  for _, l in ipairs({ { bd.n, "n" }, { bd.s, "s" } }) do
+    for _, a in ipairs(l[1]) do if not used[a .. l[2]] then s.capped = s.capped + 1 end end
+  end
+  for gi, g in ipairs(groups) do
+    for _, a in ipairs(g.n) do emit(s, "foreuse", a, bd.pr + 1, d.size, 0, 1, bi, gi, bd.pr) end
+    for _, a in ipairs(g.s) do emit(s, "foreuse", a, bd.b + 1, d.size, 0, -1, bi, gi, bd.pr) end
+    -- tapis de la bande : jusqu'au bout de la fonderie (motif à coffres), jusqu'à la tête de la colonne (lot FONDERIE)
+    local s_end = colonne and (g.s_edge - g.side) or (g.s_edge + g.side * (g.len - 1))
+    local nb = 0
+    for u = g.cut, s_end, g.side do
+      c.take(u, bd.b)
+      emit(s, "tapis", u, bd.b, 1, g.side, 0, bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
+      nb = nb + 1
+    end
+    if colonne then
+      s.pending[#s.pending + 1] = { bi = bi, gi = gi, pr = bd.pr, b = bd.b, g = g }
+    else
+      for _, e in ipairs(g.list) do emit(s, e.kind, e.u, e.v, e.size, e.du, e.dv, bi, gi, bd.pr, e.role, nil, e.module) end
+    end
+    local capa = Fd.capacity(spec, g.count)
+    s.flow_all, s.cap_all = s.flow_all + g.flow, s.cap_all + capa
+    bo.groups[#bo.groups + 1] = { side = g.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = g.flow, belt = g.belt,
+      count = g.count, capacity = capa, belt_tiles = nb, s_edge = g.s_edge, len = g.len, cut = g.cut,
+      pole_u = g.s_edge + g.side * (colonne and g.info.head_pole or Fd.pole_col(spec)),
+      pole_u2 = colonne and g.s_edge or nil, -- (lot FONDERIE) poteau de liaison de tête, rejoint par la rangée pr + pas
+      col_b = g.half and (bd.b + g.half.jog) or nil } -- (lot COLONNE-DOUBLE) demi-colonne d'en face : son tapis sur la rangée de son minerai
+  end
+  s.out_bands[#s.out_bands + 1] = bo
+  return true
+end
+
+-- lot FONDERIE : charbon des colonnes, un réseau par côté du champ (cadre neuf : calculé ; bande seule : rejoué du cadre)
+function ONCE.coal(s)
+  local spec, c, F = s.spec, s.c, s.F
+  s.coal_stats = {}
+  s.fallback = nil -- (lot FONDERIE) colonnes d'un cadre neuf retombées sur le coffre de tête : { pr, side, why }
+  if not s.colonne then s.stage = "bare_prep" return false end
+  s.cols_frame, s.coal_frame = {}, {}
+  s.nets = {}
+  if s.fuelled and not F then
+    local pitch = s.pitch
+    local zone = { u0 = math.huge, u1 = -math.huge, v0 = math.huge, v1 = -math.huge }
+    local function grow(u, v) zone.u0, zone.u1 = math.min(zone.u0, u), math.max(zone.u1, u); zone.v0, zone.v1 = math.min(zone.v0, v), math.max(zone.v1, v) end
+    grow(s.umin, s.box.v0 - pitch); grow(s.umax, s.box.v1 + pitch)
+    for _, it in ipairs(s.pending) do
+      grow(it.g.s_edge, it.b); grow(it.g.s_edge + it.g.side * it.g.info.far, it.b)
+    end
+    local coal_set, coal_list = {}, {}
+    local co = spec.coal
+    if co and co.tiles then
+      for i = 1, #co.tiles - 1, 2 do
+        local u, v = c.uv(co.tiles[i], co.tiles[i + 1])
+        local k = Co.tk(u, v)
+        if not coal_set[k] then coal_set[k] = true; coal_list[#coal_list + 1] = { u, v } end
+      end
+    end
+    local ugs = {}
+    for _, k in ipairs(spec.ug_tiles or {}) do local u, v = c.uv(k[1], k[2]); ugs[Co.tk(u, v)] = true end
+    s.zone, s.coal_set, s.coal_list, s.ugs = zone, coal_set, coal_list, ugs
+    -- (revue-fonderie, 3/11) ordre des côtés : le premier réseau prend ses tuiles, le second ne croise son tracé qu'en souterrain ;
+    -- spec.coal_first (posé par Ch.plan) fait passer l'autre côté d'abord
+    s.first = spec.coal_first or s.exit
+    s.side_i = 1
+    s.stage = "net"
+  else
+    if F and F.coal then
+      for _, side in ipairs({ s.exit, -s.exit }) do
+        local cf = F.coal[tostring(side)]
+        if cf then s.nets[side] = { uT = cf.uT, dv = cf.dv, split = cf.split, ents = cf.ents or {}, last = cf.last, why = cf.why } end
+      end
+    end
+    s.stage = "branch"
+  end
+  return false
+end
+
+function ONCE.net(s)
+  local side = s.side_i == 1 and s.first or -s.first
+  s.side_i = s.side_i + 1
+  if s.side_i > 2 then s.stage = "branch" end
+  local spec, c = s.spec, s.c
+  local d = spec.drill
+  local cols = {}
+  for _, it in ipairs(s.pending) do
+    if it.g.side == side then
+      cols[#cols + 1] = { key = tostring(it.pr), coal_v = it.g.info.b_coal, link_v = it.g.info.b_link, s_edge = it.g.s_edge,
+        far = it.g.info.far, need = it.g.info.need }
+    end
+  end
+  if #cols == 0 then return false end
+  local co = spec.coal
+  local lg = spec.logistics or {}
+  local zone, coal_set = s.zone, s.coal_set
+  local env = {
+    free = c.free, coal = { tiles = s.coal_list, is_coal = function(u, v) return coal_set[Co.tk(u, v)] == true end, rate = co and co.rate,
+      -- lot MELANGE : tuiles d'une autre ressource minable autour du charbon (le minerai du champ compris)
+      is_foreign = co and co.foreign and function(u, v)
+        if coal_set[Co.tk(u, v)] then return false end
+        local x, y = c.xy(u, v)
+        return co.foreign[Ch.key(x, y)] == true
+      end or nil },
+    forbid = function(u, v) return u >= zone.u0 - 1 and u <= zone.u1 + 1 and v >= zone.v0 - 1 and v <= zone.v1 + 1 end,
+    -- (banc-2, 3/11) pas de répartiteur sur le tronc même débloqué : la cascade 50/50 n'a pas de plafond par colonne, les dernières
+    -- attendent que les tampons d'amont se remplissent (mesuré : 12, 6, 4 et 4 fours garnis le long du tronc) ; le bras de
+    -- dérivation, lui, borne la prise de chaque colonne. Les souterrains restent (passer sous un obstacle).
+    drill = d, pole = spec.pole, ug = lg.underground, split = false, ugs = s.ugs, box = zone,
+    inserter_rate = spec.inserter and spec.inserter.rate,
+    soft = spec.soft and function(u, v) local x, y = c.xy(u, v); return spec.soft[Ch.key(x, y)] == true end or nil,
+    lane_drills = co and co.rate and Ch.lane_drills(spec.belts[1].lane, co.rate) or nil,
+    route_memo = run_memo("routes"), line_memo = run_memo("lines"), -- s49 opti : tracés du charbon refaits à l'identique d'un plan_order à l'autre
+    bridge = function(poles, free)
+      local extra = {}
+      local cc = { free = function(u, v) return not extra[Co.tk(u, v)] and free(u, v) end, take = function(u, v) extra[Co.tk(u, v)] = true end }
+      return bridge(cc, spec, poles)
+    end,
+  }
+  s.nets[side] = Co.network(cols, side, env)
+  local nt = s.nets[side]
+  -- le réseau prend ses tuiles (poteaux des rangées et relais du champ ne s'y posent pas)
+  for _, e in ipairs(nt.ents) do
+    for u = e.u, e.u + (e.w or e.size) - 1 do for v = e.v, e.v + (e.h or e.size) - 1 do c.take(u, v) end end
+  end
+  local last_key
+  for _, cl in ipairs(cols) do if cl.last then last_key = cl.key end end
+  local why = nt.why
+  if nt.dropped and #nt.dropped > 0 then why = (why and (why .. " ; ") or "") .. table.concat(nt.dropped, " ; ") end
+  s.coal_frame[tostring(side)] = { uT = nt.uT, dv = nt.dv, split = nt.split, last = last_key, ents = nt.ents, why = why,
+    drills = nt.drills, undergrounds = nt.undergrounds }
+  return true
+end
+
+function ONCE.branch(s)
+  local spec, c, F = s.spec, s.c, s.F
+  local d, exit, nets, coal_frame, ents = spec.drill, s.exit, s.nets, s.coal_frame, s.ents
+  s.zone, s.coal_set, s.coal_list, s.ugs, s.first, s.side_i = nil, nil, nil, nil, nil, nil
+  local shared_done = {}
+  local fallback = {}
+  s.fallback = fallback
+  for _, it in ipairs(s.pending) do
+    local g = it.g
+    local key = tostring(it.pr)
+    local nt = nets[g.side]
+    local mode = g.info.mode
+    if mode == "voie" then
+      if F and F.cols then
+        mode = F.cols[key][tostring(g.side)].mode
+      else
+        mode = (nt and nt.modes and nt.modes[key]) or "coffre"
+      end
+    end
+    if mode == "coffre" and g.info.mode == "voie" and not F then
+      local cf = coal_frame[tostring(g.side)]
+      fallback[#fallback + 1] = { pr = it.pr, side = g.side, why = (cf and cf.why) or "pas de reseau du charbon" }
+    end
+    if mode == "coffre" and g.info.mode == "voie" then
+      -- repli : le coffre de tête (ses tuiles sont dans celles de la voie, déjà prises)
+      local list, len, info = Co.layout(spec, it.b, g.side, g.s_edge, g.count, "coffre", g.half, g.info.ext)
+      -- (lot COLONNE-DOUBLE) la ligne de plaques commune n'est rendue que par la demi-colonne qui l'a posée la première
+      local kept = {}
+      for _, e in ipairs(g.list) do if e.kind == "tapis" and e.role == "sortie" then kept[Co.tk(e.u, e.v)] = true end end
+      local own = {}
+      for _, e in ipairs(list) do if not (e.kind == "tapis" and e.role == "sortie") or kept[Co.tk(e.u, e.v)] then own[#own + 1] = e end end
+      g.list, g.info = own, info
+      g.len = math.min(g.len, len)
+    end
+    for _, e in ipairs(g.list) do
+      emit_e(s, e, it.bi, it.gi, it.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil)
+      -- lot FONDERIE-BLOC : le coffre de tête porte le charbon/s que sa colonne brûle (son quai a un débit : la liaison, le piquage et
+      -- l'alimentation de quai le voient ; avant, 0 et « ne_se_paie_pas »)
+      if e.kind == "coffre" and e.role == "combustible" then ents[#ents].need = g.info.need end
+    end
+    if mode == "voie" and nt and nt.uT then
+      local cf = (F and F.cols) and nt or coal_frame[tostring(g.side)]
+      local col = { coal_v = g.info.b_coal, link_v = g.info.b_link, s_edge = g.s_edge, far = g.info.far, last = (cf and cf.last) == key }
+      for _, e in ipairs(Co.branch(col, nt, g.side, spec.pole.wire)) do
+        for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
+        emit_e(s, e, it.bi, it.gi, it.pr, e.kind == "tapis" and 1 or nil)
+      end
+      if not shared_done[g.side] then
+        shared_done[g.side] = true
+        -- (projet séparé, 3/11) pièces COMMUNES du réseau du charbon d'un côté, marquées : le runtime les pose dans le projet « réseau du
+        -- charbon » de ce côté, pas dans la bande
+        for _, e in ipairs(nt.ents) do
+          emit_e(s, e, 0, 0, nil, (e.kind == "tapis" or e.kind == "souterrain" or e.kind == "repartiteur") and 1 or nil)
+          ents[#ents].coalnet = g.side
+        end
+      end
+    end
+    s.cols_frame[key] = s.cols_frame[key] or {}
+    s.cols_frame[key][tostring(g.side)] = { s_edge = g.s_edge, count = g.count, mode = mode, double = g.half and true or nil,
+      mirror = (g.half and g.half.mirror) or nil, ext = g.info.ext }
+    g.mode = mode
+    local og = s.out_bands[it.bi] and s.out_bands[it.bi].groups[it.gi]
+    if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
+  end
+  for _, side in ipairs({ exit, -exit }) do
+    local nt = nets[side]
+    if nt then
+      local why = nt.why
+      if nt.dropped and #nt.dropped > 0 then why = (why and (why .. " ; ") or "") .. table.concat(nt.dropped, " ; ") end
+      s.coal_stats[#s.coal_stats + 1] = { side = side, voie = nt.uT ~= nil, why = why, drills = nt.drills, undergrounds = nt.undergrounds, split = nt.split }
+    end
+  end
+  if F and F.coal then s.coal_frame = F.coal end
+  -- bande seule : les colonnes des AUTRES bandes du cadre sont réservées (non posées) avant les poteaux des rangées, qui les
+  -- contournent comme dans le plan entier (sinon un poteau prolongé prendrait la tuile d'un bras d'une colonne voisine à venir)
+  if F and F.cols then
+    local keys = {}
+    for k in pairs(F.cols) do keys[#keys + 1] = k end
+    table.sort(keys, function(a, b) return tonumber(a) < tonumber(b) end)
+    for _, k in ipairs(keys) do
+      for _, sk in ipairs({ "1", "-1" }) do
+        local fc = F.cols[k][sk]
+        if fc and fc.mode ~= "refusee" and not (F.only and F.only[tonumber(k)]) then
+          local l = Co.layout(spec, tonumber(k) + d.size + 1, tonumber(sk), fc.s_edge, fc.count, fc.mode,
+            fc.double and Co.half(spec, s.pitch, fc.mirror) or nil)
+          for _, e in ipairs(l or {}) do
+            for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
+          end
+        end
+      end
+    end
+  end
+  s.nets = nil
+  s.stage = "bare_prep"
+  return true
+end
+
+-- lot DECOUPLAGE (directive du DC du 11/11 ; maillon prouvé par PAVAGE-GEANT, 0.7.5, graine 2507543475 : émeraude fer, 37 foreuses sur
+-- 42 retirées faute de place pour les fours) : une foreuse ne dépend QUE du minerai. Une fois TOUTES les fonderies posées (colonnes ET réseau du charbon :
+-- formé plus tôt, son tapis barrait le tracé du charbon, banc 2507543475 : azure fer 58 fours -> 10), les
+-- foreuses qu'aucun groupe n'a prises au bout d'une bande sans place de fonderie forment un groupe « tapis collecteur seul » (g.bare :
+-- tapis jusqu'au bord du champ, tuile devant sa sortie réservée, aucune fonderie dans ce plan : elle se pose ailleurs sur le sol neutre).
+-- lot FONDERIE-BOUT : tuiles lues (spec.window, repère x, y) et souterrains déjà posés, dans le repère (u, v) du plan
+function ONCE.bare_prep(s)
+  local spec, c = s.spec, s.c
+  s.win, s.away_why = nil, nil -- away_why : première raison d'un bout resté sans colonne (journal du plan)
   if spec.window then
     local wu0, wv0 = c.uv(spec.window[1], spec.window[2])
     local wu1, wv1 = c.uv(spec.window[3], spec.window[4])
-    win = { u0 = math.min(wu0, wu1), v0 = math.min(wv0, wv1), u1 = math.max(wu0, wu1), v1 = math.max(wv0, wv1) }
+    s.win = { u0 = math.min(wu0, wu1), v0 = math.min(wv0, wv1), u1 = math.max(wu0, wu1), v1 = math.max(wv0, wv1) }
   end
-  local ug_uv = {}
-  for _, k in ipairs(spec.ug_tiles or {}) do local u, v = c.uv(k[1], k[2]); ug_uv[Co.tk(u, v)] = true end
-  -- lot COUPLAGE (règles du DC du 12/11 : « toute ligne de foreuses déclenche assez de fours pour fondre 100 % de son débit brut » ; plus
-  -- aucune foreuse orpheline. Partie du DC 0.7.90 à 190 min : 751 foreuses de champ figées sur 1 396, dont les bandes « tapis collecteur
-  -- seul » dont le tapis s'arrête dans l'herbe : amber fer, 11 bandes et 249 foreuses sans un four, « aucune place sur le sol neutre ») :
-  -- un bout de bande sans place de fonderie dans son prolongement ne garde ses foreuses QUE si une colonne les reçoit ailleurs (Co.away),
-  -- au besoin plus courte (moitié, quart des fours : le groupe est réduit à ce qu'elle fond). Sinon RIEN n'est posé : ni foreuse, ni tapis
-  -- (leur minerai attend une fonderie). Une colonne refusée faute de voie de charbon (t.refused) n'en reçoit pas : ses foreuses non plus.
+  s.ug_uv = {}
+  for _, k in ipairs(spec.ug_tiles or {}) do local u, v = c.uv(k[1], k[2]); s.ug_uv[Co.tk(u, v)] = true end
+  s.ti = 1
+  s.stage = "bare"
+  return false
+end
+
+-- lot COUPLAGE (règles du DC du 12/11 : « toute ligne de foreuses déclenche assez de fours pour fondre 100 % de son débit brut » ; plus
+-- aucune foreuse orpheline. Partie du DC 0.7.90 à 190 min : 751 foreuses de champ figées sur 1 396, dont les bandes « tapis collecteur
+-- seul » dont le tapis s'arrête dans l'herbe : amber fer, 11 bandes et 249 foreuses sans un four, « aucune place sur le sol neutre ») :
+-- un bout de bande sans place de fonderie dans son prolongement ne garde ses foreuses QUE si une colonne les reçoit ailleurs (Co.away),
+-- au besoin plus courte (moitié, quart des fours : le groupe est réduit à ce qu'elle fond). Sinon RIEN n'est posé : ni foreuse, ni tapis
+-- (leur minerai attend une fonderie). Une colonne refusée faute de voie de charbon (t.refused) n'en reçoit pas : ses foreuses non plus.
+function ONCE.bare(s)
+  local t = s.bare_todo[s.ti]
+  if not t then s.ti, s.ug_uv = nil, nil; s.stage = "poles" return false end
+  s.ti = s.ti + 1
+  local spec, c = s.spec, s.c
+  local d, colonne, fuelled, lane, pitch, win = spec.drill, s.colonne, s.fuelled, s.lane, s.pitch, s.win
+  local ug_uv = s.ug_uv
   local half_d = math.floor(d.size / 2)
-  for _, t in ipairs(bare_todo) do
-    local bd, bo = t.bd, out_bands[t.bi]
-    local g0 = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
-    if g0 then
-      -- le tapis finit au bord du champ, ou plus tôt (jamais avant la dernière foreuse) si la tuile devant sa sortie est déjà prise : le
-      -- minerai ne tombe sur aucun autre tapis
-      local e_end = t.edge
-      while e_end ~= g0.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
-      local g, aw, aw_why
-      if colonne and not t.refused then
-        for u = g0.cut, e_end, t.side do c.take(u, bd.b) end -- (le tracé du lien ne repasse pas sur le collecteur)
-        local want = Fd.count(spec, Ch.delivered(#g0.n, #g0.s, d.rate, lane, fuelled))
-        local counts = { want }
-        -- colonne plus courte : four électrique seulement. Une colonne ailleurs à combustible prend un coffre de tête que rien ne garnit
-        -- en 60 min (banc partie-reelle-60, graine 123456789 : amber, 2 colonnes courtes, le plan du champ en est changé et 21 fours de la
-        -- bande -291 restent sans charbon, fer 405 -> 8 plaques/min en fin de banc)
-        for _ = 1, (fuelled and 0 or 2) do
-          local n2 = math.ceil(counts[#counts] / 2)
-          if n2 >= 1 and n2 < counts[#counts] then counts[#counts + 1] = n2 end
-        end
-        -- recul : jusqu'au bord des tuiles lues le long de l'axe (sans rectangle connu, celui de Co.place)
-        local u0 = e_end + t.side
-        local reach = win and math.max(0, t.side > 0 and (win.u1 - u0) or (u0 - win.u0)) or (Ch.CFG.shift + Ch.CFG.gap)
-        for _, cnt in ipairs(counts) do
-          local gc = g0
-          if cnt < want then
-            local capa = Fd.capacity(spec, cnt)
-            local k = fuelled and math.floor(capa / d.rate + Ch.CFG.eps) or math.floor(capa / (2 * d.rate) + Ch.CFG.eps)
-            gc = Ch.trim_group(g0, t.side, half_d, k, fuelled)
-          end
-          if gc then
-            aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
-              c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
-                span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win,
-                memo = run_memo("away") }) -- s52 mesure : tracés des colonnes ailleurs refaits à l'identique d'un plan_once à l'autre
-            if aw then g = gc break end
-          end
-        end
-        if not aw and not away_why then away_why = string.format("bande %d : %s", bd.pr, tostring(aw_why)) end
+  local bd, bo = t.bd, s.out_bands[t.bi]
+  local g0 = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
+  if not g0 then return false end
+  -- le tapis finit au bord du champ, ou plus tôt (jamais avant la dernière foreuse) si la tuile devant sa sortie est déjà prise : le
+  -- minerai ne tombe sur aucun autre tapis
+  local e_end = t.edge
+  while e_end ~= g0.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
+  local g, aw, aw_why
+  if colonne and not t.refused then
+    for u = g0.cut, e_end, t.side do c.take(u, bd.b) end -- (le tracé du lien ne repasse pas sur le collecteur)
+    local want = Fd.count(spec, Ch.delivered(#g0.n, #g0.s, d.rate, lane, fuelled))
+    local counts = { want }
+    -- colonne plus courte : four électrique seulement. Une colonne ailleurs à combustible prend un coffre de tête que rien ne garnit
+    -- en 60 min (banc partie-reelle-60, graine 123456789 : amber, 2 colonnes courtes, le plan du champ en est changé et 21 fours de la
+    -- bande -291 restent sans charbon, fer 405 -> 8 plaques/min en fin de banc)
+    for _ = 1, (fuelled and 0 or 2) do
+      local n2 = math.ceil(counts[#counts] / 2)
+      if n2 >= 1 and n2 < counts[#counts] then counts[#counts + 1] = n2 end
+    end
+    -- recul : jusqu'au bord des tuiles lues le long de l'axe (sans rectangle connu, celui de Co.place)
+    local u0 = e_end + t.side
+    local reach = win and math.max(0, t.side > 0 and (win.u1 - u0) or (u0 - win.u0)) or (Ch.CFG.shift + Ch.CFG.gap)
+    for _, cnt in ipairs(counts) do
+      local gc = g0
+      if cnt < want then
+        local capa = Fd.capacity(spec, cnt)
+        local k = fuelled and math.floor(capa / d.rate + Ch.CFG.eps) or math.floor(capa / (2 * d.rate) + Ch.CFG.eps)
+        gc = Ch.trim_group(g0, t.side, half_d, k, fuelled)
       end
-      if aw then
-        for _, a in ipairs(g.n) do t.used[a .. "n"] = true end
-        for _, a in ipairs(g.s) do t.used[a .. "s"] = true end
-        capped = capped - #g.n - #g.s
-        local gi = #bo.groups + 1
-        for _, a in ipairs(g.n) do emit("foreuse", a, bd.pr + 1, d.size, 0, 1, t.bi, gi, bd.pr) end
-        for _, a in ipairs(g.s) do emit("foreuse", a, bd.b + 1, d.size, 0, -1, t.bi, gi, bd.pr) end
-        g.belt = belt_for(g)
-        local nb = 0
-        for u = g.cut, e_end, t.side do
-          c.take(u, bd.b)
-          emit("tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
-          nb = nb + 1
-        end
-        local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
-        flow_all = flow_all + flow
-        for _, r in ipairs(aw.route) do
-          c.take(r.u, r.v)
-          local dv = Co.D4[r.d]
-          emit_e({ kind = r.kind, u = r.u, v = r.v, size = 1, du = dv[1], dv = dv[2], role = "lien", ug = r.ug }, t.bi, gi, bd.pr, g.belt)
-        end
-        for _, e in ipairs(aw.list) do
-          for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
-          emit_e(e, t.bi, gi, bd.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil)
-          if e.kind == "coffre" and e.role == "combustible" then ents[#ents].need = aw.info.need end
-        end
-        local capa = Fd.capacity(spec, aw.count)
-        cap_all = cap_all + capa
-        bo.groups[gi] = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = aw.count,
-          capacity = capa, belt_tiles = nb, s_edge = aw.s_edge, len = aw.len, cut = g.cut, pole_u = e_end, pole_u2 = colonne and e_end or nil,
-          away = true, col_b = aw.b, mode = aw.info.mode }
-      else
-        orphans = orphans + #g0.n + #g0.s -- foreuses NON posées : aucune fonderie ne les recevrait
-        bo.orphans = bo.orphans + #g0.n + #g0.s
-        -- leurs tuiles (rangée du collecteur, tuile devant sa sortie) restent prises dans ce plan, comme avant le lot : les autres bouts ne
-        -- s'y placent pas (même plan qu'avant, foreuses et tapis en moins)
-        for u = g0.cut, e_end, t.side do c.take(u, bd.b) end
-        c.take(e_end + t.side, bd.b)
+      if gc then
+        aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
+          c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
+            span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win,
+            memo = run_memo("away") }) -- s52 mesure : tracés des colonnes ailleurs refaits à l'identique d'un plan_once à l'autre
+        if aw then g = gc break end
       end
     end
+    if not aw and not s.away_why then s.away_why = string.format("bande %d : %s", bd.pr, tostring(aw_why)) end
   end
-  -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
-  -- FONDERIE : seule la rangée pr, du côté des fours, va jusqu'à la colonne ; l'autre passerait sur la colonne de la bande voisine)
+  if aw then
+    for _, a in ipairs(g.n) do t.used[a .. "n"] = true end
+    for _, a in ipairs(g.s) do t.used[a .. "s"] = true end
+    s.capped = s.capped - #g.n - #g.s
+    local gi = #bo.groups + 1
+    for _, a in ipairs(g.n) do emit(s, "foreuse", a, bd.pr + 1, d.size, 0, 1, t.bi, gi, bd.pr) end
+    for _, a in ipairs(g.s) do emit(s, "foreuse", a, bd.b + 1, d.size, 0, -1, t.bi, gi, bd.pr) end
+    g.belt = belt_for(s, g)
+    local nb = 0
+    for u = g.cut, e_end, t.side do
+      c.take(u, bd.b)
+      emit(s, "tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
+      nb = nb + 1
+    end
+    local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
+    s.flow_all = s.flow_all + flow
+    for _, r in ipairs(aw.route) do
+      c.take(r.u, r.v)
+      local dv = Co.D4[r.d]
+      emit_e(s, { kind = r.kind, u = r.u, v = r.v, size = 1, du = dv[1], dv = dv[2], role = "lien", ug = r.ug }, t.bi, gi, bd.pr, g.belt)
+    end
+    local ents = s.ents
+    for _, e in ipairs(aw.list) do
+      for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
+      emit_e(s, e, t.bi, gi, bd.pr, e.kind == "tapis" and (e.role == "charbon" and 1 or g.belt) or nil)
+      if e.kind == "coffre" and e.role == "combustible" then ents[#ents].need = aw.info.need end
+    end
+    local capa = Fd.capacity(spec, aw.count)
+    s.cap_all = s.cap_all + capa
+    bo.groups[gi] = { side = t.side, drills = #g.n + #g.s, per_side = math.max(#g.n, #g.s), flow = flow, belt = g.belt, count = aw.count,
+      capacity = capa, belt_tiles = nb, s_edge = aw.s_edge, len = aw.len, cut = g.cut, pole_u = e_end, pole_u2 = colonne and e_end or nil,
+      away = true, col_b = aw.b, mode = aw.info.mode }
+  else
+    s.orphans = s.orphans + #g0.n + #g0.s -- foreuses NON posées : aucune fonderie ne les recevrait
+    bo.orphans = bo.orphans + #g0.n + #g0.s
+    -- leurs tuiles (rangée du collecteur, tuile devant sa sortie) restent prises dans ce plan, comme avant le lot : les autres bouts ne
+    -- s'y placent pas (même plan qu'avant, foreuses et tapis en moins)
+    for u = g0.cut, e_end, t.side do c.take(u, bd.b) end
+    c.take(e_end + t.side, bd.b)
+  end
+  return true
+end
+
+-- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
+-- FONDERIE : seule la rangée pr, du côté des fours, va jusqu'à la colonne ; l'autre passerait sur la colonne de la bande voisine)
+function ONCE.poles(s)
+  local spec, c, pitch, colonne = s.spec, s.c, s.pitch, s.colonne
   local rows, row_list, reach_to = {}, {}, {}
-  for bi, bd in ipairs(bands) do
-    local bo = out_bands[bi]
+  for bi, bd in ipairs(s.bands) do
+    local bo = s.out_bands[bi]
     if #bo.groups > 0 then
       for _, it in ipairs({ { bd.pr, bd.n, bd.pr, "pole_u" }, { bd.pr + pitch, bd.s, bd.pr, colonne and "pole_u2" or "pole_u" } }) do
         local row = it[1]
@@ -1169,39 +1277,89 @@ local function plan_once(spec)
   end
   table.sort(row_list, function(p, q) return p.row < q.row end)
   local all_poles = {}
-  for _, e in ipairs(ents) do
+  for _, e in ipairs(s.ents) do
     if e.kind == "poteau" then local u, v = c.uv(math.floor(e.x), math.floor(e.y)); all_poles[#all_poles + 1] = { u, v } end
   end
   local nfound = #all_poles -- s41 pavage-trous : les poteaux des fonderies seuls (ceux des rangées s'ajoutent après)
   for _, r in ipairs(row_list) do
     table.sort(reach_to[r.row])
-    for _, u in ipairs(row_poles(c, spec, r.row, rows[r.row], origin, reach_to[r.row], all_poles, nfound)) do
-      emit("poteau", u, r.row, 1, 0, 0, 0, 0, r.pr)
+    for _, u in ipairs(row_poles(c, spec, r.row, rows[r.row], s.origin, reach_to[r.row], all_poles, nfound)) do
+      emit(s, "poteau", u, r.row, 1, 0, 0, 0, 0, r.pr)
       all_poles[#all_poles + 1] = { u, r.row }
     end
   end
+  s.all_poles = all_poles
+  s.stage = "bridge"
+  return true
+end
+
+function ONCE.bridge(s)
+  local F, all_poles = s.F, s.all_poles
+  s.all_poles = nil
+  s.stage = "finish"
   if not (F and F.only) and #all_poles > 1 then
-    for _, p in ipairs((colonne and bridge or bridge_0641)(c, spec, all_poles)) do emit("poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
+    for _, p in ipairs((s.colonne and bridge or bridge_0641)(s.c, s.spec, all_poles)) do emit(s, "poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
+    return true
   end
+  return false
+end
+
+function ONCE.finish(s)
+  local spec, F, colonne, ents, out_bands = s.spec, s.F, s.colonne, s.ents, s.out_bands
   local n = { foreuse = 0, poteau = 0, tapis = 0, four = 0, bras = 0, coffre = 0, souterrain = 0, repartiteur = 0 }
   for _, e in ipairs(ents) do n[e.kind] = n[e.kind] + 1 end
-  local frame = { axis = axis, phase = phase, exit = exit, origin = origin, umin = umin, umax = umax, v0 = box.v0, offsets = offsets }
-  if colonne then frame.design, frame.cols, frame.coal = "colonne", cols_frame, coal_frame
+  local frame = { axis = s.axis, phase = s.phase, exit = s.exit, origin = s.origin, umin = s.umin, umax = s.umax, v0 = s.box.v0, offsets = s.offsets }
+  if colonne then frame.design, frame.cols, frame.coal = "colonne", s.cols_frame, s.coal_frame
   elseif spec.design and not F then frame.design = "coffres" end -- cadre neuf sans four (charbon, pierre) : distinct d'un cadre d'avant le lot
-  return {
-    axis = axis, exit = exit, phase = phase, pitch = pitch, ents = ents, bands = out_bands, design = colonne and "colonne" or nil,
-    fallback = fallback,
-    fuelled = fuelled or nil,
+  local band_drills = 0
+  for _, bd in ipairs(s.bands) do band_drills = band_drills + #bd.n + #bd.s end
+  -- lot FONDERIE-BOUT : groupes dont la colonne est posée ailleurs / tapis collecteurs seuls (sans fonderie dans ce plan)
+  local away, bare = 0, 0
+  for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.away then away = away + 1 end end end
+  for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.bare then bare = bare + 1 end end end
+  s.plan = {
+    axis = s.axis, exit = s.exit, phase = s.phase, pitch = s.pitch, ents = ents, bands = out_bands, design = colonne and "colonne" or nil,
+    fallback = s.fallback,
+    fuelled = s.fuelled or nil,
     frame = frame,
-    stats = { tiles = #c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
-      chests = n.coffre, capped = capped, flow = flow_all, capacity = cap_all, umin = umin, umax = umax, no_smelter = no_smelter, no_smelter_at = no_smelter_at,
-      undergrounds = n.souterrain, splitters = n.repartiteur, coal = coal_stats,
-      band_drills = (function() local k = 0; for _, bd in ipairs(bands) do k = k + #bd.n + #bd.s end; return k end)(),
-      -- lot FONDERIE-BOUT : groupes dont la colonne est posée ailleurs / tapis collecteurs seuls (sans fonderie dans ce plan)
-      away = (function() local k = 0; for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.away then k = k + 1 end end end; return k end)(),
-      away_why = away_why, orphans = orphans, -- lot COUPLAGE : foreuses non posées faute de fonderie
-      bare = (function() local k = 0; for _, bo in ipairs(out_bands) do for _, g in ipairs(bo.groups) do if g.bare then k = k + 1 end end end; return k end)() },
+    stats = { tiles = #s.c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
+      chests = n.coffre, capped = s.capped, flow = s.flow_all, capacity = s.cap_all, umin = s.umin, umax = s.umax, no_smelter = s.no_smelter,
+      no_smelter_at = s.no_smelter_at, undergrounds = n.souterrain, splitters = n.repartiteur, coal = s.coal_stats,
+      band_drills = band_drills,
+      away = away,
+      away_why = s.away_why, orphans = s.orphans, -- lot COUPLAGE : foreuses non posées faute de fonderie
+      bare = bare },
   }
+  s.done = true
+  return true
+end
+
+Ch.ONCE_STEPS = 0 -- s52 bandes : étapes de plan_once faites (compteur des tests ; jamais lu pour une décision)
+
+function Ch.once_begin(spec) return { spec = spec, stage = "init" } end
+
+--- UNE étape bornée (les étapes sans calcul notable, setup, coal, bare_prep, finish, s'enchaînent à la suivante dans le même appel).
+--- Rend vrai quand le plan est fini. Le contexte est relié au début de l'étape et délié à la fin : l'état ne garde aucune fonction.
+function Ch.once_step(s)
+  if s.done then return true end
+  if s.c then bind(s.c) end
+  local heavy
+  repeat heavy = ONCE[s.stage](s) until heavy or s.done
+  if s.c then unbind(s.c) end
+  if s.done then s.c = nil end
+  Ch.ONCE_STEPS = Ch.ONCE_STEPS + 1
+  return s.done == true
+end
+
+function Ch.once_result(s)
+  if s.plan then return s.plan end
+  return nil, s.why
+end
+
+local function plan_once(spec)
+  local s = Ch.once_begin(spec)
+  while not Ch.once_step(s) do end
+  return Ch.once_result(s)
 end
 
 --- Plan du champ (voir plus haut). Lot FONDERIE : un cadre NEUF en colonne à combustible ne garde aucune colonne retombée sur le coffre de
@@ -1229,41 +1387,66 @@ function Ch.furnaces(p)
   return n
 end
 
-local function plan_order(spec)
-  local p, why = plan_once(spec)
-  if not (Ch.CFG.refuse_coffre and p and p.design == "colonne" and p.fuelled and not spec.frame) then return p, why end
-  if not (p.fallback and #p.fallback > 0) then return p, why end
-  local p0, why0 = p, why -- plan avec les colonnes au coffre de tête (0.6.42) : gardé si le refus coûte trop
-  local refuse, refused = {}, {}
-  for _ = 1, Ch.CFG.refuse_passes do
-    if not (p.fallback and #p.fallback > 0) then break end
-    for _, x in ipairs(p.fallback) do
-      local k = tostring(x.pr) .. ":" .. tostring(x.side)
-      if not refuse[k] then refuse[k] = true; refused[#refused + 1] = x end
-    end
-    local sp = {}
-    for k, v in pairs(spec) do sp[k] = v end
-    sp.refuse = refuse
-    p, why = plan_once(sp)
-    if not p then break end
-  end
+--- s52 bandes : plan_order en machine à états (sur celle de plan_once) : le plan de la spec, puis les passes du refus des colonnes au
+--- coffre de tête (au plus Ch.CFG.refuse_passes plan_once de plus), puis le choix (Ch.refuse_keeps). Mêmes calculs, même ordre qu'avant.
+--- order_begin(spec) -> état ; order_step(o) : UNE étape de plan_once (et, quand il finit, la décision de la passe suivante) ; vrai à la fin
+--- (o.p, o.why : plan et raison).
+local function order_begin(spec) return { spec = spec, once = Ch.once_begin(spec), pass = 0 } end
+local function order_final(o)
+  local p, p0 = o.p, o.p0
   -- refus impossible (plan vide, ou replis encore là après les passes) : il coûte toute la fonderie
   local after = (p and not (p.fallback and #p.fallback > 0)) and Ch.furnaces(p) or 0
   local keep, cost = Ch.refuse_keeps(Ch.furnaces(p0), after)
   if not keep then
     p0.coffre_cost, p0.coffre_cols = cost, #p0.fallback
-    return p0, why0
-  end
-  table.sort(refused, function(a, b) if a.pr ~= b.pr then return a.pr < b.pr end return a.side < b.side end)
-  p.refused, p.refuse_cost = refused, cost
-  if p.frame.cols then
-    for _, x in ipairs(refused) do
-      local key = tostring(x.pr)
-      p.frame.cols[key] = p.frame.cols[key] or {}
-      p.frame.cols[key][tostring(x.side)] = { mode = "refusee" }
+    o.p, o.why = p0, o.why0
+  else
+    local refused = o.refused
+    table.sort(refused, function(a, b) if a.pr ~= b.pr then return a.pr < b.pr end return a.side < b.side end)
+    p.refused, p.refuse_cost = refused, cost
+    if p.frame.cols then
+      for _, x in ipairs(refused) do
+        local key = tostring(x.pr)
+        p.frame.cols[key] = p.frame.cols[key] or {}
+        p.frame.cols[key][tostring(x.side)] = { mode = "refusee" }
+      end
     end
   end
-  return p, why
+  o.once, o.p0, o.why0, o.refuse, o.refused = nil, nil, nil, nil, nil
+  o.done = true
+  return true
+end
+local function order_step(o)
+  if o.done then return true end
+  if not Ch.once_step(o.once) then return false end
+  local p, why = Ch.once_result(o.once)
+  local spec = o.spec
+  if o.pass == 0 then
+    if not (Ch.CFG.refuse_coffre and p and p.design == "colonne" and p.fuelled and not spec.frame) or not (p.fallback and #p.fallback > 0) then
+      o.p, o.why, o.once, o.done = p, why, nil, true
+      return true
+    end
+    o.p0, o.why0 = p, why -- plan avec les colonnes au coffre de tête (0.6.42) : gardé si le refus coûte trop
+    o.refuse, o.refused = {}, {}
+  end
+  o.p, o.why = p, why
+  if not p or o.pass >= Ch.CFG.refuse_passes or not (p.fallback and #p.fallback > 0) then return order_final(o) end
+  o.pass = o.pass + 1
+  for _, x in ipairs(p.fallback) do
+    local k = tostring(x.pr) .. ":" .. tostring(x.side)
+    if not o.refuse[k] then o.refuse[k] = true; o.refused[#o.refused + 1] = x end
+  end
+  local sp = {}
+  for k, v in pairs(spec) do sp[k] = v end
+  sp.refuse = o.refuse
+  o.once = Ch.once_begin(sp)
+  return false
+end
+
+local function plan_order(spec)
+  local o = order_begin(spec)
+  while not order_step(o) do end
+  return o.p, o.why
 end
 
 --- Coffres de tête (combustible) d'un plan.
@@ -1357,19 +1540,31 @@ end
 
 Ch.ORDERS = 0 -- s49 tranches : nombre de plan_order calculés (compteur des tests ; jamais lu pour une décision)
 
---- s49 tranches : séquence pas à pas. Ch.plan_begin(spec) -> état { spec, res, memo, n } ; Ch.plan_step(st) calcule UNE variante (un
---- plan_order, mémoire de phase de la séquence) et rend vrai quand le plan est complet ; Ch.plan_result(st) -> plan, raison.
-function Ch.plan_begin(spec) return { spec = spec, res = {}, memo = {}, n = 0 } end
+--- s49 tranches : séquence pas à pas. Ch.plan_begin(spec) -> état { spec, res, memo, n, k, cur, inner } ; Ch.plan_step(st) rend vrai
+--- quand le plan est complet ; Ch.plan_result(st) -> plan, raison.
+--- s52 bandes : un pas = UNE étape de plan_once (Ch.once_step : la recherche d'une phase, une bande, un réseau du charbon, ...) de la
+--- variante en cours (st.cur : { i, o = état de plan_order }), plus une variante entière ; mémoire de phase st.memo sur toute la séquence.
+--- st.n : variantes finies ; st.k : pas faits ; st.inner : vrai si le pas suivant continue la MÊME variante (lu par le câblage pour
+--- l'espacement court, Mig.INNER_GAP ; faux : le pas suivant commence une variante, Mig.STEP_GAP).
+function Ch.plan_begin(spec) return { spec = spec, res = {}, memo = {}, n = 0, k = 0, inner = false } end
 function Ch.plan_step(st)
-  local i, vs = Ch.plan_next(st.spec, st.res)
-  if i then
-    PHASE_MEMO = st.memo
-    local p, why = plan_order(vs)
-    PHASE_MEMO = nil
-    Ch.ORDERS = Ch.ORDERS + 1
-    st.res[i], st.n = { p = p, why = why }, st.n + 1
+  if not st.cur then
+    local i, vs = Ch.plan_next(st.spec, st.res)
+    if not i then st.inner = false return true end
+    st.cur = { i = i, o = order_begin(vs) }
   end
-  return Ch.plan_next(st.spec, st.res) == nil
+  PHASE_MEMO = st.memo
+  local fin = order_step(st.cur.o)
+  PHASE_MEMO = nil
+  st.k = st.k + 1
+  if fin then
+    local o = st.cur.o
+    Ch.ORDERS = Ch.ORDERS + 1
+    st.res[st.cur.i], st.n = { p = o.p, why = o.why }, st.n + 1
+    st.cur = nil
+  end
+  st.inner = st.cur ~= nil
+  return st.cur == nil and Ch.plan_next(st.spec, st.res) == nil
 end
 function Ch.plan_result(st) return Ch.plan_pick(st.spec, st.res) end
 

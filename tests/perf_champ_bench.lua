@@ -8,6 +8,9 @@
     --ref     écrit tests/perf_champ_ref.lua (empreintes de référence, à faire sur le code d'avant l'optimisation)
     --nowrap  sans enveloppes (temps nu) ; --reps=N : N passes, le temps le plus court
     --memo-par-pas  (s49 tranches) mémoire neuve à chaque pas : coût d'un pas sans le partage des mémoires entre variantes
+    --geant   (s52 bandes) ajoute le cas « geant 110x55 » (gisement de la taille de ceux de la carte à 600 %, sans empreinte de référence)
+  s52 bandes : un pas de Ch.plan est une ÉTAPE de plan_once (Ch.once_step) ; le banc rend le pas le plus long et la variante la plus
+  longue (somme de ses pas : le pas d'avant s52), et le temps le plus long de chaque étape (colonne « max »).
 ]]
 package.path = "./?.lua;" .. package.path
 local Ch = require("shared.team.champ")
@@ -103,21 +106,29 @@ for _, fx in ipairs({ { "dc joueur fer 1", "tests/fixtures/champ_joueur_dc.lua" 
     CASES[#CASES + 1] = { fx[1], function() return dofile(fx[2]).spec end }
   end
 end
+if ARGS["--geant"] then
+  CASES[#CASES + 1] = { "geant 110x55", function()
+    return spec_of(ellipse(0, 0, 110, 55), { coal = ellipse(0, 80, 10, 10), window = { -200, -120, 200, 120 } })
+  end }
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Enveloppes (temporaires : seulement dans ce processus)
 ---------------------------------------------------------------------------------------------------
-local T, N = {}, {}
+local T, N, MX = {}, {}, {}
 local function wrap(name, f)
   return function(...)
     local t0 = os.clock()
     local r = table.pack(f(...))
-    T[name] = (T[name] or 0) + (os.clock() - t0)
+    local dt = os.clock() - t0
+    T[name] = (T[name] or 0) + dt
     N[name] = (N[name] or 0) + 1
+    if dt > (MX[name] or 0) then MX[name] = dt end
     return table.unpack(r, 1, r.n)
   end
 end
 local function find_up(f, name)
+  if type(f) ~= "function" then return nil end
   for i = 1, 200 do
     local n, v = debug.getupvalue(f, i)
     if not n then return nil end
@@ -135,9 +146,19 @@ local function wrap_up(owner, name)
   return v
 end
 if not ARGS["--nowrap"] then
-  local plan_order = wrap_up(Ch.plan_step, "plan_order") -- s49 tranches : plan_order n'est plus appelé que par Ch.plan_step
+  local plan_order = wrap_up(Ch.plan_step, "plan_order") -- s49 tranches : plan_order n'est plus appelé que par Ch.plan_step (avant s52)
   local plan_once = wrap_up(plan_order, "plan_once")
-  for _, nm in ipairs({ "bands_for", "bridge", "bridge_0641", "row_poles", "take_group", "context" }) do wrap_up(plan_once, nm) end
+  local NAMES = { "bands_for", "bridge", "bridge_0641", "row_poles", "take_group", "context" }
+  for _, nm in ipairs(NAMES) do wrap_up(plan_once, nm) end
+  -- s52 bandes : étapes de plan_once (table ONCE, upvalue de Ch.once_step) et fonctions locales qu'elles appellent
+  local _, ONCE = find_up(Ch.once_step, "ONCE")
+  if ONCE then
+    local st = {}
+    for k in pairs(ONCE) do st[#st + 1] = k end
+    table.sort(st)
+    for _, k in ipairs(st) do for _, nm in ipairs(NAMES) do wrap_up(ONCE[k], nm) end end
+    for _, k in ipairs(st) do ONCE[k] = wrap("etape " .. k, ONCE[k]) end
+  end
   local bands_for = wrapped.bands_for
   if bands_for then
     local best_row = wrap_up(bands_for, "best_row")
@@ -154,37 +175,43 @@ local REF = {}
 do local f = io.open(REF_PATH, "r"); if f then f:close(); REF = dofile(REF_PATH) end end
 local S46 = dofile("tests/s46_champ-cout_ref.lua")
 local out_ref = {}
-local PAS_MAX, PAS_N = 0, 0
+local PAS_MAX, PAS_N, PAS_K, VAR_MAX = 0, 0, 0, 0
 local fails = 0
 local total = 0
 for _, cs in ipairs(CASES) do
   if not ONLY or ONLY == cs[1] then
     -- REPS passes (le PC est partagé : le temps retenu est le plus court, avec son détail), chaque passe sur des tables neuves
     local p, why, dt, h
-    local BT, BN, BX = {}, {}, 0
+    local BT, BN, BX, BM = {}, {}, 0, {}
     for rep = 1, REPS do
       for k in pairs(T) do T[k] = nil end
       for k in pairs(N) do N[k] = nil end
+      for k in pairs(MX) do MX[k] = nil end
       Co.EXPANDED = 0
       local spec = cs[2]()
       -- s49 tranches : les pas de Ch.plan un à un (un plan_order par pas, un pas par tick en jeu) : temps du pas le plus long.
       -- --memo-par-pas : mémoire neuve à chaque pas (comparaison : sans le partage des mémoires entre les variantes d'un plan)
       local t0 = os.clock()
       local sq, smax, done = Ch.plan_begin(spec), 0, false
+      local vmax, vcur, n0 = 0, 0, 0
       while not done do
         if ARGS["--memo-par-pas"] then sq.memo = {} end
         local s0 = os.clock()
         done = Ch.plan_step(sq)
-        smax = math.max(smax, os.clock() - s0)
+        local ds = os.clock() - s0
+        smax = math.max(smax, ds)
+        vcur = vcur + ds
+        if sq.n ~= n0 or done then vmax, vcur, n0 = math.max(vmax, vcur), 0, sq.n end
       end
       p, why = Ch.plan_result(sq)
       local d1 = os.clock() - t0
-      if not dt or d1 < dt then PAS_MAX, PAS_N = smax, sq.n end
+      if not dt or d1 < dt then PAS_MAX, PAS_N, PAS_K, VAR_MAX = smax, sq.n, sq.k or sq.n, vmax end
       if not dt or d1 < dt then
         dt = d1
-        BT, BN, BX = {}, {}, Co.EXPANDED
+        BT, BN, BX, BM = {}, {}, Co.EXPANDED, {}
         for k, v in pairs(T) do BT[k] = v end
         for k, v in pairs(N) do BN[k] = v end
+        for k, v in pairs(MX) do BM[k] = v end
       end
       local h1 = p and hash(ser(p, {})) or -1
       if h and h1 ~= h then fails = fails + 1; print("   ECHEC : plan different d'une passe a l'autre") end
@@ -199,7 +226,7 @@ for _, cs in ipairs(CASES) do
     print(string.format("== %-26s %8.0f ms  empreinte %d %s  foreuses %s fours %s coffres %d refusees %d swap %s why %s",
       cs[1], dt * 1000, h, same, tostring(st.drills), tostring(st.furnaces), p and Ch.head_chests(p) or -1,
       p and p.refused and #p.refused or 0, tostring(p and p.order_swapped ~= nil), tostring(why)))
-    print(string.format("   pas : %d plan_order, le plus long %.0f ms", PAS_N, PAS_MAX * 1000))
+    print(string.format("   pas : %d plan_order en %d pas, pas le plus long %.0f ms, variante la plus longue %.0f ms", PAS_N, PAS_K, PAS_MAX * 1000, VAR_MAX * 1000))
     if p and p.coffre_cost then print(string.format("   coffre_cost %d %% sur %d colonne(s)", p.coffre_cost, p.coffre_cols or 0)) end
     for _, c in ipairs(st.coal or {}) do print(string.format("   charbon cote %d : voie %s, %s", c.side, tostring(c.voie), tostring(c.why))) end
     T, N = BT, BN
@@ -207,7 +234,7 @@ for _, cs in ipairs(CASES) do
     for k in pairs(T) do names[#names + 1] = k end
     table.sort(names, function(a, b) return T[a] > T[b] end)
     for _, k in ipairs(names) do
-      print(string.format("   %-16s %8.1f ms %5.1f %%  %6d appels", k, T[k] * 1000, 100 * T[k] / dt, N[k]))
+      print(string.format("   %-16s %8.1f ms %5.1f %%  %6d appels  max %7.1f ms", k, T[k] * 1000, 100 * T[k] / dt, N[k], (BM[k] or 0) * 1000))
     end
     print(string.format("   etats Co.route : %d", BX))
   end
