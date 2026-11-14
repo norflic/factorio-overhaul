@@ -74,7 +74,7 @@ print("== 3. câblage")
 do
   local gui = read("script/gui/commande.lua")
   check(gui:find("on_player_alt_reverse_selected_area", 1, true) ~= nil, "outil : Maj + bouton droit pose la zone")
-  check(gui:find('kind = "amelioration"', 1, true) ~= nil, "outil : ordre « amelioration »")
+  check((gui:find('kind = "amelioration"', 1, true) or gui:find('zone_order("amelioration")', 1, true)) ~= nil, "outil : ordre « amelioration »")
   local cap = read("script/ai3/capital.lua")
   check(cap:find("zones = Co.upgrade_zones(f.team and f.team.commande)", 1, true) ~= nil, "décision : ctx.zones lu dans l'état de l'équipe")
   check(cap:find("for _, z in ipairs(Co.upgrade_zones(", 1, true) ~= nil, "relevé : machines de la zone")
