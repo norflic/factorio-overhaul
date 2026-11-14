@@ -21,6 +21,7 @@ local Th = require("shared.team.thermique") -- s42 thermiques : gisement balayé
 local Dt = require("shared.team.decision_tree") -- arbre de décision Early / Mid / Late (DC, 9/11) : phase et électriques qui dorment au coffre
 local Stock = require("script.team.stock")
 local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
+local Ad = require("shared.team.automatisation_donnees") -- lot CHARBON-JOUEUR : minerais que la capitalisation couvre seule (D.METHODS, champ ore)
 
 local Elec = {}
 
@@ -99,16 +100,32 @@ end
 
 --- Entrées de E.thermal pour un type d'avant-poste (`kind`, nil : règle globale) ; `craft` : fabrication de thermiques (la ressource la moins
 --- servie en électrique décide).
+--- Lot CHARBON-JOUEUR : une foreuse électrique s'ouvre-t-elle SEULE sur la ressource `res` (méthode de la capitalisation qui la sert : champ
+--- `ore` des données de l'exécutant) ? Sinon l'électrique n'y vient que par la migration d'un avant-poste. Table de module, jamais dans `global`.
+local ELEC_ORES = nil
+function Elec.elec_path(res)
+  if not ELEC_ORES then
+    ELEC_ORES = {}
+    for _, m in ipairs(Ad.METHODS or {}) do if m.ore then ELEC_ORES[m.ore] = true end end
+  end
+  return res ~= nil and ELEC_ORES[res] == true
+end
+
 local function inputs(v, kind, craft)
   local spec = kind and T.outposts[kind]
   local res_live = nil
   if spec then res_live = (v.by or {})[spec.resource] or 0 end
   if craft then res_live = v.min_live end
   local rr = (kind and not craft and v.res) and v.res[kind] or nil
+  local path = nil -- (un booléen faux ne passe pas par « a and b or nil »)
+  if spec and not craft then path = Elec.elec_path(spec.resource) end
   return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
     fuel = craft or (spec ~= nil and spec.product == T.fuel), el_live = v.el_live, poles_stock = v.poles_stock, since = v.since,
     res_live = res_live, phase = v.phase, elec_drill_stock = v.elec_drill_stock, -- arbre de décision (Dt.thermal_allowed)
-    res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was }
+    res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was,
+    -- lot CHARBON-JOUEUR : avant-postes de ce type (nil : non lus) et voie électrique sans avant-poste (E.thermal, interblocage)
+    kind_outposts = (spec and not craft and v.kinds) and (v.kinds[kind] or 0) or nil,
+    elec_path = path }
 end
 Elec.inputs = inputs
 
@@ -219,6 +236,12 @@ function Elec.think(f, book, tick)
     poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw,
     el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
     since = st.switch_tick and (tick - st.switch_tick) or nil }
+  -- lot CHARBON-JOUEUR : avant-postes de l'équipe par type (E.thermal : ni avant-poste ni voie électrique seule = thermique permise)
+  v.kinds = {}
+  for _, oid in ipairs(State_sorted(f.outposts)) do
+    local o = f.outposts[oid]
+    if o and o.kind then v.kinds[o.kind] = (v.kinds[o.kind] or 0) + 1 end
+  end
   phase_of(f, st, tick, v) -- arbre de décision : v.phase, v.elec_drill_stock
   date_era(f, st, book, tick, v.phase) -- lot PURGE-MINE
   st.v = v

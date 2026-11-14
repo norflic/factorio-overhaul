@@ -44,6 +44,7 @@ require("script.faction.commander")
 require("script.faction.war")
 require("script.ai3.exploration") -- lot IA3-f : carte de connaissance, yeux des PNJ, éclaireurs (exploration sous brouillard)
 require("script.ai3.jalons") -- lot VIDEO-TRACES (V03) : journal [FO-JALON], époque atteinte par chaque faction
+require("script.team.charbon_compte") -- lot CHARBON-JOUEUR : journal [FO-CHARBON-EQUIPE], fours et chaudières à combustible par équipe (lecture seule)
 
 -- Mode défense de tours (activable à tout moment)
 require("script.td.director")
