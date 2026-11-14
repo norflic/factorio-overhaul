@@ -458,6 +458,7 @@ end
 -- Plans
 ---------------------------------------------------------------------------------------------------
 local Ax = require("shared.team.champ_axe") -- s47 axe : un plan de champ par tick
+local FIRST_PLAN = {} -- 0.7.107 : premier plan d'un essai d'axe, par avant-poste (local, non sauvegardé : absent après chargement, le plan est alors refait)
 local PLAN_TICK = nil -- s47 axe : tick du dernier Ch.plan de cadre (local au module, non sauvegardé : un rechargement ne fait que permettre un plan)
 local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
 
@@ -481,13 +482,28 @@ function Champ.frame(f, surface, o)
   if step == "first" then
     if not plan then return nil, why end
     -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie -> l'autre orientation est essayee UNE fois, au tick suivant
-    if Ch.axis_retry(plan) then o.axis_try = Ax.memo(plan, game.tick); return nil, Ax.WAIT end
+    if Ch.axis_retry(plan) then
+      o.axis_try = Ax.memo(plan, game.tick)
+      -- 0.7.107 : le premier plan est gardé (mémoire locale du module, jamais dans global) : s'il gagne, il est repris tel quel au lieu d'être refait
+      FIRST_PLAN[o.id] = { spec = spec, plan = plan, tick = game.tick }
+      return nil, Ax.WAIT
+    end
   elseif step == "other" then
     local keep = Ax.better(try, plan)
-    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : %s a %.1f min",
+    local first, reused = FIRST_PLAN[o.id], false
+    FIRST_PLAN[o.id] = nil
+    if not keep and first and first.tick == try.tick then
+      -- 0.7.107 : l'axe long garde : son plan, calculé à l'essai précédent, est repris (plus de troisième plan complet)
+      log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : axe long garde (plan repris) a %.1f min",
+        f.key or "player", o.id, o.kind, try.first, try.drills, try.orphans, try.axe,
+        plan and tostring(Ch.field_drills(plan)) or "-", plan and tostring(plan.stats.orphans or 0) or "-", game.tick / 3600))
+      spec, plan, keep = first.spec, first.plan, true
+      reused = true
+    end
+    if not reused then log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : %s a %.1f min",
       f.key or "player", o.id, o.kind, try.first, try.drills, try.orphans, try.axe,
       plan and tostring(Ch.field_drills(plan)) or "-", plan and tostring(plan.stats.orphans or 0) or "-",
-      keep and "gardee" or "axe long garde", game.tick / 3600))
+      keep and "gardee" or "axe long garde", game.tick / 3600)) end
     if not keep then o.axis_try = { axe = try.first, tick = game.tick, final = true }; return nil, Ax.WAIT end
     o.axis_try = nil
   else
