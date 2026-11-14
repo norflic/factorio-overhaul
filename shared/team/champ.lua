@@ -1409,7 +1409,12 @@ function Ch.once_step(s)
   if s.done then return true end
   if s.c then bind(s.c) end
   local heavy
-  repeat heavy = ONCE[s.stage](s) until heavy or s.done
+  local ran = {}
+  repeat ran[#ran + 1] = s.stage; heavy = ONCE[s.stage](s) until heavy or s.done
+  -- mesure : étapes faites dans cet appel et tailles (journal [FO-PERF-ETAPE] du câblage ; jamais lu pour une décision)
+  Ch.LAST_STEP = string.format("%s tuiles=%d bandes=%d bi=%s ph=%s pending=%d bare=%d/%d ents=%d", table.concat(ran, ">"),
+    s.c and #s.c.list or 0, s.bands and #s.bands or 0, tostring(s.bi), tostring(s.ph), s.pending and #s.pending or 0,
+    s.ti or 0, s.bare_todo and #s.bare_todo or 0, s.ents and #s.ents or 0)
   if s.c then unbind(s.c) end
   if s.done then s.c = nil end
   Ch.ONCE_STEPS = Ch.ONCE_STEPS + 1

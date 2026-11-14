@@ -490,7 +490,10 @@ function Champ.frame(f, surface, o)
   local key = step .. ":" .. tostring(axis_force) .. ":" .. tostring(try and try.tick)
   local sk = okey(f, o.id)
   local seq = SEQ[sk]
+  local g = game
+  local prof_spec, prof_step = nil, nil -- mesure [FO-PERF-ETAPE] : affichage seul, aucune décision
   if not (seq and seq.f == f and seq.key == key and game.tick - seq.tick <= SEQ_GAP) then
+    prof_spec = g.create_profiler and g.create_profiler() or nil
     Profiler.fstart("champ:frame-spec")
     local spec, names = spec_of(f, surface, o, nil, nil, axis_force)
     Profiler.fstop("champ:frame-spec")
@@ -498,12 +501,21 @@ function Champ.frame(f, surface, o)
     Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
     seq = { f = f, key = key, spec = spec, st = Ch.plan_begin(spec), tick = game.tick }
     SEQ[sk] = seq
+    if prof_spec then prof_spec.stop() end
   end
   local spec = seq.spec
   Profiler.fstart("champ:frame-plan")
   PLAN_TICK = game.tick
   seq.tick = game.tick
+  prof_step = g.create_profiler and g.create_profiler() or nil
+  Ch.LAST_STEP = "-"
   local done = Ch.plan_step(seq.st)
+  if prof_step then
+    prof_step.stop()
+    local cur = seq.st.cur
+    log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=%s pass=%s k=%d %s spec=", tostring(f.key or "player"), o.id, step,
+      tostring(cur and cur.i or "fin"), tostring(cur and cur.o.pass or "-"), seq.st.k, Ch.LAST_STEP), prof_spec or "0", " pas=", prof_step })
+  end
   Profiler.fstop("champ:frame-plan")
   if not done then return nil, Ax.WAIT end
   SEQ[sk] = nil
