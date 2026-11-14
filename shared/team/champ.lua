@@ -936,7 +936,7 @@ local function plan_once(spec)
             inserter_rate = spec.inserter and spec.inserter.rate,
             soft = spec.soft and function(u, v) local x, y = c.xy(u, v); return spec.soft[Ch.key(x, y)] == true end or nil,
             lane_drills = co and co.rate and Ch.lane_drills(spec.belts[1].lane, co.rate) or nil,
-            route_memo = run_memo("routes"), -- s49 opti : tracés du charbon refaits à l'identique d'un plan_order à l'autre
+            route_memo = run_memo("routes"), line_memo = run_memo("lines"), -- s49 opti : tracés du charbon refaits à l'identique d'un plan_order à l'autre
             bridge = function(poles, free)
               local extra = {}
               local cc = { free = function(u, v) return not extra[Co.tk(u, v)] and free(u, v) end, take = function(u, v) extra[Co.tk(u, v)] = true end }

@@ -759,7 +759,51 @@ end
 --- plus courte et la plus proche de la cible, puis un seul côté.
 --- is_foreign(u, v) (lot MELANGE, facultatif) : tuile d'une AUTRE ressource minable ; aucune foreuse dont la zone en touche une (fer ou
 --- pierre sur la voie de charbon la bouchent).
-function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
+--- s49 opti : `memo` (facultatif, tenu le temps d'UN Ch.plan ; seulement avec `center`, la liste `coal` n'étant alors lue que par sa
+--- longueur) : une ligne de mêmes entrées scalaires dont TOUTES les lectures (free, is_coal, is_foreign) donnent les mêmes réponses est
+--- rendue sans recherche, en tables neuves (la recherche est déterministe : mêmes lectures, même résultat).
+local coal_line_raw
+local function line_copy(l)
+  if not l then return nil end
+  local ents = {}
+  for i, e in ipairs(l.ents) do
+    ents[i] = { kind = e.kind, u = e.u, v = e.v, size = e.size, du = e.du, dv = e.dv, role = e.role, belt = e.belt }
+  end
+  return { ents = ents, exit = { u = l.exit.u, v = l.exit.v, d = l.exit.d }, drills = l.drills }
+end
+function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign, memo)
+  if not (memo and center) then return coal_line_raw(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign) end
+  local parts = { #coal, center[1], center[2], d.size, d.reach, want, target.u, target.v, R, wire, per_side, is_foreign ~= nil, Co.WINDOW,
+    Co.MIN_COAL }
+  for i = 1, 14 do parts[i] = tostring(parts[i]) end
+  local mkey = table.concat(parts, ",")
+  local mlist = memo[mkey]
+  local function same(L, f)
+    for i = 1, #L, 3 do if (f(L[i], L[i + 1]) and true or false) ~= L[i + 2] then return false end end
+    return true
+  end
+  if mlist then
+    for _, m in ipairs(mlist) do
+      if same(m.fr, free) and same(m.co, is_coal) and (not is_foreign or same(m.fo, is_foreign)) then return line_copy(m.line) end
+    end
+  end
+  local function rec(f, L)
+    local M = {}
+    return function(u, v)
+      local k = tk(u, v)
+      local x = M[k]
+      if x == nil then x = f(u, v) and true or false; M[k] = x; L[#L + 1] = u; L[#L + 1] = v; L[#L + 1] = x end
+      return x
+    end
+  end
+  local fl, cl, ol = {}, {}, {}
+  local line = coal_line_raw(coal, rec(is_coal, cl), rec(free, fl), d, want, target, R, wire, per_side, center,
+    is_foreign and rec(is_foreign, ol) or nil)
+  if not mlist then mlist = {}; memo[mkey] = mlist end
+  if #mlist < 6 then mlist[#mlist + 1] = { fr = fl, co = cl, fo = ol, line = line_copy(line) } end
+  return line
+end
+coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
   if #coal == 0 or want < 1 or R < 1 then return nil end
   -- Lot PERF3 : place libre et tuiles étrangères lues UNE fois par tuile pendant l'appel (rien n'est pris ici : mêmes réponses) ;
   -- chaque position de foreuse les relisait toutes, et les rangées voisines se recouvrent
@@ -1043,7 +1087,7 @@ function Co.network(cols, side, env)
   local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
   for _, c in ipairs(centers) do
     local l = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c,
-      coal.is_foreign)
+      coal.is_foreign, env.line_memo)
     if l then
       local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
       if not line or l.drills > line.drills or (l.drills == line.drills and sc < lscore) then line, lscore = l, sc end
