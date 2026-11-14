@@ -17,6 +17,8 @@ local V = {}
 V.TTL = 3 * 3600 -- un relevé d'attaque reste valable 3 minutes
 V.PAS = 3        -- écart entre deux emplacements de la ligne (tourelle de 2 tuiles + 1)
 V.N = 5          -- emplacements proposés par ligne
+V.QG_D = 8       -- distance de la ligne devant le centre du QG
+V.QG_R = 30      -- un coup à moins de V.QG_R tuiles du QG est une attaque du QG
 
 function V.ligne(sx, sy, ax, ay, d, n, pas)
   local ux, uy = ax - sx, ay - sy

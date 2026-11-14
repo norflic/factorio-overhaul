@@ -30,6 +30,7 @@ local Rp = require("shared.team.reparation")
 local Da = require("shared.team.danger_actif") -- lot DANGER-ACTIF : fréquence de l'alerte des soldats
 local Ab = require("script.team.abimes") -- lot PERF4 : ensemble des tourelles et de l'infrastructure endommagées (Recon.repair_think)
 local R = require("shared.ai3.reglages") -- s43 scen-raid : rôles et tourelles du moteur (pièces critiques, Da.critical)
+local Vec = require("shared.team.vecteur") -- s44 vecteur : rayon d'attaque du QG
 local TURRET = {}
 for _, t in ipairs(R.TURRET_TYPES) do TURRET[t] = true end
 local PLANT = {} -- s44 vecteur : pièces de centrale (chaudière, machine à vapeur, pompe), lues par type d'entité
@@ -92,6 +93,18 @@ local function on_damaged(e)
     if c and c.valid then
       local p, q = ent.position, c.position
       f.vecteur = { x = p.x, y = p.y, ax = q.x, ay = q.y, t = e.tick }
+    end
+  end
+  -- s44 vecteur : bâtiment à moins de Vec.QG_R tuiles du QG touché : attaquant relevé pour la pose des tourelles du QG (Outposts.fortify).
+  local hp = f.hq_pos
+  if hp and e.force and e.force ~= eforce and not (f.vecteur_qg and e.tick - f.vecteur_qg.t < 60) then
+    local p = ent.position
+    if (p.x - hp.x) ^ 2 + (p.y - hp.y) ^ 2 <= Vec.QG_R * Vec.QG_R then
+      local c = e.cause
+      if c and c.valid then
+        local q = c.position
+        f.vecteur_qg = { x = p.x, y = p.y, ax = q.x, ay = q.y, t = e.tick }
+      end
     end
   end
   -- Lot DANGER-ACTIF (DC 4/11, 19 h 12 : « continuer à travailler tout en évitant le danger ou en défendant ») : un bâtiment de l'équipe touché par

@@ -25,6 +25,14 @@ check(math.abs(dx * 30 + dy * 30) <= 2 * 30, "diagonale : ligne perpendiculaire 
 local pr = V.ligne(0, 0, 3, 0, 6, 1, 3)
 check(pr[1].x == 3, "attaquant à 3 tuiles : ligne bornée à sa position")
 check(#V.ligne(5, 5, 5, 5, 6, 5, 3) == 0, "attaquant confondu : pas d'axe")
+local qg = V.ligne(0, 0, -100, 0, V.QG_D, V.N, V.PAS)
+check(#qg == V.N and qg[1].x == -V.QG_D and qg[1].y == 0, "QG attaqué par l'ouest : ligne à QG_D tuiles côté ouest")
+-- les sources câblent la règle (garde de centrale, pose du QG, relevé au coup)
+local function src(p) local fh = assert(io.open(p, "rb")); local s = fh:read("*a"); fh:close(); return s end
+check(src("script/faction/outposts.lua"):find("Vec.fresh(f.vecteur_qg, game.tick)", 1, true) ~= nil, "pose du QG : ligne face à l'attaquant")
+check(src("script/team/garde_centrale.lua"):find("pl.threat = { x = vec.ax, y = vec.ay }", 1, true) ~= nil, "garde de centrale : menace lue")
+local rp = src("script/team/reparation.lua")
+check(rp:find("PLANT[etype]", 1, true) ~= nil and rp:find("f.vecteur_qg = {", 1, true) ~= nil, "relevé de l'attaquant au coup")
 check(V.fresh({ ax = 1, t = 100 }, 100 + V.TTL - 1) and not V.fresh({ ax = 1, t = 100 }, 100 + V.TTL), "relevé valable TTL ticks")
 check(not V.fresh(nil, 0), "pas de relevé")
 
