@@ -38,6 +38,24 @@ function Co.production_first(pf, orient)
   return pf
 end
 Co.PCT_MIN, Co.PCT_MAX = 50, 200
+-- s50 commande-orient : « Amélioration » ne changeait rien de visible : le but de remplacement (Cap.goal) vaut 30 x poids capital
+-- (1 600 pour mille sous l'orientation) = 48, sous le but de croissance (55) : la pile ne le servait jamais devant. Sous une
+-- orientation de Co.UPGRADE_FRONT, un REMPLACEMENT ou un lot de bloc (pas le centre) passe « front » (devant les projets ordinaires
+-- et le fond) à Co.UPGRADE_VALUE au moins : au-dessus de la croissance (55), sous les gisements désignés (88) et l'amorçage (90-92).
+Co.UPGRADE_FRONT = { amelioration = true }
+Co.UPGRADE_VALUE = 60
+
+--- But d'amélioration après l'orientation : copie relevée (front, valeur >= Co.UPGRADE_VALUE) pour un remplacement ou un lot de
+--- bloc sous une orientation de Co.UPGRADE_FRONT ; le but tel quel sinon (nil reste nil, le centre n'est jamais relevé).
+function Co.upgrade_goal(goal, orient)
+  if not goal or not Co.UPGRADE_FRONT[orient or "aucune"] then return goal end
+  if goal.center or not (goal.replace or goal.bloc) then return goal end
+  local out = {}
+  for k, v in pairs(goal) do out[k] = v end -- copie (le but est gardé en cache par Capital.goal), aucun choix sur l'ordre
+  out.front = true
+  out.value = math.max(goal.value or 0, Co.UPGRADE_VALUE)
+  return out
+end
 Co.ORDER_VALUE = 88   -- but d'un gisement désigné : sous l'amorçage du fer (92) et du charbon (90), au-dessus de la croissance (55)
 Co.MAX_ORDERS = 8     -- ordres vivants au plus (gisements et liaisons ensemble)
 Co.R_MIN, Co.R_MAX = 8, 96 -- rayon d'une zone (tuiles)
