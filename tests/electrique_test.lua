@@ -205,6 +205,20 @@ local function suite(E)
     check(E.planned_kw({ thermals = 4, th_speed = 0.5, el_speed = 0.5, kw = 90 }) == 360, "6j : cadences egales : une pour une")
     check(E.planned_kw(nil) == 0, "6k : rien : 0")
   end
+  -- 6 bis. Lot CHARBON-JOUEUR (partie du DC, 0.7.114, graine 3338690507) : votre équipe sans avant-poste de charbon, 2 à 6 électriques sur le
+  -- charbon (toutes à la centrale), « build:coal » refusé « electrique possible » pendant 80 min : interblocage (B5)
+  do
+    local base = { obtainable = true, plants = 1, poles = true, healthy = true, el_live = 22, res_live = 2, phase = "mid", elec_drill_stock = 0 }
+    local function with(t) local o = {} for k, v in pairs(base) do o[k] = v end for k, v in pairs(t) do o[k] = v end return o end
+    local ok1, why1 = E.thermal(with({ kind_outposts = 0, elec_path = false }))
+    check(ok1 == true and why1:find("aucun avant-poste de ce type", 1, true) ~= nil, "6bis-a : aucun avant-poste ni voie electrique seule : thermique permise (" .. tostring(why1) .. ")")
+    check(E.thermal(with({ kind_outposts = 1, elec_path = false })) == false, "6bis-b : un avant-poste du type existe (la migration le couvre) : refusee")
+    check(E.thermal(with({ kind_outposts = 0, elec_path = true })) == false, "6bis-c : la capitalisation couvre la ressource seule : refusee")
+    check(E.thermal(with({ kind_outposts = nil, elec_path = false })) == false, "6bis-d : avant-postes non lus : regle d'avant (refusee)")
+    check(E.thermal(with({ kind_outposts = 0, elec_path = nil })) == false, "6bis-e : voie electrique non lue : regle d'avant (refusee)")
+    check(E.thermal(with({ kind_outposts = 0, elec_path = false, elec_drill_stock = 5 })) == true,
+      "6bis-f : electriques au coffre (arbre de decision) : permise quand meme, elles n'ont nulle part ou aller sur cette ressource")
+  end
   -- 7. fenêtre des refus
   do
     local log = { { tick = 100, n = 2 }, { tick = 5000, n = 4 }, { tick = 9000, n = 1 }, { tick = 20000, n = 8 } }
@@ -335,6 +349,9 @@ local function mutate(from, to)
 end
 
 local mutants = {
+  { "thermal : interblocage sans avant-poste rendu (CHARBON-JOUEUR)", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if false then" },
+  { "thermal : sans avant-poste, voie electrique ignoree", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if num(s.kind_outposts) == 0 then" },
+  { "thermal : avant-postes ignores", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if s.elec_path == false then" },
   { "thermal : regle coupee ignoree", "if s.on == false then return true, \"regle coupee\" end", "" },
   { "thermal : obtenable ignore", "if not s.obtainable then return true, \"foreuse electrique pas obtenable\" end", "" },
   { "thermal : centrale ignoree", "if (num(s.plants) or 0) < 1 then return true, \"aucune centrale finie\" end", "" },

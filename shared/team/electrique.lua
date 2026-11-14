@@ -97,6 +97,15 @@ function E.thermal(s, cfg)
     return true, string.format("retour thermique : aucune foreuse electrique ne tourne %.0f min apres la bascule", (num(s.since) or 0) / 3600)
   end
   if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
+  -- Lot CHARBON-JOUEUR (partie du DC, 0.7.114, graine 3338690507) : AUCUN avant-poste de ce type (kind_outposts = 0) et AUCUNE foreuse
+  -- électrique qui s'ouvre seule sur cette ressource (elec_path = false : pas de fonderie à foreuses de la capitalisation) : l'électrique n'y
+  -- arrive que par la migration d'un avant-poste (script/team/migration_champ.lua), qui n'existe pas. Refuser la thermique ici est un
+  -- interblocage : votre équipe, sans avant-poste de charbon, en refusait un « electrique possible » pendant 80 min (2 à 6 électriques sur
+  -- le charbon, toutes à la centrale) ; coffre du QG à 0 charbon, 84 fours sur 87 à sec. Passe avant l'arbre de décision : les foreuses
+  -- électriques qui dorment au coffre n'ont nulle part où aller sur cette ressource. kind_outposts nil (non lu) : règle d'avant.
+  if num(s.kind_outposts) == 0 and s.elec_path == false then
+    return true, "aucun avant-poste de ce type et aucune foreuse electrique ne s'y ouvre sans lui (migration) : thermique permise pour le batir"
+  end
   -- Arbre de décision (DC, 9/11) : hors early, des foreuses électriques qui DORMENT AU COFFRE interdisent toute thermique, même sur une
   -- ressource sans électrique (l'aberration visée) ; ni la famine (F434) ni l'effondrement (DEFENSE-AP) ne la rouvrent tant que le coffre en tient.
   local dt_ok, dt_why = Dt.thermal_allowed({ phase = s.phase, elec_drill_stock = s.elec_drill_stock, res_live = s.res_live })
