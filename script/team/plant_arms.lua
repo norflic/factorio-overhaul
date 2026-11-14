@@ -283,7 +283,7 @@ function PA.watch(f, surface, tick)
   local vap = f.build.vapeur
   local nominal_kw = (vap and tick - (vap.tick or -math.huge) <= 2 * Vn.EVERY and (vap.missing or 0) > 0) and vap.missing or nil
   local nb, why = C.growth(g, { load = gate, nominal_kw = nominal_kw, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
-    cool = tick < (nominal_kw and ((g.cool_until or 0) - C.COOL + Vn.COOL_TICKS) or (g.cool_until or 0)), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive, -- (lot VAPEUR : pause de 2 min sous la demande nominale)
+    cool = tick < (g.cool_until or 0) and (nominal_kw == nil or tick < (g.cool_until or 0) - C.COOL + Vn.COOL_TICKS), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive, -- (lot VAPEUR : pause de 2 min sous la demande nominale)
     engaged_kw = used_kw and (used_kw + Sante.committed(f) + Sante.held(f)) or nil, cap_kw = cap_kw, -- lot P0-CENTRALE
     anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw, pending_kw = pending_kw,
     lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J), coal_short = coal_short })
