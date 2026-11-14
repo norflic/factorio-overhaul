@@ -608,6 +608,53 @@ function B.arme_lourde(a, boite)
   return o
 end
 
+--- s43 MEGA-BOURDON (tranche 4) : cibles d'une salve. pts : liste de points { x, y } (nids et vers ennemis à portée, dans un ordre
+--- quelconque) ; n : casemates ; ecart : distance minimale entre deux cibles (le rayon d'impact). Densité d'un point : nombre de points
+--- dans les 3 × 3 cases de côté ecart / 2 autour de la sienne (O(N), sans racine). Les points se classent par densité décroissante,
+--- puis x, puis y croissants (déterministe, l'ordre d'entrée ne compte pas) ; on retient, dans cet ordre, chaque point à au moins
+--- ecart de tous ceux déjà retenus, jusqu'à n. Moins de n zones : les retenus se répètent dans l'ordre. Rend la liste des rangs dans pts
+--- (vide si pts est vide).
+function B.cibles_salve(pts, n, ecart)
+  local o = {}
+  if type(pts) ~= "table" or #pts == 0 or type(n) ~= "number" or n < 1 or type(ecart) ~= "number" or ecart <= 0 then return o end
+  local c = ecart / 2
+  local cases = {}
+  local function cle(i, j) return i * 1048576 + j end
+  local ci, cj = {}, {}
+  for k, p in ipairs(pts) do
+    ci[k], cj[k] = math.floor(p.x / c), math.floor(p.y / c)
+    local kk = cle(ci[k], cj[k])
+    cases[kk] = (cases[kk] or 0) + 1
+  end
+  local dens, ordre = {}, {}
+  for k = 1, #pts do
+    local d = 0
+    for di = -1, 1 do
+      for dj = -1, 1 do d = d + (cases[cle(ci[k] + di, cj[k] + dj)] or 0) end
+    end
+    dens[k], ordre[k] = d, k
+  end
+  table.sort(ordre, function(a, b)
+    if dens[a] ~= dens[b] then return dens[a] > dens[b] end
+    if pts[a].x ~= pts[b].x then return pts[a].x < pts[b].x end
+    if pts[a].y ~= pts[b].y then return pts[a].y < pts[b].y end
+    return a < b
+  end)
+  local e2 = ecart * ecart
+  for _, k in ipairs(ordre) do
+    local loin = true
+    for _, r in ipairs(o) do
+      local dx, dy = pts[k].x - pts[r].x, pts[k].y - pts[r].y
+      if dx * dx + dy * dy < e2 then loin = false break end
+    end
+    if loin then o[#o + 1] = k end
+    if #o >= n then break end
+  end
+  local m = #o
+  for i = m + 1, n do o[i] = o[(i - 1) % m + 1] end
+  return o
+end
+
 --- s43 MEGA-BOURDON : décalages { x, y } des explosions en anneau autour de l'impact pour un rayon de zone r : B.MEGA.ANNEAUX (part du
 --- rayon, nombre), directions par la table B.dir (sans trigonométrie), un anneau sur deux tourné d'un demi-pas. Liste dans l'ordre.
 function B.anneaux(r)
