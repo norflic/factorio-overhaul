@@ -591,10 +591,12 @@ local SKIPS_PER_STEP = 64
 
 --- Lot IA3-f : un gisement VU par un œil de l'équipe (x, y) est examiné tout de suite, même hors du disque de
 --- prospection (éclaireur lointain), avec les mêmes règles que la prospection. Renvoie true si un site a été ajouté.
-function Sites.probe_at(f, surface, x, y, tick)
+function Sites.probe_at(f, surface, x, y, tick, res)
   f.prospects = f.prospects or {}
-  if #f.prospects >= max_prospects(f) then return false end
-  local wanted = wanted_resources(f)
+  -- s44 : `res` = ressource d'un gisement désigné (commande du joueur) : sondée seule, réserve pleine ou ressource pas encore voulue
+  -- comprises (les ordres sont bornés à Co.MAX_ORDERS : la réserve dépasse son plafond d'au plus autant de sites).
+  if not res and #f.prospects >= max_prospects(f) then return false end
+  local wanted = res and { res } or wanted_resources(f)
   if #wanted == 0 then return false end
   local spawn = game.forces.player.get_spawn_position(surface)
   return probe(f, surface, math.floor(x / 32), math.floor(y / 32), tick, wanted, nil, other_hqs_of(f), spawn, State.war())
@@ -1051,7 +1053,8 @@ function Sites.find(f, surface, tick, resource)
   while i <= #list do
     local site = list[i]
     -- R3 (lot PAVAGE-GEANT) : un site plus lointain qu'un gisement ouvert pas plein reste en réserve (plancher de valeur : règle d'avant, aucun)
-    if not V.admissible({ seeded = true, d_hq = math.sqrt((site.x - f.hq_pos.x) ^ 2 + (site.y - f.hq_pos.y) ^ 2) }, nil,
+    -- s44 : un site d'un gisement désigné par le joueur (commande) passe cette garde : il est l'ordre, pas un détour.
+    if not Co.designated(site, f.team and f.team.commande and f.team.commande.orders) and not V.admissible({ seeded = true, d_hq = math.sqrt((site.x - f.hq_pos.x) ^ 2 + (site.y - f.hq_pos.y) ^ 2) }, nil,
       V.unfull_distance(deps, site.resource, f.hq_pos, site)) then
       i = i + 1
     elseif resource == nil or site.resource == resource then
