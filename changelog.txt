@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.115
+Date: 2026-11-14
+  Features:
+    - IA (entrepreneur) : toutes les 5 minutes de jeu (18 000 ticks), une équipe qui produit des plaques et a encore de la place sur un avant-poste ouvert relance aussitôt une bande complète du champ (foreuses électriques, tapis, colonne de fours, format standard) ; ce chantier n'est jamais suspendu et ses objets réservés ne sont jamais rendus aux autres projets.
+    - IA (amélioration continue) : l'objet du tier supérieur est fabriqué d'avance, sans attendre la réservation du cerveau ; ordre tapis → foreuses → fours, fours et foreuses des avant-postes compris.
+    - IA (champ) : le tapis de collecte d'une bande passe sous un tapis étranger par une paire de souterrains ; la rangée continue de l'autre côté.
+    - IA (gisements) : un gisement de moins de 400 tuiles est refusé tant qu'un grand gisement de la même ressource est couvert à moins de 85 %.
+    - Commandement : les ordres du joueur (Maj+A/Z/E/R) passent en tête de file ; le bastion fait fabriquer ses tourelles quand le stock est vide ; le coffre d'office cherche une place hors du minerai.
+  Optimizations:
+    - Relecture de la couverture d'un gisement inchangé espacée jusqu'à 36 000 ticks, réveillée par la pose, le minage ou la perte d'une foreuse et l'épuisement du gisement ; recherche de place des colonnes 2,3× moins de lectures.
+  Known issues:
+    - BANC_KNOWN
+---------------------------------------------------------------------------------------------------
 Version: 0.7.114
 Date: 2026-11-14
   Bugfixes:
