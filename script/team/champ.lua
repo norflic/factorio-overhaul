@@ -457,33 +457,42 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Plans
 ---------------------------------------------------------------------------------------------------
+local Ax = require("shared.team.champ_axe") -- s47 axe : un plan de champ par tick
+local PLAN_TICK = nil -- s47 axe : tick du dernier Ch.plan de cadre (local au module, non sauvegardé : un rechargement ne fait que permettre un plan)
 local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
 
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
 function Champ.frame(f, surface, o)
   if f.build and f.build.occ then Cd.clear(f.build.occ, o.id) end -- lot COMBUSTIBLE-MIGRATION : un cadre refait libère les tuiles retenues par l'ancien
+  -- s47 axe : au plus UN Ch.plan par tick (toutes équipes) ; l'essai de l'autre orientation part au tick suivant (o.axis_try, comptes du premier)
+  local step = Ax.step(o.axis_try, game.tick, PLAN_TICK)
+  if step == "wait" then return nil, Ax.WAIT end
+  local try = o.axis_try
+  local axis_force = (step == "other" or step == "final") and try.axe or nil
   Profiler.fstart("champ:frame-spec")
-  local spec, names = spec_of(f, surface, o, nil, nil)
+  local spec, names = spec_of(f, surface, o, nil, nil, axis_force)
   Profiler.fstop("champ:frame-spec")
-  if not spec then return nil, names end
+  if not spec then o.axis_try = nil; return nil, names end
   Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
   Profiler.fstart("champ:frame-plan")
+  PLAN_TICK = game.tick
   local plan, why = Ch.plan(spec)
   Profiler.fstop("champ:frame-plan")
-  if not plan then return nil, why end
-  -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie au bout des rangees -> l'autre orientation est essayee UNE fois
-  -- (fenetre relue pour elle : les marges suivent l'axe) ; gardee seulement si elle pose strictement plus de foreuses (Ch.better_axis)
-  if Ch.axis_retry(plan) then
-    Profiler.fstart("champ:frame-axe")
-    local spec2 = spec_of(f, surface, o, nil, nil, Ch.axis_other(plan.axis))
-    local plan2 = spec2 and Ch.plan(spec2) or nil
-    Profiler.fstop("champ:frame-axe")
-    local keep = Ch.better_axis(plan, plan2)
+  if step == "first" then
+    if not plan then return nil, why end
+    -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie -> l'autre orientation est essayee UNE fois, au tick suivant
+    if Ch.axis_retry(plan) then o.axis_try = Ax.memo(plan, game.tick); return nil, Ax.WAIT end
+  elseif step == "other" then
+    local keep = Ax.better(try, plan)
     log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : %s a %.1f min",
-      f.key or "player", o.id, o.kind, plan.axis, Ch.field_drills(plan), plan.stats.orphans or 0, Ch.axis_other(plan.axis),
-      plan2 and tostring(Ch.field_drills(plan2)) or "-", plan2 and tostring(plan2.stats.orphans or 0) or "-",
+      f.key or "player", o.id, o.kind, try.first, try.drills, try.orphans, try.axe,
+      plan and tostring(Ch.field_drills(plan)) or "-", plan and tostring(plan.stats.orphans or 0) or "-",
       keep and "gardee" or "axe long garde", game.tick / 3600))
-    if keep then spec, plan = spec2, plan2 end
+    if not keep then o.axis_try = { axe = try.first, tick = game.tick, final = true }; return nil, Ax.WAIT end
+    o.axis_try = nil
+  else
+    o.axis_try = nil
+    if not plan then return nil, why end
   end
   -- Lot CC-SAUT (F515, mandat du DC du 10/11, 22 h 20) : le cadre figé fixe la place de la colonne de fours de TOUTES ses bandes futures (rejouée sans
   -- recherche) ; ses tuiles hors ressource sont retenues au plan dès maintenant, sous le marqueur du cadre (Cd.frame_tiles) : libres pour les projets de

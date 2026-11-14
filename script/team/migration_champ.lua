@@ -820,6 +820,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     -- lot COUT-600 : un seul cadre planifié par passe de Mig.think (le drapeau est levé par le premier ; une autre avant-poste attend la passe suivante)
     if ms.verify_due then st.retry = tick; return false end
     local frame, order = Champ.frame(f, surface, o)
+    if not frame and order == "pas-encore" then st.retry = tick + 1; return false end -- s47 axe : plan reporté (un par tick), pas un échec
     if not frame then
       st.fails, st.retry = st.fails + 1, tick + CFG.retry
       say_why(f, ms, st, "champ:" .. tostring(order), string.format("avant-poste %d : pas de plan de champ (%s), essai %d/%d", o.id, tostring(order), st.fails, CFG.max_fails))
