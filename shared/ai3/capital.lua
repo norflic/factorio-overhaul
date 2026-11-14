@@ -224,6 +224,9 @@ end
 --- de même (source, cible) forment UN candidat (au plus Cap.REPLACE_BATCH, moins si le stock libre en tient moins). Valeur
 --- = gain de vitesse × usage (en marche : 1, à l'arrêt : Cap.IDLE_USE) × Cap.V_DEBIT, comme un bâtiment à niveaux.
 --- Rend candidats (non scorés), impayables (cible sans coût connu : la recherche qui la débloque n'est PAS réclamée).
+--- s44 fours-acier : types d'entité (moteur, pas des noms d'objets) dont la pièce de remplacement passe devant (Cap.emit).
+Cap.PIECE_FIRST_TYPES = { ["furnace"] = true }
+
 function Cap.replace_candidates(Ld, census, ctx)
   local out, blocked = {}, {}
   if not (ctx.mproto and census.machines) then return out, blocked end
@@ -356,7 +359,7 @@ function Cap.replace_candidates(Ld, census, ctx)
       why = { { "debit", math.floor((ctx.mproto(grp.to).speed / ctx.mproto(grp.from).speed - 1) * 1000 + 0.5) / 10 },
         { "machines", n } } }
     -- s44 fours-acier : un remplacement de FOUR (type d'entité du prototype cible, jamais un nom) est marqué : sa pièce passe devant (Cap.emit).
-    c.furnace = (ctx.mproto(grp.to) or {}).type == "furnace" or nil
+    c.piece_first = Cap.PIECE_FIRST_TYPES[(ctx.mproto(grp.to) or {}).type or ""] or nil
     c.zone = grp.zone -- lot s44 COMMANDE-UPGRADE : zone prioritaire du joueur, rang 0 au tri des candidats
     if ctx.continu then
       -- Lot AMELIORATION-CONTINUE : le BLOC entier (au plus Cap.REPLACE_BATCH pièces) est demandé à la fabrication ; l'unité sert au paiement partiel.
@@ -713,7 +716,7 @@ function Cap.goal(d, weights)
     bloc = d.bloc, n = (d.bloc or d.fab) and d.n or nil, unit = (d.bloc or d.fab) and d.unit or nil,
     front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi après les investissements, devant les projets ordinaires et le fond (projets.lua)
     fab = d.fab, -- lot AMELIORATION-CONTINUE : pièces du bloc demandées à la fabrication (≥ n)
-    furnace = (d.replace and d.furnace) or nil, -- s44 fours-acier : remplacement d'un four, une pièce à la priorité forte (Cap.furnace_first)
+    piece_first = (d.replace and d.piece_first) or nil, -- s44 fours-acier : remplacement d'un four, une pièce à la priorité forte (Cap.furnace_first)
     -- lot DEFAUT7 : bâtiment de la chaîne Q16 (sa montée est la condition du centre) ; essai 2 : aussi l'amélioration d'un bâtiment
     -- pendant que le centre est PAYABLE (porte ouverte) : ses paiements sont le chemin du centre (règle du loueur de skis, Cap.starved).
     -- Étage 3 (relecture de 16f1b3e0, point 2) : porte ouverte, un REMPLACEMENT de machines n'est pas « sur le chemin » (pas un bâtiment
@@ -821,7 +824,7 @@ end
 --- (Relecture de d18d1531, remarque 1 : un cran SOUS le plus fort, 84, pour ne jamais être à égalité avec l'armée d'alerte, 85.)
 --- s44 fours-acier : le but est-il un remplacement de four dont la pièce passe devant (une à la fois) ?
 function Cap.furnace_first(g)
-  return (g and g.replace and g.furnace and g.unit and g.fab and g.fab >= 1) and true or false
+  return (g and g.replace and g.piece_first and g.unit and g.fab and g.fab >= 1) and true or false
 end
 
 function Cap.ahead_prio(P, prio)
