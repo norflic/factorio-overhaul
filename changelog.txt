@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.100
+Date: 2026-11-14
+  Changes:
+    - Méga-Bourdon (F636) : portée 36 → 218 tuiles, rayon d'impact 20 → 100, dégâts × 10 ; les 4 casemates d'une salve visent 4 zones de nids distinctes ; éclair et onde de choc cyan au lieu de la fumée.
+    - Ennemis (F637) : les naissances des couvées passent par une file (32 par tick, 512 en attente au plus) : plus de gel quand une base entière meurt d'un coup.
+    - Robots (F638) : trois variantes, Rafistoleur (soigneur, âge 4), Furet (éclaireur rapide, âge 5), Perce-Blindage (coup lourd à longue portée, âge 8). Équilibrage provisoire.
+  Graphics:
+    - Titans (F639) : Juggernaut et Sentinelle refaits (géométrie blindée, métal brossé, cyan concentré sur le réacteur et le vortex).
+    - Ennemis (F639) : Écorchés refaits (rôdeur, porteur, hurleur, muscle écorché, trois teintes) ; famille toxique refaite en Corroder (déchiqueteurs, cracheurs à poche d'acide, cadavres, animation de mort).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.99
 Date: 2026-11-14
   Bugfixes:

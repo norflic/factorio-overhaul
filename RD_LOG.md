@@ -10,6 +10,14 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 05 h 00 : version 0.7.100 (sprint long, partie 2 : refonte 3D terminée, Méga-Bourdon, robots ; IA inchangée depuis 0.7.99)
+
+- **F636 · FAIT · [0.7.100]** Méga-Bourdon (s43-mega-bourdon 36cad2dd à e46bff15) : banc `megabourdon-salve` graine 123456789 : 128 nids, 64 vers, 271 unités ; 0 nid au premier impact, 0 ver après la première salve (5 OK sur 5). Vers à 0 PV retirés par le moteur environ 45 ticks après leur mort.
+- **F637 · FAIT · [0.7.100]** Couvées (9ab29f51, `shared/combat/couvee.lua`) : pire fenêtre de 30 ticks 15,6 s → 0,45 à 0,78 s (mesures marquées FAUSSES par le banc, un Blender actif ; comparaison à conditions égales).
+- **F638 · FAIT · [0.7.100]** Variantes de robots (s43-robots 0b007b36, f3be6b87) : 12 unités en moteur, 11 contrôles OK ; chiffres provisoires. Rôle d'éclaireur du Furet (s43-robots2) non fusionné : 640 secteurs contre 646 au témoin sur une graine.
+- **F639 · FAIT · [0.7.100]** Refonte 3D : huit entités validées sur feuilles et en jeu par l'agent de contrôle qualité (verdicts dans le scratchpad de session) ; Juggernaut et Sentinelle en géométrie V5 (3ea7306f), Écorchés tranche 5 (6a9f90f5), Corroder (dd070af1, règle de bornes des séquences d'images ajoutée au harness).
+- **E294 · OUVERT** Chute de fer de la 0.7.97 (s43-parite-seule, graine 271828182, 60 min) : 4 factions 110 348 → 73 302, player 31 490 → 16 204. Maillon 1 : `Pi.post_calm` (s42-upgrades) lève la retenue dès 0,3 min, amélioration du QG à 3 301 ouverte avant l'extraction du fer ; correctif `s43-regr-fer` 138446cb (10 min de calme) rend la minute 10, pas la minute 60. Maillon 2 : thermiques de fer de player retirées (13 → 1) avant que leur bande soit payée, en recherche. Panel 4 graines en cours.
+
 ## 2026-11-14, 02 h 00 : version 0.7.99 (sprint long, partie 2 : scénarios en boucle fermée, deux titans)
 
 - **F633 · FAIT · [0.7.99]** Alertes de site (s43-scen-raid d6417e6a) : dans la partie du DC (0.7.96), emerald refuse 216 alertes de site sur 251 : groupe de 4 pris au-dessus de `Sd.RESERVE_MIN = 8` avec 5 à 12 soldats libres ; et `script/team/reparation.lua` sortait avant l'alerte pour une tourelle. Banc `scen-raid-35` (graine 20261020) contre témoin 0.7.97 : escouade détruite en 42 s au lieu de 134, tourelle du site revenue (1 contre 0 à +12 min), pertes de patrouille égales (5).
