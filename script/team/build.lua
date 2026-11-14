@@ -2899,6 +2899,7 @@ local function plan_alim(f, surface, p)
   local d = head.dir or 0
   local lx, ly = P.left_of(d)
   local last = "arrivee prise"
+  local transient = false
   for _, a in ipairs(Cc.arrivals(math.floor(head.x), math.floor(head.y), P.DV[d], { lx, ly }, d, P.dir_of)) do
     if a.dir and not b.occ[P.tkey(a.x, a.y)] then
       p.parts, p.ents = {}, {}
@@ -2918,9 +2919,15 @@ local function plan_alim(f, surface, p)
         return plan_finish(f, surface, p, masks, false)
       end
       last = tostring(why) -- (plan_drills ne réserve rien quand il échoue : reserve_tiles est tout ou rien)
+      transient = transient or Cc.transient(last)
     end
   end
   p.parts, p.ents = {}, {}
+  -- lot s50 centrale-tapis : un échec passager du tracé (Cc.transient) garde le projet ouvert (attente, nouvel essai), sans refus
+  if transient then
+    p.plan_after = game.tick + Cc.TRANSIENT_WAIT
+    return false, "foreuses : " .. last .. " (trace en pause, nouvel essai)", true
+  end
   -- lot ENERGIE : gisement de charbon hors du treillis (12 refus « minerai » sur 31 demandes au 31/10) : le treillis GRANDIT, le prochain
   -- essai (pause du lot CHARBON-CENTRALE) trouve le gisement ; avant, rien ne le faisait grandir pour l'alimentation
   if Cv.after_refusal(last, Build.can_grow(b)) == "grandir" then
