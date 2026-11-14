@@ -304,8 +304,9 @@ local function planner_mutant(name, from, to)
   failures, passes = before, p0
   if caught then passes = passes + 1 else failures = failures + 1; print("  ECHEC : mutant non refusé : " .. name) end
 end
-planner_mutant("planificateur : réserve ignorée", "Dsr.surplus(avail[T.turret] or 0)", "(avail[T.turret] or 0)")
-planner_mutant("planificateur : groupe minimal ignoré", "pk.have + n < Dsr.MIN_GROUP", "false")
+-- s46 outils : motifs suivis (exception du bastion du joueur : Dsr.surplus_for, Dsr.min_group)
+planner_mutant("planificateur : réserve ignorée", "Dsr.surplus_for(avail[T.turret] or 0, pk.ordre)", "(avail[T.turret] or 0)")
+planner_mutant("planificateur : groupe minimal ignoré", "pk.have + n < Dsr.min_group(pk.ordre)", "false")
 planner_mutant("planificateur : pose en équipe décimée", "local gate = Dsr.gate(pk.kind, pri.production_first, decimated)", "local gate = nil") -- s44 : porte dans la règle pure
 planner_mutant("planificateur : doublon de tâche", "not rs.busy and not open[\"fortify:reserve\"]", "true")
 planner_mutant("planificateur : priorité d'urgence ignorée", "prio = Dsr.prio(pk.kind)", "prio = Dsr.PRIO")

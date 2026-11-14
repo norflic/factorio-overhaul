@@ -261,8 +261,14 @@ local function scan_machines(f)
   for _, z in ipairs(Co.upgrade_zones(f.team and f.team.commande)) do
     local zs = game.surfaces[z.surface or 1]
     if zs and zs.index == surface.index then
-      for _, e in ipairs(surface.find_entities_filtered({ position = { z.x, z.y }, radius = z.r, force = f.force, name = cat.names })) do
+      local found = surface.find_entities_filtered({ position = { z.x, z.y }, radius = z.r, force = f.force, name = cat.names })
+      for _, e in ipairs(found) do
         if e.valid and e.unit_number and not ents[e.unit_number] then add(e, nil, "zone" .. z.id) end
+      end
+      -- s46 outils : prise en compte écrite (une ligne par compte nouveau : Co.note), au journal et dans l'état de l'ordre
+      local text = string.format("amelioration : %d batiment(s) de la zone au releve des remplacements (rang prioritaire)", #found)
+      if Co.note(f.team.commande, z.id, text) then
+        log(string.format("[FO-COMMANDE] %s : ordre %d %s (tick %d)", tostring(f.key or f.id), z.id, text, game.tick))
       end
     end
   end

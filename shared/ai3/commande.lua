@@ -138,6 +138,98 @@ function Co.add(state, o)
   return id
 end
 
+--- s46 outils : comme Co.add, mais un plafond atteint REMPLACE le plus ancien ordre (liaison, amélioration ou bastion d'abord : ils ne se
+--- retirent pas seuls quand rien ne les résout ; le plus ancien gisement sinon). Rend id, raison, ordre remplacé (ou nil).
+function Co.add_replacing(state, o)
+  local id, why = Co.add(state, o)
+  if id or why ~= "plein" then return id, why, nil end
+  local idx = nil
+  for i, q in ipairs(state.orders) do
+    if q.kind ~= "gisement" then idx = i break end
+  end
+  local old = table.remove(state.orders, idx or 1)
+  id, why = Co.add(state, o)
+  return id, why, old
+end
+
+--- s46 outils : un ordre résolu (« fini ») ou impossible (« impossible:<cause> ») est marqué ; la passe de résolution le retire.
+function Co.mark(state, id, why)
+  for _, o in ipairs((state or {}).orders or {}) do
+    if o.id == id then
+      if not o.done then o.done = why end
+      return o
+    end
+  end
+  return nil
+end
+
+--- Numéros des ordres marqués (Co.mark), ordre de pose.
+function Co.finished(state)
+  local out = {}
+  for _, o in ipairs((state or {}).orders or {}) do
+    if o.done then out[#out + 1] = o.id end
+  end
+  return out
+end
+
+--- s46 outils : trace lisible d'un ordre (prise en compte, refus) gardée dans l'état (Co.HIST_MAX dernières lignes, la plus ancienne
+--- sort) ; une ligne identique à la dernière du même ordre n'est pas répétée. Rend vrai si la ligne est neuve.
+Co.HIST_MAX = 24
+function Co.note(state, id, text)
+  state.hist = state.hist or {}
+  for i = #state.hist, 1, -1 do
+    if state.hist[i].id == id then
+      if state.hist[i].text == text then return false end
+      break
+    end
+  end
+  state.hist[#state.hist + 1] = { id = id, text = text }
+  while #state.hist > Co.HIST_MAX do table.remove(state.hist, 1) end
+  return true
+end
+
+--- s46 outils : ordre de liaison servi par la paire (dock, src) : l'ordre A -> B imposé (`forced`, numéro), sinon le premier ordre de
+--- liaison dont la zone contient un bout. Rend le numéro ou nil.
+function Co.liaison_order(orders, dock, src, forced)
+  if forced then return forced end
+  for _, o in ipairs(orders or {}) do
+    if o.kind == "liaison" and ((dock and Co.inside(o, dock.x, dock.y)) or (src and Co.inside(o, src.x, src.y))) then return o.id end
+  end
+  return nil
+end
+
+--- s46 outils : pourquoi un ordre A -> B n'a pas de paire imposée : « sortie » (aucune sortie libre portant un objet dans A), « quai »
+--- (aucun quai libre dans B), « objet » (aucun quai libre de B ne porte l'objet d'une sortie de A) ; nil s'il y a une paire ou sans A.
+function Co.forced_why(o, docks, srcs)
+  if not o.a then return nil end
+  local items, n_src, n_dock = {}, 0, 0
+  for _, s in ipairs(srcs or {}) do
+    if not s.linked and s.item and Co.inside(o.a, s.x, s.y) then
+      items[s.item] = true
+      n_src = n_src + 1
+    end
+  end
+  if n_src == 0 then return "sortie" end
+  for _, d in ipairs(docks or {}) do
+    if not d.linked and Co.inside(o, d.x, d.y) then
+      n_dock = n_dock + 1
+      if items[d.item] then return nil end
+    end
+  end
+  if n_dock == 0 then return "quai" end
+  return "objet"
+end
+
+--- s46 outils : la position est-elle dans une des zones (rayon + Co.DONE_MARGIN) ? Sans zone : vrai ; sans position : faux.
+function Co.in_zones(zones, x, y)
+  if not zones or #zones == 0 then return true end
+  if x == nil or y == nil then return false end
+  for _, z in ipairs(zones) do
+    if Co.inside(z, x, y, Co.DONE_MARGIN) then return true end
+  end
+  return false
+end
+
 --- Retire l'ordre `id`. Rend l'ordre retiré ou nil.
 function Co.cancel(state, id)
   for i, o in ipairs(state.orders) do
@@ -199,17 +291,23 @@ function Co.goals(goals, orders, w_ext, products)
     local k = o.outpost
     if k and not seen[k] then
       seen[k] = true
+      -- s46 outils : les ZONES des ordres de ce type vont dans le but : EMIT.outpost n'agrandit que les avant-postes de ces zones,
+      -- sinon il bâtit (Sites.find sert d'abord le site de la zone : Co.prefer, Co.designated).
+      local zones = {}
+      for _, q in ipairs(orders) do
+        if q.outpost == k then zones[#zones + 1] = { x = q.x, y = q.y, r = q.r } end
+      end
       local hit = false
       for _, g in ipairs(goals) do
         if g.family == "extraction" and g.outpost == k and not g.extend_only then
           hit = true
           if (g.value or 0) < v then g.value = v end
-          g.fond, g.ordre = nil, o.id
+          g.fond, g.ordre, g.zone, g.zones = nil, o.id, zones[1], zones
         end
       end
       if not hit then
         goals[#goals + 1] = { key = "ordre:" .. k, family = "extraction", kind = "outpost", outpost = k, value = v, want = 1,
-          why = (products or {})[k], ordre = o.id }
+          why = (products or {})[k], ordre = o.id, zone = zones[1], zones = zones }
       end
     end
   end
@@ -341,7 +439,8 @@ function Co.resolve(state, outposts)
       for _, op in ipairs(outposts or {}) do
         local new = not (o.after_oid and op.id) or op.id > o.after_oid
         -- s45 saturer : un avant-poste DÉJÀ là, saturé à fond (op.covered : gisement couvert), remplit aussi l'ordre.
-        if (new or op.covered) and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
+        -- s46 outils : de même un avant-poste déjà là, agrandi jusqu'au plafond de foreuses (op.saturated).
+        if (new or op.covered or op.saturated) and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
       end
     end
   end

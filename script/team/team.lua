@@ -597,6 +597,7 @@ function Team.view(f, tick)
       want_t = want_t, -- lot DEFENSE-AP : lu par le planificateur (postes de défense, protect_any) ; le journal [FO-DEFENSE] l'écrit en « have/want »
       -- R-QCM-25c (c) : distance au QG au carré (tuiles entières ; transport de fond sans tourelle : avant-postes proches).
       d2 = math.floor((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2),
+      x = math.floor(o.pos.x), y = math.floor(o.pos.y), -- s46 outils : position (zones des gisements désignés, shared/ai3/projets.lua extendable)
     }
   end
   -- R-QCM-25c (b) « L'équipe le défend » : dès qu'une faction a déclaré la guerre au joueur, des PNJ armés restent au

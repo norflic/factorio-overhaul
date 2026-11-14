@@ -126,8 +126,47 @@ function S.lot(missing, surplus, room, ammo)
   return 0, nil
 end
 
+--- s46 outils : un BASTION désigné par le joueur (zone.ordre) passe avant la réserve : il prend sur tout le stock (pas seulement le
+--- surplus) et un groupe d'une tourelle lui suffit (le joueur l'a demandé). Ailleurs, la règle d'avant.
+S.ORDER_MIN_GROUP = 1
+function S.surplus_for(stock, ordre)
+  if ordre then return math.max(0, stock or 0) end
+  return S.surplus(stock)
+end
+function S.min_group(ordre)
+  if ordre then return S.ORDER_MIN_GROUP end
+  return S.MIN_GROUP
+end
+
+--- s46 outils : emplacements d'un bastion, en spirale autour du centre jusqu'au rayon `r` de l'ordre : points d'une grille de pas `step`
+--- (au moins 2 tuiles, la tourelle), du plus proche au plus loin (égalité : y puis x). Sans trigonométrie, sans pairs. Au plus ~150
+--- points : le pas grandit avec le rayon.
+function S.spiral(x, y, r, step)
+  r = math.max(0, math.floor(r or 0))
+  step = step or math.max(2, math.ceil(r / 7))
+  local cx, cy = math.floor(x), math.floor(y)
+  local pts = {}
+  local k = math.floor(r / step)
+  for i = -k, k do
+    for j = -k, k do
+      local dx, dy = i * step, j * step
+      local d2 = dx * dx + dy * dy
+      if d2 <= r * r then pts[#pts + 1] = { x = cx + dx, y = cy + dy, d2 = d2 } end
+    end
+  end
+  table.sort(pts, function(a, b)
+    if a.d2 ~= b.d2 then return a.d2 < b.d2 end
+    if a.y ~= b.y then return a.y < b.y end
+    return a.x < b.x
+  end)
+  local out = {}
+  for _, q in ipairs(pts) do out[#out + 1] = { x = q.x, y = q.y } end
+  return out
+end
+
 local function order(rows)
   table.sort(rows, function(a, b)
+    if (a.ordre and true or false) ~= (b.ordre and true or false) then return a.ordre == true end -- s46 : bastion du joueur d'abord
     local ta, tb = S.TIER[a.kind] or 9, S.TIER[b.kind] or 9
     if ta ~= tb then return ta < tb end
     if (a.score or 0) ~= (b.score or 0) then return (a.score or 0) > (b.score or 0) end
@@ -142,7 +181,7 @@ function S.plan(p)
   local rows = {}
   for _, z in ipairs(p.zones or {}) do
     local row = { key = z.key, kind = z.kind, x = z.x, y = z.y, score = z.score or 0, have = z.have or 0, dist = z.dist or 0,
-      served = z.served and true or false }
+      served = z.served and true or false, ordre = z.ordre and true or nil, zr = z.r }
     row.want = S.group_want(z.kind, z.score, z.want)
     row.missing = math.max(0, row.want - row.have)
     if z.hold then row.skip, row.why = "tenue", z.why end
@@ -168,7 +207,7 @@ function S.plan(p)
         r.skip = "loin" -- trop loin du QG et hors des tournées d'un avant-poste : le réarmement n'y passerait pas
       elseif room <= 0 then
         r.skip = "plafond"
-      elseif surplus <= 0 then
+      elseif S.surplus_for(p.stock, r.ordre) <= 0 then
         r.skip = "stock"
       else
         local ok, why = true, nil
@@ -176,14 +215,17 @@ function S.plan(p)
         if not ok then
           r.skip, r.why = "refus", why -- `why` : mot fixe (« ennemi », « sans_batiment », « danger »), jamais un texte libre
         else
-          local n, each = S.lot(r.missing, surplus, room, p.ammo)
+          local n, each = S.lot(r.missing, S.surplus_for(p.stock, r.ordre), room, p.ammo)
           if n <= 0 then
             r.skip = "munitions"
-          elseif r.have + n < S.MIN_GROUP then
+          elseif r.have + n < S.min_group(r.ordre) then
             r.skip = "groupe" -- le lot n'en fait pas un groupe : on attend plus de stock plutôt que de poser une tourelle seule
           else
+            -- s46 outils : un bastion cherche ses places en spirale dans tout le rayon de l'ordre (ses huit points d'anneau pouvaient tous
+            -- tomber sur le minerai ou les arbres : 0 posée, lieu au repos, banc S46-OUTILS-2)
             pick = { key = r.key, kind = r.kind, x = r.x, y = r.y, score = r.score, have = r.have, want = r.want, count = n,
-              ammo_each = each, sites = Fr.sites(r.x, r.y, p.turrets) }
+              ammo_each = each, ordre = r.ordre, zr = r.zr,
+              sites = r.ordre and S.spiral(r.x, r.y, r.zr or Fr.ACCEPT) or Fr.sites(r.x, r.y, p.turrets) }
           end
         end
       end

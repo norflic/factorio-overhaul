@@ -226,12 +226,18 @@ local function follow_links(api, f, surface, b, st, tick)
         say(f, tick, string.format("quai %s : liaison finie (projet %d, %d piece(s), %d fil(s) tire(s)) : %s de %s, le PNJ n'a plus a porter", dkey, q.id, #q.ents,
           q.wired or 0, tostring(link.item), tostring(link.src)))
         if link.bus then Bus.say(f, tick, string.format("tronc pose : quai %s relie a %s (%s, projet %d, %d piece(s)) en %.1f min", dkey, tostring(link.src), tostring(link.item), q.id, #q.ents, (tick - (link.since or tick)) / 3600)) end
+        if link.ordre and f.team and f.team.commande and Co.mark(f.team.commande, link.ordre, "fini") then -- s46 outils : l'ordre est servi
+          say(f, tick, string.format("ordre de liaison %d servi (quai %s, projet %d) : retire", link.ordre, dkey, q.id))
+        end
       end
       apply_bar(api, f, surface, b, link)
     elseif DEAD[q.state] or q.abandoned then
       st.n.refuses = st.n.refuses + 1
       say(f, tick, string.format("quai %s : liaison refusee (projet %d : %s), le PNJ continue a la main", dkey, q.id, tostring(q.reason)))
       if link.bus then Bus.say(f, tick, string.format("tronc refuse : quai %s <- %s (%s, projet %d), cause : %s ; le PNJ continue a la main", dkey, tostring(link.src), tostring(link.item), q.id, tostring(q.reason))) end
+      if link.ordre and f.team and f.team.commande and Co.mark(f.team.commande, link.ordre, "impossible:" .. tostring(q.reason)) then -- s46 outils
+        say(f, tick, string.format("ordre de liaison %d impossible (projet %d : %s) : retire", link.ordre, q.id, tostring(q.reason)))
+      end
       st.links[dkey] = nil
     elseif link.done then
       link.done = false
@@ -263,13 +269,30 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     pairs_ = Co.prefer_pairs(pairs_, f.team.commande.orders) -- lot s43 UX-COMMANDE
     -- s44 commande-liaison : les liaisons A -> B désignées par le joueur passent en tête, avant toute paire du relevé
     local forced = Co.forced_pairs(f.team.commande.orders, c.docks, c.srcs)
+    -- s46 outils : un ordre A -> B sans paire dit pourquoi (une fois par cause : Co.note), au journal et dans l'état de l'ordre
+    local cs = f.team.commande
+    for _, o in ipairs(cs.orders) do
+      if o.kind == "liaison" and not o.done then
+        local why = o.a and Co.forced_why(o, c.docks, c.srcs) or nil
+        local text
+        if why then text = "liaison sans paire : " .. why .. " (A en " .. o.a.x .. "," .. o.a.y .. ", B en " .. o.x .. "," .. o.y .. ")"
+        elseif not o.a then text = "liaison de zone : paires de la zone en tete" end
+        if text and Co.note(cs, o.id, text) then say(f, tick, string.format("ordre de liaison %d : %s", o.id, text)) end
+      end
+    end
     if #forced > 0 then
       for _, pr in ipairs(pairs_) do forced[#forced + 1] = pr end
       pairs_ = forced
-      say(f, tick, string.format("ordre de liaison %d : sortie %s -> quai %s (%s, %d tuiles) en tete", forced[1].ordre, forced[1].src.key,
-        forced[1].dock.key, tostring(forced[1].dock.item), forced[1].span))
+      local text = string.format("sortie %s -> quai %s (%s, %d tuiles) en tete", forced[1].src.key, forced[1].dock.key,
+        tostring(forced[1].dock.item), forced[1].span)
+      Co.note(cs, forced[1].ordre, text)
+      say(f, tick, string.format("ordre de liaison %d : %s", forced[1].ordre, text))
     end
   end
+  -- s46 outils : dernier relevé, en clair, pour l'interface de banc fo-commande (etat) : quais et sorties finis (nombres et chaînes)
+  st.seen_docks, st.seen_srcs = {}, {}
+  for _, d in ipairs(c.docks) do st.seen_docks[#st.seen_docks + 1] = { key = d.key, x = d.x, y = d.y, item = d.item, linked = d.linked } end
+  for _, s in ipairs(c.srcs) do st.seen_srcs[#st.seen_srcs + 1] = { key = s.key, x = s.x, y = s.y, item = s.item, linked = s.linked } end
   -- synthèse : quais servis par tapis
   local served, active, open = 0, 0, 0
   for _, dkey in ipairs(sorted_keys(st.links)) do
@@ -308,7 +331,8 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
           prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
         local id = api.request(f, spec)
         if id then
-          st.links[d.key] = { pid = id, src = s.key, item = d.item, dock_pid = d.pid, dock_idx = d.idx, done = false, since = tick }
+          st.links[d.key] = { pid = id, src = s.key, item = d.item, dock_pid = d.pid, dock_idx = d.idx, done = false, since = tick,
+            ordre = f.team and f.team.commande and Co.liaison_order(f.team.commande.orders, d, s, pr.ordre) or nil } -- s46 outils
           st.n.demandes = st.n.demandes + 1
           open = open + 1
           free = math.max(0, free - 1)
