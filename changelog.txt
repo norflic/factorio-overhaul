@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.114
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F676) : une bande de champ qui remplace des foreuses thermiques attendait TOUTE sa matière (jusqu'à 64 foreuses électriques et 24 fours) : elle part dès 4 foreuses réservées, les suivantes se posent à leur arrivée.
+    - IA (F678) : une bande demandée gelait son avant-poste (plus d'extension thermique ni de remplacement sur place) pendant toute son attente : tant qu'elle n'a rien bâti, l'avant-poste continue de croître.
+    - IA (injoignable) : une pose ratée sur place ne bloque plus un gisement 30 min ; un projet d'extraction n'est plus déclaré fini sans avant-poste.
+    - IA (F675) : les étapes du plan de gisement sont cadencées par équipe (120 ticks), une équipe n'attend plus les autres.
+    - IA (F677, verrou des tiers) : aucun assembleur n'est posé avant qu'une colonne de fours de bande électrique fonde le fer ET le cuivre.
+    - Outils : Maj+A (Coloniser) remplit l'ordre dans la zone désignée et marche aussi Maj enfoncée ; Maj+Z, Maj+E prouvés en moteur ; Maj+R (bastion) pose dans sa zone en prenant sur la réserve ; message quand le joueur n'a pas d'équipe.
+  Known issues:
+    - Démarrage toujours lent sur la carte à 600 % : au banc de 30 min (5 équipes, graine 123456789), 0 foreuse électrique sur fer ou cuivre à 20 min, comme 0.7.113 et 0.7.96 (même banc) ; gain non prouvé.
+    - Pics de 0,7 à 1,1 s par étape du plan de gisement (champ:frame) : lot de découpage non livré.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.113
 Date: 2026-11-14
   Bugfixes:
