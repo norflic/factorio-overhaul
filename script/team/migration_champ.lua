@@ -38,6 +38,7 @@ local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arri
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Mc = require("shared.team.migration_combustible") -- lot COMBUSTIBLE-MIGRATION : plancher du combustible (générateurs + brûleurs), retrait permis, stock bas (règle pure)
 local Rc = require("shared.team.reconstruction")
+local Bb = require("shared.team.bande_brute") -- s45 pierre : bande sans four bornée aux paires remplacées (règle pure)
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
@@ -924,6 +925,19 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     end
   end
   local wanted = (st.want_until or 0) > tick
+  do -- s45 pierre : une bande sans four ne pose pas plus de foreuses que de paires thermiques remplacées (shared/team/bande_brute.lua)
+    local nd0, nf0 = 0, 0
+    for _, e in ipairs((bd.plan and bd.plan.ents) or {}) do if e.kind == "foreuse" then nd0 = nd0 + 1 elseif e.kind == "four" then nf0 = nf0 + 1 end end
+    local okb, capb = Bb.ok(nd0, nf0, #list, wanted)
+    if not okb then
+      st.bad = st.bad or {}
+      st.bad[#st.bad + 1] = pr
+      st.retry = tick + CFG.retry_refuse
+      say_why(f, ms, st, "brute:" .. pr, string.format("avant-poste %d : bande %d ecartee (sans four : %d foreuses pour %d paire(s) remplacee(s), plafond %d)",
+        o.id, pr, nd0, #list, capb or 0), true)
+      return false
+    end
+  end
   st.band_need = band_list(bd)
   -- la bande porte sa plaque (spec.product) et la famille d'investissement de la pile « capi » (shared/ai3/pile.lua) : pendant une retenue,
   -- elle avance pour une plaque d'un cadre ouvert ou qui manque, comme un module de la capitalisation (avant : « migration », rang améliorer,
