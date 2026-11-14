@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.113
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F674) : en 0.7.112, aucun plan de gisement n'aboutissait (les équipes s'effaçaient mutuellement leur plan en cours, rangé par numéro d'avant-poste seul) : plus de bandes électriques, de rangées ni de colonnes de fours, et l'ordre « Coloniser » restait sans effet. Le plan est rangé par équipe ; ses étapes s'enchaînent tous les 2 ticks.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.112
 Date: 2026-11-14
   Bugfixes:
