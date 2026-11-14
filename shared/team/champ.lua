@@ -837,7 +837,7 @@ end
 
 function ONCE.band(s)
   local bi, bd = s.bi, s.bands[s.bi]
-  if not bd then s.bi = nil; s.stage = "coal" return false end
+  if not bd then s.bi = nil; s.stage = "charbon" return false end
   s.bi = bi + 1
   local spec, c, F = s.spec, s.c, s.F
   local d, colonne, exit, umin, umax, lane, fuelled = spec.drill, s.colonne, s.exit, s.umin, s.umax, s.lane, s.fuelled
@@ -946,7 +946,7 @@ function ONCE.band(s)
 end
 
 -- lot FONDERIE : charbon des colonnes, un réseau par côté du champ (cadre neuf : calculé ; bande seule : rejoué du cadre)
-function ONCE.coal(s)
+function ONCE.charbon(s)
   local spec, c, F = s.spec, s.c, s.F
   s.coal_stats = {}
   s.fallback = nil -- (lot FONDERIE) colonnes d'un cadre neuf retombées sur le coffre de tête : { pr, side, why }
