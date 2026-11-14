@@ -40,6 +40,7 @@
   par clé, entiers pour les scores, aucun hasard, aucun pairs décisionnel.
 ]]
 
+local Co = require("shared.ai3.commande") -- lot s44 COMMANDE-UPGRADE : zones d'amélioration prioritaire (Co.upgrade_rank)
 local Am = require("shared.ai3.amelioration") -- lot AMELIORATION : règle pure « par bloc » (reçoit Cap en paramètre)
 
 local Cap = {}
@@ -241,6 +242,7 @@ function Cap.replace_candidates(Ld, census, ctx)
     table.sort(machines, function(a, b) return a.id < b.id end)
   end
   local has_exclude = ctx.exclude ~= nil and next(ctx.exclude) ~= nil
+  local has_zones = ctx.zones ~= nil and #ctx.zones > 0 -- lot s44 COMMANDE-UPGRADE
   local pending = {} -- cibles bloquées : le nombre de pièces du nom n'est connu qu'après le relevé entier
   local parsed, gcache = {}, {}
   local evals = {} -- tables d'évaluation créées (pour le compte de pièces par nom)
@@ -295,14 +297,20 @@ function Cap.replace_candidates(Ld, census, ctx)
       local best, first_missing = e.best, e.first_missing
       if best then
         -- groupe de (bloc, nom, en marche ou non) : une recherche par table, la clé n'est construite qu'à la première pièce
-        local bg = gcache[m.block or ""]
-        if not bg then bg = {}; gcache[m.block or ""] = bg end
+        -- Lot s44 COMMANDE-UPGRADE : une pièce dans une zone d'amélioration prioritaire du joueur (rang 0) forme son propre groupe « z| ».
+        local zp = (has_zones and Co.upgrade_rank(ctx.zones, m.x, m.y) == 0) and "z|" or ""
+        local bk = m.block or ""
+        if zp ~= "" then bk = zp .. bk end
+        local bg = gcache[bk]
+        if not bg then bg = {}; gcache[bk] = bg end
         local grp = bg[e]
         if not grp then
           local gk = (m.block and (m.block .. "|") or "") .. m.name .. ">" .. best.to
+          if zp ~= "" then gk = zp .. gk end
           grp = groups[gk]
           if not grp then
-            grp = { from = m.name, to = best.to, item = best.item, members = {}, value = 0, block = m.block, key = gk }
+            grp = { from = m.name, to = best.to, item = best.item, members = {}, value = 0, block = m.block, key = gk,
+              zone = (zp ~= "") or nil }
             groups[gk] = grp
             order[#order + 1] = gk
           end
@@ -347,6 +355,7 @@ function Cap.replace_candidates(Ld, census, ctx)
       cost = { { grp.item, n } }, value = value, replace = { from = grp.from, to = grp.to, n = n, group = gk },
       why = { { "debit", math.floor((ctx.mproto(grp.to).speed / ctx.mproto(grp.from).speed - 1) * 1000 + 0.5) / 10 },
         { "machines", n } } }
+    c.zone = grp.zone -- lot s44 COMMANDE-UPGRADE : zone prioritaire du joueur, rang 0 au tri des candidats
     if ctx.continu then
       -- Lot AMELIORATION-CONTINUE : le BLOC entier (au plus Cap.REPLACE_BATCH pièces) est demandé à la fabrication ; l'unité sert au paiement partiel.
       c.unit, c.fab, c.group, c.n = { { grp.item, 1 } }, Am.fab(total, Cap.REPLACE_FAB), gk, n
@@ -529,6 +538,9 @@ function Cap.candidates(Ld, census, ctx)
   local function lead(c) return (ctx.lead and c.chain and not (ctx.lead.done and ctx.lead.done[c.key])) and 1 or 0 end
   for _, c in ipairs(cands) do c.lead = (lead(c) == 1) or nil end
   table.sort(cands, function(a, b)
+    -- Lot s44 COMMANDE-UPGRADE : un remplacement dans une zone d'amélioration prioritaire du joueur passe devant tout (rang 0).
+    local za, zb = a.zone and 1 or 0, b.zone and 1 or 0
+    if za ~= zb then return za > zb end
     local la, lb = lead(a), lead(b)
     if la ~= lb then return la > lb end
     local fa, fb = front(a), front(b)

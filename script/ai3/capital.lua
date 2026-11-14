@@ -28,6 +28,7 @@
 
 local L = require("shared.levels.config")
 local Cap = require("shared.ai3.capital")
+local Co = require("shared.ai3.commande") -- lot s44 COMMANDE-UPGRADE
 local Am = require("shared.ai3.amelioration") -- lot AMELIORATION : montée par bloc
 local Sw = require("shared.team.rebuild_sweep") -- lecture seule : ce qui manque encore aux projets rouverts (Sw.rebuild_needs)
 local Dg = require("shared.team.degel") -- lot AGES : le gel du centre n'est pas indéfini
@@ -252,6 +253,16 @@ local function scan_machines(f)
           end
           if e and e.valid and e.force.name == f.force then add(e, pe, "p" .. pid) end
         end
+      end
+    end
+  end
+  -- Lot s44 COMMANDE-UPGRADE : les bâtiments de la force dans une zone d'amélioration prioritaire du joueur (f.team.commande) entrent
+  -- au relevé (catalogue des machines, rayon borné de la zone) ; ceux déjà relevés gardent leur bloc.
+  for _, z in ipairs(Co.upgrade_zones(f.team and f.team.commande)) do
+    local zs = game.surfaces[z.surface or 1]
+    if zs and zs.index == surface.index then
+      for _, e in ipairs(surface.find_entities_filtered({ position = { z.x, z.y }, radius = z.r, force = f.force, name = cat.names })) do
+        if e.valid and e.unit_number and not ents[e.unit_number] then add(e, nil, "zone" .. z.id) end
       end
     end
   end
@@ -644,6 +655,7 @@ function Capital.goal(f, view, book, tick, w)
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
+    zones = Co.upgrade_zones(f.team and f.team.commande), -- lot s44 COMMANDE-UPGRADE : zones d'amélioration prioritaire (rang 0)
     exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
     lead = c.lead or { done = {} }, cash = true, -- lot S42 QG-NIVEAUX : chaîne du centre devant (bornée), centre payé dès que son coût dort au stock
     blocs = (census.list ~= nil and Capital.blocs_on()) or nil, -- lot AMELIORATION
