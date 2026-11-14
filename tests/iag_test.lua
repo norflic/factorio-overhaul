@@ -508,6 +508,7 @@ do
     ["script/team/sources.lua"] = { "TYPE", 7, "types du moteur des coffres et bras du registre des sorties (container, inserter, mining-drill), lot MINAGE-MAIN : le GENRE, jamais un niveau" },
     ["script/team/plafond_charbon.lua"] = { "TYPE", 2, "types du moteur des consommateurs et des foreuses du combustible (boiler, furnace, mining-drill), lot PURGE-FER-CHARBON : le GENRE, la puissance est lue au prototype" },
     ["script/team/traversee.lua"] = { "TYPE", 2, "nature d'un obstacle lue au TYPE du moteur (tapis, bras, poteau, mur...) pour la cause d'un refus de tracé, lot TRAVERSEE" },
+    ["script/team/charbon_compte.lua"] = { "TYPE", 1, "types moteur (furnace, mining-drill, boiler) du décompte [FO-CHARBON-EQUIPE], lecture seule, lot charbon-joueur-0716" },
     ["script/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) des machines d'une rangée dynamique, lot RANGEES-ASM" },
     ["shared/team/rangee_dyn.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) donné par l'appelant, lot RANGEES-ASM" },
     ["script/team/rapatriement.lua"] = { "TYPE", 1, "genre de pièce (kind inserter) du bras choisi, lot RAPATRIEMENT" },
