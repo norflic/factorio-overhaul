@@ -712,7 +712,9 @@ end
 --- Lot CENTRALE-GARDE : pose jusqu'à `count` tourelles aux emplacements `sites` ({ x, y }, dans l'ordre), pleines de munitions, pour le
 --- poste `oid` (ex. "plant" : groupe de ravitaillement « o<oid> »). `accept(pos)` refuse une position trouvée hors de la zone voulue.
 --- Les objets viennent de l'inventaire `carrier` (déjà pris au stock par la tâche). Rend le nombre posé.
-function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, ammos)
+--- s46 outils : `clear(site)` (facultatif) dégage les obstacles naturels d'un emplacement sans place libre ; rend vrai si quelque chose a
+--- été dégagé (l'emplacement est alors relu une fois).
+function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, ammos, clear)
   local placed = 0
   ammos = ammos or { T.turret_ammo }
   -- lot TOURELLES-HORS-AXE : couloirs d'extension des lignes de l'équipe (Build.corridors, crochet posé par script/team/build.lua),
@@ -769,6 +771,10 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
       if not pos then
         local q = near_free(s)
         if q and not banned(q) then pos = q end
+      end
+      if not pos and clear and pass == 1 and clear(s) then -- s46 outils : arbres ou rochers dégagés, l'emplacement est relu
+        local q = near_free(s)
+        if q and not banned(q) and Pose.spaced(q.x, q.y, near, gap) then pos = q end
       end
       if hit and Outposts.axe_log and pass == 1 then
         Outposts.axe_log(f, pos and string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s) -> tourelle en (%g, %g), hors du couloir",

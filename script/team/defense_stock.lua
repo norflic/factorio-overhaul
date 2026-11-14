@@ -81,7 +81,9 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
   local tick = game.tick
   local busy = fortify_open and fortify_open[Ds.OID] or false
   local have_stock = stock and stock[T.turret] or 0
-  if Ds_rule.surplus(have_stock) <= 0 then return { busy = busy, under = true } end -- sous la réserve : rien à offrir, rien à relever (s44 : cause lue par defense_log)
+  -- s46 outils : un bastion du joueur se sert sous la réserve (tout stock > 0 suffit)
+  local bastions = f.team and f.team.commande and Co.bastion_zones(f.team.commande, Ds_rule.GROUP_CAP) or {}
+  if Ds_rule.surplus_for(have_stock, #bastions > 0) <= 0 then return { busy = busy, under = true } end -- sous la réserve : rien à offrir, rien à relever (s44 : cause lue par defense_log)
   local st = state(f, tick)
   local near = range_near()
   local turrets, placed = turrets_of(f)
@@ -106,8 +108,8 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
   end
   -- 0. lot s45 OUTILS : bastions défensifs désignés par le joueur (outil de commandement, Maj + R) : servis comme un QG attaqué
   if f.team and f.team.commande then
-    for _, b in ipairs(Co.bastion_zones(f.team.commande, Ds_rule.GROUP_CAP)) do
-      add({ key = b.key, kind = "qg", x = b.x, y = b.y, score = 0, want = b.want })
+    for _, b in ipairs(bastions) do
+      add({ key = b.key, kind = "qg", x = b.x, y = b.y, score = 0, want = b.want, ordre = true, r = b.r }) -- s46 : spirale, sous la réserve
     end
   end
   -- 1. le QG d'une faction qui en a perdu des tourelles (le plus haut nombre vu, f.team.hq_peak)
@@ -218,11 +220,39 @@ function Ds.place(f, surface, task, carrier)
   local c = task.pos
   local key = task.cell_key
   if not (c and key) then return 0 end
-  local n = Outposts.fortify_at(f, surface, Ds.OID .. key, task.sites or {}, task.items[1][2], carrier,
-    function(pos) return Fr.accepts(c.x, c.y, pos.x, pos.y) end)
+  local zr = task.ordre_r -- s46 outils : bastion du joueur : toute place dans le rayon de l'ordre, arbres et rochers dégagés
+  local accept
+  if zr then
+    local lim = zr + 1
+    accept = function(pos) return (pos.x - c.x) ^ 2 + (pos.y - c.y) ^ 2 <= lim * lim end
+  else
+    accept = function(pos) return Fr.accepts(c.x, c.y, pos.x, pos.y) end
+  end
+  local cleared = 0
+  local clear = zr and function(q) -- arbres et rochers (données du prototype : count_as_rock_for_filtered_deconstruction) sous l'emprise
+    local box = { { q.x - 1.5, q.y - 1.5 }, { q.x + 1.5, q.y + 1.5 } }
+    local hit = false
+    for _, e in ipairs(surface.find_entities_filtered({ area = box, type = { "tree", "simple-entity" } })) do
+      if e.valid and (e.type == "tree" or e.prototype.count_as_rock_for_filtered_deconstruction) then
+        e.destroy({ raise_destroy = true })
+        cleared, hit = cleared + 1, true
+      end
+    end
+    return hit
+  end or nil
+  local n = Outposts.fortify_at(f, surface, Ds.OID .. key, task.sites or {}, task.items[1][2], carrier, accept, nil, clear)
   local tick = game.tick
   local st = state(f, tick)
   st.poses = st.poses + n
+  if zr and st.logs < Ds.LOGS then
+    -- diagnostic : ce qui occupe la zone du bastion (types moteur), lu une fois par pose
+    local function cnt(ty) return surface.count_entities_filtered({ position = { c.x, c.y }, radius = zr, type = ty }) end
+    local own = surface.count_entities_filtered({ position = { c.x, c.y }, radius = zr, force = f.force })
+    st.logs = st.logs + 1
+    log(string.format("[FO-DEFENSE] reserve %s bastion %s en (%.0f, %.0f) rayon %d : %d emplacement(s) en spirale, %d tourelle(s) posee(s), "
+      .. "%d arbre(s)/rocher(s) degage(s) ; zone : minerai %d case(s), arbres %d, rochers et decors %d, entites de l'equipe %d, falaises %d",
+      f.key or "player", key, c.x, c.y, zr, #(task.sites or {}), n, cleared, cnt("resource"), cnt("tree"), cnt("simple-entity"), own, cnt("cliff")))
+  end
   -- une pose à zéro (emplacements bloqués, plus de tourelle au porteur) met le lieu au repos : il ne monopolise pas la tâche
   st.rest[key] = n == 0 and tick + Ds.REST or nil
   if st.logs < Ds.LOGS then

@@ -859,16 +859,17 @@ function P.plan(view, book)
       if gate then
         out.reserve.why = gate
       else
-        local n, each = Dsr.lot(pk.count, Dsr.surplus(avail[T.turret] or 0), pk.count, avail[T.turret_ammo] or 0)
+        -- s46 outils : un bastion du joueur (pk.ordre) prend sur la réserve et se contente d'une tourelle (Dsr.surplus_for, Dsr.min_group)
+        local n, each = Dsr.lot(pk.count, Dsr.surplus_for(avail[T.turret] or 0, pk.ordre), pk.count, avail[T.turret_ammo] or 0)
         if n <= 0 then
           out.reserve.why = "stock"
-        elseif pk.have + n < Dsr.MIN_GROUP then
+        elseif pk.have + n < Dsr.min_group(pk.ordre) then
           out.reserve.why = "groupe"
         else
           local items = turret_items(n, each)
           if take(items) then
             add({ key = "fortify:reserve", kind = "fortify", prio = Dsr.prio(pk.kind), outpost = "reserve", items = items, sites = pk.sites,
-              pos = { x = pk.x, y = pk.y }, cell_key = pk.key, reserve = true })
+              pos = { x = pk.x, y = pk.y }, cell_key = pk.key, reserve = true, ordre_r = pk.ordre and (pk.zr or 0) or nil })
             out.reserve.why, out.reserve.count = "tache_creee", n
           else
             out.reserve.why = "stock"

@@ -210,7 +210,36 @@ base.tick = function(ctx, e)
     local put = (chest and item) and chest.insert({ name = item, count = 20 }) or 0
     ctx.log(string.format("coffre d'equipe : %d %s inseres (coffre %s)", put, tostring(item), tostring(chest ~= nil)))
     s.put = put
-    order(ctx, "fo-cmd-bastion", 1, hq.x + 50, hq.y - 10, hq.x + 70, hq.y + 10, "Maj+R a 60 tuiles")
+    -- 3e banc : diagnostic de ce qui occupe chaque point à 60 tuiles du QG (2e banc : (66, 6) refusé, « aucun emplacement libre »),
+    -- puis le point au moins de minerai (aucune tourelle n'est posée sur une ressource : règle du mod)
+    local sf = ctx.surface()
+    local best, bn
+    for _, d in ipairs({ { 60, 0 }, { 0, 60 }, { -60, 0 }, { 0, -60 }, { 42, 42 }, { -42, 42 }, { -42, -42 }, { 42, -42 } }) do
+      local c = { hq.x + d[1], hq.y + d[2] }
+      local function cnt(ty) return sf.count_entities_filtered({ position = c, radius = 14, type = ty }) end
+      local res, tree, rock = cnt("resource"), cnt("tree"), cnt("simple-entity")
+      local own = sf.count_entities_filtered({ position = c, radius = 14, force = "player" })
+      local okw, water = pcall(sf.count_tiles_filtered, { position = c, radius = 14, collision_mask = "water-tile" })
+      if not okw then water = 0 end
+      ctx.log(string.format("bastion : point (%d, %d) rayon 14 : minerai %d, arbres %d, rochers et decors %d, entites de l'equipe %d, eau %d",
+        c[1], c[2], res, tree, rock, own, water))
+      local score = res + water * 4 + own
+      if not bn or score < bn then best, bn = c, score end
+    end
+    order(ctx, "fo-cmd-bastion", 1, best[1] - 10, best[2] - 10, best[1] + 10, best[2] + 10, "Maj+R a 60 tuiles")
+  end
+  -- 3e banc : la cause « munitions » (chargeurs du coffre trop bas pour le lot) : le coffre est remis à 200 chargeurs chaque minute
+  if s.r and e.tick % 3600 == 0 then
+    local chest = ctx.surface().find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1]
+    local ammo = "firearm-magazine"
+    if chest and game.item_prototypes[ammo] then
+      local have = chest.get_item_count(ammo)
+      if have < 200 then
+        local put = chest.insert({ name = ammo, count = 200 - have })
+        s.ammo_put = (s.ammo_put or 0) + put
+        ctx.log(string.format("coffre d'equipe : %d chargeur(s) remis (avait %d) a %.1f min", put, have, game.tick / 3600))
+      end
+    end
   end
   if e.tick >= 1800 and not s.liaison_done and e.tick % EVERY == 0 then try_liaison(ctx, e.tick >= 72000) end
   if e.tick % 3600 == 0 then minute_watch(ctx) end

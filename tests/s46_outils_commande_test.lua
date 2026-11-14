@@ -90,4 +90,32 @@ for _, lang in ipairs({ "fr", "en" }) do
   local l = io.open("locale/" .. lang .. "/commande.cfg"):read("*a")
   for _, k in ipairs({ "sans-equipe-outil", "remplace", "fini-liaison", "fini-bastion" }) do ok(l:find("\n" .. k .. "=", 1, true), lang .. " " .. k) end
 end
+-- 8. bastion du joueur : sous la réserve, groupe d'une tourelle, d'abord, places en spirale dans le rayon de l'ordre
+local Dsr = require("shared.team.defense_stock")
+ok(Dsr.surplus_for(5, true) == 5 and Dsr.surplus_for(5, false) == 0 and Dsr.surplus_for(-1, true) == 0, "bastion : tout le stock")
+ok(Dsr.min_group(true) == 1 and Dsr.min_group(nil) == Dsr.MIN_GROUP, "bastion : groupe d'une tourelle")
+local sp = Dsr.spiral(66, 6, 14)
+ok(#sp > 8 and #sp <= 160, "spirale : plus que les huit points de l'anneau, bornée (" .. #sp .. ")")
+ok(sp[1].x == 66 and sp[1].y == 6, "spirale : le centre d'abord")
+local okr, prev = true, -1
+for _, q in ipairs(sp) do
+  local d2 = (q.x - 66) ^ 2 + (q.y - 6) ^ 2
+  if d2 > 14 * 14 or d2 < prev then okr = false end
+  prev = d2
+end
+ok(okr, "spirale : dans le rayon, du plus proche au plus loin")
+ok(#Dsr.spiral(0, 0, 96) <= 240, "spirale : bornée pour le plus grand rayon")
+local function plan_with(stock, ordre)
+  return Dsr.plan({ stock = stock, ammo = 200, placed = 0, turrets = {},
+    zones = { { key = "qg", kind = "qg", x = 0, y = 0, score = 0, want = 4, have = 0 },
+      { key = "bastion4", kind = "qg", x = 66, y = 6, score = 0, want = 8, have = 0, ordre = ordre, r = 14 } } })
+end
+local pl = plan_with(6, true)
+ok(pl.pick and pl.pick.key == "bastion4" and pl.pick.count >= 1 and pl.pick.ordre and pl.pick.zr == 14, "bastion servi d'abord, sous la réserve (stock 6)")
+ok(#pl.pick.sites == #sp, "bastion : emplacements en spirale")
+ok(plan_with(6, nil).pick == nil, "sans ordre : sous la réserve, rien (règle d'avant)")
+ok(Dsr.plan({ stock = 9, ammo = 200, placed = 0, turrets = {}, zones = { { key = "b", kind = "qg", x = 0, y = 0, want = 8, have = 0 } } }).pick == nil,
+  "sans ordre : surplus 1, groupe de 3 refusé (règle d'avant)")
+local psrc = io.open("shared/team/planner.lua"):read("*a")
+ok(psrc:find("Dsr.surplus_for(avail[T.turret] or 0, pk.ordre)", 1, true) and psrc:find("ordre_r = pk.ordre", 1, true), "planificateur : même exception")
 print(string.format("s46_outils_commande_test OK (%d)", n))
