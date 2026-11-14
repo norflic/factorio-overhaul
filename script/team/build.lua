@@ -6152,7 +6152,7 @@ function Build.brief(f, id)
     retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow,
     rebuilding = rebuilding, progressif = p.progressif or nil, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false,
     rangee = Build.Rangee.brief(p), -- lot RANGEES-ASM : { n, n_max, held } d'une rangée dynamique
-    ent = Ent.monopoly(p.spec) or nil } -- entrepreneur-craft-0716 : chantier entrepreneur (lu par script/ai3/automatisation.lua : but servi en tête)
+    ent = (Ent.monopoly(p.spec) and not p.spec.ent_queue) or nil } -- (ent_queue : tête rendue, Mig.entrepreneur_kit) -- entrepreneur-craft-0716 : chantier entrepreneur (lu par script/ai3/automatisation.lua : but servi en tête)
 end
 
 --- Lot ENERGIE (relecture) : projet d'alimentation de centrale ouvert de l'équipe (un seul à la fois, Cc.want_alim), ou nil. Lecteur :

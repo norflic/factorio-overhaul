@@ -22,6 +22,8 @@ E.CFG = {
   cover_max = 850,  -- ‰ : au-dessus, le gisement est jugé plein
   log_max = 200,    -- lignes [FO-ENTREPRENEUR] par équipe au plus
   kit_every = 300,  -- entrepreneur-craft-0716 : suivi du kit complet (ticks), journal [FO-ENTREPRENEUR-KIT]
+  head_max = 21600, -- entrepreneur-craft-0716 : 6 min au plus en tête (coffre et cerveau) ; au-delà la bande garde son monopole (rien n'est
+                    -- rendu) mais rend la tête : banc 1 (joueur, kit de 1 298 objets jamais complet en 18 min) affamait toute la base
 }
 
 --- Décision du scan. inp = { delta (plaques produites depuis le relevé), room (place sur un gisement : bool), cover (‰ ou nil),
@@ -105,6 +107,13 @@ function E.kit_report(need, stock, missing, max_items)
   for _, m in ipairs(missing or {}) do craft = craft + (m[2] or 0) end
   return { kinds = #names, total = total, have = have, craft = craft, complete = total > 0 and craft == 0,
     text = table.concat(parts, ", ") }
+end
+
+--- entrepreneur-craft-0716 : la bande garde-t-elle la TÊTE (servie avant tout autre projet) ? Oui tant que son kit n'est pas complet et
+--- qu'il a été lancé il y a au plus CFG.head_max ticks ; un kit trop gros pour l'économie de l'équipe rend la tête (le monopole reste).
+function E.head_ok(kit_t0, tick, complete)
+  if complete then return false end
+  return kit_t0 == nil or (tick - kit_t0) <= E.CFG.head_max
 end
 
 --- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets

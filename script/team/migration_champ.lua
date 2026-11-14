@@ -2276,7 +2276,7 @@ function Mig.entrepreneur_kit(f, tick)
   if not (ent and f.build) then return end
   local p = f.build.projects[ent.pid]
   if not p then return end
-  if not ent.front or p.state == "reserve" then -- (gardée en tête tant qu'elle réserve : centrales et alimentations se remettent devant)
+  if (not ent.front or p.state == "reserve") and not (p.spec and p.spec.ent_queue) then -- (gardée en tête tant qu'elle réserve : centrales et alimentations se remettent devant)
     ent.front = true
     Mig.entrepreneur_front(f, ent.pid)
   end
@@ -2305,6 +2305,15 @@ function Mig.entrepreneur_kit(f, tick)
   if p.state ~= "reserve" and not ent.depart then
     ent.depart = tick
     say(string.format("chantier parti (%d/%d au coffre, %d a fabriquer) a +%.1f min du declenchement", r.have, r.total, r.craft, mins(ent.t0)))
+  end
+  if ent.kit and p.spec and not p.spec.ent_queue and not Ent.head_ok(ent.kit, tick, r.complete) and not r.complete then
+    p.spec.ent_queue = true -- la tête est rendue (coffre : ordre des demandes ; cerveau : but ordinaire), le monopole reste
+    local order = {}
+    for _, id in ipairs(f.build.order) do if id ~= ent.pid then order[#order + 1] = id end end
+    order[#order + 1] = ent.pid -- (en queue de la réserve au coffre : les autres projets reprennent le stock qui arrive)
+    f.build.order = order
+    say(string.format("tete rendue apres %.1f min de kit : %d/%d au coffre, %d a fabriquer (kit trop gros pour l'economie de l'equipe, monopole garde)",
+      mins(ent.kit), r.have, r.total, r.craft))
   end
   if r.complete and not ent.complet then
     ent.complet = tick

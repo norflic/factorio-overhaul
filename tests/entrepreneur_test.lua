@@ -110,6 +110,10 @@ do
   check(r.text == "a 0/1, b 0/1, +1 autre(s)", "kit : texte borne (" .. r.text .. ")")
   local o = E.order_front({ 1, 2, 3, 4, 5 }, 4, { [2] = true })
   check(table.concat(o, ",") == "2,4,1,3,5", "ordre : reparation devant, puis la bande, puis le reste (" .. table.concat(o, ",") .. ")")
+  check(E.head_ok(nil, 99999, false), "tete : kit pas encore lance, tete gardee")
+  check(E.head_ok(1000, 1000 + E.CFG.head_max, false), "tete : a la borne, gardee")
+  check(not E.head_ok(1000, 1001 + E.CFG.head_max, false), "tete : au-dela de la borne, rendue")
+  check(not E.head_ok(1000, 1001, true), "tete : kit complet, plus de tete")
   o = E.order_front({ 1, 2 }, 9, {})
   check(table.concat(o, ",") == "1,2", "ordre : bande absente, ordre inchange")
 end
