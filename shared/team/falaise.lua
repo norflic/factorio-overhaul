@@ -191,4 +191,13 @@ function F.box_tiles(x0, y0, x1, y1)
   return out
 end
 
+--- s50 falaises : une pièce refusée au moteur est-elle sautée (abandonnée seule) au lieu de bloquer tout le projet ? Oui pour un mur
+--- refusé à la limite, et pour une foreuse (type d'entité « mining-drill », lu au prototype) refusée à cause d'une falaise : la bande
+--- garde ses autres foreuses. Règle pure.
+function F.skip_refused(is_wall, entity_type, cliff_hit, fails, limit)
+  if (fails or 0) < limit then return false end
+  if is_wall then return true end
+  return cliff_hit == true and entity_type == "mining-drill"
+end
+
 return F

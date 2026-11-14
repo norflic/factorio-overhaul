@@ -5152,7 +5152,8 @@ local function advance(f, surface, p, tick)
       -- d'avant ce lot) : la boucle se joue, comme avant.
       -- 3 refus d'un même fantôme : le module est bloqué (raison écrite), §6.6 (4)
       for _, e in ipairs(p.ents) do
-        if e.wall and not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
+        local ept = not e.built and e.cliff_hit and game.entity_prototypes[e.name] -- s50 falaises : type lu au prototype
+        if not e.built and FalPure.skip_refused(e.wall, ept and ept.type, e.cliff_hit, e.fails, Build.FAIL_LIMIT * 2) then
           -- lot ESPACE : un mur refusé 3 fois (tuile prise, falaise cachée) est abandonné : il ne bloque pas toute l'enceinte
           e.built, e.dropped = true, true
           p.dropped = (p.dropped or 0) + 1
