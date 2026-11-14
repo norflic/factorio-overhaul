@@ -46,7 +46,9 @@ end
 --- verif-guide 271828182, fer livré 0-50 min 18 536 contre 31 548 sans la correction, PNJ à 59 min 17 contre 30 ; verif-guide 1618033988, 14 503 contre
 --- 9 657 mais PNJ perdus à 45 min 12 contre 9 ; dc-evolution parité pure, 2 PNJ, 1 tourelle à 60 min contre 8 et 5. Rien ne protège ici un choix manuel
 --- du joueur : le gardé faux est une mesure, pas une protection. À reprendre par un lot qui isole la récolte (plusieurs graines).
-Harvest.PLAYER = false
+--- joueur-parite (14/11, carte du DC 600 %) : vrai. Banc PARITE-1 (partie-jalons-30) : minage à la main de votre équipe 353 minerais de fer en 18 tournées
+--- (~20 par tournée de 50) contre 1 260 en 30 chez amber (~42) ; sans pierre ni cuivre, aucun avant-poste de cuivre ni de pierre en 30 min.
+Harvest.PLAYER = true
 
 --- La correction vaut-elle pour cette équipe ?
 function Harvest.applies(f) return not (f and f.is_player) or Harvest.PLAYER end
