@@ -961,7 +961,7 @@ function Ia3.plan_b(f, view, book, surface, tick, L)
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     thaw = Capital.thaw_active(f), -- lot AGES : le gel du centre est levé (shared/team/degel.lua) : la pile laisse passer son but
-    capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
+    capital = Co.upgrade_goal(Capital.goal(f, view, book, tick, w), f.team.commande and f.team.commande.orient), -- s50 : « Amélioration » met le remplacement devant ; lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
     armee = Pil.armee_input(capi), -- lot TV-PILOTE (V10) : famille armée, parts δ + α de la capitalisation (nil : réglage fo-war-armee-famille éteint)
