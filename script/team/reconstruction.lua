@@ -43,6 +43,7 @@ local Ru = require("shared.team.ruines")
 local T = require("shared.team.config")
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : ordre de la reconstruction (alimentation, production principale, le reste)
 local RrRt = require("script.team.rebuild_rapide") -- lot REBUILD-RAPIDE : foreuse thermique de secours dans un projet rouvert
+local SaRt = require("script.team.secteur_attaque") -- lot s44 reparation : secteur sous attaque et sans tourelle active, la pose attend
 local Bm = require("shared.team.book_max") -- lot S5 (×10) : plus grand nombre fabricable, test léger sans copie du stock
 
 local Profiler = require("script.core.profiler") -- lot X10-S0 : portees fines (mesure seulement)
@@ -145,6 +146,7 @@ local function on_died(e)
   if not f.is_player and not R.RECON_FACTIONS then return end
   local s = Recon.state(f)
   local pos = ent.position
+  SaRt.note(f, pos, e.tick) -- lot s44 reparation : le secteur est sous attaque (mémoire d'une minute)
   local infra = R.INFRA_TYPES[ent.type] or false
   local value = infra and (ent.type == "electric-pole" and Rc.pole_value(0) or Rc.INFRA_VALUE) or Rc.role_value(role)
   if value <= 0 then return end
@@ -467,7 +469,13 @@ function Recon.think(f, surface, tick)
     -- pièce attend ses tourelles, si une tourelle est posable tout de suite (s1.turret_ok : au stock ou payable ; sans le fer, refaire passe d'abord).
     local s1 = f.team and f.team.s1
     local protect_wait = seed.kind and s1 and s1.turret_ok == true and s1.prot and s1.prot[seed.oid] ~= nil and tick - s1.prot[seed.oid] <= 1800
-    if protect_wait or #near > 0 or (foe and foe.valid) then
+    -- Lot s44 reparation : une mort récente à moins de 32 tuiles sans tourelle active à portée retient aussi la pose (report, pas abandon).
+    local exposed = not (protect_wait or #near > 0 or (foe and foe.valid)) and SaRt.must_wait_name(f, surface, seed.name, seed.x, seed.y, tick)
+    if exposed then
+      Ruines.wait(f, s, seed, "secteur", tick, "attaque-recente")
+      Rc.defer(s, seed.key, tick + Recon.RETRY, tick, math.huge)
+      stat(s, "deferred")
+    elseif protect_wait or #near > 0 or (foe and foe.valid) then
       -- (attendre ses tourelles ne compte pas pour l'abandon : la mémoire des vagues s'éteint seule après 30 min)
       Ruines.wait(f, s, seed, protect_wait and "tourelles" or "ennemi", tick, #near .. "u" .. ((foe and foe.valid) and tostring(foe.name) or "-")) -- lot RUINES-ATTENTE (trace)
       Rc.defer(s, seed.key, tick + Recon.RETRY, tick, protect_wait and math.huge or (seed.kind and Ru.MAX_DEFERS or nil))
