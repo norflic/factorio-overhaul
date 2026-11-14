@@ -21,6 +21,17 @@ function Bc.drill_counts(status, S)
   return S ~= nil and status ~= nil and (status == S.working or status == S.waiting_for_space_in_destination)
 end
 
+--- Lot s45 charbon-besoin : besoin NOMINAL. Une chaudière ou un four à brûleur posé compte toujours à pleine puissance de prototype,
+--- actif ou vide (un four vide brûle 0 : la mesure seule faisait croire le charbon suffisant et laissait les fours éteints) ; une autre
+--- machine à brûleur (foreuse) compte si elle marche ou attend son combustible. etype = type d'entité, S = defines.entity_status.
+function Bc.consumer_counts(etype, status, S)
+  if etype == "boiler" or etype == "furnace" then return true end
+  return S ~= nil and status ~= nil and (status == S.working or status == S.no_fuel)
+end
+
+--- Besoin retenu : le plus grand de la mesure (objets/s) et du nominal (objets/s).
+function Bc.need(measured, nominal) return math.max(measured or 0, nominal or 0) end
+
 function Bc.room(cap) return cap ~= nil and cap.capacity < cap.need end
 
 return Bc

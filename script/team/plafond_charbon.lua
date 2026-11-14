@@ -14,7 +14,7 @@ function Cap.read(f, surface)
   local memo = f.coal_cap
   if memo and game.tick - memo.tick < Cap.EVERY then return memo end
   local fuel = game.item_prototypes[T.fuel]
-  local consumers, drills = {}, {}
+  local consumers, drills, measured = {}, {}, {}
   local status = defines.entity_status
   Profiler.fstart("ws:cap")
   local found = RegT.list(surface, f.force, { "boiler", "furnace", "mining-drill" }, "cap") -- lot UPS : registre
@@ -22,8 +22,10 @@ function Cap.read(f, surface)
   for _, e in ipairs(found) do
     local p = e.prototype
     local b = p.burner_prototype
-    if fuel and b and b.fuel_categories[fuel.fuel_category] and (e.type == "boiler" or e.status == status.working or e.status == status.no_fuel) then
-      consumers[#consumers + 1] = (p.max_energy_usage or 0) * 60 / math.max(b.effectivity or 1, 1e-6)
+    if fuel and b and b.fuel_categories[fuel.fuel_category] then
+      local w = (p.max_energy_usage or 0) * 60 / math.max(b.effectivity or 1, 1e-6)
+      if e.type == "boiler" or e.status == status.working or e.status == status.no_fuel then measured[#measured + 1] = w end
+      if Bc.consumer_counts(e.type, e.status, status) then consumers[#consumers + 1] = w end -- lot s45 charbon-besoin : nominal
     end
     local t = e.type == "mining-drill" and e.mining_target
     local mp = t and t.valid and t.prototype.mineable_properties
@@ -31,7 +33,9 @@ function Cap.read(f, surface)
       drills[#drills + 1] = p.mining_speed / math.max(mp.mining_time or 1, 1e-6)
     end
   end
-  memo = Bc.cap(consumers, drills, fuel and fuel.fuel_value or 0)
+  local fj = fuel and fuel.fuel_value or 0
+  memo = Bc.cap(consumers, drills, fj)
+  memo.need = Bc.need(Bc.cap(measured, nil, fj).need, memo.need) -- lot s45 charbon-besoin : max(mesure, nominal)
   memo.tick = game.tick
   f.coal_cap = memo
   return memo
