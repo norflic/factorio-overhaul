@@ -133,6 +133,7 @@ Build.Tj = require("script.team.tourelle_journal")
 -- Lot ÉTAGE 5 : couloir d'accès réservé des avant-postes (règle pure). Champ de Build, pas une locale : le bloc principal de ce fichier est
 -- à la limite de 200 locales de Lua 5.2 (fusion avec le lot PERIMETRE2).
 Build.Co = require("shared.team.couloir")
+Build.Fonte = require("script.ai3.anti_dispersion") -- 0.7.114 (F677, verrou des tiers) : AdRt.fonte_prouvee ; champ de Build (bloc principal à 199 locales)
 -- Lot VIDEO L4 : quotas du gabarit (colle de shared/team/quotas.lua) ; champ de Build, même raison (199 locales sur 200).
 Build.Quotas = require("script.team.quotas_glue")
 Build.Agents = require("script.companion.registry") -- lot MESURE-MODULE : l'agent qui porte une tâche de coffre (indice réécrit)
@@ -4936,6 +4937,11 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "plan" then
+    -- 0.7.114 (F677, verrou des tiers) : un projet qui pose un assembleur attend que l'extraction électrique et la fonte soient prouvées
+    if p.asm and not p.spec.bench and not Build.Fonte.fonte_prouvee(f, tick) then
+      p.plan_after, p.state, p.reason = tick + 3600, "attente", "fonte non prouvee"
+      return
+    end
     if not Tokens.take(f, tick, Build.COST_PLAN) then return end
     -- un projet ne se planifie qu'après la centrale (qui amorce le réseau)
     if b.plant and b.plant ~= p.id then
@@ -4953,7 +4959,29 @@ local function advance(f, surface, p, tick)
     Profiler.stop("build:plan")
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
     Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
-    if ok then
+    if ok and p.asm == nil then
+      p.asm = false
+      for _, e in ipairs(p.ents or {}) do
+        local pr = game.entity_prototypes[e.name]
+        if pr and pr.type == "assembling-machine" then p.asm = true; break end
+      end
+    end
+    if ok and p.asm and not p.spec.bench and not Build.Fonte.fonte_prouvee(f, tick) then
+      -- 0.7.114 (F677) : plan rendu (comme l'attente des masques), nouvel essai dans une minute ; journal à la première fois
+      for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+      for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+      for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+      p.ents, p.parts = {}, {}
+      p.quais, p.outs = {}, {}
+      p.plan_after, p.state, p.reason = tick + 3600, "attente", "fonte non prouvee"
+      log(string.format("[FO-TIERS] %s : projet %d (assembleurs) en attente : extraction et fonte non prouvees a %.1f min", f.key or "player", p.id, tick / 3600))
+      ok = false
+      why = "fonte non prouvee"
+      wait = "tiers"
+    end
+    if wait == "tiers" then
+      -- (0.7.114, F677 : plan déjà rendu ci-dessus, le projet attend la fonte)
+    elseif ok then
       p.sites_v = 1 -- lot MESURE-MODULE : coffres planifiés une seule fois (Build.dedupe_sites n'a rien à relire)
       p.masq_n = nil -- lot POTEAUX-MASQUES : l'accord de chunks repart de zéro au prochain plan de ce projet
       p.state = "reserve"

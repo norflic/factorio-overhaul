@@ -94,7 +94,20 @@ local function measure(f, memo)
           end
         end
       end
-      if Ad.colonne({ bande = true, etat = p.state, fours = fours, fours_actifs = actifs }) then colonnes = colonnes + 1 end
+      if Ad.colonne({ bande = true, etat = p.state, fours = fours, fours_actifs = actifs }) then
+        colonnes = colonnes + 1
+        -- 0.7.114 (F677, verrou des tiers) : la plaque de cette colonne est prouvée fondue (bande électrique finie, un four de bande qui fond) ;
+        -- acquis pour la partie (une panne de charbon ne refait pas osciller la pose des assembleurs)
+        local o = f.outposts and f.outposts[qc.oid]
+        local sp = o and T.outposts[o.kind]
+        if sp and sp.product ~= sp.resource then
+          memo.fonte = memo.fonte or {}
+          if not memo.fonte[sp.product] then
+            memo.fonte[sp.product] = true
+            log(string.format("[FO-TIERS] %s : fonte prouvee pour %s (colonne du projet %d) a %.1f min", key_of(f), sp.product, pid, minutes(f, game.tick)))
+          end
+        end
+      end
     end
   end
   -- assembleurs actifs de la force
@@ -135,6 +148,27 @@ function AdRt.etat(f, tick)
   end
   if memo.ouvert == nil then return nil end
   return { ouvert = memo.ouvert, colonnes = memo.colonnes or 0, assembleurs = memo.assembleurs or 0 }
+end
+
+--- 0.7.114 (F677, verrou des tiers, ordre du DC) : aucun assembleur de production n'est posé tant que CHAQUE plaque fondue des avant-postes
+--- (produit différent de la ressource, lu dans T.outposts : fer et cuivre aujourd'hui) n'a pas une colonne de bande électrique active.
+--- Vrai si la fonte est prouvée ; nil/faux sinon. Mesure au plus une fois par AdRt.EVERY (AdRt.etat), lecture seule ensuite.
+function AdRt.fonte_prouvee(f, tick)
+  local memo = memo_of(f)
+  if not memo then return true end -- (équipe sans état d'IA : pas de garde)
+  if memo.fonte_ok then return true end
+  AdRt.etat(f, tick)
+  local fonte = memo.fonte or {}
+  local kinds = {}
+  for k in pairs(T.outposts) do kinds[#kinds + 1] = k end
+  table.sort(kinds)
+  for _, k in ipairs(kinds) do
+    local sp = T.outposts[k]
+    if sp.product ~= sp.resource and not fonte[sp.product] then return false, sp.product end
+  end
+  memo.fonte_ok = true
+  log(string.format("[FO-TIERS] %s : extraction et fonte prouvees, assembleurs permis a %.1f min", key_of(f), minutes(f, tick or game.tick)))
+  return true
 end
 
 --- Une décision inhibée ailleurs (pensée pure) : comptée et dite à la première de sa famille.
