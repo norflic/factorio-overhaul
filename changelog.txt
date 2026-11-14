@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.111
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F671) : sur une carte à gisements 600 %, deux des quatre variantes d'un plan de gisement passent de 4 à 5 s à moins de 0,5 s (tracés de la colonne « ailleurs » repris d'une variante à l'autre), plan identique.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.110
 Date: 2026-11-14
   Bugfixes:
