@@ -291,7 +291,8 @@ function Cap.replace_candidates(Ld, census, ctx)
   for _, m in ipairs(machines) do
     local is_plain = parsed[m.name]
     if is_plain == nil then
-      is_plain = Ld.parse(m.name) == nil
+      local fam, lv = Ld.parse(m.name)
+      is_plain = fam == nil or (ctx.level1_ok and lv == 1 and fam.key ~= "command") or false -- lot AMELIO-CONTINUE : niveau 1 de votre équipe
       parsed[m.name] = is_plain
     end
     if is_plain and not (has_exclude and ctx.exclude["m:" .. m.id]) then

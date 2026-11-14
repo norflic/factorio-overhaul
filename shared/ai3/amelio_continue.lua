@@ -1,0 +1,63 @@
+--[[
+  Lot AMELIO-CONTINUE (DC 14/11 : « chaîne d'amélioration continue sur l'existant : convoyeurs, puis foreuses, puis fours ») : règle PURE
+  (aucune API Factorio). Le remplacement lui-même reste celui du lot AMELIORER (script/ai3/capital.lua, replace_one : fast_replace).
+    - AC.order(list, type_of, n)  : relevé trié par priorité de TYPE (R.AMELIO_PRIO), puis par numéro ; borné à n pièces ;
+    - AC.kit_want(need, have, cap) : objets cibles à fabriquer d'avance (quota de kit, indépendant de la réservation du cerveau) ;
+    - AC.pile_permits(hold, have) : la pile ne retient pas un remplacement dont le kit est déjà au stock (rien à réserver) ;
+    - AC.log_ok(st)               : journal [FO-AMELIO-CONTINUE] borné (AC.LOGS lignes par équipe).
+  Aucun nom d'objet ni de type ici : les types viennent de shared/ai3/reglages.lua. Déterminisme : tris totaux, aucun pairs décisionnel.
+]]
+local R = require("shared.ai3.reglages")
+
+local AC = {}
+
+AC.MAX_SCAN = 600 -- pièces au plus dans le relevé d'une pensée (borne N)
+AC.KIT_CAP = 12   -- objets cibles fabriqués d'avance au plus (un lot de Cap.REPLACE_BATCH)
+AC.LOGS = 30      -- lignes [FO-AMELIO-CONTINUE] au plus par équipe
+
+--- Rang de priorité d'un type du moteur (1 = d'abord) ; un type absent passe après tous.
+function AC.rank(t)
+  return (R.AMELIO_PRIO or {})[t] or 99
+end
+
+--- Trie `list` (entrées { id, ... }) par (rang du type, id) et la borne à `n` entrées. `type_of(entry)` rend le type du moteur.
+function AC.order(list, type_of, n)
+  local keyed = {}
+  for i, m in ipairs(list or {}) do keyed[i] = { m = m, r = AC.rank(type_of(m)), id = m.id or 0 } end
+  table.sort(keyed, function(a, b)
+    if a.r ~= b.r then return a.r < b.r end
+    return a.id < b.id
+  end)
+  local out = {}
+  for i = 1, math.min(#keyed, n or AC.MAX_SCAN) do out[i] = keyed[i].m end
+  table.sort(out, function(a, b) return (a.id or 0) < (b.id or 0) end) -- le relevé du capital reste trié par numéro
+  return out
+end
+
+--- Quota de kit : `need` = { [objet] = pièces à remplacer }, `have` = { [objet] = au stock }. Rend une liste triée { objet, n } à
+--- fabriquer (au plus `cap` au stock par objet).
+function AC.kit_want(need, have, cap)
+  cap = cap or AC.KIT_CAP
+  local names = {}
+  for k in pairs(need or {}) do names[#names + 1] = k end
+  table.sort(names)
+  local out = {}
+  for _, k in ipairs(names) do
+    local w = math.min(cap, need[k] or 0) - ((have or {})[k] or 0)
+    if w > 0 then out[#out + 1] = { k, w } end
+  end
+  return out
+end
+
+--- La pile retient-elle ce remplacement ? Non si elle ne retient rien, ou si le kit est déjà au stock (`have` >= 1).
+function AC.pile_permits(hold, have)
+  return (not hold) or (have or 0) >= 1
+end
+
+--- Journal borné : rend vrai (et compte) tant que l'équipe n'a pas écrit AC.LOGS lignes.
+function AC.log_ok(st)
+  st.logs = (st.logs or 0) + 1
+  return st.logs <= AC.LOGS
+end
+
+return AC

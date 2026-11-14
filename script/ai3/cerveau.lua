@@ -1133,6 +1133,11 @@ function Ia3.capital_pay(f, surface, tick, plan, stock, only_center)
   return Capital.pay(f, surface, tick, plan, stock, only_center) -- lot AGES : nombre payé, et vrai si rien n'a été tenté (gel levé, autre cible)
 end
 
+--- Lot AMELIO-CONTINUE : quota de kit du remplacement décidé et paiement dès que le kit est au stock (Capital.continu).
+function Ia3.capital_continu(f, surface, book, stock, tick, hold)
+  return Capital.continu(f, surface, book, stock, tick, hold)
+end
+
 --- Lot AMELIORATION : la montée par bloc est allumée (réglage fo-war-amelioration) ; elle lève le gel de la reconstruction sauf manque.
 function Ia3.blocs_on()
   return Capital.blocs_on()

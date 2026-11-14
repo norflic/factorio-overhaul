@@ -1291,6 +1291,8 @@ TT.e6 = function(f, surface, tick, et)
       Ia3.capital_attente(f, pile_hold and "pile" or "reconstruction", tick) -- lot C1 : la cause d'une amélioration retenue est dite
     end
   end
+  -- Lot AMELIO-CONTINUE (DC 14/11) : kit du remplacement décidé fabriqué d'avance, payé dès qu'il est au stock (pile retenue ou non).
+  if ia3 then Ia3.capital_continu(f, surface, book_for(f), stock, tick, (pile_hold or recon_hold) and true or false) end
   if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
   Profiler.fstop("tt:capital")
   Profiler.fstart("tt:fin")

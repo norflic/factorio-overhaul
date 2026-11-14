@@ -43,6 +43,10 @@ local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
 local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le centre de la faction est lié à son QG
 local Voulues = require("script.ai3.voulues") -- lot RECHERCHE-BRAS (A) : objets voulus déclarés par un module
+local AC = require("shared.ai3.amelio_continue") -- lot AMELIO-CONTINUE : priorité tapis -> foreuses -> fours, quota de kit, journal borné
+local Board = require("script.team.board") -- lot AMELIO-CONTINUE : tâche « craft » du kit (comme script/team/foreuse_swap.lua, craft)
+local Bm = require("shared.team.book_max") -- lot AMELIO-CONTINUE : plus grand nombre fabricable du kit
+local T = require("shared.team.config")
 
 local Capital = {}
 
@@ -156,6 +160,8 @@ local function machine_catalog()
   for _, t in ipairs(R.RANG_TYPES) do -- lot AMELIORATION : tapis et bras
     filters[#filters + 1] = { filter = "type", type = t, mode = #filters > 0 and "or" or nil }
   end
+  local drill_t = R.AMELIO_DRILL and R.AMELIO_DRILL.type -- lot AMELIO-CONTINUE : les foreuses (même emprise : Cap.successors)
+  if drill_t then filters[#filters + 1] = { filter = "type", type = drill_t, mode = #filters > 0 and "or" or nil } end
   local list = #filters > 0 and game.get_filtered_entity_prototypes(filters) or {}
   local names = {}
   for n in pairs(list) do names[#names + 1] = n end
@@ -167,7 +173,8 @@ local function machine_catalog()
     local group = get(p, "fast_replaceable_group")
     local rang = false
     for _, t in ipairs(R.RANG_TYPES) do if p.type == t then rang = true end end
-    local speed = get(p, "crafting_speed") or (rang and get(p, R.RANG_SPEED[p.type])) or nil
+    local speed = get(p, "crafting_speed") or (rang and get(p, R.RANG_SPEED[p.type]))
+      or (drill_t and p.type == drill_t and get(p, R.AMELIO_DRILL.speed)) or nil
     local reach = nil
     if p.type == R.RANG_REACH.type then
       local a, b = get(p, R.RANG_REACH.pickup), get(p, R.RANG_REACH.drop)
@@ -226,6 +233,7 @@ end
 --- Machines que l'équipe a posées, hors familles à niveaux : fours du QG et machines des projets du plan directeur
 --- (jamais celles du joueur, même force). Rend { list = { {id, name, working} } triée par id, ents = { [id] = entité },
 --- refs = { [id] = entrée du plan } }.
+local mach_slots = {} -- lot AMELIO-CONTINUE : [équipe] = { [unit_number] = { liste d'avant-poste, indice } } (cache LOCAL)
 local function scan_machines(f)
   local cat = machine_catalog()
   local surface = f.hq.surface
@@ -239,6 +247,21 @@ local function scan_machines(f)
     end
   end
   for _, e in ipairs(f.smelters or {}) do add(e, nil, "qg") end
+  -- Lot AMELIO-CONTINUE : foreuses et réceptacles (fours) des avant-postes de l'équipe (listes d'Outposts, triées par id d'avant-poste) ;
+  -- slots[id] = { liste, indice } : la liste suit la nouvelle entité au remplacement (replace_one).
+  local slots = {}
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local o = f.outposts[oid]
+    for _, lname in ipairs({ "drill_list", "sinks" }) do
+      local lst = o and o[lname]
+      for i, e in ipairs(lst or {}) do
+        if e and e.valid and e.unit_number and not ents[e.unit_number] and cat.by[e.name] then
+          add(e, nil, "ap" .. tostring(oid))
+          slots[e.unit_number] = { lst, i }
+        end
+      end
+    end
+  end
   local b = f.build
   if b and b.projects then
     for _, pid in ipairs(sorted_keys(b.projects)) do
@@ -272,6 +295,14 @@ local function scan_machines(f)
       end
     end
   end
+  -- Lot AMELIO-CONTINUE : relevé borné (AC.MAX_SCAN pièces), tapis d'abord, puis foreuses, puis fours (AC.order, types de R.AMELIO_PRIO).
+  local keep = {}
+  local pre = {}
+  for _, id in ipairs(sorted_keys(ents)) do pre[#pre + 1] = { id = id } end
+  for _, m in ipairs(AC.order(pre, function(m) return ents[m.id].type end, AC.MAX_SCAN)) do keep[m.id] = true end
+  for _, id in ipairs(sorted_keys(ents)) do
+    if not keep[id] then ents[id], refs[id], blocks[id], slots[id] = nil, nil, nil, nil end
+  end
   local list = {}
   local ws = defines.entity_status and defines.entity_status.working
   for _, id in ipairs(sorted_keys(ents)) do
@@ -283,7 +314,7 @@ local function scan_machines(f)
     list[#list + 1] = { id = id, name = e.name, working = (st == nil) or (ws ~= nil and st == ws), block = blocks[id],
       x = pos.x, y = pos.y, dir = e.direction }
   end
-  return { list = list, ents = ents, refs = refs }
+  return { list = list, ents = ents, refs = refs, slots = slots }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -514,6 +545,7 @@ local function census_of(f, c)
     local m = scan_machines(f)
     census.machines = m.list
     c.mach_ents, c.mach_refs = m.ents, m.refs
+    mach_slots[f.id or f.key or "player"] = m.slots -- références d'entités : cache LOCAL (jamais dans global), relevé refait au chargement
   else
     c.mach_ents, c.mach_refs = {}, {}
   end
@@ -659,6 +691,7 @@ function Capital.goal(f, view, book, tick, w)
   end
   local ctx = { proto = proto, mproto = Capital.mproto, machines = machine_catalog().names,
     available = function(item) return unlocked(f, item) end,
+    level1_ok = (f.is_player and not Capital.on()) or nil, -- lot AMELIO-CONTINUE : votre équipe ne monte pas les niveaux ; un niveau 1 se remplace
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
     zones = Co.upgrade_zones(f.team and f.team.commande), -- lot s44 COMMANDE-UPGRADE : zones d'amélioration prioritaire (rang 0)
@@ -873,7 +906,7 @@ end
 --- Remplace UNE machine sur place par `to` (remplacement rapide du moteur, F39 : contenu, recette et munitions gardés). Rend
 --- la nouvelle entité, ou nil et le motif. L'objet de la cible vient du stock libre, celui de l'ancienne machine y revient ;
 --- les registres qui tenaient l'ancienne entité (fours du QG, propriété, entrée du plan directeur) suivent la nouvelle.
-local function replace_one(f, c, e, to)
+local function replace_one(f, c, e, to, paired)
   local cat = machine_catalog()
   local tp, op = cat.by[to], cat.by[e.name]
   if not (tp and op) then return nil, "inconnue" end
@@ -890,6 +923,14 @@ local function replace_one(f, c, e, to)
   for i, s in ipairs(f.smelters or {}) do
     if s == e then slot = i break end
   end
+  -- Lot AMELIO-CONTINUE : l'autre bout d'un souterrain (deux rangs différents ne se relient pas) est remplacé dans le même pas.
+  local mate = nil
+  if e.type == R.RANG_HALF and not paired then
+    local nb = get(e, "neighbours")
+    if nb and nb.valid and nb.name == e.name then mate = nb end
+  end
+  local ms = mach_slots[f.id or f.key or "player"]
+  local oslot = ms and ms[old_unit]
   local new = surface.create_entity({ name = to, position = args.position, direction = args.direction, force = args.force,
     type = args.type, fast_replace = true, spill = false, raise_built = true, create_build_effect_smoke = false })
   if not (new and new.valid and new.name == to) then return nil, "echec" end
@@ -904,6 +945,9 @@ local function replace_one(f, c, e, to)
   local mh = get(new.prototype, "max_health")
   if mh then new.health = mh * ratio end
   if slot then f.smelters[slot] = new end
+  if oslot and not (oslot[1][oslot[2]] and oslot[1][oslot[2]].valid) then oslot[1][oslot[2]] = new end -- avant-poste : la liste suit la nouvelle entité
+  if ms and oslot then ms[old_unit] = nil end
+  if mate and mate.valid and mate.name ~= to and Stock.count(f, tp.item) >= 1 then replace_one(f, c, mate, to, true) end
   if owner then
     State.disown(old_unit)
     State.own(new, f.id, owner.kind, owner.oid)
@@ -1262,6 +1306,56 @@ remote.add_interface("fo-capital", {
 --- Remplace l'entité `e` par le prototype `to` (replace_one : paiement au stock libre, ancien objet rendu au stock, propriété et
 --- entrée du plan suivies, F39 : contenu et recette gardés). Rend la nouvelle entité, ou nil et le motif.
 function Capital.replace_entity(f, e, to) return replace_one(f, state_of(f), e, to) end
+
+--- Lot AMELIO-CONTINUE (DC 14/11) : quota de kit du remplacement décidé, INDÉPENDANT de la réservation du cerveau (« non-reserve » :
+--- l'objet cible n'était jamais fabriqué). Appelé par script/team/team.lua (E6) après le paiement du capital, pile retenue ou non :
+---   1. cible verrouillée : l'objet est déclaré voulu (Voulues, la recherche qui le débloque prend de la valeur) ;
+---   2. kit : au plus AC.KIT_CAP objets cibles fabriqués d'avance (tâche « craft » bornée, comme foreuse_swap.lua, craft) ;
+---   3. kit au stock : le lot est payé tout de suite (pay_replace), même pile retenue (AC.pile_permits : rien n'est réservé).
+--- Rend le nombre de pièces remplacées.
+function Capital.continu(f, surface, book, free, tick, hold)
+  if not Capital.replace_on() or not (f.team and f.team.capital) then return 0 end
+  local c = f.team.capital
+  local d = c.current
+  if not (d and d.replace) then return 0 end
+  local tp = machine_catalog().by[d.replace.to]
+  if not (tp and tp.item) then return 0 end
+  local item = tp.item
+  local st = c.continu_st or {}
+  c.continu_st = st
+  if unlocked(f, item) then Voulues.clear(f, "amelio-continue") else Voulues.set(f, "amelio-continue", { item }, tick) return 0 end
+  local have = Stock.count(f, item)
+  local n = #(d.ids or {})
+  local want = AC.kit_want({ [item] = n }, { [item] = have })
+  local queued = 0
+  if want[1] and book and book:handcraftable(item) then
+    local avail = {}
+    for _, k in ipairs(sorted_keys(free)) do avail[k] = free[k] end
+    avail[item] = 0
+    local m, q = Bm.best(book, item, want[1][2], avail)
+    if m > 0 then
+      local uses = {}
+      for _, k in ipairs(sorted_keys(q.uses)) do uses[#uses + 1] = { k, q.uses[k] } end
+      queued = Board.add(f, { { key = "craft:" .. item .. ":amelio", kind = "craft", prio = T.swap.prio, item = item, count = m,
+        steps = q.crafts, uses = uses, tag = "amelio" } }, tick) or 0
+    end
+  end
+  local done, why = 0, nil
+  if have >= 1 and AC.pile_permits(hold, have) then
+    done, why = pay_replace(f, c, d, tick, math.min(have, n))
+    if done > 0 then
+      c.upgrades = (c.upgrades or 0) + done
+      if d.replace.group then c.last_group = d.replace.group end
+      c.current, c.goal, c.scan_n = nil, nil, 0
+    end
+  end
+  if (done > 0 or (queued or 0) > 0 or why) and AC.log_ok(st) then
+    log(string.format("[FO-AMELIO-CONTINUE] %s : %s -> %s | lot %d | kit %d au stock, %d en fabrication | remplacees %d%s | pile %s a %.1f min",
+      f.key or "player", d.replace.from, d.replace.to, n, have, tonumber(queued) or 0, done, why and (" | refus " .. tostring(why)) or "",
+      hold and "retenue" or "libre", minutes(f, tick)))
+  end
+  return done
+end
 --- L'objet `item` est-il fabricable par la force (une recette activée le produit) ?
 function Capital.unlocked(f, item) return unlocked(f, item) end
 -- Liaison tardive (F24 : aucun require pendant un événement ; capital -> automatisation -> build -> hygiene -> boxes_rt ->
