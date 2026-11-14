@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 13 h 30 : version 0.7.106 (sprint de 15 min : pic de Champ.frame)
+
+- **F661 · FAIT · [0.7.106]** (s47-axe 4e9cce5e, s47-charbon 73443c21) : `shared/team/champ_axe.lua`, verrou `PLAN_TICK` (`script/team/champ.lua`), « pas-encore » sans échec compté (`migration_champ.lua:822`) ; `Co.ROUTE_STATES = 50000` et refus par distance (`shared/team/champ_colonne.lua`), échec construit hors jeu 1,756 -> 0,378 s. Stress-test identique à celui de 0.7.105 (`s43-parite-seule`, graine 314159265, 25 min de jeu) : `[FO-PERF-PIC] champ:frame` 36 plans, médiane 27 ms, 3e 1 354 ms, 2e 3 753 ms (azure, avant-poste 3 : 7 050 ms en 0.7.105), **max 6 270 ms** (emerald, avant-poste 2 : « cadre a coffres : refus coutait 87 % du champ, 3 colonne(s) sans voie de charbon », plan refait en mode coffres dans le même appel). **Objectif < 50 ms NON atteint.** 0 erreur Lua. Fer à 20 min : 20 370 contre 21 189 en 0.7.105 (-3,9 %, une graine, scarlet 3 245 contre 4 531). Tranche suivante : cache négatif des tracés de charbon dans un même plan, et le repli « cadre à coffres » reporté au tick suivant comme l'autre axe.
+
 ## 2026-11-14, 13 h 15 : version 0.7.105 (sprint de 30 min : gels et arrêt de la partie du DC en 0.7.104)
 
 Journal de la partie (0.7.104, 12:45 à 12:52, 7 min) : `fo-logs/2026-11-14_partie-DC-7min-07104/factorio-current.log`.

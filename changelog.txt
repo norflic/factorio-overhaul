@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.106
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F661) : au plus un plan de gisement par tick toutes équipes ; l'essai de l'autre orientation se fait au tick suivant. Tracé du charbon d'une colonne plafonné (50 000 états) et refusé sans recherche quand la distance dépasse le plafond de 250 tuiles.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.105
 Date: 2026-11-14
   Bugfixes:
