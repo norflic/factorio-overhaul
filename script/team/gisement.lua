@@ -239,6 +239,16 @@ function Gis.prune(f, surface, tick)
       local item = its and its[1] and its[1].name
       local pos = d.position
       local sink = orphan_sink(surface, d)
+      -- s43 regr-fer4 (banc s43-parite-seule, graine 271828182) : take_back retire le propriétaire avant de détruire, l'avant-poste n'apprenait
+      -- jamais la perte : votre avant-poste de fer comptait 14 foreuses avec 1 seule debout (« plein », aucune extension), fer 0 dès 35 min.
+      local own = State.owner(d.unit_number)
+      local oo = own and own.kind == "drill" and own.f == f.id and f.outposts and f.outposts[own.oid] or nil
+      if oo then
+        oo.drills = math.max(0, (oo.drills or 0) - 1)
+        local keep = {}
+        for _, x in ipairs(oo.drill_list or {}) do if x.valid and x ~= d then keep[#keep + 1] = x end end
+        if oo.drill_list then oo.drill_list = keep end
+      end
       take_back(f, d, item)
       if sink then
         local sits = sink.prototype.items_to_place_this
