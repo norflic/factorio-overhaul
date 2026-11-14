@@ -14,7 +14,7 @@
   chantiers. Un avant-poste reçoit un agrandissement à la fois (clé « extend:<id> »).
 
   Causes (une par type de fonderie qui n'a plus rien émis à cette pensée) : « plein » (aucun avant-poste du type n'a de place : il faut
-  un nouveau site, relève), « en_cours » (chaque avant-poste avec place a déjà son agrandissement pris), « non_defendu » (les autres
+  un nouveau site, relève), « sans_avant_poste » (l'équipe n'a AUCUN avant-poste du type : k.n_any = 0, lot INJOIGNABLE), « en_cours » (chaque avant-poste avec place a déjà son agrandissement pris), « non_defendu » (les autres
   sont interdits par « défendre d'abord » : Planner.no_go), « combustible » (le kit ne manque que de combustible), « stock » (le kit
   manque d'une autre matière), « palier:<raison> » (aucune foreuse permise par la règle des paliers : thermique interdite par la bascule
   électrique, par exemple), « menace » (QG menacé : personne ne part agrandir).
@@ -156,7 +156,10 @@ function ZI.decide(inp)
         end
         if not o then
           s.done = true
-          if #list == 0 then res.causes[k.kind] = res.causes[k.kind] or "plein"
+          -- lot INJOIGNABLE (partie du DC, 0.7.113 : « iron=plein » pendant 30 min chez azure sans AUCUN avant-poste de fer) : sans
+          -- avant-poste du type (k.n_any == 0), la cause est « sans_avant_poste » (il faut ouvrir un site), pas « plein ». Une simple
+          -- étiquette : rien n'est émis, le PNJ reste libre pour la tâche « build » du projet d'extraction.
+          if #list == 0 then res.causes[k.kind] = res.causes[k.kind] or ((k.n_any == 0) and "sans_avant_poste" or "plein")
           elseif s.n_open >= s.n_nogo then res.causes[k.kind] = res.causes[k.kind] or "en_cours"
           else res.causes[k.kind] = res.causes[k.kind] or "non_defendu" end
         else
@@ -213,8 +216,9 @@ function ZI.input(view, s, book, avail, ctx, covered)
   local open = view.open or {}
   for _, kind in ipairs(ZI.smelter_kinds(s.key and s.key.order)) do
     local spec = T.outposts[kind]
-    local outs, op = {}, {}
+    local outs, op, n_any = {}, {}, 0
     for _, o in ipairs(view.outposts or {}) do
+      if o.kind == kind then n_any = n_any + 1 end
       if o.kind == kind and not o.full and (o.drills or 0) < T.max_drills(kind) then
         outs[#outs + 1] = { id = o.id, d2 = o.d2 or 0, outputs = o.outputs } -- (outputs : sorties de l'avant-poste, lot AUTO-FINANCEMENT)
         if open["extend:" .. tostring(o.id)] then op[o.id] = true end
@@ -224,7 +228,7 @@ function ZI.input(view, s, book, avail, ctx, covered)
       if a.d2 ~= b.d2 then return a.d2 < b.d2 end
       return tostring(a.id) < tostring(b.id)
     end)
-    kinds[#kinds + 1] = { kind = kind, product = spec.product, outposts = outs, open = op, no_go = no_go,
+    kinds[#kinds + 1] = { kind = kind, product = spec.product, outposts = outs, open = op, no_go = no_go, n_any = n_any,
       tiers = ZI.tiers(kind, ctx and ctx.zi_tiers, covered, view.thermal_off) }
   end
   local peril = view.qg_peril and view.qg_peril.peril

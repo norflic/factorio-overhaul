@@ -57,6 +57,8 @@ local Tp = require("shared.team.tri_proches") -- lot CERVEAU-CENTRAL (P1) : tri 
 local Sp = require("shared.team.spirale") -- EFFONDREMENT : filet de recul de la recrue gratuite (mort rapide d'une recrue gratuite)
 local Events = require("script.core.events") -- EFFONDREMENT : parade du kit offert (mort d'un PNJ, corps rendu)
 local Storage = require("script.core.storage")
+local Ep = require("shared.team.echec_pose") -- lot INJOIGNABLE : pose ratée sur place (motif, écart court ou nul), jamais « injoignable »
+local Th = require("shared.team.thermique") -- lot INJOIGNABLE : motif « thermique_ferme » (même lecture que Outposts.build)
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
@@ -948,10 +950,22 @@ local function pick_ground(agent, item)
 end
 
 ACTS.build = function(agent, f, task, surface, tick)
-  local o = Outposts.build(f, surface, task.outpost_kind, task.site, main_inv(agent))
+  local carrier = main_inv(agent)
+  local o = Outposts.build(f, surface, task.outpost_kind, task.site, carrier)
   if not o then
+    -- Lot INJOIGNABLE (partie du DC, 0.7.113, azure) : l'ouvrier est ARRIVÉ (la marche ratée est marquée à la marche) : c'est la POSE qui a
+    -- échoué. Plus de marquage « injoignable » 30 min : écart court (Ep.SHORT_TICKS), aucun écart quand l'ouvrier n'avait pas les objets.
+    -- Motif lu ici (Outposts.build ne rend pas son rapport) : même lecture de Th.site_closed, puis inventaire porté (aucune paire posée :
+    -- rien n'a été retiré de l'inventaire).
+    local spec = T.outposts[task.outpost_kind]
+    local list = {}
+    for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do list[#list + 1] = f.outposts[oid] end
+    local c = { closed = Th.site_closed(task.outpost_kind, task.site, list, f.elec and f.elec.v) == true,
+      drills = carrier.get_item_count(T.DRILL), sinks = spec and carrier.get_item_count(spec.sink) or 0 }
+    local motif, ttl = Ep.verdict(c)
     Sites.release(task.site)
-    Sites.mark_unreachable(task.site, tick)
+    if ttl then Sites.mark_unreachable(task.site, tick, ttl) end
+    log(Ep.line(f.key or "player", tick, task.site.resource or (spec and spec.resource), task.site, motif, ttl, c))
     task.site_used = true
     f.stats.build_fail = (f.stats.build_fail or 0) + 1
     return false

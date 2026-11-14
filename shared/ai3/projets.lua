@@ -103,7 +103,11 @@ end
 
 --- Met à jour les projets d'après les buts de la pensée. Renvoie la liste des projets à DÉPLIER (actifs dans l'ordre
 --- de priorité effective, puis les bloqués à revoir), et le nombre de places K.
-function P.update(st, goals, tick, workers)
+--- Lot INJOIGNABLE : `hold` (facultatif, { [clé] = vrai }) : un projet dont le but disparaît mais dont la clé y figure n'est PAS fini : il
+--- reste ouvert en « attente » (aucune place, rien de déplié) avec la cause « chantier ». Partie du DC (0.7.113, azure) : « projet fini
+--- 'extraction:iron' » à 8,3 min parce que la tâche « build » prise comptait comme capacité en chantier, puis la pose a échoué et aucun
+--- avant-poste de fer n'a existé pendant 30 min.
+function P.update(st, goals, tick, workers, hold)
   st.projects = st.projects or {}
   st.next_id = st.next_id or 1
   local by_key = {}
@@ -114,6 +118,10 @@ function P.update(st, goals, tick, workers)
   local kept = {}
   for _, p in ipairs(st.projects) do
     if wanted[p.key] then kept[#kept + 1] = p
+    elseif hold and hold[p.key] then
+      if p.state ~= "attente" or p.cause ~= "chantier" then announce(st, tick, "attente", p.key, "chantier") end
+      p.state, p.cause = "attente", "chantier"
+      kept[#kept + 1] = p
     else announce(st, tick, "fini", p.key, math.floor((tick - (p.opened or tick)) / 60)) end
   end
   st.projects = kept
