@@ -10,6 +10,19 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 11 h 10 : version 0.7.103 (sprint commando de 30 min : défense, commandement, fours en acier, gisements, après la partie de 2 h 30 du DC en 0.7.102)
+
+Journal archivé : `fo-logs/2026-11-14_partie-DC-2h30-07102/factorio-current.log`. `[FO-CUMUL]` vers 161 min, fer : emerald 309 616, scarlet 150 307, player 128 019, azure 112 796, amber 65 861. Validation : tests unitaires, iag, harness et banc de contenu ; **aucun effet en jeu n'est mesuré** (banc interdit pendant le sprint).
+
+- **F644 · FAIT · [0.7.103]** Tourelles en stock (s44-tourelles-stock 731ba618) : `shared/team/planner.lua:858`, le poste `reserve` était bloqué par `production_first` sans journal (amber en production d'abord de 155,5 min à la fin, 0 tourelle sur 5 cellules attaquées). `Dsr.gate` ; verdict `reserve:<cause>` dans `[FO-DEFENSE]`. Le « 77 » du DC est le cumul fait main de `[FO-IA3E]`, pas un stock prouvé. Azure non expliquée.
+- **F645 · FAIT · [0.7.103]** Vecteur (s44-vecteur c5203a90, 920a8b8e) : `shared/team/garde_centrale.lua:85` posait un anneau fixe ; machine à vapeur du joueur tuée à 72,0 min avec 3 tourelles à 25 tuiles. `shared/team/vecteur.lua`, journal `[FO-DEF-VECTEUR]`. Quota inchangé.
+- **F646 · FAIT · [0.7.103]** Réparation à découvert (s44-reparation 849ad1a5) : centrale du joueur morte à 72,0 min, 12 pièces rouvertes 30 s après (`rebuild_sweep.lua:341`). `shared/team/secteur_attaque.lua` (32 tuiles, 1 min, seuils non mesurés).
+- **F647 · FAIT · [0.7.103]** Fours en acier (s44-fours-acier 695653d7) : fin de partie player 226 en pierre / 0 en acier, scarlet 523 / 4 ; 23 `[FO-CAPITAL-ATTENTE] stock-libre (steel-furnace 0/1)` de 73,6 à 157,3 min (`script/ai3/capital.lua:1063`). Pièce demandée à `Cap.ahead_prio` (`Cap.PIECE_FIRST_TYPES`, type d'entité).
+- **F648 · FAIT · [0.7.103]** Éléments moteurs (s44-moteurs 99a96652) : `shared/ai3/automatiser.lua:897` exige une charge à la main > 0,25, nulle pour une recette hors main ; aucun engine-unit en 2 h 30. `shared/ai3/moteurs.lua` (tampon 20, 3 objets).
+- **F649 · FAIT · [0.7.103]** Couverture (s44-gisements 13f9ec5c) : places libres relues après les ordres (`shared/ai3/capitalisation.lua:1543`) ; `Cv.free_before`. Non traité : player fer 1635/3404 tuiles à 138 min puis 751/3402 à 159 min (porte des chantiers, `stock-libre` foreuse 36 fois).
+- **F650 · FAIT · [0.7.103]** Commandement (s44-commande-gisement a27bbcc2, s44-commande-cablage 559d9e9f) : `Co.resolve` remplissait l'ordre par l'avant-poste déjà là (ordres 4, 6, 7, 14) ; `Sites.probe_at` muet sur réserve pleine ; `capitalisation.lua:662` annulait la part défense en production d'abord.
+- **F651 · FAIT · [0.7.103]** Commandement, actions neuves (s44-commande-liaison 911ec8d3, s44-commande-upgrade 77145ee2) : liaison A -> B entre une sortie et un quai du même objet (`Co.forced_pairs`), zone d'amélioration prioritaire (`Co.upgrade_rank`). Pas de tapis entre deux points quelconques ; non vu en jeu.
+
 ## 2026-11-14, 07 h 30 : version 0.7.102 (coût de la double alimentation des centrales)
 
 - **F643 · FAIT · [0.7.102]** Centrale (s43-cc-garde2 c4da27ea) : E295 découpé. La marge × 1,3 ne change rien (variante B identique à la plaque près) ; la seconde entrée sur la toute première centrale coûte (variante A = revert sur 2 graines). `Cc.second_ok` : seconde entrée seulement avec une centrale finie et un réseau sain ; `Cc.refill` : planchers par centrale, partagés entre ses coffres. Panel `s43-parite-seule` 4 graines : 406 771 (player 63 419) contre release 375 257 (64 477) et revert complet 401 002 (61 160) ; minutes à combustible vide au QG 294 contre 348. La première centrale garde une entrée unique : rattrapage en cours pour respecter le chantier 3.1.

@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.103
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F644) : les tourelles en stock sont posées sur les lieux attaqués même en « production d'abord » (seule une équipe décimée reste bloquée).
+    - IA (F645) : une centrale touchée est gardée en premier, tourelles en ligne face à l'axe d'approche ; ligne de tourelles devant le QG attaqué.
+    - IA (F646) : pas de repose d'une pièce morte depuis moins d'une minute sans tourelle active qui couvre la place.
+    - IA (F647) : la pièce d'un remplacement de four passe devant les autres consommateurs d'acier, une à la fois.
+    - IA (F648) : les intermédiaires qui ne se font pas à la main (éléments moteurs…) sont demandés au mall dès le déblocage de leur recette, tampon borné.
+    - IA (F649) : un ordre « couvrir » qui finit un gisement n'est plus refusé pour « gisement sans place libre ».
+    - Commandement (F650) : un ordre de gisement n'est plus « rempli » par un avant-poste qui existait déjà ; le site désigné entre dans la réserve ; « Défense » réserve vraiment une part du budget.
+  Changes:
+    - Commandement (F651) : orientations Économie et Recherche ; liaison A puis B (deux Maj + glisser) ; zone d'amélioration prioritaire (Maj + glisser droit).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.102
 Date: 2026-11-14
   Bugfixes:
