@@ -240,6 +240,9 @@ local function add_order(f, player, o)
   end
   local order = cs.orders[#cs.orders]
   draw(f, order)
+  -- ordres-0715 : effet immediat : decision d'amelioration relue a la pensee suivante, releve des liaisons tout de suite
+  if f.team and f.team.capital then f.team.capital.scan_n = 0; f.team.capital.goal = nil end
+  if o.kind == "liaison" and f.build and f.build.liaison then f.build.liaison.next = game.tick end
   log(string.format("[FO-COMMANDE] %s : ordre %d %s %s en (%d, %d) rayon %d (tick %d)", tostring(f.key or f.id), id, o.kind,
     tostring(o.resource or "-"), o.x, o.y, order.r, game.tick))
   player.print({ "fo-commande.pose-" .. o.kind, id })

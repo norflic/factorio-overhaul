@@ -3476,6 +3476,7 @@ end
 --- Build.ligne_step) ; une migration déjà EN CHANTIER (paires retirées) non plus (PileRt.migration_building, comme script/team/team.lua).
 local function pile_family(f, p)
   local fam = p.spec and p.spec.pile
+  if p.spec and p.spec.ordre then return nil end -- ordres-0715 : un projet d'ordre du joueur n'est jamais suspendu par la pile
   if not fam or Sweep.rebuilding(p) or (p.reopened and p.reopened ~= 0) then return nil end
   if fam == "migration" and PileRt.migration_building(f) then return nil end
   return fam

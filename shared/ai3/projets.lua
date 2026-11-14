@@ -134,6 +134,9 @@ function P.update(st, goals, tick, workers, hold)
     ranked[#ranked + 1] = { g = g, p = by_key[g.key], e = effective(g, by_key[g.key], tick) }
   end
   table.sort(ranked, function(a, b)
+    -- ordres-0715 : un ordre du joueur (g.ordre, Co.goals) passe en tete du classement
+    local oa, ob = a.g.ordre and 1 or 0, b.g.ordre and 1 or 0
+    if oa ~= ob then return oa > ob end
     if a.e ~= b.e then return a.e > b.e end
     return a.g.key < b.g.key
   end)
@@ -146,7 +149,7 @@ function P.update(st, goals, tick, workers, hold)
       blocked[#blocked + 1] = p
     -- Lot CAPITAL : un but de FOND (investissement par défaut, H4 : améliorer avec ce qui dort au stock) ne prend pas de
     -- place parmi les K projets et n'est servi qu'APRÈS tous les autres (le reste du stock virtuel).
-    elseif n_active < K or g.permanent or g.fond then
+    elseif n_active < K or g.permanent or g.fond or g.ordre then -- ordres-0715 : l'ordre du joueur ne manque jamais de place
       if not p then
         p = { id = st.next_id, key = g.key, family = g.family, opened = tick, state = "actif" }
         st.next_id = st.next_id + 1
@@ -181,8 +184,10 @@ function P.update(st, goals, tick, workers, hold)
   -- jamais le fer de son économie vitale. Les factions gardent l'ordre d'avant (leurs soldats juste après l'objectif du moment).
   local out, perm, rest, short, fond, invest, late, front = {}, {}, {}, {}, {}, {}, {}, {}
   local first = nil
+  local ordres = {}
   for _, p in ipairs(active) do
-    if p.goal.permanent then
+    if p.goal.ordre then ordres[#ordres + 1] = p -- ordres-0715 : servis avant tout
+    elseif p.goal.permanent then
       if p.goal.late then late[#late + 1] = p else perm[#perm + 1] = p end
     elseif p.goal.fond then
       if p.goal.short then short[#short + 1] = p
@@ -193,6 +198,7 @@ function P.update(st, goals, tick, workers, hold)
     elseif p.goal.short then short[#short + 1] = p
     else rest[#rest + 1] = p end
   end
+  for _, p in ipairs(ordres) do out[#out + 1] = p end
   if first then out[#out + 1] = first end
   -- Lot ELEC2 : les investissements de fond qui étendent la capacité d'une matière en manque (g.invest :
   -- foreuses électriques et fours sur place, retour en quelques minutes) viennent APRÈS les familles permanentes et devant
@@ -424,7 +430,7 @@ EMIT.outpost = function(E, proj, g, ctx)
   -- lot ELECTRIQUE (a, DC 8/11) : centrale finie, foreuse électrique et poteau obtenables : plus de paire thermique de ce type (agrandir ou
   -- bâtir) ; le gisement se couvre en électrique (capitalisation, remplacement). view.thermal_off : script/team/electrique.lua (Elec.view_off)
   if view.thermal_off and view.thermal_off[kind] then return "bloque", "electrique:" .. kind end
-  local df = view.defend_first and true or false
+  local df = (view.defend_first and not g.ordre) and true or false -- ordres-0715 : l'ordre n'attend pas ses tourelles
   local turret_ok = df and (E.book:handcraftable(P.TURRET) or (E.avail[P.TURRET] or 0) > 0) or false
   -- Lot PRIORITE-RESSOURCES : le fer ne paie pas la défense ET la production (E.priorite, décidé par le planificateur permanent) :
   -- la production d'abord, l'avant-poste s'agrandit et se bâtit sans attendre ses tourelles.
