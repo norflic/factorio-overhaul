@@ -133,6 +133,13 @@ def directions_de(module):
     return int(ast.literal_eval(m.group(1)).get("dirs", DIRS)) if m else DIRS
 
 
+def images_mort(module):
+    """s43 : images de l'animation de mort (SERIE["mort"], 1 = carcasse fixe), lu dans le texte du module (il importe bpy)."""
+    src = open(os.path.join(HERE, module + ".py"), encoding="utf-8").read()
+    m = re.search(r"^SERIE\s*=\s*(\{.*\})\s*$", src, re.M)
+    return int(ast.literal_eval(m.group(1)).get("mort", 1)) if m else 1
+
+
 def dossier(src, sub):
     """Le sous-dossier `sub` dans le premier des dossiers de sources (séparés par os.pathsep) qui le contient."""
     for s in src.split(os.pathsep):
@@ -279,7 +286,7 @@ def seul(a):
         e.update(anime(S, a.src, pd, nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
         # s43 : CADAVRE (pièce fixe « mort », une image par direction) s'il est rendu : feuilles hr-<nom>-cadavre-mort-<couche>-<dir>.png
         if os.path.exists(os.path.join(dossier(a.src, nom), "%s-mort-00-00.npz" % nom)):
-            e["cadavre"] = anime(S, a.src, pd, nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", 1),))
+            e["cadavre"] = anime(S, a.src, pd, nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", images_mort(nom)),))
     else:
         _, stades, divs, max_px = ent[0]
         nd = directions_de(nom)
@@ -375,7 +382,7 @@ def main():
             spr[nom] = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
             spr[nom].update(anime(S, a.src, poids[nom], nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
             if os.path.exists(os.path.join(dossier(a.src, nom), "%s-mort-00-00.npz" % nom)):   # s43 : cadavre (voir seul())
-                spr[nom]["cadavre"] = anime(S, a.src, poids[nom], nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", 1),))
+                spr[nom]["cadavre"] = anime(S, a.src, poids[nom], nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", images_mort(nom)),))
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("-- FICHIER GÉNÉRÉ par tools/render/pieces/titans/feuilles_titans.py (lot TITANS) : ne pas modifier à la main.\n")

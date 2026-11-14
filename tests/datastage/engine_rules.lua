@@ -189,6 +189,49 @@ local function check_points(key, p, add, stats)
 end
 
 --- stats (facultatif) : { entities, points } remplis par la règle des points de jeu (preuve qu'elle a lu quelque chose).
+--- s43 (capture en jeu du Corroder, 14/11) : « Frame index 5 is out of range (1-4) at
+--- unit.alternative_attacking_frame_sequence.warmup_frame_sequence[4] ». Le moteur borne toute séquence d'images référencée par le
+--- nombre d'images de l'animation : (1) `frame_sequence` d'une Animation (ou d'une couche) ≤ son frame_count ; (2) les séquences de
+--- `alternative_attacking_frame_sequence` d'un `unit` ≤ frame_count de attack_parameters.animation (première couche).
+--- Rend une liste de { path, msg } (vide si tout est dans les bornes).
+local function frame_count_of(anim)
+  if type(anim) ~= "table" then return nil end
+  if type(anim.frame_count) == "number" then return anim.frame_count end
+  if type(anim.layers) == "table" and type(anim.layers[1]) == "table" then return frame_count_of(anim.layers[1]) end
+  if anim.filename or anim.filenames or anim.stripes or anim.layers then return 1 end
+  return nil
+end
+R.frame_count_of = frame_count_of
+
+function R.frame_sequence_errors(p, ptype)
+  local out = {}
+  local function seq(s, n, path)
+    if type(s) ~= "table" or not n then return end
+    for i, f in ipairs(s) do
+      if type(f) == "number" and (f < 1 or f > n) then
+        out[#out + 1] = { path = path .. "[" .. i .. "]", msg = "image " .. f .. " hors de l'animation (1-" .. n .. ")" }
+      end
+    end
+  end
+  local function parcours(t, path, seen)
+    if type(t) ~= "table" or seen[t] then return end
+    seen[t] = true
+    if type(t.frame_sequence) == "table" then seq(t.frame_sequence, t.frame_count or 1, path .. ".frame_sequence") end
+    for _, k in ipairs(sorted_keys(t)) do parcours(t[k], path .. "." .. tostring(k), seen) end
+  end
+  parcours(p, "", {})
+  if (ptype == nil or ptype == "unit") and type(p.alternative_attacking_frame_sequence) == "table" then
+    local ap = p.attack_parameters
+    local n = ap and frame_count_of(ap.animation)
+    local a = p.alternative_attacking_frame_sequence
+    for _, k in ipairs({ "warmup_frame_sequence", "warmup2_frame_sequence", "attacking_frame_sequence", "cooldown_frame_sequence",
+      "back_to_walk_frame_sequence", "prepared_sound_frames" }) do
+      seq(a[k], n, ".alternative_attacking_frame_sequence." .. k)
+    end
+  end
+  return out
+end
+
 function R.check(raw, only, stats)
   local errors = {}
   stats = stats or {}
@@ -201,6 +244,9 @@ function R.check(raw, only, stats)
       local key = ptype .. "/" .. name
       if not only or only[key] then
         local p = list[name]
+
+        -- s43 : séquences d'images dans les bornes de leur animation (R.frame_sequence_errors)
+        for _, e in ipairs(R.frame_sequence_errors(p, ptype)) do add(key .. e.path, "frame-seq", e.msg) end
 
         -- Chaînes d'énergie analysables ("2.5MW", "800kJ")
         walk(p, "", function(k, x, path)

@@ -73,11 +73,35 @@ check(cs.cadavre == cs.id and cb.cadavre == cb.id and cb.echelle >= 1.3, "corps 
 check(E.corps3d("armored", "biter") == nil and E.corps3d(nil, "biter") == nil, "corps 3D : nil hors des familles à corps 3D")
 for _, id in ipairs({ "corroder", "corroder_cracheur" }) do
   local CAD = SPR[id] and SPR[id].cadavre and SPR[id].cadavre.mort
-  check(CAD and CAD.images == 1 and #CAD.couches.main.hr == 8 and #CAD.couches.glow.hr == 8 and #CAD.couches.shadow.hr == 8, "cadavre de " .. id .. " : 8 directions, une image, trois couches")
+  check(CAD and CAD.images == 4 and CAD.couches.main.ll * CAD.couches.main.lpf == 4 and #CAD.couches.main.hr == 8 and #CAD.couches.glow.hr == 8 and #CAD.couches.shadow.hr == 8, "cadavre de " .. id .. " : 8 directions, animation de mort de 4 images (la dernière : la carcasse), trois couches")
 end
 check(SPR.corroder and SPR.corroder.icone and SPR.corroder_cracheur and SPR.corroder_cracheur.icone, "icônes rendues du Corroder et du cracheur")
 local C3 = read("prototypes/corps3d.lua")
 check(C3:find("function M%.cadavre") and C3:find("function M%.icone"), "corps3d.lua : cadavre et icône")
-check(P:find("corpse%.animation = cad") and P:find("icones3d"), "prototype : cadavre et icône du corps 3D branchés")
+check(P:find("corpse%.animation = cad") and P:find("icones3d"), "prototype : cadavre et icône du corps 3D branchés")-- tranche 4 (BLOQUANT, capture QA du 14/11) : toute séquence d'images référencée reste dans les bornes de son animation.
+-- Règle du banc data-stage (tests/datastage/engine_rules.lua, R.frame_sequence_errors) éprouvée sur des unités FABRIQUÉES, puis
+-- le prototype : la branche corps 3D efface la séquence d'attaque du cracheur vanilla.
+local Rules = dofile("tests/datastage/engine_rules.lua")
+local anim4 = { layers = { { filenames = { "a.png" }, frame_count = 4, direction_count = 8 } } }
+local seq_vanilla = { warmup_frame_sequence = { 1, 2, 3, 4, 5, 6 }, warmup2_frame_sequence = { 7, 7, 7 }, attacking_frame_sequence = { 7, 8, 9 },
+  cooldown_frame_sequence = { 7 }, prepared_sound_frames = { 1 }, back_to_walk_frame_sequence = { 6, 5, 4, 3, 2, 1 } }
+local mauvais = { attack_parameters = { animation = anim4 }, alternative_attacking_frame_sequence = seq_vanilla }
+local bon = { attack_parameters = { animation = anim4 } }
+local dans = { attack_parameters = { animation = anim4 }, alternative_attacking_frame_sequence = { warmup_frame_sequence = { 1, 2, 3, 4 } } }
+check(#Rules.frame_sequence_errors(mauvais, "unit") > 0, "règle frame-seq : la séquence vanilla (1-16) sur 4 images est refusée")
+check(#Rules.frame_sequence_errors(bon, "unit") == 0 and #Rules.frame_sequence_errors(dans, "unit") == 0, "règle frame-seq : sans séquence, ou séquence dans 1-4 : acceptée")
+check(#Rules.frame_sequence_errors({ animation = { filename = "x.png", frame_count = 3, frame_sequence = { 1, 4 } } }, "corpse") == 1,
+  "règle frame-seq : frame_sequence d'une animation au-delà de son frame_count refusée")
+check(P:find("u%.alternative_attacking_frame_sequence = nil"), "prototype : la branche corps 3D efface la séquence d'attaque vanilla")
+-- séquences des feuilles : chaque animation du corps 3D a ll × lpf = images (pas d'image référencée hors feuille)
+for _, id in ipairs({ "corroder", "corroder_cracheur" }) do
+  local A = SPR[id]
+  for _, a in ipairs({ A and A.course, A and A.attaque, A and A.cadavre and A.cadavre.mort }) do
+    for _, nomc in ipairs({ "main", "glow", "shadow" }) do
+      local c = a and a.couches[nomc]
+      check(c and c.ll * c.lpf == a.images, id .. " : grille exacte (images référencées dans la feuille)")
+    end
+  end
+end
 print(string.format("s43_3d-kaiju-corroder : %d OK, %d échecs", ok_n, ko_n))
 if ko_n > 0 then os.exit(1) end

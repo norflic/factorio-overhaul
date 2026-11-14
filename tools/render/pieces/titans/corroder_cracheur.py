@@ -14,7 +14,7 @@ import corroder as C  # noqa: E402
 C.CRACHEUR = True
 PREFIX = C.PREFIX
 GRIS = C.GRIS
-SERIE = {"course": 8, "attaque": 4, "densite": 48.0, "R": 2.2, "zmax": 1.9, "sol": 30.0}
+SERIE = {"course": 8, "attaque": 4, "mort": 4, "densite": 48.0, "R": 2.2, "zmax": 1.9, "sol": 30.0}
 AO = C.AO
 GLOW_BLANC = True
 FOULEE = 2 * 0.32
@@ -25,5 +25,9 @@ def build_anime(S, lot, stage, u, attaque):
     return C.build(S, lot, u, attaque)
 
 
+def build_mort(S, lot, stage, u):
+    return C.build_mort(S, lot, stage, u)
+
+
 def build_piece(S, lot, stage, piece):
-    return C.build(S, lot, mort=True)
+    return C.build(S, lot, mort=1.0)

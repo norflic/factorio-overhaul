@@ -182,6 +182,9 @@ local function make_unit(kind, tier, family)
     u.run_animation = Corps3d.animation(c3.id, "course", k, teinte, lueur, alpha)
     u.attack_parameters.animation = Corps3d.animation(c3.id, "attaque", k, teinte, lueur, alpha, Corps3d.ATTAQUE_VITESSE)
     u.distance_per_frame = Corps3d.distance_par_image(c3.id, k)
+    -- séquence d'attaque du cracheur vanilla (images 1 à 16) : hors des 4 images du corps 3D, le moteur refuse le prototype
+    -- (capture QA du 14/11 : « Frame index 5 is out of range (1-4) ») ; même remède que prototypes/robots.lua
+    u.alternative_attacking_frame_sequence = nil
     u.map_color = { r = lueur.r, g = lueur.g, b = lueur.b }
     local cad = Corps3d.cadavre(c3.cadavre, k, teinte, lueur, alpha * 0.25)
     if cad then

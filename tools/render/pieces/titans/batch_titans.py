@@ -330,6 +330,8 @@ def anime(a):
             u = i / float(nb)
             if piece:
                 MOD.build_piece(S, lot, stage, piece)
+            elif a.anim == "mort" and hasattr(MOD, "build_mort"):   # s43 : animation de mort (Corroder : SERIE["mort"] images)
+                MOD.build_mort(S, lot, stage, u)
             else:
                 MOD.build_anime(S, lot, stage, u if a.anim == "course" else 0.0, None if a.anim == "course" else u)
             n_pieces = lot.n

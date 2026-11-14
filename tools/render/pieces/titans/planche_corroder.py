@@ -135,7 +135,7 @@ def apres(D, t, sorte, fond, cx, cy, cadavre=False):
     cc = a["couches"]
     for nom, mode in (("shadow", "ombre"), ("main", "over"), ("glow", "add")):
         c = cc[nom]
-        im = cellule(c, 3).copy()
+        im = cellule(c, 3, a["images"] - 1 if cadavre else 0).copy()   # cadavre : dernière image de la chute (la carcasse)
         if nom == "main":
             im[..., :3] *= np.array([teinte["r"], teinte["g"], teinte["b"]])
         if nom == "glow":
