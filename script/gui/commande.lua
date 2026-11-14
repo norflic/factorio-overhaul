@@ -404,11 +404,23 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   local cs = f.team.commande
   local lst = f.build and f.build.liaison
   for _, o in ipairs(cs.orders) do
-    if o.kind == "liaison" and not (lst and lst.seen_docks) then
-      -- le relevé des liaisons ne tourne qu'avec la centrale finie et des modules finis (script/team/liaison.lua) : la cause est écrite
-      if Co.note(cs, o.id, "liaison en attente : aucun releve des quais et sorties (centrale et modules finis requis)") then
-        log(string.format("[FO-COMMANDE] %s : ordre %d liaison en attente : aucun releve des quais et sorties (centrale et modules finis requis, tick %d)",
-          tostring(f.key or f.id), o.id, game.tick))
+    if o.kind == "liaison" and not o.noted then
+      -- La cause est écrite dès la passe qui suit la pose, sans attendre le relevé des liaisons (qui ne tourne qu'avec la centrale finie
+      -- et des modules finis : script/team/liaison.lua) : lue au dernier relevé gardé (quais et sorties finis).
+      o.noted = true
+      local docks, srcs = lst and lst.seen_docks or {}, lst and lst.seen_srcs or {}
+      local text
+      if not (lst and lst.seen_docks) then
+        text = "liaison en attente : aucun releve des quais et sorties (centrale et modules finis requis)"
+      elseif o.a then
+        local why = Co.forced_why(o, docks, srcs)
+        text = why and string.format("liaison sans paire au dernier releve (quais %d, sorties %d) : %s", #docks, #srcs, why)
+          or string.format("liaison prise en compte : paire possible au dernier releve (quais %d, sorties %d)", #docks, #srcs)
+      else
+        text = string.format("liaison de zone prise en compte (quais %d, sorties %d au dernier releve)", #docks, #srcs)
+      end
+      if Co.note(cs, o.id, text) then
+        log(string.format("[FO-COMMANDE] %s : ordre %d %s (tick %d)", tostring(f.key or f.id), o.id, text, game.tick))
       end
     end
     if o.kind == "bastion" and not o.done then

@@ -71,6 +71,9 @@ local function turret_item()
     if p.items_to_place_this and p.items_to_place_this[1] then names[#names + 1] = p.items_to_place_this[1].name end
   end
   table.sort(names)
+  -- 1er banc (14/11) : « fo-bastion-1 » (premier par le nom) n'est pas la tourelle du stock de défense (T.turret, lue au journal
+  -- [FO-FER-SORTIE] : craft:gun-turret) : la tourelle de base d'abord quand elle existe.
+  for _, n in ipairs(names) do if n == "gun-turret" then return n end end
   local force = game.forces.player
   for _, n in ipairs(names) do
     local rec = force.recipes[n]
