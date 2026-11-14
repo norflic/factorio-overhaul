@@ -47,6 +47,7 @@ local AC = require("shared.ai3.amelio_continue") -- lot AMELIO-CONTINUE : priori
 local Board = require("script.team.board") -- lot AMELIO-CONTINUE : tâche « craft » du kit (comme script/team/foreuse_swap.lua, craft)
 local Bm = require("shared.team.book_max") -- lot AMELIO-CONTINUE : plus grand nombre fabricable du kit
 local T = require("shared.team.config")
+local Reg = require("shared.ai3.registre") -- lot TIERS : matière libre au registre (comme Board.prenable)
 
 local Capital = {}
 
@@ -1354,7 +1355,12 @@ function Capital.continu(f, surface, book, free, tick, hold)
   local queued = 0
   if want[1] and book and book:handcraftable(item) then
     local avail = {}
-    for _, k in ipairs(sorted_keys(free)) do avail[k] = free[k] end
+    -- Lot TIERS : la matière du kit est celle que le REGISTRE laisse libre (Board.prenable refuse sinon la tâche : banc TIERS-2, scarlet,
+    -- 30 kits émis et jamais pris, tapis du rang 1 réservés aux projets) ; le kit se fabrique alors depuis les plaques.
+    local reg = f.team and f.team.reg
+    for _, k in ipairs(sorted_keys(free)) do
+      avail[k] = reg and math.min(free[k], math.max(0, Reg.free(reg, k))) or free[k]
+    end
     avail[item] = 0
     local m, q = Bm.best(book, item, want[1][2], avail)
     if m > 0 then
