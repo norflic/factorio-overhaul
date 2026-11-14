@@ -214,13 +214,13 @@ do
   local tb = (ti and te) and mg:sub(ti, te) or ""
   local a1 = tb:find("NEXT_STEP = tick + Mig.STEP_GAP", 1, true)
   local a2 = tb:find("local frame, order = Champ.frame(f, surface, o)", 1, true)
-  local a3 = tb:find("if Champ.inner_step(o.id) then NEXT_STEP = tick + Mig.INNER_GAP end", 1, true)
+  local a3 = tb:find("if Champ.inner_step(f, o.id) then NEXT_STEP = tick + Mig.INNER_GAP end", 1, true)
   check(a1 and a2 and a3 and a1 < a2 and a2 < a3, "frame_take : STEP_GAP par défaut, INNER_GAP après une étape interne")
   local ch = read("script/team/champ.lua")
-  local ci = ch:find("function Champ.inner_step(oid)", 1, true)
+  local ci = ch:find("function Champ.inner_step(f, oid)", 1, true)
   local ce = ci and ch:find("\nend\n", ci, true)
   local cb = (ci and ce) and ch:sub(ci, ce) or ""
-  check(cb:find("SEQ[oid]", 1, true) ~= nil and cb:find("seq.st.inner == true", 1, true) ~= nil, "Champ.inner_step lit la séquence locale (SEQ)")
+  check(cb:find("SEQ[okey(f, oid)]", 1, true) ~= nil and cb:find("seq.st.inner == true", 1, true) ~= nil, "Champ.inner_step lit la séquence locale (SEQ)")
   local sh = read("shared/team/champ.lua")
   check(not sh:find("global%s*[%.%[]"), "shared/team/champ.lua ne nomme pas global")
 end
