@@ -10,6 +10,15 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 06 h 30 : version 0.7.101 (régression de fer : élagage et retenue de la pile)
+
+Panel factions seules (`partie-reelle-60`, 4 graines, 0.7.96 contre release 0.7.99+) : fer 279 120 contre 272 904 (−2,2 %), bandes 60 contre 77, 0 erreur Lua ; l'écart « QG sans charbon libre » était un artefact (deux coffres, deux lignes par pénurie). Panel avec l'équipe du joueur sans humain (`s43-parite-seule`, 4 graines) : 0.7.96 447 928 (player 79 204), release 368 349 (51 253), release + correctifs 375 257 (64 477).
+
+- **F640 · FAIT · [0.7.101]** Élagage (s43-regr-fer 1bee4b33) : `Gis.prune` (`script/team/gisement.lua`) détruisait la foreuse épuisée après avoir effacé son propriétaire, l'avant-poste gardait « foreuses 14 » pour 1 thermique réelle, restait « plein » et le cerveau ne commandait plus d'extension ; fer de player à 0 dès 35 min (graine 271828182). Après : 0 thermique et 18 électriques à 40 min, player 6 003 → 19 751.
+- **F641 · FAIT · [0.7.101]** Retenue de la pile (138446cb) : `Pi.post_calm` (F622) levait la retenue à la première pensée, amélioration du QG (3 301) ouverte à 0,3 min ; levée seulement après `Pi.CALM_AFTER` (10 min de calme continu) : minute 10 revenue au niveau de 0.7.96.
+- **F642 · FAIT · [0.7.101]** Bande immobile et four de paire (ecd8806a, 1f13c814) : + 10 222 plaques sur le panel face à la branche sans eux.
+- **E295 · OUVERT** `s42-charbon-centrale` : retiré sur la branche corrigée, + 24 745 plaques sur le panel avec player, + 28 475 sur le panel factions seules ; découpe en cours (deux entrées ou marge × 1,3). Reste de l'écart avec 0.7.96 non attribué.
+
 ## 2026-11-14, 05 h 00 : version 0.7.100 (sprint long, partie 2 : refonte 3D terminée, Méga-Bourdon, robots ; IA inchangée depuis 0.7.99)
 
 - **F636 · FAIT · [0.7.100]** Méga-Bourdon (s43-mega-bourdon 36cad2dd à e46bff15) : banc `megabourdon-salve` graine 123456789 : 128 nids, 64 vers, 271 unités ; 0 nid au premier impact, 0 ver après la première salve (5 OK sur 5). Vers à 0 PV retirés par le moteur environ 45 ticks après leur mort.

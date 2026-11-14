@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.101
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F640) : une foreuse thermique démontée à l'épuisement est retirée du compte de son avant-poste ; l'avant-poste ne se croit plus plein et redemande des foreuses (l'équipe du joueur finissait sans fer).
+    - IA (F641) : la retenue du rang « améliorer » n'est levée qu'après 10 minutes de calme continu : plus d'amélioration du QG ouverte avant l'extraction du fer.
+    - IA (F642) : une bande thermique entamée et immobile depuis 15 min rouvre l'extension ; l'élagage retire aussi le four de la paire.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.100
 Date: 2026-11-14
   Changes:
