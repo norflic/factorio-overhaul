@@ -1224,20 +1224,23 @@ function Co.network(cols, side, env, N)
   local function dist(t) return math.abs(t[1] - target.u) + math.abs(t[2] - target.v) end
   local centers = N.centers -- (reprise : fenêtres gardées du premier appel)
   if not centers then
-    local sorted = {}
-    for _, t in ipairs(coal.tiles) do sorted[#sorted + 1] = t end
-    table.sort(sorted, function(a, b)
-      local da, db = dist(a), dist(b)
-      if da ~= db then return da < db end
-      if a[1] ~= b[1] then return a[1] < b[1] end
-      return a[2] < b[2]
-    end)
+    -- perf-astar : la k-ième fenêtre = la tuile la plus petite selon (distance, u, v) hors des fenêtres déjà prises : Co.DEPOSITS passes
+    -- linéaires au lieu du tri de toutes les tuiles de charbon (des milliers sur la carte à 600 %, d'un bloc) ; même choix que le tri suivi
+    -- du parcours glouton d'avant (le premier de la liste triée hors des fenêtres prises est ce minimum)
     centers = {}
-    for _, t in ipairs(sorted) do
-      if #centers >= Co.DEPOSITS then break end
-      local inside = false
-      for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= Co.WINDOW and math.abs(t[2] - c[2]) <= Co.WINDOW then inside = true end end
-      if not inside then centers[#centers + 1] = t end
+    local W = Co.WINDOW
+    for _ = 1, Co.DEPOSITS do
+      local best, bd
+      for _, t in ipairs(coal.tiles) do
+        local inside = false
+        for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= W and math.abs(t[2] - c[2]) <= W then inside = true break end end
+        if not inside then
+          local d = dist(t)
+          if not best or d < bd or (d == bd and (t[1] < best[1] or (t[1] == best[1] and t[2] < best[2]))) then best, bd = t, d end
+        end
+      end
+      if not best then break end
+      centers[#centers + 1] = best
     end
     N.centers = centers
   end
