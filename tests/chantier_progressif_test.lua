@@ -136,7 +136,10 @@ check(B:find("local full, need = reserve(f, p)", 1, true) and B:find("prog, pd =
   "état reserve : la règle est consultée avec le besoin et la réserve du projet")
 check(B:find("if full or prog then", 1, true), "départ sur réserve complète OU plancher atteint")
 local _, nwrites = B:gsub("p%.progressif = true", "")
-check(nwrites == 1, "un seul écrivain de p.progressif (" .. nwrites .. ")")
+-- lot entrepreneur-ouvrier (14/11) : deux écrivains, le départ progressif (Build.Cp.go) et le chantier entrepreneur (Ent.monopoly) déjà en chantier
+check(nwrites == 2, "deux écrivains de p.progressif : depart progressif et chantier entrepreneur (" .. nwrites .. ")")
+check(B:find("if not p.progressif and p.spec and Ent.monopoly(p.spec) and (p.state == \"defrichage\" or p.state == \"fantomes\" or p.state == \"chantier\") then", 1, true),
+  "le second écrivain est garde par le monopole entrepreneur et les etats du chantier")
 check(B:find("[FO-CHANTIER-PROGRESSIF]", 1, true), "journal du départ progressif")
 check(B:find("if (p.reopened or p.progressif or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0)", 1, true), "refresh_missing suit une bande partie sans toute sa matière")
 check(B:find("local allot, taken = Build.Tournee.allot(list, left_of)", 1, true), "batch_tasks : pas de voyage pour un lot sans aucun objet au coffre") -- (lot FANTOMES : matière comptée, Tp.allot)

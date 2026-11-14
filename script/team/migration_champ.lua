@@ -2207,7 +2207,14 @@ function Mig.entrepreneur_scan(f, tick)
     local st = ms.o[oid]
     if not target and o and is_champ_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then target = oid end
   end
-  local inflight = Mig.projects(f)
+  -- entrepreneur-ouvrier (14/11) : une bande dont le projet est fini (ou disparu) n'est plus « en vol » : avant, Mig.projects la gardait
+  -- tant que la ligne attendait son premier produit et le scan l'attachait toutes les 5 min (amber, JALONS60-entrepreneur : projet 9
+  -- « fini » puis « attache » de 33 à 60 min, aucun chantier nouveau)
+  local inflight = {}
+  for _, x in ipairs(Mig.projects(f)) do
+    local p = f.build.projects[x.pid]
+    if p and p.state ~= "fini" then inflight[#inflight + 1] = x end
+  end
   local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0 })
   if action == "refus" then
     if cause ~= "chantier en cours" then ent_say(f, ms, "refus " .. cause) end

@@ -5144,6 +5144,15 @@ local function advance(f, surface, p, tick)
   -- lot RACCORD-BANDE 2 : une LIGNE de bande (p.spec.lg) relit aussi ses manques en chantier : partie neuve 0.6.72 (diag2), 29 poteaux sur 32 posés puis plus rien
   -- pendant 6 min, 0 tâche au tableau : les poteaux perdus en route (PNJ tué, réserve de 31 pour 32) n'étaient demandés à personne (p.missing resté vide
   -- depuis la fin de la réserve), le PNJ échouait « stock » en boucle
+  -- lot entrepreneur-ouvrier (14/11) : un chantier ENTREPRENEUR est suivi comme un chantier progressif (p.progressif) : ses manques sont relus
+  -- en chantier (refresh_missing) et vus par la fabrication et les dépôts (script/team/stock.lua, sources.lua, script/ai3/amorce_rt.lua, qui
+  -- lisent « reserve ou progressif »). Banc ENTOUV-on60, amber projet 3 : 379 pièces sur 380 à 30 min, le dernier bras perdu en route
+  -- (tâches en fuite, préemptées) jamais redemandé, 0 tâche au tableau jusqu'à 60 min ; la chaîne entrepreneur de l'équipe restait « chantier en cours ».
+  if not p.progressif and p.spec and Ent.monopoly(p.spec) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
+    p.progressif = true
+    log(string.format("[FO-ENTREPRENEUR-OUVRIER] %s : projet %d en %s : manques relus en chantier (suivi progressif) a %.1f min", f.key or "player",
+      p.id, p.state, tick / 3600))
+  end
   if (p.reopened or p.progressif or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
     p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
     Profiler.fstart("ch:missing")
