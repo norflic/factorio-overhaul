@@ -56,7 +56,7 @@ end
 local function take_back(f, e, item)
   if not (e and e.valid) then return end
   for _, inv_id in ipairs({ defines.inventory.fuel, defines.inventory.furnace_source, defines.inventory.furnace_result,
-      defines.inventory.furnace_modules }) do
+      defines.inventory.furnace_modules, defines.inventory.chest }) do -- (s43 regr-fer3 : chest, pour la sortie-coffre d'une paire)
     local inv = e.get_inventory(inv_id)
     if inv then
       local c = inv.get_contents()
@@ -67,6 +67,30 @@ local function take_back(f, e, item)
   State.disown(e.unit_number)
   e.destroy()
   if item then Stock.insert(f, item, 1) end
+end
+
+--- s43 regr-fer3 (banc s43-parite-seule, graine 271828182) : la sortie d'une paire thermique (four ou coffre au point de dépôt de la foreuse) restait
+--- au sol quand l'élagage démontait sa foreuse épuisée ; la migration ne la retirait plus (elle cherche la paire par sa foreuse) et elle tenait la
+--- place de la bande : 34 pièces de la bande 16 de votre équipe jamais posées (348/382), fer 0 dès 35 min. Rend la sortie à démonter avec la
+--- foreuse, ou nil : foreuse à combustion seulement, sortie de la MÊME équipe que la foreuse (jamais un bâtiment posé par le joueur), qu'aucune
+--- autre foreuse ne remplit.
+local function orphan_sink(surface, d)
+  if not (d and d.valid and d.burner) then return nil end
+  local od = State.owner(d.unit_number)
+  if not od then return nil end
+  local s = surface.find_entities_filtered({ position = d.drop_position, force = d.force, type = { "furnace", "container" }, limit = 1 })[1]
+  if not (s and s.valid and s.unit_number) then return nil end
+  local os_ = State.owner(s.unit_number)
+  if not (os_ and os_.f == od.f) then return nil end
+  local bb = s.bounding_box
+  local lt, rb = bb.left_top, bb.right_bottom
+  for _, o in ipairs(surface.find_entities_filtered({ type = "mining-drill", force = d.force, area = { { lt.x - 3, lt.y - 3 }, { rb.x + 3, rb.y + 3 } } })) do
+    if o ~= d and o.valid then
+      local q = o.drop_position
+      if q.x >= lt.x and q.x <= rb.x and q.y >= lt.y and q.y <= rb.y then return nil end
+    end
+  end
+  return s
 end
 
 --- L'électrique peut-il prendre la place ? Objet obtenable (book : livre de l'équipe) et centrale en bonne santé.
@@ -214,7 +238,14 @@ function Gis.prune(f, surface, tick)
       local its = d.prototype.items_to_place_this
       local item = its and its[1] and its[1].name
       local pos = d.position
+      local sink = orphan_sink(surface, d)
       take_back(f, d, item)
+      if sink then
+        local sits = sink.prototype.items_to_place_this
+        log(string.format("[FO-ELAGAGE] %s : sortie de la paire (%s) demontee avec sa foreuse en (%.1f, %.1f)", f.key or "player", sink.name,
+          sink.position.x, sink.position.y))
+        take_back(f, sink, sits and sits[1] and sits[1].name)
+      end
       log(string.format("[FO-ELAGAGE] %s : foreuse sans ressource demontee en (%.1f, %.1f), objet %s rendu au stock",
         f.key or "player", pos.x, pos.y, tostring(item)))
     end,
