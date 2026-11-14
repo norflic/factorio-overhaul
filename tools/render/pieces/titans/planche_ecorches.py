@@ -20,6 +20,9 @@ SABLE = (120, 86, 52)
 NUIT = (16, 15, 19)
 ERE = 3
 DIRECTION = 3      # sud-est (celle de l'icône)
+# s43 3d-ecorches : noms des colonnes (avant = le mod livré, après = ce worktree)
+AVANT_NOM = os.environ.get("FO_PLANCHE_AVANT", "0.7.96 livrée")
+APRES_NOM = os.environ.get("FO_PLANCHE_APRES", "refonte organique")
 NOMS = ("rodeur", "porteur", "hurleur")
 LUA_EXE = os.environ.get("FO_LUA", os.path.join(os.path.expanduser("~"), "bin", "lua5.2.exe"))
 LUA = r"""
@@ -99,26 +102,26 @@ def main():
     H = 46 + 3 * (30 + Hh + 26) + 2 * (30 + 170 + 26)
     out = Image.new("RGB", (4 * (W + 10) + 10, H), (22, 22, 27))
     d = ImageDraw.Draw(out)
-    d.text((14, 10), "VISUELS-DISTINCTS · Écorchés lisibles de loin (chair, silhouette, collerette, lueur de variante) · ère %d · zoom 2" % ERE,
+    d.text((14, 10), "Écorchés · avant : %s · après : %s · ère %d · zoom 2" % (AVANT_NOM, APRES_NOM, ERE),
            fill=(255, 210, 120), font=f1)
     y = 46
     for v in NOMS:
         d.text((14, y), "Écorché %s" % v, fill=(150, 205, 255), font=f1)
         y += 30
-        cells = [(compose(av[v], W, Hh, False), "jour · 0.6.80 livrée"), (compose(apr[v], W, Hh, False), "jour · distinct"),
-                 (compose(av[v], W, Hh, True), "nuit · 0.6.80 livrée"), (compose(apr[v], W, Hh, True), "nuit · distinct")]
+        cells = [(compose(av[v], W, Hh, False), "jour · " + AVANT_NOM), (compose(apr[v], W, Hh, False), "jour · " + APRES_NOM),
+                 (compose(av[v], W, Hh, True), "nuit · " + AVANT_NOM), (compose(apr[v], W, Hh, True), "nuit · " + APRES_NOM)]
         for i, (im, lib) in enumerate(cells):
             out.paste(im, (10 + i * (W + 10), y))
             d.text((14 + i * (W + 10), y + Hh + 4), lib, fill=(230, 230, 230), font=f2)
         y += Hh + 26
-    for tab, lib in ((av, "0.6.80 livrée"), (apr, "distincts")):
+    for tab, lib in ((av, AVANT_NOM), (apr, APRES_NOM)):
         d.text((14, y), "de loin (zoom 0,5) · " + lib, fill=(150, 205, 255), font=f1)
         row = Image.new("RGB", (3 * 220, 170), SABLE)
         for i, v in enumerate(NOMS):
             row.paste(compose(tab[v], 220, 170, False, 16.0), (i * 220, 0))
         out.paste(row, (10, y + 30))
         lums = ", ".join("%s %.3f" % (v, tab[v]["lum"]) for v in NOMS if tab[v]["lum"] >= 0)
-        d.text((680, y + 60), ("luminance mesurée : " + lums) if lums else "luminance non mesurée en 0.6.80", fill=(230, 230, 230), font=f2)
+        d.text((680, y + 60), ("luminance mesurée : " + lums) if lums else "luminance non mesurée", fill=(230, 230, 230), font=f2)
         y += 226
     os.makedirs(os.path.dirname(os.path.abspath(a.dest)), exist_ok=True)
     out.save(a.dest, optimize=True)
