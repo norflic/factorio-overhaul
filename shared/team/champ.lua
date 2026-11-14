@@ -285,17 +285,25 @@ local function best_row(c, spec, row, umin, umax, origin, fixed, fm)
 end
 
 --- Bandes d'une phase : { { pr, b, n = { u0 }, s = { u0 }, on, os } } et minerai miné (somme des rangées).
-local function bands_for(c, spec, phase, box, origin, frame)
+--- s46 champ-cout : `rows` (recherche de la phase d'un cadre neuf seulement, `frame` nil, rien n'est pris) garde la place libre (fm) et
+--- le meilleur décalage de chaque rangée d'une phase à l'autre : les phases ph et ph + s + 1 relisent les mêmes rangées (mêmes réponses).
+local function bands_for(c, spec, phase, box, origin, frame, rows)
   local s = spec.drill.size
   local pitch = 2 * s + 2
   local bands, total = {}, 0
   local pr = box.v0 - phase
-  local fm = {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
+  local fm = rows and rows.fm or {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
+  local function row_of(row, fixed)
+    if not rows then return best_row(c, spec, row, box.u0, box.u1, origin, fixed, fm) end
+    local r = rows[row]
+    if not r then r = { best_row(c, spec, row, box.u0, box.u1, origin, nil, fm) }; rows[row] = r end
+    return r[1], r[2], r[3]
+  end
   while pr <= box.v1 do
     if not (frame and frame.only) or frame.only[pr] then
       local off = frame and frame.offsets and frame.offsets[tostring(pr)]
-      local nl, nm, on = best_row(c, spec, pr + 1, box.u0, box.u1, origin, off and off[1], fm)
-      local sl, sm, os_ = best_row(c, spec, pr + s + 2, box.u0, box.u1, origin, off and off[2], fm)
+      local nl, nm, on = row_of(pr + 1, off and off[1])
+      local sl, sm, os_ = row_of(pr + s + 2, off and off[2])
       if #nl + #sl > 0 then
         bands[#bands + 1] = { pr = pr, b = pr + s + 1, n = nl, s = sl, on = on, os = os_ }
         total = total + nm + sm
@@ -626,6 +634,32 @@ local function long_axis(spec)
   return (y1 - y0 > x1 - x0) and "y" or "x"
 end
 
+--- s46 champ-cout : mémoire de la recherche de phase, tenue le temps d'UN Ch.plan (PHASE_MEMO nil hors de lui). Clé : les tables mêmes
+--- (identité) du minerai, des obstacles, de la place minée et des autres ressources, l'axe, la foreuse et no_row_opt.
+local PHASE_MEMO
+local function phase_memo(spec, axis)
+  if not PHASE_MEMO then return nil end
+  local d = spec.drill
+  for _, m in ipairs(PHASE_MEMO) do
+    if m.ore == spec.ore and m.blocked == spec.blocked and m.mine == spec.mine and m.foreign == spec.foreign and m.axis == axis
+      and m.size == d.size and m.reach == d.reach and m.no_row_opt == (spec.no_row_opt and true or false) then return m end
+  end
+  local m = { ore = spec.ore, blocked = spec.blocked, mine = spec.mine, foreign = spec.foreign, axis = axis, size = d.size, reach = d.reach,
+    no_row_opt = spec.no_row_opt and true or false }
+  PHASE_MEMO[#PHASE_MEMO + 1] = m
+  return m
+end
+local function copy_bands(bands)
+  local out = {}
+  for i, bd in ipairs(bands) do
+    local n, s = {}, {}
+    for j, a in ipairs(bd.n) do n[j] = a end
+    for j, a in ipairs(bd.s) do s[j] = a end
+    out[i] = { pr = bd.pr, b = bd.b, n = n, s = s, on = bd.on, os = bd.os }
+  end
+  return out
+end
+
 local function plan_once(spec)
   if not (spec and spec.ore and #spec.ore >= 2 and spec.drill and spec.pole and spec.belts and #spec.belts > 0) then return nil, "donnees" end
   local d, F = spec.drill, spec.frame
@@ -655,10 +689,20 @@ local function plan_once(spec)
     box.v0 = F.v0 or box.v0
     bands = bands_for(c, spec, phase, box, origin, F)
   else
-    local bt
-    for ph = 0, pitch - 1 do
-      local bs, total = bands_for(c, spec, ph, box, origin, nil)
-      if not bands or total > bt then bands, bt, phase = bs, total, ph end
+    -- s46 champ-cout : la recherche de la phase ne lit que le minerai, les obstacles et l'axe (rien n'est encore pris) : elle est faite
+    -- UNE fois par Ch.plan et par axe (les passes du refus, l'autre ordre des côtés et les rangées gloutonnes la refaisaient à l'identique)
+    local m = phase_memo(spec, axis)
+    if m and m.bands then
+      bands, phase = copy_bands(m.bands), m.phase
+    else
+      local bt
+      local rows = { fm = {} }
+      for ph = 0, pitch - 1 do
+        local bs, total = bands_for(c, spec, ph, box, origin, nil, rows)
+        if not bands or total > bt then bands, bt, phase = bs, total, ph end
+      end
+      bands = copy_bands(bands) -- listes propres au plan (une rangée est partagée entre deux phases)
+      if m then m.bands, m.phase = copy_bands(bands), phase end
     end
   end
   for _, bd in ipairs(bands) do
@@ -1257,7 +1301,14 @@ end
 --- s41 pavage-trous : les rangées optimales (décalage s, row_drills) posent des foreuses là où le glouton laissait un trou ; sur un cadre
 --- neuf où ce plan garde un coffre de tête (voie du charbon sans chemin), le plan aux rangées gloutonnes seules est essayé, et gardé
 --- s'il a MOINS de coffres de tête (cadre réel du joueur, graine 271828182 : 4 foreuses de plus fermaient une voie du charbon).
+local plan_rows
 function Ch.plan(spec)
+  PHASE_MEMO = {}
+  local p, why = plan_rows(spec)
+  PHASE_MEMO = nil
+  return p, why
+end
+plan_rows = function(spec)
   local p, why = plan_both(spec)
   if spec.frame or spec.no_row_opt or not p or p.design ~= "colonne" or Ch.head_chests(p) == 0 then return p, why end
   local opt = false
