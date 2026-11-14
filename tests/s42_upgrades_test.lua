@@ -31,7 +31,7 @@ local function sig_of(why, danger, extra)
   for k, v in pairs(extra or {}) do s[k] = v end
   return s
 end
-local function run(sig) return Pi.update(Pi.new(), sig, 100) end
+local function run(sig) return Pi.update(Pi.update(Pi.new(), sig, 100), sig, 100 + Pi.CALM_AFTER) end -- s43 regr-fer : attente au calme tenue
 
 -- 1. Poste qui attend sa matière.
 for _, why in ipairs({ "manque", "fer", "ressources" }) do

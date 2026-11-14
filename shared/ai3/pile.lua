@@ -91,6 +91,11 @@ Pi.CORE_POSTS = { hq = true }
 function Pi.post_calm(sig, p)
   return sig ~= nil and sig.danger == false and Pi.POST_WAITS[p.why or ""] == true and not Pi.CORE_POSTS[p.id]
 end
+-- Lot S43 REGR-FER (banc s43-parite-seule, graine 271828182 : 0.7.97 a 15 584 a 21 846 plaques de fer par faction a 60 min contre 22 280 a
+-- 36 307 en 0.7.96) : au départ, TOUS les avant-postes attendent leur matière au calme ; la règle ci-dessus levait la retenue dès la
+-- 1re pensée et le centre (« capital:command:2 », coût 3 301) s'ouvrait en projet à 0,3 min, devant l'extraction du fer (2,7 -> 6,3 min).
+-- La retenue n'est levée qu'après Pi.CALM_AFTER ticks d'attente CONTINUE au calme (cas visés par le lot : 12 à 247 min de retenue).
+Pi.CALM_AFTER = 10 * 3600
 
 local function sorted_keys(t)
   local ks = {}
@@ -186,6 +191,17 @@ function Pi.update(st, sig, tick)
     frames[#frames + 1] = { key = "reparer:plan", rank = Pi.ADAPTER, kind = "reparer", exec = sig.plan_path ~= false,
       sub = pf and 0 or 1, depth = 0 }
   end
+  -- Lot S43 REGR-FER : attente au calme, comptée par poste (st.calm_since = { [id] = tick du début }) ; levée après Pi.CALM_AFTER.
+  local since, calm = {}, {}
+  for _, p in ipairs(sig.posts or {}) do
+    if (p.have or 0) < (p.want or 0) and Pi.post_calm(sig, p) then
+      local k = tostring(p.id)
+      local t0 = ((st and st.calm_since) or {})[k] or (tick or 0)
+      since[k] = t0
+      calm[k] = (tick or 0) - t0 >= Pi.CALM_AFTER
+    end
+  end
+  if st then st.calm_since = since end
   -- R1 : protéger (postes sous leur minimum).
   for _, p in ipairs(sig.posts or {}) do
     if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id] then
@@ -195,7 +211,7 @@ function Pi.update(st, sig, tick)
       end
       frames[#frames + 1] = { key = "proteger:" .. tostring(p.id), rank = Pi.ADAPTER, kind = "proteger", have = p.have or 0,
         want = p.want or 0, why = p.why, exec = exec, sub = pf and 1 or 0, depth = 0,
-        nohold = Pi.post_calm(sig, p) or nil } -- lot S42-UPGRADES : au calme, un poste qui attend sa matière ne retient pas
+        nohold = calm[tostring(p.id)] or nil } -- lot S42-UPGRADES (S43 REGR-FER : après Pi.CALM_AFTER) : au calme, un poste qui attend sa matière ne retient pas
     end
   end
   -- Lot PREVISION : R1 PRÉPARER (une vague IMMINENTE prévue dépasse la défense d'un site ; shared/ai3/prevision_choix.lua). Le cadre
@@ -288,7 +304,7 @@ function Pi.update(st, sig, tick)
     for _, it in ipairs(sig.recruit_claim or {}) do claims.defense[#claims.defense + 1] = it end
     for _, p in ipairs(sig.posts or {}) do
       if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id]
-        and not Pi.post_calm(sig, p) then -- lot S42-UPGRADES : le poste qui ne retient pas ne pèse pas au noyau
+        and not calm[tostring(p.id)] then -- lot S42-UPGRADES (S43 REGR-FER : après Pi.CALM_AFTER) : le poste qui ne retient pas ne pèse pas au noyau
         for _, it in ipairs(p.claim or {}) do claims.defense[#claims.defense + 1] = it end
       end
     end
