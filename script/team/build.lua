@@ -2925,7 +2925,8 @@ local function plan_alim(f, surface, p)
   p.parts, p.ents = {}, {}
   -- lot s50 centrale-tapis : un échec passager du tracé (Cc.transient) garde le projet ouvert (attente, nouvel essai), sans refus
   if transient then
-    p.plan_after = game.tick + Cc.TRANSIENT_WAIT
+    p.transient_n = (p.transient_n or 0) + 1
+    p.plan_after = game.tick + Cc.transient_wait(p.transient_n - 1) -- 0.7.110 : 2 min, 5 min, puis 15 min
     return false, "foreuses : " .. last .. " (trace en pause, nouvel essai)", true
   end
   -- lot ENERGIE : gisement de charbon hors du treillis (12 refus « minerai » sur 31 demandes au 31/10) : le treillis GRANDIT, le prochain

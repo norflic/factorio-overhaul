@@ -819,9 +819,15 @@ local FRAME_WAIT = {}
 
 --- Pas du plan de cadre d'un avant-poste sans cadre (pensée de Mig.think, ou tick suivant par FRAME_WAIT) : Champ.frame, puis le cadre gardé
 --- (vérification à la pensée suivante) ou l'échec compté ; un plan reporté (Ax.WAIT) met l'avant-poste dans la file du tick suivant.
+-- 0.7.110 : les pas repris par la file du tick (une variante, jusqu'à plusieurs secondes sur une grande base) attendent Mig.STEP_GAP ticks après
+-- le dernier pas, toutes équipes (la pensée de Mig.think, toutes les 600 ticks, n'est pas retenue) : en 0.7.108-0.7.109 les 4 variantes partaient sur 4 ticks consécutifs (partie du DC en x5 : 4 x 4,4 s d'un bloc). Local au module
+-- (0 après chargement : la file l'est aussi).
+Mig.STEP_GAP = 1200
+local NEXT_STEP = 0
 local function frame_take(f, surface, ms, o, st, tick)
   -- lot COUT-600 : un seul cadre planifié par passe de Mig.think (le drapeau est levé par le premier ; une autre avant-poste attend la passe suivante)
   if ms.verify_due then st.retry = tick; return end
+  NEXT_STEP = tick + Mig.STEP_GAP -- la file du tick (Mig.frame_tick) attend ce tick avant le pas suivant
   local frame, order = Champ.frame(f, surface, o)
   if not frame and order == Ax.WAIT then -- s47 axe : plan reporté (un pas par tick), pas un échec ; s49 tranches : repris dès le tick suivant
     st.retry = tick + 1
@@ -857,7 +863,7 @@ function Mig.frame_tick(tick)
   return true
 end
 Mig.FRAME_WAIT = FRAME_WAIT -- (tests : la file même)
-Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] then Mig.frame_tick(e.tick) end end) -- (file vide : rien)
+Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] and e.tick >= NEXT_STEP then Mig.frame_tick(e.tick) end end) -- (file vide ou pas trop tôt : rien)
 
 local function begin_band(f, surface, ms, o, st, list, tick, free)
   st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE

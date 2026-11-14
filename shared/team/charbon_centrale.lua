@@ -231,7 +231,13 @@ end
 -- Lot s50 centrale-tapis (partie du DC en 0.7.107 : « foreuses : attente » = moitié des refus du tapis, centrales 7 et 8 de player à
 -- la main toute la partie) : « attente » (paire du tracé en pause après un échec, Trav.route) et « budget tick » (plafond d'états du
 -- tick) ne sont pas des refus du plan : le projet reste ouvert et réessaie après Cc.TRANSIENT_WAIT, sans compter vers la pause longue.
-Cc.TRANSIENT_WAIT = 1800 -- 30 s avant le nouvel essai du plan après un échec passager du tracé
+Cc.TRANSIENT_WAIT = 1800 -- (repère historique, 0.7.109) ; 0.7.110 : attente croissante Cc.transient_wait
+-- 0.7.110 (partie du DC en x5 : 30 s de jeu = 6 s réelles) : attente croissante par projet, 2 min, 5 min puis 15 min (n = essais passagers déjà faits)
+Cc.TRANSIENT_STEPS = { 7200, 18000, 54000 }
+function Cc.transient_wait(n)
+  local k = math.min((n or 0) + 1, #Cc.TRANSIENT_STEPS)
+  return Cc.TRANSIENT_STEPS[k]
+end
 function Cc.transient(why)
   return why == "attente" or why == "budget tick"
 end

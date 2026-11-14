@@ -70,7 +70,7 @@ do
   local src = h:read("*a")
   h:close()
   check(src:find("local FRAME_WAIT = {}", 1, true) ~= nil, "file locale au module (jamais dans global)")
-  check(src:find("Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] then Mig.frame_tick(e.tick) end end)", 1, true) ~= nil,
+  check(src:find("Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] and e.tick >= NEXT_STEP then Mig.frame_tick(e.tick) end end)", 1, true) ~= nil,
     "abonnement statique au tick : rien si la file est vide")
   local fi = src:find("function Mig.frame_tick(tick)", 1, true)
   local fe = fi and src:find("\nend\n", fi, true)
