@@ -307,7 +307,8 @@ def sphere_flottante(lot, M, stage, dz=0.0):
     lot.put(M["blind2"], G.sphere(C, 1.5, 12, 6))
     lot.put(M["coeur"], G.sphere(C, 1.0, 12, 6))
     lot.put(M["halo"], G.sphere(C, 2.0, 12, 6))
-    lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", 2.3, 0.3, 0.1), C, G.norm((0.6, 0.3, 1.0))))
+    # s43 : anneau de la sphère en métal satiné (struct) : poli, vu par la tranche en d10-d12 il renvoyait le ciel en un liseré blanc (1,2 %)
+    lot.put(M["struct"], G.oriente(anneau((0.0, 0.0, 0.0), "z", 2.3, 0.3, 0.1), C, G.norm((0.6, 0.3, 1.0))))
     for k in range(3):
         a = G.TAU * k / 3 + 0.5
         p = (C[0] + 2.2 * math.cos(a), C[1] + 2.2 * math.sin(a), C[2] + 0.4)
