@@ -55,6 +55,8 @@ end
 --    charbon suivant au lieu de retomber sur le même (partie du DC : « trop long » ×5 sur la même centrale d'emerald, à la main 60 min).
 V.SKIP_TICKS = 54000 -- 15 min
 V.SKIP_MAX = 16      -- lots écartés gardés au plus (les plus anciens sortent)
+V.FIRST_TICKS = 36000 -- 10 min au plus : une alimentation de centrale qui attend sa matière réserve AVANT les projets neufs (build.lua Build.alim_first)
+V.COOL_TICKS = 7200   -- 2 min : pause de la croissance après un refus du plan quand la demande nominale manque (au lieu de C.COOL, 10 min)
 
 --- Liste `cands` (éléments { k = clé du lot, ... }) sans les lots écartés encore valides à `tick` ; ordre gardé.
 function V.skip_lots(cands, skip, tick)

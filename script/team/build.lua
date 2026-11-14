@@ -72,6 +72,91 @@ local Build = {}
 Build.Sm = require("shared.team.sol_minerai")
 Build.Vap = require("shared.team.vapeur") -- lot VAPEUR : lots écartés après un tapis d'alimentation impossible (V.skip_lots)
 Build.skip_lots = Build.Vap.skip_lots
+--- Lot VAPEUR (banc 2026-11-14_VAPEUR-2, carte du DC) : l'alimentation de la centrale 1 de player (161 pièces, ~250 fer) restait 0/161 en
+--- « reserve:materiaux » de 4,7 à 30 min pendant que les bandes de champ (369, 658 pièces) réservaient le même fer. Tant qu'un projet
+--- d'alimentation de centrale attend sa matière (au plus Build.Vap.FIRST_TICKS depuis sa première attente), les AUTRES projets neufs ne
+--- réservent plus rien de plus (ce qu'ils tiennent reste à eux) : le fer qui arrive va d'abord au charbon de la centrale. Exemptés : centrales,
+--- alimentations, raccordements, enceinte, liaisons, sites, reconstructions. Rend vrai si `p` attend (raison « vapeur »).
+function Build.alim_first(f, p, tick)
+  local b = f.build
+  local sp = p.spec or {}
+  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.site or sp.plant or p.reopened or p.id == b.plant then return false end
+  for _, id in ipairs(b.extra_plants or {}) do if id == p.id then return false end end
+  local aid = Build.alim_project(f)
+  local a = aid and b.projects[aid]
+  if not (a and a.state == "reserve" and a.reason == "materiaux") then return false end
+  a.vap_first = a.vap_first or tick
+  if tick - a.vap_first > Build.Vap.FIRST_TICKS then return false end
+  if not a.vap_said then
+    a.vap_said = true
+    log(string.format("[FO-VAPEUR] %s : projet %d (alimentation de la centrale %s) attend sa matiere a %.1f min : les projets neufs ne reservent plus rien pendant %.0f min au plus (premier retenu : projet %d)",
+      f.key or "player", a.id, tostring(a.spec and a.spec.alim), tick / 3600, Build.Vap.FIRST_TICKS / 3600, p.id))
+  end
+  p.reason, p.reserve_next = "vapeur", tick + 60
+  return true
+end
+
+--- Lot VAPEUR (consigne du coordinateur, partie du DC 2026-11-14_partie-DC-2h30-x5, 0.7.107 : « courant insuffisant : 7200 kW pris sur 7200 kW »
+--- de 77 à 150 min, centrales de plus 30, 36… refusées « poteaux », 10 min de pause à chaque refus) : les poteaux de rue d'une CENTRALE (plan_power)
+--- tombaient sur une tuile déjà réservée par un autre projet (reserve_tiles tout ou rien). Un poteau dont la tuile est prise par un POTEAU d'un
+--- autre projet est le même poteau de rue : il est retiré (réutilisé) ; un autre est décalé d'une tuile libre (8 voisines, ordre fixe) ; sinon
+--- retiré (le raccordement, script/team/raccord.lua, relie une île). Les autres projets gardent le tout ou rien. Rend la liste à réserver.
+local POLE_NUDGE = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } }
+function Build.pole_fit(f, p, extra)
+  local b = f.build
+  local is_plant = (p.spec and p.spec.plant) or p.id == b.plant
+  for _, id in ipairs(b.extra_plants or {}) do if id == p.id then is_plant = true end end
+  if not is_plant then return extra end
+  local function taken(e)
+    for _, t in ipairs(P.tiles_of(e)) do
+      local ow = b.occ[P.tkey(t[1], t[2])]
+      if ow and ow ~= p.id then return ow end
+    end
+    return nil
+  end
+  local function pole_of(pid, x, y)
+    local q = b.projects[pid]
+    for _, e in ipairs(q and q.ents or {}) do
+      if e.name:find("electric%-pole") and math.abs(e.x - x) < 1 and math.abs(e.y - y) < 1 then return true end
+    end
+    return false
+  end
+  local out, mine, reused, moved, dropped = {}, {}, 0, 0, 0
+  for _, e in ipairs(extra or {}) do
+    local ow = taken(e)
+    if not ow then
+      out[#out + 1] = e
+      for _, t in ipairs(P.tiles_of(e)) do mine[P.tkey(t[1], t[2])] = true end
+    elseif e.name:find("electric%-pole") and pole_of(ow, e.x, e.y) then
+      reused = reused + 1
+    else
+      local put = nil
+      if e.name:find("electric%-pole") and #P.tiles_of(e) == 1 then
+        for _, d in ipairs(POLE_NUDGE) do
+          local c = { name = e.name, x = e.x + d[1], y = e.y + d[2], dir = e.dir, part = e.part, role = e.role }
+          local k = P.tkey(math.floor(c.x), math.floor(c.y))
+          if not taken(c) and not mine[k] then put = c break end
+        end
+      end
+      if put then
+        out[#out + 1] = put
+        mine[P.tkey(math.floor(put.x), math.floor(put.y))] = true
+        moved = moved + 1
+      else
+        dropped = dropped + 1
+      end
+    end
+  end
+  if reused + moved + dropped > 0 then
+    b.pole_fit_logs = (b.pole_fit_logs or 0) + 1
+    if b.pole_fit_logs <= 20 then
+      log(string.format("[FO-VAPEUR] %s : projet %d (centrale) : %d poteau(x) de rue sur une tuile deja prise : %d reutilise(s), %d decale(s), %d retire(s) au lieu d'un refus « poteaux » a %.1f min",
+        f.key or "player", p.id, reused + moved + dropped, reused, moved, dropped, game.tick / 3600))
+    end
+  end
+  return out
+end
+
 --- Lot VAPEUR : le tapis d'un projet d'alimentation de centrale (spec.alim) a échoué depuis le lot `place.lot` : ce lot est écarté
 --- Build.Vap.SKIP_TICKS pour les alimentations de l'équipe (b.alim_skip : clés de lots -> tick de fin). Journal [FO-VAPEUR].
 function Build.alim_fail(f, p, place, why)
@@ -3347,6 +3432,7 @@ plan_finish = function(f, surface, p, masks, is_plant, topts, g)
             if p.far and nodes ~= "net" and nodes ~= "masques" and nodes ~= "loin" and Far.reject(f, p, w3) then return false, w3, "loin" end
             return false, w3, (nodes == "net" or nodes == "masques" or nodes == "loin") and nodes or nil
           end
+          extra = Build.pole_fit(f, p, extra) -- lot VAPEUR : poteaux sur une tuile déjà prise (partie du DC 0.7.107 : centrales de plus refusées « poteaux »)
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
             local k = P.lot_key(n.i, n.j)
@@ -3606,6 +3692,7 @@ end
 --- d'un cadre ouvert ou qui manque (PileRt.porte). Un module rouvert pour reconstruction n'est jamais suspendu (pile_family). Avant, le
 --- module neuf réservait le fer des tourelles exactement comme un module rouvert pour reconstruction. Rend vrai si suspendue.
 function Build.reserve_suspended(f, p, tick)
+  if Build.alim_first(f, p, tick) then return true end -- lot VAPEUR : l'alimentation de la centrale réserve d'abord
   local fam = pile_family(f, p)
   if not fam then return false end
   -- Lot QGSURVIE (règle 1) : sous la réserve de fer du QG, un module neuf ne prend rien, même s'il produit une matière qui manque.

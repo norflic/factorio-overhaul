@@ -173,7 +173,7 @@ function C.growth(st, n)
     if n.done < 1 then return nil, "aucune centrale finie" end
   end
   if n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
-  if (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end
+  if not nominal and (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end -- (lot VAPEUR : jamais de renoncement sous la demande nominale)
   if n.hold and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end
   if n.cool then return nil, "pause apres une centrale refusee ou abandonnee" end
   -- lot FIX-P1 : plus de borne C.MAX_REQUESTS sur la partie (elle bloquait la croissance électrique pour toujours) ; C.COOL et C.MAX_REFUSED bornent

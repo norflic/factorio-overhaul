@@ -55,6 +55,14 @@ n = base(); n.nominal_kw = 150; n.cool = true
 nb = C.growth({}, n)
 check(nb == nil, "pause apres refus gardee")
 
+n = base(); n.nominal_kw = 150; n.refused = C.MAX_REFUSED
+nb = C.growth({}, n)
+check(nb == 1, "sous la demande nominale, jamais de renoncement apres C.MAX_REFUSED refus")
+n = base(); n.refused = C.MAX_REFUSED; n.deficit_kw = 500
+nb = C.growth({ def_n = C.DEFICIT_CHECKS }, n)
+check(nb == nil, "hors demande nominale : le renoncement reste (charge mesuree 10 %)")
+check(V.COOL_TICKS < C.COOL, "pause courte sous la demande nominale")
+
 print("== 4. Liaison au charbon : refus et parallele")
 local Cv = require("shared.team.champ_vapeur")
 local Cc = require("shared.team.charbon_centrale")
