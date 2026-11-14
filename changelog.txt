@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.110
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F668) : les variantes d'un plan de gisement reprises par la file du tick sont espacées de 1 200 ticks (avant : 4 variantes sur 4 ticks consécutifs, un seul gel de ~17 s en x5).
+    - IA (F669) : tapis de charbon d'une centrale en échec passager réessayé après 2 min, puis 5 min, puis 15 min (avant : toutes les 30 s) ; tracé des poteaux du pétrole sous le plafond par tick et le mémo d'échec.
+  Changes:
+    - Mesure (F670) : ligne [FO-PERF-CUMUL] <gestionnaire> appels=N Durée toutes les 3 600 ticks, pour chaque gestionnaire d'événement appelé (affichage seul).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.109
 Date: 2026-11-14
   Bugfixes:
