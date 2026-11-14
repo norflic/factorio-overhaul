@@ -649,6 +649,15 @@ local function phase_memo(spec, axis)
   PHASE_MEMO[#PHASE_MEMO + 1] = m
   return m
 end
+--- s49 opti : mémoires de calculs refaits à l'identique entre les plan_once d'un même Ch.plan (tracés du charbon, relais), rangées
+--- DANS la table PHASE_MEMO (champ nommé : la liste des phases, lue par ipairs, n'en voit rien) : même durée de vie qu'elle, nil hors
+--- d'un Ch.plan. Chaque entrée garde les lectures qu'elle a faites et n'est rendue que si elles donnent les mêmes réponses (résultat exact).
+local function run_memo(name)
+  if not PHASE_MEMO then return nil end
+  local m = PHASE_MEMO[name]
+  if not m then m = {}; PHASE_MEMO[name] = m end
+  return m
+end
 local function copy_bands(bands)
   local out = {}
   for i, bd in ipairs(bands) do
@@ -806,7 +815,7 @@ local function plan_once(spec)
             local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
             half = half_of(bd.pr, fixed)
             list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
-              c.is_resource, mode, fixed, half, shared_plate)
+              c.is_resource, mode, fixed, half, shared_plate, run_memo("places"))
             if not list and not no_smelter_at then
               -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
               local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
@@ -927,6 +936,7 @@ local function plan_once(spec)
             inserter_rate = spec.inserter and spec.inserter.rate,
             soft = spec.soft and function(u, v) local x, y = c.xy(u, v); return spec.soft[Ch.key(x, y)] == true end or nil,
             lane_drills = co and co.rate and Ch.lane_drills(spec.belts[1].lane, co.rate) or nil,
+            route_memo = run_memo("routes"), line_memo = run_memo("lines"), -- s49 opti : tracés du charbon refaits à l'identique d'un plan_order à l'autre
             bridge = function(poles, free)
               local extra = {}
               local cc = { free = function(u, v) return not extra[Co.tk(u, v)] and free(u, v) end, take = function(u, v) extra[Co.tk(u, v)] = true end }

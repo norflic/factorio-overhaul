@@ -234,7 +234,73 @@ end
 --- `fixed` = { s_edge, count } rejoue la place du cadre figé (bande seule) sans chercher. half : Co.half ou nil. shared(u, v, e) : la tuile
 --- porte déjà la ligne de plaques de la demi-colonne d'en face, dans le sens de e (lot COLONNE-DOUBLE : la ligne centrale est posée une
 --- fois ; ces tuiles ne sont pas rendues).
-function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared)
+--- s49 opti : `memo` (facultatif, tenu le temps d'UN Ch.plan ; jamais pour un cadre figé) : une place de mêmes entrées (scalaires, mêmes
+--- tables furnace / pole / inserter) dont TOUTES les lectures (free, is_ore, shared) donnent les mêmes réponses est rendue sans
+--- recherche, en tables neuves (la recherche est déterministe : mêmes lectures, même résultat). shared(u, v, e) ne lit que u, v et e.du.
+local function place_copy(list, len, s_edge, count, info)
+  if not list then return nil end
+  local l = {}
+  for i, e in ipairs(list) do
+    l[i] = { kind = e.kind, u = e.u, v = e.v, size = e.size, du = e.du, dv = e.dv, role = e.role, col = e.col, piq = e.piq, fin = e.fin }
+  end
+  local inf = {}
+  for _, k in ipairs({ "far", "head_pole", "need", "plates", "bay", "mode", "b_coal", "b_link", "ext" }) do inf[k] = info[k] end
+  return l, len, s_edge, count, inf
+end
+local place_raw
+function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, memo)
+  if not memo or fixed then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared) end
+  local parts = { b, side, edge, count, gap, shift, mode, half ~= nil, half and half.mirror, half and half.jog, half and half.lead,
+    shared ~= nil, Co.EXT, Co.SF, Co.PICKUP }
+  for i = 1, 15 do parts[i] = tostring(parts[i]) end
+  local mkey = table.concat(parts, ",")
+  local f, p, ins = spec.furnace, spec.pole, spec.inserter
+  local mlist = memo[mkey]
+  if mlist then
+    for _, m in ipairs(mlist) do
+      if m.f == f and m.p == p and m.ins == ins then
+        local ok = true
+        local L = m.fr
+        for i = 1, #L, 3 do if ok and (free(L[i], L[i + 1]) and true or false) ~= L[i + 2] then ok = false end end
+        L = m.ore
+        for i = 1, #L, 3 do if ok and (is_ore(L[i], L[i + 1]) and true or false) ~= L[i + 2] then ok = false end end
+        L = m.sh
+        for i = 1, #L, 4 do
+          if ok and (shared(L[i], L[i + 1], { kind = "tapis", role = "sortie", du = L[i + 2] }) and true or false) ~= L[i + 3] then ok = false end
+        end
+        if ok then return place_copy(m.list, m.len, m.s_edge, m.count, m.info) end
+      end
+    end
+  end
+  local tk = Co.tk
+  local FR, OR, SH, fl, ol, sl = {}, {}, {}, {}, {}, {}
+  local function rfree(u, v)
+    local k = tk(u, v)
+    local x = FR[k]
+    if x == nil then x = free(u, v) and true or false; FR[k] = x; fl[#fl + 1] = u; fl[#fl + 1] = v; fl[#fl + 1] = x end
+    return x
+  end
+  local function rore(u, v)
+    local k = tk(u, v)
+    local x = OR[k]
+    if x == nil then x = is_ore(u, v) and true or false; OR[k] = x; ol[#ol + 1] = u; ol[#ol + 1] = v; ol[#ol + 1] = x end
+    return x
+  end
+  local rshared = shared and function(u, v, e)
+    local k = tk(u, v) * 4 + (e.du or 0) + 1
+    local x = SH[k]
+    if x == nil then x = shared(u, v, e) and true or false; SH[k] = x; sl[#sl + 1] = u; sl[#sl + 1] = v; sl[#sl + 1] = e.du; sl[#sl + 1] = x end
+    return x
+  end or nil
+  local list, len, s_edge, cnt, info = place_raw(spec, b, side, edge, count, gap, shift, rfree, rore, mode, nil, half, rshared)
+  if not mlist then mlist = {}; memo[mkey] = mlist end
+  if #mlist < 6 then
+    local ml, mlen, ms, mc, mi = place_copy(list, len, s_edge, cnt, info)
+    mlist[#mlist + 1] = { f = f, p = p, ins = ins, fr = fl, ore = ol, sh = sl, list = ml, len = mlen, s_edge = ms, count = mc, info = mi }
+  end
+  return list, len, s_edge, cnt, info
+end
+place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared)
   local function common(e) return shared ~= nil and e.kind == "tapis" and e.role == "sortie" and shared(e.u, e.v, e) end
   -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
   -- autres ressources) ; plus de seconde passe qui acceptait le minerai. Lot DECOUPLAGE : la colonne d'un cadre figé (`fixed`) aussi.
@@ -349,38 +415,6 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 2. Tracé d'un tapis avec souterrains (A* sur (tuile, sens d'arrivée, « tout droit imposé »))
 ---------------------------------------------------------------------------------------------------
-local function hpush(h, n)
-  h[#h + 1] = n
-  local i = #h
-  while i > 1 do
-    local p = math.floor(i / 2)
-    local a, b = h[p], h[i]
-    if a.f < b.f or (a.f == b.f and (a.h < b.h or (a.h == b.h and a.k <= b.k))) then break end
-    h[p], h[i] = b, a
-    i = p
-  end
-end
-local function hpop(h)
-  local top, last = h[1], h[#h]
-  h[#h] = nil
-  if #h > 0 then
-    h[1] = last
-    local i = 1
-    while true do
-      local l, r, m = 2 * i, 2 * i + 1, i
-      local function less(x, y)
-        local a, b = h[x], h[y]
-        return a.f < b.f or (a.f == b.f and (a.h < b.h or (a.h == b.h and a.k < b.k)))
-      end
-      if l <= #h and less(l, m) then m = l end
-      if r <= #h and less(r, m) then m = r end
-      if m == i then break end
-      h[m], h[i] = h[i], h[m]
-      i = m
-    end
-  end
-  return top
-end
 
 local function tk(u, v) return (u + 50000) * 100000 + (v + 50000) end
 Co.tk = tk
@@ -395,6 +429,7 @@ Co.tk = tk
 --- droit imposé ou non), « trop long » sinon. Quand la borne ne tranche pas, l'A* tourne comme avant. Rend "aucun chemin" ou nil (rien de prouvé).
 --- Tentée UNE fois, quand l'A* a développé Co.PREUVE_APRES états sans conclure (un tracé ordinaire finit bien avant : rien ne change
 --- pour lui) ; si rien n'est prouvé, l'A* reprend là où il en était.
+Co.EXPANDED = 0         -- s49 opti : compteur d'états développés par Co.route (diagnostic, aucune décision ne le lit)
 Co.PREUVE = true        -- (tests : faux = l'A* seul, la référence)
 Co.PREUVE_APRES = 2000  -- états développés par l'A* avant la tentative
 Co.PREUVE_TUILES = 3000 -- tuiles développées au plus par chacun des deux remplissages
@@ -488,72 +523,223 @@ end
 --- free(u, v) : un tapis peut s'y poser ; span(u, v) : un souterrain peut passer dessous ; ug : écart maximal entre l'entrée et la
 --- sortie d'une paire (nil : aucun souterrain) ; box { u0, v0, u1, v1 }. Rend la liste { u, v, d (index), kind = "tapis" |
 --- "souterrain", ug = "input" | "output" } dans l'ordre du flux, et le nombre d'états développés ; ou nil, raison.
-function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
+--- s49 opti : le tracé ci-dessous, à réponses IDENTIQUES à celui de v0.7.107 (banc tests/perf_champ_bench.lua, empreintes des plans) :
+--- (1) free, span et tcost lus UNE fois par tuile pendant l'appel (rien n'est pris pendant un tracé : mêmes réponses) ; (2) tas binaire
+--- en tableaux parallèles (f, h, k), l'état se relit dans sa clé numérique (aucune table par nœud) ; l'ordre (f, h, k) est STRICT (une
+--- clé n'est repoussée qu'à g strictement plus petit, les g sont entiers) : la suite des états sortis du tas ne dépend pas de la forme
+--- du tas ; (3) la pièce posée par une arête n'est construite qu'au chemin rendu (avant : deux à trois tables par arête essayée) ;
+--- (4) `memo` (facultatif, tenu le temps d'UN Ch.plan) : un tracé de mêmes entrées scalaires dont TOUTES les tuiles lues donnent les
+--- mêmes réponses est rendu sans recherche (l'A* est déterministe : mêmes lectures, mêmes réponses, même résultat).
+local MEMO_PER_KEY = 6
+local function memo_valid(e, free, span, tcost)
+  local L = e.fr
+  for i = 1, #L, 3 do if (free(L[i], L[i + 1]) and true or false) ~= L[i + 2] then return false end end
+  L = e.sp
+  for i = 1, #L, 3 do if (span(L[i], L[i + 1]) and true or false) ~= L[i + 2] then return false end end
+  L = e.tc
+  for i = 1, #L, 3 do if tcost(L[i], L[i + 1]) ~= L[i + 2] then return false end end
+  return true
+end
+local function copy_route(r)
+  if not r then return nil end
+  local o = {}
+  for i, x in ipairs(r) do o[i] = { u = x.u, v = x.v, d = x.d, kind = x.kind, ug = x.ug } end
+  return o
+end
+
+function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
   cap = cap or Co.ROUTE_CAP
-  local function tc(u, v) return tcost and tcost(u, v) or 1 end -- coût d'une tuile où se pose une pièce (souterrain : entrée et sortie)
-  if not free(s.u, s.v) then return nil, "depart" end
-  if not free(t.u, t.v) then return nil, "arrivee" end
-  local function inb(u, v) return u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1 end
-  local function hh(u, v) return (math.abs(u - t.u) + math.abs(v - t.v)) * Co.ROUTE_W end
-  local function key(u, v, d, m) return tk(u, v) * 10 + (d - 1) * 2 + m end
-  local open, g, prev, closed = {}, {}, {}, {}
-  local k0 = key(s.u, s.v, sd, 0)
-  g[k0] = 0
-  hpush(open, { u = s.u, v = s.v, d = sd, m = 0, f = hh(s.u, s.v), h = hh(s.u, s.v), k = k0 })
-  local expanded = 0
-  local function relax(cur, nu, nv, nd, nm, cost, act)
-    if not inb(nu, nv) then return end
-    if not (free(nu, nv) or (nu == t.u and nv == t.v)) then return end
-    local nk = key(nu, nv, nd, nm)
-    if closed[nk] then return end
-    local ng = g[cur.k] + cost
-    if g[nk] == nil or ng < g[nk] then
-      g[nk] = ng
-      prev[nk] = { k = cur.k, act = act }
-      local h = hh(nu, nv)
-      hpush(open, { u = nu, v = nv, d = nd, m = nm, f = ng + h, h = h, k = nk })
+  local mkey, mlist
+  if memo then
+    local parts = { s.u, s.v, sd, t.u, t.v, td, ug, box.u0, box.v0, box.u1, box.v1, cap, span ~= nil, tcost ~= nil, Co.ROUTE_W, Co.UG_COST,
+      Co.PREUVE, Co.PREUVE_APRES, Co.PREUVE_TUILES }
+    for i = 1, 19 do parts[i] = tostring(parts[i]) end
+    mkey = table.concat(parts, ",")
+    mlist = memo[mkey]
+    if mlist then
+      for _, e in ipairs(mlist) do
+        if memo_valid(e, free, span, tcost) then
+          if e.route then return copy_route(e.route), e.n end
+          return nil, e.why
+        end
+      end
     end
   end
-  while #open > 0 do
-    local cur = hpop(open)
-    if not closed[cur.k] then
-      closed[cur.k] = true
+  -- lectures d'une tuile, gardées (et notées pour la mémoire)
+  local FR, SP, TC = {}, {}, {}
+  local fl, sl, tl = {}, {}, {}
+  local free0, span0, tcost0 = free, span, tcost
+  free = function(u, v)
+    local k = tk(u, v)
+    local x = FR[k]
+    if x == nil then
+      x = free0(u, v) and true or false
+      FR[k] = x
+      fl[#fl + 1] = u; fl[#fl + 1] = v; fl[#fl + 1] = x
+    end
+    return x
+  end
+  if span0 then
+    span = function(u, v)
+      local k = tk(u, v)
+      local x = SP[k]
+      if x == nil then
+        x = span0(u, v) and true or false
+        SP[k] = x
+        sl[#sl + 1] = u; sl[#sl + 1] = v; sl[#sl + 1] = x
+      end
+      return x
+    end
+  end
+  local function tc(u, v) -- coût d'une tuile où se pose une pièce (souterrain : entrée et sortie)
+    if not tcost0 then return 1 end
+    local k = tk(u, v)
+    local x = TC[k]
+    if x == nil then
+      x = tcost0(u, v)
+      TC[k] = x
+      tl[#tl + 1] = u; tl[#tl + 1] = v; tl[#tl + 1] = x
+    end
+    return x
+  end
+  local function finish(route, why)
+    if memo then
+      mlist = memo[mkey]
+      if not mlist then mlist = {}; memo[mkey] = mlist end
+      if #mlist < MEMO_PER_KEY then
+        mlist[#mlist + 1] = { fr = fl, sp = sl, tc = tl, route = copy_route(route), why = (not route) and why or nil, n = route and why or nil }
+      end
+    end
+    return route, why
+  end
+  if not free(s.u, s.v) then return finish(nil, "depart") end
+  if not free(t.u, t.v) then return finish(nil, "arrivee") end
+  local bu0, bv0, bu1, bv1 = box.u0, box.v0, box.u1, box.v1
+  local tu, tv = t.u, t.v
+  local W = Co.ROUTE_W
+  local abs, floor = math.abs, math.floor
+  local function hh(u, v) return (abs(u - tu) + abs(v - tv)) * W end
+  -- clé d'un état : tk(u, v) * 10 + (d - 1) * 2 + m (celle de v0.7.107) ; relue : tuile = floor(k / 10), d, m dans k % 10
+  local g, pk, pug, closed = {}, {}, {}, {}
+  -- tas : tableaux parallèles, ordre (f, h, k) strict
+  local HF, HH, HK, hn = {}, {}, {}, 0
+  local function push(f, h, k)
+    hn = hn + 1
+    local i = hn
+    while i > 1 do
+      local p = floor(i / 2)
+      local pf, ph, pkk = HF[p], HH[p], HK[p]
+      if pf < f or (pf == f and (ph < h or (ph == h and pkk <= k))) then break end
+      HF[i], HH[i], HK[i] = pf, ph, pkk
+      i = p
+    end
+    HF[i], HH[i], HK[i] = f, h, k
+  end
+  local function pop()
+    local k = HK[1]
+    local lf, lh, lk = HF[hn], HH[hn], HK[hn]
+    HF[hn], HH[hn], HK[hn] = nil, nil, nil
+    hn = hn - 1
+    if hn > 0 then
+      local i = 1
+      while true do
+        local l = 2 * i
+        if l > hn then break end
+        local m, mf, mh, mk = l, HF[l], HH[l], HK[l]
+        local r = l + 1
+        if r <= hn then
+          local rf, rh, rk = HF[r], HH[r], HK[r]
+          if rf < mf or (rf == mf and (rh < mh or (rh == mh and rk < mk))) then m, mf, mh, mk = r, rf, rh, rk end
+        end
+        if not (mf < lf or (mf == lf and (mh < lh or (mh == lh and mk < lk)))) then break end
+        HF[i], HH[i], HK[i] = mf, mh, mk
+        i = m
+      end
+      HF[i], HH[i], HK[i] = lf, lh, lk
+    end
+    return k
+  end
+  local k0 = tk(s.u, s.v) * 10 + (sd - 1) * 2
+  g[k0] = 0
+  do local h0 = hh(s.u, s.v); push(h0, h0, k0) end
+  local expanded = 0
+  local function relax(ck, cg, nu, nv, nd, nm, cost, isug)
+    if nu < bu0 or nu > bu1 or nv < bv0 or nv > bv1 then return end
+    if not (free(nu, nv) or (nu == tu and nv == tv)) then return end
+    local nk = tk(nu, nv) * 10 + (nd - 1) * 2 + nm
+    if closed[nk] then return end
+    local ng = cg + cost
+    local og = g[nk]
+    if og == nil or ng < og then
+      g[nk] = ng
+      pk[nk] = ck
+      pug[nk] = isug
+      local h = hh(nu, nv)
+      push(ng + h, h, nk)
+    end
+  end
+  local function tile_of(k)
+    local q = floor(k / 10)
+    return floor(q / 100000) - 50000, q % 100000 - 50000, floor((k % 10) / 2) + 1, k % 2
+  end
+  while hn > 0 do
+    local ck = pop()
+    if not closed[ck] then
+      closed[ck] = true
       expanded = expanded + 1
-      if expanded > cap then return nil, "trop long" end
+      Co.EXPANDED = Co.EXPANDED + 1 -- s49 opti : états développés, tous tracés (banc tests/perf_champ_bench.lua)
+      if expanded > cap then return finish(nil, "trop long") end
       if expanded == Co.PREUVE_APRES and Co.PREUVE then
         local why = Co.unreachable(s, t, free, ug, box, cap) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*
-        if why then return nil, why end
+        if why then return finish(nil, why) end
       end
-      if cur.u == t.u and cur.v == t.v then
-        if cur.d ~= ((td + 1) % 4) + 1 and (cur.m == 0 or cur.d == td) then
-          local out = { { u = t.u, v = t.v, d = td, kind = "tapis" } }
-          local k = cur.k
-          while prev[k] do
-            local a = prev[k].act
-            for i = #a, 1, -1 do table.insert(out, 1, a[i]) end
-            k = prev[k].k
+      local cu, cv, cd, cm = tile_of(ck)
+      local cg = g[ck]
+      if cu == tu and cv == tv then
+        if cd ~= ((td + 1) % 4) + 1 and (cm == 0 or cd == td) then
+          -- chemin : de l'arrivée au départ par les états d'avant, chaque arête rend sa pièce (tapis, ou paire de souterrains)
+          local rev = { { u = tu, v = tv, d = td, kind = "tapis" } }
+          local k = ck
+          while pk[k] do
+            local p = pk[k]
+            local nu, nv, nd = tile_of(k)
+            local pu, pv = tile_of(p)
+            if pug[k] then
+              local dv = D4[nd]
+              rev[#rev + 1] = { u = nu - dv[1], v = nv - dv[2], d = nd, kind = "souterrain", ug = "output" }
+              rev[#rev + 1] = { u = pu, v = pv, d = nd, kind = "souterrain", ug = "input" }
+            else
+              rev[#rev + 1] = { u = pu, v = pv, d = nd, kind = "tapis" }
+            end
+            k = p
           end
-          return out, expanded
+          local out = {}
+          for i = #rev, 1, -1 do out[#out + 1] = rev[i] end
+          return finish(out, expanded)
         end
       else
         -- tapis posé ici, tout droit ou en virage (jamais demi-tour ; tout droit imposé après une sortie de souterrain)
-        for _, turn in ipairs({ 0, -1, 1 }) do
-          if turn == 0 or cur.m == 0 then
-            local nd = ((cur.d - 1 + turn) % 4) + 1
-            local dv = D4[nd]
-            relax(cur, cur.u + dv[1], cur.v + dv[2], nd, 0, tc(cur.u, cur.v), { { u = cur.u, v = cur.v, d = nd, kind = "tapis" } })
-          end
+        local c1 = tc(cu, cv)
+        do
+          local dv = D4[cd]
+          relax(ck, cg, cu + dv[1], cv + dv[2], cd, 0, c1, false)
+        end
+        if cm == 0 then
+          local nd = ((cd - 2) % 4) + 1
+          local dv = D4[nd]
+          relax(ck, cg, cu + dv[1], cv + dv[2], nd, 0, c1, false)
+          nd = (cd % 4) + 1
+          dv = D4[nd]
+          relax(ck, cg, cu + dv[1], cv + dv[2], nd, 0, c1, false)
         end
         -- paire de souterrains : entrée ici (on y arrive tout droit), sortie k tuiles plus loin, puis tout droit
         if ug then
-          local dv = D4[cur.d]
+          local dv = D4[cd]
           local ok_span = true
           for k = 1, ug do
-            local mu, mv = cur.u + k * dv[1], cur.v + k * dv[2]
-            if k >= 2 and ok_span and free(mu, mv) and not (mu == t.u and mv == t.v) then
-              relax(cur, mu + dv[1], mv + dv[2], cur.d, 1, tc(cur.u, cur.v) + tc(mu, mv) + (k - 1) + Co.UG_COST, {
-                { u = cur.u, v = cur.v, d = cur.d, kind = "souterrain", ug = "input" },
-                { u = mu, v = mv, d = cur.d, kind = "souterrain", ug = "output" } })
+            local mu, mv = cu + k * dv[1], cv + k * dv[2]
+            if k >= 2 and ok_span and free(mu, mv) and not (mu == tu and mv == tv) then
+              relax(ck, cg, mu + dv[1], mv + dv[2], cd, 1, c1 + tc(mu, mv) + (k - 1) + Co.UG_COST, true)
             end
             if span and not span(mu, mv) then ok_span = false end
           end
@@ -561,7 +747,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
       end
     end
   end
-  return nil, "aucun chemin"
+  return finish(nil, "aucun chemin")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -573,7 +759,51 @@ end
 --- plus courte et la plus proche de la cible, puis un seul côté.
 --- is_foreign(u, v) (lot MELANGE, facultatif) : tuile d'une AUTRE ressource minable ; aucune foreuse dont la zone en touche une (fer ou
 --- pierre sur la voie de charbon la bouchent).
-function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
+--- s49 opti : `memo` (facultatif, tenu le temps d'UN Ch.plan ; seulement avec `center`, la liste `coal` n'étant alors lue que par sa
+--- longueur) : une ligne de mêmes entrées scalaires dont TOUTES les lectures (free, is_coal, is_foreign) donnent les mêmes réponses est
+--- rendue sans recherche, en tables neuves (la recherche est déterministe : mêmes lectures, même résultat).
+local coal_line_raw
+local function line_copy(l)
+  if not l then return nil end
+  local ents = {}
+  for i, e in ipairs(l.ents) do
+    ents[i] = { kind = e.kind, u = e.u, v = e.v, size = e.size, du = e.du, dv = e.dv, role = e.role, belt = e.belt }
+  end
+  return { ents = ents, exit = { u = l.exit.u, v = l.exit.v, d = l.exit.d }, drills = l.drills }
+end
+function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign, memo)
+  if not (memo and center) then return coal_line_raw(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign) end
+  local parts = { #coal, center[1], center[2], d.size, d.reach, want, target.u, target.v, R, wire, per_side, is_foreign ~= nil, Co.WINDOW,
+    Co.MIN_COAL }
+  for i = 1, 14 do parts[i] = tostring(parts[i]) end
+  local mkey = table.concat(parts, ",")
+  local mlist = memo[mkey]
+  local function same(L, f)
+    for i = 1, #L, 3 do if (f(L[i], L[i + 1]) and true or false) ~= L[i + 2] then return false end end
+    return true
+  end
+  if mlist then
+    for _, m in ipairs(mlist) do
+      if same(m.fr, free) and same(m.co, is_coal) and (not is_foreign or same(m.fo, is_foreign)) then return line_copy(m.line) end
+    end
+  end
+  local function rec(f, L)
+    local M = {}
+    return function(u, v)
+      local k = tk(u, v)
+      local x = M[k]
+      if x == nil then x = f(u, v) and true or false; M[k] = x; L[#L + 1] = u; L[#L + 1] = v; L[#L + 1] = x end
+      return x
+    end
+  end
+  local fl, cl, ol = {}, {}, {}
+  local line = coal_line_raw(coal, rec(is_coal, cl), rec(free, fl), d, want, target, R, wire, per_side, center,
+    is_foreign and rec(is_foreign, ol) or nil)
+  if not mlist then mlist = {}; memo[mkey] = mlist end
+  if #mlist < 6 then mlist[#mlist + 1] = { fr = fl, co = cl, fo = ol, line = line_copy(line) } end
+  return line
+end
+coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
   if #coal == 0 or want < 1 or R < 1 then return nil end
   -- Lot PERF3 : place libre et tuiles étrangères lues UNE fois par tuile pendant l'appel (rien n'est pris ici : mêmes réponses) ;
   -- chaque position de foreuse les relisait toutes, et les rangées voisines se recouvrent
@@ -857,7 +1087,7 @@ function Co.network(cols, side, env)
   local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
   for _, c in ipairs(centers) do
     local l = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c,
-      coal.is_foreign)
+      coal.is_foreign, env.line_memo)
     if l then
       local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
       if not line or l.drills > line.drills or (l.drills == line.drills and sc < lscore) then line, lscore = l, sc end
@@ -971,7 +1201,7 @@ function Co.network(cols, side, env)
     res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", man + 1, Co.ROUTE_MAX) return res
   end
   local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box,
-    Co.ROUTE_STATES, tcost)
+    Co.ROUTE_STATES, tcost, env.route_memo)
   if not route then res.why = "trace du charbon : " .. tostring(why) return res end
   if #route > Co.ROUTE_MAX then res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", #route, Co.ROUTE_MAX) return res end
   local nug = 0
