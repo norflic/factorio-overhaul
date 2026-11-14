@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.117
+Date: 2026-11-15
+  Features:
+    - IA (montée de tier) : les tapis passent au tier supérieur par lots de 12 au lieu d'un seul, et la montée avance « de côté » pendant que le capital attend un autre but ; au banc 30 min (carte du DC), 65 tapis montés contre 2, fer inchangé (33 281 contre 33 214 pour les factions, équipe joueur 3 019 contre 3 017). Journal [FO-TIERS-MONTEE].
+  Known issues:
+    - Four en pierre → acier attend la recherche de l'acier ; foreuse thermique → électrique et four électrique (autre emprise) ne se remplacent pas sur place.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.116
 Date: 2026-11-14
   Bugfixes:
