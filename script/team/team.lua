@@ -828,7 +828,7 @@ function Team.view(f, tick)
     smelters = #smelters_now, smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Profiler.fwrap("view:5-fours", Outposts.coal_needed_for, smelters_now),
-    coal_cap = fsurface and Profiler.fwrap("view:5-cap", Cap.read, f, fsurface) or nil, -- lot PURGE-FER-CHARBON : plafond du combustible (besoin réel, extraction posée)
+    coal_cap = fsurface and Et.copy(Profiler.fwrap("view:5-cap", Cap.read, f, fsurface)) or nil, -- lot PURGE-FER-CHARBON : plafond du combustible (besoin réel, extraction posée) ; COPIE (lot TESTS-VERTS 0716 : le mémo est f.coal_cap, une table de global ; la vue gardée par E1a ne doit pas la partager, decoupage_pensee_test §8)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
     turret_groups = groups,

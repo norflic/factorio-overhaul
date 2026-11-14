@@ -87,7 +87,11 @@ battery(real)
 section("Câblage de PA.watch (source)")
 local function wiring(src)
   local ok = true
-  ok = ok and src:find("local gate = C.grow_load(power + reopened_power, capacity + reopened_alive, new_kw * 1000 / 60)", 1, true) ~= nil
+  -- (s41 : la mesure est bornée en dessous par la demande de l'avance, used_kw ; s50 : la demande nominale installée peut relever la
+  -- porte) : la production vivante, la capacité vivante et les centrales neuves en chantier restent les trois termes de la porte
+  ok = ok and src:find("local gate = C.grow_load(math.max(power + reopened_power, ", 1, true) ~= nil
+  ok = ok and src:find(", capacity + reopened_alive, new_kw * 1000 / 60)", 1, true) ~= nil
+  ok = ok and src:find("if gate2 and (gate == nil or gate2 > gate) then gate = gate2 end", 1, true) ~= nil
   ok = ok and src:find("C.growth(g, { load = gate,", 1, true) ~= nil
   ok = ok and src:find("if was_built then rebuilding = rebuilding + 1 else new_kw = new_kw + pk end", 1, true) ~= nil
   ok = ok and src:find("reopened_power = reopened_power + (r.energy_generated_last_tick or 0)", 1, true) ~= nil
