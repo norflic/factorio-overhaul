@@ -543,7 +543,7 @@ def queue_v2(lot, M, stage):
         lot.put(M["cristal"], pointe(G.add(c, G.mul(d, 0.2)), d, 2.6, 0.22))
 
 
-def tete_v2(lot, M, stage, u=None, attaque=None):
+def tete_v2(lot, M, stage, u=None, attaque=None, v3=False):
     """TÊTE BLINDÉE MASSIVE à GUEULE D'IMPULSION (pivot à l'origine, joint arrière à -(DEMI + 1)) : cou télescopique, crâne octogonal
     biseauté évasé (plus large que haut), arcades blindées, quatre mandibules, gueule circulaire à double couronne de crocs, VORTEX
     central à pales en spirale, anneaux d'impulsion devant la gueule (la salve les écarte), crête de trois lames, yeux et évents cyan,
@@ -561,7 +561,10 @@ def tete_v2(lot, M, stage, u=None, attaque=None):
     lot.put(M["struct"], G.loft([sect(x, r * 0.97, 8, 0.2, rot=G.TAU / 16, dz=dz) for x in (xj - DEBORD, -0.6)], True, False))
     bande(lot, M, -3.1, -1.75, r, lip=1.17, dz=dz)
     bande(lot, M, -1.95, -0.55, r * 1.04, lip=1.2, dz=dz)
-    rotule(lot, M, xj, r, dz=dz)
+    if v3:
+        rotule_v3(lot, M, xj, r, dz=dz)
+    else:
+        rotule(lot, M, xj, r, dz=dz)
     # crâne : octogone biseauté qui s'évase vers la gueule, aplati (sy > sz), trois bandes en recouvrement
     RF = 4.6      # 0.6.96 : tête MASSIVE (1,5 fois les bandes du corps ; 3,75 au premier essai, trop proche du corps)
     sk = [(-0.8, r * 1.05), (0.2, 3.5), (1.3, 4.2), (2.4, RF), (3.0, RF * 1.04)]
@@ -575,9 +578,19 @@ def tete_v2(lot, M, stage, u=None, attaque=None):
                 return ra + (rb - ra) * (x - xa) / (xb - xa)
         return sk[-1][1]
     lot.put(M["blind2"], G.loft([sect(x, rr, 8, 0.28, sy=1.12, sz=0.92, dz=dz) for x, rr in sk], False, False))
-    bande(lot, M, -0.7, 0.55, rk(-0.1), lip=1.12, sy=1.12, sz=0.92, dz=dz)
-    bande(lot, M, 0.45, 1.75, rk(1.1), lip=1.1, sy=1.12, sz=0.92, dz=dz)
-    bande(lot, M, 1.65, 3.05, RF, lip=1.1, sy=1.12, sz=0.92, dz=dz)
+    if v3:
+        # CRÂNE V3 (tranche 2) : trois coques de carapace sur le crâne, comme le corps, en bicolore (sombre, CLAIRE, sombre), joints sombres
+        # creusés ; le tôlage en briques de la V2 (bandes blind2) ne se lisait pas à 32 px/tuile
+        for i, (xa, xb) in enumerate(((-0.75, 0.6), (0.45, 1.8), (1.65, 3.1))):
+            rr = rk(0.5 * (xa + xb)) * 1.0
+            V3.carapace(lot, M["clair" if i == 1 else "blind"], xa, xb, rr, zc, ouv=1.65, ep=0.5, lip=1.08, n=6, sy=1.12)
+        for xs in (0.52, 1.72):
+            rr = rk(xs) * 1.06
+            lot.put(M["struct"], G.tube([(xs, 1.12 * rr * math.sin(a), zc + rr * math.cos(a)) for a in [-1.65 + 3.3 * i / 12.0 for i in range(13)]], 0.16, 6))
+    else:
+        bande(lot, M, -0.7, 0.55, rk(-0.1), lip=1.12, sy=1.12, sz=0.92, dz=dz)
+        bande(lot, M, 0.45, 1.75, rk(1.1), lip=1.1, sy=1.12, sz=0.92, dz=dz)
+        bande(lot, M, 1.65, 3.05, RF, lip=1.1, sy=1.12, sz=0.92, dz=dz)
     c = (3.05, 0.0, zc)
     d = (1.0, 0.0, 0.0)
     # gueule : collerette blindée épaisse, gencive (chair), double couronne de crocs, puits, vortex et pales en spirale, halo
@@ -614,7 +627,7 @@ def tete_v2(lot, M, stage, u=None, attaque=None):
         lot.put(M["os"], pointe(G.add(base, G.mul(dd, 2.3)), G.norm(G.add(dd, G.mul(off, -0.5))), 0.8, 0.14, 4))
     # arcades : deux plaques épaisses au-dessus de la gueule, yeux cyan, évents latéraux
     for s_ in (-1, 1):
-        lot.put(M["blind"], plaque((2.1, s_ * RF * 0.45, zc + RF * 0.88), G.norm((0.35, s_ * 0.45, 1.0)), RF * 0.6, RF * 0.7, 0.45, up=(1.0, 0.0, 0.0), coins=0.6))
+        lot.put(M["clair" if v3 else "blind"], plaque((2.1, s_ * RF * 0.45, zc + RF * 0.88), G.norm((0.35, s_ * 0.45, 1.0)), RF * 0.6, RF * 0.7, 0.45, up=(1.0, 0.0, 0.0), coins=0.6))
         e = (2.5, s_ * RF * 0.98, zc + RF * 0.33)
         lot.put(M["struct"], G.oriente(G.tour([(-0.2, 0.0), (-0.2, 0.42), (0.12, 0.4)], 10, "z", cap0=True), e, G.norm((0.3, s_ * 1.0, 0.2))))
         lot.put(M["coeur"], G.sphere(e, 0.27, 10, 5))
@@ -696,6 +709,17 @@ def flanc_v3(lot, M, x, r, dz=0.0, rv=1.05):
         lunette_vortex(lot, M, (x, s_ * r * 1.04, Z + dz - r * 0.42), (0.0, float(s_), -0.38), rv, pales=5)
 
 
+def rotule_v3(lot, M, xj, r, dz=0.0):
+    """Rotule V3 (segment et tête) : même sphère que rotule() (rayon du corps, aucun jour aux joints) en acier CLAIR (canon) cerclée de
+    cinq côtes SOMBRES en saillie. Vue dans l'axe (d0, d7-d10) la rotule remplit le tiers du cadre : sombre, elle tirait le 90e centile
+    vers le bas (mesuré : 0,29-0,30 avec une sphère sombre à côtes claires peu saillantes, invisibles de face)."""
+    rs = r * 1.02
+    lot.put(M["clair"], G.sphere((xj, 0.0, Z + dz), rs, 16, 8))
+    for k in (-2, -1, 0, 1, 2):
+        off = 0.62 * k
+        lot.put(M["struct"], G.oriente(anneau((0.0, 0.0, 0.0), "z", math.sqrt(rs ** 2 - off ** 2) - 0.03, 0.26, 0.11), (xj + off, 0.0, Z + dz), (1.0, 0.0, 0.0)))
+
+
 def segment_v3(lot, M, stage):
     """SEGMENT V3 (centre à l'origine, joints à ±DEMI) : âme, ventre en bandes sombres, deux plaques de CARAPACE en recouvrement,
     anneau magnétique épais sur la jointure, couronne de lévitation ventrale, deux cœurs à vortex (flancs), échine
@@ -706,11 +730,13 @@ def segment_v3(lot, M, stage):
     for xa, xb in ((-2.55, -0.1), (-0.05, 2.45)):
         bande(lot, M, xa, xb, r, lip=1.1, mat="blind2")
     for xj in (-DEMI, DEMI):
-        # rotule du segment en acier SOMBRE strié (struct + trois côtes claires) : vue dans l'axe (d0, d8) la sphère brillante d'un ton
-        # moyen faisait tomber le contraste ; même sphère, même rayon (aucun jour aux joints)
-        lot.put(M["struct"], G.sphere((xj, 0.0, Z), r * 1.02, 16, 8))
-        for k in (-1, 0, 1):
-            lot.put(M["canon"], G.oriente(anneau((0.0, 0.0, 0.0), "z", math.sqrt((r * 1.02) ** 2 - (0.75 * k) ** 2) - 0.03, 0.1, 0.07), (xj + k * 0.75, 0.0, Z), (1.0, 0.0, 0.0)))
+        rotule_v3(lot, M, xj, r)
+    # tranche 2 (QA : d7-d10 à 0,30-0,33 aux stades 1-2, vues dans l'axe depuis le sud) : PLAQUES DE FLANC en acier clair entre les deux
+    # cœurs, sous le bord de la carapace, et 2e anneau SOMBRE (struct) de part et d'autre de la jointure : un clair et un sombre de plus
+    # vus de bout
+    for s_ in (-1, 1):
+        lot.put(M["clair"], plaque((-0.3, s_ * r * 1.08, Z - r * 0.35), G.norm((0.0, float(s_), -0.25)), 1.7, 1.5, 0.28, up=(1.0, 0.0, 0.0), coins=0.7))
+    lot.put(M["struct"], G.oriente(anneau((0.0, 0.0, 0.0), "z", r * RC * 1.12 + 0.12, 0.45, 0.16), (0.85, 0.0, Z), (1.0, 0.0, 0.0)))
     # QA tour 3 (contraste 0,33 aux stades 1-2 : « coques en sphères lisses sans plaques ») : TROIS plaques comme la queue (une marche
     # d'ombre de plus), joints sombres creusés entre elles, plaques latérales d'acier clair (canon) posées sur chaque coque, pointes
     # d'échine dès le stade 1 (mesuré : d0-d2 0,28 -> 0,31 avec des plaques sombres seules ; il fallait aussi des valeurs CLAIRES)
@@ -718,13 +744,13 @@ def segment_v3(lot, M, stage):
     for i, (xa, xb) in enumerate(plaques):
         # plaque du milieu en acier CLAIR (canon), les deux autres sombres : rythme de blindage bicolore le long du corps (mesuré : avec
         # trois coques sombres le contraste restait 0,30-0,34 aux stades 1-2, il faut une grande surface claire)
-        V3.carapace(lot, M["canon" if i == 1 else "blind"], xa, xb, r * RC, Z, ouv=1.6, ep=0.55, lip=1.12, n=6, sy=1.12)
+        V3.carapace(lot, M["clair" if i == 1 else "blind"], xa, xb, r * RC, Z, ouv=1.6, ep=0.55, lip=1.12, n=6, sy=1.12)
         xm = 0.5 * (xa + xb) - 0.1
         for s_ in (-1, 1):
             a = s_ * 0.98
             rr = r * RC * 1.1
             p = (xm, rr * 1.12 * math.sin(a), Z + rr * math.cos(a))
-            lot.put(M["canon"], plaque(p, G.norm((0.0, 1.12 * math.sin(a), math.cos(a))), 1.25, 1.5, 0.22, up=(1.0, 0.0, 0.0), coins=0.7))
+            lot.put(M["clair"], plaque(p, G.norm((0.0, 1.12 * math.sin(a), math.cos(a))), 1.25, 1.5, 0.22, up=(1.0, 0.0, 0.0), coins=0.7))
     for xs in (-0.9, 0.85):
         rr = r * RC * 1.04
         lot.put(M["struct"], G.tube([(xs, 1.12 * rr * math.sin(a), Z + rr * math.cos(a)) for a in [-1.6 + 3.2 * i / 12.0 for i in range(13)]], 0.17, 6))
@@ -775,15 +801,15 @@ def queue_v3(lot, M, stage):
 
 
 def tete_v3(lot, M, stage, u=None, attaque=None):
-    """TÊTE V3 : la tête V2 (crâne massif, gueule d'impulsion, mandibules, crête) dans la palette V3, plus une plaque de carapace sur le
-    cou, l'échine cyan qui se prolonge et la couronne de lévitation ventrale."""
-    tete_v2(lot, M, stage, u=u, attaque=attaque)
+    """TÊTE V3 : la tête V2 (gueule d'impulsion, mandibules, crête) avec un CRÂNE V3 (trois coques bicolores, joints sombres, arcades
+    d'acier clair, rotule striée), une plaque de carapace claire sur le cou, l'échine cyan qui se prolonge et la couronne de lévitation."""
+    tete_v2(lot, M, stage, u=u, attaque=attaque, v3=True)
     dz = 0.0
     if attaque is None and u is not None:
         dz = 0.15 * math.sin(G.TAU * u)
     lot.xf = (lambda v: XF0((v[0], v[1], v[2] + dz))) if dz else XF0
     r = R_CORPS
-    V3.carapace(lot, M["blind"], -(DEMI + 1.25), -0.7, r * RC, Z, ouv=1.6, ep=0.55, lip=1.1, n=6, sy=1.12)
+    V3.carapace(lot, M["clair"], -(DEMI + 1.25), -0.7, r * RC, Z, ouv=1.6, ep=0.55, lip=1.1, n=6, sy=1.12)
     echine_v3(lot, M, -(DEMI + 1.0), -0.9, lambda x: r, stage)
     couronne_ventrale(lot, M, -1.9, 3.5)
     lot.xf = XF0

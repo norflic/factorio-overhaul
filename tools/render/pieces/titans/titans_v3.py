@@ -47,6 +47,16 @@ def matieres(S, prefix, gris=False):
             if "Coat Weight" in p.inputs:
                 p.inputs["Coat Weight"].default_value = 1.0
                 p.inputs["Coat Roughness"].default_value = 0.04
+        # « clair » (tranche 2 du Léviathan) : l'acier clair du canon, moins métallique et plus mat : il renvoie le soleil au lieu du
+        # ciel sombre (le canon à 0,88 de métal se lisait presque aussi sombre que le blindage) ; seules les pièces du Léviathan s'en servent
+        c = M["canon"].copy()
+        c.name = prefix + "clair"
+        p = c.node_tree.nodes["Principled BSDF"]
+        p.inputs["Metallic"].default_value = 0.45
+        p.inputs["Roughness"].default_value = 0.34
+        M["clair"] = c
+    else:
+        M["clair"] = M["canon"]
     return M
 
 
