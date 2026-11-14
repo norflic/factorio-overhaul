@@ -23,6 +23,7 @@ local Armee = require("script.robots.armee") -- lot ROBOTS-JEU : plafond de géa
 local Mo = require("shared.robots.modele")
 local Ro = require("shared.content.robots") -- lot BOURDON-SORTIE : taille de l'usine (point de sortie)
 local State = require("script.faction.state") -- lot BOURDON-MINEURS : une faction ne sort pas de Bourdon (B.sortie)
+local Kx = require("script.robots.experimentaux_commun") -- s43 tranche 4 : forces ennemies (triées)
 local XpG = require("script.robots.experimentaux_geants") -- règle d'échelle : cible « tout ce qui est ennemi » (lot EXPERIMENTAUX-PUISSANCE)
 local Ech = require("shared.robots.echelle") -- séquelles du Glas : 10 min (QCM-7/11 : « non temporaire mais de 10 minutes »)
 local SPRM = require("graphics.robots.megabourdon.sprites") -- lot MEGA-BOURDON : corps cuirassé, casemates (bouches : SPRM.canons)
@@ -800,6 +801,8 @@ end
 
 -- ---------------------------------------------------------------------------------------- casemates du Méga-Bourdon (lot MEGA-BOURDON)
 local ARME_MEGA -- valeurs pures (B.arme_mega), calculées une fois
+local CIBLES_SALVE = { "unit-spawner", "turret" } -- s43 tranche 4 : types visés par les casemates (nids, vers)
+local CIBLES_SALVE_MAX = 512
 local function arme_mega()
   if ARME_MEGA == nil then
     -- s43 MEGA-BOURDON : arme lourde, portée au gabarit de sa boîte de dessin (lue dans son prototype)
@@ -810,7 +813,7 @@ local function arme_mega()
   return ARME_MEGA or nil
 end
 
---- Chaque tourelle vise l'ennemi le plus proche à portée (XpG.cible : militaire d'abord), tourne d'un cran toutes les B.MEGA.TOURNE ticks par le
+--- Chaque tourelle vise sa cible de salve (s43 tranche 4, B.cibles_salve ; sinon l'ennemi le plus proche à portée, XpG.cible), tourne d'un cran toutes les B.MEGA.TOURNE ticks par le
 --- plus court chemin (B.pas_tourelle) et tire l'orbe de sa bouche (B.bouche) une fois alignée, en quinconce dans la recharge de l'orbe du Bastion,
 --- jamais en deçà de la portée minimale. Sans cible, elle reste où elle est.
 local function tir_canons(b, tick)
@@ -820,16 +823,35 @@ local function tir_canons(b, tick)
   b.canons_t = b.canons_t or {}
   local e = b.e
   local pos = e.position
-  local cible
+  -- s43 MEGA-BOURDON (tranche 4) : une cible par casemate (B.cibles_salve : les nids et vers ennemis les plus denses à portée, écartés
+  -- d'un rayon d'impact), revue une fois par recharge ou dès qu'une cible tombe ; sans nid ni ver à portée, l'ennemi le plus proche
   if tick % B.MEGA.TOURNE == b.id % B.MEGA.TOURNE then
-    cible = XpG.cible(e, { range = a.portee })
-    b.cible = cible and cible.valid and cible or nil
-  else
-    cible = b.cible
+    local perime = not b.cibles or tick >= (b.cibles_t or 0)
+    for _, x in ipairs(b.cibles or {}) do if not x.valid then perime = true end end
+    if perime then
+      local pts = {}
+      local forces = Kx.enemy_forces(e.force)
+      if #forces > 0 then
+        for _, x in ipairs(e.surface.find_entities_filtered({ position = pos, radius = a.portee, force = forces, type = CIBLES_SALVE,
+          limit = CIBLES_SALVE_MAX })) do
+          local q = x.position
+          pts[#pts + 1] = { x = q.x, y = q.y, e = x }
+        end
+      end
+      local cs = {}
+      for _, i in ipairs(B.cibles_salve(pts, B.MEGA.CANONS, a.rayon)) do cs[#cs + 1] = pts[i].e end
+      if #cs == 0 then
+        local c1 = XpG.cible(e, { range = a.portee })
+        if c1 and c1.valid then cs = { c1 } end
+      end
+      b.cibles, b.cibles_t = cs, tick + a.recharge
+    end
   end
-  if cible and not cible.valid then cible, b.cible = nil, nil end
+  local cs = b.cibles or {}
   for k, t in ipairs(b.tourelles) do
     local sol = sols[k]
+    local cible = #cs > 0 and cs[(k - 1) % #cs + 1] or nil
+    if cible and not cible.valid then cible = nil end
     if cible then
       local dx, dy = cible.position.x - (pos.x + sol[1]), cible.position.y - (pos.y + sol[2])
       t.vise = B.direction16(dx, dy / B.COS45) or t.vise

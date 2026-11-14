@@ -107,5 +107,44 @@ local J3 = B.impact_mega(Fx.MODES.plasma.impact)
 J3.couleur, J3.lumiere.couleur = blanc, blanc
 ck(#Fx.verifier({ nom = "mega", mode = "plasma", couleur = blanc, impact = J3 }, Bo) == 0, "impact sans source : dans les bornes du Méga-Bourdon")
 ck(X:find("ajoute_cible(orbe.action, { type = \"create-entity\", entity_name = ec.name })", 1, true) ~= nil, "effets : éclair central branché")
+-- 7. tranche 4 : une salve sur 4 cibles distinctes
+local function base(cx, cy, r, l)
+  for dx = -r, r, 6 do for dy = -r, r, 6 do if dx * dx + dy * dy <= r * r then l[#l + 1] = { x = cx + dx, y = cy + dy } end end end
+  return l
+end
+local R = L.rayon
+local pts = base(150, 0, 28, {}) -- la base principale (dense) et trois voisines (banc megabourdon-salve), plus un nid isolé
+base(150, -62, 16, pts); base(150, 62, 16, pts); base(212, 0, 16, pts)
+pts[#pts + 1] = { x = 400, y = 400 }
+local cs = B.cibles_salve(pts, 4, R)
+ck(#cs == 4, "4 cibles pour 4 casemates")
+local ok_ecart = true
+for i = 1, #cs do for j = i + 1, #cs do
+  local dx, dy = pts[cs[i]].x - pts[cs[j]].x, pts[cs[i]].y - pts[cs[j]].y
+  if cs[i] ~= cs[j] and dx * dx + dy * dy < R * R then ok_ecart = false end
+end end
+ck(ok_ecart, "cibles distinctes écartées d'au moins un rayon d'impact")
+local function couvert(p)
+  for _, i in ipairs(cs) do
+    local dx, dy = p.x - pts[i].x, p.y - pts[i].y
+    if dx * dx + dy * dy <= R * R then return true end
+  end
+  return false
+end
+local tous = true
+for k = 1, #pts - 1 do if not couvert(pts[k]) then tous = false end end
+ck(tous, "la salve couvre la base visée et ses trois voisines (rayon " .. R .. ")")
+ck(pts[cs[1]].x >= 122 and pts[cs[1]].x <= 178 and math.abs(pts[cs[1]].y) <= 28, "première cible : dans la base la plus dense")
+local inv = {}
+for k = #pts, 1, -1 do inv[#inv + 1] = pts[k] end
+local cs2 = B.cibles_salve(inv, 4, R)
+local memes = true
+for i = 1, 4 do if pts[cs[i]].x ~= inv[cs2[i]].x or pts[cs[i]].y ~= inv[cs2[i]].y then memes = false end end
+ck(memes, "choix déterministe : l'ordre d'entrée ne compte pas")
+local un = B.cibles_salve({ { x = 1, y = 1 }, { x = 2, y = 1 } }, 4, R)
+ck(#un == 4 and un[1] == un[2] and un[1] == un[4], "une seule zone : les 4 casemates sur la même cible")
+ck(#B.cibles_salve({}, 4, R) == 0 and #B.cibles_salve(nil, 4, R) == 0, "aucun point : aucune cible")
+ck(S:find("for _, i in ipairs(B.cibles_salve(pts, B.MEGA.CANONS, a.rayon)) do", 1, true) ~= nil
+  and S:find("local cible = #cs > 0 and cs[(k - 1) % #cs + 1] or nil", 1, true) ~= nil, "script : une cible de salve par casemate")
 print(string.format("[S43-MEGA-BOURDON] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 os.exit(ko == 0 and 0 or 1)
