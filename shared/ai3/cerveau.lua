@@ -495,7 +495,7 @@ function C.think(view, book, st, ctx)
       for _, it in ipairs(core) do own[it[1]] = true end -- (les pièces du kit déjà au coffre lui reviennent entières : seule la matière est partagée)
       for _, k in ipairs(sorted_keys(E.avail)) do
         local v = own[k] and 0 or (E.avail[k] or 0)
-        local keep = v - math.floor(v * Ent.CFG.head_share)
+        local keep = v - math.floor(v * Ent.CFG.head_avail)
         if keep > 0 then held[k] = keep; E.avail[k] = v - keep end
       end
       g.missing = core

@@ -25,8 +25,8 @@ E.CFG = {
   head_horizon = 18000, -- entrepreneur-craft-0716 : la tête n'est tenue que si le coût en plaques du manque du kit tient dans la PART
   head_share = 0.5,      -- (head_share) du stock de plaques + débit de l'équipe sur head_horizon ticks (5 min) ; sinon tête rendue, monopole gardé.
                          -- Banc 1 : le kit du joueur (1 298 objets) jamais complet en 18 min affamait toute sa base (5 fours en marche contre 29).
-                         -- head_share borne aussi la part du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua) : banc 2,
-                         -- scarlet 50 -> 26 fours en marche quand la bande prenait tout.
+  head_avail = 1.0,      -- part de la MATIÈRE du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua). Banc 3 (0.5) : kits lents
+                         -- (azure, 70 objets en 12,6 min sous la tête) ; la porte du budget (head_share) suffit à protéger la base.
 }
 
 --- Décision du scan. inp = { delta (plaques produites depuis le relevé), room (place sur un gisement : bool), cover (‰ ou nil),
