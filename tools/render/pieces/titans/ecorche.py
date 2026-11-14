@@ -39,6 +39,10 @@ AMP = 0.42
 # TAILLE[variante] (lot.xf) ; l'amplitude du pas est divisée d'autant dans le repère du modèle, la foulée au sol reste FOULEE.
 TAILLE = {1: 1.15, 2: 1.45, 3: 1.3}
 AMP_MODELE = [AMP]
+# tranche 3 : éclaircissement des crêtes de fibres par variante (contraste p90-p10 >= 0,35 en gardant l'ordre de luminance)
+CONTRASTE_CRETE = {1: 1.2, 2: 2.8, 3: 2.3}
+# exposition par variante (facteur sur toutes les couleurs de surface) : charte lum. médiane <= 0,38 et ordre rôdeur > hurleur > porteur
+ECLAT = {1: 0.785, 2: 0.66, 3: 0.70}
 FOULEE = 2 * 0.42
 
 # Variante : couleurs LINÉAIRES du muscle (creux, fond, crêtes), de l'os, du tendon et de la peau morte ; le reste (silhouette) est dans
@@ -48,17 +52,17 @@ COULEURS = {
     # jauni sombre ; l'ordre de luminance rôdeur > hurleur > porteur reste (tests/titans_test.lua §8)
     # QA tour 3 : rôdeur ROUGE SANG (écarlate, le plus clair des trois), moins d'os blanc ; porteur : chair rouge sombre nettement plus
     # claire que sa charge presque noire (valeurs séparées, nervures claires) ; hurleur cramoisi sombre, crâne d'os jauni sombre
-    1: {"creux": (0.08, 0.012, 0.012), "fond": (0.40, 0.070, 0.050), "crete": (0.80, 0.36, 0.24), "os": (0.24, 0.18, 0.09),
+    1: {"creux": (0.08, 0.012, 0.012), "fond": (0.28, 0.050, 0.037), "crete": (0.80, 0.36, 0.24), "os": (0.24, 0.18, 0.09),
         "tendon": (0.48, 0.38, 0.24), "peau": (0.10, 0.06, 0.055), "gorge": (0.20, 0.025, 0.03)},
-    2: {"creux": (0.008, 0.003, 0.004), "fond": (0.075, 0.021, 0.023), "crete": (0.34, 0.14, 0.10), "os": (0.15, 0.10, 0.04),
-        "tendon": (0.50, 0.40, 0.25), "peau": (0.025, 0.018, 0.022), "gorge": (0.10, 0.01, 0.015), "sac": (0.016, 0.009, 0.014)},
-    3: {"creux": (0.03, 0.002, 0.004), "fond": (0.34, 0.032, 0.026), "crete": (0.78, 0.22, 0.13), "os": (0.20, 0.13, 0.05),
+    2: {"creux": (0.008, 0.003, 0.004), "fond": (0.05, 0.014, 0.016), "crete": (0.34, 0.14, 0.10), "os": (0.15, 0.10, 0.04),
+        "tendon": (0.65, 0.52, 0.32), "peau": (0.025, 0.018, 0.022), "gorge": (0.10, 0.01, 0.015), "sac": (0.008, 0.005, 0.007)},
+    3: {"creux": (0.03, 0.002, 0.004), "fond": (0.28, 0.026, 0.022), "crete": (0.78, 0.22, 0.13), "os": (0.20, 0.13, 0.05),
         "tendon": (0.42, 0.34, 0.22), "peau": (0.16, 0.035, 0.035), "gorge": (0.20, 0.008, 0.025)},
 }
 
 
 # ------------------------------------------------------------------------------------------------ matières
-def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0.0):
+def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0.0, contraste=1.0):
     """Muscle ÉCORCHÉ : fibres (vagues en bandes le long de u : la longueur des tubes et des lofts), marbrure, relief des fibres, vernis
     humide (couche de vernis). Couleurs linéaires : creux des fibres, fond, crêtes."""
     import bpy
@@ -85,7 +89,7 @@ def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0
     L.new(tc.outputs["Object"], nz.inputs["Vector"])
     a = N.new("ShaderNodeMath")
     a.operation = "MULTIPLY"
-    a.inputs[1].default_value = 0.35
+    a.inputs[1].default_value = 0.55      # tranche 3 (QA A3 contraste) : fibres plus marquées
     L.new(wv.outputs["Fac"], a.inputs[0])
     b = N.new("ShaderNodeMath")
     b.operation = "MULTIPLY_ADD"
@@ -94,15 +98,17 @@ def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0
     L.new(a.outputs["Value"], b.inputs[2])
     rp = N.new("ShaderNodeValToRGB")
     e = rp.color_ramp.elements
-    e[0].position, e[0].color = 0.25, tuple(creux) + (1.0,)
-    e[1].position, e[1].color = 0.85, tuple(crete) + (1.0,)
+    # tranche 3 (QA A3) : creux deux fois plus noirs, crêtes plus claires (CONTRASTE_CRETE de la variante), rampe plus raide
+    e[0].position, e[0].color = 0.32, tuple(c * 0.3 for c in creux) + (1.0,)
+    e[1].position, e[1].color = 0.78, tuple(min(1.0, c * contraste) for c in crete) + (1.0,)
     mid = e.new(0.55)
     mid.color = tuple(fond) + (1.0,)
     L.new(b.outputs["Value"], rp.inputs["Fac"])
     L.new(rp.outputs["Color"], p.inputs["Base Color"])
     p.inputs["Roughness"].default_value = rough
     p.inputs["Metallic"].default_value = 0.0
-    for k, v in (("Specular IOR Level", 0.55), ("Coat Weight", 0.35), ("Coat Roughness", 0.18)):
+    # tranche 3 (QA A4) : vernis humide atténué et plus diffus : le reflet du soleil le long du dos (vue de dos) brûlait en blanc
+    for k, v in (("Specular IOR Level", 0.45), ("Coat Weight", 0.15), ("Coat Roughness", 0.35)):
         if k in p.inputs:
             p.inputs[k].default_value = v
     bp = N.new("ShaderNodeBump")
@@ -169,18 +175,21 @@ def matieres(S, stage):
         for k in ("muscle", "tendon", "sac", "gorge"):
             M[k] = M["chair"]
         M["peau_morte"] = M["cavite"] = M["peau"]
+        M["gorge_lum"], M["oeil"], M["pustule"] = M["coeur"], M["conduit"], M["conduit"]
         return M
-    c = COULEURS[stage]
-    M["muscle"] = muscle(PREFIX + "muscle", c["creux"], c["fond"], c["crete"], graine=stage)
+    c = {k: tuple(x * ECLAT[stage] for x in v) for k, v in COULEURS[stage].items()}
+    M["muscle"] = muscle(PREFIX + "muscle", c["creux"], c["fond"], c["crete"], graine=stage, contraste=CONTRASTE_CRETE[stage])
     M["gorge"] = muscle(PREFIX + "gorge", tuple(x * 0.4 for x in c["gorge"]), c["gorge"], tuple(min(1.0, x * 2.2) for x in c["gorge"]),
                         rough=0.25, echelle=2.5, bosse=0.3)
     M["os"] = lisse(PREFIX + "os", c["os"], rough=0.42, coat=0.1)
     M["tendon"] = lisse(PREFIX + "tendon", c["tendon"], rough=0.22, coat=0.45)
     M["peau_morte"] = lisse(PREFIX + "peau_morte", c["peau"], rough=0.7, coat=0.0)
     M["cavite"] = lisse(PREFIX + "cavite", tuple(x * 0.12 for x in c["os"]), rough=0.8, coat=0.0, cavites=False)
-    M["sac"] = lisse(PREFIX + "sac", c.get("sac", c["peau"]), rough=0.15, coat=0.85)
+    M["sac"] = lisse(PREFIX + "sac", c.get("sac", c["peau"]), rough=0.15, coat=0.5)
     # émissifs (couche lueur, rendus blancs, teints en jeu) : yeux, gorge, pustules
-    M["oeil"] = S.mat_emissive(PREFIX + "conduit_oeil", (1.0, 0.95, 0.85), strength=3.0, base=(0.6, 0.5, 0.3), main_scale=0.6)
+    M["oeil"] = S.mat_emissive(PREFIX + "conduit_oeil", (1.0, 0.95, 0.85), strength=3.0, base=(0.3, 0.2, 0.1), main_scale=0.1)
+    # tranche 3 (QA A4 : blanc brûlé du hurleur) : la gorge brûle dans la couche LUEUR seule ; dans la couche principale, chair sombre
+    M["gorge_lum"] = S.mat_emissive(PREFIX + "conduit_gorge", (1.0, 0.92, 0.85), strength=3.0, base=(0.12, 0.015, 0.02), main_scale=0.04)
     M["pustule"] = S.mat_emissive(PREFIX + "conduit_pustule", (1.0, 0.75, 0.45), strength=2.4, base=(0.5, 0.25, 0.1), main_scale=0.55)
     return M
 
@@ -334,7 +343,7 @@ def tete(lot, M, base, k, tangage, ouverture, crane, dents=3, yeux=2, gorge=1.0)
     lot.put(M["gorge"], ellipsoide(gc, 0.3 * k * lx, 0.16 * k, 0.08 * k + 0.12 * k * min(1.0, ouverture), 10, 5))
     rv = (0.05 + 0.06 * min(1.2, ouverture)) * k * gorge
     o = min(1.0, ouverture)
-    lot.put(M["coeur"], ellipsoide(J(0.12 + 0.2 * o, 0.0, -0.02 + 0.03 * o), rv * 1.3, min(rv, 0.15 * k), min(rv * 0.8, 0.1 * k), 10, 5))
+    lot.put(M["gorge_lum"], ellipsoide(J(0.12 + 0.2 * o, 0.0, -0.02 + 0.03 * o), rv * 1.3, min(rv, 0.15 * k), min(rv * 0.8, 0.1 * k), 10, 5))
     return P, J
 
 
@@ -474,7 +483,7 @@ def hurleur(lot, M, u, a, bob, lunge, ouv, cri):
         v = [r0, t0, mid, t1, r1]
         lot.put(M["peau_morte"], (v, [(0, 1, 2), (0, 2, 4), (4, 2, 3)], [(0.0, 0.0)] * 5))
         lot.put(M["peau_morte"], (v, [(2, 1, 0), (4, 2, 0), (3, 2, 4)], [(0.0, 0.0)] * 5))
-    tete(lot, M, b, 0.85, 0.4 + 0.3 * cri, 0.95 + 0.35 * ouv, (1.05, 1.05, 1.0), dents=4, yeux=2, gorge=1.1)
+    tete(lot, M, b, 0.85, 0.4 + 0.12 * cri, 0.95 + 0.35 * ouv, (1.05, 1.05, 1.0), dents=4, yeux=2, gorge=1.1)
 
 
 def build_anime(S, lot, stage, u, attaque):
@@ -488,12 +497,12 @@ def build_anime(S, lot, stage, u, attaque):
     if attaque is not None:
         a = attaque
         k = math.sin(math.pi * min(1.0, a * 1.4))        # élan : monte puis retombe sur la dernière image
-        lunge, ouv, cri = 0.12 * k, k, k      # QA A8 : élan court (gigue du centre de masse)
-        bob, uu = -0.02 * k, 0.0
+        lunge, ouv, cri = 0.05 * k, k, k      # QA A8 : élan court (gigue du centre de masse <= 3 %) : la gueule et la tête font l'attaque
+        bob, uu = 0.0, 0.0
     else:
         a = None
         lunge, ouv, cri = 0.0, 0.0, 0.0
-        bob = 0.025 * math.sin(G.TAU * 2.0 * u)
+        bob = 0.015 * math.sin(G.TAU * 2.0 * u)
         uu = u
     if st == 1:
         rodeur(lot, M, uu, a, bob, lunge, ouv)
