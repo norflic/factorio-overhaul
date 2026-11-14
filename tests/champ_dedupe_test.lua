@@ -102,7 +102,7 @@ local fi = src:find("function Champ.frame(f, surface, o)", 1, true)
 local fe = fi and src:find("\nfunction ", fi + 10, true) or nil
 local fblk = (fi and fe) and src:sub(fi, fe) or ""
 local wr = fblk:find("Cd.reserve(f.build.occ, Cd.frame_tiles(plan.ents, is_res), o.id, P.tkey)", 1, true)
-local pl = fblk:find("local plan, why = Ch.plan(spec)", 1, true)
+local pl = fblk:find("local plan, why = Ch.plan_result(seq.st)", 1, true) -- s49 tranches : le plan entier sort de sa séquence pas à pas
 local rt = fblk:find("return plan.frame, prs, plan", 1, true)
 check(wr ~= nil and pl ~= nil and rt ~= nil and pl < wr and wr < rt, "Champ.frame : tuiles du cadre figé retenues après le plan, avant de rendre le cadre")
 check(fblk:find("for i = 1, #spec.ore - 1, 2 do res[Ch.key(spec.ore[i], spec.ore[i + 1])] = true end", 1, true) ~= nil and fblk:find("spec.foreign and spec.foreign[k]", 1, true) ~= nil,

@@ -1283,47 +1283,90 @@ end
 --- croisant pas le tracé du premier sans souterrain ; rejoué hors jeu sur le cadre de scarlet, graine 20261020 : côté + « aucun chemin »,
 --- 4 coffres de tête ; l'autre ordre : 0 coffre, une colonne refusée de l'autre côté, 13 % des foreuses) un cadre NEUF en colonne à
 --- combustible qui garde un coffre de tête ou refuse une colonne est aussi calculé dans l'autre ordre des côtés ; le meilleur est gardé.
-local function plan_both(spec)
-  local p, why = plan_order(spec)
-  if not (Ch.CFG.both_orders and p and p.design == "colonne" and p.fuelled and not spec.frame and not spec.coal_first) then return p, why end
-  if Ch.head_chests(p) == 0 and not (p.refused and #p.refused > 0) then return p, why end
-  local sp = {}
-  for k, v in pairs(spec) do sp[k] = v end
-  sp.coal_first = -p.exit
-  local q, qwhy = plan_order(sp)
-  if Ch.better_order(p, q) then
-    q.order_swapped = { chests = Ch.head_chests(p), drills = Ch.field_drills(p) }
-    return q, qwhy
-  end
-  return p, why
+-- (plan_both) Vrai si le plan `p` de la spec `s` demande l'autre ordre des côtés : conditions de plan_both, à l'identique.
+local function both_wants(s, p)
+  if not (Ch.CFG.both_orders and p and p.design == "colonne" and p.fuelled and not s.frame and not s.coal_first) then return false end
+  if Ch.head_chests(p) == 0 and not (p.refused and #p.refused > 0) then return false end
+  return true
 end
-
+-- (plan_both) Choix entre le plan `a` ({ p, why }) et l'autre ordre `b` (nil : pas calculé). `mark` : pose order_swapped (comme plan_both).
+local function both_pick(a, b, mark)
+  if b and Ch.better_order(a.p, b.p) then
+    if mark then b.p.order_swapped = { chests = Ch.head_chests(a.p), drills = Ch.field_drills(a.p) } end
+    return b.p, b.why
+  end
+  return a.p, a.why
+end
 --- s41 pavage-trous : les rangées optimales (décalage s, row_drills) posent des foreuses là où le glouton laissait un trou ; sur un cadre
 --- neuf où ce plan garde un coffre de tête (voie du charbon sans chemin), le plan aux rangées gloutonnes seules est essayé, et gardé
 --- s'il a MOINS de coffres de tête (cadre réel du joueur, graine 271828182 : 4 foreuses de plus fermaient une voie du charbon).
-local plan_rows
-function Ch.plan(spec)
-  PHASE_MEMO = {}
-  local p, why = plan_rows(spec)
-  PHASE_MEMO = nil
-  return p, why
-end
-plan_rows = function(spec)
-  local p, why = plan_both(spec)
-  if spec.frame or spec.no_row_opt or not p or p.design ~= "colonne" or Ch.head_chests(p) == 0 then return p, why end
+-- (plan_rows) Vrai si le plan `p` de la spec `spec` demande le plan aux rangées gloutonnes : conditions de plan_rows, à l'identique.
+local function rows_wants(spec, p)
+  if spec.frame or spec.no_row_opt or not p or p.design ~= "colonne" or Ch.head_chests(p) == 0 then return false end
   local opt = false
   local s = spec.drill.size
   for _, bd in ipairs(p.bands or {}) do
     local off = p.frame and p.frame.offsets and p.frame.offsets[tostring(bd.pr)]
     if off and (off[1] == s or off[2] == s) then opt = true end
   end
-  if not opt then return p, why end
+  return opt
+end
+local function spec_with(spec, k, v)
   local sp = {}
-  for k, v in pairs(spec) do sp[k] = v end
-  sp.no_row_opt = true
-  local q, qwhy = plan_both(sp)
+  for kk, vv in pairs(spec) do sp[kk] = vv end -- copie de la spec (pas une décision)
+  sp[k] = v
+  return sp
+end
+
+--- s49 tranches : le plan d'un cadre neuf pas à pas, UN plan_order par pas. Variantes, dans l'ordre de Ch.plan (plan_rows -> plan_both) :
+--- 1 = la spec ; 2 = l'autre ordre des côtés de 1 (coal_first = -exit de 1, si plan_both le demande) ; 3 = les rangées gloutonnes
+--- (no_row_opt, si plan_rows le demande sur le choix de 1 et 2) ; 4 = l'autre ordre des côtés de 3 (si plan_both le demande sur 3).
+--- `res` : variantes déjà calculées, res[i] = { p = plan, why = raison }. Rend (i, spec de la variante i) de la prochaine à calculer,
+--- ou nil quand le plan est complet (Ch.plan_pick). Règle pure : aucun calcul de plan, `res` n'est pas modifié.
+function Ch.plan_next(spec, res)
+  if not res[1] then return 1, spec end
+  if not res[2] and both_wants(spec, res[1].p) then return 2, spec_with(spec, "coal_first", -res[1].p.exit) end
+  local P = both_pick(res[1], res[2], false)
+  if not rows_wants(spec, P) then return nil end
+  local s3 = spec_with(spec, "no_row_opt", true)
+  if not res[3] then return 3, s3 end
+  if not res[4] and both_wants(s3, res[3].p) then return 4, spec_with(s3, "coal_first", -res[3].p.exit) end
+  return nil
+end
+
+--- s49 tranches : le plan final des variantes calculées (`res`, complet au sens de Ch.plan_next) : les règles de plan_both puis de plan_rows
+--- (Ch.better_order, puis MOINS de coffres de tête, Ch.head_chests), à l'identique. Rend plan, raison. Pose order_swapped comme plan_both.
+function Ch.plan_pick(spec, res)
+  local p, why = both_pick(res[1], res[2], true)
+  if not res[3] then return p, why end
+  local q, qwhy = both_pick(res[3], res[4], true)
   if q and Ch.head_chests(q) < Ch.head_chests(p) then return q, qwhy end
   return p, why
+end
+
+Ch.ORDERS = 0 -- s49 tranches : nombre de plan_order calculés (compteur des tests ; jamais lu pour une décision)
+
+--- s49 tranches : séquence pas à pas. Ch.plan_begin(spec) -> état { spec, res, memo, n } ; Ch.plan_step(st) calcule UNE variante (un
+--- plan_order, mémoire de phase de la séquence) et rend vrai quand le plan est complet ; Ch.plan_result(st) -> plan, raison.
+function Ch.plan_begin(spec) return { spec = spec, res = {}, memo = {}, n = 0 } end
+function Ch.plan_step(st)
+  local i, vs = Ch.plan_next(st.spec, st.res)
+  if i then
+    PHASE_MEMO = st.memo
+    local p, why = plan_order(vs)
+    PHASE_MEMO = nil
+    Ch.ORDERS = Ch.ORDERS + 1
+    st.res[i], st.n = { p = p, why = why }, st.n + 1
+  end
+  return Ch.plan_next(st.spec, st.res) == nil
+end
+function Ch.plan_result(st) return Ch.plan_pick(st.spec, st.res) end
+
+--- Plan du champ en un appel : la séquence pas à pas enchaînée (même plan ; jusqu'à 4 plan_order dans l'appel).
+function Ch.plan(spec)
+  local st = Ch.plan_begin(spec)
+  while not Ch.plan_step(st) do end
+  return Ch.plan_result(st)
 end
 
 --- s42 gisements (chantier 4.3 du DC, partie 0.7.96 : « essayer les deux orientations et garder le plan qui pose le plus de foreuses »).

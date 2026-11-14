@@ -460,6 +460,10 @@ end
 local Ax = require("shared.team.champ_axe") -- s47 axe : un plan de champ par tick
 local FIRST_PLAN = {} -- 0.7.107 : premier plan d'un essai d'axe, par avant-poste (local, non sauvegardé : absent après chargement, le plan est alors refait)
 local PLAN_TICK = nil -- s47 axe : tick du dernier Ch.plan de cadre (local au module, non sauvegardé : un rechargement ne fait que permettre un plan)
+-- s49 tranches : séquence de variantes du plan en cours, par avant-poste : { f, key, spec, st (Ch.plan_begin), tick du dernier pas } (local, non
+-- sauvegardé : absente après chargement, la séquence est reprise du début sur une spec neuve ; même plan pour la même spec)
+local SEQ = {}
+local SEQ_GAP = 1800 -- s49 tranches : un pas de plus de 30 s après le précédent repart du début (spec relue : le monde a pu changer)
 local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
 
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
@@ -470,15 +474,32 @@ function Champ.frame(f, surface, o)
   if step == "wait" then return nil, Ax.WAIT end
   local try = o.axis_try
   local axis_force = (step == "other" or step == "final") and try.axe or nil
-  Profiler.fstart("champ:frame-spec")
-  local spec, names = spec_of(f, surface, o, nil, nil, axis_force)
-  Profiler.fstop("champ:frame-spec")
-  if not spec then o.axis_try = nil; return nil, names end
-  Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
+  -- s49 tranches : au plus UN plan_order par tick (Ch.plan_step) ; les variantes de Ch.plan (autre ordre des côtés, rangées gloutonnes) d'un même
+  -- plan partent aux appels suivants sur la MÊME spec (SEQ, mémoire locale) ; chaque axe essayé a sa séquence (clé : étape, axe, tick de l'essai)
+  local key = step .. ":" .. tostring(axis_force) .. ":" .. tostring(try and try.tick)
+  local seq = SEQ[o.id]
+  if not (seq and seq.f == f and seq.key == key and game.tick - seq.tick <= SEQ_GAP) then
+    Profiler.fstart("champ:frame-spec")
+    local spec, names = spec_of(f, surface, o, nil, nil, axis_force)
+    Profiler.fstop("champ:frame-spec")
+    if not spec then SEQ[o.id] = nil; o.axis_try = nil; return nil, names end
+    Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
+    seq = { f = f, key = key, spec = spec, st = Ch.plan_begin(spec), tick = game.tick }
+    SEQ[o.id] = seq
+  end
+  local spec = seq.spec
   Profiler.fstart("champ:frame-plan")
   PLAN_TICK = game.tick
-  local plan, why = Ch.plan(spec)
+  seq.tick = game.tick
+  local done = Ch.plan_step(seq.st)
   Profiler.fstop("champ:frame-plan")
+  if not done then return nil, Ax.WAIT end
+  SEQ[o.id] = nil
+  if seq.st.n > 1 then
+    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : plan du cadre en %d variantes (une par appel, jamais deux dans un tick) a %.1f min",
+      f.key or "player", o.id, o.kind, seq.st.n, game.tick / 3600))
+  end
+  local plan, why = Ch.plan_result(seq.st)
   if step == "first" then
     if not plan then return nil, why end
     -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie -> l'autre orientation est essayee UNE fois, au tick suivant
