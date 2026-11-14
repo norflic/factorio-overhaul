@@ -306,7 +306,7 @@ local function planner_mutant(name, from, to)
 end
 planner_mutant("planificateur : réserve ignorée", "Dsr.surplus(avail[T.turret] or 0)", "(avail[T.turret] or 0)")
 planner_mutant("planificateur : groupe minimal ignoré", "pk.have + n < Dsr.MIN_GROUP", "false")
-planner_mutant("planificateur : pose en équipe décimée", "if pri.production_first or decimated then\n        out.reserve.why", "if false then\n        out.reserve.why")
+planner_mutant("planificateur : pose en équipe décimée", "local gate = Dsr.gate(pk.kind, pri.production_first, decimated)", "local gate = nil") -- s44 : porte dans la règle pure
 planner_mutant("planificateur : doublon de tâche", "not rs.busy and not open[\"fortify:reserve\"]", "true")
 planner_mutant("planificateur : priorité d'urgence ignorée", "prio = Dsr.prio(pk.kind)", "prio = Dsr.PRIO")
 planner_mutant("planificateur : tâche exemptée du rappel", "pos = { x = pk.x, y = pk.y }, cell_key = pk.key, reserve = true", "pos = { x = pk.x, y = pk.y }, cell_key = pk.key, defend = true")

@@ -59,6 +59,19 @@ function S.prio(kind)
   return S.PRIO
 end
 
+--- Lot s44 TOURELLES-STOCK : porte du planificateur sur la pose du stock. Une tourelle au coffre est déjà payée (coût matière 0) :
+--- « production d'abord » (fer gardé pour la production, mode survie-pénurie compris) ne la retient plus quand le lieu est ATTAQUÉ
+--- (genres qg, prevu, attaque, site : une perte ou une vague récente) ; il ne retient que la couverture des laboratoires (aucune attaque).
+--- Une équipe décimée reste retenue (ses PNJ s'équipent d'abord). Rend nil (pose permise) ou le mot de la cause (« ressources »).
+--- Constat (partie du DC 0.7.102, ambre 155,5 à 162 min) : « PRODUCTION d'abord » avec fer 1946, cellules attaquées de score 6462
+--- à 0 tourelle sur 5, tourelles tuées à 161,6 min, et aucune ligne « [FO-DEFENSE] reserve » d'ambre de toute la partie.
+S.ATTACKED = { qg = true, prevu = true, attaque = true, site = true }
+function S.gate(kind, production_first, decimated)
+  if decimated then return "ressources" end
+  if production_first and not S.ATTACKED[kind] then return "ressources" end
+  return nil
+end
+
 --- Plafond de stock des tourelles fabriquées d'avance (lu par script/team/intermediaires.lua, D10) : fabriquer au-delà de ce que le
 --- poste peut encore poser est du gaspillage. = réserve + places restantes sous le plafond du poste + tourelles réservées par les
 --- tâches ouvertes (`demand`) + marge. `placed` : tourelles déjà posées par le poste.

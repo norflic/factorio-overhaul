@@ -855,8 +855,9 @@ function P.plan(view, book)
     if rs and rs.pick and not rs.busy and not open["fortify:reserve"] then
       local pk = rs.pick
       out.reserve = { key = pk.key, kind = pk.kind, have = pk.have, want = pk.want }
-      if pri.production_first or decimated then
-        out.reserve.why = "ressources"
+      local gate = Dsr.gate(pk.kind, pri.production_first, decimated) -- s44 : le stock payé se pose sur un lieu attaqué même en « production d'abord »
+      if gate then
+        out.reserve.why = gate
       else
         local n, each = Dsr.lot(pk.count, Dsr.surplus(avail[T.turret] or 0), pk.count, avail[T.turret_ammo] or 0)
         if n <= 0 then
