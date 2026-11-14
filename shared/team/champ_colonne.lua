@@ -381,12 +381,22 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o)
     return a.t < b.t
   end)
   local routes, why = 0, "aucune place sur le sol neutre"
+  -- lot CHAMP-FRAME (perf) : la tuile qui a refusé la place précédente est relue la PREMIÈRE (une place voisine bute presque toujours sur
+  -- le même obstacle) ; « fine » = toutes les tuiles neutres, ordre de lecture sans effet (neutral est mémorisée, sans écriture) : même
+  -- résultat. Mesuré hors jeu (dc emerald fer 3) : 1,39 M lectures de neutral pour 95 k places avant.
+  local nrel, lastbad = #rel, 1
   for _, cd in ipairs(cands) do
     if routes >= Co.AWAY_ROUTES then break end
     local b2, s_edge = from.v + cd.k, from.u + side * (cd.t + 1)
     local fine = true
-    for _, r in ipairs(rel) do
-      if not neutral(s_edge + r[1], b2 + r[2]) then fine = false break end
+    local r0 = rel[lastbad]
+    if r0 and not neutral(s_edge + r0[1], b2 + r0[2]) then
+      fine = false
+    else
+      for i = 1, nrel do
+        local r = rel[i]
+        if i ~= lastbad and not neutral(s_edge + r[1], b2 + r[2]) then fine = false lastbad = i break end
+      end
     end
     local t = { u = s_edge - side, v = b2 }
     if fine then
