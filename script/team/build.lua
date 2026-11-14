@@ -76,11 +76,12 @@ Build.skip_lots = Build.Vap.skip_lots
 --- « reserve:materiaux » de 4,7 à 30 min pendant que les bandes de champ (369, 658 pièces) réservaient le même fer. Tant qu'un projet
 --- d'alimentation de centrale attend sa matière (au plus Build.Vap.FIRST_TICKS depuis sa première attente), les AUTRES projets neufs ne
 --- réservent plus rien de plus (ce qu'ils tiennent reste à eux) : le fer qui arrive va d'abord au charbon de la centrale. Exemptés : centrales,
---- alimentations, raccordements, enceinte, liaisons, sites, reconstructions. Rend vrai si `p` attend (raison « vapeur »).
+--- alimentations, raccordements, enceinte, liaisons, reconstructions (lot vapeur-joueur : PLUS les sites, spec.site : bandes de champ, lignes, mall,
+--- les seuls projets neufs de player sur la carte du DC, qui gardaient tout le fer). Rend vrai si `p` attend (raison « vapeur »).
 function Build.alim_first(f, p, tick)
   local b = f.build
   local sp = p.spec or {}
-  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.site or sp.plant or (p.reopened and p.reopened ~= 0) or p.id == b.plant then return false end -- (reopened = 0 : bande neuve, pas une reconstruction)
+  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.plant or (p.reopened and p.reopened ~= 0) or p.id == b.plant then return false end -- (reopened = 0 : bande neuve, pas une reconstruction)
   for _, id in ipairs(b.extra_plants or {}) do if id == p.id then return false end end
   local aid = Build.alim_project(f)
   local a = aid and b.projects[aid]
@@ -97,6 +98,7 @@ function Build.alim_first(f, p, tick)
     log(string.format("[FO-VAPEUR] %s : projet %d (alimentation de la centrale %s) attend sa matiere a %.1f min : les projets neufs ne reservent plus rien pendant %.0f min au plus (premier retenu : projet %d)",
       f.key or "player", a.id, tostring(a.spec and a.spec.alim), tick / 3600, Build.Vap.FIRST_TICKS / 3600, p.id))
   end
+  p.missing = {} -- (ses manques ne sont plus fabriqués pendant l'attente : le fer ne part pas dans ses kits)
   p.reason, p.reserve_next = "vapeur", tick + 60
   return true
 end

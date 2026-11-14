@@ -95,5 +95,17 @@ nk = 0
 for _ in pairs(big) do nk = nk + 1 end
 check(nk == 1, "les echus sont purges")
 
+print("== 6. Priorite de l'alimentation (cablage de build.lua)")
+local fb = assert(io.open("script/team/build.lua", "rb"))
+local bsrc = fb:read("*a")
+fb:close()
+local a0 = bsrc:find("function Build.alim_first(f, p, tick)", 1, true)
+local a1 = a0 and bsrc:find("\nend\n", a0, true)
+local body = a0 and a1 and bsrc:sub(a0, a1) or ""
+check(body ~= "", "Build.alim_first existe")
+check(not body:find("sp.site", 1, true), "les sites (bandes de champ, lignes, mall) ne sont pas exemptes : seuls projets neufs de player (banc VAPEUR-5)")
+check(body:find("p.missing = {}", 1, true) ~= nil, "un projet retenu ne fait plus fabriquer ses manques")
+check(bsrc:find("if Build.alim_first(f, p, tick) then return true end", 1, true) ~= nil, "branchee dans Build.reserve_suspended")
+
 print(string.format("\nResultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
