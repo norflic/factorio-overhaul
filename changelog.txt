@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.109
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F665) : le tapis de charbon d'une centrale refusé pour une recherche de chemin en attente est réessayé après 30 s au lieu de 5 à 30 min ; la centrale s'agrandit dès que la puissance installée dépasse 75 % de la capacité finie, et le journal dit quand c'est le charbon qu'il faut étendre.
+    - Commandement (F666) : le centre de commandement reporté ne vole plus la place d'un remplacement de la zone d'amélioration ; avec l'orientation « Amélioration », les remplacements passent devant la croissance.
+    - IA (F667) : une foreuse refusée par une falaise est sautée seule au lieu de bloquer la bande ; un parc d'au moins 24 fours réclame la recherche du four suivant.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.108
 Date: 2026-11-14
   Bugfixes:
