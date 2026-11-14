@@ -52,7 +52,9 @@ function M.counts(f)
 end
 
 function M.scan(tick)
-  for _, id in ipairs(State.alive()) do
+  local ids = State.alive()
+  ids[#ids + 1] = "player" -- votre équipe (namespace « pteam », hors de State.alive), en dernier : ordre fixe
+  for _, id in ipairs(ids) do
     local f = State.faction(id)
     local c = f and M.counts(f)
     if c then

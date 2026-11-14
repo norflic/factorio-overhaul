@@ -203,6 +203,7 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
   local drills, sinks = {}, {}
   local lacking = false
   local mixed = 0 -- lot MELANGE2 : emplacements refusés pour zone mêlée
+  local why = { sink = 0, reserved = 0, drill = 0, sink_create = 0 } -- lot CHARBON-JOUEUR : refus par cause (orientations comptées)
   -- lot PLAFOND-FOREUSES : gisement déjà couvert à Paires.KAPPA (foreuses électriques du lot FOREUSES, zone de minage 5 x 5) : rien
   -- de plus à poser, le verdict dira « couverture »
   if o then
@@ -227,10 +228,13 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
       local v = drop_vector(dir)
       local drop = { x = pos.x + v[1], y = pos.y + v[2] }
       local spos = sink_position(surface, spec.sink, drop, force, pos)
+      if not spos then why.sink = why.sink + 1 end -- lot CHARBON-JOUEUR : causes d'une pose ratée ([FO-POSE-ECHEC])
       -- lot AUTO : jamais sur une tuile réservée par un projet du plan directeur (fantômes pas encore posés)
       -- (crochet unique PlacesQG.is_reserved, posé par script/team/build.lua : l'ordre des require et des abonnements ne change pas)
-      if spos and (PlacesQG.is_reserved(f, T.DRILL, pos, dir) or PlacesQG.is_reserved(f, spec.sink, spos)) then spos = nil end
-      if spos and surface.can_place_entity({ name = T.DRILL, position = pos, direction = dir, force = force }) then
+      if spos and (PlacesQG.is_reserved(f, T.DRILL, pos, dir) or PlacesQG.is_reserved(f, spec.sink, spos)) then spos = nil; why.reserved = why.reserved + 1 end
+      local fits = spos and surface.can_place_entity({ name = T.DRILL, position = pos, direction = dir, force = force })
+      if spos and not fits then why.drill = why.drill + 1 end
+      if fits then
         local d = surface.create_entity({ name = T.DRILL, position = pos, direction = dir, force = force })
         if d then
           local s = surface.can_place_entity({ name = spec.sink, position = spos, force = force })
@@ -255,6 +259,7 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
             done = true
             break
           end
+          why.sink_create = why.sink_create + 1
           d.destroy()
         end
       end
@@ -264,6 +269,7 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
   local rep = pl.report()
   rep.lacking = lacking
   rep.melange = mixed
+  rep.why = why
   if o and rep.exhausted then o.ext_dead = nil end -- balayage complet : le prochain repart de zéro (un obstacle a pu partir)
   return drills, sinks, rep
 end
@@ -470,8 +476,16 @@ function Outposts.build(f, surface, kind, site, carrier)
   -- place des paires et leurs objets resservent).
   local pc = Outposts.pose_center(f, surface, kind, site) -- lot CHARBON-JOUEUR : bord réel d'un gisement géant
   Outposts.reclaim(f, pc, carrier, 24)
-  local drills, sinks = place_pairs(f, surface, kind, pc, carrier, spec.drills, Outposts.RADIUS.build)
-  if #drills == 0 then return nil end
+  local drills, sinks, rep = place_pairs(f, surface, kind, pc, carrier, spec.drills, Outposts.RADIUS.build)
+  if #drills == 0 then
+    -- lot CHARBON-JOUEUR : la pose ratée « motif pose » (partie du DC, coal (-166, -93), deux fois) ne disait pas POURQUOI
+    local w = rep.why or {}
+    log(string.format("[FO-POSE-ECHEC] %s : avant-poste %s en (%.0f, %.0f) (site (%.0f, %.0f)) : tuiles lues %d, essais %d (occupes %d, morts %d, plafond %s, balaye %s), zone melee %d, refus par orientation : receptacle sans place %d, reserve %d, foreuse sans place %d, receptacle non cree %d, objets manquants %s a %.1f min",
+      f.key or "player", tostring(kind), pc.x, pc.y, site.x, site.y, rep.tiles or 0, rep.attempts or 0, rep.occupied or 0, rep.dead or 0,
+      tostring(rep.capped), tostring(rep.exhausted), rep.melange or 0, w.sink or 0, w.reserved or 0, w.drill or 0, w.sink_create or 0,
+      tostring(rep.lacking), game.tick / 3600))
+    return nil
+  end
   f.next_oid = f.next_oid + 1
   local oid = f.next_oid
   local outpost = {
