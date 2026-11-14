@@ -486,6 +486,17 @@ do
     }
     out[#out + 1] = an
     ajoute_cible(orbe.action, { type = "create-entity", entity_name = an.name, offsets = Bm.anneaux(rayon) })
+    -- s43 tranche 3 : éclair central (onde et éclat du mod, son de la big-explosion vanilla qu'il remplace) et effet `script` d'impact
+    local ec = {
+      type = "explosion", name = Bm.MEGA.ECLAIR, flags = { "not-on-map", "hidden" }, subgroup = "explosions",
+      localised_name = { "entity-name." .. Bm.MEGA.NOM }, rotate = false,
+      sound = data.raw.explosion["big-explosion"] and data.raw.explosion["big-explosion"].sound,
+      animations = { { layers = { feuille_anim("onde", c, Bm.MEGA.ECLAIR_PART.onde * rayon, t_an),
+        feuille_anim("eclat", c, Bm.MEGA.ECLAIR_PART.eclat * rayon, t_an) } } },
+    }
+    out[#out + 1] = ec
+    ajoute_cible(orbe.action, { type = "create-entity", entity_name = ec.name })
+    ajoute_cible(orbe.action, { type = "script", effect_id = Bm.MEGA.IMPACT_ID })
     nb = nb + 1
   end
 end

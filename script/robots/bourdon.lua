@@ -917,6 +917,27 @@ end
 
 Events.on(defines.events.on_tick, sur_tick)
 
+-- s43 MEGA-BOURDON (tranche 3) : à l'impact d'une orbe (effet `script` B.MEGA.IMPACT_ID), les vers et les nids que la zone a laissés à
+-- 0 PV meurent au même tick. Banc megabourdon-salve du 14/11 : les 64 vers lus à 0 PV au tick 500 (impact au tick 492) restaient en jeu
+-- jusqu'au tick 540, l'un jusqu'au tick 640 ; le moteur ne les détruit pas au coup qui les met à 0.
+local function impact_mega(ev)
+  if ev.effect_id ~= B.MEGA.IMPACT_ID then return end
+  local a = arme_mega()
+  local s = game.surfaces[ev.surface_index]
+  local p = ev.target_position or (ev.target_entity and ev.target_entity.valid and ev.target_entity.position)
+  if not (a and s and p) then return end
+  local src = ev.source_entity and ev.source_entity.valid and ev.source_entity or nil
+  local n = 0
+  for _, x in ipairs(s.find_entities_filtered({ position = p, radius = a.rayon, type = B.MEGA.ACHEVE_TYPES })) do
+    if x.valid and x.health and x.health <= 0 then
+      if src then x.die(src.force, src) else x.die() end
+      n = n + 1
+    end
+  end
+  if n > 0 then log(string.format("[FO-MEGA] impact en (%.0f, %.0f) : %d ver(s) ou nid(s) a 0 PV acheve(s)", p.x, p.y, n)) end
+end
+Events.on(defines.events.on_script_trigger_effect, impact_mega)
+
 -- ---------------------------------------------------------------------------------------- actions
 --- Fait descendre un Bourdon. Rend le numéro, ou nil.
 function M.descendre(surface, force, x, y, variante)

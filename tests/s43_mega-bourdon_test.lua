@@ -100,5 +100,15 @@ ck(M:find("Cv.ajouter(f, { n = child,", 1, true) ~= nil and M:find("Cv.tranche(f
   and M:find("Events.on_nth_tick(1, naissances)", 1, true) ~= nil, "enemy_mechanics : naissances par la file plafonnée")
 local _, nce = M:gsub("create_entity", "")
 ck(nce == 1, "enemy_mechanics : une seule pose d'unité")
+-- 6. tranche 3 : éclair central au lieu de la big-explosion, vers à 0 PV achevés à l'impact
+ck(J.source == nil and J.choc ~= nil, "impact central : plus de big-explosion (fumée sombre), l'onde de choc le porte")
+local blanc = { r = 1, g = 1, b = 1 }
+local J3 = B.impact_mega(Fx.MODES.plasma.impact)
+J3.couleur, J3.lumiere.couleur = blanc, blanc
+ck(#Fx.verifier({ nom = "mega", mode = "plasma", couleur = blanc, impact = J3 }, Bo) == 0, "impact sans source : dans les bornes du Méga-Bourdon")
+ck(X:find("ajoute_cible(orbe.action, { type = \"create-entity\", entity_name = ec.name })", 1, true) ~= nil, "effets : éclair central branché")
+ck(X:find("ajoute_cible(orbe.action, { type = \"script\", effect_id = Bm.MEGA.IMPACT_ID })", 1, true) ~= nil, "effets : effet script d'impact")
+ck(S:find("if ev.effect_id ~= B.MEGA.IMPACT_ID then return end", 1, true) ~= nil and S:find("if x.valid and x.health and x.health <= 0 then", 1, true) ~= nil
+  and S:find("Events.on(defines.events.on_script_trigger_effect, impact_mega)", 1, true) ~= nil, "script : vers et nids à 0 PV achevés dans le rayon")
 print(string.format("[S43-MEGA-BOURDON] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 os.exit(ko == 0 and 0 or 1)
