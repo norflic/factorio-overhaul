@@ -373,7 +373,13 @@ function C.think(view, book, st, ctx)
         and not (s.research and s.research.for_auto) then g.value = B.RESEARCH_PRE end
     end
   end
-  local order, K = P.update(st, goals, tick, s.workers)
+  -- Lot INJOIGNABLE : un type d'avant-poste SANS capacité (aucun avant-poste ni module) dont une tâche « build » ou « extend » est prise
+  -- (s.pending) garde son projet d'extraction ouvert : la capacité en chantier n'est pas un avant-poste construit (partie du DC, 0.7.113).
+  local hold = {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    if (s.cap[kind] or 0) <= 0 and (s.pending[kind] or 0) > 0 then hold["extraction:" .. kind] = true end
+  end
+  local order, K = P.update(st, goals, tick, s.workers, hold)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
   E.base_used = used -- étage CIRCUITS : ce que le planificateur permanent a pris (Cap.ahead_clamp)
