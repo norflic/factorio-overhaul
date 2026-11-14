@@ -133,21 +133,52 @@ function Da.site_send(left)
   return 0, left
 end
 
---- `list` = { { d2 = distance au QG au carré, x, y, ... } } (alertes de site vivantes) ; rend { { item, n } } dans l'ordre de service (distance croissante,
---- puis x, puis y) et ce qui reste au-dessus de la réserve. Pur : la liste d'entrée n'est pas modifiée.
-function Da.site_plan(list, left)
+--- s43 scen-raid (partie du DC 0.7.96, 4 h 15 : emerald, 5 à 12 soldats libres pour une réserve de Sd.RESERVE_MIN = 8, 216 alertes de site refusées
+--- sur 251, centrale détruite 12 fois, équipe rasée) : une alerte sur une pièce CRITIQUE (centrale : pompe, chaudière, générateur ; ou tourelle) est servie
+--- même sous la réserve quand le QG n'est pas attaqué : ce qui manque au groupe est pris dans la réserve (`res`, soldats libres de la réserve encore au QG),
+--- au moins Da.CRITICAL_MIN soldats (jamais un soldat isolé). Le QG attaqué (l'appelant passe res = 0) garde tout.
+Da.CRITICAL_ROLES = { pompe = true, chauffe = true, generateur = true } -- rôles du moteur (shared/ai3/reglages.lua, R.ENTITY_ROLE)
+Da.CRITICAL_MIN = 2
+
+--- Pièce critique ? `role` = R.ENTITY_ROLE[type] (nil permis), `turret` = le type est une tourelle (R.TURRET_TYPES).
+function Da.critical(role, turret)
+  return (turret == true or (role ~= nil and Da.CRITICAL_ROLES[role] == true)) and true or false
+end
+
+--- Envoi pour une alerte critique : d'abord au-dessus de la réserve (Da.site_send), sinon complété par la réserve. Rend n, left, res.
+function Da.critical_send(left, res)
+  left, res = left or 0, res or 0
+  if left >= Da.SITE_GROUP then return Da.SITE_GROUP, left - Da.SITE_GROUP, res end
+  local n = math.min(Da.SITE_GROUP, left + res)
+  if n < Da.CRITICAL_MIN then return 0, left, res end
+  return n, 0, res - (n - left)
+end
+
+--- `list` = { { d2 = distance au QG au carré, x, y, critical, ... } } (alertes de site vivantes) ; rend { { item, n, reserve } } dans l'ordre de service
+--- (CRITIQUES d'abord, puis distance croissante, puis x, puis y) et ce qui reste au-dessus de la réserve. `res` (nil : 0, comportement d'avant) :
+--- soldats de la réserve prêtables aux alertes critiques ; `reserve` vrai = groupe complété par la réserve. Pur : la liste d'entrée n'est pas modifiée.
+function Da.site_plan(list, left, res)
   local order = {}
   for i, it in ipairs(list or {}) do order[i] = it end
   table.sort(order, function(a, b)
+    local ca, cb = a.critical and 1 or 0, b.critical and 1 or 0
+    if ca ~= cb then return ca > cb end
     if a.d2 ~= b.d2 then return a.d2 < b.d2 end
     if a.x ~= b.x then return a.x < b.x end
     return a.y < b.y
   end)
+  res = res or 0
   local out = {}
   for i, it in ipairs(order) do
     local n
-    n, left = Da.site_send(left)
-    out[i] = { item = it, n = n }
+    if it.critical and res > 0 then -- res 0 (QG attaqué, ou appel d'avant) : la règle d'avant, groupe entier au-dessus de la réserve
+      local before = left
+      n, left, res = Da.critical_send(left, res)
+      out[i] = { item = it, n = n, reserve = (n > 0 and n > before) or nil }
+    else
+      n, left = Da.site_send(left)
+      out[i] = { item = it, n = n }
+    end
   end
   return out, left
 end
