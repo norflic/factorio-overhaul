@@ -44,6 +44,7 @@ local Profiler = require("script.core.profiler") -- lot DANGER-ACTIF : mesure [F
 local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant pour une tâche dont le chemin échoue de suite (règle pure)
 local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : plus de paire thermique quand l'électrique est possible
 local Mi = require("shared.team.main_inventaire") -- lot PURGE-MINE : plus de pioche après l'ère électrique (Mi.gone)
+local Eo = require("shared.team.entrepreneur_ouvrier") -- lot entrepreneur-ouvrier : ouvrier dédié du chantier entrepreneur (règle pure)
 
 local Board = {}
 
@@ -850,8 +851,94 @@ function Board.assign(f, tick)
   return n
 end
 
+--- Lot entrepreneur-ouvrier (14/11) : fiche de l'ouvrier dédié du chantier entrepreneur (f.team.ent_ouvrier), relue au plus toutes les
+--- Eo.CFG.refresh ticks : projet vivant (Eo.live_pid sur f.build.projects), ouvrier choisi (Ent.pick_worker par Eo.step), lien et
+--- libération journalisés [FO-ENTREPRENEUR-OUVRIER] (bilan : tâches faites, durée de pose). Rend la fiche (ou nil).
+local function ent_say(f, text)
+  f.team.ent_ouvrier_logs = (f.team.ent_ouvrier_logs or 0) + 1
+  if f.team.ent_ouvrier_logs <= Eo.CFG.log_max then
+    log(string.format("[FO-ENTREPRENEUR-OUVRIER] %s : %s", tostring(f.key or (f.is_player and "player") or f.id), text))
+  end
+end
+
+local function ent_trigger(f, rec)
+  local ms = f.migration
+  local e = ms and ms.ent
+  if e and e.pid == rec.pid and e.t0 then return e.t0 end
+  local p = f.build and f.build.projects and f.build.projects[rec.pid]
+  return (p and p.created) or rec.t_bind
+end
+
+function Board.ent_view(f, tick)
+  local t = f.team
+  if not t then return nil end
+  local rec = t.ent_ouvrier
+  if (t.ent_ouvrier_next or 0) > tick then return rec end
+  t.ent_ouvrier_next = tick + Eo.CFG.refresh
+  local pid = f.build and f.build.projects and Eo.live_pid(f.build.projects) or nil
+  local ids, alive = {}, {}
+  if pid then
+    for _, id in ipairs(sorted_keys(f.engineers or {})) do
+      local a = Registry.get(id)
+      ids[#ids + 1] = id
+      if a and a.entity and a.entity.valid then alive[id] = true end
+    end
+  end
+  local ev
+  rec, ev = Eo.step(rec, pid, ids, alive, tick)
+  t.ent_ouvrier = rec
+  for _, x in ipairs(ev) do
+    local r = x[2]
+    local p = f.build and f.build.projects and f.build.projects[r.pid]
+    if x[1] == "lie" then
+      r.t0 = ent_trigger(f, r)
+      ent_say(f, string.format("ouvrier %s reserve au projet %d (etat %s) a %.1f min", tostring(r.wid), r.pid, tostring(p and p.state), tick / 3600))
+    elseif x[1] == "relie" then
+      ent_say(f, string.format("ouvrier %s reprend le projet %d (le precedent a disparu) a %.1f min", tostring(r.wid), r.pid, tick / 3600))
+    else
+      ent_say(f, string.format("ouvrier %s libere : projet %d %s, %d tache(s) faite(s) par lui, %d par d'autres, %d echec(s), %d prise(s) ; pose %s ; declenchement -> fin %.1f min a %.1f min",
+        tostring(r.wid), r.pid, (p and p.state == "fini") and "fini" or ("quitte (" .. tostring(p and p.state or "disparu") .. ")"), r.own, r.other, r.fail, r.claims,
+        r.t_first and string.format("%.1f min (premiere prise -> fin)", (tick - r.t_first) / 3600) or "sans prise",
+        (tick - (r.t0 or r.t_bind)) / 3600, tick / 3600))
+    end
+  end
+  return rec
+end
+
 function Board.claim(f, agent, tick)
   local b = Board.get(f)
+  -- Lot entrepreneur-ouvrier : l'ouvrier dédié prend D'ABORD une tâche libre de son projet (matière stricte libre au registre avec la place
+  -- de marché) ; sans tâche libre de ce projet, il suit la prise ordinaire (jamais figé).
+  local ent = Board.ent_view(f, tick)
+  if ent and ent.wid == agent.id then
+    local reg = Board.market(f) and reg_of(f) or nil
+    local i = Eo.pick(b.list, b.tasks, ent.pid, function(t)
+      if not reg then return true end
+      return reserve_strict(f, reg, t, agent, tick, {})
+    end)
+    if i then
+      local best = b.list[i]
+      best.worker = agent.id
+      best.claimed = tick
+      if best.created then Ac.note_claim(Board.actif(f).win, tick - best.created) end
+      best.away = nil
+      Fantomes.show(f, best, tick)
+      if b.hint then
+        local h = b.hint[agent.id]
+        if h then b.hint[agent.id] = nil; if b.hinted and b.hinted[h] == agent.id then b.hinted[h] = nil end end
+      end
+      if b.hinted then b.hinted[best.key] = nil end
+      Eo.note_claim(ent, best, tick)
+      bump(f, "ent_claims")
+      return best
+    end
+  end
+  local got = Board.claim_ordinary(f, agent, tick, b)
+  if ent and got then Eo.note_claim(ent, got, tick) end
+  return got
+end
+
+function Board.claim_ordinary(f, agent, tick, b)
   if Board.market(f) then
     local best = claim_market(f, agent, tick, b)
     if best then
@@ -982,6 +1069,7 @@ end
 
 function Board.finish(f, task, ok, tick)
   Fantomes.finish(f, task.key) -- lot FANTOMES : l'aperçu de la tâche part, réussie ou non
+  if f.team and f.team.ent_ouvrier then Eo.note_done(f.team.ent_ouvrier, task, task.worker, ok, tick) end -- lot entrepreneur-ouvrier : bilan
   note_extend(f, task, ok, tick)
   if not ok and Board.on_fail then Board.on_fail(f, task, tick) end
   if Board.on_done then Board.on_done(f, task, ok, tick) end -- lot IA3-e : charge à la main mesurée (fin de tâche)
