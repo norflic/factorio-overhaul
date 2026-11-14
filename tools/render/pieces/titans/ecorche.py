@@ -487,12 +487,12 @@ def hurleur(lot, M, u, a, bob, lunge, ouv, cri):
         patte(lot, M, (hx + x0, s * 0.32, hz + bob), (fx + (x0 if a is None else 0.0), s * 0.62, 0.0), u + ph[k], l1, l2, 0.1,
               G.norm((0.5 if k[0] == "A" else -0.8, s * 0.4, 0.2)), levee=0.2, griffe=0.24)
     nuque = pts[-1]
-    b = (nuque[0] + 0.25, 0.0, nuque[2] + 0.42 - 0.1 * cri)
+    b = (nuque[0] + 0.25, 0.0, nuque[2] + 0.42 - 0.04 * cri)
     cou(lot, M, nuque, b, 0.22, 0.16)
     # collerette : membranes de peau sombre tendues entre des épines d'os, en éventail autour du cou ; s'évase pendant le cri
     c = G.lerp(nuque, b, 0.45)
     nep = 9
-    ev = 1.0 + 0.35 * cri
+    ev = 1.0 + 0.15 * cri
     tips = []
     for q in range(nep):
         ang = -math.pi * 0.9 + 1.8 * math.pi * q / (nep - 1)
@@ -508,7 +508,7 @@ def hurleur(lot, M, u, a, bob, lunge, ouv, cri):
         v = [r0, t0, mid, t1, r1]
         lot.put(M["peau_morte"], (v, [(0, 1, 2), (0, 2, 4), (4, 2, 3)], [(0.0, 0.0)] * 5))
         lot.put(M["peau_morte"], (v, [(2, 1, 0), (4, 2, 0), (3, 2, 4)], [(0.0, 0.0)] * 5))
-    tete(lot, M, b, 0.85, 0.4 + 0.12 * cri, 0.95 + 0.35 * ouv, (1.05, 1.05, 1.0), dents=4, yeux=2, gorge=1.1)
+    tete(lot, M, b, 0.85, 0.4 + 0.05 * cri, 0.95 + 0.35 * ouv, (1.05, 1.05, 1.0), dents=4, yeux=2, gorge=1.1)
 
 
 def build_anime(S, lot, stage, u, attaque):
@@ -522,7 +522,7 @@ def build_anime(S, lot, stage, u, attaque):
     if attaque is not None:
         a = attaque
         k = math.sin(math.pi * min(1.0, a * 1.4))        # élan : monte puis retombe sur la dernière image
-        lunge, ouv, cri = 0.05 * k, k, k      # QA A8 : élan court (gigue du centre de masse <= 3 %) : la gueule et la tête font l'attaque
+        lunge, ouv, cri = 0.0, k, k      # QA A8 : aucun élan (gigue du centre de masse <= 3 %) : la gueule et la tête font l'attaque
         bob, uu = 0.0, 0.0
     else:
         a = None
