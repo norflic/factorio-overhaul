@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 00 h 20 : version 0.7.118 (interblocage du charbon)
+
+- **F690 · VALIDÉ (logique) · DÉPLOYÉ 0.7.118** Journal de la partie du DC (0.7.114, graine 3338690507) : 2 poses du premier avant-poste de charbon ratent avant 7 min ; de 8,6 à 81 min « extraction:coal » refusé par `E.thermal` (« thermique refusée, électrique possible ») alors que la capitalisation ne couvre pas le charbon (« aucune fonderie à foreuses pour ce minerai ») et que l'électrique sur le charbon ne vient que par migration d'un avant-poste… inexistant. Interblocage → 84/87 fours à sec à 83 min. `E.thermal` permet la thermique quand l'équipe n'a aucun avant-poste du type et qu'aucune méthode électrique ne s'ouvre seule (lu dans les données). Test 6bis (6 cas, 3 mutants dont le code d'avant). Bancs `charbon-joueur-0b`/`-3` (graine 20261020) identiques (règle non sollicitée) ; preuve moteur du chemin lui-même non obtenue (la partie de banc ne reproduit pas l'échec de pose). content 621 OK.
+
 ## 2026-11-15, 00 h 05 : version 0.7.117 (montée des tapis)
 
 - **F689 · VALIDÉ · DÉPLOYÉ 0.7.117** Le lot payable d'un remplacement de tier se réduisait à ce que le stock tenait à la décision (souvent 1 : « x1 sur un lot demandé de 40 ») et le capital restait 10 à 21 min sur un but impayable devant les remplacements. Lot de 12 pièces depuis l'aval (`Cap.pool`) et remplacement de côté (`Cap.side_of`). Bancs `2026-11-14_TIERS-1..3` contre `DC60-cand0715`, 30 min : 2 → 65 tapis montés, fer factions 33 214 → 33 281, joueur 3 017 → 3 019. content 621 OK.

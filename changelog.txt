@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.118
+Date: 2026-11-15
+  Bugfixes:
+    - IA (charbon) : une équipe sans avant-poste de charbon restait sans charbon pour toujours : la règle électrique refusait la foreuse thermique (« électrique possible ») alors qu'aucune méthode électrique ne pouvait s'ouvrir seule sur le charbon. Dans la partie du DC (0.7.114), coffre du QG à 0 charbon et 84 fours sur 87 à sec à 83 min. La thermique est de nouveau permise dans ce seul cas ; aucun effet quand l'avant-poste existe (banc identique au chiffre près).
+  Changes:
+    - Journaux [FO-CHARBON-EQUIPE] (toutes les 5 min, par équipe : fours à combustible posés / en marche / à sec, foreuses à sec, chaudières alimentées) et [FO-POSE-ECHEC] (causes d'une pose d'avant-poste ratée).
+  Known issues:
+    - Le premier site de charbon de certaines cartes rate sa pose de façon reproductible (réceptacle sans sol neutre au bord du gisement).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.117
 Date: 2026-11-15
   Features:
