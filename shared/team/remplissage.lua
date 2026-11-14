@@ -47,13 +47,26 @@ end
 ---   stock : stock de l'objet ; need : besoin ordinaire total de ses quais ; nq : nombre de ses quais ;
 ---   was : le quai était abondant au dernier calcul }.
 --- Rend { want, low, cause = "abondant" | "juste", bound }.
+--- Lot s45 BUFFERS : entre le besoin ordinaire (seuil de sécurité) et l'abondance (R.MULT_IN x le besoin), la cible ne retombe plus
+--- d'un bloc à la minute d'ingrédients : le stock LIBRE (stock - besoin ordinaire de tous les quais de l'objet, qui reste réservé)
+--- est partagé (R.SHARE_PM ‰, par quai) au-dessus de la cible ordinaire, borné par la place du coffre. Sous le besoin : à l'identique.
+--- Rend { want, low, cause = "proportionnel" | "juste", bound }.
+function R.proportional(bw, bl, cap, stock, need, nq)
+  if stock <= need then return { want = bw, low = bl, cause = "juste", bound = 0 } end
+  local bound = bw + R.share(stock - need, nq)
+  local want = max(bw, min(cap, bound))
+  if want <= bw then return { want = bw, low = bl, cause = "juste", bound = bound } end
+  return { want = want, low = min(want - 1, max(bl, ceil(want * R.LOW_PM / 1000))), cause = "proportionnel", bound = bound }
+end
+
 function R.level(a)
   local bw = max(1, floor(num(a.base_want, 1)))
   local bl = max(1, floor(num(a.base_low, 1)))
   local stock, nq = max(0, num(a.stock)), max(1, floor(num(a.nq, 1)))
   local need = max(bw, floor(num(a.need)))
   local mult = a.was and R.MULT_OUT or R.MULT_IN
-  if stock < need * mult or num(a.cap) <= 0 then return { want = bw, low = bl, cause = "juste", bound = 0 } end
+  if num(a.cap) <= 0 then return { want = bw, low = bl, cause = "juste", bound = 0 } end
+  if stock < need * mult then return R.proportional(bw, bl, floor(a.cap), stock, need, nq) end
   local bound = R.share(stock, nq)
   local want = max(bw, min(floor(a.cap), bound))
   if want <= bw then return { want = bw, low = bl, cause = "juste", bound = bound } end -- part trop petite : rien ne change

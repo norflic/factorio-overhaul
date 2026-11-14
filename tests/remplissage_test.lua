@@ -46,11 +46,11 @@ do
   check(l.cause == "juste", "coffre sans place : juste")
   -- hysteresis : 3 x le besoin n'est pas abondant en entrant, l'est en restant ; 1,5 x ne l'est plus
   local a = { base_want = 400, base_low = 60, cap = 4800, stock = 36000, need = 12000, nq = 30 }
-  check(Rm.level(a).cause == "juste", "3 x le besoin : pas abondant en entrant")
+  check(Rm.level(a).cause ~= "abondant", "3 x le besoin : pas abondant en entrant")
   a.was = true
   check(Rm.level(a).cause == "abondant", "3 x le besoin : abondant quand on l'etait deja")
   a.stock = 18000
-  check(Rm.level(a).cause == "juste", "1,5 x le besoin : plus abondant")
+  check(Rm.level(a).cause ~= "abondant", "1,5 x le besoin : plus abondant")
   -- part trop petite : rien ne change
   l = Rm.level({ base_want = 400, base_low = 60, cap = 4800, stock = 1700, need = 400, nq = 6 })
   check(l.cause == "juste" and l.want == 400, "part de 198 < 400 : regle d'avant")
@@ -88,7 +88,7 @@ do
       for _ = 1, nq do
         local l = Rm.level({ base_want = 400, base_low = 60, cap = 4800, stock = stock, need = 400 * nq, nq = nq, was = true })
         tot = tot + l.want
-        if l.cause == "juste" then tot = tot - l.want end -- cible ordinaire : deja dans le besoin, pas une part de plus
+        if l.cause == "juste" then tot = tot - l.want elseif l.cause == "proportionnel" then tot = tot - 400 end -- s45 : part du stock LIBRE au-dessus de la cible ordinaire -- cible ordinaire : deja dans le besoin, pas une part de plus
       end
       check(tot <= stock * Rm.SHARE_PM / 1000, string.format("somme des cibles hautes <= part du stock (nq %d, stock %d : %d)", nq, stock, tot))
     end
@@ -236,11 +236,11 @@ do
     l = R.level({ base_want = 400, base_low = 60, cap = 1200, stock = 150000, need = 12000, nq = 30 })
     ck(l.want == 1200)
     l = R.level({ base_want = 400, base_low = 60, cap = 4800, stock = 36000, need = 12000, nq = 30 })
-    ck(l.cause == "juste")
+    ck(l.cause ~= "abondant")
     l = R.level({ base_want = 400, base_low = 60, cap = 4800, stock = 36000, need = 12000, nq = 30, was = true })
     ck(l.cause == "abondant")
     l = R.level({ base_want = 400, base_low = 60, cap = 4800, stock = 18000, need = 12000, nq = 30, was = true })
-    ck(l.cause == "juste")
+    ck(l.cause ~= "abondant")
     l = R.level({ base_want = 400, base_low = 60, cap = 300, stock = 150000, need = 12000, nq = 30 })
     ck(l.want == 400 and l.cause == "juste")
     local r = R.refill(3500, 1400, 100, 90000, 1500)
@@ -266,14 +266,14 @@ do
     if ok then local ok2, b = pcall(battery, R); bad = ok2 and b or 1 end
     check(bad > 0, "mutant refuse : " .. name)
   end
-  mut("toujours abondant", "if stock < need %* mult or", "if false or")
+  mut("toujours abondant", "if stock < need %* mult then", "if false then")
   mut("jamais d'hysteresis", "local mult = a.was and R.MULT_OUT or R.MULT_IN", "local mult = R.MULT_IN")
   mut("hysteresis inversee", "local mult = a.was and R.MULT_OUT or R.MULT_IN", "local mult = a.was and R.MULT_IN or R.MULT_OUT")
   mut("capacite du coffre ignoree", "min%(floor%(a%.cap%), bound%)", "bound")
   mut("part du stock ignoree", "min%(floor%(a%.cap%), bound%)", "floor(a.cap)")
   mut("part non divisee entre les quais", "/ max%(1, floor%(num%(nq, 1%)%)%)%)", "/ 1)")
-  mut("relance restee a la regle d'avant", "low = min%(want %- 1, max%(bl, ceil%(want %* R%.LOW_PM / 1000%)%)%)", "low = bl")
-  mut("part sous la cible ordinaire gardee", "if want <= bw then return", "if false then return")
+  mut("relance restee a la regle d'avant", "low = min%(want %- 1, max%(bl, ceil%(want %* R%.LOW_PM / 1000%)%)%), cause = \"abondant\"", "low = bl, cause = \"abondant\"")
+  mut("part sous la cible ordinaire gardee", "if want <= bw then return ([^\n]-) end %-%- part", "if false then return %1 end -- part")
   mut("sac ignore", "if type%(bag%) == \"number\" and bag >= 1 then c = min%(c, floor%(bag%)%) end", "")
   mut("stock ignore au remplissage", "c = min%(want %- n, have%)", "c = want - n")
   mut("relance ignoree", "if n >= low or have <= 0 then", "if have <= 0 then")

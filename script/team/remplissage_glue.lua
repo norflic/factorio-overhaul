@@ -62,7 +62,7 @@ local function say(f, p, i, q, last, lvl, stock, need, nq, tick)
   if f.stats.rempl_logs > Rempl.LOGS then return end
   log(string.format("[FO-REMPLISSAGE] %s a %.1f min : quai %d du projet %s (%.0f, %.0f) %s : cible %d -> %d (%s : stock %d, besoin %d sur %d quai(s), part %d, relance sous %d)",
     f.key or "player", tick / 3600, i, tostring(p.id), q.x, q.y, tostring(q.item), last and last.cible or 0, lvl.want,
-    lvl.cause == "abondant" and "stock abondant" or "stock juste", stock, need, nq, lvl.bound, lvl.low))
+    lvl.cause == "abondant" and "stock abondant" or lvl.cause == "proportionnel" and "stock libre partage" or "stock juste", stock, need, nq, lvl.bound, lvl.low))
 end
 
 --- r : verdict ordinaire { due, count } de Build.Quotas.refill ; low, fill : constantes ordinaires de l'appelant (Build.QUAI_LOW, QUAI_FILL).
