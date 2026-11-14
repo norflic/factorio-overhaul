@@ -17,7 +17,7 @@
 
 local Co = {}
 
-Co.ORIENTATIONS = { "aucune", "expansion", "amelioration", "defense" }
+Co.ORIENTATIONS = { "aucune", "economie", "defense", "expansion", "recherche", "amelioration" } -- s44 : Économie et Recherche ajoutées
 -- Pourcentage appliqué au poids de chaque famille (absent : 100). Bornes : Co.PCT_MIN à Co.PCT_MAX, puis le poids final dans
 -- [w_min, w_max] (ceux de B.weights) : une orientation ne sort jamais le cerveau de sa plage.
 Co.PCT = {
@@ -25,7 +25,18 @@ Co.PCT = {
   expansion = { extraction = 160, capital = 120, recherche = 90, defense = 85, armee = 80 },
   amelioration = { capital = 160, recherche = 150, extraction = 90, armee = 80 },
   defense = { defense = 170, armee = 170, extraction = 90, capital = 85, recherche = 85 },
+  economie = { capital = 160, extraction = 130, recherche = 90, defense = 85, armee = 80 },
+  recherche = { recherche = 180, capital = 110, extraction = 90, defense = 90, armee = 80 },
 }
+-- s44 commande-cablage : orientations qui lèvent « la production d'abord » (shared/team/priorite.lua) dans la capitalisation : sans
+-- cela, la part de la défense et de l'armée y valait 0 pour votre équipe et « Défense » ne changeait rien (journal du DC, d=0 a=0).
+Co.LIFT_PF = { defense = true }
+
+--- « La production d'abord » après l'orientation : levée par une orientation de Co.LIFT_PF, inchangée sinon.
+function Co.production_first(pf, orient)
+  if pf and Co.LIFT_PF[orient or "aucune"] then return false end
+  return pf
+end
 Co.PCT_MIN, Co.PCT_MAX = 50, 200
 Co.ORDER_VALUE = 88   -- but d'un gisement désigné : sous l'amorçage du fer (92) et du charbon (90), au-dessus de la croissance (55)
 Co.MAX_ORDERS = 8     -- ordres vivants au plus (gisements et liaisons ensemble)
@@ -103,7 +114,7 @@ function Co.add(state, o)
   local id = state.next_id
   state.next_id = id + 1
   state.orders[#state.orders + 1] = { id = id, kind = o.kind, x = o.x, y = o.y, r = clamp(o.r or Co.R_MIN, Co.R_MIN, Co.R_MAX),
-    resource = o.resource, outpost = o.outpost, tick = o.tick or 0, surface = o.surface }
+    resource = o.resource, outpost = o.outpost, tick = o.tick or 0, surface = o.surface, oid0 = o.oid0 }
   return id
 end
 
@@ -243,7 +254,10 @@ function Co.resolve(state, outposts)
   for _, o in ipairs(state.orders) do
     if o.kind == "gisement" then
       for _, op in ipairs(outposts or {}) do
-        if op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
+        -- s44 : seul un avant-poste NÉ APRÈS l'ordre (numéro > o.oid0, dernier numéro à la pose) le remplit ; avant, l'avant-poste
+        -- déjà là (journal du DC : « ordre 4 rempli » 4 s après la pose par l'avant-poste 1) l'effaçait avant toute pensée.
+        local fresh = o.oid0 == nil or op.id == nil or op.id > o.oid0
+        if fresh and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
       end
     end
   end

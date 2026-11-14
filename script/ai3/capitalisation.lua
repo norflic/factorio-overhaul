@@ -130,6 +130,7 @@ Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes ref
                              -- le lot CAPI-REPLI (29/10) : ils passent par shared/ai3/repli.lua, par (produit, gisement).
 Capi.COUV_EVERY = 5 * 3600   -- lot CAPI-MESURE : une ligne [FO-CAPI-COUV] par gisement toutes les 5 min
 Capi.UNITS_MAX = 48          -- lot LEVIERS : machines gardées par groupe au relevé (positions, pour la tâche « equiper »)
+Capi.Co = require("shared.ai3.commande") -- s44 commande-cablage : orientation « Défense » (champ : plafond des locales)
 Capi.MallRt = require("script.team.mall_rangee") -- lot MALL (tranche 2) : les ordres « chaine » vont dans une rangée du mall (champ, pas une locale)
 Capi.RaRt = require("script.ai3.rangees_asm") -- lot RANGEES-ASM : rangées agrandies au lieu d'îlots (champ, pas une locale)
 Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
@@ -1395,6 +1396,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- Lot L12 (partie 3) : la menace TENUE (view.threat_held, script/team/menace_equipe.lua : jusqu'à 2 pensées calmes avec une tourelle armée
   -- au QG, ou 5 min après la dernière perte) ferme aussi les gisements. Avant, la décision ne voyait la menace que par fenêtres de 15 s
   -- (f.threatened_until). Ni le budget couvert (Pi.threat_open) ni l'échéance ne la lèvent : seule la règle tenue ; le mode survie, si (Sv.capi).
+  production_first = Capi.Co.production_first(production_first, f.team.commande and f.team.commande.orient) -- s44 : « Défense » choisie lève la production d'abord
   local def_share = BdRt.share(f, tick) -- lot S42-DEFENSE (nil : regle coupee ou votre equipe)
   cs.def_dyn = def_share ~= nil or nil
   local threat_why = threat and "menace recente du QG (view.threatened)" or nil -- lot BLOCAGE-SORTIE-2 : origine écrite au journal du puits fermé
