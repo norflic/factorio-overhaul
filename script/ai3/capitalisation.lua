@@ -117,6 +117,8 @@ Capi.SETTING = "fo-war-capi"
 Capi.ENABLED = true
 Capi.CYCLE = 12              -- pensées par cycle (une minute à une pensée toutes les 300 ticks)
 Capi.Cov = require("shared.ai3.cov_pas") -- lot COUT-600 : couverture d'un gisement par pensée (règles pures ; champ de Capi : pas de locale de plus en tête de fichier)
+local Bo = require("shared.core.backoff") -- lot BACKOFF-0715 : recul exponentiel de la relecture de couverture d'un gisement inchangé
+Capi.BO_MAX = 36000
 Capi.SCAN_R = 160            -- tuiles autour du QG : machines, foreuses, gisements connus
 Capi.HQ_R = 40               -- une machine à moins de 40 tuiles du QG est « au QG »
 Capi.DEP_MAX = 16            -- gisements suivis au plus par faction (les plus proches)
@@ -661,7 +663,18 @@ local function coverage(f, cs, tick)
   for _, id in ipairs(sorted_keys(by_dep)) do
     if cs.deps[id] then ids[#ids + 1] = id end
   end
-  local id = Capi.Cov.next_due(ids, cs.cov_last, function(i) return cs.deps[i].cov_tick end, tick, Capi.Cov.EVERY)
+  -- lot BACKOFF-0715 : un gisement dont la couverture est relue INCHANGÉE double son intervalle (Capi.Cov.EVERY .. Capi.BO_MAX) ; une
+  -- couverture changée, ou un réveil (foreuse posée, minée, détruite, minerai épuisé dans sa boîte), remet l'intervalle de base. Tick
+  -- virtuel = cov_tick - (intervalle - EVERY) : à l'intervalle de base, le rythme d'avant exactement.
+  cs.cov_bo = cs.cov_bo or {}
+  local bo, base = cs.cov_bo, Capi.Cov.EVERY
+  for _, k in ipairs(sorted_keys(bo)) do if not cs.deps[k] then bo[k] = nil end end
+  local id = Capi.Cov.next_due(ids, cs.cov_last, function(i)
+    local t = cs.deps[i].cov_tick
+    local e = bo[i]
+    if t == nil or (e and e.last == nil) then return nil end
+    return t - (Bo.interval(bo, i, base) - base)
+  end, tick, base)
   if not id then return end
   cs.cov_last = id
   local d = cs.deps[id]
@@ -673,6 +686,7 @@ local function coverage(f, cs, tick)
   end
   Profiler.fstop("cov:find")
   local n = Capi.Cov.covered(idx, by_dep[id], tkey)
+  Bo.report(bo, id, tick, d.covered ~= nil and d.covered == n, base, Capi.BO_MAX)
   cs.cov[id] = n
   d.covered = n
 end
@@ -2858,5 +2872,47 @@ remote.add_interface("fo-capi", {
     return out
   end,
 })
+
+-- lot BACKOFF-0715 : réveils de la relecture de couverture (Bo.wake) par les événements natifs. L'entité d'une force d'équipe IA (ou un
+-- minerai épuisé) retrouve son gisement par la table des gisements recensés (cs.deps, boîtes ; triée), sans aucun scan de la carte.
+local function cov_wake_at(f, pos)
+  local cs = f and f.team and f.team.capi
+  if not (cs and cs.cov_bo and cs.deps) then return end
+  for _, id in ipairs(sorted_keys(cs.deps)) do
+    local d = cs.deps[id]
+    if d.x0 and pos.x >= d.x0 - 3 and pos.x <= d.x1 + 3 and pos.y >= d.y0 - 3 and pos.y <= d.y1 + 3 then Bo.wake(cs.cov_bo, id, Capi.Cov.EVERY) end
+  end
+end
+local function cov_teams()
+  local out = {}
+  for _, fid in ipairs(State.alive()) do
+    local f = State.faction(fid)
+    if f and f.team then out[#out + 1] = f end
+  end
+  local pf = State.faction("player")
+  if pf and pf.team then out[#out + 1] = pf end
+  return out
+end
+local function cov_wake_entity(e)
+  if not (e and e.valid and e.type == "mining-drill") then return end
+  local fname, pos = e.force and e.force.name, e.position
+  for _, f in ipairs(cov_teams()) do
+    if f.force == fname then cov_wake_at(f, pos) end
+  end
+end
+local function cov_wake_event(ev) cov_wake_entity(ev.created_entity or ev.entity) end
+Events.on(defines.events.on_built_entity, cov_wake_event)
+Events.on(defines.events.on_robot_built_entity, cov_wake_event)
+Events.on(defines.events.script_raised_built, cov_wake_event)
+Events.on(defines.events.on_player_mined_entity, cov_wake_event)
+Events.on_died(function(ev) cov_wake_entity(ev.entity) end, { types = { "mining-drill" } })
+local DEPLETED = rawget(defines.events, "on_resource_depleted") -- (moteurs simulés des tests : absent, aucun abonnement)
+if DEPLETED then Events.on(DEPLETED, function(ev)
+  local e = ev.entity
+  if not (e and e.valid) then return end
+  local pos = e.position
+  for _, f in ipairs(cov_teams()) do cov_wake_at(f, pos) end
+end) end
+Capi.cov_wake_at = cov_wake_at -- (tests)
 
 return Capi
