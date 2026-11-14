@@ -43,6 +43,7 @@ Co.UG_COST = 3         -- surcoût d'une paire de souterrains (préférés seule
 Co.SOFT_COST = 8       -- surcoût d'un tapis posé sur un arbre ou un rocher (lot-20261020, emerald : 2 arbres de marais jamais coupés ont
                        -- bloqué 2 h le chantier d'une bande ; le tracé contourne la forêt, ou passe dessous par souterrain)
 Co.ROUTE_CAP = 200000  -- états développés au plus par tracé
+Co.ROUTE_STATES = 50000 -- s47 : plafond d'états du tracé de charbon d'une colonne (200 x ROUTE_MAX ; un échec coûtait 200000 états)
 Co.ROUTE_W = 1.2       -- A* pondéré (heuristique × 1,2) : un tracé de 300 tuiles reste sous le plafond (lot2-20261020 : charbon à ~190 tuiles)
 Co.DEPOSITS = 3        -- gisements de charbon essayés (le plus proche peut être couvert par les paires thermiques de l'équipe)
 Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. (Proposé à ~120 le 3/11 ; mesuré hors jeu : un charbon à 60-70 tuiles
@@ -964,8 +965,13 @@ function Co.network(cols, side, env)
     v0 = math.min(line.exit.v, v_start, env.box.v0) - Co.ROUTE_MARGIN, v1 = math.max(line.exit.v, v_start, env.box.v1) + Co.ROUTE_MARGIN }
   local span = function(u, v) return not (env.ugs and env.ugs[tk(u, v)]) end
   local tcost = env.soft and function(u, v) return env.soft(u, v) and (1 + Co.SOFT_COST) or 1 end or nil
+  -- s47 : un tracé fait au moins la distance de Manhattan + 1 tuiles ; au-delà de ROUTE_MAX il serait refusé après la recherche
+  local man = math.abs(line.exit.u - uT) + math.abs(line.exit.v - v_start)
+  if man + 1 > Co.ROUTE_MAX then
+    res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", man + 1, Co.ROUTE_MAX) return res
+  end
   local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box,
-    nil, tcost)
+    Co.ROUTE_STATES, tcost)
   if not route then res.why = "trace du charbon : " .. tostring(why) return res end
   if #route > Co.ROUTE_MAX then res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", #route, Co.ROUTE_MAX) return res end
   local nug = 0
