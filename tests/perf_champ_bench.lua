@@ -7,6 +7,7 @@
   Usage, depuis la racine du mod :   lua5.2 tests/perf_champ_bench.lua [--ref] [--nowrap] [nom]
     --ref     écrit tests/perf_champ_ref.lua (empreintes de référence, à faire sur le code d'avant l'optimisation)
     --nowrap  sans enveloppes (temps nu) ; --reps=N : N passes, le temps le plus court
+    --memo-par-pas  (s49 tranches) mémoire neuve à chaque pas : coût d'un pas sans le partage des mémoires entre variantes
 ]]
 package.path = "./?.lua;" .. package.path
 local Ch = require("shared.team.champ")
@@ -125,9 +126,7 @@ local function wrap_up(owner, name)
   return v
 end
 if not ARGS["--nowrap"] then
-  local plan_rows = select(2, find_up(Ch.plan, "plan_rows"))
-  local plan_both = wrap_up(plan_rows, "plan_both")
-  local plan_order = wrap_up(plan_both, "plan_order")
+  local plan_order = wrap_up(Ch.plan_step, "plan_order") -- s49 tranches : plan_order n'est plus appelé que par Ch.plan_step
   local plan_once = wrap_up(plan_order, "plan_once")
   for _, nm in ipairs({ "bands_for", "bridge", "bridge_0641", "row_poles", "take_group", "context" }) do wrap_up(plan_once, nm) end
   local bands_for = wrapped.bands_for
@@ -146,6 +145,7 @@ local REF = {}
 do local f = io.open(REF_PATH, "r"); if f then f:close(); REF = dofile(REF_PATH) end end
 local S46 = dofile("tests/s46_champ-cout_ref.lua")
 local out_ref = {}
+local PAS_MAX, PAS_N = 0, 0
 local fails = 0
 local total = 0
 for _, cs in ipairs(CASES) do
@@ -158,9 +158,19 @@ for _, cs in ipairs(CASES) do
       for k in pairs(N) do N[k] = nil end
       Co.EXPANDED = 0
       local spec = cs[2]()
+      -- s49 tranches : les pas de Ch.plan un à un (un plan_order par pas, un pas par tick en jeu) : temps du pas le plus long.
+      -- --memo-par-pas : mémoire neuve à chaque pas (comparaison : sans le partage des mémoires entre les variantes d'un plan)
       local t0 = os.clock()
-      p, why = Ch.plan(spec)
+      local sq, smax, done = Ch.plan_begin(spec), 0, false
+      while not done do
+        if ARGS["--memo-par-pas"] then sq.memo = {} end
+        local s0 = os.clock()
+        done = Ch.plan_step(sq)
+        smax = math.max(smax, os.clock() - s0)
+      end
+      p, why = Ch.plan_result(sq)
       local d1 = os.clock() - t0
+      if not dt or d1 < dt then PAS_MAX, PAS_N = smax, sq.n end
       if not dt or d1 < dt then
         dt = d1
         BT, BN, BX = {}, {}, Co.EXPANDED
@@ -180,6 +190,7 @@ for _, cs in ipairs(CASES) do
     print(string.format("== %-26s %8.0f ms  empreinte %d %s  foreuses %s fours %s coffres %d refusees %d swap %s why %s",
       cs[1], dt * 1000, h, same, tostring(st.drills), tostring(st.furnaces), p and Ch.head_chests(p) or -1,
       p and p.refused and #p.refused or 0, tostring(p and p.order_swapped ~= nil), tostring(why)))
+    print(string.format("   pas : %d plan_order, le plus long %.0f ms", PAS_N, PAS_MAX * 1000))
     if p and p.coffre_cost then print(string.format("   coffre_cost %d %% sur %d colonne(s)", p.coffre_cost, p.coffre_cols or 0)) end
     for _, c in ipairs(st.coal or {}) do print(string.format("   charbon cote %d : voie %s, %s", c.side, tostring(c.voie), tostring(c.why))) end
     T, N = BT, BN
