@@ -101,24 +101,79 @@ local function handler_names(list, scope)
   return out
 end
 
+-- Lot S51 (14/11) : cumul TOUJOURS allumé par gestionnaire (gels de 30 s en x5 que [FO-PERF-PIC] ne voit pas). Un LuaProfiler de
+-- tour (restart/stop autour de l'appel) et un LuaProfiler cumulé (add) par gestionnaire, créés au premier appel, en table LOCALE :
+-- mesure seulement, jamais dans `global`, jamais lue par une décision. Toutes les CUMUL_PERIODE ticks : une ligne
+-- « [FO-PERF-CUMUL] <clé> appels=N <durée> » par gestionnaire appelé dans la période, puis remise à zéro.
+-- Coût mesuré hors jeu (tests/s51_profil_test.lua) : 3 appels d'API par gestionnaire et par appel.
+Events.CUMUL_PERIODE = 3600
+local cumuls = {}       -- { { cle, tour, cumul, appels } }, ordre de création (premier appel)
+local cumul_next = nil  -- tick de la prochaine écriture
+
+local function handler_key(fn, scope, i)
+  local info = debug and debug.getinfo and debug.getinfo(fn, "S")
+  if not info then return scope .. "#" .. i end
+  local src = tostring(info.short_src or "?")
+  src = src:gsub("\\", "/"):gsub("^.*/script/", ""):gsub("^.*__/", "")
+  return scope .. "@" .. src .. ":" .. tostring(info.linedefined or i)
+end
+
+local function cumul_new(cle)
+  local c = { cle = cle, tour = game.create_profiler(true), cumul = game.create_profiler(true), appels = 0 }
+  cumuls[#cumuls + 1] = c
+  return c
+end
+
+--- Écrit les cumuls de la période (gestionnaires appelés seulement) et les remet à zéro.
+function Events.cumul_flush()
+  for i = 1, #cumuls do
+    local c = cumuls[i]
+    if c.appels > 0 then
+      log({ "", "[FO-PERF-CUMUL] " .. c.cle .. " appels=" .. c.appels .. " ", c.cumul })
+      c.cumul.reset(); c.cumul.stop()
+      c.appels = 0
+    end
+  end
+end
+
+local function cumul_tick(t)
+  if not t then return end
+  if not cumul_next then cumul_next = t + Events.CUMUL_PERIODE return end
+  if t >= cumul_next then
+    Events.cumul_flush()
+    cumul_next = t + Events.CUMUL_PERIODE
+  end
+end
+
 local function dispatcher(list, scope)
   local n = #list
   local sub = nil
+  local keys = {}
+  for i = 1, n do keys[i] = handler_key(list[i], scope, i) end
+  local cs = {}
   return function(e)
+    cumul_tick(e and e.tick)
     Profiler.start(scope)
-    if n > 1 and Profiler.fine() then
-      sub = sub or handler_names(list, scope)
-      for i = 1, n do
-        Profiler.fstart(sub[i])
-        list[i](e)
-        Profiler.fstop(sub[i])
-      end
-    else
-      for i = 1, n do list[i](e) end
+    local fine = n > 1 and Profiler.fine()
+    if fine then sub = sub or handler_names(list, scope) end
+    for i = 1, n do
+      local c = cs[i]
+      if not c then c = cumul_new(keys[i]); cs[i] = c end
+      if fine then Profiler.fstart(sub[i]) end
+      local tour = c.tour
+      tour.restart()
+      list[i](e)
+      tour.stop()
+      c.cumul.add(tour)
+      c.appels = c.appels + 1
+      if fine then Profiler.fstop(sub[i]) end
     end
     Profiler.stop(scope)
   end
 end
+
+--- Bancs hors jeu : les cumuls (clé, appels).
+function Events.cumul_list() return cumuls end
 
 --- Lot MORTS : types des noms déclarés, lus une fois aux prototypes (pendant un événement : `game` existe).
 local function resolve_names(d)
