@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 00 h 35 : version 0.7.119 (ouvrier entrepreneur)
+
+- **F691 · VALIDÉ · DÉPLOYÉ 0.7.119** Ouvrier dédié (`shared/team/entrepreneur_ouvrier.lua`, `Board.claim`) ; chantier entrepreneur en pose suivi comme progressif (manques relus : projet 3 d'amber bloqué à 379/380 pièces de 30 à 60 min au banc ENTOUV-on60) ; `Mig.entrepreneur_scan` ne rattache plus une bande finie (amber, projet 9, JALONS60-entrepreneur). Bancs 60 min `2026-11-14_ENTOUV-off60`/`-on60`/`-on60b` : chantiers finis 5/2/8, fer 90 766/84 403/91 376 (gain surtout dû aux manques relus ; effet de l'ouvrier seul non établi sur une graine). content 621 OK.
+
 ## 2026-11-15, 00 h 20 : version 0.7.118 (interblocage du charbon)
 
 - **F690 · VALIDÉ (logique) · DÉPLOYÉ 0.7.118** Journal de la partie du DC (0.7.114, graine 3338690507) : 2 poses du premier avant-poste de charbon ratent avant 7 min ; de 8,6 à 81 min « extraction:coal » refusé par `E.thermal` (« thermique refusée, électrique possible ») alors que la capitalisation ne couvre pas le charbon (« aucune fonderie à foreuses pour ce minerai ») et que l'électrique sur le charbon ne vient que par migration d'un avant-poste… inexistant. Interblocage → 84/87 fours à sec à 83 min. `E.thermal` permet la thermique quand l'équipe n'a aucun avant-poste du type et qu'aucune méthode électrique ne s'ouvre seule (lu dans les données). Test 6bis (6 cas, 3 mutants dont le code d'avant). Bancs `charbon-joueur-0b`/`-3` (graine 20261020) identiques (règle non sollicitée) ; preuve moteur du chemin lui-même non obtenue (la partie de banc ne reproduit pas l'échec de pose). content 621 OK.

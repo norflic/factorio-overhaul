@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.119
+Date: 2026-11-15
+  Features:
+    - IA (entrepreneur) : un ouvrier est réservé au chantier entrepreneur en cours ; il prend d'abord les tâches de ce chantier et reprend ses tâches ordinaires quand il n'y en a pas (jamais figé). Journal [FO-ENTREPRENEUR-OUVRIER].
+  Bugfixes:
+    - IA (entrepreneur) : un chantier entrepreneur en pose relit ses pièces manquantes (le dernier bras perdu en route n'était redemandé à personne : chantier bloqué de 30 à 60 min) ; le scan des 5 min ne rattache plus une bande déjà finie (une équipe ne lançait plus aucun chantier).
+    - Au banc 60 min (carte du DC, une graine) : 8 chantiers entrepreneur finis contre 5, pose moyenne 3,7 min contre 4,8, fer 91 376 contre 90 766.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.118
 Date: 2026-11-15
   Bugfixes:
