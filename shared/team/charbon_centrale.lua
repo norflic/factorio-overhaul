@@ -83,10 +83,13 @@ end
 --- cap = place du coffre en charbon (contenu compris), nil si inconnue. steam_low (lot TV-VAPEUR, V36) : le tampon de vapeur de la
 --- centrale est bas (shared/team/vapeur_tampon.lua) : le remplissage est aussi dû tant que le coffre est sous le confort de la cible
 --- (Cc.STEAM_COMFORT), même au-dessus du seuil d'avance. Rend { low, target, prio, due, count, why, short, steam }.
-function Cc.refill(n, rate, have, cap, steam_low)
+function Cc.refill(n, rate, have, cap, steam_low, chests)
   rate = rate or 0
-  local low = math.max(Cc.MIN_LOW, math.ceil(rate * Cc.LEAD_S - 1e-9))
-  local target = math.max(Cc.MIN_FILL, math.ceil(rate * Cc.FILL_S - 1e-9))
+  -- s43 cc-garde : `chests` (facultatif) = coffres de la centrale ; les planchers Cc.MIN_LOW / Cc.MIN_FILL valent pour la CENTRALE, partagés
+  -- entre ses coffres comme la consommation (Cc.chest_rate). Avant : 2 x 400 charbons immobilisés au lieu de 400 dès la première centrale.
+  local share = (chests and chests > 1) and chests or 1
+  local low = math.max(math.ceil(Cc.MIN_LOW / share), math.ceil(rate * Cc.LEAD_S - 1e-9))
+  local target = math.max(math.ceil(Cc.MIN_FILL / share), math.ceil(rate * Cc.FILL_S - 1e-9))
   if cap and cap > 0 then
     local top = math.floor(cap * Cc.CAP_SHARE)
     if target > top then target = top end
@@ -185,6 +188,15 @@ end
 function Cc.entries(burner, electric, stock)
   if electric and electric ~= burner and (stock or 0) >= 1 then return Cc.ENTRIES, electric end
   return Cc.ENTRIES, burner
+end
+
+--- s43 cc-garde (banc s43-parite-seule, 4 graines : la release perd 25 745 plaques de fer à 60 min contre le retrait du lot, -6,4 %) : la SECONDE
+--- entrée d'une centrale neuve (coffre, bras, tête de tapis élargie) n'est prévue que si l'équipe a déjà une centrale FINIE, un réseau SAIN et
+--- au moins Cc.SECOND_COAL charbons au stock : la première centrale, celle du départ, garde la tête d'avant (une entrée), payée plus tôt.
+--- c = { plants_done (centrales finies), healthy (santé du réseau), coal (charbon au stock) }. Rend vrai si la seconde entrée est prévue.
+Cc.SECOND_COAL = 800
+function Cc.second_ok(c)
+  return c ~= nil and (c.plants_done or 0) >= 1 and c.healthy == true and (c.coal or 0) >= Cc.SECOND_COAL
 end
 
 --- Consommation attribuée à UN coffre d'une centrale qui en a `chests` (seuil et cible de Cc.refill par coffre) : la consommation

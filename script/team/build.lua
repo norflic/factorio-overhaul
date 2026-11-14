@@ -1858,7 +1858,14 @@ local function plan_feed(f, surface, p, place, part)
       -- lot s42 charbon-centrale (a) : centrale = DEUX entrées de combustible (deux coffres, deux bras ; le premier reste à combustion, le
       -- second est électrique s'il y en a un au coffre), retenues seulement si chaque pièce de plus tient sur un terrain libre ; sinon la
       -- tête d'avant, à une entrée (jamais un refus de plus : reserve_tiles est tout ou rien)
-      if g.gen == "steam" and #fd.chests > 0 then
+      -- s43 cc-garde : la seconde entrée attend une centrale finie, un réseau sain et du charbon au stock (Cc.second_ok)
+      local done_n = 0
+      for _, pid in ipairs(State.sorted_keys(b.projects or {})) do
+        local q = b.projects[pid]
+        if q and q.state == "fini" and q.parts and q.parts[1] and q.parts[1].kind == "centrale" then done_n = done_n + 1 end
+      end
+      local second = Cc.second_ok({ plants_done = done_n, healthy = (b.sante ~= nil and b.sante.healthy == true), coal = Stock.count(f, T.fuel) })
+      if g.gen == "steam" and #fd.chests > 0 and second then
         local n2, arm2 = Cc.entries(M.BURNER_ARM, M.ELECTRIC_ARM, M.ELECTRIC_ARM and Stock.count(f, M.ELECTRIC_ARM) or 0)
         local fd2 = P.feeder(port, sources, quai_ins, head_belt, n2, arm2)
         local fits = true
@@ -4726,7 +4733,7 @@ local function quai_tasks(f, p, surface, out)
         local inv = chest.get_inventory(defines.inventory.chest)
         -- lot TV-VAPEUR (V36) : le tampon de vapeur bas déclenche aussi le remplissage (Build.Vg nul dans les doublures des bancs hors jeu)
         local steam_low = Build.Vg and Build.Vg.low(f, p, surface) or false
-        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil, steam_low)
+        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil, steam_low, #p.quais) -- (s43 cc-garde : planchers par centrale)
         -- lot COMBUSTIBLE-CENTRALE (levier a) : coffre du QG sans charbon -> le tampon d'un avant-poste de charbon porte le complément
         local relay
         if r.short and Build.Ct then
