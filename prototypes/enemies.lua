@@ -183,7 +183,7 @@ local function make_unit(kind, tier, family)
     u.attack_parameters.animation = Corps3d.animation(c3.id, "attaque", k, teinte, lueur, alpha, Corps3d.ATTAQUE_VITESSE)
     u.distance_per_frame = Corps3d.distance_par_image(c3.id, k)
     u.map_color = { r = lueur.r, g = lueur.g, b = lueur.b }
-    local cad = Corps3d.cadavre(c3.cadavre, k, teinte, lueur, alpha * 0.4)
+    local cad = Corps3d.cadavre(c3.cadavre, k, teinte, lueur, alpha * 0.25)
     if cad then
       corpse.animation = cad
       corpse.direction_shuffle, corpse.shuffle_directions_at_frame = nil, nil   -- 8 directions, une image : pas de mélange vanilla (16)

@@ -69,10 +69,12 @@ local P = read("prototypes/enemies.lua")
 check(P:find("E%.corps3d%(") and not P:find('"corroder"') and not P:find('"toxic"'), "prototype : corps 3D branché par les données (aucun nom en dur)")-- tranche 2 : cracheur à corps propre, cadavre, icône, échelle relevée (données)
 local cb, cs = E.corps3d("toxic", "biter"), E.corps3d("toxic", "spitter")
 check(cb and cs and cb.id == E.families.toxic.corps3d and cs.id == E.families.toxic.corps3d_cracheur and cs.id ~= cb.id, "corps 3D : le cracheur a son propre corps")
-check(cs.cadavre == cb.cadavre and cb.echelle >= 1.3, "corps 3D : cadavre commun, image relevée (≥ 1,3 × l'échelle vanilla)")
+check(cs.cadavre == cs.id and cb.cadavre == cb.id and cb.echelle >= 1.3, "corps 3D : chaque corps a son cadavre, image relevée (≥ 1,3 × l'échelle vanilla)")
 check(E.corps3d("armored", "biter") == nil and E.corps3d(nil, "biter") == nil, "corps 3D : nil hors des familles à corps 3D")
-local CAD = SPR.corroder and SPR.corroder.cadavre and SPR.corroder.cadavre.mort
-check(CAD and CAD.images == 1 and #CAD.couches.main.hr == 8 and #CAD.couches.glow.hr == 8 and #CAD.couches.shadow.hr == 8, "cadavre du Corroder : 8 directions, une image, trois couches")
+for _, id in ipairs({ "corroder", "corroder_cracheur" }) do
+  local CAD = SPR[id] and SPR[id].cadavre and SPR[id].cadavre.mort
+  check(CAD and CAD.images == 1 and #CAD.couches.main.hr == 8 and #CAD.couches.glow.hr == 8 and #CAD.couches.shadow.hr == 8, "cadavre de " .. id .. " : 8 directions, une image, trois couches")
+end
 check(SPR.corroder and SPR.corroder.icone and SPR.corroder_cracheur and SPR.corroder_cracheur.icone, "icônes rendues du Corroder et du cracheur")
 local C3 = read("prototypes/corps3d.lua")
 check(C3:find("function M%.cadavre") and C3:find("function M%.icone"), "corps3d.lua : cadavre et icône")

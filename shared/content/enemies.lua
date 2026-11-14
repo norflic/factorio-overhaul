@@ -113,7 +113,7 @@ E.families = {
     -- s43 : corps 3D propre (le CORRODER, graphics/robots/titans/sprites.lua, entrée « corroder ») au lieu du déchiqueteur recoloré ;
     -- variantes : teinte du corps et de la lueur qui glisse du premier au dernier palier (E.teinte_variante), les cracheurs vers l'ambre
     corps3d = "corroder",
-    corps3d_cracheur = "corroder_cracheur",       -- cracheurs : poche dorsale et trompe de crachat (même cadavre que corps3d)
+    corps3d_cracheur = "corroder_cracheur",       -- cracheurs : poche dorsale et trompe de crachat, et leur propre cadavre
     -- échelle de l'image 3D relative à l'échelle vanilla : mesurée sur les feuilles (silhouette moyenne des 8 directions à 32 px/tuile :
     -- déchiqueteur vanilla 112 × 106 px par unité d'échelle, Corroder 96 × 79) : × 1,35 pour couvrir l'ancienne silhouette à tout palier
     corps3d_echelle = 1.35,
@@ -192,12 +192,12 @@ function E.teinte_variante(family, kind, tier)
 end
 
 --- s43 : corps 3D d'une unité de famille (nil sans corps 3D) : feuille du corps (cracheurs : corps3d_cracheur s'il existe), feuille
---- du cadavre (celle de corps3d) et facteur d'échelle de l'image.
+--- du cadavre (celle du même corps : chaque corps a sa carcasse) et facteur d'échelle de l'image.
 function E.corps3d(family, kind)
   local f = family and E.families[family]
   if not (f and f.corps3d) then return nil end
   local id = (kind == "spitter" and f.corps3d_cracheur) or f.corps3d
-  return { id = id, cadavre = f.corps3d, echelle = f.corps3d_echelle or 1 }
+  return { id = id, cadavre = id, echelle = f.corps3d_echelle or 1 }
 end
 
 --- Le corps d'un déchiqueteur de cette famille est-il celui du petit cracheur (moucheron) ? Seuls les biters en changent.

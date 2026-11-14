@@ -199,6 +199,57 @@ return {
       densite = 48.0,
       images = 4,
     },
+    cadavre = {
+      icone = {
+        filename = "__factorio-overhaul__/graphics/robots/titans/icone-corroder_cracheur-cadavre.png",
+        size = 64,
+      },
+      mort = {
+        couches = {
+          glow = {
+            dens = 24.0,
+            h = 82,
+            hr = { "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-0.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-1.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-2.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-3.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-4.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-5.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-6.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-glow-7.png" },
+            lh = 41,
+            ll = 1,
+            lpf = 1,
+            lr = { "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-0.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-1.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-2.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-3.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-4.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-5.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-6.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-glow-7.png" },
+            lw = 55,
+            sx = 0.0,
+            sy = -0.125,
+            w = 110,
+          },
+          main = {
+            dens = 48.0,
+            h = 170,
+            hr = { "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-0.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-1.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-2.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-3.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-4.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-5.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-6.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-main-7.png" },
+            lh = 85,
+            ll = 1,
+            lpf = 1,
+            lr = { "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-0.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-1.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-2.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-3.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-4.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-5.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-6.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-main-7.png" },
+            lw = 116,
+            sx = 0.0417,
+            sy = -0.0208,
+            w = 232,
+          },
+          shadow = {
+            dens = 24.0,
+            h = 76,
+            hr = { "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-0.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-1.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-2.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-3.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-4.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-5.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-6.png", "__factorio-overhaul__/graphics/robots/titans/hr-corroder_cracheur-cadavre-mort-shadow-7.png" },
+            lh = 38,
+            ll = 1,
+            lpf = 1,
+            lr = { "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-0.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-1.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-2.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-3.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-4.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-5.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-6.png", "__factorio-overhaul__/graphics/robots/titans/corroder_cracheur-cadavre-mort-shadow-7.png" },
+            lw = 55,
+            sx = 0.1667,
+            sy = 0.0,
+            w = 110,
+          },
+        },
+        densite = 48.0,
+        images = 1,
+      },
+    },
     course = {
       couches = {
         glow = {

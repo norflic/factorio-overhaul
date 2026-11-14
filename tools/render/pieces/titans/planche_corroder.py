@@ -131,7 +131,7 @@ def apres(D, t, sorte, fond, cx, cy, cadavre=False):
     p = D["paliers"][t - 1]
     g = VANILLA[p["base"]] * (p["nt"] / 1.2 if p["nt"] else 1.0) * D["size"] * D["echelle"]
     lueur, teinte = (p["lb"], p["cb"]) if sorte == "biter" else (p["ls"], p["cs"])
-    alpha = min(1.0, 0.45 + 0.05 * t) * (0.4 if cadavre else 1.0)
+    alpha = min(1.0, 0.45 + 0.05 * t) * (0.25 if cadavre else 1.0)
     cc = a["couches"]
     for nom, mode in (("shadow", "ombre"), ("main", "over"), ("glow", "add")):
         c = cc[nom]
@@ -158,10 +158,11 @@ def main():
     cws = [max(150, int(100 * g)) for g in gs]
     xs = [170 + sum(cws[:i]) + cws[i] // 2 for i in range(len(cws))]
     ch = max(170, int(80 * max(gs)))
-    W, H = 170 + sum(cws) + 20, ch * 4 + 50
+    W, H = 170 + sum(cws) + 20, ch * 5 + 50
     fond = np.ones((H, W, 4)) * np.array([0.33, 0.27, 0.19, 1.0])
     img_lignes = (("AVANT : dechiqueteur vanilla recolore", "avant"), ("APRES : Corroder, dechiqueteurs", "biter"),
-                  ("APRES : Corroder, cracheurs", "spitter"), ("APRES : cadavres (dechiqueteurs)", "cadavre"))
+                  ("APRES : Corroder, cracheurs", "spitter"), ("APRES : cadavres (dechiqueteurs)", "cadavre"),
+                  ("APRES : cadavres (cracheurs)", "cadavre_c"))
     for li, (_, sorte) in enumerate(img_lignes):
         for ci, t in enumerate(PALIERS):
             cx, cy = xs[ci], 40 + li * ch + ch // 2
@@ -169,6 +170,8 @@ def main():
                 avant(D, t, fond, cx, cy)
             elif sorte == "cadavre":
                 apres(D, t, "biter", fond, cx, cy, cadavre=True)
+            elif sorte == "cadavre_c":
+                apres(D, t, "spitter", fond, cx, cy, cadavre=True)
             else:
                 apres(D, t, sorte, fond, cx, cy)
     im = Image.fromarray((np.clip(fond, 0, 1) * 255).astype(np.uint8)).convert("RGB")

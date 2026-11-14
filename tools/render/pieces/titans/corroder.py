@@ -41,6 +41,8 @@ def matieres(S):
     if GRIS:
         M["acide"] = M["conduit"]
         M["bave"] = M["conduit"]
+        M["flaque"] = M["conduit"]
+        M["poche"] = M["conduit"]
         M["chair"] = M["peau"]
         M["carapace"] = M["blind"]
         M["ronge"] = M["blind2"]
@@ -56,6 +58,12 @@ def matieres(S):
                          crasse_col=(0.08, 0.10, 0.01), graine=54)
     M["acide"] = S.mat_emissive(PREFIX + "acide", (0.55, 1.00, 0.10), strength=3.2, base=(0.10, 0.22, 0.015), main_scale=0.3)
     M["bave"] = S.mat_emissive(PREFIX + "bave", (0.45, 0.95, 0.10), strength=1.8, base=(0.10, 0.22, 0.02), main_scale=0.45)
+    # s43 tranche 3 : flaque du cadavre SOMBRE (acide qui fume, à peine lumineux : elle dominait la créature morte) ; poche du cracheur
+    # moins saturée (membrane sombre, lueur au tiers : aplat jaune au palier 12)
+    M["flaque"] = S.mat_emissive(PREFIX + "flaque", (0.40, 0.85, 0.10), strength=0.5, base=(0.030, 0.055, 0.012), main_scale=0.12)
+    M["flaque"]["fo_glow_part"] = 0.25
+    M["poche"] = S.mat_emissive(PREFIX + "poche", (0.50, 1.00, 0.10), strength=1.4, base=(0.05, 0.10, 0.010), main_scale=0.15)
+    M["poche"]["fo_glow_part"] = 0.35
     return M
 
 
@@ -108,11 +116,11 @@ def corps(lot, M, u, bob, gonfle, cracheur=False):
         # CRACHEUR : une grosse POCHE D'ACIDE dorsale à l'arrière (le réservoir du crachat), cerclée de côtes rongées ; elle se vide à l'attaque
         i = min(range(n), key=lambda q: abs(pts[q][0] + 0.55))
         p, w, h, t = prof[i]
-        rr = max(0.12, 0.46 * (1.0 - 0.3 * gonfle))
+        rr = 0.46 * (1.0 - 0.3 * gonfle) if gonfle >= 0 else max(0.12, 0.46 * (1.0 + 0.6 * gonfle))   # carcasse : poche crevée, dégonflée
         c = (p[0] - 0.05, p[1], p[2] + h * 0.75 + rr * 0.55)
-        lot.put(M["acide"], G.sphere(c, rr, 14, 7))
-        for kk in range(3):
-            a = -0.6 + 0.6 * kk
+        lot.put(M["poche"], G.sphere(c, rr, 14, 7))
+        for kk in range(5):
+            a = -0.9 + 0.45 * kk
             lot.put(M["ronge"], G.oriente(G.tour([(-0.03, rr * 1.02), (0.03, rr * 1.02), (0.03, rr * 1.08), (-0.03, rr * 1.08)], 14, "z"), c,
                                           G.norm((math.cos(a), 0.0, math.sin(a)))))
         poches = ((0.35, 0.14, 0.0),)
@@ -223,7 +231,7 @@ def build(S, lot, u=0.0, attaque=None, mort=False):
     tete(lot, M, (nk[0] + 0.15 + lunge, nk[1], nk[2] - 0.05 - 0.15 * ouverture), ouverture, cracheur)
     if mort:
         # flaque d'acide sous la carcasse (lueur faible, le prototype la dose)
-        lot.put(M["bave"], G.tour([(0.0, 0.0), (0.0, 0.95), (0.02, 0.85), (0.025, 0.0)], 18, "z", (-0.1, 0.05, 0.0)))
+        lot.put(M["flaque"], G.tour([(0.0, 0.0), (0.0, 0.8), (0.015, 0.72), (0.02, 0.0)], 18, "z", (-0.1, 0.05, 0.0)))
     return {"pieces": lot.n, "u": u, "attaque": attaque}
 
 
