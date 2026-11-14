@@ -80,7 +80,7 @@ Build.skip_lots = Build.Vap.skip_lots
 function Build.alim_first(f, p, tick)
   local b = f.build
   local sp = p.spec or {}
-  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.site or sp.plant or p.reopened or p.id == b.plant then return false end
+  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.site or sp.plant or (p.reopened and p.reopened ~= 0) or p.id == b.plant then return false end -- (reopened = 0 : bande neuve, pas une reconstruction)
   for _, id in ipairs(b.extra_plants or {}) do if id == p.id then return false end end
   local aid = Build.alim_project(f)
   local a = aid and b.projects[aid]
