@@ -72,7 +72,9 @@ end
 --- treillis : le treillis grandit), "attendre" (autre raison : pause ordinaire du lot CHARBON-CENTRALE).
 function Cv.after_refusal(reason, can_grow)
   reason = tostring(reason or "")
-  if can_grow and (reason:find("minerai", 1, true) or reason:find("hors du treillis", 1, true)) then return "grandir" end
+  -- lot VAPEUR (14/11) : « pas de lot » (aucun lot libre portant le charbon : 14 refus dans la partie du DC 0.7.103, centrale 1 de player
+  -- nourrie a la main toute la partie) fait aussi grandir le treillis
+  if can_grow and (reason:find("minerai", 1, true) or reason:find("hors du treillis", 1, true) or reason:find("pas de lot", 1, true)) then return "grandir" end
   return "attendre"
 end
 

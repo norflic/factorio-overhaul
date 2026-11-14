@@ -148,6 +148,12 @@ function C.growth(st, n)
   -- lot ENERGIE (2/11) : `anticipate` (shared/team/sante_centrale.lua : production + chantiers + modules retenus >= 70 % de la capacité) demande la
   -- centrale AVANT la saturation ; tous les garde-fous suivants (chantier ouvert, plafonds, pauses, repli) valent aussi pour elle
   local deficit = (n.deficit_kw or 0) > 0 and (st.def_n or 0) >= C.DEFICIT_CHECKS -- lot TV-ENERGIE : déficit de kW installé
+  -- lot VAPEUR (14/11) : demande NOMINALE des entités électriques posées × 1,3 au-delà de la capacité nominale + chantiers (shared/team/vapeur.lua) :
+  -- l'extension part avant toute baisse de tension, sans attendre la mesure (une base à l'arrêt faute de courant ne « mesure » rien)
+  local nominal = (n.nominal_kw or 0) > 0
+  deficit = deficit or nominal -- (déclencheur comme un déficit installé)
+  -- la garde de la charge MESURÉE (F491, ci-dessous) ne s'applique pas à la demande nominale (exigence du DC) : vue de `n` où la charge est pleine
+  if nominal then n = setmetatable({ load = math.huge }, { __index = n }) end
   if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, "pas saturee" end
   -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité
   if n.load ~= nil and n.load < C.GROW_LOAD and not C.engaged_over(n.engaged_kw, n.cap_kw) then return nil, C.LOAD_REASON end
@@ -162,7 +168,8 @@ function C.growth(st, n)
     if n.pending - (n.rebuilding or 0) > 0 then return nil, "un chantier de centrale est ouvert" end
   else
     -- lot ELECTRIQUE (e) : un chantier de PLUS quand le déficit installé dépasse la capacité des chantiers ouverts (C.parallel_kw)
-    if n.pending > 0 and not C.parallel_kw(st, n) then return nil, "un chantier de centrale est ouvert" end
+    -- (lot VAPEUR : la demande nominale manque encore APRÈS les chantiers ouverts, comptés par vapeur.lua : un chantier de plus, jusqu'à C.MAX_PARALLEL)
+    if n.pending > 0 and not C.parallel_kw(st, n) and not (nominal and n.pending < C.MAX_PARALLEL) then return nil, "un chantier de centrale est ouvert" end
     if n.done < 1 then return nil, "aucune centrale finie" end
   end
   if n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
@@ -174,6 +181,11 @@ function C.growth(st, n)
   if C.crisis(st, n) then
     if (n.secours_n or 0) >= C.SECOURS_MAX then return nil, "unites de secours epuisees pour cette crise" end
     return C.SECOURS_BOILERS
+  end
+  -- lot VAPEUR : la taille couvre la demande nominale qui manque (au moins celle de l'autre déclencheur)
+  if nominal and not n.lost then
+    local other = (n.pending > 0) and C.parallel_kw(st, n) or ((deficit and n.deficit_kw) or 0)
+    return C.deficit_size(math.max(n.nominal_kw, other or 0), n.boiler_kw, n.refused, n.lane_cap)
   end
   -- lot ELECTRIQUE (e) : chantier en parallèle, à la taille du déficit que les chantiers ouverts ne couvrent pas
   if not n.lost and n.pending > 0 then return C.deficit_size(C.parallel_kw(st, n), n.boiler_kw, n.refused, n.lane_cap) end

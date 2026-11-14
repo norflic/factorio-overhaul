@@ -5327,12 +5327,12 @@ local function charbon_step(f, tick)
   if tick < (b.cc_next or 0) then return end
   b.cc_next = tick + (Build.Charge and Build.Charge.stretch(Cc.EVERY) or Cc.EVERY) -- (lot TV-VAPEUR, V89 : relevé non urgent, espacé sous charge)
   b.charbon = b.charbon or {}
-  local plants, other_open = {}, false
+  local plants, n_open = {}, 0 -- (lot VAPEUR : nombre de projets d'alimentation ouverts, Cc.MAX_OPEN à la fois)
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and p.state == "fini" and is_plant_project(p) then plants[#plants + 1] = p end
     if p and p.spec and p.spec.alim and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
-      other_open = true
+      n_open = n_open + 1
     end
   end
   for _, p in ipairs(plants) do
@@ -5359,7 +5359,7 @@ local function charbon_step(f, tick)
       st.done_said = nil
     end
     local open = alim ~= nil and not auto
-    local ok = Cc.want_alim(st, { automated = auto, quai = #(p.quais or {}) > 0, alim_open = open, other_open = other_open and not open,
+    local ok = Cc.want_alim(st, { automated = auto, quai = #(p.quais or {}) > 0, alim_open = open, other_open = n_open >= Cc.MAX_OPEN and not open,
       tick = tick, off = b.opts and b.opts.no_alim == true })
     if ok then
       local n, kw = plant_burn_kw(p)
@@ -5368,7 +5368,7 @@ local function charbon_step(f, tick)
       local id = Build.request(f, { alim = p.id, prio = Cc.PROJECT_PRIO, domain = "infrastructures", pole = p.spec and p.spec.pole })
       if id then
         st.alim = id
-        other_open = true
+        n_open = n_open + 1
         -- prioritaire : devant les projets en attente, après ce qui répare (rouvert) et les centrales pas encore finies
         local front, rest = {}, {}
         for _, x in ipairs(b.order) do

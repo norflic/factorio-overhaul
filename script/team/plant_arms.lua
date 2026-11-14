@@ -17,6 +17,7 @@ local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machine
 local Cp = require("shared.team.centrale_pole") -- lot CENTRALE-PRES : poteau obtenable, taille de la centrale
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : santé de la centrale, amorce à la main, croissance avant saturation
 require("script.team.vapeur") -- lot VAPEUR (14/11) : relevé [FO-VAPEUR], demande nominale (abonnement au bus)
+local Vn = require("shared.team.vapeur")
 
 local PA = {}
 
@@ -278,7 +279,10 @@ function PA.watch(f, surface, tick)
   local gate2 = C.grow_demand_load((power + reopened_power) * 60 / 1000, installed_kw, (capacity + reopened_alive) * 60 / 1000)
   if gate2 and (gate == nil or gate2 > gate) then gate = gate2 end
   local coal_short = gate ~= nil and gate >= C.GROW_LOAD and Sante.coal_short(f)
-  local nb, why = C.growth(g, { load = gate, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
+  -- lot VAPEUR : kW nominaux manquants du dernier relevé (script/team/vapeur.lua), s'il a moins de deux périodes
+  local vap = f.build.vapeur
+  local nominal_kw = (vap and tick - (vap.tick or -math.huge) <= 2 * Vn.EVERY and (vap.missing or 0) > 0) and vap.missing or nil
+  local nb, why = C.growth(g, { load = gate, nominal_kw = nominal_kw, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
     engaged_kw = used_kw and (used_kw + Sante.committed(f) + Sante.held(f)) or nil, cap_kw = cap_kw, -- lot P0-CENTRALE
     anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw, pending_kw = pending_kw,

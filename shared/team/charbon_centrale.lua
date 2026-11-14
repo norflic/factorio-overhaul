@@ -33,9 +33,10 @@ Cc.STEAM_COMFORT = 0.75 -- tampon de vapeur bas : remplir tant que le coffre est
 Cc.CAP_SHARE = 0.9      -- part de la place du coffre visée au plus
 Cc.PRIO = 91            -- URGENCE (O.URGENT_PRIO = M.URGENT = 90) : le courant de toute la base, juste devant « défendre d'abord » (90)
 Cc.EVERY = 600          -- ticks entre deux relevés des centrales (projet d'alimentation)
+Cc.MAX_OPEN = 2         -- projets d'alimentation ouverts à la fois par équipe (lot VAPEUR : 1 -> 2, chaque centrale de plus en demande un)
 Cc.MAX_TRIES = 4        -- refus du projet d'alimentation à la pause courte, par centrale (ensuite : pause longue)
-Cc.RETRY_TICKS = 18000  -- 5 min de pause après un refus
-Cc.LONG_RETRY_TICKS = 108000 -- 30 min de pause après Cc.MAX_TRIES refus (relecture : jamais d'abandon définitif)
+Cc.RETRY_TICKS = 7200   -- 2 min de pause après un refus (lot VAPEUR : 5 -> 2 min, une centrale à la main est un P0)
+Cc.LONG_RETRY_TICKS = 36000 -- (lot VAPEUR : 30 -> 10 min) pause après Cc.MAX_TRIES refus (relecture : jamais d'abandon définitif)
 Cc.PROJECT_PRIO = 80    -- priorité du projet d'alimentation (ses tâches de chantier : min(80 + 30, 89) = 89, Build.FINISH_CAP)
 Cc.LOGS = 40            -- lignes [FO-CHARBON-CENTRALE] au plus par équipe
 Cc.BUFFER_KEEP = 60     -- charbons laissés à un tampon d'avant-poste (de quoi ravitailler ses brûleurs : il ne se vide jamais pour la centrale)
