@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 23 h 45 : version 0.7.116 (modules)
+
+- **F688 · VALIDÉ · DÉPLOYÉ 0.7.116** `RT.craftable_fn` (script/ai3/capitalisation.lua) lisait `f.force.valid` alors que `f.force` est le NOM de la force : réponse toujours « non », aucun module fabriqué dans aucune partie (partie du DC 2 h 30 en 0.7.102 : 3 équipes avec les technos, 0 module). Lu sur `game.forces[nom]`. Bancs `2026-11-14_MODULES-1..3` (scénario `partie-modules-kit-30`, technos données à 8 min) : 0 → 10 modules posés (scarlet, 2 foreuses). Un seul site de ce motif dans le code (grep). content 621 OK.
+
 ## 2026-11-14, 23 h 10 : version 0.7.115 (bancs rejoués sur les vrais réglages de carte du DC)
 
 - **F687 · VALIDÉ · DÉPLOYÉ 0.7.115** Banc 60 min, carte du DC (ressources 600 %, zone de départ 600 %, évolution par pollution 2e-7 ; `carte_dc_ms.json` doit être COMPLET, un map-settings partiel fait échouer le banc au lancement, commit 63a1224f), graine 123456789, archives `2026-11-14_DC60-base0714` (source 0.7.114 + outils de banc actuels, sinon le scénario de jalons manque) et `2026-11-14_DC60-cand0715`. Équipe joueur : fours en marche 13/17 → 44/59 ; plaques à 60 min 12 141 → 24 401 (fer 10 342 → 8 434, cuivre 1 799 → 15 967) ; foreuses électriques sur cuivre 0 → 15, charbon 3 → 9. Factions : plaques à 60 min 126 842 → 111 632 (-12 %, une graine). Pics champ:frame 673 → 472 ms. La régression des bancs F679-F686 venait de la zone de départ par défaut (avant-poste rasé à 13 min), pas du code.

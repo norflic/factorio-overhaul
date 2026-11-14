@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.116
+Date: 2026-11-14
+  Bugfixes:
+    - IA (modules) : aucune équipe ne fabriquait ni ne posait de modules, même avec les technologies (la fonction « sait fabriquer » lisait la force comme un objet alors que c'est son nom) ; au banc avec les technologies données, scarlet pose 10 modules dans 2 foreuses électriques avant 30 min (0 avant).
+    - IA (modules) : une commande de modules couvre autant de machines que les ingrédients au coffre le permettent (au plus 12) ; la pose des modules déjà au coffre n'est plus suspendue par la seule perte de PNJ.
+  Known issues:
+    - Sans les technologies, aucun module n'est fabriqué avant 30 min (circuits avancés = plastique = pétrole) ; les fours en pierre ou en acier n'ont pas d'emplacement de module.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.115
 Date: 2026-11-14
   Features:
