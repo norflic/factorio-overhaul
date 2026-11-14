@@ -315,7 +315,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   for _, pr in ipairs(pairs_) do
     if asked then break end -- une liaison demandée par relevé
     local d, s = pr.dock, pr.src
-    local inp = { open = false, open_total = open, free = free, threat = threat, enemies = 0 }
+    local inp = { open = false, open_total = pr.ordre and 0 or open, free = free, threat = threat, enemies = 0 } -- ordres-0715 : paire imposee par un ordre : sans plafond
     if not threat then inp.enemies = (enemy_near(f, surface, d.x, d.y) or enemy_near(f, surface, s.x, s.y)) and 1 or 0 end
     local action, reason = Ln.decide(inp)
     if action == "relier" then
@@ -328,7 +328,8 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         asked = true
         local spec = { liaison = { key = d.key, item = d.item, flow = d.flow, arm = arm, pole = pole, belt = belt,
           dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y }, src = { pid = s.pid, idx = s.idx, x = s.x, y = s.y, key = s.key } },
-          prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
+          prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item,
+          ordre = (f.team and f.team.commande and Co.liaison_order(f.team.commande.orders, d, s, pr.ordre)) or nil } -- ordres-0715
         local id = api.request(f, spec)
         if id then
           st.links[d.key] = { pid = id, src = s.key, item = d.item, dock_pid = d.pid, dock_idx = d.idx, done = false, since = tick,

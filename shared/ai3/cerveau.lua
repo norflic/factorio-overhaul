@@ -287,7 +287,7 @@ function C.think(view, book, st, ctx)
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
   -- Lot PILE-PRIORITE : suspendu tant qu'un cadre de rang inférieur retient (il ne réserve plus sa matière, audit A3).
   -- Lot AGES : le centre dont le gel est levé (shared/team/degel.lua, ctx.thaw) passe la retenue de la pile ; lui seul.
-  if ctx.capital and (Pi.allows(pile, "capital") or (ctx.thaw and ctx.capital.center)) then goals[#goals + 1] = ctx.capital
+  if ctx.capital and (Pi.allows(pile, "capital") or (ctx.thaw and ctx.capital.center) or ctx.capital.zone) then -- ordres-0715 : zone du joueur goals[#goals + 1] = ctx.capital
   elseif ctx.capital then Pi.suspend(pile, ctx.capital.key or "capital", "amelioration (capital) suspendue") end -- journal [FO-PILE]
   -- Lot CAPIB : un but de FOND par ordre ouvert de la capitalisation (ses exécutants ont reçu l'ordre au runtime ; le but
   -- fait ce qui leur manque, sur la part capi du stock virtuel).
@@ -326,7 +326,9 @@ function C.think(view, book, st, ctx)
     local starved_prev = starved_pass
     for _, g in ipairs(goals) do
       local keep = true
-      if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
+      if g.ordre then
+        keep = true -- ordres-0715 : un ordre du joueur passe la retenue de la pile
+      elseif type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
         local sp = T.outposts[g.outpost]
         keep = Pi.allows(pile, "extraction", g.why) or (sp ~= nil and starved_prev[sp.product] == true) -- lot GISEMENTS : une matière en manque
       elseif g.releve and g.releve ~= "manque" then
@@ -354,7 +356,7 @@ function C.think(view, book, st, ctx)
   if disp and not disp.ouvert then
     local kept, n = {}, 0
     for _, g in ipairs(goals) do
-      local au_dela = type(g.key) == "string" and (g.key:sub(1, 11) == "couverture:" or (g.releve ~= nil and g.releve ~= "manque"))
+      local au_dela = not g.ordre and type(g.key) == "string" and (g.key:sub(1, 11) == "couverture:" or (g.releve ~= nil and g.releve ~= "manque"))
       local ok = true
       if au_dela and g.outpost then
         local sp = T.outposts[g.outpost]
@@ -436,6 +438,13 @@ function C.think(view, book, st, ctx)
     end
     st.pile.craft_note = string.format("fabrications demandees [%s], parties %d, matiere qui manque [%s]", table.concat(wants, ", "), E.crafts - pile_c0,
       table.concat(short, ", "))
+  end
+  -- ordres-0715 : un bastion du joueur sans tourelle au stock fait FABRIQUER ses tourelles et leurs chargeurs (objets de la config), en tete
+  if (ctx.bastion or 0) > 0 then
+    local n = ctx.bastion - (view.stock[P.TURRET] or 0)
+    if n > 0 then
+      P.want(E, { id = 0, key = "ordre:bastion" }, { { P.TURRET, n }, { T.turret_ammo, n * (T.defend_ammo or 1) } }, P.BOOT_PRIO, false, "tourelle")
+    end
   end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
   -- Ordre de SERVICE du stock virtuel : une COPIE de l'ordre (l'ordre d'origine garde le projet dominant, plus bas ; relecture de

@@ -118,4 +118,36 @@ ok(Dsr.plan({ stock = 9, ammo = 200, placed = 0, turrets = {}, zones = { { key =
   "sans ordre : surplus 1, groupe de 3 refusé (règle d'avant)")
 local psrc = io.open("shared/team/planner.lua"):read("*a")
 ok(psrc:find("Dsr.surplus_for(avail[T.turret] or 0, pk.ordre)", 1, true) and psrc:find("ordre_r = pk.ordre", 1, true), "planificateur : même exception")
+-- ordres-0715 : l'ordre du joueur en tete absolue
+do
+  local st = { projects = {} }
+  local gs = {}
+  for i = 1, 6 do gs[#gs + 1] = { key = "autre" .. i, family = "extraction", value = 95 } end
+  gs[#gs + 1] = { key = "ordre:x", family = "extraction", value = 88, ordre = 1 }
+  local out = P.update(st, gs, 0, 0, nil)
+  ok(out[1] and out[1].key == "ordre:x", "ordres-0715 : l'ordre est servi le premier, devant des buts plus chers")
+  local found = false
+  for _, p in ipairs(st.projects) do if p.key == "ordre:x" and p.state == "actif" then found = true end end
+  ok(found, "ordres-0715 : l'ordre est actif meme sans place (K)")
+  local g = { { key = "extraction:k", family = "extraction", outpost = "k", value = 40, releve = "plein", take_only = true } }
+  Co.goals(g, { { id = 3, kind = "gisement", outpost = "k", x = 0, y = 0, r = 8 } }, 1000, {})
+  ok(g[1].ordre == 3 and g[1].releve == nil and g[1].take_only == nil, "ordres-0715 : but greffe sans releve ni take_only")
+  local cs = Co.new_state()
+  Co.add(cs, { kind = "bastion", x = 0, y = 0, r = 10 })
+  ok(Co.bastion_want(cs) == Co.BASTION_WANT and Co.bastion_want(Co.new_state()) == 0, "ordres-0715 : tourelles voulues par bastion")
+  local csrc = io.open("shared/ai3/cerveau.lua"):read("*a")
+  ok(csrc:find("if g.ordre then", 1, true) and csrc:find("not g.ordre and type(g.key)", 1, true) and csrc:find("ctx.capital.zone", 1, true),
+    "ordres-0715 : filtres de la pile et anti-dispersion passes, zone d'amelioration permise")
+  local bsrc = io.open("script/team/build.lua"):read("*a")
+  ok(bsrc:find("if p.spec and p.spec.ordre then return nil end", 1, true), "ordres-0715 : projet d'ordre jamais suspendu par la pile")
+end
+do -- ordres-0715 (B) : spirale du coffre d'office
+  local D = require("shared.team.depart")
+  local a, b = D.spiral_spots(), D.spiral_spots()
+  ok(#a == D.SPIRAL_BUDGET and a[1][1] == b[1][1] and a[#a][2] == b[#b][2], "spirale : bornee et deterministe")
+  local mx = 0
+  for _, o in ipairs(a) do mx = math.max(mx, math.abs(o[1]), math.abs(o[2])) end
+  ok(mx <= D.SPIRAL_MAX and mx > 26, "spirale : au-dela des places fixes, sous le rayon maximal")
+  ok(D.pick_chest({ { pos = { x = 0, y = 0 }, ore = 5 }, { pos = { x = 40, y = 0 }, ore = 0 } }) == 2, "pick_chest : place sans minerai retenue")
+end
 print(string.format("s46_outils_commande_test OK (%d)", n))

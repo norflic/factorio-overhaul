@@ -541,7 +541,7 @@ function Cap.candidates(Ld, census, ctx)
     if ctx.starved and ctx.starved[c.replace.to] then return 1 end
     return 0
   end
-  for _, c in ipairs(cands) do c.front = (front(c) == 1) or nil end -- lu par Cap.goal : le but passe devant le fond au stock virtuel
+  for _, c in ipairs(cands) do c.front = (front(c) == 1 or c.zone) or nil end -- ordres-0715 : zone du joueur devant le fond -- lu par Cap.goal : le but passe devant le fond au stock virtuel
   -- Lot S42 QG-NIVEAUX : le bâtiment de la chaîne du centre devant tout, tant que sa borne n'est pas atteinte (Cap.lead_step).
   local function lead(c) return (ctx.lead and c.chain and not (ctx.lead.done and ctx.lead.done[c.key])) and 1 or 0 end
   for _, c in ipairs(cands) do c.lead = (lead(c) == 1) or nil end
@@ -721,6 +721,7 @@ function Cap.goal(d, weights)
     short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved or d.cash)) or nil, replace = d.replace and true or nil,
     -- Lot AMELIORATION : un lot de bâtiments d'un bloc (n bâtiments, `unit` = coût d'un seul) ; Cap.emit peut en payer moins (E.pay.n).
     bloc = d.bloc, n = (d.bloc or d.fab) and d.n or nil, unit = (d.bloc or d.fab) and d.unit or nil,
+    zone = d.zone or nil, -- ordres-0715 : zone d'amelioration du joueur (passe la pile, shared/ai3/cerveau.lua)
     front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi après les investissements, devant les projets ordinaires et le fond (projets.lua)
     fab = d.fab, -- lot AMELIORATION-CONTINUE : pièces du bloc demandées à la fabrication (≥ n)
     piece_first = (d.replace and d.piece_first) or nil, -- s44 fours-acier : remplacement d'un four, une pièce à la priorité forte (Cap.furnace_first)

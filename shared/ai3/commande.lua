@@ -303,6 +303,7 @@ function Co.goals(goals, orders, w_ext, products)
           hit = true
           if (g.value or 0) < v then g.value = v end
           g.fond, g.ordre, g.zone, g.zones = nil, o.id, zones[1], zones
+          g.releve, g.take_only = nil, nil -- ordres-0715 : l'ordre du joueur n'est ni une relève ni une couverture (filtres de la pile)
         end
       end
       if not hit then
@@ -418,6 +419,16 @@ function Co.bastion_zones(state, want)
     if o.kind == "bastion" then out[#out + 1] = { key = "bastion" .. o.id, id = o.id, x = o.x, y = o.y, r = o.r, want = want } end
   end
   return out
+end
+
+--- ordres-0715 : tourelles voulues par les bastions vivants (Co.BASTION_WANT par ordre non fini), 0 sans bastion.
+Co.BASTION_WANT = 8
+function Co.bastion_want(state)
+  local n = 0
+  for _, o in ipairs((state or {}).orders or {}) do
+    if o.kind == "bastion" and not o.done then n = n + math.max(0, Co.BASTION_WANT - (o.have or 0)) end
+  end
+  return n
 end
 
 --- Rang d'amélioration d'une position : 0 dans une zone prioritaire, 1 ailleurs (zones absentes ou vides : 1).
