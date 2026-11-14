@@ -1318,4 +1318,7 @@ function Champ.report(f, surface, tick)
   return rd
 end
 
+-- s46 profileur : sonde toujours allumée autour du plan entier d'un gisement (portée rare) : [FO-PERF-PIC] au journal, affichage seul
+Champ.frame = require("script.core.sonde_pic").wrap("champ:frame", Champ.frame)
+
 return Champ
