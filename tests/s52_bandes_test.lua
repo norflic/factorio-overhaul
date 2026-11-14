@@ -212,9 +212,9 @@ do
   local ti = mg:find("local function frame_take(", 1, true)
   local te = ti and mg:find("\nend\n", ti, true)
   local tb = (ti and te) and mg:sub(ti, te) or ""
-  local a1 = tb:find("NEXT_STEP = tick + Mig.STEP_GAP", 1, true)
+  local a1 = tb:find("NEXT_STEP[tk] = tick + Mig.STEP_GAP", 1, true)
   local a2 = tb:find("local frame, order = Champ.frame(f, surface, o)", 1, true)
-  local a3 = tb:find("if Champ.inner_step(f, o.id) then NEXT_STEP = tick + Mig.INNER_GAP end", 1, true)
+  local a3 = tb:find("if Champ.inner_step(f, o.id) then NEXT_STEP[tk] = tick + Mig.INNER_GAP end", 1, true)
   check(a1 and a2 and a3 and a1 < a2 and a2 < a3, "frame_take : STEP_GAP par défaut, INNER_GAP après une étape interne")
   local ch = read("script/team/champ.lua")
   local ci = ch:find("function Champ.inner_step(f, oid)", 1, true)

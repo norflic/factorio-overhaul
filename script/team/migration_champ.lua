@@ -822,19 +822,23 @@ local FRAME_WAIT = {}
 -- 0.7.110 : les pas repris par la file du tick (une variante, jusqu'à plusieurs secondes sur une grande base) attendent Mig.STEP_GAP ticks après
 -- le dernier pas, toutes équipes (la pensée de Mig.think, toutes les 600 ticks, n'est pas retenue) : en 0.7.108-0.7.109 les 4 variantes partaient sur 4 ticks consécutifs (partie du DC en x5 : 4 x 4,4 s d'un bloc). Local au module
 -- (0 après chargement : la file l'est aussi).
-Mig.STEP_GAP = 1200
+-- 0.7.114 (F675) : 1200 ticks TOUTES équipes entre deux variantes sérialisaient les 18 cadres d'une partie à 5 équipes (16,7 -> 22,8 min, fer
+-- après la pierre) ; depuis s52 une variante est découpée en étapes : l'écart est PAR ÉQUIPE (NEXT_STEP[clé]) et court.
+Mig.STEP_GAP = 120
 -- s52 bandes : un pas est une ÉTAPE d'une variante (Ch.once_step : une phase, une bande, un réseau du charbon ; la variante entière prenait
 -- 2,3 à 5,1 s d'un bloc sur la carte du DC à 600 %) : les étapes d'une même variante sont espacées de Mig.INNER_GAP ticks, Mig.STEP_GAP reste
 -- entre deux variantes (Champ.inner_step)
 Mig.INNER_GAP = 2
-local NEXT_STEP = 0
+local NEXT_STEP = {} -- 0.7.114 (F675) : clé d'équipe -> tick du pas suivant permis (local, vide après chargement comme la file)
+local function team_key(f) return tostring(f.key or "player") end
 local function frame_take(f, surface, ms, o, st, tick)
   -- lot COUT-600 : un seul cadre planifié par passe de Mig.think (le drapeau est levé par le premier ; une autre avant-poste attend la passe suivante)
   if ms.verify_due then st.retry = tick; return end
-  NEXT_STEP = tick + Mig.STEP_GAP -- la file du tick (Mig.frame_tick) attend ce tick avant le pas suivant
+  local tk = team_key(f)
+  NEXT_STEP[tk] = tick + Mig.STEP_GAP -- la file du tick (Mig.frame_tick) attend ce tick avant le pas suivant DE CETTE ÉQUIPE
   local frame, order = Champ.frame(f, surface, o)
   if not frame and order == Ax.WAIT then -- s47 axe : plan reporté (un pas par tick), pas un échec ; s49 tranches : repris dès le tick suivant
-    if Champ.inner_step(f, o.id) then NEXT_STEP = tick + Mig.INNER_GAP end -- s52 bandes : étape suivante de la même variante
+    if Champ.inner_step(f, o.id) then NEXT_STEP[tk] = tick + Mig.INNER_GAP end -- s52 bandes : étape suivante de la même variante
     st.retry = tick + 1
     Ax.push(FRAME_WAIT, { key = tostring(f.key or "player") .. ":" .. tostring(o.id), f = f, surface = surface, oid = o.id })
     return
@@ -857,7 +861,12 @@ end
 --- vérification) est laissée : la pensée normale reprend. Le verrou d'un plan par tick (Champ.frame, PLAN_TICK) reste : une pensée de Mig.think au
 --- même tick reçoit Ax.WAIT, aucun pas n'est fait deux fois.
 function Mig.frame_tick(tick)
-  local w = Ax.pop(FRAME_WAIT)
+  -- 0.7.114 (F675) : la première entrée (ordre d'arrivée) dont l'ÉQUIPE a passé son écart ; les autres équipes ne l'attendent plus
+  local w
+  for i = 1, #FRAME_WAIT do
+    local x = FRAME_WAIT[i]
+    if tick >= (NEXT_STEP[team_key(x.f or {})] or 0) then w = table.remove(FRAME_WAIT, i); break end
+  end
   if not w then return false end
   local f = w.f
   if not (w.surface and w.surface.valid and f and f.outposts and f.hq and f.hq.valid and f.build and f.migration) then return false end
@@ -868,7 +877,7 @@ function Mig.frame_tick(tick)
   return true
 end
 Mig.FRAME_WAIT = FRAME_WAIT -- (tests : la file même)
-Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] and e.tick >= NEXT_STEP then Mig.frame_tick(e.tick) end end) -- (file vide ou pas trop tôt : rien)
+Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] then Mig.frame_tick(e.tick) end end) -- (file vide ou pas trop tôt : rien)
 
 local function begin_band(f, surface, ms, o, st, list, tick, free)
   st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE

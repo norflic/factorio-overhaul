@@ -70,13 +70,13 @@ do
   local src = h:read("*a")
   h:close()
   check(src:find("local FRAME_WAIT = {}", 1, true) ~= nil, "file locale au module (jamais dans global)")
-  check(src:find("Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] and e.tick >= NEXT_STEP then Mig.frame_tick(e.tick) end end)", 1, true) ~= nil,
+  check(src:find("Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] then Mig.frame_tick(e.tick) end end)", 1, true) ~= nil,
     "abonnement statique au tick : rien si la file est vide")
   local fi = src:find("function Mig.frame_tick(tick)", 1, true)
   local fe = fi and src:find("\nend\n", fi, true)
   local blk = (fi and fe) and src:sub(fi, fe) or ""
   local npop = 0
-  for _ in blk:gmatch("Ax%.pop%(") do npop = npop + 1 end
+  for _ in blk:gmatch("table%.remove%(FRAME_WAIT, i%)") do npop = npop + 1 end -- 0.7.114 (F675) : la première entrée dont l'équipe a passé son écart
   check(npop == 1 and blk:find("frame_take(f, w.surface, ms, o, st, tick)", 1, true) ~= nil, "Mig.frame_tick : UNE entrée par tick, le même pas que la pensée")
   check(blk:find("st.frame or st.abandoned or ms.verify_due", 1, true) ~= nil, "entrée laissée si le cadre est déjà pris, abandonné ou un autre en vérification")
   local ti = src:find("local function frame_take(", 1, true)
