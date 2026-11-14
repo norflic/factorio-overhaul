@@ -48,7 +48,8 @@ Champ.SIB_R = 64 -- tuiles : deux avant-postes du même minerai plus proches son
 Champ.CFG = {
   -- perf-frame : travail des étapes du plan groupées dans un appel (Ch.plan_steps ; compte d'états et de tuiles, jamais un temps :
   -- même découpage sur toutes les machines). Banc 0.7.113 carte du DC : 3 000 unités de recherche ~ 1,5 à 2 ms
-  tick_work = 6000,
+  -- perf-astar (banc carte du DC, 30 min, 6 000 : appels de 90 à 166 ms en jeu, une unité y coûte bien plus que hors jeu) : 2 000
+  tick_work = 2000,
   radius = 96,      -- tuiles autour de l'avant-poste où le gisement est lu
   side = 8,         -- foreuses par côté et par groupe au plus (une bande coûte ce que sa fonderie coûte : la suivante l'agrandit)
   margin_v = 10,    -- tuiles lues en travers au-delà du gisement
@@ -231,40 +232,43 @@ end
 --- leur boîte, ou nil.
 local function coal_tiles(surface, pos)
   local res = T.outposts.coal.resource
-  local found = surface.find_entities_filtered({ position = pos, radius = Champ.CFG.coal_r, name = res })
-  local best, bd
-  for _, r in ipairs(found) do
+  -- perf-astar (14/11, lecture de la spec jusqu'à 180 ms dans un tick sur la carte du DC : des dizaines de milliers de tuiles de charbon dans
+  -- le rayon) : la position de chaque ressource est lue UNE fois (avant : trois à quatre lectures r.position par entité, chacune une table
+  -- rendue par le moteur), et les 3 fenêtres sont choisies par passes linéaires au lieu du tri de toutes les tuiles ; même choix (la
+  -- k-ième fenêtre est la plus petite tuile selon (distance, x, y) hors des fenêtres prises, comme le parcours de la liste triée d'avant),
+  -- même liste (triée par (x, y) à la fin : l'ordre de lecture est sans effet, une ressource par tuile)
+  local pts = {}
+  for _, r in ipairs(surface.find_entities_filtered({ position = pos, radius = Champ.CFG.coal_r, name = res })) do
     if r.valid then
-      local d = (r.position.x - pos.x) ^ 2 + (r.position.y - pos.y) ^ 2
-      if not bd or d < bd or (d == bd and (r.position.x < best.x or (r.position.x == best.x and r.position.y < best.y))) then
-        best, bd = { x = r.position.x, y = r.position.y }, d
-      end
+      local p = r.position
+      local x, y = p.x, p.y
+      pts[#pts + 1] = { x = x, y = y, d = (x - pos.x) ^ 2 + (y - pos.y) ^ 2 }
     end
   end
-  if not best then return nil end
+  if #pts == 0 then return nil end
   -- (lot FONDERIE, lot2-20261020) jusqu'à 3 gisements : fenêtres autour de la tuile la plus proche, puis de la plus proche hors des fenêtres
   -- déjà prises (le plus proche peut être couvert par les paires thermiques de l'équipe : la règle pure garde celui qui porte le plus)
   local W = Champ.CFG.coal_window
-  local cand = {}
-  for _, r in ipairs(found) do
-    if r.valid then cand[#cand + 1] = { x = r.position.x, y = r.position.y, d = (r.position.x - pos.x) ^ 2 + (r.position.y - pos.y) ^ 2 } end
-  end
-  table.sort(cand, function(a, b)
+  local function less(a, b)
     if a.d ~= b.d then return a.d < b.d end
     if a.x ~= b.x then return a.x < b.x end
     return a.y < b.y
-  end)
+  end
   local centers = {}
-  for _, c in ipairs(cand) do
-    if #centers >= 3 then break end
-    local inside = false
-    for _, k in ipairs(centers) do if math.abs(c.x - k.x) <= W and math.abs(c.y - k.y) <= W then inside = true end end
-    if not inside then centers[#centers + 1] = c end
+  for _ = 1, 3 do
+    local best
+    for _, c in ipairs(pts) do
+      local inside = false
+      for _, k in ipairs(centers) do if math.abs(c.x - k.x) <= W and math.abs(c.y - k.y) <= W then inside = true break end end
+      if not inside and (not best or less(c, best)) then best = c end
+    end
+    if not best then break end
+    centers[#centers + 1] = best
   end
   local list = {}
-  for _, c in ipairs(cand) do
+  for _, c in ipairs(pts) do
     local keep = false
-    for _, k in ipairs(centers) do if math.abs(c.x - k.x) <= W and math.abs(c.y - k.y) <= W then keep = true end end
+    for _, k in ipairs(centers) do if math.abs(c.x - k.x) <= W and math.abs(c.y - k.y) <= W then keep = true break end end
     if keep then list[#list + 1] = { math.floor(c.x), math.floor(c.y) } end
   end
   table.sort(list, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
@@ -282,7 +286,7 @@ local function ore_tiles(surface, o)
   local res = T.outposts[o.kind].resource
   local raw = {}
   for _, r in ipairs(surface.find_entities_filtered({ position = o.pos, radius = Champ.CFG.radius, name = res })) do
-    if r.valid then raw[#raw + 1] = { x = r.position.x, y = r.position.y } end
+    if r.valid then local p = r.position; raw[#raw + 1] = { x = p.x, y = p.y } end -- perf-astar : position lue une fois
   end
   local comp = Paires.nearest_component(raw, Paires.GAP, o.pos) -- lot COUT-600 : = component(sorted(...)) sans trier les gisements voisins
   local out = {}
@@ -383,12 +387,13 @@ end
 --- Spec de la règle pure pour l'avant-poste `o` : (spec, names) ou nil, raison.
 --- perf-frame (carte du DC à 600 % : la lecture d'une spec de cadre neuf tenait 80 à 200 ms dans UN tick) : lecture en ÉTAPES, une par
 --- appel de spec_step (même code, même ordre, mêmes lectures ; le monde peut changer entre deux étapes, comme entre deux pas du plan) :
----   ore      données, tuiles du gisement, boîte, axe, gisement de charbon
+---   ore      données, tuiles du gisement, boîte, axe
+---   coal     gisement de charbon le plus proche (perf-astar : étape à part)
 ---   foreign  place nôtre (mine_of), autres ressources du rectangle lu
 ---   blocked  obstacles du rectangle lu (eau, bâtiments, falaises, réserves, couloirs)
 ---   fin      relevé du reroutage, spec, autres ressources autour du charbon, souterrains posés
 --- J = spec_begin(...) ; spec_step(J) -> fini, spec, names (fini : spec, ou nil et raison). spec_of enchaîne les étapes (bande seule).
-local SPEC_STAGES = { "ore", "foreign", "blocked", "fin" }
+local SPEC_STAGES = { "ore", "coal", "foreign", "blocked", "fin" }
 local SPEC = {}
 function SPEC.ore(J)
   local f, surface, o, frame, axis_force = J.f, J.surface, J.o, J.frame, J.axis_force
@@ -405,18 +410,27 @@ function SPEC.ore(J)
   local mu, mv = Champ.CFG.margin_u, Champ.CFG.margin_v
   local cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
   if axis == "x" then x0, x1, y0, y1 = x0 - mu, x1 + mu, y0 - mv, y1 + mv else x0, x1, y0, y1 = x0 - mv, x1 + mv, y0 - mu, y1 + mu end
+  J.data, J.names, J.ore, J.rect, J.center = data, names, ore, { x0, y0, x1, y1 }, { x = cx, y = cy }
+  return false
+end
+-- perf-astar : la lecture du charbon dans son étape (même calcul qu'à la fin de l'étape « ore » d'avant ; le monde peut changer entre deux
+-- étapes, comme entre deux pas du plan)
+function SPEC.coal(J)
+  local surface, frame, data = J.surface, J.frame, J.data
+  local r = J.rect
+  local x0, y0, x1, y1 = r[1], r[2], r[3], r[4]
   -- lot FONDERIE : un cadre NEUF d'un four à combustible lit aussi le gisement de charbon le plus proche, et la boîte lue va jusqu'à lui
   -- (le tracé du charbon ne passe que sur des tuiles lues) ; une bande seule rejoue le réseau gardé dans le cadre
   local coal
   if not frame and data.design == "colonne" and data.furnace and data.furnace.fuel and data.coal_rate then
     local box
-    coal, box = coal_tiles(surface, { x = cx, y = cy })
+    coal, box = coal_tiles(surface, J.center)
     if box then
       local m = Champ.CFG.route_margin
       x0, y0, x1, y1 = math.min(x0, box[1] - m), math.min(y0, box[2] - m), math.max(x1, box[3] + m), math.max(y1, box[4] + m)
     end
   end
-  J.data, J.names, J.ore, J.coal, J.rect = data, names, ore, coal, { x0, y0, x1, y1 }
+  J.coal, J.rect = coal, { x0, y0, x1, y1 }
   return false
 end
 function SPEC.foreign(J)

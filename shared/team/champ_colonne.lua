@@ -780,6 +780,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
     return (q - v) / 100000 - 50000, v - 50000, (r - r % 2) / 2 + 1, r % 2
   end
   local lim = job and Co.WORK_LIM
+  local did = false
   -- perf-frame : budget du pas atteint -> état rangé dans job.R (avec, pendant la preuve d'impossibilité, l'état fermé `pend` dont le
   -- développement attend la fin de la preuve, et l'état de la preuve), reprise au prochain appel (même suite d'états)
   local pend, proof = R and R.pend, R and R.proof
@@ -795,12 +796,15 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
       if why == Co.SUSPEND then save(ck, proof) return nil, Co.SUSPEND end
       if why then return finish(nil, why) end
     else
-      if lim and Co.WORK >= lim then save(nil, nil) return nil, Co.SUSPEND end
+      -- perf-astar : au moins UN état développé par appel (sans quoi un pas dont le travail compté dépasse déjà le budget, forfaits
+      -- Ch.STEP_BASE et Ch.HEAVY_WORK compris, reprend sans fin ce même tracé : 200 000 pas sans avancer, cadre du joueur au budget 200)
+      if lim and did and Co.WORK >= lim then save(nil, nil) return nil, Co.SUSPEND end
       ck = pop()
       if closed[ck] then ck = nil else
         closed[ck] = true
         expanded = expanded + 1
         Co.WORK = Co.WORK + 1
+        did = true
         if expanded > cap then return finish(nil, "trop long") end
         if expanded == Co.PREUVE_APRES and Co.PREUVE then
           local U = lim and {} or nil
