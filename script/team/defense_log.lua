@@ -77,6 +77,12 @@ function D.think(f, view, plan, tick)
     local k = "cellule:" .. (r.skip or "choisie")
     why[k] = (why[k] or 0) + 1
   end
+  -- s44 TOURELLES-STOCK : verdict du poste « reserve » (tourelles du coffre) au cumul, jusqu'ici muet hors de defense_stock.lua
+  local rk = plan and plan.reserve and plan.reserve.why
+  if not rk and view.reserve then
+    rk = view.reserve.under and "sous_reserve" or (view.reserve.busy and "tache") or (view.reserve.pick == nil and "aucun_lieu") or nil
+  end
+  if rk then why["reserve:" .. rk] = (why["reserve:" .. rk] or 0) + 1 end
   if team.def_log_t and tick - team.def_log_t < Fr.LOG_EVERY then return end
   team.def_log_t = tick
   local stock = view.stock or {}

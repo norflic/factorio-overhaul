@@ -80,7 +80,7 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
   local tick = game.tick
   local busy = fortify_open and fortify_open[Ds.OID] or false
   local have_stock = stock and stock[T.turret] or 0
-  if Ds_rule.surplus(have_stock) <= 0 then return { busy = busy } end -- sous la réserve : rien à offrir, rien à relever
+  if Ds_rule.surplus(have_stock) <= 0 then return { busy = busy, under = true } end -- sous la réserve : rien à offrir, rien à relever (s44 : cause lue par defense_log)
   local st = state(f, tick)
   local near = range_near()
   local turrets, placed = turrets_of(f)
