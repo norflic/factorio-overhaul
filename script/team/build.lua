@@ -84,6 +84,11 @@ function Build.alim_first(f, p, tick)
   for _, id in ipairs(b.extra_plants or {}) do if id == p.id then return false end end
   local aid = Build.alim_project(f)
   local a = aid and b.projects[aid]
+  if a and a.state == "reserve" and a.reason ~= "materiaux" and a.vap_why ~= tostring(a.reason) then
+    a.vap_why = tostring(a.reason) -- (diagnostic : l'alimentation attend pour une autre cause que sa matière)
+    log(string.format("[FO-VAPEUR] %s : projet %d (alimentation de la centrale %s) en reserve, raison %s a %.1f min (pas de priorite de matiere)",
+      f.key or "player", a.id, tostring(a.spec and a.spec.alim), tostring(a.reason), tick / 3600))
+  end
   if not (a and a.state == "reserve" and a.reason == "materiaux") then return false end
   a.vap_first = a.vap_first or tick
   if tick - a.vap_first > Build.Vap.FIRST_TICKS then return false end

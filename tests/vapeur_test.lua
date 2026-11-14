@@ -63,6 +63,13 @@ nb = C.growth({ def_n = C.DEFICIT_CHECKS }, n)
 check(nb == nil, "hors demande nominale : le renoncement reste (charge mesuree 10 %)")
 check(V.COOL_TICKS < C.COOL, "pause courte sous la demande nominale")
 
+n = base(); n.nominal_kw = 5777; n.done = 0; n.pending = 1; n.rebuilding = 1
+nb = C.growth({}, n)
+check(nb ~= nil and nb >= 1, "centrale batie rouverte (piece manquante) : l'extension nominale part quand meme (azure, VAPEUR-4)")
+n = base(); n.nominal_kw = 5777; n.done = 0; n.pending = 1; n.rebuilding = 0
+nb, why = C.growth({}, n)
+check(nb == nil and why == "aucune centrale finie", "premiere centrale encore en chantier : on l'attend")
+
 print("== 4. Liaison au charbon : refus et parallele")
 local Cv = require("shared.team.champ_vapeur")
 local Cc = require("shared.team.charbon_centrale")
