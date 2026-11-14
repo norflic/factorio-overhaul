@@ -15,10 +15,10 @@ function Bc.cap(consumers, drills, fuel_j)
 end
 
 --- Une foreuse (ou une bande) de combustible de plus n'est permise que tant que l'extraction posée reste SOUS le besoin réel.
---- Lot FIX-P1 : une foreuse du combustible ne compte dans la capacité que si elle produit (status = working) ou attend la place de sa
+--- Lot FIX-P1 : une foreuse du combustible ne compte dans la capacité que si elle produit (status = working) (lot 0.7.115 : plus quand elle attend la place de sa
 --- sortie (waiting_for_space_in_destination) ; à sec, sans courant, sans combustible ou à l'arrêt, elle ne rend rien. S = defines.entity_status.
 function Bc.drill_counts(status, S)
-  return S ~= nil and status ~= nil and (status == S.working or status == S.waiting_for_space_in_destination)
+  return S ~= nil and status ~= nil and status == S.working -- 0.7.115 : une foreuse dont la sortie est pleine ne livre rien (banc JALONS30-c3 : 2,50/s comptes pour 0,5/s livres)
 end
 
 --- Lot s45 charbon-besoin : besoin NOMINAL. Une chaudière ou un four à brûleur posé compte toujours à pleine puissance de prototype,
