@@ -369,10 +369,24 @@ function Cap.replace_candidates(Ld, census, ctx)
       -- Lot AMELIORATION-CONTINUE : le BLOC entier (au plus Cap.REPLACE_BATCH pièces) est demandé à la fabrication ; l'unité sert au paiement partiel.
       c.unit, c.fab, c.group, c.n = { { grp.item, 1 } }, Am.fab(total, Cap.REPLACE_FAB), gk, n
       c.remaining = total
+      c.members = grp.members -- lot TIERS : réserve du lot (Cap.pool), calculée pour la seule décision retenue
     end
     out[#out + 1] = c
   end
   return out, blocked
+end
+
+--- Lot TIERS : RÉSERVE du lot d'une décision de remplacement en continu : les Cap.REPLACE_BATCH premières pièces du groupe, dans
+--- l'ordre du paiement (Am.first_n : aval d'abord), en tête les pièces payables de d.ids. Le kit fabriqué d'avance et le paiement de
+--- Capital.continu portent sur elle, pas sur les seules pièces que le stock tenait à la décision (mesuré, JALONS60 : « x1 sur un lot
+--- demande de 40 », kit d'UNE pièce, une bande par minute). Rend une liste de numéros, ou nil (pas de groupe connu).
+function Cap.pool(d)
+  if not (d and d.members and d.ids) then return nil end
+  local pn = math.max(#d.ids, math.min(Cap.REPLACE_BATCH, #d.members))
+  if pn <= #d.ids then return nil end
+  local out = {}
+  for i, m in ipairs(Am.first_n(d.members, pn)) do out[i] = m.id end
+  return out
 end
 
 --- Candidats. census = { list = { {id, name, working} } (bâtiments à niveaux, triés par id), center = { id, name } ou
@@ -567,6 +581,18 @@ end
 
 --- Le choix : le meilleur candidat (nil s'il n'y en a pas) ; d.ranked = les Cap.TOP premiers { clé, score } ;
 --- d.wanted = objets sans coût connu des candidats de valeur bloqués par eux (H8 -> H9).
+--- Lot TIERS : remplacement « de côté ». Le capital tient UN but à la fois ; mesuré (banc TIERS-1, carte du DC, 30 min) : 'gun:2:50'
+--- 21 min décidé non payé (engrenages 0/3 au stock libre), les remplacements de tapis attendent derrière (« suivantes »). En continu,
+--- le premier candidat de remplacement (score décroissant) est rendu à part quand le but n'en est pas un : Capital.continu fabrique son
+--- kit et le paie dès qu'il est au stock, sans toucher au but. Rend le candidat, ou nil.
+function Cap.side_of(cands, first)
+  if first and first.replace then return nil end
+  for _, c in ipairs(cands or {}) do
+    if c.replace and c.ids and #c.ids > 0 and c.members then return c end
+  end
+  return nil
+end
+
 function Cap.choose(Ld, census, ctx)
   local res = Cap.candidates(Ld, census, ctx)
   -- Lot AGES : le centre reporté plus que son prix passe devant (Cap.starved).
@@ -623,6 +649,7 @@ function Cap.choose(Ld, census, ctx)
   end
   table.sort(kinds)
   d.rep_kinds, d.rep_groups = kinds, groups
+  d.side = ctx.continu and Cap.side_of(res.cands, first) or nil -- lot TIERS
   return d
 end
 

@@ -174,8 +174,23 @@ local function run(Cap, Am, quiet)
     table.sort(off, function(a, b) return a.key < b.key end)
     check(off[1].fab == nil and off[1].unit == nil and off[1].group == nil and off[1].ids[1] == 1001,
       "§2 règle éteinte : la décision d'avant (ni lot demandé, ni unité, ordre par numéro)")
+    -- Lot TIERS : la réserve du lot (pool) tient Cap.REPLACE_BATCH pièces même stock vide, en tête les pièces payables, dans l'ordre aval.
+    local p1, p2, p5 = Cap.pool(c1), Cap.pool(c2), Cap.pool(rc5[1])
+    check(p1 and #p1 == 12 and p1[1] == c1.ids[1] and p1[12] == 1009, "§2 TIERS : réserve du lot de 12 pièces, aval d'abord ("
+      .. tostring(p1 and #p1) .. ")")
+    check(p2 and #p2 == 8, "§2 TIERS : bloc de 8 pièces, réserve de 8")
+    check(p5 and #p5 == 12 and p5[5] == rc5[1].ids[5], "§2 TIERS : réserve préfixée par les pièces payables")
+    check(Cap.pool(off[1]) == nil, "§2 TIERS : règle éteinte, pas de réserve")
     D2 = Cap.choose(L, census_of(ms), base_ctx({ stock = {} }))
     check(D2.replace and D2.fab == 20 and D2.n == 1, "§2 Cap.choose garde le lot demandé (" .. tostring(D2.fab) .. ")")
+    check(Cap.pool(D2) and #Cap.pool(D2) == 12, "§2 TIERS : Cap.choose garde la réserve du lot")
+    -- Lot TIERS : remplacement de côté quand le but n'en est pas un (le premier candidat de remplacement, score décroissant).
+    local gun = { key = "gun:2:1", score = 9 }
+    local r1, r2 = { key = "r1", replace = {}, ids = { 1 }, members = { {} } }, { key = "r2", replace = {}, ids = { 2 }, members = { {} } }
+    check(Cap.side_of({ gun, r1, r2 }, gun) == r1, "§2 TIERS : de côté = premier remplacement derrière le but")
+    check(Cap.side_of({ r1, r2 }, r1) == nil, "§2 TIERS : le but est un remplacement, rien de côté")
+    check(Cap.side_of({ gun }, gun) == nil, "§2 TIERS : aucun remplacement candidat, rien de côté")
+    check(D2.side == nil, "§2 TIERS : Cap.choose, but remplacement : rien de côté")
     local g = Cap.goal(D2, {})
     check(g.fab == 20 and g.unit and g.n == 1 and g.replace == true, "§2 le but porte le lot demandé, l'unité et le nombre payable")
     local goff = Cap.goal(Cap.choose(L, census_of(ms), base_ctx({ stock = {}, continu = false })), {})

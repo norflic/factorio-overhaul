@@ -47,6 +47,7 @@ local AC = require("shared.ai3.amelio_continue") -- lot AMELIO-CONTINUE : priori
 local Board = require("script.team.board") -- lot AMELIO-CONTINUE : tâche « craft » du kit (comme script/team/foreuse_swap.lua, craft)
 local Bm = require("shared.team.book_max") -- lot AMELIO-CONTINUE : plus grand nombre fabricable du kit
 local T = require("shared.team.config")
+local Reg = require("shared.ai3.registre") -- lot TIERS : matière libre au registre (comme Board.prenable)
 
 local Capital = {}
 
@@ -64,6 +65,7 @@ Capital.CENTER_OFFSETS = { { 0, 14 }, { 14, 0 }, { -14, 0 }, { 0, -14 }, { 14, 1
 Capital.CENTER_SEARCH = 12
 Capital.HISTORY = 32
 Capital.REFUSE_TICKS = 5 * 3600 -- une cible refusée par l'exécutant est écartée 5 min (pas de nouvel essai à chaque pensée)
+Capital.TIERS_LOGS = 400       -- lot TIERS : lignes [FO-TIERS-MONTEE] au plus par équipe
 Capital.RECHECK_TICKS = 3600    -- lot AGES : un refus « cc-families » (familles à monter connues) n'écarte le centre qu'1 min
 
 local Levels = package.loaded["script.levels.levels"] -- lien inverse : script/levels/levels.lua, Capital.bind
@@ -800,6 +802,10 @@ function Capital.goal(f, view, book, tick, w)
   Capital.log_centre(f, c, d, tick)
   local goal = Cap.goal(d, w)
   local prev = c.current and c.current.key or nil
+  -- Lot TIERS : remplacement de côté (Cap.side_of), numéros seulement (rien du relevé ne va dans global).
+  local sd = d.side
+  c.side = sd and { key = sd.key, ids = { table.unpack(sd.ids) }, pool = Cap.pool(sd),
+    replace = { from = sd.replace.from, to = sd.replace.to, n = sd.replace.n, group = sd.replace.group } } or nil
   if d.none then
     c.current = nil
     local sig = Cap.why_text(d)
@@ -817,6 +823,7 @@ function Capital.goal(f, view, book, tick, w)
       ids = {}
       for i, v in ipairs(d.ids) do ids[i] = v end
     end
+    local pool = d.replace and Cap.pool(d) or nil -- lot TIERS : réserve du lot (numéros seulement : rien du relevé ne va dans global)
     local unit = nil
     if d.unit then
       unit = {}
@@ -824,7 +831,7 @@ function Capital.goal(f, view, book, tick, w)
     end
     c.current = { key = d.key, id = d.id, family = d.family, from = d.from, to = d.to, build = d.build or nil,
       center = d.center or nil, value = d.value, work = d.work, score = d.score, cost = cost, ids = ids,
-      bloc = d.bloc, n = d.n, unit = unit, bloc_low = d.bloc_low,
+      bloc = d.bloc, n = d.n, unit = unit, bloc_low = d.bloc_low, pool = pool,
       replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n, group = d.replace.group } or nil }
     if d.key ~= prev then
       c.decisions = (c.decisions or 0) + 1
@@ -977,6 +984,19 @@ local function pay_replace(f, c, d, tick, limit)
       why = w
       c.refused_until["m:" .. id] = tick + Capital.REFUSE_TICKS
       if w == "objet" then break end
+    end
+  end
+  if n > 0 then
+    -- Lot TIERS : journal [FO-TIERS-MONTEE] de chaque paiement ([FO-TIERS] est pris par le verrou des assembleurs) (équipe, type du moteur, de -> vers, nombre, cumul de la paire et de l'équipe), borné.
+    local cp = machine_catalog().by[d.replace.from]
+    local pair = d.replace.from .. ">" .. d.replace.to
+    c.tiers = c.tiers or { total = 0, by = {}, logs = 0 }
+    c.tiers.by[pair] = (c.tiers.by[pair] or 0) + n
+    c.tiers.total = c.tiers.total + n
+    c.tiers.logs = c.tiers.logs + 1
+    if c.tiers.logs <= Capital.TIERS_LOGS then
+      log(string.format("[FO-TIERS-MONTEE] %s : %s %s -> %s x%d (paire %d, equipe %d) a %.1f min", f.key or "player", cp and cp.type or "?",
+        d.replace.from, d.replace.to, n, c.tiers.by[pair], c.tiers.total, minutes(f, tick)))
     end
   end
   return n, why
@@ -1317,6 +1337,8 @@ function Capital.continu(f, surface, book, free, tick, hold)
   if not Capital.replace_on() or not (f.team and f.team.capital) then return 0 end
   local c = f.team.capital
   local d = c.current
+  local side = false
+  if not (d and d.replace) then d, side = c.side, true end -- lot TIERS : le but n'est pas un remplacement, celui de côté avance
   if not (d and d.replace) then return 0 end
   local tp = machine_catalog().by[d.replace.to]
   if not (tp and tp.item) then return 0 end
@@ -1325,12 +1347,20 @@ function Capital.continu(f, surface, book, free, tick, hold)
   c.continu_st = st
   if unlocked(f, item) then Voulues.clear(f, "amelio-continue") else Voulues.set(f, "amelio-continue", { item }, tick) return 0 end
   local have = Stock.count(f, item)
-  local n = #(d.ids or {})
+  -- Lot TIERS : le kit et le paiement portent sur la réserve du lot (d.pool, au plus Cap.REPLACE_BATCH pièces du même groupe), pas
+  -- sur les seules pièces payables à la décision (d.ids : souvent 1, stock vide).
+  local pool = (d.pool and #d.pool > #(d.ids or {})) and d.pool or (d.ids or {})
+  local n = #pool
   local want = AC.kit_want({ [item] = n }, { [item] = have })
   local queued = 0
   if want[1] and book and book:handcraftable(item) then
     local avail = {}
-    for _, k in ipairs(sorted_keys(free)) do avail[k] = free[k] end
+    -- Lot TIERS : la matière du kit est celle que le REGISTRE laisse libre (Board.prenable refuse sinon la tâche : banc TIERS-2, scarlet,
+    -- 30 kits émis et jamais pris, tapis du rang 1 réservés aux projets) ; le kit se fabrique alors depuis les plaques.
+    local reg = f.team and f.team.reg
+    for _, k in ipairs(sorted_keys(free)) do
+      avail[k] = reg and math.min(free[k], math.max(0, Reg.free(reg, k))) or free[k]
+    end
     avail[item] = 0
     local m, q = Bm.best(book, item, want[1][2], avail)
     if m > 0 then
@@ -1342,17 +1372,17 @@ function Capital.continu(f, surface, book, free, tick, hold)
   end
   local done, why = 0, nil
   if have >= 1 and AC.pile_permits(hold, have) then
-    done, why = pay_replace(f, c, d, tick, math.min(have, n))
+    done, why = pay_replace(f, c, { ids = pool, replace = d.replace }, tick, math.min(have, n))
     if done > 0 then
       c.upgrades = (c.upgrades or 0) + done
       if d.replace.group then c.last_group = d.replace.group end
-      c.current, c.goal, c.scan_n = nil, nil, 0
+      if side then c.side, c.scan_n = nil, 0 else c.current, c.goal, c.scan_n = nil, nil, 0 end -- de côté : le but reste, relevé à la pensée suivante
     end
   end
   if (done > 0 or (queued or 0) > 0 or why) and AC.log_ok(st) then
-    log(string.format("[FO-AMELIO-CONTINUE] %s : %s -> %s | lot %d | kit %d au stock, %d en fabrication | remplacees %d%s | pile %s a %.1f min",
+    log(string.format("[FO-AMELIO-CONTINUE] %s : %s -> %s | lot %d | kit %d au stock, %d en fabrication | remplacees %d%s | pile %s%s a %.1f min",
       f.key or "player", d.replace.from, d.replace.to, n, have, tonumber(queued) or 0, done, why and (" | refus " .. tostring(why)) or "",
-      hold and "retenue" or "libre", minutes(f, tick)))
+      hold and "retenue" or "libre", side and " | de cote" or "", minutes(f, tick)))
   end
   return done
 end
