@@ -68,7 +68,7 @@ ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4
           ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
-ENNEMIS = ("kaiju", "ecorcheur")
+ENNEMIS = ("kaiju", "ecorcheur", "corroder")   # s43 : Corroder, corps 3D de la famille toxique (prototypes/enemies.lua)
 # s43 (refonte 3D du Kaiju et de l'Écorcheur) : le Kaiju titanesque (15 tuiles de haut) dépasse 2 048 px par feuille ; lueur et ombre
 # à demi-densité (halo diffus, ombre floue : budget de mémoire vidéo), corps à pleine densité
 ENNEMIS_DIVS = {"main": 1, "glow": 2, "shadow": 2}
@@ -292,9 +292,17 @@ def seul(a):
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, encoding="utf-8") as f:
         lignes = f.read().split("\n")
-    i = lignes.index("  %s = {" % nom)
-    j = lignes.index("  },", i)
-    lignes[i:j + 1] = ("  %s = %s," % (nom, FX.lua(e, "  "))).split("\n")
+    neuf = ("  %s = %s," % (nom, FX.lua(e, "  "))).split("\n")
+    if "  %s = {" % nom in lignes:
+        i = lignes.index("  %s = {" % nom)
+        j = lignes.index("  },", i)
+        lignes[i:j + 1] = neuf
+    else:
+        # s43 : entrée NOUVELLE (Corroder) : insérée à sa place dans l'ordre alphabétique des entrées de premier niveau
+        cles = [(k, l[2:].split(" = {")[0]) for k, l in enumerate(lignes) if re.match(r"^  [a-z_]+ = \{$", l)]
+        apres = [k for k, c in cles if c > nom]
+        i = apres[0] if apres else max(k for k, l in enumerate(lignes) if l == "}")
+        lignes[i:i] = neuf
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lignes))
     pm = os.path.join(a.dest, "MANIFEST.json")

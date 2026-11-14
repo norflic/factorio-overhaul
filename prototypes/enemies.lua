@@ -11,6 +11,7 @@ local lib = require("prototypes.lib")
 local Evo = require("prototypes.evolution")
 local E = require("shared.content.enemies")
 local Souches = require("prototypes.souches")
+local Corps3d = require("prototypes.corps3d")
 local enemy_autoplace = require("__base__/prototypes/entity/enemy-autoplace-utils")
 
 local out = {}
@@ -168,7 +169,17 @@ local function make_unit(kind, tier, family)
   -- Évolution visuelle : les plaques de carapace luisent, de plus en plus fort avec le palier ; la couleur
   -- de la lueur dit la famille (braise, arcs, œufs, acier). Les paliers vanilla sans famille restent intacts.
   local glow = (f and f.glow) or (nt and nt.tint2)
-  if glow then
+  if f and f.corps3d and not E.spitter_body(kind, family) then
+    -- s43 : corps 3D de la famille (Corroder pour la toxique) à la place du déchiqueteur recoloré ; la variante (palier, déchiqueteur ou
+    -- cracheur) se lit à sa TAILLE (échelle) et à sa TEINTE (E.teinte_variante) ; la flaque d'acide et la portée du cracheur restent.
+    local lueur, teinte = E.teinte_variante(family, kind, tier)
+    lueur, teinte = lueur or f.glow, teinte or { r = 1, g = 1, b = 1 }
+    local alpha = Evo.tier_alpha(tier, 0.45, 0.05)
+    u.run_animation = Corps3d.animation(f.corps3d, "course", scale, teinte, lueur, alpha)
+    u.attack_parameters.animation = Corps3d.animation(f.corps3d, "attaque", scale, teinte, lueur, alpha, Corps3d.ATTAQUE_VITESSE)
+    u.distance_per_frame = Corps3d.distance_par_image(f.corps3d, scale)
+    u.map_color = { r = lueur.r, g = lueur.g, b = lueur.b }
+  elseif glow then
     local alpha = f and Evo.tier_alpha(tier, 0.22, 0.08) or Evo.tier_alpha(tier - E.VANILLA_TIERS, 0.35, 0.13)
     if E.spitter_body(kind, family) then alpha = alpha * 0.3 end   -- souche sombre : sa lueur est un reflet, pas une peinture
     Evo.glow_masks(u.run_animation, glow, alpha)

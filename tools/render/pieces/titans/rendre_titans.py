@@ -56,7 +56,7 @@ def lancer(args, out, wait):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("what", choices=("juggernaut", "sentinelle", "leviathan", "kaiju", "ecorcheur", "ecorche", "ravageur"))
+    ap.add_argument("what", choices=("juggernaut", "sentinelle", "leviathan", "kaiju", "ecorcheur", "ecorche", "ravageur", "corroder"))
     ap.add_argument("--stages", default="1,2,3")
     ap.add_argument("--anim", default="course")
     ap.add_argument("--images", default="")
@@ -71,7 +71,7 @@ def main():
     ap.add_argument("--piece", default="", help="LEVIATHAN-SEG : pièce fixe d'un titan articulé (segment, queue) : --anime --anim pose --piece segment")
     a = ap.parse_args()
     t0 = time.time()
-    SANS_STADE = ("kaiju", "ecorcheur")   # lot KAIJUS-MUTANTS : une série par ennemi
+    SANS_STADE = ("kaiju", "ecorcheur", "corroder")   # lot KAIJUS-MUTANTS : une série par ennemi
     if a.anime and a.what not in SANS_STADE:
         args = ["--what", a.what, "--anime", "--stages", a.stages, "--anim", a.anim, "--images", a.images, "--dirs", a.dirs, "--out", a.out,
                 "--samples", str(a.samples or 32)]

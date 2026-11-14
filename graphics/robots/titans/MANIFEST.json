@@ -2,6 +2,294 @@
  "arguments": [],
  "commande": "PYTHONUTF8=1 py -3.9 tools/render/pieces/titans/feuilles_titans.py   (depuis la racine du mod ; sources : fo-logs/2026-11-11_TITANS2/rendu, fo-logs/2026-11-11_TITANS-16DIR/rendu, fo-logs/2026-11-10_TITANS-8DIR/rendu, fo-logs/2026-11-10_VISUELS-DISTINCTS/rendu, fo-logs/2026-11-10_TITANS-FINITIONS/rendu et fo-logs/2026-11-10_KAIJUS-MUTANTS/rendu, à GARDER)",
  "fichiers": {
+  "corroder-attaque-glow-0.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "2114de6245c9523d1bb47aa95573118e84e975ec67f9dc08f2158d9a727b2efc",
+   "taille": 1702
+  },
+  "corroder-attaque-glow-1.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "ddbc3766c584ce79d04c1fc52a8695fef132b1e80b8ddb35cc5c0ecdb0d04fd9",
+   "taille": 1630
+  },
+  "corroder-attaque-glow-2.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "154a950b5767c7bfa92a96043238163fd0d1bd40c5237eb7e71a4ce6e34d0531",
+   "taille": 1628
+  },
+  "corroder-attaque-glow-3.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "9897287e7f0625994bd1952bbae43ea63cd2ce5e7abbe5d3dc4521cbaa5f41d2",
+   "taille": 1570
+  },
+  "corroder-attaque-glow-4.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "e449fb2dc81a52053650c2dc1c2bd089106a0211435971ed8ffc4864a089acd3",
+   "taille": 1580
+  },
+  "corroder-attaque-glow-5.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "f4ee26eda2bc91d1c6f239c3832cd21a7d1d356bd2f94e10c84cb7d87515f993",
+   "taille": 1561
+  },
+  "corroder-attaque-glow-6.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "b03315a83865636a623fadb7f69b476f3c0edaabd8abe93adb185fd4c6ece39b",
+   "taille": 1596
+  },
+  "corroder-attaque-glow-7.png": {
+   "hauteur": 38,
+   "largeur": 200,
+   "sha256": "f679711ff42369c01bf2185c9b42932f061562fd0ddad7c3a2e58b3ba5d0a209",
+   "taille": 1647
+  },
+  "corroder-attaque-main-0.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "4d27e7d400532fd4af3cd812a0dd7c144dce53100873be5998ee7cd37f1c7ed8",
+   "taille": 20563
+  },
+  "corroder-attaque-main-1.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "e470a43648f28fdd5567cda0823448e69b58aaa8958145b69f4d7d145785c731",
+   "taille": 22962
+  },
+  "corroder-attaque-main-2.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "8ee7d9da9eeb57b0bb9240d3e3ba2572121b1b11375e81a9f473542876c37cf7",
+   "taille": 25812
+  },
+  "corroder-attaque-main-3.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "48f921e405ef0cd1e2a653291f8d21a7f7dd83ffd969dea9e0b9064a5c0683e1",
+   "taille": 24409
+  },
+  "corroder-attaque-main-4.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "252350f74bb93da7667379c9fe3d6e1149b509ddd0aff9c90494f2196501905f",
+   "taille": 25591
+  },
+  "corroder-attaque-main-5.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "a979fa7ec76e48fc7cea2869aa32b3ba550c6db94d11a661e5d1ab603a17f493",
+   "taille": 24696
+  },
+  "corroder-attaque-main-6.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "39cd130324e15f6232d530a9bb41ff21501380221b1ba7018694731227d4ad17",
+   "taille": 23563
+  },
+  "corroder-attaque-main-7.png": {
+   "hauteur": 84,
+   "largeur": 432,
+   "sha256": "97b98bae2b2fd5e7f1eeb8da437845c21a9ca3c95755ef751c8dc6c2444d8976",
+   "taille": 22897
+  },
+  "corroder-attaque-shadow-0.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "37a5f3fe292fc27452b883c0f3ac0d2bd632c6b759689c0917f7440fb03b8780",
+   "taille": 1994
+  },
+  "corroder-attaque-shadow-1.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "6c94e092441b9035932b7090934806fb83972712f36e94b38a9ab39e08cc802f",
+   "taille": 1935
+  },
+  "corroder-attaque-shadow-2.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "d410b6ace363ccfd76d857aedf3e4591a3a676d9b2275c4ae3d0ff4ea2d203e6",
+   "taille": 1533
+  },
+  "corroder-attaque-shadow-3.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "bdd139ed7afb1439feac327a77287c4b02b9594f6c462d621d2abfcc26aa5958",
+   "taille": 1841
+  },
+  "corroder-attaque-shadow-4.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "b543a48c6618b6c0ffa8297a1d7b3a51f54299a7d399ae24e58200cb419ba58d",
+   "taille": 2029
+  },
+  "corroder-attaque-shadow-5.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "03f7456ab8ffb89534aadd018c214be3cbaac4722cc7110077b3edfb8930f8fc",
+   "taille": 1992
+  },
+  "corroder-attaque-shadow-6.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "5fd615baf943995bc6d694aa03d959f70a60e62dba104a9dbb78a866fdc76967",
+   "taille": 1957
+  },
+  "corroder-attaque-shadow-7.png": {
+   "hauteur": 38,
+   "largeur": 228,
+   "sha256": "140646568339e8682c63c8e6fc8766d147ca82646858c047718232e8956d1b27",
+   "taille": 1924
+  },
+  "corroder-course-glow-0.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "aa7e6afe2b488cf329c9cbbadc442fe022b54bcade8a34241b63569ce41cab7a",
+   "taille": 3320
+  },
+  "corroder-course-glow-1.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "4fc64178d9ca939a99eadc8f127a261c1249e7c22817f191cfa57a300dadf386",
+   "taille": 2948
+  },
+  "corroder-course-glow-2.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "dcf7fef61feb9b37d5c5f02ce38fc2d6352e10465ab6c711093d87da6d9712ee",
+   "taille": 2740
+  },
+  "corroder-course-glow-3.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "f900a06c1760a946906d4673dc53d0cd8e8c132a8147913f894bb75937d07849",
+   "taille": 2467
+  },
+  "corroder-course-glow-4.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "aa8ade3158e62ef87759b627783be39f975d4779a06dc0bcd458f37e0c546619",
+   "taille": 2437
+  },
+  "corroder-course-glow-5.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "6f6fa91da522325c10a08d85be9c62620a8f6f42c7345e02433c4ea7c663f578",
+   "taille": 2601
+  },
+  "corroder-course-glow-6.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "c5d5d309827db740e1880cf96d17fd99774d914cb2548876d3980c5a1f268cf5",
+   "taille": 2779
+  },
+  "corroder-course-glow-7.png": {
+   "hauteur": 34,
+   "largeur": 344,
+   "sha256": "54210e5bf6ffa915a584911713af4e1c80c8a216a58a7f2f58ea26883c245ac9",
+   "taille": 2781
+  },
+  "corroder-course-main-0.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "9299b8549ce8a99557021115a3bb843feefe86487784d9cd0656e2c0981972d9",
+   "taille": 60060
+  },
+  "corroder-course-main-1.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "c0995fb8d3f1a4d7db33336cc0819e122431f3b46d081f0efca51e13dbf7fa32",
+   "taille": 62552
+  },
+  "corroder-course-main-2.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "0bc01ceb04b349b19ce4f2c6c7fbc5719590fcc300663490c54d8c69550a89d2",
+   "taille": 61834
+  },
+  "corroder-course-main-3.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "864c6bb5a1c002def34e28f2dbe60d123b80e7e45d2339febf67f5381cd8daae",
+   "taille": 60326
+  },
+  "corroder-course-main-4.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "1ced69daee5114b9d45e30bc6914b5d3f43da6840019a9e4ce45b13b68c2594b",
+   "taille": 58937
+  },
+  "corroder-course-main-5.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "597a1f5805ea4517f8c6fd5891ef72a8fc563db0622c6312ee6f32db187b5958",
+   "taille": 59438
+  },
+  "corroder-course-main-6.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "b72f11d5b9aa6c6a0909452c48c4d6919c93b431dbcea77cd970ea8e25836e89",
+   "taille": 60727
+  },
+  "corroder-course-main-7.png": {
+   "hauteur": 74,
+   "largeur": 800,
+   "sha256": "3c6cbed349cd8a7d94d30f371483331a98bb459775e54536dd41f488ad15716b",
+   "taille": 61454
+  },
+  "corroder-course-shadow-0.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "adf142c24ea09f0230c762f8fd3109fc00bdd4e567a8b73adaf6d77de73c4e83",
+   "taille": 5765
+  },
+  "corroder-course-shadow-1.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "8d3e1ccbf7d2e0dbb293eb94f07180e9caba15d36e3a6d6b25fd213e1d6a3459",
+   "taille": 5725
+  },
+  "corroder-course-shadow-2.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "b736ad7194da485fe5f67734fe54e6e3426c5e638171aa7f5e1f8cb830f41469",
+   "taille": 5102
+  },
+  "corroder-course-shadow-3.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "d69943310e3524d424b8ddc96265c924d80a622ad8fd22cd3ec4450c9cd37415",
+   "taille": 5564
+  },
+  "corroder-course-shadow-4.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "f2d977ca39f40390aa57a2ae1c7cd4f680a831cfe9f497756e255e38f0ad41a5",
+   "taille": 6018
+  },
+  "corroder-course-shadow-5.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "6f8f18f414d9a36efac60f5be09052a6f87724f5b599bfa8e2fb7348a894d28f",
+   "taille": 5955
+  },
+  "corroder-course-shadow-6.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "84ae3f2a514048a8a9ec420f86cbdb598651dcabbdd121b4f2e2869b849fc219",
+   "taille": 5764
+  },
+  "corroder-course-shadow-7.png": {
+   "hauteur": 36,
+   "largeur": 408,
+   "sha256": "10ee2c74f6c6385a07be6ed3bcedd814cd55bf9ad964a6427c4470fd0ad71692",
+   "taille": 5999
+  },
   "ecorche-1-attaque-glow-0.png": {
    "hauteur": 53,
    "largeur": 260,
@@ -1153,6 +1441,294 @@
    "largeur": 1304,
    "sha256": "87314a06146afe3c15e3543d2607a257b7377e94b6c63d42ded8199054bc49d2",
    "taille": 22583
+  },
+  "hr-corroder-attaque-glow-0.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "2161461148538e70b9d0a87499501c4c83d6a195e65c3b88be8b4c1a549dd4ad",
+   "taille": 4056
+  },
+  "hr-corroder-attaque-glow-1.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "a8b03210c3063a85d5df54ae3ad3d2b0c2f7f98b3d6a368a0aa99d0050d1258b",
+   "taille": 3927
+  },
+  "hr-corroder-attaque-glow-2.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "98fd9373843b2e36569b99f96a3e270583e8b3d4b59246f68298d108fae417d9",
+   "taille": 3817
+  },
+  "hr-corroder-attaque-glow-3.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "a99cd6192ef748824a7178f20faf54cfd1dd1855c46f29c3700fa6f17c099651",
+   "taille": 3687
+  },
+  "hr-corroder-attaque-glow-4.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "0cf710b6a8d3b21ebe0d5c464d114fcaab20af0a904c478191884bc506cb5fa3",
+   "taille": 3706
+  },
+  "hr-corroder-attaque-glow-5.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "55ac46f3be1be1f5d1ced6b407dd1d1b877e9484bff55020cfe9a287fe0505af",
+   "taille": 3537
+  },
+  "hr-corroder-attaque-glow-6.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "418fbc37255a30e5030fa1670b156aa3a2483ea83efb4e3aecb2c927f58fa223",
+   "taille": 3817
+  },
+  "hr-corroder-attaque-glow-7.png": {
+   "hauteur": 76,
+   "largeur": 400,
+   "sha256": "6aaa31e735f45f1108e53733046b739565d8a17082765bca7f51dac5dd4cde14",
+   "taille": 3934
+  },
+  "hr-corroder-attaque-main-0.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "5420b5d044e3f757280e0d3809f1d35f235ba3bdd9aec1610c2b115124955ce8",
+   "taille": 68691
+  },
+  "hr-corroder-attaque-main-1.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "3be00bc4522f82c474655882e8797c96e8843e51addf4c1e33f2f32e8e7147b0",
+   "taille": 74128
+  },
+  "hr-corroder-attaque-main-2.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "7db3213ed9968d3e29ebb8a2115c73dd7c3116857d37400dd8369d4ee6744dbb",
+   "taille": 83468
+  },
+  "hr-corroder-attaque-main-3.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "5ddce5ed5db21a4a3e19e6151465863bd05b5a641128c56ef63fc49fec36a82d",
+   "taille": 79492
+  },
+  "hr-corroder-attaque-main-4.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "9b499d827a5d55197fae515e4c6ffd2b7b4aa94e7e3a9a050c8e345fd397c4d4",
+   "taille": 82353
+  },
+  "hr-corroder-attaque-main-5.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "caa5dab82ab4744dface1ade167258ddabd079feebe02a57ed34aa14f7b3936e",
+   "taille": 79410
+  },
+  "hr-corroder-attaque-main-6.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "9aa827ea3850f8e77de6b4550909d9f34212f72674ce594c4e50a102e0add4d6",
+   "taille": 76175
+  },
+  "hr-corroder-attaque-main-7.png": {
+   "hauteur": 168,
+   "largeur": 864,
+   "sha256": "c4677ebe112ece8122693b2800d2e67250cb9917c7212a94e6cb5f4dd5c1680f",
+   "taille": 75797
+  },
+  "hr-corroder-attaque-shadow-0.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "00cbb88cf5e6d24f1a507c2fefffab41b41b00bb45f810692d9dadbeb6de863c",
+   "taille": 4351
+  },
+  "hr-corroder-attaque-shadow-1.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "0df454373e0fd03226f362e1edfc1d70ff9733e7cc50267f2c2cbac04cbd9ab9",
+   "taille": 4066
+  },
+  "hr-corroder-attaque-shadow-2.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "e3ee93781622e4b1d276cc910131ac8b2161bc170ac644bb752cfd9f4e6d6ebe",
+   "taille": 3430
+  },
+  "hr-corroder-attaque-shadow-3.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "0f25048bc6e263e8ce8e2d2abb531b60678806e25fed3a08be9267b027ea3458",
+   "taille": 4027
+  },
+  "hr-corroder-attaque-shadow-4.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "52bf503bf6ca5154288173005e3c677745d0c6ad524610bc3a95cab339492ee6",
+   "taille": 4505
+  },
+  "hr-corroder-attaque-shadow-5.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "2511e7a33dde5e2699c6ea423ef117f23cd3db02aa8ec72bd93831e6400a353c",
+   "taille": 4231
+  },
+  "hr-corroder-attaque-shadow-6.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "b74743f95835a12808cf742e990cdd2be8f4f0eb8fc9552ece3bb995c3d31d5f",
+   "taille": 4245
+  },
+  "hr-corroder-attaque-shadow-7.png": {
+   "hauteur": 76,
+   "largeur": 456,
+   "sha256": "b6c2df360506da0b7eaf112be5c99ddd16b98df3b423ea883ff650ca6e80ca80",
+   "taille": 4301
+  },
+  "hr-corroder-course-glow-0.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "4cd402db93de1c91cccba171959361de12a8df863a75fd3f6ddb5de44fa65b01",
+   "taille": 8205
+  },
+  "hr-corroder-course-glow-1.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "30f63c4cec0e382c608a40221ec75b2c7882f988de0aae92d686a256aa7add42",
+   "taille": 7059
+  },
+  "hr-corroder-course-glow-2.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "4ec5e072935cfd594bd1c287fa66b55925c87dcfbbb91f692364433201a3964e",
+   "taille": 6757
+  },
+  "hr-corroder-course-glow-3.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "b1f7bd720965a3052bc74315eca71e19c91be5d4f5fdf24014308b2083c04d78",
+   "taille": 5799
+  },
+  "hr-corroder-course-glow-4.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "a675a43f3ff74730a74ffb568abbbbefb215eade563cf3d5d94f78fd8c8eebd8",
+   "taille": 5611
+  },
+  "hr-corroder-course-glow-5.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "31744dac8d1bc3a4fdd64aadae7bc63ecb7c46883041be19f4ea73f2c51df280",
+   "taille": 5993
+  },
+  "hr-corroder-course-glow-6.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "2f5bb31425f6b10500c325c715e2d7b105022fcc87df3b217e5f6364142c1944",
+   "taille": 6519
+  },
+  "hr-corroder-course-glow-7.png": {
+   "hauteur": 68,
+   "largeur": 688,
+   "sha256": "e067a896c2deba0f0c1ad1fdf347f8857466112aba38cfdcfd10f413000878db",
+   "taille": 6938
+  },
+  "hr-corroder-course-main-0.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "cb6b0f0ad020caa93b589d66125da6335ecf211429ac27cb970a663bdeb91435",
+   "taille": 191538
+  },
+  "hr-corroder-course-main-1.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "07ceb5d46cd9dbe8434159b8de703a0cb26566f6f8f50aff29ac74b81dec43f1",
+   "taille": 197293
+  },
+  "hr-corroder-course-main-2.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "096289e1b43fd3166a9e903f118a84503c3e581c1630bce6fd308f30ed2c872d",
+   "taille": 195387
+  },
+  "hr-corroder-course-main-3.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "4954d0c39e31f209d79c019fd028f03d73044ff78e16016694b79a77dd0eb257",
+   "taille": 188883
+  },
+  "hr-corroder-course-main-4.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "4c76575d7a5a62fbd2ac97c24ea98bf2832ad630377b34f7cc5b45457675abcd",
+   "taille": 183994
+  },
+  "hr-corroder-course-main-5.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "c3f84dc82d05389d7de910d823708a6073e0a135e699ff4ed0b9e4b9188c3585",
+   "taille": 187270
+  },
+  "hr-corroder-course-main-6.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "9e9a12bc5de745e7eac58c1f4063bd9f2501f5f44db41baf8b2518d75a82e145",
+   "taille": 191641
+  },
+  "hr-corroder-course-main-7.png": {
+   "hauteur": 148,
+   "largeur": 1600,
+   "sha256": "ccd26e01f532421001f47be8cf26fa82844b5d28c912e2c1836e04c5e03c0f27",
+   "taille": 193298
+  },
+  "hr-corroder-course-shadow-0.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "006891ad290f5634d2996992a11f6d278a87fb57c15b1f98ec2ac83d66454fd8",
+   "taille": 12558
+  },
+  "hr-corroder-course-shadow-1.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "72a34b3990eb66720eba939f1fd8f85ca8e525ed078c13909e2c26994747201e",
+   "taille": 12254
+  },
+  "hr-corroder-course-shadow-2.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "6c0f623599c0647509a560ca5412563686b2d8364d2072fb8c6e786e794be2b2",
+   "taille": 12040
+  },
+  "hr-corroder-course-shadow-3.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "5a781047c0882740e41c2a6a0bfb6e0a5fe67a26a73f87e7c28c0e21adc0b29e",
+   "taille": 11880
+  },
+  "hr-corroder-course-shadow-4.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "b8d380cbc566511366d2977ee9885ec16a3cb3612a43fa4af5667984a74c5471",
+   "taille": 12823
+  },
+  "hr-corroder-course-shadow-5.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "889e1be3b2cac8f3b4be88e90cdee9f88065582e0467e58df616c400ebb8045f",
+   "taille": 13411
+  },
+  "hr-corroder-course-shadow-6.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "cb7164e1ea2898c4e9741dc7c45df278f459fbe375c45e8adc824e65678bb14e",
+   "taille": 13169
+  },
+  "hr-corroder-course-shadow-7.png": {
+   "hauteur": 72,
+   "largeur": 816,
+   "sha256": "86c1599fd60701fd7e30ec606877b2eea14cb4bea3d445b72ac3102c51f784d9",
+   "taille": 13294
   },
   "hr-ecorche-1-attaque-glow-0.png": {
    "hauteur": 106,
@@ -13378,6 +13954,11 @@
   }
  },
  "poids_mpx": {
+  "corroder": {
+   "haute": 2.53,
+   "images": 96,
+   "normale": 0.63
+  },
   "ecorche": {
    "haute": 8.69,
    "images": 288,

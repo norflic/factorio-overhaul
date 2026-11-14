@@ -110,6 +110,14 @@ E.families = {
     glow = { r = 0.55, g = 1.00, b = 0.10 }, -- bile
     nest_distance = 7,
     size = 1.25,                                  -- bilieux : tête large, le plus gros
+    -- s43 : corps 3D propre (le CORRODER, graphics/robots/titans/sprites.lua, entrée « corroder ») au lieu du déchiqueteur recoloré ;
+    -- variantes : teinte du corps et de la lueur qui glisse du premier au dernier palier (E.teinte_variante), les cracheurs vers l'ambre
+    corps3d = "corroder",
+    variantes = {
+      biter = { de = { r = 0.80, g = 1.00, b = 0.10 }, a = { r = 0.10, g = 1.00, b = 0.70 } },   -- bile -> vert acide -> turquoise toxique
+      spitter = { de = { r = 1.00, g = 0.90, b = 0.15 }, a = { r = 1.00, g = 0.40, b = 0.05 } }, -- soufre -> ambre corrosif
+    },
+    part_corps = 0.35,                            -- part de la teinte dans la couche du corps (le reste : couleurs du rendu)
   },
   swarm = {
     hp = 0.55, speed = 1.35, damage = 0.85,
@@ -162,6 +170,21 @@ E.BOX_HALF_MAX = 0.9
 function E.size(family)
   local f = family and E.families[family]
   return f and f.size or 1
+end
+
+--- s43 : teintes d'une variante d'une famille à corps 3D (corps3d) : lueur = couleur du palier, interpolée de `de` (palier 1) à `a`
+--- (dernier palier) ; corps = blanc mêlé à la lueur à la part `part_corps`. Rend nil pour une famille sans variantes.
+function E.teinte_variante(family, kind, tier)
+  local f = family and E.families[family]
+  local v = f and f.variantes and f.variantes[kind]
+  if not v then return nil end
+  local t = math.max(0, math.min(1, (tier - 1) / (E.TIERS - 1)))
+  local lueur = {
+    r = v.de.r + (v.a.r - v.de.r) * t, g = v.de.g + (v.a.g - v.de.g) * t, b = v.de.b + (v.a.b - v.de.b) * t,
+  }
+  local p = f.part_corps or 0
+  local corps = { r = 1 - p + p * lueur.r, g = 1 - p + p * lueur.g, b = 1 - p + p * lueur.b }
+  return lueur, corps
 end
 
 --- Le corps d'un déchiqueteur de cette famille est-il celui du petit cracheur (moucheron) ? Seuls les biters en changent.
