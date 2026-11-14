@@ -50,6 +50,7 @@ Champ.CFG = {
   -- même découpage sur toutes les machines). Banc 0.7.113 carte du DC : 3 000 unités de recherche ~ 1,5 à 2 ms
   -- perf-astar (banc carte du DC, 30 min, 6 000 : appels de 90 à 166 ms en jeu, une unité y coûte bien plus que hors jeu) : 2 000
   tick_work = 3000, -- perf-astar 2 : 2000 retardait les plans (fer -9 % a T+30, graine de la carte du DC)
+  spec_cells = 20000, -- perf-astar : tuiles du rectangle lu relues par appel à l étape « occ » de la spec (réserves, couloirs)
   radius = 96,      -- tuiles autour de l'avant-poste où le gisement est lu
   side = 8,         -- foreuses par côté et par groupe au plus (une bande coûte ce que sa fonderie coûte : la suivante l'agrandit)
   margin_v = 10,    -- tuiles lues en travers au-delà du gisement
@@ -355,23 +356,32 @@ end
 
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
 --- autre projet du plan directeur ; les tuiles `mine` restent libres.
-local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
+--- perf-astar (lecture de la spec jusqu'à 232 ms dans un tick, carte du DC) : en deux parties, reprises par la lecture en étapes du cadre :
+--- blocked_scan (eau, bâtiments, falaises : trois requêtes au moteur ; le type de chaque entité lu une fois) puis blocked_occ, colonnes
+--- xa..xb des réserves du plan directeur et des couloirs (boucle Lua sur toutes les tuiles du rectangle, découpée par colonnes : chaque
+--- colonne n'écrit que ses tuiles, mêmes réponses dans le même ordre). blocked_in enchaîne les deux (bande seule, câblage).
+local function blocked_scan(f, surface, x0, y0, x1, y1, soft_out)
   local blocked = {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
-    blocked[Ch.key(math.floor(t.position.x), math.floor(t.position.y))] = "eau"
+    local p = t.position
+    blocked[Ch.key(math.floor(p.x), math.floor(p.y))] = "eau"
   end
   for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
-    local soft = e.type == "tree" or e.type == "simple-entity" or (e.force.name == "neutral" and e.type ~= "cliff")
-    if not soft and e.type ~= "resource" and e.type ~= "cliff" then add_box(blocked, e, e.name) end
+    local ty = e.type
+    local soft = ty == "tree" or ty == "simple-entity" or (ty ~= "cliff" and e.force.name == "neutral")
+    if not soft and ty ~= "resource" and ty ~= "cliff" then add_box(blocked, e, e.name) end
     -- lot FONDERIE : arbres et rochers (défrichables) relevés à part : le tracé du charbon les évite
-    if soft and soft_out and (e.type == "tree" or e.type == "simple-entity") then add_box(soft_out, e) end
+    if soft and soft_out and (ty == "tree" or ty == "simple-entity") then add_box(soft_out, e) end
   end
   -- lot OBSTACLES : une falaise bloque son emprise RÉELLE (orientation), pas la boîte générique de bounding_box (shared/team/falaise.lua)
   Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   Fal.mark_learned(f.build and f.build.hard, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
+  return blocked
+end
+local function blocked_occ(f, blocked, y0, y1, xa, xb, occ_libre)
   local occ = f.build and f.build.occ or {}
   local cor = Build.couloirs(f) -- lot ÉTAGE 5 : la bande ne se pose pas sur un couloir d'accès d'avant-poste
-  for x = math.floor(x0), math.ceil(x1) do
+  for x = xa, xb do
     for y = math.floor(y0), math.ceil(y1) do
       local k = P.tkey(x, y)
       if occ[k] and not blocked[Ch.key(x, y)] and not (occ_libre and occ_libre(x, y, occ[k])) then blocked[Ch.key(x, y)] = "reserve" end -- occ_libre : le mall ouvre à la chaîne les tuiles que ses rangées n'utilisent jamais
@@ -381,6 +391,10 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
       end
     end
   end
+end
+local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out, occ_libre)
+  local blocked = blocked_scan(f, surface, x0, y0, x1, y1, soft_out)
+  blocked_occ(f, blocked, y0, y1, math.floor(x0), math.ceil(x1), occ_libre)
   return blocked
 end
 
@@ -390,10 +404,12 @@ end
 ---   ore      données, tuiles du gisement, boîte, axe
 ---   coal     gisement de charbon le plus proche (perf-astar : étape à part)
 ---   foreign  place nôtre (mine_of), autres ressources du rectangle lu
----   blocked  obstacles du rectangle lu (eau, bâtiments, falaises, réserves, couloirs)
----   fin      relevé du reroutage, spec, autres ressources autour du charbon, souterrains posés
+---   blocked  obstacles du rectangle lu (eau, bâtiments, falaises)
+---   occ      réserves et couloirs, par colonnes (perf-astar : étape rappelée)
+---   coalres  autres ressources autour du charbon, souterrains posés (perf-astar)
+---   fin      relevé du reroutage, spec
 --- J = spec_begin(...) ; spec_step(J) -> fini, spec, names (fini : spec, ou nil et raison). spec_of enchaîne les étapes (bande seule).
-local SPEC_STAGES = { "ore", "coal", "foreign", "blocked", "fin" }
+local SPEC_STAGES = { "ore", "coal", "foreign", "blocked", "occ", "coalres", "fin" }
 local SPEC = {}
 function SPEC.ore(J)
   local f, surface, o, frame, axis_force = J.f, J.surface, J.o, J.frame, J.axis_force
@@ -455,16 +471,52 @@ function SPEC.blocked(J)
   local f, surface, o = J.f, J.surface, J.o
   local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
   Profiler.fstart("champ:blocked")
-  -- lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre de cet avant-poste a retenues pour son réseau du charbon reporté lui restent libres
-  J.blocked = blocked_in(f, surface, x0, y0, x1, y1, J.mine, J.soft, function(_, _, owner) return Cd.own(owner, o.id) end)
+  -- perf-astar : eau, bâtiments, falaises ici ; réserves et couloirs par colonnes à l'étape « occ » (même rectangle, mêmes réponses)
+  J.blocked = blocked_scan(f, surface, x0, y0, x1, y1, J.soft)
+  J.ox = math.floor(x0)
   Profiler.fstop("champ:blocked")
+  return false
+end
+-- perf-astar : réserves du plan directeur et couloirs, au plus Champ.CFG.spec_cells tuiles du rectangle par appel (colonnes entières, de
+-- gauche à droite ; l'étape est rappelée tant qu'il reste des colonnes)
+function SPEC.occ(J)
+  local f, o = J.f, J.o
+  local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
+  local h = math.ceil(y1) - math.floor(y0) + 1
+  local xa = J.ox
+  local xb = math.min(math.ceil(x1), xa + math.max(1, math.floor(Champ.CFG.spec_cells / math.max(1, h))) - 1)
+  -- lot COMBUSTIBLE-MIGRATION : les tuiles que le cadre de cet avant-poste a retenues pour son réseau du charbon reporté lui restent libres
+  blocked_occ(f, J.blocked, y0, y1, xa, xb, function(_, _, owner) return Cd.own(owner, o.id) end)
+  J.ox = xb + 1
+  return false, nil, nil, J.ox <= math.ceil(x1)
+end
+-- perf-astar : autres ressources autour du charbon et souterrains posés, avant la fin (mêmes lectures qu'à la fin d'avant)
+function SPEC.coalres(J)
+  local surface, names, coal, fm = J.surface, J.names, J.coal, J.fm
+  local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
+  if coal then
+    -- lot MELANGE : autres ressources minables autour du charbon lu (la ligne de foreuses de charbon n'en mine aucune : du fer ou de la
+    -- pierre sur la voie de charbon la bouchent comme le charbon bouchait la voie de minerai)
+    local cx0, cy0, cx1, cy1 = math.huge, math.huge, -math.huge, -math.huge
+    for i = 1, #coal - 1, 2 do
+      cx0, cx1 = math.min(cx0, coal[i]), math.max(cx1, coal[i])
+      cy0, cy1 = math.min(cy0, coal[i + 1]), math.max(cy1, coal[i + 1])
+    end
+    J.cforeign, J.cnforeign = foreign_in(surface, T.outposts.coal.resource, names.cats, cx0 - fm, cy0 - fm, cx1 + fm, cy1 + fm)
+    local ugs = {}
+    for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = T.LOGISTIC_TYPES.underground })) do
+      local p = e.position
+      ugs[#ugs + 1] = { math.floor(p.x), math.floor(p.y) }
+    end
+    table.sort(ugs, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
+    J.ugs = ugs
+  end
   return false
 end
 function SPEC.fin(J)
   local f, surface, o, frame, only, axis_force = J.f, J.surface, J.o, J.frame, J.only, J.axis_force
   local data, names, ore, coal, blocked, mine, fm = J.data, J.names, J.ore, J.coal, J.blocked, J.mine, J.fm
   local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
-  local ugs
   Rer.note(f, surface, o, ore, blocked, mine, { x0, y0, x1, y1 }) -- lot s42 reroutage : relevé seul, le plan de ce tour garde le trou
   local spec = {
     ore = ore, blocked = blocked, mine = mine, soft = J.soft, foreign = J.foreign, nforeign = J.nforeign, resources = J.resources,
@@ -476,20 +528,8 @@ function SPEC.fin(J)
   }
   if coal then
     spec.coal = { tiles = coal, rate = data.coal_rate }
-    -- lot MELANGE : autres ressources minables autour du charbon lu (la ligne de foreuses de charbon n'en mine aucune : du fer ou de la
-    -- pierre sur la voie de charbon la bouchent comme le charbon bouchait la voie de minerai)
-    local cx0, cy0, cx1, cy1 = math.huge, math.huge, -math.huge, -math.huge
-    for i = 1, #coal - 1, 2 do
-      cx0, cx1 = math.min(cx0, coal[i]), math.max(cx1, coal[i])
-      cy0, cy1 = math.min(cy0, coal[i + 1]), math.max(cy1, coal[i + 1])
-    end
-    spec.coal.foreign, spec.coal.nforeign = foreign_in(surface, T.outposts.coal.resource, names.cats, cx0 - fm, cy0 - fm, cx1 + fm, cy1 + fm)
-    ugs = {}
-    for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = T.LOGISTIC_TYPES.underground })) do
-      ugs[#ugs + 1] = { math.floor(e.position.x), math.floor(e.position.y) }
-    end
-    table.sort(ugs, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
-    spec.ug_tiles = ugs
+    spec.coal.foreign, spec.coal.nforeign = J.cforeign, J.cnforeign -- (perf-astar : lus à l'étape « coalres »)
+    spec.ug_tiles = J.ugs
   end
   if frame then
     local fr = {}
@@ -506,8 +546,8 @@ end
 local function spec_step(J)
   local name = SPEC_STAGES[J.i]
   J.last = name
-  local fin, spec, names = SPEC[name](J)
-  J.i = J.i + 1
+  local fin, spec, names, again = SPEC[name](J)
+  if not again then J.i = J.i + 1 end -- perf-astar : une étape découpée (« occ ») est rappelée tant qu'elle n'a pas fini
   return fin, spec, names
 end
 local function spec_of(f, surface, o, frame, only, axis_force)
