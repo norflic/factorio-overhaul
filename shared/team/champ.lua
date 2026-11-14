@@ -135,6 +135,7 @@ Ch.CTX_CHUNK = 6000
 -- perf-frame : budget de travail d'un pas de plan (Ch.once_step) : états développés des tracés (Co.route), places et tuiles lues des
 -- recherches de colonne ailleurs (Co.away). Un compte fixe : même découpage, même plan sur toutes les machines.
 Ch.STEP_WORK = 3000
+Ch.ROW_WORK = 1 -- travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
 local function context_new(spec, axis)
   return { axis = axis, taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {},
     resources = spec.resources or {}, ore_uv = {}, has_foreign = next(spec.foreign or {}) ~= nil }
@@ -317,19 +318,31 @@ end
 --- Bandes d'une phase : { { pr, b, n = { u0 }, s = { u0 }, on, os } } et minerai miné (somme des rangées).
 --- s46 champ-cout : `rows` (recherche de la phase d'un cadre neuf seulement, `frame` nil, rien n'est pris) garde la place libre (fm) et
 --- le meilleur décalage de chaque rangée d'une phase à l'autre : les phases ph et ph + s + 1 relisent les mêmes rangées (mêmes réponses).
-local function bands_for(c, spec, phase, box, origin, frame, rows)
+-- perf-frame : `cur` (facultatif, recherche de phase seulement : `rows` donné) rend la passe REPRENABLE : bandes, total et rangée pr
+-- gardés dans cur ; budget du pas atteint (Co.WORK, rangées calculées comptées par leur largeur) -> nil ; le rappel avec le même `cur`
+-- reprend à la même rangée (mêmes rangées, dans le même ordre : mêmes bandes, même total). Au moins une bande par appel.
+local function bands_for(c, spec, phase, box, origin, frame, rows, cur)
   local s = spec.drill.size
   local pitch = 2 * s + 2
   local bands, total = {}, 0
   local pr = box.v0 - phase
+  if cur and cur.pr then bands, total, pr = cur.bands, cur.total, cur.pr end
+  local lim = cur and Co.WORK_LIM
+  local did = false
   local fm = rows and rows.fm or {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
+  local wrow = (box.u1 - box.u0 + 1) * (s + 1) * Ch.ROW_WORK
   local function row_of(row, fixed)
     if not rows then return best_row(c, spec, row, box.u0, box.u1, origin, fixed, fm) end
     local r = rows[row]
-    if not r then r = { best_row(c, spec, row, box.u0, box.u1, origin, nil, fm) }; rows[row] = r end
+    if not r then r = { best_row(c, spec, row, box.u0, box.u1, origin, nil, fm) }; rows[row] = r; Co.WORK = Co.WORK + wrow end
     return r[1], r[2], r[3]
   end
   while pr <= box.v1 do
+    if lim and did and Co.WORK >= lim then
+      cur.bands, cur.total, cur.pr = bands, total, pr
+      return nil
+    end
+    did = true
     if not (frame and frame.only) or frame.only[pr] then
       local off = frame and frame.offsets and frame.offsets[tostring(pr)]
       local nl, nm, on = row_of(pr + 1, off and off[1])
@@ -616,11 +629,18 @@ local function bridge_0641(c, spec, poles)
 end
 
 -- (lot FONDERIE) relais à plusieurs paires (Ch.BRIDGE_TRIES) pour la colonne à tapis ; le motif à coffres garde bridge_0641, à l'identique
-local function bridge(c, spec, poles)
+-- perf-frame : `B` (facultatif, avec budget Co.WORK_LIM) rend les relais REPRENABLES : un tour (une liaison) est fait d'un bloc, le
+-- suivant attend le pas suivant quand le budget est atteint (tour et relais posés gardés dans B, `poles` complété sur place) ; nil tant
+-- que ce n'est pas fini. Au moins un tour par appel ; mêmes tours dans le même ordre : mêmes relais.
+local function bridge(c, spec, poles, B)
   local wire = spec.pole.wire
   local w2 = wire * wire + Ch.CFG.eps
-  local added = {}
-  for _ = 1, 60 do
+  local added = B and B.added or {}
+  local lim = B and Co.WORK_LIM
+  local did = false
+  for it = (B and B.it or 1), 60 do
+    if lim and did and Co.WORK >= lim then B.it, B.added = it, added return nil end
+    did = true
     local parent = {}
     for i = 1, #poles do parent[i] = i end
     local function root(i) while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end return i end
@@ -652,6 +672,7 @@ local function bridge(c, spec, poles)
     -- Lot PERF3 : racines calculées une fois, mêmes paires dans le même ordre (voir bridge_0641)
     local ins, outs = {}, {}
     for i = 1, #poles do if root(i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
+    if lim then Co.WORK = Co.WORK + 4 * #poles + math.floor(#ins * #outs / 8) end
     local cand = {}
     local tries = Ch.BRIDGE_TRIES
     for _, i in ipairs(ins) do
@@ -890,7 +911,10 @@ function ONCE.init_rest(s)
 end
 
 function ONCE.phase(s)
-  local bs, total = bands_for(s.c, s.spec, s.ph, s.box, s.origin, nil, s.rows)
+  s.phcur = s.phcur or {}
+  local bs, total = bands_for(s.c, s.spec, s.ph, s.box, s.origin, nil, s.rows, s.phcur)
+  if not bs then return true end -- perf-frame : passe de cette phase reprise au pas suivant
+  s.phcur = nil
   if not s.bands or total > s.bt then s.bands, s.bt, s.phase = bs, total, s.ph end
   s.ph = s.ph + 1
   if s.ph > s.pitch - 1 then
@@ -1453,12 +1477,24 @@ end
 
 function ONCE.bridge(s)
   local F, all_poles = s.F, s.all_poles
-  s.all_poles = nil
-  s.stage = "finish"
   if not (F and F.only) and #all_poles > 1 then
-    for _, p in ipairs((s.colonne and bridge or bridge_0641)(s.c, s.spec, all_poles)) do emit(s, "poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
+    local added
+    if s.colonne then
+      -- perf-frame : relais reprenables (un tour par pas au plus quand le budget est atteint ; état s.brs)
+      s.brs = s.brs or {}
+      added = bridge(s.c, s.spec, all_poles, s.brs)
+      if not added then return true end
+      s.brs = nil
+    else
+      added = bridge_0641(s.c, s.spec, all_poles)
+    end
+    s.all_poles = nil
+    s.stage = "finish"
+    for _, p in ipairs(added) do emit(s, "poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
     return true
   end
+  s.all_poles = nil
+  s.stage = "finish"
   return false
 end
 
