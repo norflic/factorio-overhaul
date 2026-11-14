@@ -51,7 +51,7 @@ function Co.upgrade_goal(goal, orient)
   if not goal or not Co.UPGRADE_FRONT[orient or "aucune"] then return goal end
   if goal.center or not (goal.replace or goal.bloc) then return goal end
   local out = {}
-  for k, v in pairs(goal) do out[k] = v end -- copie (le but est gardé en cache par Capital.goal), aucun choix sur l'ordre
+  for k, v in next, goal do out[k] = v end -- copie (le but est gardé en cache par Capital.goal), aucun choix sur l'ordre
   out.front = true
   out.value = math.max(goal.value or 0, Co.UPGRADE_VALUE)
   return out
