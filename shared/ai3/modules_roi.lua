@@ -224,6 +224,7 @@ end
 --- threat, danger, max_orders), plus :
 ---   reserve = n | nil (Roi.RESERVE)        made = function(objet) -> vrai si l'objet a un débit mesuré | nil
 ---   craftable = function(module) -> vrai si l'équipe sait le fabriquer | nil          horizon, max_wants, want_modules
+---   makeable = function(module) -> modules fabricables avec les ingrédients au coffre | nil (lot MODULES-0716)
 ---   (g.run porte en plus short_in, full, bott, loads ; g.units_in = unités qui attendent leurs entrées)
 --- Rend (ordres, refus, info, souhaits) : ordres au format de Ms.plan (+ family, state) ; souhaits = { { key, module, per, n,
 --- payback, gain, entity, recipe, resource, where, item, units, why, … } } triés par retour.
@@ -439,7 +440,13 @@ function Roi.plan(Ca, D, v)
   local out_w = {}
   for _, o in ipairs(wants) do
     if #out_w >= (v.max_wants or Roi.MAX_WANTS) then break end
-    local k = math.min(o.nunits, Ms.BATCH_MAX, math.max(1, math.floor((v.want_modules or Roi.WANT_MODULES) / o.per)))
+    -- lot MODULES-0716 : un souhait couvre autant de machines que les ingrédients DÉJÀ au coffre en permettent (au plus Ms.BATCH_MAX
+    -- machines), au moins WANT_MODULES ; sans lecture des ingrédients (v.makeable nil), la règle d'avant. Banc partie-modules-kit-30 :
+    -- un souhait = 1 machine (8 modules / 5 emplacements), une seule foreuse équipée en 30 min.
+    local budget = v.want_modules or Roi.WANT_MODULES
+    local mk = v.makeable and v.makeable(o.nm) or 0
+    if type(mk) == "number" and mk > budget then budget = mk end
+    local k = math.min(o.nunits, Ms.BATCH_MAX, math.max(1, math.floor(budget / o.per)))
     local why
     k, why = power_cap(o, k, room)
     if k >= 1 then

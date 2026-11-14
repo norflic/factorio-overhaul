@@ -2672,7 +2672,15 @@ function Capi.think_tail(f, cs, tick)
           if not done[rec.targets[i].u] then batch[#batch + 1] = rec.targets[i] end
         end
         if #batch > 0 then
-          if Stock.count(f, rec.module) >= #batch * rec.per then
+          -- Lot MODULES-0716 : pose au fil de la fabrication : le lot part avec les machines que le coffre sert déjà (au moins une),
+          -- au lieu d'attendre les modules du lot entier (un souhait de 12 machines attendait 60 modules fabriqués avant la 1re pose)
+          local k = math.min(#batch, math.floor(Stock.count(f, rec.module) / math.max(1, rec.per or 1)))
+          if k >= 1 and k < #batch then
+            local part = {}
+            for i = 1, k do part[i] = batch[i] end
+            batch = part
+          end
+          if k >= 1 then
             tasks[#tasks + 1] = { key = "eq:" .. rec.key .. ":" .. b, kind = Equip.KIND, prio = rec.stock and Equip.PRIO_STOCK or Equip.PRIO, domain = "production",
               work = 20 + 10 * #batch, items = { { rec.module, #batch * rec.per } }, targets = batch, module = rec.module,
               per = rec.per, rec_key = rec.key }

@@ -45,6 +45,27 @@ function RT.craftable_fn(f, mu_recipe, forces)
   end
 end
 
+--- Lot MODULES-0716 : modules fabricables avec les ingrédients déjà au coffre (recette de moindre coût du relevé, un seul niveau ;
+--- 0 pour une recette à fluide ou sans recette). `count(objet)` = stock du coffre.
+function RT.makeable_fn(D, count)
+  return function(item)
+    local rn = (D and D.mu_recipe or {})[item]
+    local r = rn and D.recipes and D.recipes[rn]
+    if not r or r.fluid then return 0 end
+    local amt = 0
+    for _, p in ipairs(r.products or {}) do if p.name == item then amt = amt + (p.amount or 0) end end
+    if amt <= 0 then return 0 end
+    local n = nil
+    for _, ing in ipairs(r.ingredients or {}) do
+      if (ing.amount or 0) > 0 then
+        local k = math.floor((count(ing.name) or 0) / ing.amount)
+        if n == nil or k < n then n = k end
+      end
+    end
+    return math.floor((n or 0) * amt)
+  end
+end
+
 --- Porte : la pile « survivre » pour un QG menacé suspend la pose (lot MODULES-0716 : plus « effectif ») ; rien d'autre (rang inférieur ou
 --- égal : la pose est une tâche à faible priorité).
 function RT.gate(f)
@@ -243,6 +264,7 @@ function RT.think(f, cs, tick, c)
   if RT.ROI then
     view.made = function(item) return ((flows[item] or {}).made or 0) > 0 end
     view.craftable = c.craftable
+    view.makeable = RT.makeable_fn(D, c.count)
     view.max_wants = (fab_open > 0) and 0 or nil -- un seul ordre de fabrication de modules ouvert à la fois par équipe
     orders, refus, info, wants = Roi.plan(Ca, D, view)
     -- Lot MODULES-0716 : bilan de la passe (à chaque changement) : groupes vus, ordres, souhaits, refus, écartés par cause

@@ -529,5 +529,17 @@ do
   check(old({ force = "azure" }, "m-a") == false and cf("m-a") == true, "§8 mutant : la lecture d'avant (chaine prise pour un LuaForce) rend faux")
 end
 
+-- §9 lot MODULES-0716 : modules fabricables avec les ingrédients du coffre
+do
+  local D9 = { mu_recipe = { ["m-a"] = "r-a", ["m-f"] = "r-f" }, recipes = {
+    ["r-a"] = { ingredients = { { name = "x", amount = 5 }, { name = "y", amount = 5 } }, products = { { name = "m-a", amount = 1 } } },
+    ["r-f"] = { fluid = true, ingredients = { { name = "x", amount = 1 } }, products = { { name = "m-f", amount = 1 } } } } }
+  local stock9 = { x = 240, y = 37 }
+  local mk = RT.makeable_fn(D9, function(n) return stock9[n] or 0 end)
+  check(mk("m-a") == 7, "§9 makeable : borne par l'ingredient le plus rare (37 / 5 = 7)")
+  check(mk("m-f") == 0, "§9 makeable : recette a fluide -> 0")
+  check(mk("m-z") == 0, "§9 makeable : sans recette -> 0")
+end
+
 print(string.format("[MODULES-POSES] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refuses sur %d)", pass, fail, n_caught, n_mut))
 os.exit(fail == 0 and 0 or 1)
