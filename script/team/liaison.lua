@@ -259,7 +259,17 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil or (b.piquage ~= nil and b.piquage.links[d.key] ~= nil) end -- un quai servi par un piquage (lot PIQUAGE) n'est plus apparié par la liaison
   for _, s in ipairs(c.srcs) do s.linked = taken[s.key] == true end
   local pairs_ = Ln.pairs(c.docks, c.srcs)
-  if f.team and f.team.commande then pairs_ = Co.prefer_pairs(pairs_, f.team.commande.orders) end -- lot s43 UX-COMMANDE
+  if f.team and f.team.commande then
+    pairs_ = Co.prefer_pairs(pairs_, f.team.commande.orders) -- lot s43 UX-COMMANDE
+    -- s44 commande-liaison : les liaisons A -> B désignées par le joueur passent en tête, avant toute paire du relevé
+    local forced = Co.forced_pairs(f.team.commande.orders, c.docks, c.srcs)
+    if #forced > 0 then
+      for _, pr in ipairs(pairs_) do forced[#forced + 1] = pr end
+      pairs_ = forced
+      say(f, tick, string.format("ordre de liaison %d : sortie %s -> quai %s (%s, %d tuiles) en tete", forced[1].ordre, forced[1].src.key,
+        forced[1].dock.key, tostring(forced[1].dock.item), forced[1].span))
+    end
+  end
   -- synthèse : quais servis par tapis
   local served, active, open = 0, 0, 0
   for _, dkey in ipairs(sorted_keys(st.links)) do

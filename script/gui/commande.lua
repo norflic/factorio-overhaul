@@ -243,7 +243,17 @@ Events.on(defines.events.on_player_alt_selected_area, function(e)
   if not f then return end
   local x0, y0, x1, y1 = area_of(e)
   local cx, cy, r = Co.zone(x0, y0, x1, y1)
-  add_order(f, player, { kind = "liaison", x = cx, y = cy, r = r, tick = game.tick, surface = e.surface.index })
+  -- s44 commande-liaison : premier Maj + glisser = point A (départ), second = point B (arrivée) ; l'ordre porte les deux zones
+  local st = cstate(f)
+  if not st.liaison_a then
+    st.liaison_a = { x = cx, y = cy, r = r, surface = e.surface.index }
+    player.print({ "fo-commande.liaison-a", cx, cy })
+    return
+  end
+  local a = st.liaison_a
+  st.liaison_a = nil
+  if a and a.surface ~= e.surface.index then a = nil end
+  add_order(f, player, { kind = "liaison", x = cx, y = cy, r = r, a = a, tick = game.tick, surface = e.surface.index })
   refresh(f)
 end)
 

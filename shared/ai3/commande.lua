@@ -103,7 +103,8 @@ function Co.add(state, o)
   local id = state.next_id
   state.next_id = id + 1
   state.orders[#state.orders + 1] = { id = id, kind = o.kind, x = o.x, y = o.y, r = clamp(o.r or Co.R_MIN, Co.R_MIN, Co.R_MAX),
-    resource = o.resource, outpost = o.outpost, tick = o.tick or 0, surface = o.surface }
+    resource = o.resource, outpost = o.outpost, tick = o.tick or 0, surface = o.surface,
+    a = o.a and { x = o.a.x, y = o.a.y, r = clamp(o.a.r or Co.R_MIN, Co.R_MIN, Co.R_MAX) } or nil }
   return id
 end
 
@@ -234,6 +235,32 @@ function Co.prefer_pairs(pairs_, orders)
   if #first == 0 then return pairs_ end
   for _, pr in ipairs(rest) do first[#first + 1] = pr end
   return first
+end
+
+--- s44 commande-liaison : paires IMPOSÉES par les ordres de liaison A -> B (o.a = zone de départ, o = zone d'arrivée), en tête du
+--- relevé. Par ordre (numéro croissant) : la sortie libre (src, non liée) dans la zone A et le quai libre (dock, non lié) dans la zone
+--- B qui portent le même objet, la plus courte distance d'abord (égalité : clés). Rend { { dock, src, span, ordre = id }, ... }.
+function Co.forced_pairs(orders, docks, srcs)
+  local out = {}
+  for _, o in ipairs(orders or {}) do
+    if o.kind == "liaison" and o.a then
+      local best, bd
+      for _, s in ipairs(srcs or {}) do
+        if not s.linked and s.item and inside(o.a, s.x, s.y) then
+          for _, d in ipairs(docks or {}) do
+            if not d.linked and d.item == s.item and inside(o, d.x, d.y) then
+              local dist = math.abs(d.x - s.x) + math.abs(d.y - s.y)
+              if not best or dist < bd or (dist == bd and (d.key .. s.key) < (best.dock.key .. best.src.key)) then
+                best, bd = { dock = d, src = s, span = dist, ordre = o.id }, dist
+              end
+            end
+          end
+        end
+      end
+      if best then out[#out + 1] = best end
+    end
+  end
+  return out
 end
 
 --- Ordres de gisement remplis : un avant-poste ({ kind, x, y }) du type demandé à rayon + Co.DONE_MARGIN du centre. Rend la liste des
