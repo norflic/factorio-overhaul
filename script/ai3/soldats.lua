@@ -115,10 +115,8 @@ C.on_alert = function(f, ep, kind, tick, mode, critical) -- critical : pièce cr
       a.x, a.y, a.t = ep.x, ep.y, tick
       -- lot DANGER-ACTIF : un site touché ; ses soldats sont pris au-dessus de la réserve du QG (pass). Sprint 40 (défense, p3) : fusionnée dans une
       -- alerte de CHASSE, elle en gardait le rôle (3 chasseurs) et n'était jamais lue comme un site (pass : `a.site and not a.role`).
-      if mode == "site" then
-        a.site, a.role, a.n = true, nil, 4
-        if critical then a.critical = true end -- s43 scen-raid : une alerte reste critique jusqu'à son échéance
-      end
+      if mode == "site" then a.site, a.role, a.n = true, nil, 4 end
+      if mode == "site" and critical then a.critical = true end -- s43 scen-raid : une alerte reste critique jusqu'à son échéance
       return true
     end
   end
