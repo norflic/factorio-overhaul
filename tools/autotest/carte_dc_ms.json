@@ -1,0 +1,6 @@
+{
+  "_comment": "Partie du DC (14/11 21 h 35) : facteur d'evolution par la pollution a 2 (x 10^-7 dans l'ecran de carte ; defaut 9).",
+  "enemy_evolution": {
+    "pollution_factor": 2e-07
+  }
+}

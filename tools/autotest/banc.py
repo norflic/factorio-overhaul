@@ -688,7 +688,7 @@ def deployer_max():
     out = []
     here = os.path.dirname(os.path.abspath(__file__))
     jobs = [(os.path.join(here, "fo-autotest.bat"), "fo-autotest-max.bat", b"--map-gen-seed %SEED%",
-             b'--map-gen-seed %SEED% --map-gen-settings "%FO_MGS%"'),
+             b'--map-gen-seed %SEED% --map-gen-settings "%FO_MGS%" --map-settings "%FO_MS%"'),
             (os.path.join(RACINE, "fo-captures.bat"), "fo-captures-max.bat", br'call "%ROOT%\fo-autotest.bat"',
              br'call "%ROOT%\fo-autotest-max.bat"')]
     for src, name, old, new in jobs:
@@ -731,6 +731,7 @@ def main(argv):
     ap.add_argument("--carte", action="store_true")
     ap.add_argument("--captures", action="store_true")
     ap.add_argument("--carte-max", action="store_true", dest="carte_max")
+    ap.add_argument("--ms", dest="ms")  # 14/11 : fichier map-settings (avec --carte-max ; défaut carte_dc_ms.json)
     ap.add_argument("--mgs", dest="mgs")  # 0.7.111 : fichier map-gen-settings de la carte (avec --carte-max ; défaut carte_max_mgs.json)  # lot CARTE-MAX : carte creee avec carte_max_mgs.json
     ap.add_argument("--visuel")
     ap.add_argument("--seul", action="store_true")
@@ -768,6 +769,8 @@ def main(argv):
         env["FO_SAVE"] = os.path.abspath(a.sauvegarde)
     if a.carte_max:
         env["FO_MGS"] = os.path.abspath(a.mgs) if a.mgs else os.path.join(os.path.dirname(os.path.abspath(__file__)), "carte_max_mgs.json")
+        # 14/11 : réglages de carte de la partie du DC (évolution par la pollution à 2e-7) ; --ms pour un autre fichier
+        env["FO_MS"] = os.path.abspath(a.ms) if a.ms else os.path.join(os.path.dirname(os.path.abspath(__file__)), "carte_dc_ms.json")
         print("[BANC] " + deployer_max(), flush=True)
     if a.son:
         env["FO_AUDIO"] = "1"
