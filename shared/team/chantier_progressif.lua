@@ -81,6 +81,35 @@ function Cp.ready_lead(need, stock, lead)
   return #short == 0 and leads > 0, { pieces = pieces, total = total, short = short, lead = true }
 end
 
+-- 0.7.114 (F676, cause racine de l'amorçage lent) : une bande de champ attendait TOUTE sa matière dès qu'elle dégelait des paires thermiques
+-- (presque toutes : « 3 paire(s) thermique(s) dessous ») : bande de fer de 64 foreuses électriques + 24 fours (~1 500 plaques) pour une équipe
+-- qui fond ~150 plaques/min : « en attente (matieres) » de 19 à 30 min, 0 foreuse électrique en marche à 20 min sur les 5 équipes (banc
+-- JALONS30-ref0713-joueur). Règle : les FOREUSES de la bande (objets de tête, lus par build.lua au type de prototype : aucun nom) partent
+-- dès Cp.BAND_LEAD réservées, chacune se pose à son arrivée et produit aussitôt ; tapis, bras, fours, poteaux au plancher Cp.floor, ou EN
+-- ENTIER pour une bande qui dégèle des paires (garde SORTIE-PLAQUES B5 : la voie posée d'un bloc avant de retirer le fer qui produit).
+Cp.BAND_LEAD = 4
+
+--- Rend ok, détail (comme Cp.ready) : `lead` ({ [objet] = true }) au plancher min(Cp.BAND_LEAD, n), les autres au plancher Cp.floor (ou n si
+--- `whole`). Sans aucun objet de tête demandé : refus.
+function Cp.ready_band(need, stock, lead, whole)
+  local pieces, total, short, leads = 0, 0, {}, 0
+  stock, lead = stock or {}, lead or {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local n = math.floor(tonumber(need[it]) or 0)
+    if n > 0 then
+      local have = math.min(math.floor(tonumber(stock[it]) or 0), n)
+      pieces, total = pieces + have, total + n
+      local fl = whole and n or Cp.floor(n)
+      if lead[it] then
+        leads = leads + 1
+        fl = math.min(Cp.BAND_LEAD, n)
+      end
+      if have < fl then short[#short + 1] = { it, fl - have } end
+    end
+  end
+  return #short == 0 and leads > 0, { pieces = pieces, total = total, short = short, lead = true }
+end
+
 --- Un projet `p` (vue : state, reopened, spec.champ, stock, need) peut-il partir en chantier progressif ? Seulement la BANDE elle-même,
 --- neuve (spec.champ posé par le plan directeur du champ, sans `coal` ni `link` : un réseau du charbon, lié ou non, garde le tout-ou-rien :
 --- son kit est surtout du combustible et sa pose partielle déroute la migration, mesure EXPANSION-C, graine 271828182 : le réseau lié de la
@@ -91,6 +120,11 @@ function Cp.go(p)
   if not (p and p.state == "reserve") then return false, "etat" end
   if p.reopened and p.reopened ~= 0 then return false, "rouvert" end
   local s = p.spec
+  -- 0.7.114 (F676) : bande de champ dont les foreuses sont données (p.lead, build.lua) : départ par les foreuses, voie entière si dégel
+  local c0 = s and s.champ
+  if c0 and c0.coal == nil and c0.link == nil and p.lead and next(p.lead) ~= nil and not s.ext then
+    return Cp.ready_band(p.need or {}, p.stock or {}, p.lead, s.degel ~= nil and not p.degele)
+  end
   -- Lot SORTIE-PLAQUES (B5) : partir sans toute sa matière déclenchait le degel, qui retire les paires thermiques qui PRODUISENT ; la matière qui
   -- manque (tapis de la voie de charbon) ne se fabriquait plus sans leur fer (scarlet, graine 2507543475 : 23 fours sans charbon, fer 0/min).
   -- Une bande à dégeler garde le tout-ou-rien, comme Rr.partial_go (build.lua) ; la vue porte p.degele.

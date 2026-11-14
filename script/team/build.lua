@@ -3506,10 +3506,17 @@ end
 --- Lot CC-PETROLE : objets de TÊTE d'une extension de champ de puits (rôle « extracteur » de son plan, pas encore bâtis), lus par
 --- Build.Cp.go : l'extension part dès qu'un chevalet est réservé, les suivants se posent à leur arrivée. nil hors extension.
 local function lead_items(p)
-  if not (p.spec and p.spec.ext) then return nil end
+  -- 0.7.114 (F676) : bande de champ : ses foreuses (type de prototype mining-drill, aucun nom) sont les objets de tête (Build.Cp.ready_band)
+  local band = p.spec and p.spec.champ and p.spec.champ.coal == nil and p.spec.champ.link == nil and not p.spec.ext
+  if not (p.spec and (p.spec.ext or band)) then return nil end
   local out
   for _, e in ipairs(p.ents) do
-    if e.role == "extracteur" and e.item and not e.built then
+    local head = e.role == "extracteur"
+    if band and not head and e.item then
+      local pr = game.entity_prototypes[e.name]
+      head = pr ~= nil and pr.type == "mining-drill"
+    end
+    if head and e.item and not e.built then
       out = out or {}
       out[e.item] = true
     end
