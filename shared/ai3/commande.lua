@@ -431,6 +431,40 @@ function Co.bastion_want(state)
   return n
 end
 
+--- commandes-0716 : DÉLAIS d'un ordre (preuve « effet instantané ») : premier ouvrier en route vers la zone (`route`), premier fantôme
+--- (`ghost`) et première entité de l'équipe posée dans la zone après l'ordre (`pose`), effet complet (`fin`). `obs` = observation du
+--- moment ({ route = numéro d'ouvrier ou nil, ghost = bool, pose = bool, fin = bool }) ; chaque jalon est noté UNE fois (tick) dans
+--- l'ordre. Rend la liste des jalons neufs { { what, ticks } } dans l'ordre fixe Co.MILESTONES (ticks depuis la pose de l'ordre).
+Co.MILESTONES = { "route", "ghost", "pose", "fin" }
+function Co.progress(o, obs, tick)
+  local out = {}
+  if not (o and obs) then return out end
+  local t0 = o.tick or 0
+  for _, k in ipairs(Co.MILESTONES) do
+    local f = "t_" .. k
+    if o[f] == nil and obs[k] then
+      o[f] = tick
+      out[#out + 1] = { what = k, ticks = tick - t0 }
+    end
+  end
+  -- une pose vaut un ouvrier venu : le jalon « route » manqué (tâche courte entre deux relevés) prend le tick de la pose
+  if o.t_pose and not o.t_route then
+    o.t_route = o.t_pose
+    table.insert(out, 1, { what = "route", ticks = o.t_pose - t0 })
+  end
+  return out
+end
+
+--- commandes-0716 : mot d'état affiché sous l'ordre (clé de traduction « fo-commande.etat-<mot> ») : le dernier jalon atteint.
+function Co.status_word(o)
+  if not o then return "attente" end
+  if o.t_fin then return "fin" end
+  if o.t_pose then return "pose" end
+  if o.t_ghost then return "plan" end
+  if o.t_route then return "route" end
+  return "attente"
+end
+
 --- Rang d'amélioration d'une position : 0 dans une zone prioritaire, 1 ailleurs (zones absentes ou vides : 1).
 function Co.upgrade_rank(zones, x, y)
   if x == nil or y == nil then return 1 end

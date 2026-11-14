@@ -150,4 +150,28 @@ do -- ordres-0715 (B) : spirale du coffre d'office
   ok(mx <= D.SPIRAL_MAX and mx > 26, "spirale : au-dela des places fixes, sous le rayon maximal")
   ok(D.pick_chest({ { pos = { x = 0, y = 0 }, ore = 5 }, { pos = { x = 40, y = 0 }, ore = 0 } }) == 2, "pick_chest : place sans minerai retenue")
 end
+do -- commandes-0716 : jalons des délais (Co.progress), un seul relevé par jalon, pose sans route vue
+  local o = { id = 1, tick = 100 }
+  ok(Co.status_word(o) == "attente", "delais : attente au depart")
+  local m = Co.progress(o, { route = true }, 160)
+  ok(#m == 1 and m[1].what == "route" and m[1].ticks == 60 and o.t_route == 160, "delais : route notee")
+  ok(#Co.progress(o, { route = true }, 220) == 0, "delais : route notee une seule fois")
+  m = Co.progress(o, { ghost = true, pose = true }, 400)
+  ok(#m == 2 and m[1].what == "ghost" and m[2].what == "pose" and m[2].ticks == 300, "delais : plan et pose dans l'ordre fixe")
+  ok(Co.status_word(o) == "pose", "delais : mot d'etat pose")
+  m = Co.progress(o, { fin = true }, 1000)
+  ok(#m == 1 and m[1].what == "fin" and Co.status_word(o) == "fin", "delais : fin")
+  local q = { id = 2, tick = 0 }
+  m = Co.progress(q, { pose = true }, 600)
+  ok(m[1].what == "route" and m[1].ticks == 600 and q.t_route == 600, "delais : une pose vaut un ouvrier venu")
+  ok(#Co.progress(nil, {}, 0) == 0, "delais : sans ordre, rien")
+  local gsrc = io.open("script/gui/commande.lua"):read("*a")
+  ok(gsrc:find("track_init(f, order)", 1, true) and gsrc:find("Events.on_nth_tick(60", 1, true), "delais : suivi branche a la pose et chaque seconde")
+  for _, lang in ipairs({ "fr", "en" }) do
+    local cfg = io.open("locale/" .. lang .. "/commande.cfg"):read("*a")
+    for _, k in ipairs({ "etat-attente", "etat-route", "etat-plan", "etat-pose", "etat-fin", "jalon-route", "jalon-ghost", "jalon-pose", "jalon-fin" }) do
+      ok(cfg:find("\n" .. k .. "=", 1, true), "traduction " .. lang .. " : " .. k)
+    end
+  end
+end
 print(string.format("s46_outils_commande_test OK (%d)", n))
