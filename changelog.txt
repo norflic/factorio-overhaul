@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.99
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F633) : une alerte sur une tourelle ou une pièce de centrale est servie même sous la réserve du QG quand le QG n'est pas attaqué ; une tourelle touchée lève enfin l'alerte.
+    - IA (F634) : tous les quais prêts du bus sont évalués à tour de rôle (le piquage n'en voyait que 3) ; une pièce détruite de la centrale est reposée tout de suite.
+  Graphics:
+    - Léviathan et Ravageur (F635) : refaits sous Blender (carapace bicolore, crâne en coques, anneaux de lévitation ; Ravageur au buste et cuisses massifs).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.98
 Date: 2026-11-14
   Graphics:

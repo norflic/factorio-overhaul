@@ -10,6 +10,13 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 02 h 00 : version 0.7.99 (sprint long, partie 2 : scénarios en boucle fermée, deux titans)
+
+- **F633 · FAIT · [0.7.99]** Alertes de site (s43-scen-raid d6417e6a) : dans la partie du DC (0.7.96), emerald refuse 216 alertes de site sur 251 : groupe de 4 pris au-dessus de `Sd.RESERVE_MIN = 8` avec 5 à 12 soldats libres ; et `script/team/reparation.lua` sortait avant l'alerte pour une tourelle. Banc `scen-raid-35` (graine 20261020) contre témoin 0.7.97 : escouade détruite en 42 s au lieu de 134, tourelle du site revenue (1 contre 0 à +12 min), pertes de patrouille égales (5).
+- **F634 · FAIT · [0.7.99]** Piquage et centrale (s43-scen-energie 376b2013, 1c25fa2f) : `finish_cycle` n'évaluait que 3 quais prêts et effaçait les autres (aucun piquage de toute la partie du DC, 12 quais figés chez amber de 154 à 229 min) ; témoin 0.7.96 : 0 demande, branche : répartiteur posé. Blackout (graine 271828182) : satisfaction revenue en 55 s au lieu de 145 (scarlet), 165 au lieu de 215 (azure).
+- **F635 · FAIT · [0.7.99]** Léviathan et Ravageur (s43-3d-leviathan-ravager f4154dee à c6141155) : validés par l'agent de contrôle qualité sur feuilles et en jeu (capture n° 2) ; Ravageur blanc brûlé 3,3-3,9 % → 0,3-0,5 %, contraste 0,51 → 0,71.
+- **E293 · OUVERT** Moteur de scénarios (`shared/scenarios/`, `tools/autotest/scenarios_loop.py`) : 4 scénarios (famine de fer, raid, blackout, goulot de bus). Correctif « fond » des PNJ inactifs (s43-scen-moteur 2fc6b754) non fusionné : 2 factions sur 4 ne retrouvent pas leur fer, panel en cours.
+
 ## 2026-11-14, 01 h 00 : version 0.7.98 (sprint long, partie 2 : premiers modèles 3D validés)
 
 - **F632 · FAIT · [0.7.98]** Kaiju cristallin et Écorcheur R2 (s43-3d-kaiju-corroder 76f9b1aa à 954a1a63) : validés par l'agent de contrôle qualité sur feuilles (lum. 0,23-0,30 et 0,20-0,28 contre 0,42-0,49 et 0,37-0,45 en 0.7.96, blanc brûlé ≤ 1,7 %) puis en jeu (capture n° 1 du banc). Feuilles hors git copiées à la livraison ; anciennes feuilles gardées dans le scratchpad de session. Le « Corroder » n'existe pas dans le mod : choix provisoire, la famille d'ennemis toxique reçoit un modèle (en cours).
