@@ -156,7 +156,7 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     lot.put(M["conduit"], G.boite((3.6, 0.0, ZC - 6.0), (0.2, 1.6, 0.22)))
     # bec ventral : pointe blindée vers l'avant-bas (le « museau » du concept) ; s43 : acier satiné (struct) : poli, son grand plan renvoyait
     # le soleil en aplat blanc (1,0 à 1,5 % du corps en d4, d10, d12)
-    lot.put(M["blind"], G.loft([[(1.0, -2.2, ZC - 4.8), (1.0, 2.2, ZC - 4.8), (1.0, 1.6, ZC - 2.2), (1.0, -1.6, ZC - 2.2)],
+    lot.put(M["struct"], G.loft([[(1.0, -2.2, ZC - 4.8), (1.0, 2.2, ZC - 4.8), (1.0, 1.6, ZC - 2.2), (1.0, -1.6, ZC - 2.2)],
                                 [(5.4, -1.2, ZC - 6.4), (5.4, 1.2, ZC - 6.4), (5.4, 0.9, ZC - 4.6), (5.4, -0.9, ZC - 4.6)],
                                 [(7.8, -0.3, ZC - 7.6), (7.8, 0.3, ZC - 7.6), (7.8, 0.25, ZC - 7.0), (7.8, -0.25, ZC - 7.0)]], True, True))
     lot.put(M["conduit"], G.tube([(2.0, 0.0, ZC - 3.0), (6.5, 0.0, ZC - 5.6)], 0.1, 6))
