@@ -64,6 +64,7 @@ Capital.CENTER_OFFSETS = { { 0, 14 }, { 14, 0 }, { -14, 0 }, { 0, -14 }, { 14, 1
 Capital.CENTER_SEARCH = 12
 Capital.HISTORY = 32
 Capital.REFUSE_TICKS = 5 * 3600 -- une cible refusée par l'exécutant est écartée 5 min (pas de nouvel essai à chaque pensée)
+Capital.TIERS_LOGS = 400       -- lot TIERS : lignes [FO-TIERS] au plus par équipe
 Capital.RECHECK_TICKS = 3600    -- lot AGES : un refus « cc-families » (familles à monter connues) n'écarte le centre qu'1 min
 
 local Levels = package.loaded["script.levels.levels"] -- lien inverse : script/levels/levels.lua, Capital.bind
@@ -817,6 +818,7 @@ function Capital.goal(f, view, book, tick, w)
       ids = {}
       for i, v in ipairs(d.ids) do ids[i] = v end
     end
+    local pool = d.replace and Cap.pool(d) or nil -- lot TIERS : réserve du lot (numéros seulement : rien du relevé ne va dans global)
     local unit = nil
     if d.unit then
       unit = {}
@@ -824,7 +826,7 @@ function Capital.goal(f, view, book, tick, w)
     end
     c.current = { key = d.key, id = d.id, family = d.family, from = d.from, to = d.to, build = d.build or nil,
       center = d.center or nil, value = d.value, work = d.work, score = d.score, cost = cost, ids = ids,
-      bloc = d.bloc, n = d.n, unit = unit, bloc_low = d.bloc_low,
+      bloc = d.bloc, n = d.n, unit = unit, bloc_low = d.bloc_low, pool = pool,
       replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n, group = d.replace.group } or nil }
     if d.key ~= prev then
       c.decisions = (c.decisions or 0) + 1
@@ -977,6 +979,19 @@ local function pay_replace(f, c, d, tick, limit)
       why = w
       c.refused_until["m:" .. id] = tick + Capital.REFUSE_TICKS
       if w == "objet" then break end
+    end
+  end
+  if n > 0 then
+    -- Lot TIERS : journal [FO-TIERS] de chaque paiement (équipe, type du moteur, de -> vers, nombre, cumul de la paire et de l'équipe), borné.
+    local cp = machine_catalog().by[d.replace.from]
+    local pair = d.replace.from .. ">" .. d.replace.to
+    c.tiers = c.tiers or { total = 0, by = {}, logs = 0 }
+    c.tiers.by[pair] = (c.tiers.by[pair] or 0) + n
+    c.tiers.total = c.tiers.total + n
+    c.tiers.logs = c.tiers.logs + 1
+    if c.tiers.logs <= Capital.TIERS_LOGS then
+      log(string.format("[FO-TIERS] %s : %s %s -> %s x%d (paire %d, equipe %d) a %.1f min", f.key or "player", cp and cp.type or "?",
+        d.replace.from, d.replace.to, n, c.tiers.by[pair], c.tiers.total, minutes(f, tick)))
     end
   end
   return n, why
@@ -1325,7 +1340,10 @@ function Capital.continu(f, surface, book, free, tick, hold)
   c.continu_st = st
   if unlocked(f, item) then Voulues.clear(f, "amelio-continue") else Voulues.set(f, "amelio-continue", { item }, tick) return 0 end
   local have = Stock.count(f, item)
-  local n = #(d.ids or {})
+  -- Lot TIERS : le kit et le paiement portent sur la réserve du lot (d.pool, au plus Cap.REPLACE_BATCH pièces du même groupe), pas
+  -- sur les seules pièces payables à la décision (d.ids : souvent 1, stock vide).
+  local pool = (d.pool and #d.pool > #(d.ids or {})) and d.pool or (d.ids or {})
+  local n = #pool
   local want = AC.kit_want({ [item] = n }, { [item] = have })
   local queued = 0
   if want[1] and book and book:handcraftable(item) then
@@ -1342,7 +1360,7 @@ function Capital.continu(f, surface, book, free, tick, hold)
   end
   local done, why = 0, nil
   if have >= 1 and AC.pile_permits(hold, have) then
-    done, why = pay_replace(f, c, d, tick, math.min(have, n))
+    done, why = pay_replace(f, c, { ids = pool, replace = d.replace }, tick, math.min(have, n))
     if done > 0 then
       c.upgrades = (c.upgrades or 0) + done
       if d.replace.group then c.last_group = d.replace.group end
