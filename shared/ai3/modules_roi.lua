@@ -224,6 +224,7 @@ end
 --- threat, danger, max_orders), plus :
 ---   reserve = n | nil (Roi.RESERVE)        made = function(objet) -> vrai si l'objet a un débit mesuré | nil
 ---   craftable = function(module) -> vrai si l'équipe sait le fabriquer | nil          horizon, max_wants, want_modules
+---   makeable = function(module) -> modules fabricables avec les ingrédients au coffre | nil (lot MODULES-0716)
 ---   (g.run porte en plus short_in, full, bott, loads ; g.units_in = unités qui attendent leurs entrées)
 --- Rend (ordres, refus, info, souhaits) : ordres au format de Ms.plan (+ family, state) ; souhaits = { { key, module, per, n,
 --- payback, gain, entity, recipe, resource, where, item, units, why, … } } triés par retour.
@@ -250,25 +251,31 @@ function Roi.plan(Ca, D, v)
   local function refuse(key, nm, why) refus[#refus + 1] = { key = key, module = nm, why = why } end
   local opts = {}
 
+  -- Lot MODULES-0716 : groupes écartés sans refus écrit, comptés par cause (info.skip ; journal [FO-MODULES] « etat »)
+  local skip = {}
+  info.skip = skip
+  local function skipped(why) skip[why] = (skip[why] or 0) + 1 end
   local function consider(g, is_drill)
     local ent = is_drill and D.drill_by[g.entity] or D.maker_by[g.entity]
     local sl = L.slots[g.entity]
-    if not ent or not sl or (g.n or 0) <= 0 then return end
+    if not ent then skipped("machine hors releve") return end
+    if not sl then skipped("sans emplacement") return end
+    if (g.n or 0) <= 0 then skipped("groupe vide") return end
     local filled = Lv.filled(g.mods or {})
     local free = sl.n - filled
-    if free <= 0 then return end
+    if free <= 0 then skipped("emplacements pleins") return end
     local item, r
     if is_drill then
       item = g.resource
-      if not item or not D.res[item] or D.res[item].fluid then return end
+      if not item or not D.res[item] or D.res[item].fluid then skipped("ressource fluide ou inconnue") return end
     else
       r = D.recipes[g.recipe]
-      if not r or r.fluid or #r.products == 0 then return end
+      if not r or r.fluid or #r.products == 0 then skipped("recette fluide ou absente") return end
       item = r.products[1].name
     end
     local where = is_drill and (g.deposit ~= nil and tostring(g.deposit) or Ca.HQ) or (g.where or Ca.HQ)
     local key = Ms.key(g, is_drill, where)
-    if taken[key] then return end
+    if taken[key] then skipped("ordre deja ouvert") return end
     local state = Roi.state(g.run)
     if state == Roi.S_OUT or state == Roi.S_STOP then
       refuse(key, nil, "machine arretee : " .. tostring(g.run and g.run.stop or "sans travail"))
@@ -284,7 +291,7 @@ function Roi.plan(Ca, D, v)
       end
     end
     local nunits = #units
-    if nunits <= 0 then return end
+    if nunits <= 0 then skipped("aucune unite qui travaille") return end
     if where ~= Ca.HQ then
       if v.threat then refuse(key, nil, "menace : machines du QG seulement") return end
       if (v.danger or {})[where] then refuse(key, nil, "lieu " .. where .. " dangereux") return end
@@ -433,7 +440,13 @@ function Roi.plan(Ca, D, v)
   local out_w = {}
   for _, o in ipairs(wants) do
     if #out_w >= (v.max_wants or Roi.MAX_WANTS) then break end
-    local k = math.min(o.nunits, Ms.BATCH_MAX, math.max(1, math.floor((v.want_modules or Roi.WANT_MODULES) / o.per)))
+    -- lot MODULES-0716 : un souhait couvre autant de machines que les ingrédients DÉJÀ au coffre en permettent (au plus Ms.BATCH_MAX
+    -- machines), au moins WANT_MODULES ; sans lecture des ingrédients (v.makeable nil), la règle d'avant. Banc partie-modules-kit-30 :
+    -- un souhait = 1 machine (8 modules / 5 emplacements), une seule foreuse équipée en 30 min.
+    local budget = v.want_modules or Roi.WANT_MODULES
+    local mk = v.makeable and v.makeable(o.nm) or 0
+    if type(mk) == "number" and mk > budget then budget = mk end
+    local k = math.min(o.nunits, Ms.BATCH_MAX, math.max(1, math.floor(budget / o.per)))
     local why
     k, why = power_cap(o, k, room)
     if k >= 1 then

@@ -335,6 +335,16 @@ do
   check(select(1, RT.gate(f)) == false, "§6 gate : refuse sous survivre")
   f.team.ia3.pile = nil
   check(select(1, RT.gate(f)) == true, "§6 gate : permis sans pile")
+  -- lot MODULES-0716 : sous le seul effectif de départ, la pose du stock continue ; un QG menacé la suspend
+  f.team.ia3.pile = { hold = true, top = Pi.SURVIVRE, frames = { { key = "survivre", rank = Pi.SURVIVRE, kind = "survivre", why = "effectif" } } }
+  check(select(1, RT.gate(f)) == true, "§6 gate : permis sous survivre 'effectif' (stock sans cout en matiere)")
+  f.team.ia3.pile = { hold = true, top = Pi.SURVIVRE, frames = { { key = "survivre", rank = Pi.SURVIVRE, kind = "survivre", why = "qg" } } }
+  check(select(1, RT.gate(f)) == false, "§6 gate : refuse sous survivre 'qg' (QG menace)")
+  do
+    local f3, cs3, c3 = team(), cstate(), ctx(50)
+    f3.team.ia3.pile = { hold = true, top = Pi.SURVIVRE, frames = { { key = "survivre", rank = Pi.SURVIVRE, kind = "survivre", why = "effectif" } } }
+    check(RT.think(f3, cs3, 600, c3) >= 1 and #cs3.open >= 1, "§6 survivre 'effectif' : un ordre de pose du stock est ouvert")
+  end
   -- sous la reserve : une ligne, une fois
   logged = {}
   local f2, cs2, c2 = team(), cstate(), ctx(3)
@@ -493,8 +503,42 @@ check(n_caught == n_mut, string.format("§7 mutants : %d refuses sur %d", n_caug
 
 -- porte de la pile (mutant de la fonction pure)
 do
-  local MsX = mutant("if top_survive then", "if false then")
+  local MsX = mutant("if top_survive and reason ~= Ms.SURVIVE_FREE then", "if false then")
   check(MsX.gate(true) == true and Ms.gate(true) == false, "§7 mutant : la porte 'survivre' retiree est vue")
+  local MsY = mutant("if top_survive and reason ~= Ms.SURVIVE_FREE then", "if top_survive then")
+  check(MsY.gate(true, "effectif") == false and Ms.gate(true, "effectif") == true and Ms.gate(true, "qg") == false,
+    "§7 mutant : l'exception 'effectif' retiree est vue")
+end
+
+-- §8 lot MODULES-0716 : la recette de module ouverte est lue sur la force NOMMÉE (f.force est une chaîne en jeu)
+do
+  local mu_recipe = { ["m-a"] = "r-a", ["m-b"] = "r-b" }
+  local forces = { azure = { valid = true, recipes = { ["r-a"] = { enabled = true }, ["r-b"] = { enabled = false } } } }
+  local cf = RT.craftable_fn({ force = "azure" }, mu_recipe, forces)
+  check(cf("m-a") == true, "§8 craftable : force nommee (chaine), recette ouverte -> vrai")
+  check(cf("m-b") == false, "§8 craftable : recette fermee -> faux")
+  check(cf("m-c") == false, "§8 craftable : module sans recette du releve -> faux")
+  check(RT.craftable_fn({ force = "inconnue" }, mu_recipe, forces)("m-a") == false, "§8 craftable : force absente -> faux")
+  check(RT.craftable_fn({ force = forces.azure }, mu_recipe, nil)("m-a") == true, "§8 craftable : un LuaForce direct reste admis")
+  -- mutant : l'ancienne lecture (f.force.valid sur la chaîne) est vue
+  local old = function(f, item)
+    local rn = mu_recipe[item]
+    local r = rn and f.force and f.force.valid and f.force.recipes[rn]
+    return (r and r.enabled) and true or false
+  end
+  check(old({ force = "azure" }, "m-a") == false and cf("m-a") == true, "§8 mutant : la lecture d'avant (chaine prise pour un LuaForce) rend faux")
+end
+
+-- §9 lot MODULES-0716 : modules fabricables avec les ingrédients du coffre
+do
+  local D9 = { mu_recipe = { ["m-a"] = "r-a", ["m-f"] = "r-f" }, recipes = {
+    ["r-a"] = { ingredients = { { name = "x", amount = 5 }, { name = "y", amount = 5 } }, products = { { name = "m-a", amount = 1 } } },
+    ["r-f"] = { fluid = true, ingredients = { { name = "x", amount = 1 } }, products = { { name = "m-f", amount = 1 } } } } }
+  local stock9 = { x = 240, y = 37 }
+  local mk = RT.makeable_fn(D9, function(n) return stock9[n] or 0 end)
+  check(mk("m-a") == 7, "§9 makeable : borne par l'ingredient le plus rare (37 / 5 = 7)")
+  check(mk("m-f") == 0, "§9 makeable : recette a fluide -> 0")
+  check(mk("m-z") == 0, "§9 makeable : sans recette -> 0")
 end
 
 print(string.format("[MODULES-POSES] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refuses sur %d)", pass, fail, n_caught, n_mut))

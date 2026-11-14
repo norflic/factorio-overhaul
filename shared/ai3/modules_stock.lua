@@ -54,9 +54,15 @@ function Ms.available(stock, committed, reserve)
   return math.floor(n)
 end
 
---- Cause d'arrêt global (porte de la pile) : vrai si rien ne doit être posé. `top_survive` : le sommet de la pile est « survivre ».
-function Ms.gate(top_survive)
-  if top_survive then return false, "pile survivre : le QG ou l'effectif de depart passe avant" end
+--- Cause d'arrêt global (porte de la pile) : vrai si rien ne doit être posé. `top_survive` : le sommet de la pile est « survivre » ;
+--- `reason` : la cause de ce cadre (shared/ai3/pile.lua, Pi.signals : « effectif » ou « qg »).
+--- Lot MODULES-0716 : seul un QG MENACÉ suspend la pose. Sous le seul effectif de départ (des PNJ perdus, la recrue possible),
+--- un module DÉJÀ au coffre n'a aucun coût en matière et ajoute du débit : le suspendre gelait la pose toute la fin de partie
+--- (partie du DC 0.7.102, 2 h 30 : azure dès 105 min, votre équipe de 128 à 146 min, seules lignes [FO-MODULES] de la partie :
+--- « refus : pile survivre »). La tâche garde sa priorité (Equip.PRIO_STOCK, sous la défense et la survie).
+Ms.SURVIVE_FREE = "effectif"
+function Ms.gate(top_survive, reason)
+  if top_survive and reason ~= Ms.SURVIVE_FREE then return false, "pile survivre : le QG menace passe avant" end
   return true, nil
 end
 

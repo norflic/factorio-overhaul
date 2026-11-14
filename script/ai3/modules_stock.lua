@@ -29,10 +29,53 @@ local function say(f, minutes, text)
   log(string.format("[FO-MODULES] %s : %s a %.1f min", f.key or "player", text, minutes))
 end
 
---- Porte : la pile « survivre » suspend la pose ; rien d'autre (rang inférieur ou égal : la pose est une tâche à faible priorité).
+--- Lot MODULES-0716 : « l'équipe sait-elle fabriquer ce module ? » : la recette de moindre coût du relevé (`mu_recipe`), ouverte pour la
+--- force de l'équipe. `f.force` est le NOM de la force (chaîne, comme partout dans script/ai3) ; un LuaForce est aussi admis. Avant ce
+--- lot, la fonction lisait `f.force.valid` sur la chaîne (toujours nil) : jamais fabricable, la passe repartait muette à chaque relevé
+--- (partie du DC 0.7.102 : trois équipes avec les technologies, aucun module fabriqué ni posé en 2 h 30).
+function RT.craftable_fn(f, mu_recipe, forces)
+  return function(item)
+    local rn = (mu_recipe or {})[item]
+    if not (rn and f) then return false end
+    local force = f.force
+    if type(force) == "string" then force = forces and forces[force] end
+    if not (force and force.valid ~= false and force.recipes) then return false end
+    local r = force.recipes[rn]
+    return (r and r.enabled) and true or false
+  end
+end
+
+--- Lot MODULES-0716 : modules fabricables avec les ingrédients déjà au coffre (recette de moindre coût du relevé, un seul niveau ;
+--- 0 pour une recette à fluide ou sans recette). `count(objet)` = stock du coffre.
+function RT.makeable_fn(D, count)
+  return function(item)
+    local rn = (D and D.mu_recipe or {})[item]
+    local r = rn and D.recipes and D.recipes[rn]
+    if not r or r.fluid then return 0 end
+    local amt = 0
+    for _, p in ipairs(r.products or {}) do if p.name == item then amt = amt + (p.amount or 0) end end
+    if amt <= 0 then return 0 end
+    local n = nil
+    for _, ing in ipairs(r.ingredients or {}) do
+      if (ing.amount or 0) > 0 then
+        local k = math.floor((count(ing.name) or 0) / ing.amount)
+        if n == nil or k < n then n = k end
+      end
+    end
+    return math.floor((n or 0) * amt)
+  end
+end
+
+--- Porte : la pile « survivre » pour un QG menacé suspend la pose (lot MODULES-0716 : plus « effectif ») ; rien d'autre (rang inférieur ou
+--- égal : la pose est une tâche à faible priorité).
 function RT.gate(f)
   local st = f and f.team and f.team.ia3 and f.team.ia3.pile
-  return Ms.gate(st ~= nil and st.hold == true and st.top == Pi.SURVIVRE)
+  local top = st ~= nil and st.hold == true and st.top == Pi.SURVIVRE
+  local reason = nil
+  for _, fr in ipairs((top and st.frames) or {}) do
+    if fr.rank == Pi.SURVIVRE and fr.kind == "survivre" then reason = fr.why break end
+  end
+  return Ms.gate(top, reason)
 end
 
 local function sorted_keys(t)
@@ -175,7 +218,16 @@ function RT.think(f, cs, tick, c)
       if c.craftable(nm) then can_make = true break end
     end
   end
-  if total <= 0 and not can_make then return 0 end
+  -- Lot MODULES-0716 : état de la passe écrit à chaque changement, dès qu'un module est au coffre ou fabricable (avant : retours
+  -- muets, la partie du DC de 2 h 30 n'a montré aucune ligne pour trois équipes qui avaient les technologies)
+  local function state(text)
+    local sig = text
+    if cs.ms_state ~= sig then
+      cs.ms_state = sig
+      say(f, mn, "etat : " .. text)
+    end
+  end
+  if total <= 0 and not can_make then return 0 end -- début de partie : silence (aucune technologie de module)
   local fab_open = 0 -- ordres de fabrication (non « stock ») ouverts, levier compris
   for _, rec in ipairs(cs.open or {}) do
     taken[rec.key] = true
@@ -184,7 +236,10 @@ function RT.think(f, cs, tick, c)
       if not rec.stock then fab_open = fab_open + 1 end
     end
   end
-  if total <= 0 and fab_open > 0 then return 0 end -- rien à poser et une fabrication déjà ouverte : aucun relevé de statut
+  if total <= 0 and fab_open > 0 then -- rien à poser et une fabrication déjà ouverte : aucun relevé de statut
+    state(string.format("0 module au coffre, %d ordre(s) de fabrication ouvert(s) : attente de la fabrication", fab_open))
+    return 0
+  end
   local danger = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do danger[id] = cs.deps[id].danger and true or nil end
   local memo = {}
@@ -210,8 +265,14 @@ function RT.think(f, cs, tick, c)
   if RT.ROI then
     view.made = function(item) return ((flows[item] or {}).made or 0) > 0 end
     view.craftable = c.craftable
+    view.makeable = RT.makeable_fn(D, c.count)
     view.max_wants = (fab_open > 0) and 0 or nil -- un seul ordre de fabrication de modules ouvert à la fois par équipe
     orders, refus, info, wants = Roi.plan(Ca, D, view)
+    -- Lot MODULES-0716 : bilan de la passe (à chaque changement) : groupes vus, ordres, souhaits, refus, écartés par cause
+    local sk = {}
+    for _, k in ipairs(sorted_keys(info.skip)) do sk[#sk + 1] = k .. "=" .. info.skip[k] end
+    state(string.format("%d module(s) au coffre, fabrication %s ; passe : %d groupe(s) de machines, %d de foreuses -> %d pose(s), %d souhait(s), %d refus ; ecartes {%s}",
+      total, can_make and "possible" or "non lue", #views_m, #views_d, #orders, #wants, #refus, table.concat(sk, " ")))
     for _, w in ipairs(wants) do orders[#orders + 1] = w end
   else
     orders, refus, info = Ms.plan(Ca, D, view)

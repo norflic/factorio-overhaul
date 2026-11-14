@@ -2586,11 +2586,8 @@ function Capi.think_tail(f, cs, tick)
   Capi.MS.think(f, cs, tick, { Ca = Ca, D = Capi.data(), minutes = minutes, held = held,
     count = function(item) return Stock.count(f, item) end,
     -- lot S42 MODULES-ROI : l'équipe sait-elle fabriquer ce module ? (recette de moindre coût du relevé, ouverte pour la force)
-    craftable = function(item)
-      local rn = (Capi.data().mu_recipe or {})[item]
-      local r = rn and f.force and f.force.valid and f.force.recipes[rn]
-      return (r and r.enabled) and true or false
-    end,
+    -- (lot MODULES-0716 : f.force est un NOM de force ; lu comme un LuaForce, la réponse était toujours « non » : aucun module fabriqué)
+    craftable = Capi.MS.craftable_fn(f, Capi.data().mu_recipe, game.forces),
     power = function() return Capi.power_input(f, Auto.plant_state(f)) end,
     threat = (f.threatened_until or 0) > tick })
   -- Laboratoires visés : ceux du QG plus le reste des ordres ouverts.
@@ -2675,7 +2672,15 @@ function Capi.think_tail(f, cs, tick)
           if not done[rec.targets[i].u] then batch[#batch + 1] = rec.targets[i] end
         end
         if #batch > 0 then
-          if Stock.count(f, rec.module) >= #batch * rec.per then
+          -- Lot MODULES-0716 : pose au fil de la fabrication : le lot part avec les machines que le coffre sert déjà (au moins une),
+          -- au lieu d'attendre les modules du lot entier (un souhait de 12 machines attendait 60 modules fabriqués avant la 1re pose)
+          local k = math.min(#batch, math.floor(Stock.count(f, rec.module) / math.max(1, rec.per or 1)))
+          if k >= 1 and k < #batch then
+            local part = {}
+            for i = 1, k do part[i] = batch[i] end
+            batch = part
+          end
+          if k >= 1 then
             tasks[#tasks + 1] = { key = "eq:" .. rec.key .. ":" .. b, kind = Equip.KIND, prio = rec.stock and Equip.PRIO_STOCK or Equip.PRIO, domain = "production",
               work = 20 + 10 * #batch, items = { { rec.module, #batch * rec.per } }, targets = batch, module = rec.module,
               per = rec.per, rec_key = rec.key }
