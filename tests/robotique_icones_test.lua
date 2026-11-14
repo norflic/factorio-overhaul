@@ -78,11 +78,15 @@ local function attendus(dessines)
   local objets, techs, absents = {}, {}, {}
   for _, n in ipairs(Pa.ITEMS) do objets[n] = true end
   for _, t in ipairs(Pa.TECHS) do techs[t.name] = true end
+  -- lot s43-robots : une variante (r.variant) prend l'icône de son parent, teinte (aucun rendu neuf) : ni son kit ni sa technologie
+  local variante = {}
   for _, r in ipairs(Ro.ROBOTS) do
-    objets[r.kit] = true
+    if r.variant then variante[r.id] = true else objets[r.kit] = true end
     if r.segment_item then objets[r.segment_item] = true end
   end
-  for _, t in ipairs(Ro.TECHS) do techs[t.name] = true end
+  for _, t in ipairs(Ro.TECHS) do
+    if not (t.robots and #t.robots == 1 and variante[t.robots[1]] and not t.factories) then techs[t.name] = true end
+  end
   for _, d in ipairs(dessines) do
     local present = {}
     for _, n in ipairs(d[2]) do present[n] = true end

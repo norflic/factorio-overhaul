@@ -129,7 +129,7 @@ local function suite(D)
     if r.heal then check(c.fraction >= D.HEAL_TARGET - 1e-9 and c.base < c.fraction, "§5 le soin améliore la marge : " .. r.id) end
   end
   -- chaque robot gagne son duel, avec les chiffres ÉCRITS
-  local reach = {}
+  local reach, reach_age = {}, {} -- lot s43-robots : l'âge de chaque entrée (les variantes suivent les 12, hors de l'ordre des âges)
   for _, r in ipairs(Ro.ROBOTS) do
     if not r.heal then
       local tier = D.tier_of_age(r.age)
@@ -137,6 +137,7 @@ local function suite(D)
       local run = D.run(r, r.hp, r.shot.damage, tier, ref)
       check(run.win and run.fraction_subject >= D.TARGET - 0.01, "§5 " .. r.id .. " gagne son duel contre 3 du palier " .. tier .. string.format(" (%.2f)", run.fraction_subject or -1))
       reach[#reach + 1] = D.reach(r, r.hp, r.shot.damage, ref)
+      reach_age[#reach] = r.age
       check(reach[#reach] >= tier, "§5 " .. r.id .. " bat au moins le palier de son âge (palier le plus haut battu : " .. reach[#reach] .. ")")
       -- une moitié de la puissance perd : le calibrage est serré (pas de surplus caché)
       local half = D.run(r, r.hp / 3, r.shot.damage / 3, tier, ref)
@@ -164,7 +165,9 @@ local function suite(D)
     string.format("%.6f contre %.6f", ratio, want))
   -- §6 La gamme.
   local mono_r = true
-  for i = 2, #reach do if reach[i] < reach[i - 1] then mono_r = false end end
+  for i = 1, #reach do
+    for j = 1, #reach do if reach_age[j] > reach_age[i] and reach[j] < reach[i] then mono_r = false end end
+  end
   check(mono_r, "§6 le palier battu ne baisse jamais d'un âge à l'autre", table.concat(reach, ","))
   local g13 = Ro.robot("toroid")
   check(D.reach(g13, g13.hp, g13.shot.damage) >= 10 and Ro.robot("crowned").hp > g13.hp, "§6 le Couronné est plus robuste que le Torique")

@@ -57,11 +57,17 @@ local function suite(Ro, Mo)
   end
 
   -- §1 Données : 12 robots, 4 usines.
-  check(#Ro.ROBOTS == 12, "§1 douze robots", tostring(#Ro.ROBOTS))
+  -- lot s43-robots : les 12 du plan d'abord, puis 3 variantes (r.variant = parent ; tests/s43_robots_test.lua les contrôle)
+  local nplan, nvar = 0, 0
+  for i, r in ipairs(Ro.ROBOTS) do
+    if r.variant then nvar = nvar + 1 elseif i == nplan + 1 then nplan = nplan + 1 end
+  end
+  check(nplan == 12 and nvar == 3 and #Ro.ROBOTS == 15, "§1 douze robots du plan, puis trois variantes", tostring(#Ro.ROBOTS))
   local want_ids = { "steam-trotter", "scalehide", "coiler", "needle", "bellwether", "chamfer", "trowel", "finback", "levite", "toroid", "heliast", "crowned" }
   local want_ages = { 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }
   local ids_ok, ages_ok = true, true
-  for i, r in ipairs(Ro.ROBOTS) do
+  for i = 1, 12 do
+    local r = Ro.ROBOTS[i]
     if r.id ~= want_ids[i] then ids_ok = false end
     if r.age ~= want_ages[i] then ages_ok = false end
   end
@@ -147,7 +153,7 @@ local function suite(Ro, Mo)
   check(roundtrip, "§1 relecture du nom d'unité : propriétaire et robot")
   check(Ro.parse_unit("fo-robot-azure-inconnu") == nil and Ro.parse_unit("fo-azure-rifleman") == nil
     and Ro.parse_unit("fo-robot-workshop") == nil and Ro.parse_unit(nil) == nil, "§1 un autre nom n'est pas une unité de robot")
-  check(#Ro.unit_names() == #Ro.OWNERS * 9 + 3, "§1 un prototype par propriétaire pour les 9 unités, un seul pour chacun des 3 géants", tostring(#Ro.unit_names()))
+  check(#Ro.unit_names() == #Ro.OWNERS * 12 + 3, "§1 un prototype par propriétaire pour les 12 unités (9 du plan, 3 variantes), un seul pour chacun des 3 géants", tostring(#Ro.unit_names()))
   check(Ro.OWNERS[1] == Ro.PLAYER_OWNER and #Ro.OWNERS == 1 + #F.factions, "§1 propriétaires : le joueur puis les factions")
   local same = true
   for i, f in ipairs(F.factions) do if Ro.OWNERS[i + 1] ~= f.key then same = false end end
@@ -179,9 +185,9 @@ local function suite(Ro, Mo)
     if not f or f.age > r.age then factory_ok = false end
     fcount = fcount + 1
   end
-  check(factory_ok and fcount == 12, "§1 chaque robot a une usine, arrivée au plus tard à son âge")
-  check(#Ro.robots_of("fo-robot-workshop") == 3 and #Ro.robots_of("fo-robotics-bay") == 3 and #Ro.robots_of("fo-robot-dock") == 3
-    and #Ro.robots_of("fo-robot-gantry") == 3 and #Ro.robots_of("nom-inconnu") == 0, "§1 robots d'un bâtiment : 3, 3, 3, 3")
+  check(factory_ok and fcount == 15, "§1 chaque robot a une usine, arrivée au plus tard à son âge")
+  check(#Ro.robots_of("fo-robot-workshop") == 5 and #Ro.robots_of("fo-robotics-bay") == 4 and #Ro.robots_of("fo-robot-dock") == 3
+    and #Ro.robots_of("fo-robot-gantry") == 3 and #Ro.robots_of("nom-inconnu") == 0, "§1 robots d'un bâtiment : 5, 4, 3, 3 (variantes : 2 à l'atelier, 1 au hall)")
   check(Ro.POINTS.P == 1 and Ro.POINTS.M == 2 and Ro.POINTS.G == 4 and Ro.POINTS.giant == 12, "§1 points : P 1, M 2, G 4, géant 12")
   -- technologies : chaque robot et chaque usine ouverts une fois, prérequis en jeu ou dans le lot
   local opened_r, opened_f, tech_ok = {}, {}, true

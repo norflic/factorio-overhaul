@@ -194,13 +194,16 @@ local function paint(owner)
 end
 
 --- Une couche d'une feuille : basse définition (16 px par tuile, scale 2), hr (64 px par tuile, scale 0,5). Mêmes cases, même origine.
-local function sheet_layer(c, anim, directions)
+--- `k` (facultatif, lot s43-robots) : échelle d'une variante qui reprend la feuille de son parent (image et décalage multipliés).
+local function sheet_layer(c, anim, directions, k)
+  k = k or 1
+  local shift = c.shift and { c.shift[1] * k, c.shift[2] * k } or nil
   return {
     filename = c.lr, width = c.lw, height = c.lh, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
-    shift = c.shift, scale = 2,
+    shift = shift, scale = 2 * k,
     hr_version = {
       filename = c.hr, width = c.w, height = c.h, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
-      shift = c.shift, scale = c.hs or 0.5,
+      shift = shift, scale = (c.hs or 0.5) * k,
     },
   }
 end
@@ -210,20 +213,24 @@ local function both(l, key, v)
   l.hr_version[key] = v
 end
 
---- Animation complète : ombre, corps, peinture du propriétaire, lueur.
-local function sheet_animation(sheet, anim_name, owner)
+--- Animation complète : ombre, corps, peinture du propriétaire, lueur. `look` (facultatif, variante du lot s43-robots) :
+--- { scale, tint } : la feuille du parent mise à l'échelle, son corps teinté.
+local function sheet_animation(sheet, anim_name, owner, look)
   local anim = sheet.anims[anim_name]
   local layers = {}
   local k = anim.couches
-  local sh = sheet_layer(k.shadow, anim, sheet.directions)
+  local sc = look and look.scale or nil
+  local sh = sheet_layer(k.shadow, anim, sheet.directions, sc)
   both(sh, "draw_as_shadow", true)
   layers[#layers + 1] = sh
-  layers[#layers + 1] = sheet_layer(k.main, anim, sheet.directions)
-  local m = sheet_layer(k.mask, anim, sheet.directions)
+  local body = sheet_layer(k.main, anim, sheet.directions, sc)
+  if look and look.tint then both(body, "tint", rgba(look.tint)) end
+  layers[#layers + 1] = body
+  local m = sheet_layer(k.mask, anim, sheet.directions, sc)
   both(m, "tint", rgba(paint(owner)))
   layers[#layers + 1] = m
   if k.glow then
-    local g = sheet_layer(k.glow, anim, sheet.directions)
+    local g = sheet_layer(k.glow, anim, sheet.directions, sc)
     both(g, "draw_as_glow", true)
     both(g, "blend_mode", "additive")
     layers[#layers + 1] = g
@@ -297,15 +304,15 @@ local function giant_graphics(s, sheet, nm)
 end
 
 --- Une machine, pas un insecte : ni cadavre ni cri de cracheur (le copié en vient).
-local function as_machine(u, sheet, class)
+local function as_machine(u, sheet, class, look)
   local turret = assert(data.raw["ammo-turret"]["gun-turret"], "robots : gun-turret absente")
   u.corpse = class == "P" and "small-remnants" or "medium-remnants"
   u.dying_explosion = class == "G" and "big-explosion" or "explosion"
   u.damaged_trigger_effect = turret.damaged_trigger_effect
   u.dying_sound, u.working_sound, u.walking_sound, u.running_sound_animation_positions, u.water_reflection = nil, nil, nil, nil, nil
   u.alternative_attacking_frame_sequence = nil -- celle du cracheur vise ses 16 images (« Frame index 3 is out of range », 1/11)
-  u.distance_per_frame = sheet.distance_per_frame
-  lib.set_icons(u, { { icon = sheet.icone, icon_size = 64, icon_mipmaps = 4 } })
+  u.distance_per_frame = sheet.distance_per_frame * (look and look.scale or 1)
+  lib.set_icons(u, { { icon = sheet.icone, icon_size = 64, icon_mipmaps = 4, tint = look and look.tint and rgba(look.tint) or nil } })
 end
 
 --- Effet d'un tir : dégâts du robot (par type), en zone si `area`. Un robot sans dégâts (soutien) n'a que l'effet visuel.
@@ -343,7 +350,8 @@ end
 local function make_unit(r, owner, i)
   local u = lib.copy("unit", CLASS_BASE[r.class])
   local tint = owner_tint(owner)
-  local own = ROBOT_TINT[r.id]
+  local own = ROBOT_TINT[r.id] or r.look.tint
+  local sheet = SPR[r.look and r.look.sheet or r.id] -- lot s43-robots : une variante reprend la feuille de son parent
   tint = { r = (tint.r + own.r) / 2, g = (tint.g + own.g) / 2, b = (tint.b + own.b) / 2 }
   local t1, t2 = rgba(tint), rgba(mul(tint, 0.7))
   local scale = _G[CLASS_SCALE[r.class]] * (r.class == "P" and 0.9 or 1)
@@ -376,13 +384,13 @@ local function make_unit(r, owner, i)
     projectile_creation_distance = 0.6,
     range_mode = "bounding-box-to-bounding-box",
     ammo_type = robot_ammo(r),
-    animation = SPR[r.id] and sheet_animation(SPR[r.id], "tir", owner) or spitterattackanimation(scale, t1, t2),
+    animation = sheet and sheet_animation(sheet, "tir", owner, r.look) or spitterattackanimation(scale, t1, t2),
     sound = smg.attack_parameters.sound,
   }
-  u.run_animation = SPR[r.id] and sheet_animation(SPR[r.id], "run", owner) or spitterrunanimation(scale, t1, t2)
+  u.run_animation = sheet and sheet_animation(sheet, "run", owner, r.look) or spitterrunanimation(scale, t1, t2)
   u.ai_settings = { destroy_when_commands_fail = false, allow_try_return_to_spawner = false, do_separation = true }
-  if SPR[r.id] then
-    as_machine(u, SPR[r.id], r.class)
+  if sheet then
+    as_machine(u, sheet, r.class, r.look)
   else
     lib.set_icons(u, icons_of("unit", CLASS_BASE[r.class], tint))
   end
@@ -420,6 +428,15 @@ local function make_giant(r, i)
   return nm, gun_name, g
 end
 
+--- Icône d'un kit sans icône dédiée : l'icône de la feuille (celle du parent pour une variante, teinte), sinon un objet teinté.
+local function kit_icons(r)
+  local sheet = SPR[r.look and r.look.sheet or r.id]
+  if sheet then
+    return { { icon = sheet.icone, icon_size = 64, icon_mipmaps = 4, tint = r.look and r.look.tint and rgba(r.look.tint) or nil } }
+  end
+  return icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id])
+end
+
 local STUB = {} -- araignées à créer après data:extend (create_spidertron écrit dans data.raw)
 
 for i, r in ipairs(Ro.ROBOTS) do
@@ -430,8 +447,7 @@ for i, r in ipairs(Ro.ROBOTS) do
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
     -- choix du DC (4/11, QCM : « Caisse de famille ») : l'icône de kit de DA-ICONES (caisse de famille + signature) d'abord ;
     -- l'icône du robot (lot RB-V1) en repli (tests/robotique_icones_test.lua refuse l'ordre inverse)
-    icons = Vis.icones_objet(r.kit) or (SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } })
-      or icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]),
+    icons = Vis.icones_objet(r.kit) or kit_icons(r),
     subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i), stack_size = 1,
     -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit` ou `spider-vehicle`) : le cerveau lit ce lien dans les
     -- prototypes (items_to_place_this), sans nom ; un kit posé à la main est inscrit au registre par script/robots/usine.lua.
@@ -466,6 +482,32 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Technologies
 ---------------------------------------------------------------------------------------------------
+-- Lot s43-robots : la technologie d'une variante (un seul robot, r.variant) prend l'icône dédiée de celle de son parent, teinte.
+local function variant_of_tech(t)
+  local r = t.robots and #t.robots == 1 and not t.factories and Ro.robot(t.robots[1]) or nil
+  return r and r.variant and r or nil
+end
+local function icon_tech(t)
+  local r = variant_of_tech(t)
+  if not r then return t.name end
+  for _, u in ipairs(Ro.TECHS) do
+    for _, id in ipairs(u.robots or {}) do if id == r.variant then return u.name end end
+  end
+  return t.name
+end
+local function icon_tint(t)
+  local r = variant_of_tech(t)
+  return r and r.look.tint or nil
+end
+local function tinted(icons, tint)
+  if not icons or not tint then return icons end
+  local out = {}
+  for i, ic in ipairs(icons) do
+    out[i] = { icon = ic.icon, icon_size = ic.icon_size, icon_mipmaps = ic.icon_mipmaps, tint = rgba(tint) }
+  end
+  return out
+end
+
 for _, t in ipairs(Ro.TECHS) do
   local effects = {}
   for _, rn in ipairs(Ro.tech_unlocks(t)) do effects[#effects + 1] = lib.unlock(rn) end
@@ -473,7 +515,7 @@ for _, t in ipairs(Ro.TECHS) do
     name = t.name,
     localised_name = { "technology-name." .. t.name },
     localised_description = { "technology-description." .. t.name },
-    icons = Vis.icones_tech(t.name) or icons_of("technology", "engine", KIT_TINT),
+    icons = tinted(Vis.icones_tech(icon_tech(t)), icon_tint(t)) or icons_of("technology", "engine", KIT_TINT),
     effects = effects, prerequisites = t.prerequisites, count = C.tech_count(t), packs = C.packs(t.epoch), time = t.time,
     order = "z[fo]-robots-" .. t.name,
   })
