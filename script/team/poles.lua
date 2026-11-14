@@ -26,6 +26,7 @@
 local Profiler = require("script.core.profiler") -- lot PERF : portées fines
 local Events = require("script.core.events")
 local O = require("shared.team.org")
+local SiteSat = require("shared.team.site_sature") -- lot s45 charbon-colonie
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
 local Elec = require("script.team.electrique") -- lot PURGE-MINE : le fond ne propose plus la pioche après l'ère électrique
@@ -528,14 +529,17 @@ function Poles.think(f, view, book, tick, plan)
   end
   -- Prospecter (fond du manager Gisements) : un type dont aucun avant-poste ne peut plus s'agrandir et qui n'a aucun
   -- site connu demande un site de plus à la prospection (Sites.prospect lit f.site_needs) : le capital suivant.
-  local growable = {}
+  local growable, exploited = {}, {}
   for _, o in ipairs(view.outposts or {}) do
+    exploited[o.kind] = (exploited[o.kind] or 0) + 1
     if not o.full and (o.drills or 0) < T.max_drills(o.kind) then growable[o.kind] = true end
   end
   f.site_needs = f.site_needs or {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local res = T.outposts[kind].resource
-    if full and not prudent and not growable[kind] and (view.sites and view.sites[kind] or 0) == 0 then
+    -- Lot s45 charbon-colonie : un type exploité et saturé demande un site même sous l'effectif de départ (shared/team/site_sature.lua).
+    if SiteSat.wants_site({ full = full, prudent = prudent, exploited = exploited[kind], growable = growable[kind],
+        sites = view.sites and view.sites[kind] or 0 }) then
       f.site_needs[res] = math.max(f.site_needs[res] or 0, 1)
     end
   end
