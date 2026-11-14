@@ -980,6 +980,7 @@ TT.e1c = function(f, surface, tick, et)
   local view, ia3 = et.view, et.ia3
   Profiler.start("team:plan")
   local plan = ia3 and Ia3.plan_b(f, view, book_for(f), surface, tick, et.L) or Planner.plan(view, book_for(f))
+  if plan.coal_dim then Cap.note(f, plan.coal_dim, tick) end -- lot charbon-dim : décision du combustible, journal [FO-CHARBON-DIM]
   -- Lot BRIQUES (bancs seulement, f.team.bench_smelt posé par fo-ia1 bench_smelt_demand) : demande de fonte imposée, ajoutée au plan.
   if f.team.bench_smelt then
     plan.smelt = f.team.bench_smelt_seul and {} or plan.smelt or {}

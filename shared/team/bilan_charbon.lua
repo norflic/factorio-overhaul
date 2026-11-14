@@ -32,6 +32,38 @@ end
 --- Besoin retenu : le plus grand de la mesure (objets/s) et du nominal (objets/s).
 function Bc.need(measured, nominal) return math.max(measured or 0, nominal or 0) end
 
+--- Lot charbon-dim (14/11, P0) : DIMENSIONNEMENT NOMINAL. Le besoin ne dépend plus d'aucun état de marche : toute machine à combustible
+--- POSÉE de l'équipe (chaudières, fours, foreuses à brûleur, assembleurs à brûleur) compte à sa puissance maximale de prototype, avec
+--- Bc.MARGE (+ 30 %) ; l'offre est le débit nominal (vitesse de minage du prototype ÷ temps de minage de la ressource) de TOUTES les foreuses
+--- posées sur le combustible, sauf celles qui ne peuvent plus rien rendre (gisement épuisé, arrêtées par script ou par circuit). Avant :
+--- foreuses et offre comptées seulement en marche, et sans marge : une usine à l'arrêt FAUTE de charbon semblait ne rien demander, et
+--- l'extension n'arrivait qu'après la pénurie (cercle vicieux).
+Bc.MARGE = 1.3
+
+--- Une foreuse POSÉE du combustible compte à son débit nominal, sauf si elle ne peut plus rien rendre. S = defines.entity_status.
+function Bc.drill_nominal(status, S)
+  if S == nil or status == nil then return false end
+  return status ~= S.no_minable_resources and status ~= S.disabled_by_script and status ~= S.disabled_by_control_behavior
+end
+
+--- Dimensionnement. consumers = { watts à pleine puissance } de toutes les machines à combustible posées ; drills = { objets/s nominaux } ;
+--- fuel_j = énergie d'un objet de combustible ; marge (défaut Bc.MARGE). Rend { need = besoin avec marge, raw = besoin sans marge,
+--- capacity = offre nominale, short = offre sous le besoin (vrai : agrandir l'extraction du combustible) }.
+function Bc.dim(consumers, drills, fuel_j, marge)
+  local c = Bc.cap(consumers, drills, fuel_j)
+  local m = marge or Bc.MARGE
+  local out = { raw = c.need, need = c.need * m, capacity = c.capacity }
+  out.short = out.capacity < out.need
+  return out
+end
+
+--- Ligne de journal [FO-CHARBON-DIM] (sans le préfixe) : équipe, besoin, offre, décision.
+function Bc.line(team, d, minute, decision)
+  return string.format("%s minute %d : besoin %.3f/s (brut %.3f, consommateurs %d), offre %.3f/s (foreuses %d), %s ; decision %s",
+    tostring(team), minute or 0, d.need or 0, d.raw or 0, d.n_consumers or 0, d.capacity or 0, d.n_drills or 0,
+    d.short and "offre < besoin" or "offre >= besoin", tostring(decision or "-"))
+end
+
 function Bc.room(cap) return cap ~= nil and cap.capacity < cap.need end
 
 return Bc
