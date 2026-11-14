@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.108
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F663) : plan d'un gisement 1,5 à 7 fois plus rapide à résultat identique (tracé du charbon réécrit, mémoires exactes des tracés, places de colonne et lignes du charbon partagées entre les variantes d'un plan).
+    - IA (F664) : les variantes d'un plan (ordre des côtés, rangées gloutonnes, autre axe) sont calculées une par tick et reprises dès le tick suivant ; aucune fonctionnalité retirée.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.107
 Date: 2026-11-14
   Bugfixes:
