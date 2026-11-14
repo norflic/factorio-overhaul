@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 23 h 10 : version 0.7.115 (bancs rejoués sur les vrais réglages de carte du DC)
+
+- **F687 · VALIDÉ · DÉPLOYÉ 0.7.115** Banc 60 min, carte du DC (ressources 600 %, zone de départ 600 %, évolution par pollution 2e-7 ; `carte_dc_ms.json` doit être COMPLET, un map-settings partiel fait échouer le banc au lancement, commit 63a1224f), graine 123456789, archives `2026-11-14_DC60-base0714` (source 0.7.114 + outils de banc actuels, sinon le scénario de jalons manque) et `2026-11-14_DC60-cand0715`. Équipe joueur : fours en marche 13/17 → 44/59 ; plaques à 60 min 12 141 → 24 401 (fer 10 342 → 8 434, cuivre 1 799 → 15 967) ; foreuses électriques sur cuivre 0 → 15, charbon 3 → 9. Factions : plaques à 60 min 126 842 → 111 632 (-12 %, une graine). Pics champ:frame 673 → 472 ms. La régression des bancs F679-F686 venait de la zone de départ par défaut (avant-poste rasé à 13 min), pas du code.
+
 ## 2026-11-14, 17 h 30 : version 0.7.113 (régression de 0.7.112 : aucun plan de gisement terminé)
 
 - **F685-F686 · NON DÉPLOYÉ · [branche fix-0715]** F685 : lot charbon (joueur-0715) retiré par revert ; banc 60 min sans lui, votre équipe fer T+15/30/45/60 = 1 719 / 1 914 / 2 496 / 2 907 (0.7.114 : 1 293 / 1 994 / 3 306 / 5 216) : la régression NE VIENT PAS du charbon. Cause observée : avant-poste de fer de votre équipe rasé par les biters à 13,3 min (37 lignes [FO-RUINE] contre 7). F686 : entrepreneur (scan toutes les 18 000 ticks, bande du champ marquée `spec.entrepreneur`, jamais suspendue ni rendue ; PNJ dédié et craft groupé en règle pure seulement) : votre équipe 1 719 / 1 810 / 2 296 / 2 716, factions fer à 60 min 90 149 (0.7.114 : 95 475) ; déclenchements amber 3, azure 2, emerald 2, player 1. Simulation pure (modèle) : 4→82 foreuses en 60 min contre 34 sans. ATTENTION : tous ces bancs avaient la zone de départ par défaut ; la partie du DC a la zone de départ à 600 % et l'évolution par la pollution à 2e-7 (banc corrigé, commit 006a117a) : à rejouer base contre fix-0715 sur ces réglages avant de conclure.

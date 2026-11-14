@@ -10,7 +10,8 @@ Date: 2026-11-14
   Optimizations:
     - Relecture de la couverture d'un gisement inchangé espacée jusqu'à 36 000 ticks, réveillée par la pose, le minage ou la perte d'une foreuse et l'épuisement du gisement ; recherche de place des colonnes 2,3× moins de lectures.
   Known issues:
-    - BANC_KNOWN
+    - Banc 60 min sur la carte du DC (ressources 600 %, zone de départ 600 %, évolution par pollution 2e-7, graine 123456789) : équipe joueur 44 fours en marche sur 59 (0.7.114 : 13 sur 17), 24 401 plaques (0.7.114 : 12 141), mais fer seul 8 434 (0.7.114 : 10 342) ; factions -12 % de plaques sur cette graine (une seule graine).
+    - Croissance pas encore exponentielle ; pics de 0,47 s par étape du plan de gisement (champ:frame), lot de découpage en cours.
 ---------------------------------------------------------------------------------------------------
 Version: 0.7.114
 Date: 2026-11-14
