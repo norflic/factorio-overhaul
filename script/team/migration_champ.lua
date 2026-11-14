@@ -823,6 +823,10 @@ local FRAME_WAIT = {}
 -- le dernier pas, toutes équipes (la pensée de Mig.think, toutes les 600 ticks, n'est pas retenue) : en 0.7.108-0.7.109 les 4 variantes partaient sur 4 ticks consécutifs (partie du DC en x5 : 4 x 4,4 s d'un bloc). Local au module
 -- (0 après chargement : la file l'est aussi).
 Mig.STEP_GAP = 1200
+-- s52 bandes : un pas est une ÉTAPE d'une variante (Ch.once_step : une phase, une bande, un réseau du charbon ; la variante entière prenait
+-- 2,3 à 5,1 s d'un bloc sur la carte du DC à 600 %) : les étapes d'une même variante sont espacées de Mig.INNER_GAP ticks, Mig.STEP_GAP reste
+-- entre deux variantes (Champ.inner_step)
+Mig.INNER_GAP = 30
 local NEXT_STEP = 0
 local function frame_take(f, surface, ms, o, st, tick)
   -- lot COUT-600 : un seul cadre planifié par passe de Mig.think (le drapeau est levé par le premier ; une autre avant-poste attend la passe suivante)
@@ -830,6 +834,7 @@ local function frame_take(f, surface, ms, o, st, tick)
   NEXT_STEP = tick + Mig.STEP_GAP -- la file du tick (Mig.frame_tick) attend ce tick avant le pas suivant
   local frame, order = Champ.frame(f, surface, o)
   if not frame and order == Ax.WAIT then -- s47 axe : plan reporté (un pas par tick), pas un échec ; s49 tranches : repris dès le tick suivant
+    if Champ.inner_step(o.id) then NEXT_STEP = tick + Mig.INNER_GAP end -- s52 bandes : étape suivante de la même variante
     st.retry = tick + 1
     Ax.push(FRAME_WAIT, { key = tostring(f.key or "player") .. ":" .. tostring(o.id), f = f, surface = surface, oid = o.id })
     return

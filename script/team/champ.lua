@@ -466,6 +466,14 @@ local SEQ = {}
 local SEQ_GAP = 1800 -- s49 tranches : un pas de plus de 30 s après le précédent repart du début (spec relue : le monde a pu changer)
 local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
 
+--- s52 bandes : vrai si la séquence de plan de l'avant-poste `oid` est au milieu d'une variante (Ch.plan_step : le pas suivant est une étape
+--- de la MÊME variante, une phase, une bande, un réseau du charbon). Lu par le câblage (migration_champ.lua, frame_take) : espacement court
+--- (Mig.INNER_GAP) entre deux étapes, Mig.STEP_GAP entre deux variantes.
+function Champ.inner_step(oid)
+  local seq = SEQ[oid]
+  return seq ~= nil and seq.st.inner == true
+end
+
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
 function Champ.frame(f, surface, o)
   if f.build and f.build.occ then Cd.clear(f.build.occ, o.id) end -- lot COMBUSTIBLE-MIGRATION : un cadre refait libère les tuiles retenues par l'ancien
@@ -496,8 +504,8 @@ function Champ.frame(f, surface, o)
   if not done then return nil, Ax.WAIT end
   SEQ[o.id] = nil
   if seq.st.n > 1 then
-    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : plan du cadre en %d variantes (une par appel, jamais deux dans un tick) a %.1f min",
-      f.key or "player", o.id, o.kind, seq.st.n, game.tick / 3600))
+    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : plan du cadre en %d variantes et %d etapes (une par appel, jamais deux dans un tick) a %.1f min",
+      f.key or "player", o.id, o.kind, seq.st.n, seq.st.k, game.tick / 3600))
   end
   local plan, why = Ch.plan_result(seq.st)
   if step == "first" then

@@ -269,7 +269,7 @@ local MUTANTS = {
   { name = "P.fit : BOX_MINAGE refusée", mod = MODS.p, file = "shared/team/plan.lua",
     from = "opts%.res and not Sm%.mining_box%(g%)", to = "opts.res" },
   { name = "Ch.plan : bout sans fonderie oublié (ni colonne ailleurs ni compte)", mod = MODS.ch, file = "shared/team/champ.lua",
-    from = "bare_todo%[#bare_todo %+ 1%] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }", to = "" },
+    from = "s%.bare_todo%[#s%.bare_todo %+ 1%] = { bi = bi, bd = bd, used = used, side = side, edge = edge, refused = refused and true or nil }", to = "" }, -- (s52 bandes : état de plan_once)
   { name = "Ch.plan : bande orpheline muette (lot BANDE-GELEE)", mod = MODS.ch, file = "shared/team/champ.lua",
     from = "bo%.orphans = bo%.orphans %+ #g0%.n %+ #g0%.s", to = "" },
   { name = "Ch.plan : aucune colonne ailleurs (avant FONDERIE-BOUT)", mod = MODS.ch, file = "shared/team/champ.lua",
