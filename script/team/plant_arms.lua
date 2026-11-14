@@ -272,11 +272,21 @@ function PA.watch(f, surface, tick)
   -- lot CC-ENERGIE (F491) : demande MESURÉE sur la capacité bâtie vivante + celle des centrales neuves en chantier (C.grow_load)
   -- lot s41 energie : la demande de la porte est celle de l'avance (used_kw : mesure ou puissance installée à S.DRAW, S.demand), jamais moins que la mesure
   local gate = C.grow_load(math.max(power + reopened_power, (used_kw or 0) * 1000 / 60), capacity + reopened_alive, new_kw * 1000 / 60)
+  -- s50 centrale-75 : demande = max(mesure, puissance nominale installée) sur la capacité nominale finie (C.grow_demand_load)
+  local installed_kw = Sante.off(f) and 0 or Sante.installed(f)
+  local gate2 = C.grow_demand_load((power + reopened_power) * 60 / 1000, installed_kw, (capacity + reopened_alive) * 60 / 1000)
+  if gate2 and (gate == nil or gate2 > gate) then gate = gate2 end
+  local coal_short = gate ~= nil and gate >= C.GROW_LOAD and Sante.coal_short(f)
   local nb, why = C.growth(g, { load = gate, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
     engaged_kw = used_kw and (used_kw + Sante.committed(f) + Sante.held(f)) or nil, cap_kw = cap_kw, -- lot P0-CENTRALE
     anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw, pending_kw = pending_kw,
-    lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
+    lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J), coal_short = coal_short })
+  if why == C.COAL_REASON and not g.coal_held then
+    log(string.format("[FO-ENERGIE] %s : croissance RETENUE a %.1f min : demande %.0f kW (installe %.0f kW) sur %.0f kW finis (%.0f %%) mais chaudieres a sec : c'est le charbon qu'il faut etendre",
+      f.key or "player", tick / 3600, math.max((power + reopened_power) * 60 / 1000, installed_kw), installed_kw, (capacity + reopened_alive) * 60 / 1000, (gate or 0) * 100))
+  end
+  g.coal_held = (why == C.COAL_REASON) or nil
   if why == C.LOAD_REASON and not g.load_held then
     log(string.format("[FO-ENERGIE] %s : croissance RETENUE a %.1f min : demande mesuree %.0f kW sur %.0f kW batis vivants et %.0f kW en chantier (%.0f %%, seuil %.0f %%) ; declencheur ecarte : %s",
       f.key or "player", tick / 3600, (power + reopened_power) * 60 / 1000, (capacity + reopened_alive) * 60 / 1000, new_kw, (gate or 0) * 100,

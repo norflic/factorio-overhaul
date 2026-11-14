@@ -313,6 +313,19 @@ function Sante.gate(f, p, tick, kw_of)
   return false
 end
 
+--- s50 centrale-75 : une centrale de l'équipe a-t-elle des chaudières à sec au dernier relevé (cause chaudiere_a_sec) ? Ordre des projets.
+function Sante.coal_short(f)
+  local sm = mem(f)
+  local b = f.build
+  local ids = { b.plant }
+  for _, id in ipairs(b.extra_plants or {}) do ids[#ids + 1] = id end
+  for _, id in ipairs(ids) do
+    local st = id and sm.plants[id]
+    if st and type(st.sig) == "string" and st.sig:find("chaudiere_a_sec", 1, true) then return true end
+  end
+  return false
+end
+
 --- Ligne « centrale de plus demandée avant la saturation » (journal ; PA.watch).
 function Sante.line_avance(f, tick, used, committed, capacity)
   return S.line({ kind = "avance", team = f.key or "player", tick = tick, used = used, committed = committed, capacity = capacity })

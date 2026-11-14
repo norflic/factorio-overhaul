@@ -112,6 +112,19 @@ function C.grow_load(used_j, built_j, pending_j)
   return math.max(0, used_j or 0) / cap
 end
 
+--- s50 centrale-75 (partie du DC 0.7.107 : 7,2 MW produits, machines à vapeur à l'arrêt, consommateurs posés bien au-delà) : charge de la
+--- croissance = DEMANDE / capacité nominale FINIE, la demande étant la plus grande de la production mesurée (kW) et de la puissance nominale
+--- INSTALLÉE des consommateurs finis (kW). Avant (C.grow_load) : la mesure seule (ou l'installé à S.DRAW), plafonnée par la capacité et
+--- nulle quand les machines attendent : la bride F491 retenait la centrale. nil sans capacité finie.
+function C.grow_demand_load(measured_kw, installed_kw, cap_kw)
+  local function pos(x) return type(x) == "number" and x == x and x > 0 and x < math.huge and x or 0 end
+  local cap = pos(cap_kw)
+  if cap <= 0 then return nil end
+  return math.max(pos(measured_kw), pos(installed_kw)) / cap
+end
+
+C.COAL_REASON = "chaudieres a sec : manque de charbon (etendre le charbon, pas la centrale)"
+
 --- kW de déficit que les chantiers ouverts ne couvrent pas, si un chantier de plus est permis ; nil sinon (aucun chantier ouvert, plafond de
 --- chantiers, déficit pas installé, capacité des chantiers inconnue ou suffisante).
 function C.parallel_kw(st, n)
@@ -138,6 +151,8 @@ function C.growth(st, n)
   if not st.saturated and not n.lost and not n.anticipate and not deficit then return nil, "pas saturee" end
   -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité
   if n.load ~= nil and n.load < C.GROW_LOAD and not C.engaged_over(n.engaged_kw, n.cap_kw) then return nil, C.LOAD_REASON end
+  -- s50 centrale-75 : chaudières à sec = le charbon manque, pas la capacité : rien de plus (signalé au journal)
+  if n.coal_short and not n.lost then return nil, C.COAL_REASON end
   -- lot P0-CENTRALE (partie du DC 0.7.3 : « courant insuffisant : 2528 kW pris sur 1800 kW », centrale figee) : la production mesuree plafonne
   -- a la capacite (et sous elle quand les machines attendent leur courant) ; une demande ENGAGEE (n.engaged_kw : production + consommateurs
   -- en chantier ou retenus) au-dela de la capacite batie (n.cap_kw) compte comme une charge de 100 %
