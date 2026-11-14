@@ -63,7 +63,7 @@ function Fantomes.show(f, task, tick)
   local kind, center, max_pairs, site, oid, ext
   if task.kind == "build" then
     kind, site = task.outpost_kind, task.site
-    center = site and site.x and kind and T.outposts[kind] and Outposts.pose_center(f, surface, kind, site) -- lot CHARBON-JOUEUR : même centre que la pose
+    center = site and { x = site.x, y = site.y }
     max_pairs = kind and T.outposts[kind] and T.outposts[kind].drills
   else
     local o = f.outposts and f.outposts[task.outpost]

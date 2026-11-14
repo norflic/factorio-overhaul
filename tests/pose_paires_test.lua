@@ -550,32 +550,5 @@ do
   check(P.permille == permille, "règle restaurée")
 end
 
-section("CHARBON-JOUEUR : bord réel d'un gisement géant (P.border_point)")
-do
-  -- gisement carré [-60, 60] x [-50, 80] : depuis (0, 0), le bord le plus proche est au nord (y = -51), à 51 pas
-  local function sq(x, y) return x >= -60 and x <= 60 and y >= -50 and y <= 80 end
-  local bp = P.border_point({ x = 0.5, y = 0.5 }, sq, 96)
-  check(bp and bp.d == 51 and bp.x == 0.5 and bp.y == -50.5, "bord nord à 51 pas (" .. tostring(bp and bp.d) .. ", " .. tostring(bp and bp.x) .. ", " .. tostring(bp and bp.y) .. ")")
-  check(not sq(math.floor(bp.x), math.floor(bp.y)), "le point rendu est hors du gisement")
-  check(P.border_point({ x = 0.5, y = 0.5 }, sq, 40) == nil, "aucun bord sous la portée : nil")
-  -- petit gisement : bord à 3 pas à l'est, plus proche que l'ouest à 5
-  local function small(x, y) return x >= -4 and x <= 2 and y >= -10 and y <= 10 end
-  local b2 = P.border_point({ x = 0, y = 0 }, small, 96)
-  check(b2 and b2.d == 3 and b2.x == 3.5, "bord est à 3 pas (" .. tostring(b2 and b2.d) .. ")")
-  -- égalité : la première direction de P.BORDER_DIRS (est) gagne, ordre fixe
-  local function sym(x, y) return math.abs(x) <= 5 and math.abs(y) <= 5 end
-  local b3 = P.border_point({ x = 0, y = 0 }, sym, 96)
-  check(b3 and b3.d == 6 and b3.x == 6.5 and b3.y == 0.5, "égalité : première direction (est)")
-  -- mutant : la diagonale compte (gisement en croix : seules les diagonales sortent vite)
-  local function cross(x, y) return math.abs(x) <= 2 or math.abs(y) <= 2 end
-  local b4 = P.border_point({ x = 0, y = 0 }, function(x, y) return cross(x, y) and math.abs(x) <= 90 and math.abs(y) <= 90 end, 96)
-  check(b4 and b4.d == 3, "diagonale : bord à 3 pas (" .. tostring(b4 and b4.d) .. ")")
-  local dirs = P.BORDER_DIRS
-  P.BORDER_DIRS = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 } }
-  local m4 = P.border_point({ x = 0, y = 0 }, function(x, y) return cross(x, y) and math.abs(x) <= 90 and math.abs(y) <= 90 end, 96)
-  check(not (m4 and m4.d == 3), "mutant refusé : sans diagonales le bord n'est pas trouvé à 3 pas")
-  P.BORDER_DIRS = dirs
-end
-
 print(string.format("[POSE-PAIRES] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
