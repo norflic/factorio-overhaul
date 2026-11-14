@@ -307,7 +307,17 @@ check(a.untracked > 0, "Q1 : type non tenu (« container ») : l'ancienne recher
 local cs = a.cfg_scans or {}
 check(#cs == 2 and cs[1] == 1 and cs[2] == 1, "Q1 : relevé complet dans on_configuration_changed, un par surface (" .. table.concat(cs, ", ") .. ")")
 
+-- Les lignes du profileur ([FO-PERF-*]) nomment le fichier et la ligne de l'appelant : un mutant chargé par load() (autre nom de
+-- morceau, lignes retirées) les change sans rien changer au comportement. Elles sont écartées de la comparaison (lot TESTS-VERTS 0716).
+local function behaviour(list)
+  local out = {}
+  for _, l in ipairs(list) do
+    if not tostring(l):find("[FO-PERF-", 1, true) then out[#out + 1] = l end
+  end
+  return out
+end
 local function same_logs(x, y)
+  x, y = behaviour(x), behaviour(y)
   for i = 1, math.max(#x, #y) do
     if x[i] ~= y[i] then return false, string.format("ligne %d : [%s] / [%s]", i, tostring(x[i]):sub(1, 160), tostring(y[i]):sub(1, 160)) end
   end
