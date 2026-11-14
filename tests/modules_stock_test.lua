@@ -335,6 +335,16 @@ do
   check(select(1, RT.gate(f)) == false, "§6 gate : refuse sous survivre")
   f.team.ia3.pile = nil
   check(select(1, RT.gate(f)) == true, "§6 gate : permis sans pile")
+  -- lot MODULES-0716 : sous le seul effectif de départ, la pose du stock continue ; un QG menacé la suspend
+  f.team.ia3.pile = { hold = true, top = Pi.SURVIVRE, frames = { { key = "survivre", rank = Pi.SURVIVRE, kind = "survivre", why = "effectif" } } }
+  check(select(1, RT.gate(f)) == true, "§6 gate : permis sous survivre 'effectif' (stock sans cout en matiere)")
+  f.team.ia3.pile = { hold = true, top = Pi.SURVIVRE, frames = { { key = "survivre", rank = Pi.SURVIVRE, kind = "survivre", why = "qg" } } }
+  check(select(1, RT.gate(f)) == false, "§6 gate : refuse sous survivre 'qg' (QG menace)")
+  do
+    local f3, cs3, c3 = team(), cstate(), ctx(50)
+    f3.team.ia3.pile = { hold = true, top = Pi.SURVIVRE, frames = { { key = "survivre", rank = Pi.SURVIVRE, kind = "survivre", why = "effectif" } } }
+    check(RT.think(f3, cs3, 600, c3) >= 1 and #cs3.open >= 1, "§6 survivre 'effectif' : un ordre de pose du stock est ouvert")
+  end
   -- sous la reserve : une ligne, une fois
   logged = {}
   local f2, cs2, c2 = team(), cstate(), ctx(3)
@@ -493,8 +503,11 @@ check(n_caught == n_mut, string.format("§7 mutants : %d refuses sur %d", n_caug
 
 -- porte de la pile (mutant de la fonction pure)
 do
-  local MsX = mutant("if top_survive then", "if false then")
+  local MsX = mutant("if top_survive and reason ~= Ms.SURVIVE_FREE then", "if false then")
   check(MsX.gate(true) == true and Ms.gate(true) == false, "§7 mutant : la porte 'survivre' retiree est vue")
+  local MsY = mutant("if top_survive and reason ~= Ms.SURVIVE_FREE then", "if top_survive then")
+  check(MsY.gate(true, "effectif") == false and Ms.gate(true, "effectif") == true and Ms.gate(true, "qg") == false,
+    "§7 mutant : l'exception 'effectif' retiree est vue")
 end
 
 print(string.format("[MODULES-POSES] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refuses sur %d)", pass, fail, n_caught, n_mut))

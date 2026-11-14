@@ -32,7 +32,12 @@ end
 --- Porte : la pile « survivre » suspend la pose ; rien d'autre (rang inférieur ou égal : la pose est une tâche à faible priorité).
 function RT.gate(f)
   local st = f and f.team and f.team.ia3 and f.team.ia3.pile
-  return Ms.gate(st ~= nil and st.hold == true and st.top == Pi.SURVIVRE)
+  local top = st ~= nil and st.hold == true and st.top == Pi.SURVIVRE
+  local reason = nil
+  for _, fr in ipairs((top and st.frames) or {}) do
+    if fr.rank == Pi.SURVIVRE and fr.kind == "survivre" then reason = fr.why break end
+  end
+  return Ms.gate(top, reason)
 end
 
 local function sorted_keys(t)
@@ -175,7 +180,16 @@ function RT.think(f, cs, tick, c)
       if c.craftable(nm) then can_make = true break end
     end
   end
-  if total <= 0 and not can_make then return 0 end
+  -- Lot MODULES-0716 : état de la passe écrit à chaque changement, dès qu'un module est au coffre ou fabricable (avant : retours
+  -- muets, la partie du DC de 2 h 30 n'a montré aucune ligne pour trois équipes qui avaient les technologies)
+  local function state(text)
+    local sig = text
+    if cs.ms_state ~= sig then
+      cs.ms_state = sig
+      say(f, mn, "etat : " .. text)
+    end
+  end
+  if total <= 0 and not can_make then return 0 end -- début de partie : silence (aucune technologie de module)
   local fab_open = 0 -- ordres de fabrication (non « stock ») ouverts, levier compris
   for _, rec in ipairs(cs.open or {}) do
     taken[rec.key] = true
@@ -184,6 +198,8 @@ function RT.think(f, cs, tick, c)
       if not rec.stock then fab_open = fab_open + 1 end
     end
   end
+  state(string.format("%d module(s) au coffre, fabrication %s, %d ordre(s) de fabrication ouvert(s)", total,
+    can_make and "possible" or (total > 0 and "non lue" or "impossible"), fab_open))
   if total <= 0 and fab_open > 0 then return 0 end -- rien à poser et une fabrication déjà ouverte : aucun relevé de statut
   local danger = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do danger[id] = cs.deps[id].danger and true or nil end
