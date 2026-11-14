@@ -72,6 +72,7 @@ local function team_row(f)
     soldiers = f.soldiers_count or 0, tech = f.tech or 0, outposts = f.outposts_count or 0,
     -- Lot IA1-b2 (mesures) : PNJ perdus (toutes causes, puis tués par les ennemis), tourelles vivantes, fer du QG.
     lost = st.engineers_lost or 0, lost_enemy = st.lost_enemy or 0, iron = Stock.count(f, "iron-plate"),
+    fuel = Stock.count(f, T.fuel), -- s43 sonde-charbon : combustible du QG (coffre + annexes), lu par la sonde du banc (scenarios/sonde_charbon.lua)
     idle_rien = (f.team.idle_why or {}).rien or 0, idle_bloque = (f.team.idle_why or {}).bloque or 0,
     idle_manque = (f.team.idle_why or {}).manque or 0,
     -- Lot IA3-d : règle d'effectif d'une faction (dernière pensée) : raison, recrues de croissance, travail en attente.
