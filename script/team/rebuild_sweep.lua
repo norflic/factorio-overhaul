@@ -19,6 +19,8 @@
 local R = require("shared.ai3.reglages")
 local Rule = require("shared.team.rebuild_sweep")
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : liste chaude, ordre, foreuse thermique de secours (règles pures)
+local Sa = require("shared.team.secteur_attaque") -- lot s44 reparation : secteur sous attaque et sans couverture
+local SaRt = require("script.team.secteur_attaque")
 
 local Sweep = {}
 
@@ -305,6 +307,18 @@ function Sweep.step(f, surface, tick)
       ok = not (foe and foe.valid)
       memo[key] = ok
       if not ok then st.danger = st.danger + 1 end
+    end
+    -- Lot s44 reparation : secteur où une pièce est morte depuis moins d'une minute, sans tourelle active à portée : la pièce attend
+    -- (inscrite, hors plafonds) ; les tourelles passent toujours.
+    if ok then
+      local wk = key .. ":" .. (Sa.TURRET_TYPES[c.ty] and "t" or "p")
+      local w = memo[wk]
+      if w == nil then
+        w = SaRt.must_wait(f, surface, c.ty, c.e.x, c.e.y, tick)
+        memo[wk] = w
+        if w then st.danger = st.danger + 1 end
+      end
+      if w then return false end
     end
     return ok
   end
