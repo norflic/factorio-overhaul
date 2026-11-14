@@ -1120,11 +1120,14 @@ function T.start()
   S.ox0, S.oy = 340, 60              -- monde
   S.lx0, S.ly0 = 300, 120            -- niveaux : chantiers (session 5)
   S.gx0, S.gy0 = 300, 140            -- niveaux : galerie
-  prepare_area(s, 290, -410, 390, -270)
+  prepare_area(s, 290, -410, 390, -184)
   -- Lot ROBOTS-JEU (3/11) : sous-stations jusqu'à y = -267 (portée 9 : y <= -258), soit les rangées de recettes 0 à 23 (288 places).
   -- Avant : dernière rangée en -285, couverte jusqu'à -276 ; la 254e recette du mod (le Bourdon) a poussé fo-wound-electric-engine
   -- en rangée 21 (y = -270), sans courant (« rien produit ») ; seule la cornue à zinc, à combustible, y tournait.
-  power_grid(s, 307, -393, 390, -267)
+  -- 0.7.100 (s43-content-fix) : 291 recettes (variantes de robots, Méga-Bourdon) : les 289e et 290e (fo-xp-make-trombe et
+  -- fo-xp-make-veilleuse, dernières dans l'ordre des noms) tombaient en rangée 24 (y = -252), hors courant (« rien produit, statut 38 »).
+  -- Zone et sous-stations jusqu'à y = -195 (portée 9 : y <= -186) : rangées 0 à 34 (420 places) ; la zone des duels commence en -180.
+  power_grid(s, 307, -393, 390, -195)
   prepare_area(s, 290, -180, 300 + (#DUELS + #HANDHELD) * 80, -140)
   prepare_area(s, 290, -110, 480, 40)
   prepare_area(s, 290, 40, 500, 100)
