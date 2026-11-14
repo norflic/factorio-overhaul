@@ -545,6 +545,21 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   -- Un ordre sans site en réserve (réserve pleine, ressource pas encore voulue) : une nouvelle sonde par passe, la plus ancienne d'abord.
   local ready = {}
   for _, o in ipairs(Co.ready(Co.deposits(f.team.commande), f.prospects)) do ready[o.id] = true end
+  -- commandes-0716 : état du projet du cerveau qui porte un ordre (statut d'émission, cause, tâches émises), à chaque changement
+  local ia3 = f.team.ia3
+  for _, p in ipairs(ia3 and ia3.projects or {}) do
+    if p.goal and p.goal.ordre then
+      local sig = string.format("%s:%s:%s:%s", tostring(p.state), tostring(p.status), tostring(p.cause), tostring((p.emitted or 0) > 0))
+      if p.ordre_sig ~= sig then
+        p.ordre_sig = sig
+        local miss = {}
+        for _, k in ipairs(State.sorted_keys(p.missing or {})) do miss[#miss + 1] = k .. "x" .. tostring(p.missing[k]) end
+        log(string.format("[FO-COMMANDE] %s : ordre %s porte par le projet '%s' : etat %s, emission %s, cause %s, taches emises %d, manque [%s] (tick %d)",
+          tostring(f.key or f.id), tostring(p.goal.ordre), tostring(p.key), tostring(p.state), tostring(p.status), tostring(p.cause),
+          p.emitted or 0, table.concat(miss, " "), game.tick))
+      end
+    end
+  end
   for _, o in ipairs(Co.deposits(f.team.commande)) do -- commandes-0716 : site de la réserve dans la zone (but du cerveau ou pas), à chaque changement
     local now = ready[o.id] and true or false
     if o.ready_seen ~= now then
