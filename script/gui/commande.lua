@@ -28,15 +28,22 @@ local Cmd = {}
 Cmd.TOOL = "fo-commande-outil"
 local BUTTON, FRAME = "fo_cmd_button", "fo_cmd_frame"
 local P_ORIENT, P_TOOL, P_CLOSE, P_CANCEL = "fo_cmd_or_", "fo_cmd_tool", "fo_cmd_close", "fo_cmd_cancel_"
+local P_GIVE = "fo_cmd_give_" -- lot s45 OUTILS : boutons des quatre outils
+Cmd.TOOLS = { "fo-cmd-gisement", "fo-cmd-amelioration", "fo-cmd-liaison", "fo-cmd-bastion" }
 local RESOLVE_EVERY = 300
 local COLOR = { gisement = { r = 0.25, g = 0.85, b = 0.35, a = 0.8 }, liaison = { r = 0.3, g = 0.6, b = 1, a = 0.8 },
-  amelioration = { r = 1, g = 0.75, b = 0.2, a = 0.8 } } -- lot s44 COMMANDE-UPGRADE
+  amelioration = { r = 1, g = 0.75, b = 0.2, a = 0.8 }, bastion = { r = 0.85, g = 0.3, b = 0.85, a = 0.8 } } -- lot s44 COMMANDE-UPGRADE
 
 --- Équipe commandée par ce joueur (celle de sa force), ou nil.
 local function team_of(player)
   local f = State.faction("player")
   if f and f.team and f.force == player.force.name then return f end
   return nil
+end
+
+--- Lot s45 OUTILS : met l'outil `name` dans la main du joueur (joueur d'une équipe seulement).
+local function give_tool(player, name)
+  if player and team_of(player) and player.clear_cursor() then player.cursor_stack.set_stack({ name = name, count = 1 }) end
 end
 
 local function cstate(f)
@@ -49,7 +56,8 @@ end
 ---------------------------------------------------------------------------------------------------
 local function order_text(o)
   if o.kind == "gisement" then return { "fo-commande.carte-gisement", { "entity-name." .. tostring(o.resource) } } end
-  if o.kind == "amelioration" then return { "fo-commande.carte-amelioration" } end -- lot s44 COMMANDE-UPGRADE
+  if o.kind == "amelioration" then return { "fo-commande.carte-amelioration" } end
+  if o.kind == "bastion" then return { "fo-commande.carte-bastion" } end -- lot s45 OUTILS -- lot s44 COMMANDE-UPGRADE
   return { "fo-commande.carte-liaison" }
 end
 
@@ -66,7 +74,7 @@ local function draw(f, o)
   }
   -- Étiquette de carte : texte riche sans langue (icône du minerai, numéro de l'ordre).
   local ok, tag = pcall(force.add_chart_tag, surface, { position = { x = o.x, y = o.y },
-    text = o.kind == "gisement" and ("[entity=" .. tostring(o.resource) .. "] #" .. o.id) or (o.kind == "amelioration" and ("^ #" .. o.id) or ("<-> #" .. o.id)) })
+    text = o.kind == "gisement" and ("[entity=" .. tostring(o.resource) .. "] #" .. o.id) or (o.kind == "amelioration" and ("^ #" .. o.id) or (o.kind == "bastion" and ("[!] #" .. o.id) or ("<-> #" .. o.id))) })
   if ok and tag then o.tag = tag.tag_number end
 end
 
@@ -115,6 +123,10 @@ local function build(player)
   end
   frame.add({ type = "line" })
   frame.add({ type = "button", name = P_TOOL, caption = { "fo-commande.designer" }, tooltip = { "fo-commande.designer-aide" } })
+  local tools = frame.add({ type = "flow", direction = "horizontal" }) -- lot s45 OUTILS : un outil par action
+  for _, name in ipairs(Cmd.TOOLS) do
+    tools.add({ type = "sprite-button", name = P_GIVE .. name, sprite = "item/" .. name, tooltip = { "item-description." .. name } })
+  end
   local hint = frame.add({ type = "label", caption = { "fo-commande.aide" } })
   hint.style.single_line = false
   hint.style.maximal_width = 420
@@ -127,6 +139,8 @@ local function build(player)
     local r = frame.add({ type = "flow", direction = "horizontal" })
     if o.kind == "gisement" then
       r.add({ type = "label", caption = { "fo-commande.ligne-gisement", o.id, { "entity-name." .. tostring(o.resource) }, o.x, o.y } })
+    elseif o.kind == "bastion" then -- lot s45 OUTILS
+      r.add({ type = "label", caption = { "fo-commande.ligne-bastion", o.id, o.x, o.y, o.r } })
     elseif o.kind == "amelioration" then -- lot s44 COMMANDE-UPGRADE
       r.add({ type = "label", caption = { "fo-commande.ligne-amelioration", o.id, o.x, o.y, o.r } })
     else
@@ -156,6 +170,10 @@ Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
   if not (el and el.valid) then return end
   local name = el.name
+  if name:sub(1, #P_GIVE) == P_GIVE then -- lot s45 OUTILS
+    give_tool(game.get_player(e.player_index), name:sub(#P_GIVE + 1))
+    return
+  end
   if name ~= BUTTON and name ~= P_TOOL and name ~= P_CLOSE and name:sub(1, #P_ORIENT) ~= P_ORIENT and name:sub(1, #P_CANCEL) ~= P_CANCEL then
     return
   end
@@ -210,11 +228,7 @@ local function add_order(f, player, o)
   player.print({ "fo-commande.pose-" .. o.kind, id })
 end
 
-Events.on(defines.events.on_player_selected_area, function(e)
-  if e.item ~= Cmd.TOOL then return end
-  local player = game.get_player(e.player_index)
-  local f = team_of(player)
-  if not f then return end
+local function do_gisement(e, player, f)
   local names = {}
   for _, ent in ipairs(e.entities or {}) do
     if ent.valid and ent.type == "resource" then names[#names + 1] = ent.name end
@@ -242,13 +256,9 @@ Events.on(defines.events.on_player_selected_area, function(e)
   -- s44 : sonde de LA ressource désignée, réserve pleine ou ressource pas encore voulue comprises (Sites.probe_at, 5e argument).
   if f.hq_pos then Sites.probe_at(f, e.surface, cx, cy, game.tick, res) end
   refresh(f)
-end)
+end
 
-Events.on(defines.events.on_player_alt_selected_area, function(e)
-  if e.item ~= Cmd.TOOL then return end
-  local player = game.get_player(e.player_index)
-  local f = team_of(player)
-  if not f then return end
+local function do_liaison(e, player, f)
   local x0, y0, x1, y1 = area_of(e)
   local cx, cy, r = Co.zone(x0, y0, x1, y1)
   -- s44 commande-liaison : premier Maj + glisser = point A (départ), second = point B (arrivée) ; l'ordre porte les deux zones
@@ -263,31 +273,57 @@ Events.on(defines.events.on_player_alt_selected_area, function(e)
   if a and a.surface ~= e.surface.index then a = nil end
   add_order(f, player, { kind = "liaison", x = cx, y = cy, r = r, a = a, tick = game.tick, surface = e.surface.index })
   refresh(f)
-end)
+end
 
 -- Lot s44 COMMANDE-UPGRADE : Maj + glisser avec le bouton droit -> zone d'amélioration prioritaire (les bâtiments de l'équipe de la zone
 -- qui ont une version supérieure passent en tête des remplacements : shared/ai3/commande.lua Co.upgrade_rank, shared/ai3/capital.lua).
 -- Annulation : bouton « Annuler » du panneau ou bouton droit sur la zone.
-Events.on(defines.events.on_player_alt_reverse_selected_area, function(e)
-  if e.item ~= Cmd.TOOL then return end
-  local player = game.get_player(e.player_index)
-  local f = team_of(player)
-  if not f then return end
-  local x0, y0, x1, y1 = area_of(e)
-  local cx, cy, r = Co.zone(x0, y0, x1, y1)
-  add_order(f, player, { kind = "amelioration", x = cx, y = cy, r = r, tick = game.tick, surface = e.surface.index })
-  refresh(f)
-end)
+local function zone_order(kind)
+  return function(e, player, f)
+    local x0, y0, x1, y1 = area_of(e)
+    local cx, cy, r = Co.zone(x0, y0, x1, y1)
+    add_order(f, player, { kind = kind, x = cx, y = cy, r = r, tick = game.tick, surface = e.surface.index })
+    refresh(f)
+  end
+end
+local do_amelioration, do_bastion = zone_order("amelioration"), zone_order("bastion")
 
-Events.on(defines.events.on_player_reverse_selected_area, function(e)
-  if e.item ~= Cmd.TOOL then return end
-  local player = game.get_player(e.player_index)
-  local f = team_of(player)
-  if not (f and f.team.commande) then return end
+local function do_cancel_area(e, player, f)
+  if not f.team.commande then return end
   local x0, y0, x1, y1 = area_of(e)
   for _, id in ipairs(Co.hit(f.team.commande, x0, y0, x1, y1)) do cancel(f, id, player) end
   refresh(f)
-end)
+end
+
+-- Lot s45 OUTILS : un outil par action. [outil] = { glisser, Maj + glisser, bouton droit, Maj + bouton droit }.
+-- L'ancien outil garde ses quatre gestes (compatibilité).
+local ACTIONS = {
+  [Cmd.TOOL] = { do_gisement, do_liaison, do_cancel_area, do_amelioration },
+  ["fo-cmd-gisement"] = { do_gisement, do_gisement, do_cancel_area, do_cancel_area },
+  ["fo-cmd-amelioration"] = { do_amelioration, do_amelioration, do_cancel_area, do_cancel_area },
+  ["fo-cmd-liaison"] = { do_liaison, do_liaison, do_cancel_area, do_cancel_area },
+  ["fo-cmd-bastion"] = { do_bastion, do_bastion, do_cancel_area, do_cancel_area },
+}
+
+local function dispatch(slot)
+  return function(e)
+    local acts = ACTIONS[e.item]
+    if not acts then return end
+    local player = game.get_player(e.player_index)
+    local f = player and team_of(player)
+    if not f then return end
+    acts[slot](e, player, f)
+  end
+end
+Events.on(defines.events.on_player_selected_area, dispatch(1))
+Events.on(defines.events.on_player_alt_selected_area, dispatch(2))
+Events.on(defines.events.on_player_reverse_selected_area, dispatch(3))
+Events.on(defines.events.on_player_alt_reverse_selected_area, dispatch(4))
+
+for _, name in ipairs(Cmd.TOOLS) do
+  Events.on(name .. "-touche", function(e) give_tool(game.get_player(e.player_index), name) end)
+end
+
 
 ---------------------------------------------------------------------------------------------------
 -- Résolution : un avant-poste posé dans la zone remplit l'ordre de gisement
