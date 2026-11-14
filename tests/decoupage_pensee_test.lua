@@ -736,10 +736,16 @@ local ORDER = { { "team:view", 0 }, { "team:plan_a", 0 }, { "team:plan_capi", 1 
   { "tt:foswap", 6 }, { "tt:migchamp", 7 }, { "tt:capital", 7 }, { "tt:fin", 7 }, { "faction:attack", 7 } }
 local rank = {}
 for i, o in ipairs(ORDER) do rank[o[1]] = i end
-local thinks, bad_order, bad_tick, complete = 0, 0, 0, 0
+-- Lot LOURD (8/11, après ce test) : une étape qui n'obtient pas le jeton des travaux lourds est redemandée au tick SUIVANT (même charge
+-- utile, script/team/team.lua TT.step) : la pensée glisse d'un tick, sans perdre ni rejouer d'étape. Une portée est donc « à son tick »
+-- quand elle n'est jamais AVANT son tick canonique, que son retard ne diminue pas au fil de la pensée (l'ordre des ticks est gardé) et
+-- qu'il reste borné (SLIP_MAX). Les glissements sont comptés et écrits.
+local SLIP_MAX = 30
+local thinks, bad_order, bad_tick, complete, slipped = 0, 0, 0, 0, 0
 local cur
 local function close()
   if cur and cur.last >= rank["tt:fin"] then complete = complete + 1 end
+  if cur and cur.slip > 0 then slipped = slipped + 1 end
 end
 for _, l in ipairs(lines_of(slurp(o1 .. "_trace.txt"))) do
   local t, name = l:match("^(%d+) (.+)$")
@@ -747,19 +753,21 @@ for _, l in ipairs(lines_of(slurp(o1 .. "_trace.txt"))) do
   if name == "team:view" then
     close()
     thinks = thinks + 1
-    cur = { t0 = t, last = 1 }
+    cur = { t0 = t, last = 1, slip = 0 }
   elseif cur then
     local r = rank[name]
     if r < cur.last then bad_order = bad_order + 1 end
     cur.last = math.max(cur.last, r)
-    if t - cur.t0 ~= ORDER[r][2] then bad_tick = bad_tick + 1 end
+    local slip = (t - cur.t0) - ORDER[r][2]
+    if slip < cur.slip or slip > SLIP_MAX then bad_tick = bad_tick + 1 else cur.slip = slip end
   end
 end
 close()
-print(string.format("  %d pensée(s), %d complète(s) ; hors ordre %d, hors tick %d", thinks, complete, bad_order, bad_tick))
+print(string.format("  %d pensée(s), %d complète(s) ; hors ordre %d, hors tick %d ; %d pensée(s) glissée(s) d'un tick ou plus (jeton lourd)",
+  thinks, complete, bad_order, bad_tick, slipped))
 check(thinks >= 20 and complete >= thinks - 5, "pensées jouées en entier (les dernières peuvent être en cours à la fin)")
 check(bad_order == 0, "ordre des appels gardé")
-check(bad_tick == 0, "étapes à T, T + 1 … T + 7")
+check(bad_tick == 0, "étapes à T, T + 1 … T + 7 (ou glissées ensemble par le jeton lourd, jamais en avance)")
 local info1 = slurp(o1 .. "_info.txt") or ""
 local ab = 0
 for n in info1:gmatch("abandons (%d+)") do ab = ab + tonumber(n) end
