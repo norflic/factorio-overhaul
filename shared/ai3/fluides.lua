@@ -324,6 +324,28 @@ end
 --- Fl.POLE_CELL tuiles (le relais d'une cellule est sa tuile centrale libre, sinon l'une de ses 8 voisines, `free(tx, ty)`),
 --- chaque saut d'au plus `wire` tuiles ; coût d'un saut = 10 + sa longueur (peu de poteaux d'abord). Rend la liste des
 --- centres des relais intermédiaires (vide si `a` et `b` se touchent déjà) ou nil (aucun chemin dans `max_nodes`).
+--- s51 poteaux : le tracé de poteaux passe par la garde globale des tracés (shared/team/route_garde.lua) : plafond d'états
+--- PARTAGÉ par tick (RG.tick_left / RG.spend, compteur local au module) et mémo d'échec par paire avec attente exponentielle
+--- (RG.blocked / RG.fail). Rend la liste des relais, ou nil, raison ("attente", "budget", "echec"). `tick` absent : 0.
+local RG = require("shared.team.route_garde")
+Fl.POLE_BOX = { tick = -1, spent = 0 }
+Fl.POLE_MEMO = {}
+function Fl.pole_route_guarded(a, b, wire, free, max_nodes, tick)
+  tick = tick or 0
+  local key = RG.pair_key(a, b)
+  if RG.blocked(Fl.POLE_MEMO, key, tick) then return nil, "attente" end
+  local left = RG.tick_left(Fl.POLE_BOX, tick)
+  if left <= 0 then return nil, "budget" end
+  local cap = math.min(max_nodes or Fl.POLE_ASTAR_MAX, left)
+  Fl.pole_last_expanded = 0
+  local path = Fl.pole_route(a, b, wire, free, cap)
+  RG.spend(Fl.POLE_BOX, tick, Fl.pole_last_expanded or 0)
+  if path then RG.success(Fl.POLE_MEMO, key) return path end
+  if cap < (max_nodes or Fl.POLE_ASTAR_MAX) then return nil, "budget" end -- plafond du tick, pas un vrai échec : réessai au tick suivant
+  RG.fail(Fl.POLE_MEMO, key, tick)
+  return nil, "echec"
+end
+
 function Fl.pole_route(a, b, wire, free, max_nodes)
   local w2 = wire * wire
   local function d2(x1, y1, x2, y2) return (x1 - x2) ^ 2 + (y1 - y2) ^ 2 end
@@ -394,10 +416,11 @@ function Fl.pole_route(a, b, wire, free, max_nodes)
         end
         local path = {}
         for i = #chain, 1, -1 do path[#path + 1] = { x = chain[i][1] + 0.5, y = chain[i][2] + 0.5 } end
+        Fl.pole_last_expanded = expanded
         return path
       end
       expanded = expanded + 1
-      if expanded > (max_nodes or Fl.POLE_ASTAR_MAX) then return nil end
+      if expanded > (max_nodes or Fl.POLE_ASTAR_MAX) then Fl.pole_last_expanded = expanded return nil end
       for _, st in ipairs(cells) do
         local ni, nj = cur.i + st[1], cur.j + st[2]
         local nk = ni * 8192 + nj
@@ -857,8 +880,8 @@ function Site:power(electric)
   local function relay(a, b)
     local pos = straight(a, b)
     if not pos then
-      pos = Fl.pole_route(a, b, wire, function(tx, ty) return self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil end,
-        Fl.POLE_ASTAR_MAX)
+      pos = Fl.pole_route_guarded(a, b, wire, function(tx, ty) return self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil end,
+        Fl.POLE_ASTAR_MAX, (game and game.tick) or 0)
     end
     if not pos then return nil end
     local n = 0
