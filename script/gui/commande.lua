@@ -29,7 +29,8 @@ Cmd.TOOL = "fo-commande-outil"
 local BUTTON, FRAME = "fo_cmd_button", "fo_cmd_frame"
 local P_ORIENT, P_TOOL, P_CLOSE, P_CANCEL = "fo_cmd_or_", "fo_cmd_tool", "fo_cmd_close", "fo_cmd_cancel_"
 local RESOLVE_EVERY = 300
-local COLOR = { gisement = { r = 0.25, g = 0.85, b = 0.35, a = 0.8 }, liaison = { r = 0.3, g = 0.6, b = 1, a = 0.8 } }
+local COLOR = { gisement = { r = 0.25, g = 0.85, b = 0.35, a = 0.8 }, liaison = { r = 0.3, g = 0.6, b = 1, a = 0.8 },
+  amelioration = { r = 1, g = 0.75, b = 0.2, a = 0.8 } } -- lot s44 COMMANDE-UPGRADE
 
 --- Équipe commandée par ce joueur (celle de sa force), ou nil.
 local function team_of(player)
@@ -48,6 +49,7 @@ end
 ---------------------------------------------------------------------------------------------------
 local function order_text(o)
   if o.kind == "gisement" then return { "fo-commande.carte-gisement", { "entity-name." .. tostring(o.resource) } } end
+  if o.kind == "amelioration" then return { "fo-commande.carte-amelioration" } end -- lot s44 COMMANDE-UPGRADE
   return { "fo-commande.carte-liaison" }
 end
 
@@ -64,7 +66,7 @@ local function draw(f, o)
   }
   -- Étiquette de carte : texte riche sans langue (icône du minerai, numéro de l'ordre).
   local ok, tag = pcall(force.add_chart_tag, surface, { position = { x = o.x, y = o.y },
-    text = o.kind == "gisement" and ("[entity=" .. tostring(o.resource) .. "] #" .. o.id) or ("<-> #" .. o.id) })
+    text = o.kind == "gisement" and ("[entity=" .. tostring(o.resource) .. "] #" .. o.id) or (o.kind == "amelioration" and ("^ #" .. o.id) or ("<-> #" .. o.id)) })
   if ok and tag then o.tag = tag.tag_number end
 end
 
@@ -116,12 +118,17 @@ local function build(player)
   local hint = frame.add({ type = "label", caption = { "fo-commande.aide" } })
   hint.style.single_line = false
   hint.style.maximal_width = 420
+  local hint2 = frame.add({ type = "label", caption = { "fo-commande.aide-amelioration" } }) -- lot s44 COMMANDE-UPGRADE
+  hint2.style.single_line = false
+  hint2.style.maximal_width = 420
   frame.add({ type = "line" })
   frame.add({ type = "label", caption = { "fo-commande.ordres", #cs.orders, Co.MAX_ORDERS }, style = "caption_label" })
   for _, o in ipairs(cs.orders) do
     local r = frame.add({ type = "flow", direction = "horizontal" })
     if o.kind == "gisement" then
       r.add({ type = "label", caption = { "fo-commande.ligne-gisement", o.id, { "entity-name." .. tostring(o.resource) }, o.x, o.y } })
+    elseif o.kind == "amelioration" then -- lot s44 COMMANDE-UPGRADE
+      r.add({ type = "label", caption = { "fo-commande.ligne-amelioration", o.id, o.x, o.y, o.r } })
     else
       r.add({ type = "label", caption = { "fo-commande.ligne-liaison", o.id, o.x, o.y } })
     end
@@ -255,6 +262,20 @@ Events.on(defines.events.on_player_alt_selected_area, function(e)
   st.liaison_a = nil
   if a and a.surface ~= e.surface.index then a = nil end
   add_order(f, player, { kind = "liaison", x = cx, y = cy, r = r, a = a, tick = game.tick, surface = e.surface.index })
+  refresh(f)
+end)
+
+-- Lot s44 COMMANDE-UPGRADE : Maj + glisser avec le bouton droit -> zone d'amélioration prioritaire (les bâtiments de l'équipe de la zone
+-- qui ont une version supérieure passent en tête des remplacements : shared/ai3/commande.lua Co.upgrade_rank, shared/ai3/capital.lua).
+-- Annulation : bouton « Annuler » du panneau ou bouton droit sur la zone.
+Events.on(defines.events.on_player_alt_reverse_selected_area, function(e)
+  if e.item ~= Cmd.TOOL then return end
+  local player = game.get_player(e.player_index)
+  local f = team_of(player)
+  if not f then return end
+  local x0, y0, x1, y1 = area_of(e)
+  local cx, cy, r = Co.zone(x0, y0, x1, y1)
+  add_order(f, player, { kind = "amelioration", x = cx, y = cy, r = r, tick = game.tick, surface = e.surface.index })
   refresh(f)
 end)
 

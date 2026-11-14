@@ -105,10 +105,10 @@ function Co.kind_of(resource, outposts, order)
   return nil
 end
 
---- Ajoute un ordre { kind = "gisement" | "liaison", x, y, r, resource?, outpost?, tick }. Rend son numéro, ou nil et la raison
+--- Ajoute un ordre { kind = "gisement" | "liaison" | "amelioration", x, y, r, resource?, outpost?, tick }. Rend son numéro, ou nil et la raison
 --- (« plein » : Co.MAX_ORDERS atteint ; « type » : sorte inconnue ; « ressource » : gisement sans type d'avant-poste).
 function Co.add(state, o)
-  if o.kind ~= "gisement" and o.kind ~= "liaison" then return nil, "type" end
+  if o.kind ~= "gisement" and o.kind ~= "liaison" and o.kind ~= "amelioration" then return nil, "type" end
   if o.kind == "gisement" and not o.outpost then return nil, "ressource" end
   if #state.orders >= Co.MAX_ORDERS then return nil, "plein" end
   local id = state.next_id
@@ -281,6 +281,26 @@ function Co.forced_pairs(orders, docks, srcs)
     end
   end
   return out
+end
+
+--- Lot s44 COMMANDE-UPGRADE : zones d'amélioration prioritaire vivantes { { id, x, y, r, surface } } (ordre de pose). Un bâtiment de
+--- l'équipe dans une de ces zones qui a une version supérieure passe en tête des remplacements (Co.upgrade_rank, Cap.replace_candidates)
+--- tant que le joueur n'annule pas la zone.
+function Co.upgrade_zones(state)
+  local out = {}
+  for _, o in ipairs((state or {}).orders or {}) do
+    if o.kind == "amelioration" then out[#out + 1] = o end
+  end
+  return out
+end
+
+--- Rang d'amélioration d'une position : 0 dans une zone prioritaire, 1 ailleurs (zones absentes ou vides : 1).
+function Co.upgrade_rank(zones, x, y)
+  if x == nil or y == nil then return 1 end
+  for _, o in ipairs(zones or {}) do
+    if inside(o, x, y) then return 0 end
+  end
+  return 1
 end
 
 --- Ordres de gisement remplis : un avant-poste ({ kind, x, y, id }) du type demandé à rayon + Co.DONE_MARGIN du centre. Rend la liste des
