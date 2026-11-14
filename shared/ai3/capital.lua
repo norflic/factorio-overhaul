@@ -569,7 +569,11 @@ function Cap.choose(Ld, census, ctx)
   local first = res.cands[1]
   local starved = false
   local cash = false
-  for _, c in ipairs(res.cands) do
+  -- s50 commande-effet (journal du DC 14/11, ordre 7 : 'remplacer:z|p3|...' but à 57.5 min, puis 'command:2:15' reporté le prend de 62.7
+  -- à 67.6 min sans être payé, non-reserve) : un remplacement de la zone prioritaire du joueur (rang 0, en tête du tri) n'est pas doublé
+  -- par le centre reporté ; le joueur annule la zone pour rendre la main au centre.
+  local zone_first = first ~= nil and first.zone and true or false
+  for _, c in ipairs(zone_first and {} or res.cands) do
     if c.center and (Cap.starved(ctx.defer, c, ctx.tick) or ctx.thaw) then first, starved = c, true -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
     -- Lot S42 QG-NIVEAUX (chantier 2.3 du DC : « dès que le coût du niveau suivant est en stock, l'équipe paie et monte ») : le centre
     -- payable dont TOUT le coût dort au stock libre (c.all_in) est le but, sans attendre la règle des reports.
