@@ -510,5 +510,24 @@ do
     "§7 mutant : l'exception 'effectif' retiree est vue")
 end
 
+-- §8 lot MODULES-0716 : la recette de module ouverte est lue sur la force NOMMÉE (f.force est une chaîne en jeu)
+do
+  local mu_recipe = { ["m-a"] = "r-a", ["m-b"] = "r-b" }
+  local forces = { azure = { valid = true, recipes = { ["r-a"] = { enabled = true }, ["r-b"] = { enabled = false } } } }
+  local cf = RT.craftable_fn({ force = "azure" }, mu_recipe, forces)
+  check(cf("m-a") == true, "§8 craftable : force nommee (chaine), recette ouverte -> vrai")
+  check(cf("m-b") == false, "§8 craftable : recette fermee -> faux")
+  check(cf("m-c") == false, "§8 craftable : module sans recette du releve -> faux")
+  check(RT.craftable_fn({ force = "inconnue" }, mu_recipe, forces)("m-a") == false, "§8 craftable : force absente -> faux")
+  check(RT.craftable_fn({ force = forces.azure }, mu_recipe, nil)("m-a") == true, "§8 craftable : un LuaForce direct reste admis")
+  -- mutant : l'ancienne lecture (f.force.valid sur la chaîne) est vue
+  local old = function(f, item)
+    local rn = mu_recipe[item]
+    local r = rn and f.force and f.force.valid and f.force.recipes[rn]
+    return (r and r.enabled) and true or false
+  end
+  check(old({ force = "azure" }, "m-a") == false and cf("m-a") == true, "§8 mutant : la lecture d'avant (chaine prise pour un LuaForce) rend faux")
+end
+
 print(string.format("[MODULES-POSES] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refuses sur %d)", pass, fail, n_caught, n_mut))
 os.exit(fail == 0 and 0 or 1)

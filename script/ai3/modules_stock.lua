@@ -29,7 +29,24 @@ local function say(f, minutes, text)
   log(string.format("[FO-MODULES] %s : %s a %.1f min", f.key or "player", text, minutes))
 end
 
---- Porte : la pile « survivre » suspend la pose ; rien d'autre (rang inférieur ou égal : la pose est une tâche à faible priorité).
+--- Lot MODULES-0716 : « l'équipe sait-elle fabriquer ce module ? » : la recette de moindre coût du relevé (`mu_recipe`), ouverte pour la
+--- force de l'équipe. `f.force` est le NOM de la force (chaîne, comme partout dans script/ai3) ; un LuaForce est aussi admis. Avant ce
+--- lot, la fonction lisait `f.force.valid` sur la chaîne (toujours nil) : jamais fabricable, la passe repartait muette à chaque relevé
+--- (partie du DC 0.7.102 : trois équipes avec les technologies, aucun module fabriqué ni posé en 2 h 30).
+function RT.craftable_fn(f, mu_recipe, forces)
+  return function(item)
+    local rn = (mu_recipe or {})[item]
+    if not (rn and f) then return false end
+    local force = f.force
+    if type(force) == "string" then force = forces and forces[force] end
+    if not (force and force.valid ~= false and force.recipes) then return false end
+    local r = force.recipes[rn]
+    return (r and r.enabled) and true or false
+  end
+end
+
+--- Porte : la pile « survivre » pour un QG menacé suspend la pose (lot MODULES-0716 : plus « effectif ») ; rien d'autre (rang inférieur ou
+--- égal : la pose est une tâche à faible priorité).
 function RT.gate(f)
   local st = f and f.team and f.team.ia3 and f.team.ia3.pile
   local top = st ~= nil and st.hold == true and st.top == Pi.SURVIVRE

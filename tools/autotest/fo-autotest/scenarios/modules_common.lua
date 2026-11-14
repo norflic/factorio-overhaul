@@ -21,28 +21,46 @@ local function module_names()
   return out
 end
 
+-- Pour chaque module du palier 1, la technologie qui débloque une de ses recettes avec la PLUS PETITE fermeture de prérequis
+-- (premier banc : toute recette produisant un module, recettes de substitution comprises, avait donné presque tout l'arbre).
+local function closure(t, acc)
+  if acc[t.name] then return end
+  acc[t.name] = true
+  local pre = {}
+  for name in pairs(t.prerequisites) do pre[#pre + 1] = name end
+  table.sort(pre)
+  for _, name in ipairs(pre) do closure(t.prerequisites[name], acc) end
+  acc[#acc + 1] = t.name
+end
+
 local function techs_to_give()
   local mods = module_names()
-  local want, list = {}, {}
-  local function add(t)
-    if want[t.name] then return end
-    want[t.name] = true
-    for _, pre in pairs(t.prerequisites) do add(pre) end
-    list[#list + 1] = t.name
-  end
   local names = {}
   for name in pairs(game.technology_prototypes) do names[#names + 1] = name end
   table.sort(names)
+  local best = {} -- module -> { n, acc }
   for _, name in ipairs(names) do
     local t = game.technology_prototypes[name]
     for _, e in ipairs(t.effects or {}) do
       if e.type == "unlock-recipe" then
         local r = game.recipe_prototypes[e.recipe]
-        for _, pr in ipairs(r and r.products or {}) do
-          local m = mods[pr.name]
-          if m and (m.tier or 1) <= 1 then add(t) end
+        local m = r and r.main_product and mods[r.main_product.name]
+        if m and (m.tier or 1) <= 1 then
+          local acc = {}
+          closure(t, acc)
+          local b = best[m.name]
+          if not b or #acc < b.n then best[m.name] = { n = #acc, acc = acc } end
         end
       end
+    end
+  end
+  local mn = {}
+  for k in pairs(best) do mn[#mn + 1] = k end
+  table.sort(mn)
+  local seen, list = {}, {}
+  for _, k in ipairs(mn) do
+    for _, tn in ipairs(best[k].acc) do
+      if not seen[tn] then seen[tn] = true list[#list + 1] = tn end
     end
   end
   return list
