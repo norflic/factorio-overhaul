@@ -389,6 +389,29 @@ function V.unfull_distance(deps, res, hq, at)
   return best
 end
 
+--- R4 (lot GRAND-D-ABORD, plainte du DC du 14/11) : un PETIT gisement (`tiles` < V.SMALL_DEP, taille lue par Sites.deposit_of ; nil :
+--- inconnue, rien n'est refusé) n'ouvre pas d'avant-poste tant qu'un GRAND gisement de la même ressource (au moins V.SMALL_DEP tuiles,
+--- recensé dans `deps`, hors danger, pas plein, qui ne contient pas `at`) est ouvert et couvert à moins de V.COVER_MIN ‰, ou pas encore
+--- ouvert mais à `reach` tuiles du QG `hq` au plus (reach nil : seuls les gisements ouverts comptent). Le « plein » (plus de place libre)
+--- libère : un grand gisement que les obstacles plafonnent sous le seuil ne bloque jamais. Rend vrai (refus) ou faux.
+V.SMALL_DEP = 400
+V.COVER_MIN = 850
+function V.small_refused(tiles, deps, res, at, hq, reach)
+  if tiles == nil or tiles >= V.SMALL_DEP then return false end
+  for _, d in ipairs(deps or {}) do
+    local inside = at ~= nil and d.x0 ~= nil and at.x >= d.x0 and at.x <= d.x1 and at.y >= d.y0 and at.y <= d.y1
+    if d.resource == res and not inside and not d.full and not d.danger and (d.tiles or 0) >= V.SMALL_DEP then
+      local cov = d.covered or 0
+      if cov > 0 then
+        if math.floor(1000 * cov / d.tiles) < V.COVER_MIN then return true end
+      elseif reach and hq and d.cx and d.cy and (d.cx - hq.x) ^ 2 + (d.cy - hq.y) ^ 2 <= reach * reach then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 --- R1 : faut-il renoncer à agrandir un avant-poste à `d_outpost` tuiles du QG parce qu'un site admissible de la même
 --- ressource est connu à `d_site` tuiles (nil : aucun) ? Oui s'il est à moins de 0,6 × d_outpost ET à 60 tuiles de plus près.
 function V.extension_refused(d_outpost, d_site)

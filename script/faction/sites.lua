@@ -837,6 +837,11 @@ local function admit(f, tick, resource)
     local b = blocked[res] or nil
     e.ok, e.why = V.admissible({ value = comp.value, d_hq = comp.d_hq, seeded = e.site.seeded }, b and b.d or nil,
       V.unfull_distance(deps, res, f.hq_pos, e.site))
+    -- R4 (lot GRAND-D-ABORD) : pas de petit gisement tant qu'un grand de la même ressource, ouvert ou à portée, n'est pas couvert
+    if e.ok and not e.site.seeded and V.small_refused(e.site.deposit, deps, res, e.site, f.hq_pos,
+      V.reach(ctx.ambition, ctx.appetite, ctx.reach_bonus)) then
+      e.ok, e.why = false, "petit"
+    end
     e.block = b
   end
   return list, ctx
@@ -857,6 +862,13 @@ local function report(f, resource, list, tick)
           f.stats.site_block_logged = (f.stats.site_block_logged or 0) + 1
           log(string.format("[FO-SITES] proche tick %d %s %s : (%d, %d), %d tuiles du QG, refuse : un gisement ouvert plus proche n'est pas plein (R3)",
             tick, f.key, resource, math.floor(e.site.x), math.floor(e.site.y), e.d_hq))
+        end
+      elseif e.why == "petit" then
+        if not e.site.small_logged and (f.stats.site_block_logged or 0) < BLOCK_LOG_MAX then
+          e.site.small_logged = true
+          f.stats.site_block_logged = (f.stats.site_block_logged or 0) + 1
+          log(string.format("[FO-SITES] petit tick %d %s %s : (%d, %d), %d tuiles de gisement, refuse : un grand gisement de la ressource n'est pas couvert (R4)",
+            tick, f.key, resource, math.floor(e.site.x), math.floor(e.site.y), e.site.deposit or 0))
         end
       elseif not e.site.floor_logged then
         e.site.floor_logged = true
