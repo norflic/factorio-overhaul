@@ -234,7 +234,73 @@ end
 --- `fixed` = { s_edge, count } rejoue la place du cadre figé (bande seule) sans chercher. half : Co.half ou nil. shared(u, v, e) : la tuile
 --- porte déjà la ligne de plaques de la demi-colonne d'en face, dans le sens de e (lot COLONNE-DOUBLE : la ligne centrale est posée une
 --- fois ; ces tuiles ne sont pas rendues).
-function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared)
+--- s49 opti : `memo` (facultatif, tenu le temps d'UN Ch.plan ; jamais pour un cadre figé) : une place de mêmes entrées (scalaires, mêmes
+--- tables furnace / pole / inserter) dont TOUTES les lectures (free, is_ore, shared) donnent les mêmes réponses est rendue sans
+--- recherche, en tables neuves (la recherche est déterministe : mêmes lectures, même résultat). shared(u, v, e) ne lit que u, v et e.du.
+local function place_copy(list, len, s_edge, count, info)
+  if not list then return nil end
+  local l = {}
+  for i, e in ipairs(list) do
+    l[i] = { kind = e.kind, u = e.u, v = e.v, size = e.size, du = e.du, dv = e.dv, role = e.role, col = e.col, piq = e.piq, fin = e.fin }
+  end
+  local inf = {}
+  for _, k in ipairs({ "far", "head_pole", "need", "plates", "bay", "mode", "b_coal", "b_link", "ext" }) do inf[k] = info[k] end
+  return l, len, s_edge, count, inf
+end
+local place_raw
+function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, memo)
+  if not memo or fixed then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared) end
+  local parts = { b, side, edge, count, gap, shift, mode, half ~= nil, half and half.mirror, half and half.jog, half and half.lead,
+    shared ~= nil, Co.EXT, Co.SF, Co.PICKUP }
+  for i = 1, 15 do parts[i] = tostring(parts[i]) end
+  local mkey = table.concat(parts, ",")
+  local f, p, ins = spec.furnace, spec.pole, spec.inserter
+  local mlist = memo[mkey]
+  if mlist then
+    for _, m in ipairs(mlist) do
+      if m.f == f and m.p == p and m.ins == ins then
+        local ok = true
+        local L = m.fr
+        for i = 1, #L, 3 do if ok and (free(L[i], L[i + 1]) and true or false) ~= L[i + 2] then ok = false end end
+        L = m.ore
+        for i = 1, #L, 3 do if ok and (is_ore(L[i], L[i + 1]) and true or false) ~= L[i + 2] then ok = false end end
+        L = m.sh
+        for i = 1, #L, 4 do
+          if ok and (shared(L[i], L[i + 1], { kind = "tapis", role = "sortie", du = L[i + 2] }) and true or false) ~= L[i + 3] then ok = false end
+        end
+        if ok then return place_copy(m.list, m.len, m.s_edge, m.count, m.info) end
+      end
+    end
+  end
+  local tk = Co.tk
+  local FR, OR, SH, fl, ol, sl = {}, {}, {}, {}, {}, {}
+  local function rfree(u, v)
+    local k = tk(u, v)
+    local x = FR[k]
+    if x == nil then x = free(u, v) and true or false; FR[k] = x; fl[#fl + 1] = u; fl[#fl + 1] = v; fl[#fl + 1] = x end
+    return x
+  end
+  local function rore(u, v)
+    local k = tk(u, v)
+    local x = OR[k]
+    if x == nil then x = is_ore(u, v) and true or false; OR[k] = x; ol[#ol + 1] = u; ol[#ol + 1] = v; ol[#ol + 1] = x end
+    return x
+  end
+  local rshared = shared and function(u, v, e)
+    local k = tk(u, v) * 4 + (e.du or 0) + 1
+    local x = SH[k]
+    if x == nil then x = shared(u, v, e) and true or false; SH[k] = x; sl[#sl + 1] = u; sl[#sl + 1] = v; sl[#sl + 1] = e.du; sl[#sl + 1] = x end
+    return x
+  end or nil
+  local list, len, s_edge, cnt, info = place_raw(spec, b, side, edge, count, gap, shift, rfree, rore, mode, nil, half, rshared)
+  if not mlist then mlist = {}; memo[mkey] = mlist end
+  if #mlist < 6 then
+    local ml, mlen, ms, mc, mi = place_copy(list, len, s_edge, cnt, info)
+    mlist[#mlist + 1] = { f = f, p = p, ins = ins, fr = fl, ore = ol, sh = sl, list = ml, len = mlen, s_edge = ms, count = mc, info = mi }
+  end
+  return list, len, s_edge, cnt, info
+end
+place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared)
   local function common(e) return shared ~= nil and e.kind == "tapis" and e.role == "sortie" and shared(e.u, e.v, e) end
   -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
   -- autres ressources) ; plus de seconde passe qui acceptait le minerai. Lot DECOUPLAGE : la colonne d'un cadre figé (`fixed`) aussi.

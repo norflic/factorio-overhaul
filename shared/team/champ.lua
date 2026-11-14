@@ -815,7 +815,7 @@ local function plan_once(spec)
             local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
             half = half_of(bd.pr, fixed)
             list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
-              c.is_resource, mode, fixed, half, shared_plate)
+              c.is_resource, mode, fixed, half, shared_plate, run_memo("places"))
             if not list and not no_smelter_at then
               -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
               local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
