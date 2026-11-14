@@ -928,7 +928,12 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   do -- s45 pierre : une bande sans four ne pose pas plus de foreuses que de paires thermiques remplacées (shared/team/bande_brute.lua)
     local nd0, nf0 = 0, 0
     for _, e in ipairs((bd.plan and bd.plan.ents) or {}) do if e.kind == "foreuse" then nd0 = nd0 + 1 elseif e.kind == "four" then nf0 = nf0 + 1 end end
-    local okb, capb = Bb.ok(nd0, nf0, #list, wanted)
+    -- integ s45 : une bande dont le produit est un COMBUSTIBLE (fuel_value lu au prototype) n'est pas bornée (famine de charbon)
+    local tk = T.outposts[o.kind]
+    local ip = tk and tk.product and game.item_prototypes[tk.product]
+    local fuel = ip ~= nil and (ip.fuel_value or 0) > 0
+    local okb, capb = true, nil
+    if not fuel then okb, capb = Bb.ok(nd0, nf0, #list, wanted) end
     if not okb then
       st.bad = st.bad or {}
       st.bad[#st.bad + 1] = pr
