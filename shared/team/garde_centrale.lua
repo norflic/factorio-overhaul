@@ -23,6 +23,7 @@
   tourelle garde deux centrales voisines).
 ]]
 local G = {}
+local Vec = require("shared.team.vecteur") -- s44 vecteur : ligne de tourelles face à l'attaquant
 
 G.MIN = 2
 G.MAX = 6
@@ -143,12 +144,28 @@ function G.plan(plants, turrets, range, low, cap)
   local rows, best = {}, nil
   for _, pl in ipairs(plants or {}) do
     local need = G.need(pl.pieces, pl.boilers, turrets, range, low, pl.want)
+    if need and pl.threat and need.center then
+      -- s44 vecteur : centrale ATTAQUÉE (pl.threat = position de l'attaquant) : la ligne perpendiculaire à l'axe d'approche, côté ennemi,
+      -- passe AVANT l'anneau fixe (gardé en repli) ; seuls les emplacements qui couvrent toutes les pièces sont proposés.
+      local _, _, far = G.center(pl.pieces)
+      local rho = range - far - G.MARGIN
+      if rho > G.RHO_MAX then rho = G.RHO_MAX end
+      local front = {}
+      for _, q in ipairs(Vec.ligne(need.center.x, need.center.y, pl.threat.x, pl.threat.y, rho, Vec.N, Vec.PAS)) do
+        if G.covers(pl.pieces, q.x, q.y, range) then front[#front + 1] = q end
+      end
+      for _, q in ipairs(need.sites) do front[#front + 1] = q end
+      need.sites, need.threat = front, true
+    end
     if need then
       local row = { id = pl.id, need = need, pieces = pl.pieces, box = pl.want ~= nil }
       rows[#rows + 1] = row
       -- la moins gardée : near/wanted le plus bas (produit en croix, pas de division), puis le moins de places occupées ; égalité : la première
-      if need.missing > 0 and not pl.rest then -- (pl.rest : au repos après une pose à zéro, comptée mais non choisie)
-        if not best then best = row
+      -- s44 vecteur : une centrale attaquée passe devant toutes les autres (et sort du repos) ; entre deux attaquées, la règle ci-dessous.
+      local hot = need.threat == true
+      if need.missing > 0 and (hot or not pl.rest) then -- (pl.rest : au repos après une pose à zéro, comptée mais non choisie)
+        if not best or (hot and not best.need.threat) then best = row
+        elseif best.need.threat and not hot then -- la centrale attaquée déjà choisie reste devant
         else
           local a, b = need.near * best.need.wanted, best.need.near * need.wanted
           if a < b or (a == b and need.near < best.need.near) then best = row end

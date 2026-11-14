@@ -33,6 +33,7 @@ local Zone = require("script.team.zone_melee") -- lot MELANGE2 : zone minée de 
 local Flux = require("shared.team.flux") -- lot FLUX : sorties pleines d'un avant-poste (règle pure)
 local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, cible par tourelle (règle pure)
 local Rv = require("shared.team.ravitaillement") -- lot BLOCAGE-COMBUSTIBLE : charbon des coffres propres, verdict d'une tournée (règle pure)
+local Vec = require("shared.team.vecteur") -- s44 vecteur : ligne de tourelles face à l'attaquant du QG
 local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
 
 local Outposts = {}
@@ -686,6 +687,16 @@ function Outposts.fortify(f, surface, outpost, count, carrier)
   -- lot CENTRALE-GARDE : même pose que fortify_at (emplacements = les huit points autour du poste), chargeurs perforants d'abord
   -- lot TOURELLES : mêmes emplacements qu'avant, pris dans l'ordre qui protège le plus de bâtiments de l'équipe
   local sites, perim, ore = pose_order(f, surface, outpost, count)
+  -- s44 vecteur : QG attaqué (f.vecteur_qg relevé par script/team/reparation.lua) : la ligne perpendiculaire à l'axe d'approche, côté
+  -- ennemi, passe avant les emplacements habituels (gardés derrière, puis le repli).
+  if outpost.id == nil and outpost.pos and Vec.fresh(f.vecteur_qg, game.tick) then
+    local v = f.vecteur_qg
+    local front = Vec.ligne(outpost.pos.x, outpost.pos.y, v.ax, v.ay, Vec.QG_D, Vec.N, Vec.PAS)
+    for _, q in ipairs(sites) do front[#front + 1] = q end
+    sites = front
+    log(string.format("[FO-DEF-VECTEUR] %s : QG attaque depuis (%.0f, %.0f) ; %d emplacement(s) en ligne face a l'attaquant d'abord",
+      f.key or "player", v.ax, v.ay, Vec.N))
+  end
   -- repli d'avant le lot : les huit points d'origine, résolus APRÈS chaque pose (deux points qui se replient sur la même place avant
   -- toute pose ne font pas perdre une tourelle). Lot CC-TOURELLES (F489) : pour un avant-poste qui a un bord de gisement à portée, le
   -- repli est ce bord, et toute position finale sur le minerai est refusée (accept).
