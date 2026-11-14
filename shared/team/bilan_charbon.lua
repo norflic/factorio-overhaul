@@ -41,9 +41,14 @@ function Bc.need(measured, nominal) return math.max(measured or 0, nominal or 0)
 Bc.MARGE = 1.3
 
 --- Une foreuse POSÉE du combustible compte à son débit nominal, sauf si elle ne peut plus rien rendre. S = defines.entity_status.
+--- Lot charbon-dim (banc 1, graine 20261020, emerald 26 min : offre nominale 6,75/s pour 0,75/s en marche, foreuses électriques du
+--- combustible SANS COURANT) : une foreuse sans courant (no_power) ne compte pas non plus : son courant vient des chaudières, qui brûlent
+--- ce combustible ; la compter cachait le cercle vicieux (pas de charbon -> pas de courant -> pas de charbon). Une foreuse à brûleur sans
+--- combustible (no_fuel) compte : elle repart dès qu'on la nourrit (livraison, pas dimensionnement).
 function Bc.drill_nominal(status, S)
   if S == nil or status == nil then return false end
   return status ~= S.no_minable_resources and status ~= S.disabled_by_script and status ~= S.disabled_by_control_behavior
+    and status ~= S.no_power
 end
 
 --- Dimensionnement. consumers = { watts à pleine puissance } de toutes les machines à combustible posées ; drills = { objets/s nominaux } ;

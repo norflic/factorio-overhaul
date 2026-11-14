@@ -22,6 +22,7 @@ function Cap.read(f, surface)
   local fuel = game.item_prototypes[T.fuel]
   local consumers, drills, live_w, live_drills = {}, {}, {}, {}
   local status = defines.entity_status
+  local n_nopower, n_nofuel = 0, 0 -- (journal : foreuses du combustible sans courant, sans combustible)
   Profiler.fstart("ws:cap")
   local found = RegT.list(surface, f.force, Cap.TYPES, "cap") -- lot UPS : registre
   Profiler.fstop("ws:cap")
@@ -39,6 +40,7 @@ function Cap.read(f, surface)
       local rate = p.mining_speed / math.max(mp.mining_time or 1, 1e-6)
       if Bc.drill_nominal(e.status, status) then drills[#drills + 1] = rate end -- lot charbon-dim : offre nominale
       if Bc.drill_counts(e.status, status) then live_drills[#live_drills + 1] = rate end -- (relevé d'avant, journal seulement)
+      if e.status == status.no_power then n_nopower = n_nopower + 1 elseif e.status == status.no_fuel then n_nofuel = n_nofuel + 1 end
     end
   end
   local fj = fuel and fuel.fuel_value or 0
@@ -47,6 +49,7 @@ function Cap.read(f, surface)
   local live = Bc.cap(live_w, live_drills, fj)
   memo.live_need, memo.live_capacity = live.need, live.capacity
   memo.n_consumers, memo.n_drills = #consumers, #drills
+  memo.n_live, memo.n_nopower, memo.n_nofuel = #live_drills, n_nopower, n_nofuel
   memo.tick = game.tick
   memo.decision = old and old.decision or nil
   memo.logged_at = old and old.logged_at or nil
@@ -63,8 +66,9 @@ function Cap.note(f, decision, tick)
   memo.decision = decision
   if memo.logged_decision == decision and memo.logged_at and tick - memo.logged_at < Cap.LOG_EVERY then return end
   memo.logged_decision, memo.logged_at = decision, tick
-  log(string.format("[FO-CHARBON-DIM] %s ; mesure d'avant : besoin %.3f/s, offre %.3f/s", Bc.line(f.key, memo, math.floor(tick / 3600), decision),
-    memo.live_need or 0, memo.live_capacity or 0))
+  log(string.format("[FO-CHARBON-DIM] %s ; mesure d'avant : besoin %.3f/s, offre %.3f/s ; foreuses du combustible en marche %d, sans courant %d, sans combustible %d",
+    Bc.line(f.key, memo, math.floor(tick / 3600), decision), memo.live_need or 0, memo.live_capacity or 0, memo.n_live or 0, memo.n_nopower or 0,
+    memo.n_nofuel or 0))
 end
 
 return Cap
