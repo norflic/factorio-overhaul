@@ -2251,6 +2251,80 @@ function Mig.entrepreneur_follow(f)
   end
 end
 
+--- entrepreneur-craft-0716 : la bande entrepreneur passe en tête de f.build.order (Ent.order_front) : sa réserve au coffre (Build : reserve,
+--- une fois par seconde, dans l'ordre b.order) prend le stock avant tout autre projet ; seuls les projets rouverts (réparer) restent devant.
+function Mig.entrepreneur_front(f, pid)
+  local b = f and f.build
+  if not (b and b.order and b.projects[pid]) then return end
+  local front = {}
+  for _, id in ipairs(b.order) do
+    local q = b.projects[id]
+    if q and q.reopened and q.reopened ~= 0 and q.state ~= "fini" then front[id] = true end
+  end
+  b.order = Ent.order_front(b.order, pid, front)
+end
+
+--- entrepreneur-craft-0716 : suivi du KIT COMPLET de la bande entrepreneur (toutes les Ent.CFG.kit_every ticks). Le kit = les pièces pas encore
+--- bâties du plan de la bande (Build.needs_of : foreuses, tapis, souterrains, poteaux, bras, fours, lus sur p.ents, aucun nom) ; « en stock » =
+--- réservé au projet (p.stock, monopole : jamais rendu, build.lua pile_family) ; « mis en craft » = son manque (p.missing), servi en tête par le
+--- cerveau (g.ent : shared/ai3/cerveau.lua, P.want_kit sans plafond de kits). Journal [FO-ENTREPRENEUR-KIT] : kit lancé, avancement (une ligne
+--- par minute au plus tant qu'il manque), kit complet (délai depuis le déclenchement), chantier parti, bande posée (délai).
+
+function Mig.entrepreneur_kit(f, tick)
+  local ms = f and f.migration
+  local ent = ms and ms.ent
+  if not (ent and f.build) then return end
+  local p = f.build.projects[ent.pid]
+  if not p then return end
+  if not ent.front or p.state == "reserve" then -- (gardée en tête tant qu'elle réserve : centrales et alimentations se remettent devant)
+    ent.front = true
+    Mig.entrepreneur_front(f, ent.pid)
+  end
+  if p.state == "plan" or p.state == "attente" or not p.ents or #p.ents == 0 then return end
+  local function say(text)
+    ms.entk_logs = (ms.entk_logs or 0) + 1
+    if ms.entk_logs <= Ent.CFG.log_max then
+      log(string.format("[FO-ENTREPRENEUR-KIT] %s : projet %d (%s) : %s a %.1f min", name_of(f), ent.pid, tostring(p.state), text, tick / 3600))
+    end
+  end
+  local function mins(t) return (tick - (t or tick)) / 3600 end
+  if p.state == "fini" or p.state == "refuse" then
+    if not ent.posee then
+      ent.posee = tick
+      say(string.format("bande %s : %.1f min depuis le declenchement (kit complet %s)", p.state == "fini" and "posee" or "refusee", mins(ent.t0),
+        ent.complet and string.format("a +%.1f min", (ent.complet - ent.t0) / 3600) or "jamais"))
+    end
+    return
+  end
+  local r = Ent.kit_report(Build.needs_of(p), p.stock or {}, p.missing or {})
+  if not ent.kit then
+    ent.kit = tick
+    say(string.format("kit lance : %d objet(s) de %d sorte(s) [%s] ; deja en stock %d ; mis en craft (cerveau, en tete) %d ; declenche il y a %.1f min",
+      r.total, r.kinds, r.text, r.have, r.craft, mins(ent.t0)))
+  end
+  if p.state ~= "reserve" and not ent.depart then
+    ent.depart = tick
+    say(string.format("chantier parti (%d/%d au coffre, %d a fabriquer) a +%.1f min du declenchement", r.have, r.total, r.craft, mins(ent.t0)))
+  end
+  if r.complete and not ent.complet then
+    ent.complet = tick
+    say(string.format("kit complet : %d objet(s) de %d sorte(s) en %.1f min depuis le declenchement (%.1f min depuis le lancement du kit)",
+      r.total, r.kinds, mins(ent.t0), mins(ent.kit)))
+  elseif not r.complete and tick >= (ent.next_say or 0) and tick > ent.kit then
+    ent.next_say = tick + 3600
+    say(string.format("kit %d/%d au coffre, %d a fabriquer [%s]", r.have, r.total, r.craft, r.text))
+  end
+end
+
+Events.on_nth_tick(Ent.CFG.kit_every, function(e)
+  local ids = State.alive()
+  ids[#ids + 1] = "player"
+  for _, id in ipairs(ids) do
+    local f = State.faction(id)
+    if f and f.migration and f.migration.ent then Mig.entrepreneur_kit(f, e.tick) end
+  end
+end)
+
 Events.on_nth_tick(Ent.CFG.period, function(e)
   local ids = State.alive()
   ids[#ids + 1] = "player"

@@ -98,5 +98,21 @@ do
   check(s2[61].iron_pm < E.simulate(par, true)[61].iron_pm, "cout de bande en parametre : bande plus chere, croissance plus lente")
 end
 
+-- §6 entrepreneur-craft-0716 : bilan du kit complet, tête de la réservation au coffre (noms factices : aucune donnée du jeu)
+do
+  local r = E.kit_report({ b = 10, a = 4 }, { a = 9, b = 3 }, { { "b", 7 } })
+  check(r.total == 14 and r.have == 7 and r.craft == 7 and r.kinds == 2 and not r.complete, "kit : 14 objets, 7 en stock (a borne a 4), 7 a fabriquer")
+  check(r.text == "a 4/4, b 3/10", "kit : texte trie (" .. r.text .. ")")
+  r = E.kit_report({ a = 2 }, { a = 2 }, {})
+  check(r.complete, "kit : rien a fabriquer = complet")
+  check(not E.kit_report({}, {}, {}).complete, "kit vide (plan pas encore lu) : jamais complet")
+  r = E.kit_report({ a = 1, b = 1, c = 1 }, {}, {}, 2)
+  check(r.text == "a 0/1, b 0/1, +1 autre(s)", "kit : texte borne (" .. r.text .. ")")
+  local o = E.order_front({ 1, 2, 3, 4, 5 }, 4, { [2] = true })
+  check(table.concat(o, ",") == "2,4,1,3,5", "ordre : reparation devant, puis la bande, puis le reste (" .. table.concat(o, ",") .. ")")
+  o = E.order_front({ 1, 2 }, 9, {})
+  check(table.concat(o, ",") == "1,2", "ordre : bande absente, ordre inchange")
+end
+
 print(string.format("entrepreneur_test : %d OK, %d ECHEC", ok, ko))
 if ko > 0 then os.exit(1) end

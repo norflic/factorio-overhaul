@@ -9,7 +9,10 @@
   est déjà en vol, on la marque entrepreneur au lieu d'en créer une autre.
   Monopole : un projet marqué spec.entrepreneur ne rend jamais ses objets réservés (script/team/build.lua : pile_family).
   Ouvrier dédié : E.pick_worker (choix déterministe, plus petit numéro vivant, l'ouvrier courant gardé s'il vit).
-  Lecteurs : script/team/migration_champ.lua (Mig.entrepreneur_scan), script/team/build.lua (pile_family), tests/entrepreneur_test.lua.
+  Craft groupé (entrepreneur-craft-0716) : la bande passe en tête de f.build.order (E.order_front : réserve au coffre avant les autres),
+  son but du cerveau (g.ent) est servi en tête du stock virtuel et met tout son manque en kits d'un coup (shared/ai3/cerveau.lua,
+  P.want_kit) ; bilan [FO-ENTREPRENEUR-KIT] (E.kit_report) : déclenchement -> kit complet -> bande posée.
+  Lecteurs : script/team/migration_champ.lua (Mig.entrepreneur_scan, Mig.entrepreneur_kit), script/team/build.lua (pile_family), tests/entrepreneur_test.lua.
 ]]
 
 local E = {}
@@ -18,6 +21,7 @@ E.CFG = {
   period = 18000,   -- 5 min de jeu
   cover_max = 850,  -- ‰ : au-dessus, le gisement est jugé plein
   log_max = 200,    -- lignes [FO-ENTREPRENEUR] par équipe au plus
+  kit_every = 300,  -- entrepreneur-craft-0716 : suivi du kit complet (ticks), journal [FO-ENTREPRENEUR-KIT]
 }
 
 --- Décision du scan. inp = { delta (plaques produites depuis le relevé), room (place sur un gisement : bool), cover (‰ ou nil),
@@ -79,6 +83,42 @@ function E.kit_missing(need, stock)
     local m = need[k] - (stock[k] or 0)
     if m > 0 then out[#out + 1] = { name = k, n = m } end
   end
+  return out
+end
+
+--- entrepreneur-craft-0716 : bilan du KIT COMPLET d'une bande. need = { [objet] = n } (pièces pas encore bâties, lues sur le plan du
+--- projet), stock = { [objet] = n } réservé au projet (p.stock), missing = liste { { objet, n } } (manque remis au cerveau : craft en tête).
+--- Rend { kinds, total, have, craft, complete, text } ; text = « objet stock/besoin » trié, borné à max_items objets (défaut 8).
+function E.kit_report(need, stock, missing, max_items)
+  local names = {}
+  for k in pairs(need or {}) do names[#names + 1] = k end
+  table.sort(names)
+  local total, have, craft = 0, 0, 0
+  local parts = {}
+  for _, k in ipairs(names) do
+    local n = need[k]
+    local h = math.min(n, (stock or {})[k] or 0)
+    total, have = total + n, have + h
+    if #parts < (max_items or 8) then parts[#parts + 1] = string.format("%s %d/%d", k, h, n) end
+  end
+  if #names > #parts then parts[#parts + 1] = string.format("+%d autre(s)", #names - #parts) end
+  for _, m in ipairs(missing or {}) do craft = craft + (m[2] or 0) end
+  return { kinds = #names, total = total, have = have, craft = craft, complete = total > 0 and craft == 0,
+    text = table.concat(parts, ", ") }
+end
+
+--- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets
+--- qui réparent (rouverts : front[id] vrai). order = liste de numéros, pid = la bande, front = { [id] = vrai }. Rend une liste neuve.
+function E.order_front(order, pid, front)
+  local out, rest, found = {}, {}, false
+  for _, id in ipairs(order) do
+    if id == pid then found = true
+    elseif front and front[id] then out[#out + 1] = id
+    else rest[#rest + 1] = id end
+  end
+  if not found then return order end
+  out[#out + 1] = pid
+  for _, id in ipairs(rest) do out[#out + 1] = id end
   return out
 end
 

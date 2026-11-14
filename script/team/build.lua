@@ -3523,6 +3523,7 @@ local function needs_of(p)
   if lq and lq.extra and not p.piq_placed then bump(need, lq.extra.item) end -- lot PIQUAGE : le répartiteur, posé par le script à la fin du projet
   return need
 end
+Build.needs_of = needs_of -- entrepreneur-craft-0716 : kit complet d'un projet (lu par script/team/migration_champ.lua, [FO-ENTREPRENEUR-KIT])
 
 --- Stock LIBRE du coffre (lot IA3-e) : le coffre moins ce que les tâches prises y ont réservé (registre d'IA3-b,
 --- Board.view_stock ; registre éteint : le coffre tel quel). Le chantier ne prend plus la matière promise à une tâche
@@ -6150,7 +6151,8 @@ function Build.brief(f, id)
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
     retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow,
     rebuilding = rebuilding, progressif = p.progressif or nil, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false,
-    rangee = Build.Rangee.brief(p) } -- lot RANGEES-ASM : { n, n_max, held } d'une rangée dynamique
+    rangee = Build.Rangee.brief(p), -- lot RANGEES-ASM : { n, n_max, held } d'une rangée dynamique
+    ent = Ent.monopoly(p.spec) or nil } -- entrepreneur-craft-0716 : chantier entrepreneur (lu par script/ai3/automatisation.lua : but servi en tête)
 end
 
 --- Lot ENERGIE (relecture) : projet d'alimentation de centrale ouvert de l'équipe (un seul à la fois, Cc.want_alim), ou nil. Lecteur :

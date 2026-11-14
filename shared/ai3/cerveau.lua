@@ -451,6 +451,24 @@ function C.think(view, book, st, ctx)
   -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé
   -- devant servi en tête, après les seuls projets qui produisent la matière qui lui manque (Cap.ahead_first).
   local served = Cap.ahead_first(Cap.chain_first(order), E.avail, T.outposts, T.smelter_inputs)
+  -- entrepreneur-craft-0716 : la bande entrepreneur (g.ent, chantier en monopole) est servie EN TÊTE du stock virtuel, après les seuls ordres
+  -- du joueur : son kit entier passe avant tout autre projet, ce qu'il prend (objets et plaques de ses fabrications) n'est plus libre pour eux.
+  do
+    local head, tail = {}, {}
+    for _, proj in ipairs(served) do
+      if proj.goal and proj.goal.ordre then head[#head + 1] = proj end
+    end
+    for _, proj in ipairs(served) do
+      if proj.goal and proj.goal.ent and not proj.goal.ordre then head[#head + 1] = proj end
+    end
+    if #head > 0 then
+      for _, proj in ipairs(served) do
+        if not (proj.goal and (proj.goal.ent or proj.goal.ordre)) then tail[#tail + 1] = proj end
+      end
+      for _, proj in ipairs(tail) do head[#head + 1] = proj end
+      served = head
+    end
+  end
   -- Lot TV-PILOTE (V10) : FAMILLE ARMÉE à parts réservées (shared/ai3/famille_armee.lua). ctx.armee = { parts = { delta, alpha } } posé par le
   -- runtime quand le réglage fo-war-armee-famille est allumé (nil : la boucle d'avant, ligne pour ligne). La réserve de la famille (munitions et
   -- équipement des soldats, UNE liste) est prêtée aux projets qui n'en sont pas : ils servent le stock MOINS la réserve ; les membres le voient entier.

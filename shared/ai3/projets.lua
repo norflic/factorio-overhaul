@@ -356,6 +356,9 @@ function P.want_kit(E, proj, list, prio, tag)
   end
   if #shorts == 0 then return true end
   local room = math.min(Kit.MAX_KITS, P.MAX_CRAFTS - E.crafts)
+  -- entrepreneur-craft-0716 : la bande entrepreneur met TOUT son manque fabricable en craft d'un coup (toutes les fabrications de la pensée qui
+  -- restent, au moins Kit.MAX_KITS), au lieu de 3 kits par pensée : le kit complet part en un lot, réparti sur les PNJ libres
+  if proj.goal and proj.goal.ent then room = math.max(Kit.MAX_KITS, P.MAX_CRAFTS - E.crafts) end
   local res = Kit.build(E.book, E.avail, shorts, { max_kits = room })
   E.avail = res.avail
   -- lot KITS-VOLES : les projets du plan directeur pour lesquels le kit est fabriqué (g.pids, copiés : la tâche va dans global) ; le dépôt
