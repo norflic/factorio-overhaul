@@ -65,10 +65,12 @@ def charte(S, M, prefix, gris=False):
     """Remplace dans le jeu de matières `M` (titans_mat.matieres) le blindage, le canon, la structure, les anneaux et les halos."""
     if gris:
         return M
-    M["blind"] = MT.surface(prefix + "v3_blind", NUIT, rough=0.46, met=0.90, tole=(1.6, 0.9), joint=0.05, joint_l=0.022, var=0.10,
+    # s43 (retour du coordinateur, 14/11) : panneaux LARGES à joints discrets (4 × 3 unités) au lieu de petites tôles (0,8 × 0,5) qui se
+    # lisaient comme de la maçonnerie à 32 px/tuile ; métal brossé uni (grain fin sur les plaques claires)
+    M["blind"] = MT.surface(prefix + "v3_blind", NUIT, rough=0.46, met=0.90, tole=(4.0, 2.6), joint=0.35, joint_l=0.018, var=0.05,
                             usure=0.35, nu=VIF_SOMBRE, crasse=0.08, crasse_col=CREUX, relief=0.45, grain=0.0, biseau=0.04, graine=21)
-    M["blind2"] = MT.surface(prefix + "v3_blind2", NUIT2, rough=0.46, met=0.40, tole=(0.8, 0.5), joint=0.05, joint_l=0.026, var=0.12,
-                             usure=0.35, nu=VIF_SOMBRE, crasse=0.08, crasse_col=CREUX, relief=0.4, grain=0.0, biseau=0.04, graine=22)
+    M["blind2"] = MT.surface(prefix + "v3_blind2", NUIT2, rough=0.46, met=0.40, tole=(4.5, 3.0), joint=0.45, joint_l=0.016, var=0.04,
+                             usure=0.35, nu=VIF_SOMBRE, crasse=0.08, crasse_col=CREUX, relief=0.4, grain=0.03, biseau=0.04, graine=22)
     iris, TM.IRIS = TM.IRIS, IRIS_NUIT       # rampe d'iridescence de la charte V3 (rendue après usage : Kaiju & co gardent la leur)
     try:
         TM.iridescence(M["blind"], part=0.55, blend=0.32)
@@ -82,7 +84,7 @@ def charte(S, M, prefix, gris=False):
         if "Coat Weight" in pb.inputs:
             pb.inputs["Coat Weight"].default_value = 0.0
     # canon : acier satiné (rugosité 0,42) : poli, ses tubes horizontaux renvoyaient le ciel en traits blancs (2,1 % du corps en d4/d12, salve)
-    M["canon"] = MT.surface(prefix + "v3_canon", (0.09, 0.10, 0.12), rough=0.42, met=0.85, tole=(0.5, 0.25), joint=0.08, joint_l=0.03,
+    M["canon"] = MT.surface(prefix + "v3_canon", (0.09, 0.10, 0.12), rough=0.42, met=0.85, tole=(2.0, 1.0), joint=0.3, joint_l=0.02,
                             var=0.08, usure=0.6, nu=VIF, crasse=0.1, crasse_col=CREUX, relief=0.7, grain=0.0, biseau=0.03, graine=25)
     M["struct"] = MT.surface(prefix + "v3_struct", (0.016, 0.017, 0.022), rough=0.38, met=0.8, usure=0.5, nu=(0.40, 0.44, 0.52),
                              crasse=0.15, crasse_col=(0.004, 0.004, 0.006), grain=0.0, biseau=0.03, graine=23)
