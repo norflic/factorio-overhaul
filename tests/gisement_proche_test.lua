@@ -70,5 +70,26 @@ do
   check(a == "attendre" and why:find("plus proche", 1, true) ~= nil, "gisement ouvert plus proche pas plein : attendre (" .. tostring(why) .. ")")
 end
 
+-- R4 (lot GRAND-D-ABORD) : petit gisement refusé tant qu'un grand de la même ressource n'est pas couvert à 85 %
+section("4. V.small_refused : le grand gisement d'abord")
+do
+  local HQ = { x = 0, y = 0 }
+  local function big(cov, o)
+    o = o or {}
+    return { resource = "fer", tiles = 2000, covered = cov, full = o.full, danger = o.danger, cx = 100, cy = 0, x0 = 80, y0 = -20, x1 = 120, y1 = 20 }
+  end
+  local at = { x = 300, y = 0 }
+  check(V.small_refused(120, { big(60) }, "fer", at, HQ, 200) == true, "R4 : grand ouvert à 30 ‰ : petit refusé")
+  check(V.small_refused(120, { big(1800) }, "fer", at, HQ, 200) == false, "R4 : grand couvert à 900 ‰ : petit admis")
+  check(V.small_refused(120, { big(60, { full = true }) }, "fer", at, HQ, 200) == false, "R4 : grand plein (plus de place) : petit admis")
+  check(V.small_refused(120, { big(60, { danger = true }) }, "fer", at, HQ, 200) == false, "R4 : grand en danger : petit admis")
+  check(V.small_refused(120, { big(60) }, "cuivre", at, HQ, 200) == false, "R4 : autre ressource : admis")
+  check(V.small_refused(900, { big(60) }, "fer", at, HQ, 200) == false, "R4 : site grand lui-même : admis")
+  check(V.small_refused(nil, { big(60) }, "fer", at, HQ, 200) == false, "R4 : taille inconnue : admis")
+  check(V.small_refused(120, { big(0) }, "fer", at, HQ, 200) == true, "R4 : grand pas ouvert à portée : petit refusé")
+  check(V.small_refused(120, { big(0) }, "fer", at, HQ, 50) == false, "R4 : grand pas ouvert hors portée : admis")
+  check(V.small_refused(120, { big(60) }, "fer", { x = 100, y = 0 }, HQ, 200) == false, "R4 : site dans le grand gisement : admis")
+end
+
 print(string.format("\nResultat : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
