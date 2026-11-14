@@ -20,8 +20,10 @@
     3. RETOUR : la satisfaction électrique des consommateurs revient au niveau d'avant la coupe en moins de T_MAX (5 min).
   RELEVÉ (toutes les 5 s, par force concernée) : sat = Σ énergie / Σ tampon des consommateurs électriques (lu sur les entités, comme
   script/compute) ; prod = kW des machines à vapeur (la grandeur que lit Sante.observe) ; chaudières à sec ; tapis porteurs vivants.
-  RÉSULTAT par force : sat avant (moyenne des 2 min d'avant), minimum après, délai de retour (sat >= 0,95 x sat avant, 3 relevés de suite),
-  délai de la première chaudière rallumée, verdict OK si retour <= T_MAX. Le journal du cerveau est [FO-SANTE-CENTRALE] (même fichier).
+  RÉSULTAT par force (s43 blackout-juge : seules les pièces PRÉSENTES et allumées à la coupe sont jugées ; une centrale finie après la coupe
+  démarre vide, et une demande qui grandit sur une centrale saturée fait baisser la satisfaction sans défaut de reprise) : délai de retour =
+  toutes les chaudières de la coupe allumées ET les machines de la coupe à 90 % des kW moyens des 2 min d'avant, 3 relevés de suite ; délai
+  de la première chaudière rallumée ; verdict OK si retour <= T_MAX. La satisfaction (sat) reste relevée, pour information. Le journal du cerveau est [FO-SANTE-CENTRALE] (même fichier).
   Lancement : banc.py --out <archive> --graine <g> --qui s43-scen-energie -- 172000 scen-blackout <source>. Journal : [FO-SCEN-BLACKOUT].
 ]]
 
@@ -122,6 +124,21 @@ local function sample(s, force)
   return { sat = buf > 0 and en / buf or nil, n = cnt, kw = kw, dry = dry, boilers = boilers }
 end
 
+--- État des seules pièces présentes à la coupe : chaudières à sec (une chaudière détruite compte à sec), kW de leurs machines.
+local function cut_state(r)
+  local n, dry, kw = 0, 0, 0
+  for _, bo in ipairs(r.boil or {}) do
+    n = n + 1
+    if not bo.valid then dry = dry + 1
+    else
+      local inv = bo.get_fuel_inventory()
+      if inv and inv.is_empty() and ((bo.burner and bo.burner.remaining_burning_fuel) or 0) <= 0 then dry = dry + 1 end
+    end
+  end
+  for _, g in ipairs(r.gens or {}) do if g.valid then kw = kw + (g.energy_generated_last_tick or 0) * 60 / 1000 end end
+  return { n = n, dry = dry, kw = kw }
+end
+
 local function cut(s, rec)
   local boilers = sorted(s.find_entities_filtered({ type = "boiler", force = rec.force }))
   local removed, chests, belts_cut = 0, 0, 0
@@ -179,6 +196,8 @@ base.tick = function(ctx, e)
       local sm = sample(s, fr.force)
       if sm.sat then r.pre[#r.pre + 1] = sm.sat end
       r.pre_kw = sm.kw
+      r.prekw = r.prekw or {}
+      r.prekw[#r.prekw + 1] = sm.kw
     end
   elseif e.tick == T_CUT then
     for _, fr in ipairs(forces_list()) do
@@ -191,6 +210,18 @@ base.tick = function(ctx, e)
       local sum = 0
       for _, v in ipairs(r.pre) do sum = sum + v end
       r.sat0 = #r.pre > 0 and sum / #r.pre or nil
+      -- s43 blackout-juge : le jugement ne porte que sur les chaudières et machines PRÉSENTES à la coupe (une centrale finie après la coupe
+      -- démarre vide, une demande qui grandit sur une centrale saturée n'est pas un défaut de reprise) ; production d'avant = moyenne des 2 min
+      local ksum = 0
+      for _, v in ipairs(r.prekw or {}) do ksum = ksum + v end
+      r.kw0 = (r.prekw and #r.prekw > 0) and ksum / #r.prekw or 0
+      r.boil = {}
+      for _, bo in ipairs(sorted(s.find_entities_filtered({ type = "boiler", force = fr.force }))) do
+        local inv = bo.get_fuel_inventory()
+        local lit = not (inv and inv.is_empty()) or ((bo.burner and bo.burner.remaining_burning_fuel) or 0) > 0
+        if lit then r.boil[#r.boil + 1] = bo end -- (une chaudière déjà à sec avant la coupe, centrale en chantier, n'est pas jugée)
+      end
+      r.gens = sorted(s.find_entities_filtered({ type = "generator", force = fr.force }))
       if r.on then cut(s, r) end
       log(TAG .. string.format("coupe a %d min | %s | centrale en marche %s (chaudieres %d machines %d pompes %d, %.0f kW) | sat avant %s | combustible retire %s | coffres vides %s | tapis porteurs %s, coupes %s",
         T_CUT / MIN, fr.key, tostring(r.on), n_b, n_g, n_p, r.pre_kw or 0, r.sat0 and string.format("%.3f", r.sat0) or "-",
@@ -206,14 +237,16 @@ base.tick = function(ctx, e)
       if r.on then
         local sm = sample(s, r.force)
         r.min = math.min(r.min or 1, sm.sat or 0)
-        if not r.relit and sm.dry < sm.boilers then r.relit = dt end
-        local good = sm.sat and r.sat0 and sm.sat >= 0.95 * r.sat0
+        local c = cut_state(r)
+        if not r.relit and c.dry < c.n then r.relit = dt end
+        -- reprise : toutes les chaudières de la coupe allumées ET les machines de la coupe à 90 % de la production d'avant
+        local good = c.dry == 0 and c.kw >= 0.9 * (r.kw0 or 0)
         if good then r.run = (r.run or 0) + 1 else r.run = 0 end
-        if r.dipped == nil and sm.sat and r.sat0 and sm.sat < 0.95 * r.sat0 then r.dipped = dt end
+        if r.dipped == nil and not good then r.dipped = dt end
         if r.dipped and not r.back and (r.run or 0) >= 3 then r.back = dt - 2 * STEP end
         if dt % MIN == 0 then
-          log(TAG .. string.format("+%d min | %s | sat %s | %.0f kW | chaudieres a sec %d/%d | consommateurs %d",
-            dt / MIN, r.key, sm.sat and string.format("%.3f", sm.sat) or "-", sm.kw, sm.dry, sm.boilers, sm.n))
+          log(TAG .. string.format("+%d min | %s | coupe : chaudieres a sec %d/%d, %.0f kW sur %.0f avant | toute la force : sat %s, %.0f kW, chaudieres a sec %d/%d, consommateurs %d",
+            dt / MIN, r.key, c.dry, c.n, c.kw, r.kw0 or 0, sm.sat and string.format("%.3f", sm.sat) or "-", sm.kw, sm.dry, sm.boilers, sm.n))
         end
       end
     end
@@ -232,13 +265,13 @@ base.finish = function(ctx)
       n_on = n_on + 1
       local ok = (r.dipped == nil) or (r.back ~= nil and r.back - r.dipped <= T_MAX)
       if ok then n_ok = n_ok + 1 end
-      log(TAG .. string.format("RESULTAT equipe=%s sat_avant=%s sat_min=%.3f creux_s=%s rallumee_s=%s retour_s=%s verdict=%s",
-        k, r.sat0 and string.format("%.3f", r.sat0) or "-", r.min or -1, r.dipped and tostring(r.dipped / 60) or "-",
+      log(TAG .. string.format("RESULTAT equipe=%s chaudieres_coupe=%d kw_avant=%.0f sat_avant=%s sat_min=%.3f creux_s=%s rallumee_s=%s retour_s=%s verdict=%s",
+        k, #(r.boil or {}), r.kw0 or 0, r.sat0 and string.format("%.3f", r.sat0) or "-", r.min or -1, r.dipped and tostring(r.dipped / 60) or "-",
         r.relit and tostring(r.relit / 60) or "jamais", r.back and tostring((r.back - (r.dipped or 0)) / 60) or "jamais", ok and "OK" or "ECHEC"))
     end
   end
   ctx.check(n_on >= 1, "au moins une force avait une centrale en marche a la coupe", tostring(n_on))
-  ctx.check(n_ok == n_on, "chaque centrale coupee revient au niveau d'avant en moins de 5 min", n_ok .. "/" .. n_on)
+  ctx.check(n_ok == n_on, "chaque centrale coupee : ses chaudieres rallumees et 90 % de sa production d'avant en moins de 5 min", n_ok .. "/" .. n_on)
   log(TAG .. string.format("BILAN : %d centrale(s) coupee(s), %d revenue(s) en moins de %d min", n_on, n_ok, T_MAX / MIN))
 end
 
