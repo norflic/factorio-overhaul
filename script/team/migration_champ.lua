@@ -2171,6 +2171,7 @@ local function plates_total(f)
   if type(force) == "string" then force = game.forces[force] end
   if not (force and force.valid) then return nil end
   local stats = force.item_production_statistics
+  if not (stats and stats.get_input_count) then return nil end
   local seen, n = {}, 0
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local tk = T.outposts[kind]
