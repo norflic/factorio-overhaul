@@ -68,7 +68,7 @@ ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4
           ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
-ENNEMIS = ("kaiju", "ecorcheur", "corroder")   # s43 : Corroder, corps 3D de la famille toxique (prototypes/enemies.lua)
+ENNEMIS = ("kaiju", "ecorcheur", "corroder", "corroder_cracheur")   # s43 : Corroder, corps 3D de la famille toxique (prototypes/enemies.lua)
 # s43 (refonte 3D du Kaiju et de l'Écorcheur) : le Kaiju titanesque (15 tuiles de haut) dépasse 2 048 px par feuille ; lueur et ombre
 # à demi-densité (halo diffus, ombre floue : budget de mémoire vidéo), corps à pleine densité
 ENNEMIS_DIVS = {"main": 1, "glow": 2, "shadow": 2}
@@ -142,7 +142,7 @@ def dossier(src, sub):
     raise SystemExit("MANQUE : " + sub + " dans " + src)
 
 
-def anime(S, src, poids, sub, base, cle, divs, max_px, ndirs=None):
+def anime(S, src, poids, sub, base, cle, divs, max_px, ndirs=None, anims=None):
     """Feuilles d'un titan animé : npz de <src>/<sub>/<base>-<anim>-<image>-<dir>.npz -> hr-<cle>-<anim>-<couche>-<dir>.png (et sans hr-).
     divs : diviseur de densité par couche (hr = densité du rendu / div). Rend { course, attaque, icone }.
     ndirs : directions des feuilles ; à défaut, DIRS du module LU À L'APPEL (feuilles_leviathan.py fixe FT.DIRS = 16 avant d'appeler : une
@@ -151,7 +151,7 @@ def anime(S, src, poids, sub, base, cle, divs, max_px, ndirs=None):
     d = dossier(src, sub)
     out = {}
     icone = None
-    for anim, nb in ANIMS:
+    for anim, nb in (anims or ANIMS):
         images = {}
         for k in range(ndirs):
             for i in range(nb):
@@ -277,6 +277,9 @@ def seul(a):
         # s43 : ennemi à une série (Kaiju, Écorcheur) : même entrée que main() ; source <src>/<nom>/<nom>-<anim>-<image>-<dir>.npz
         e = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
         e.update(anime(S, a.src, pd, nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
+        # s43 : CADAVRE (pièce fixe « mort », une image par direction) s'il est rendu : feuilles hr-<nom>-cadavre-mort-<couche>-<dir>.png
+        if os.path.exists(os.path.join(dossier(a.src, nom), "%s-mort-00-00.npz" % nom)):
+            e["cadavre"] = anime(S, a.src, pd, nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", 1),))
     else:
         _, stades, divs, max_px = ent[0]
         nd = directions_de(nom)
@@ -371,6 +374,8 @@ def main():
         for nom in ENNEMIS:
             spr[nom] = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
             spr[nom].update(anime(S, a.src, poids[nom], nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
+            if os.path.exists(os.path.join(dossier(a.src, nom), "%s-mort-00-00.npz" % nom)):   # s43 : cadavre (voir seul())
+                spr[nom]["cadavre"] = anime(S, a.src, poids[nom], nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", 1),))
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("-- FICHIER GÉNÉRÉ par tools/render/pieces/titans/feuilles_titans.py (lot TITANS) : ne pas modifier à la main.\n")

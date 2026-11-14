@@ -73,7 +73,7 @@ def plaque_rongee(lot, M, p, n, w, h, e, up, graine):
     lot.put(M["ronge"], pointe(G.add(p, G.mul(side, 0.5 * w)), G.norm(G.add(side, G.mul(upn, -0.3))), 0.18 * w + 0.06, 0.05, 4))
 
 
-def corps(lot, M, u, bob, gonfle):
+def corps(lot, M, u, bob, gonfle, cracheur=False):
     """Corps bas et large : loft de chair, carapace rongée en écailles, poches d'acide (dos, flancs), filets d'acide qui coulent."""
     sw = 0.06 * math.sin(G.TAU * u)
     ctrl = [(-1.25, -sw * 2, 0.40 + bob * 0.5), (-0.8, -sw, 0.62 + bob), (-0.2, 0.0, 0.78 + bob), (0.45, 0.0, 0.80 + bob), (0.95, 0.0, 0.72 + bob)]
@@ -103,7 +103,20 @@ def corps(lot, M, u, bob, gonfle):
             if t > 0.25:
                 plaque_rongee(lot, M, (p[0], p[1] + s * w * 0.85, p[2] + h * 0.25), G.norm((0.0, s, 0.35)), 0.42, 0.36, 0.05, d, i + s)
     # poches d'acide : trois sur le dos (la plus grosse au milieu), deux sur chaque flanc ; elles gonflent à l'attaque
-    for x, r, dz in ((-0.75, 0.17, 0.0), (-0.2, 0.24, 0.05), (0.35, 0.16, 0.0)):
+    poches = ((-0.75, 0.17, 0.0), (-0.2, 0.24, 0.05), (0.35, 0.16, 0.0))
+    if cracheur:
+        # CRACHEUR : une grosse POCHE D'ACIDE dorsale à l'arrière (le réservoir du crachat), cerclée de côtes rongées ; elle se vide à l'attaque
+        i = min(range(n), key=lambda q: abs(pts[q][0] + 0.55))
+        p, w, h, t = prof[i]
+        rr = max(0.12, 0.46 * (1.0 - 0.3 * gonfle))
+        c = (p[0] - 0.05, p[1], p[2] + h * 0.75 + rr * 0.55)
+        lot.put(M["acide"], G.sphere(c, rr, 14, 7))
+        for kk in range(3):
+            a = -0.6 + 0.6 * kk
+            lot.put(M["ronge"], G.oriente(G.tour([(-0.03, rr * 1.02), (0.03, rr * 1.02), (0.03, rr * 1.08), (-0.03, rr * 1.08)], 14, "z"), c,
+                                          G.norm((math.cos(a), 0.0, math.sin(a)))))
+        poches = ((0.35, 0.14, 0.0),)
+    for x, r, dz in poches:
         i = min(range(n), key=lambda q: abs(pts[q][0] - x))
         p, w, h, t = prof[i]
         c = (p[0], p[1] + 0.08, p[2] + h * 0.92 + dz)
@@ -134,7 +147,7 @@ def patte(lot, M, hanche, pied0, u, s, l1, l2, avant):
     lot.put(M["os"], pointe(G.lerp(genou, pied, 0.8), G.norm(G.sub(pied, genou)), G.length(G.sub(pied, genou)) * 0.25, 0.05, 4))
 
 
-def tete(lot, M, base, ouverture):
+def tete(lot, M, base, ouverture, cracheur=False):
     """Tête large et plate (bilieux) : crâne de carapace rongée, yeux d'acide, mandibules en crochets qui s'ouvrent, gueule d'acide."""
     bx, by, bz = base
     pitch = -0.4 * ouverture
@@ -148,6 +161,8 @@ def tete(lot, M, base, ouverture):
     for s in (-1, 1):
         lot.put(M["acide"], G.sphere(P(0.32, s * 0.30, 0.14), 0.055, 8, 4))
         lot.put(M["ronge"], pointe(P(0.0, s * 0.36, 0.2), G.norm((-0.8, s * 0.5, 0.5)), 0.28, 0.05, 4))
+        if cracheur:
+            continue
         # mandibule en crochet : s'écarte avec l'ouverture
         a = 0.25 + 0.7 * ouverture
         m0 = P(0.45, s * 0.22, -0.1)
@@ -155,17 +170,36 @@ def tete(lot, M, base, ouverture):
         m2 = P(0.86, s * (0.10 + 0.20 * a), -0.14)
         lot.put(M["os"], G.tube([m0, m1, m2], 0.04, 5))
         lot.put(M["os"], pointe(m2, G.norm(G.sub(m2, m1)), 0.14, 0.04, 4))
+    if cracheur:
+        # BOUCHE DE CRACHAT : trompe d'os annelée qui se dresse à l'attaque, goutte d'acide au bout qui grossit
+        b0, b1, b2 = P(0.45, 0.0, -0.02), P(0.72, 0.0, 0.02 + 0.12 * ouverture), P(0.95, 0.0, 0.10 + 0.30 * ouverture)
+        lot.put(M["os"], G.tube([b0, b1, b2], 0.075, 7))
+        for q in (0.3, 0.6, 0.9):
+            lot.put(M["ronge"], G.sphere(G.lerp(b0, b2, q), 0.088, 7, 3))
+        lot.put(M["acide"], G.sphere(b2, 0.065 + 0.10 * ouverture, 10, 5))
+        lot.put(M["bave"], G.tube([b2, G.add(b2, (0.02, 0.0, -0.15)), G.add(b2, (0.03, 0.0, -0.3 + 0.1 * ouverture))], 0.02, 5))
+        return
     # gueule d'acide (grossit à l'attaque) et bave qui pend
     g = P(0.55, 0.0, -0.12)
     lot.put(M["acide"], G.sphere(g, 0.08 + 0.08 * ouverture, 8, 4))
     lot.put(M["bave"], G.tube([g, G.add(g, (0.02, 0.0, -0.18)), G.add(g, (0.0, 0.0, -0.32 - 0.2 * ouverture))], 0.02, 5))
 
 
-def build(S, lot, u=0.0, attaque=None):
-    """Pose du Corroder : u = phase de course ; attaque = phase d'attaque (0 à 1) ou None."""
+# CADAVRE (s43) : une pièce fixe par direction (batch_titans --piece mort) : la carcasse affalée, pattes repliées, poches crevées,
+# flaque d'acide au sol ; lue par prototypes/corps3d.lua (corpse.animation).
+PIECES = {"mort": {}}
+CRACHEUR = False          # corroder_cracheur.py le met à True (variante cracheur : poche dorsale et trompe de crachat)
+
+
+def build(S, lot, u=0.0, attaque=None, mort=False):
+    """Pose du Corroder : u = phase de course ; attaque = phase d'attaque (0 à 1) ou None ; mort = la carcasse."""
+    cracheur = CRACHEUR
     M = matieres(S)
     R.raz()
-    if attaque is None:
+    if mort:
+        bob, ouverture, gonfle, lunge = -0.42, 0.6, -0.9, 0.0
+        u = 0.0
+    elif attaque is None:
         bob = 0.03 * math.sin(G.TAU * 2.0 * u)
         ouverture, gonfle, lunge = 0.1, 0.0, 0.0
     else:
@@ -173,21 +207,31 @@ def build(S, lot, u=0.0, attaque=None):
         ouverture = math.sin(math.pi * min(1.0, attaque * 1.4))
         gonfle = math.sin(math.pi * attaque)
         lunge = 0.25 * ouverture
-    pts, prof = corps(lot, M, u, bob, gonfle)
-    # six pattes : tripode alterné (AG, MD, PG) puis (AD, MG, PD)
+    pts, prof = corps(lot, M, u, bob, gonfle, cracheur)
+    # six pattes : tripode alterné (AG, MD, PG) puis (AD, MG, PD) ; carcasse : pattes repliées vers le haut
     for nom, x, ph, avant in (("A", 0.55, 0.0, True), ("M", -0.05, 0.5, True), ("P", -0.65, 0.0, False)):
         for s in (-1, 1):
             p_ = ph if s > 0 else ph + 0.5
-            if attaque is not None:
+            if attaque is not None or mort:
                 p_ = 0.15 if s > 0 else 0.4
             hanche = (x, s * 0.5, 0.62 + bob)
             pied = (x + (0.25 if avant else -0.2), s * 1.05, 0.0)
+            if mort:
+                pied = (x + 0.15 * ((ord(nom) + s) % 3 - 1), s * 1.05, 0.75)
             patte(lot, M, hanche, pied, u + p_, s, 0.62, 0.78, avant)
     nk = pts[-1]
-    tete(lot, M, (nk[0] + 0.15 + lunge, nk[1], nk[2] - 0.05 - 0.15 * ouverture), ouverture)
+    tete(lot, M, (nk[0] + 0.15 + lunge, nk[1], nk[2] - 0.05 - 0.15 * ouverture), ouverture, cracheur)
+    if mort:
+        # flaque d'acide sous la carcasse (lueur faible, le prototype la dose)
+        lot.put(M["bave"], G.tour([(0.0, 0.0), (0.0, 0.95), (0.02, 0.85), (0.025, 0.0)], 18, "z", (-0.1, 0.05, 0.0)))
     return {"pieces": lot.n, "u": u, "attaque": attaque}
 
 
 def build_anime(S, lot, stage, u, attaque):
     """Entrée commune des titans animés (batch_titans.anime) : une seule série (les variantes sont des teintes et des tailles du jeu)."""
     return build(S, lot, u, attaque)
+
+
+def build_piece(S, lot, stage, piece):
+    """Pièce fixe (batch_titans --piece) : la carcasse."""
+    return build(S, lot, mort=True)

@@ -39,7 +39,7 @@ local function js(v)
   else return tostring(v) end
 end
 local f = E.families.toxic
-local out = { spr = spr.corroder, tint1 = f.tint1, tint2 = f.tint2, size = f.size, paliers = {} }
+local out = { spr = spr.corroder, spr_c = spr.corroder_cracheur, echelle = f.corps3d_echelle or 1, tint1 = f.tint1, tint2 = f.tint2, size = f.size, paliers = {} }
 for t = 1, E.TIERS do
   local base = E.tier_names[math.min(t, E.VANILLA_TIERS)]
   local nt = E.new_tiers[t]
@@ -124,14 +124,14 @@ def avant(D, t, fond, cx, cy):
     return g
 
 
-def apres(D, t, sorte, fond, cx, cy):
-    """Corroder : direction 3 sur 8 (sud-est), image 0 de la course ; corps teinté, lueur additive de la variante, ombre."""
-    A = D["spr"]
-    a = A["course"]
+def apres(D, t, sorte, fond, cx, cy, cadavre=False):
+    """Corroder : direction 3 sur 8 (sud-est), image 0 de la course (ou le cadavre) ; corps teinté, lueur additive de la variante, ombre."""
+    A = D["spr_c"] if (sorte == "spitter" and D.get("spr_c")) else D["spr"]
+    a = A["cadavre"]["mort"] if cadavre else A["course"]
     p = D["paliers"][t - 1]
-    g = VANILLA[p["base"]] * (p["nt"] / 1.2 if p["nt"] else 1.0) * D["size"]
+    g = VANILLA[p["base"]] * (p["nt"] / 1.2 if p["nt"] else 1.0) * D["size"] * D["echelle"]
     lueur, teinte = (p["lb"], p["cb"]) if sorte == "biter" else (p["ls"], p["cs"])
-    alpha = min(1.0, 0.45 + 0.05 * t)
+    alpha = min(1.0, 0.45 + 0.05 * t) * (0.4 if cadavre else 1.0)
     cc = a["couches"]
     for nom, mode in (("shadow", "ombre"), ("main", "over"), ("glow", "add")):
         c = cc[nom]
@@ -154,19 +154,21 @@ def main():
     gs = []
     for t in PALIERS:
         p = D["paliers"][t - 1]
-        gs.append(VANILLA[p["base"]] * (p["nt"] / 1.2 if p["nt"] else 1.0) * D["size"])
+        gs.append(VANILLA[p["base"]] * (p["nt"] / 1.2 if p["nt"] else 1.0) * D["size"] * D["echelle"])
     cws = [max(150, int(100 * g)) for g in gs]
     xs = [170 + sum(cws[:i]) + cws[i] // 2 for i in range(len(cws))]
     ch = max(170, int(80 * max(gs)))
-    W, H = 170 + sum(cws) + 20, ch * 3 + 50
+    W, H = 170 + sum(cws) + 20, ch * 4 + 50
     fond = np.ones((H, W, 4)) * np.array([0.33, 0.27, 0.19, 1.0])
     img_lignes = (("AVANT : dechiqueteur vanilla recolore", "avant"), ("APRES : Corroder, dechiqueteurs", "biter"),
-                  ("APRES : Corroder, cracheurs", "spitter"))
+                  ("APRES : Corroder, cracheurs", "spitter"), ("APRES : cadavres (dechiqueteurs)", "cadavre"))
     for li, (_, sorte) in enumerate(img_lignes):
         for ci, t in enumerate(PALIERS):
             cx, cy = xs[ci], 40 + li * ch + ch // 2
             if sorte == "avant":
                 avant(D, t, fond, cx, cy)
+            elif sorte == "cadavre":
+                apres(D, t, "biter", fond, cx, cy, cadavre=True)
             else:
                 apres(D, t, sorte, fond, cx, cy)
     im = Image.fromarray((np.clip(fond, 0, 1) * 255).astype(np.uint8)).convert("RGB")

@@ -45,6 +45,23 @@ function M.animation(id, nom, k, corps, lueur, alpha, vitesse)
   return { layers = { couche(A, a.couches.main, a, k, principal), couche(A, a.couches.glow, a, k, gl), couche(A, a.couches.shadow, a, k, ombre) } }
 end
 
+--- Animation du CADAVRE (corpse.animation) du corps `id` : une image par direction (pièce « mort »), lueur résiduelle ; nil sans feuille.
+function M.cadavre(id, k, corps, lueur, alpha)
+  local A = SPR[id]
+  local C = A and A.cadavre
+  if not (C and C.mort) then return nil end
+  local a = C.mort
+  local principal = { tint = { r = corps.r, g = corps.g, b = corps.b, a = 1 } }
+  local gl = { draw_as_glow = true, blend_mode = "additive", tint = { r = lueur.r * alpha, g = lueur.g * alpha, b = lueur.b * alpha, a = alpha } }
+  return { layers = { couche(A, a.couches.main, a, k, principal), couche(A, a.couches.glow, a, k, gl), couche(A, a.couches.shadow, a, k, { draw_as_shadow = true }) } }
+end
+
+--- Icône rendue du corps `id` ({ filename, size }) ou nil.
+function M.icone(id)
+  local A = SPR[id]
+  return A and A.icone
+end
+
 --- distance_per_frame : le pied d'appui reste fixe au sol, à l'échelle k.
 function M.distance_par_image(id, k)
   local A = SPR[id]

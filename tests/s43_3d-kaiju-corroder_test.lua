@@ -15,7 +15,7 @@ local function read(p)
 end
 
 local SPR = dofile("graphics/robots/titans/sprites.lua")
-for _, id in ipairs({ "kaiju", "ecorcheur", "corroder" }) do
+for _, id in ipairs({ "kaiju", "ecorcheur", "corroder", "corroder_cracheur" }) do
   local K = SPR[id]
   check(K and K.directions == 8 and K.course and K.course.images == 8 and K.attaque and K.attaque.images == 4, id .. " : 8 directions, 8 + 4 images")
   if K and K.course then
@@ -66,6 +66,16 @@ check(distinct, "teinte : chaque palier a sa teinte")
 check(c1.r <= 1 and c1.g <= 1 and c1.b <= 1 and c1.r >= 1 - E.families.toxic.part_corps - 1e-9, "teinte du corps : blanc mêlé à la part part_corps")
 check(E.teinte_variante("armored", "biter", 3) == nil and E.teinte_variante(nil, "biter", 3) == nil, "teinte : nil hors des familles à variantes")
 local P = read("prototypes/enemies.lua")
-check(P:find("f%.corps3d") and not P:find('"corroder"') and not P:find('"toxic"'), "prototype : corps 3D branché par les données (aucun nom en dur)")
+check(P:find("E%.corps3d%(") and not P:find('"corroder"') and not P:find('"toxic"'), "prototype : corps 3D branché par les données (aucun nom en dur)")-- tranche 2 : cracheur à corps propre, cadavre, icône, échelle relevée (données)
+local cb, cs = E.corps3d("toxic", "biter"), E.corps3d("toxic", "spitter")
+check(cb and cs and cb.id == E.families.toxic.corps3d and cs.id == E.families.toxic.corps3d_cracheur and cs.id ~= cb.id, "corps 3D : le cracheur a son propre corps")
+check(cs.cadavre == cb.cadavre and cb.echelle >= 1.3, "corps 3D : cadavre commun, image relevée (≥ 1,3 × l'échelle vanilla)")
+check(E.corps3d("armored", "biter") == nil and E.corps3d(nil, "biter") == nil, "corps 3D : nil hors des familles à corps 3D")
+local CAD = SPR.corroder and SPR.corroder.cadavre and SPR.corroder.cadavre.mort
+check(CAD and CAD.images == 1 and #CAD.couches.main.hr == 8 and #CAD.couches.glow.hr == 8 and #CAD.couches.shadow.hr == 8, "cadavre du Corroder : 8 directions, une image, trois couches")
+check(SPR.corroder and SPR.corroder.icone and SPR.corroder_cracheur and SPR.corroder_cracheur.icone, "icônes rendues du Corroder et du cracheur")
+local C3 = read("prototypes/corps3d.lua")
+check(C3:find("function M%.cadavre") and C3:find("function M%.icone"), "corps3d.lua : cadavre et icône")
+check(P:find("corpse%.animation = cad") and P:find("icones3d"), "prototype : cadavre et icône du corps 3D branchés")
 print(string.format("s43_3d-kaiju-corroder : %d OK, %d échecs", ok_n, ko_n))
 if ko_n > 0 then os.exit(1) end

@@ -38,8 +38,8 @@ import geo as G  # noqa: E402
 import titans_mat as TM  # noqa: E402
 
 ALLIES = ("juggernaut", "sentinelle", "leviathan", "ravageur")
-ANIMES = ("kaiju", "juggernaut", "ecorcheur", "ecorche", "ravageur", "sentinelle", "leviathan", "corroder")   # modules à SERIE (8 directions × images ; TITANS-8DIR : Sentinelle, Léviathan)
-SANS_STADE = ("kaiju", "ecorcheur", "corroder")   # ennemis à un prototype par ère : une seule série, l'échelle vient du jeu (lot KAIJUS-MUTANTS)
+ANIMES = ("kaiju", "juggernaut", "ecorcheur", "ecorche", "ravageur", "sentinelle", "leviathan", "corroder", "corroder_cracheur")   # modules à SERIE (8 directions × images ; TITANS-8DIR : Sentinelle, Léviathan)
+SANS_STADE = ("kaiju", "ecorcheur", "corroder", "corroder_cracheur")   # ennemis à un prototype par ère : une seule série, l'échelle vient du jeu (lot KAIJUS-MUTANTS)
 
 
 def groupes(prefix):

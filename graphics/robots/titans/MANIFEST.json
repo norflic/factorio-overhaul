@@ -146,6 +146,150 @@
    "sha256": "140646568339e8682c63c8e6fc8766d147ca82646858c047718232e8956d1b27",
    "taille": 1924
   },
+  "corroder-cadavre-mort-glow-0.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "1a44a724860f8b4b40938ce68d8cf61f732c6a95d728575495abc280ac41477f",
+   "taille": 669
+  },
+  "corroder-cadavre-mort-glow-1.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "77a4212a0510aac4c14e3bbbb509f257b661b5fd377eb4e509ee62300872e788",
+   "taille": 591
+  },
+  "corroder-cadavre-mort-glow-2.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "cd1e390b98831ce86565ecf9c98f344d0f83e27b2109b2bf39829a63f34d45e2",
+   "taille": 629
+  },
+  "corroder-cadavre-mort-glow-3.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "5269dc8dad2c699cacc4abd256ce1e400fc76e444fa49f4cd4fea9583f54f57f",
+   "taille": 551
+  },
+  "corroder-cadavre-mort-glow-4.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "b729da27f1f142d9b18b9854c00769c3747fad1316440a73c8c963642f20ac7d",
+   "taille": 642
+  },
+  "corroder-cadavre-mort-glow-5.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "2395ae9e5e88ed4adf5c271b0dd70dffe45423df1ec9592502377a8a12824904",
+   "taille": 599
+  },
+  "corroder-cadavre-mort-glow-6.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "6003134c83b784be0d2e102640c1f67f2acc663aee2f362f84071d38bc7a2419",
+   "taille": 653
+  },
+  "corroder-cadavre-mort-glow-7.png": {
+   "hauteur": 34,
+   "largeur": 47,
+   "sha256": "264be021643b6e8c7df7dc0667e102f84f7534957aa6506082adefaf4cad9261",
+   "taille": 610
+  },
+  "corroder-cadavre-mort-main-0.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "4c6d24404b8d7abc208dc3a343cabeecb9716bb096751572e9908a2c1e6c388d",
+   "taille": 7285
+  },
+  "corroder-cadavre-mort-main-1.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "6eb9ab419811b15fd8deae6688e70dc60b164836111244712a27b0affd2bdba0",
+   "taille": 7628
+  },
+  "corroder-cadavre-mort-main-2.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "a1cbb5491de2abee695da254bef1cfe4b8ffe41b950b39f305896e99f67fed08",
+   "taille": 8262
+  },
+  "corroder-cadavre-mort-main-3.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "780c6edce062009961f786055cb649bb2cc9802707b94287d7c3c53a0ea94a16",
+   "taille": 8400
+  },
+  "corroder-cadavre-mort-main-4.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "dd4a886b0210393b3f086a500495d295fcac7da0199a4a2a29c388be80e41c63",
+   "taille": 8174
+  },
+  "corroder-cadavre-mort-main-5.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "996c366d6dc6a5450b270ff9a9cc8c3a9aa92d8d3098f527f90b97e0a595c218",
+   "taille": 8186
+  },
+  "corroder-cadavre-mort-main-6.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "1ea255fa960debcd8f64607207177d2c3fa2731f70f179b2ea86f6bf5379ccaf",
+   "taille": 8220
+  },
+  "corroder-cadavre-mort-main-7.png": {
+   "hauteur": 74,
+   "largeur": 98,
+   "sha256": "dbf831a49f5c7415699d143c21b63701facc04e13fa916bb167c1b888f99b237",
+   "taille": 7486
+  },
+  "corroder-cadavre-mort-shadow-0.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "4232d4cdf9b9e157b381d0e38fd0b32b2beb6ff09414934d803303a69c7762c5",
+   "taille": 598
+  },
+  "corroder-cadavre-mort-shadow-1.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "7d1295b2feb7a548449978c9b666b88a5fce48da11f3fc088e7deb1b908b1c90",
+   "taille": 574
+  },
+  "corroder-cadavre-mort-shadow-2.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "7ad84f98954f2e4a210c7a0cccfb674ed3b8306b66cae6897967c10caf21c555",
+   "taille": 495
+  },
+  "corroder-cadavre-mort-shadow-3.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "7f04c778bc8f7bc42cc448b297e7ff49de319ea6fc79a4600e9634124ce18df4",
+   "taille": 557
+  },
+  "corroder-cadavre-mort-shadow-4.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "7699b3ab52013f409995ab01ecb1477f1b0f2beabe1a3bb6e3d1189d2171622a",
+   "taille": 632
+  },
+  "corroder-cadavre-mort-shadow-5.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "a7952ab4da3550bc0b922f4eaa738d9e3612ed6f577956b75bfe783aed6af884",
+   "taille": 665
+  },
+  "corroder-cadavre-mort-shadow-6.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "16e01d2442cc721aaf2c130aad433c496844f685dd5ccd2dea344be4702bb1e1",
+   "taille": 581
+  },
+  "corroder-cadavre-mort-shadow-7.png": {
+   "hauteur": 30,
+   "largeur": 45,
+   "sha256": "4a9b3752365a1674c5db7c678694c61a20b9130d16da2703f4124046a9ebdbbc",
+   "taille": 627
+  },
   "corroder-course-glow-0.png": {
    "hauteur": 34,
    "largeur": 344,
@@ -289,6 +433,294 @@
    "largeur": 408,
    "sha256": "10ee2c74f6c6385a07be6ed3bcedd814cd55bf9ad964a6427c4470fd0ad71692",
    "taille": 5999
+  },
+  "corroder_cracheur-attaque-glow-0.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "4aa931c5a9cfdea42b08cd199d1fa7a73329c2732c96045f88ad941970600d72",
+   "taille": 1783
+  },
+  "corroder_cracheur-attaque-glow-1.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "ac553d5821a6ca5049d06a2e56472c95b0de65535ed08125ae02178de4776bef",
+   "taille": 1789
+  },
+  "corroder_cracheur-attaque-glow-2.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "85d48f68d41ee38fb67f61788ea306124b4160b7a8b2300bcd53727626bf8642",
+   "taille": 1853
+  },
+  "corroder_cracheur-attaque-glow-3.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "b630e583e9879b1bacab40a913c5010f58b42d782dd641125daba836b7d1f631",
+   "taille": 1656
+  },
+  "corroder_cracheur-attaque-glow-4.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "d07fe8e4e23452160b6936350d8a10ce8fef6528a8b39ea446c0bbe7442c488b",
+   "taille": 1616
+  },
+  "corroder_cracheur-attaque-glow-5.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "4fc9707d198bac71c3b367a08a03be24769abf5a43d89c00950a6269861183c7",
+   "taille": 1632
+  },
+  "corroder_cracheur-attaque-glow-6.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "bd720b23b5aaedeb6e0299c55863d2a0cb3698cb643673b44c8e2841d8c81a2c",
+   "taille": 1813
+  },
+  "corroder_cracheur-attaque-glow-7.png": {
+   "hauteur": 45,
+   "largeur": 236,
+   "sha256": "5ebf49f176efe455d575fd41b65287e6551d1d833e2b4990e96292b60a78f6d7",
+   "taille": 1822
+  },
+  "corroder_cracheur-attaque-main-0.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "bac4cdf1eea9fdda8325af2672215b9ec15d06e44539e65394fbd5a89a4c34c4",
+   "taille": 22786
+  },
+  "corroder_cracheur-attaque-main-1.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "cc019060954780129d7e98ae6d32d22079ba6f273fb7f3c92394a9a06ae5ed40",
+   "taille": 24758
+  },
+  "corroder_cracheur-attaque-main-2.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "3298c70138be8e989d5b0e602e12ba65ed47e6b9f21c56be3659d0b9b6ad602e",
+   "taille": 24728
+  },
+  "corroder_cracheur-attaque-main-3.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "ac53f4502ecd192a12d579d65158f011d1f691230766227fa69cec20e5781593",
+   "taille": 26217
+  },
+  "corroder_cracheur-attaque-main-4.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "c1cb2caa938a548449731b79573f62321a1a9df19e64bd4b91f2df39d24eeea2",
+   "taille": 25860
+  },
+  "corroder_cracheur-attaque-main-5.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "e9cda01fdea9298e4fea271211eda402fe025eaf7b035ccb80b90e5157f3bb70",
+   "taille": 25057
+  },
+  "corroder_cracheur-attaque-main-6.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "77a943b6a5dc7485225a9b029b81a1b33a165fff9805c7df0bbf73392799e092",
+   "taille": 24679
+  },
+  "corroder_cracheur-attaque-main-7.png": {
+   "hauteur": 89,
+   "largeur": 472,
+   "sha256": "a8383fb0982d08716c6da1fd94e805753a81998bd3d05ff65f35f4555a4b7940",
+   "taille": 22942
+  },
+  "corroder_cracheur-attaque-shadow-0.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "31a5c408c9aa512113a8ceb57f715a6182e1188e4b63cc80b3ed267ad49ea119",
+   "taille": 2151
+  },
+  "corroder_cracheur-attaque-shadow-1.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "7bfcc8d5038b86929998b55ed95eb07f511206e78ac878f37190550b05dbff78",
+   "taille": 2040
+  },
+  "corroder_cracheur-attaque-shadow-2.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "c8877e142366eccafd031d782711fcc1f97feabf424f89171a0adf14298d294c",
+   "taille": 1632
+  },
+  "corroder_cracheur-attaque-shadow-3.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "e2a562b36cf55285674fa2161fd6bdb360eed588f94716b4596f58522242266e",
+   "taille": 1876
+  },
+  "corroder_cracheur-attaque-shadow-4.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "fcae9108038cdae438149edc6390898a7a8b2288fb31503c870131ae95eadca7",
+   "taille": 2100
+  },
+  "corroder_cracheur-attaque-shadow-5.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "1c25e9bdb8bf4d97ead4a80f4522a9bea726d550e249f87a95e30e782833ed2c",
+   "taille": 2002
+  },
+  "corroder_cracheur-attaque-shadow-6.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "5d91998642f111e4e89b5bb6ad792d162cd7b0c0f6c3d24021804959681ca3ba",
+   "taille": 1968
+  },
+  "corroder_cracheur-attaque-shadow-7.png": {
+   "hauteur": 43,
+   "largeur": 252,
+   "sha256": "7044d6d35e7cdbdb6690910409c055647b6ac011a0a00f72b624f0617451def6",
+   "taille": 1967
+  },
+  "corroder_cracheur-course-glow-0.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "a8b0a509c167e91bad8f0ce006e9677abb3460d35000c8b608ff34e004f7b597",
+   "taille": 3922
+  },
+  "corroder_cracheur-course-glow-1.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "0ccd271c7e17afb20c80ba853ae2e1181925123e408c795c35532a87f218fd00",
+   "taille": 3961
+  },
+  "corroder_cracheur-course-glow-2.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "81a37eb53410d7705229c31d26c08acccfc104cf6dd78bf2a8c388a16c9d2fde",
+   "taille": 3885
+  },
+  "corroder_cracheur-course-glow-3.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "67e8659577fcfd837c6f8ecf5da0d4a0cef0628a576dd83bd9eea794be59b98b",
+   "taille": 3391
+  },
+  "corroder_cracheur-course-glow-4.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "051d6a1834afd97f8bbfb908addf0dcb1a9c08af8778b4640bf206a05ce3447b",
+   "taille": 3205
+  },
+  "corroder_cracheur-course-glow-5.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "bb55a9cdec0096711dbdb61b63993005d369ec1426efc572cf144bd677e5b414",
+   "taille": 3594
+  },
+  "corroder_cracheur-course-glow-6.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "5c0b82a9fbd83097abd59e05ce000b9b448a094d4b9a40870dffeeea2289ed27",
+   "taille": 3915
+  },
+  "corroder_cracheur-course-glow-7.png": {
+   "hauteur": 40,
+   "largeur": 424,
+   "sha256": "50e1cd41000671f4aeb4e56643120afce7c8122aba44173bb10286378e01bc81",
+   "taille": 4062
+  },
+  "corroder_cracheur-course-main-0.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "2a25a8bb5e6e30dc61ff723e37d22e7e9b27da31395846c83f644f5c9fee0a3d",
+   "taille": 58662
+  },
+  "corroder_cracheur-course-main-1.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "5affab2039c866bad5f062117acf5471033eff31947b77c4609f29f57b81988c",
+   "taille": 62243
+  },
+  "corroder_cracheur-course-main-2.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "96fe6a4bc7ea486d7021bd71cbf53062be189eb49ed1b86961b1dc3bbf053bc2",
+   "taille": 61292
+  },
+  "corroder_cracheur-course-main-3.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "1f4fdd5ddf8ea38814e656b62e3fb4b6a8d7529db67ffe90230cdfd0d73d48a0",
+   "taille": 62573
+  },
+  "corroder_cracheur-course-main-4.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "20aabe93ee8b931fae8f1f8d173a7c4559f9837a0b5e768a70a8cfa6bc096a72",
+   "taille": 60352
+  },
+  "corroder_cracheur-course-main-5.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "0f625e311bc2e9d52684e7b44b88627e625f34a9037ad8e5c9e900da7ed9b04e",
+   "taille": 61114
+  },
+  "corroder_cracheur-course-main-6.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "92119d532a9214c47030d4a89c0f20c5c1049d2a417830482c01b73cadf7c7ca",
+   "taille": 60333
+  },
+  "corroder_cracheur-course-main-7.png": {
+   "hauteur": 81,
+   "largeur": 832,
+   "sha256": "c6688b1beb1cc48c4b627541e863a2bec2cc69b649ed45ebeb4ad12c95d3c94a",
+   "taille": 61322
+  },
+  "corroder_cracheur-course-shadow-0.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "0db94163a613649d59d454e4617745a0f2523da41394917d2f99fff4eb44f2bb",
+   "taille": 5587
+  },
+  "corroder_cracheur-course-shadow-1.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "66380b09f6ef7b14ae97ea7be49a70fdd9c13a3e512b23f6e86cba1a65c18485",
+   "taille": 5604
+  },
+  "corroder_cracheur-course-shadow-2.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "6ad1d6ce974bada8915f91d5cc3d22241e198ec5463477e6109cf253bc296cf4",
+   "taille": 5223
+  },
+  "corroder_cracheur-course-shadow-3.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "99e3cfe3b1d7e00aa2dbe604f8a0880d1010cd571e69e81beaa279afe9339fa2",
+   "taille": 5529
+  },
+  "corroder_cracheur-course-shadow-4.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "7b863cdd99c94eea762ef5e0d84892a64d7329ea436790ed9c759c08f00c9c44",
+   "taille": 5784
+  },
+  "corroder_cracheur-course-shadow-5.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "78e9a898b13f467b9b78e20c6e92cf4971a4f43e7bddb6ec4aad5184302c7e32",
+   "taille": 5987
+  },
+  "corroder_cracheur-course-shadow-6.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "6d4b1aa8e809202c5e1edaba1b4e8db60bef4f53e696ed2de0a0622648db8e6f",
+   "taille": 5886
+  },
+  "corroder_cracheur-course-shadow-7.png": {
+   "hauteur": 38,
+   "largeur": 448,
+   "sha256": "9d2f86fc628636b059c4351b09936a4becf18a4b6450e6fba61b85d964b8c83c",
+   "taille": 6088
   },
   "ecorche-1-attaque-glow-0.png": {
    "hauteur": 53,
@@ -1586,6 +2018,150 @@
    "sha256": "b6c2df360506da0b7eaf112be5c99ddd16b98df3b423ea883ff650ca6e80ca80",
    "taille": 4301
   },
+  "hr-corroder-cadavre-mort-glow-0.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "fef87239e078dbc1e39a7883f9902fbdb735f903c67abee485e97916dbf2dea4",
+   "taille": 1393
+  },
+  "hr-corroder-cadavre-mort-glow-1.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "3bf791f6f9244bbbcbd05c324d325de4a0375c90c6997557a56b383fc20dc51a",
+   "taille": 1288
+  },
+  "hr-corroder-cadavre-mort-glow-2.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "4f7df04001ba72a2153335f65a45f5f72f73ffeef482e63c266addd62948382a",
+   "taille": 1394
+  },
+  "hr-corroder-cadavre-mort-glow-3.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "b30508eb40ea8ea71520771e0604c30cdd00668ae57ecc55936df45477a59fc0",
+   "taille": 1156
+  },
+  "hr-corroder-cadavre-mort-glow-4.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "ee72303ffd4e526bc19357a87277451391bdae7fbc871b0e175ee42936a3707c",
+   "taille": 1353
+  },
+  "hr-corroder-cadavre-mort-glow-5.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "9f2cb2ef4fc2b75ed3879624e230be9244186a8a5715caede09be1439c8ef1e5",
+   "taille": 1287
+  },
+  "hr-corroder-cadavre-mort-glow-6.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "92f745162b16a831df46552112939d1e86d2963252c06163dcc73ed6bf5cead9",
+   "taille": 1547
+  },
+  "hr-corroder-cadavre-mort-glow-7.png": {
+   "hauteur": 68,
+   "largeur": 94,
+   "sha256": "145e9ff2dcbf5d4eece17e04e122deb33c7897edcac0bb8cd06811bea6ae9678",
+   "taille": 1347
+  },
+  "hr-corroder-cadavre-mort-main-0.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "0810662f68abc32bc38d291fe636cdc2ea19c44453e82d09550a0a40cccd444b",
+   "taille": 23203
+  },
+  "hr-corroder-cadavre-mort-main-1.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "bbe17fc6c24ebf3f1588ef26237bceb23805a83f987f9773fc9039a65529cde2",
+   "taille": 24058
+  },
+  "hr-corroder-cadavre-mort-main-2.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "fe668d1439e5818defb718e0fb2d9acb010c90ebdaaf70c158d7c0d1b2cd0cbc",
+   "taille": 26120
+  },
+  "hr-corroder-cadavre-mort-main-3.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "86869254f77225b034c6489995ebd84b6309894d7dea0cb3e95c89b2ae4fd64a",
+   "taille": 25959
+  },
+  "hr-corroder-cadavre-mort-main-4.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "fa2c5646e917b1ab48e473a23db8998d3041d28d6ecddbef3c6e0df8f9c267f1",
+   "taille": 25588
+  },
+  "hr-corroder-cadavre-mort-main-5.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "abdc4d73786e8c375821bf5ff950495f45e0146c54c5ce5d5b7d732621f75b3e",
+   "taille": 25449
+  },
+  "hr-corroder-cadavre-mort-main-6.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "120327df482c74e85ca1b858b4d0a5f8182e42bf50079b8dc873ce96945e5891",
+   "taille": 25864
+  },
+  "hr-corroder-cadavre-mort-main-7.png": {
+   "hauteur": 148,
+   "largeur": 196,
+   "sha256": "45a6bea7d8e81eee75bc0bffb07a62d5591530cee8771bbc03818cda4b37ae8c",
+   "taille": 23483
+  },
+  "hr-corroder-cadavre-mort-shadow-0.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "894aace64205220ef2c6bb03b72caf1c774159a92ab43b85fe3bdaa809c3ec24",
+   "taille": 1056
+  },
+  "hr-corroder-cadavre-mort-shadow-1.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "edaea06de0aa9a08fab300e6737d398eb1f4588b6b3377592138a1cbc3a66941",
+   "taille": 949
+  },
+  "hr-corroder-cadavre-mort-shadow-2.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "f6055ba80baf16d872e32f391c6b49b9c4c34e073dcfaf908f9e7f3d4831ac0c",
+   "taille": 885
+  },
+  "hr-corroder-cadavre-mort-shadow-3.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "dca50a26b801a58c52f36220a4e3e6044e248dd1b0b89cbd42e288d8d075a653",
+   "taille": 1034
+  },
+  "hr-corroder-cadavre-mort-shadow-4.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "eed02e24a1d9155b3ebcb5e3af649c316c15c6f0480ecb8b90c43a9b6187ff71",
+   "taille": 1100
+  },
+  "hr-corroder-cadavre-mort-shadow-5.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "203b792060badc42c82222782a9e525ed1ed173b98ffde2d00be22315eb04f55",
+   "taille": 1181
+  },
+  "hr-corroder-cadavre-mort-shadow-6.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "6ca1a03dd63ba307325721879f991e4cec55463d3da90f12cf47b3934aad08d1",
+   "taille": 1058
+  },
+  "hr-corroder-cadavre-mort-shadow-7.png": {
+   "hauteur": 60,
+   "largeur": 90,
+   "sha256": "974625c69677436bf15f2673c434097b7d4a8ea39d28b0e323cccffacf73f9f3",
+   "taille": 1183
+  },
   "hr-corroder-course-glow-0.png": {
    "hauteur": 68,
    "largeur": 688,
@@ -1729,6 +2305,294 @@
    "largeur": 816,
    "sha256": "86c1599fd60701fd7e30ec606877b2eea14cb4bea3d445b72ac3102c51f784d9",
    "taille": 13294
+  },
+  "hr-corroder_cracheur-attaque-glow-0.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "437db3efa37c2ade4af4fc7316c9f028ca6fe307d335df07fa1bf6f91cf6f45d",
+   "taille": 4190
+  },
+  "hr-corroder_cracheur-attaque-glow-1.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "4e10a1e8605d2c8ab7ffcaad75a5869d800b1a7aabab33f2add79b2c1181eb2d",
+   "taille": 4385
+  },
+  "hr-corroder_cracheur-attaque-glow-2.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "8d5e780fe0ddb423a0ba8fff1df6f82c2de5d34cd8e5ccc8bdf0ea996fa55d9e",
+   "taille": 4377
+  },
+  "hr-corroder_cracheur-attaque-glow-3.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "ecb311f7e222997761d5544e7d208be68f8c02eafe6ff6ef23ba6f9be5da5f64",
+   "taille": 3932
+  },
+  "hr-corroder_cracheur-attaque-glow-4.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "5c87c3ac73b615b40dd780437fbd9025b60e0ef471c70eac5a991c2108005f29",
+   "taille": 3763
+  },
+  "hr-corroder_cracheur-attaque-glow-5.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "cdb6ebae300e601e62fd9f7d8924c6e6b450e7b834ead22fddb27dca91c7fb88",
+   "taille": 3805
+  },
+  "hr-corroder_cracheur-attaque-glow-6.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "83e3fd2eb1b0f8448e72a838061bac7867473fa9b4eae0372bd333fce5812ea4",
+   "taille": 4205
+  },
+  "hr-corroder_cracheur-attaque-glow-7.png": {
+   "hauteur": 90,
+   "largeur": 472,
+   "sha256": "1a850bd2350200a2a0bb2f9ae005cef2488c3058f3b7761757fce5d717fa0bf4",
+   "taille": 4307
+  },
+  "hr-corroder_cracheur-attaque-main-0.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "8db2b9a5d6a3d807886033fa3a2a8ccd6564f675fe6eb918d9cca0818de01756",
+   "taille": 74611
+  },
+  "hr-corroder_cracheur-attaque-main-1.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "a12982bdca633be0ff3b4551c7f8f9605e9272c1f5610499be611ce44cfd8a0b",
+   "taille": 79005
+  },
+  "hr-corroder_cracheur-attaque-main-2.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "3488f78bf6ea571b8560367d8b63fc09f1e789f37a294c7dc757b9efa226ec7a",
+   "taille": 80345
+  },
+  "hr-corroder_cracheur-attaque-main-3.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "195009f52fb81458df6606d2937fcdc304525f75d1f485f2497411718580e2a4",
+   "taille": 85001
+  },
+  "hr-corroder_cracheur-attaque-main-4.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "830202d2e87e8f30fae49d98c7c6e6313ee0ea1d65b329330752b7f95b6bb3a4",
+   "taille": 83040
+  },
+  "hr-corroder_cracheur-attaque-main-5.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "4c456c945a74d772b35ec98db07ae081f5793b353cc50db9fd0ee83411cb7f84",
+   "taille": 81748
+  },
+  "hr-corroder_cracheur-attaque-main-6.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "736123b172695af1f010805058466886dc5c4f433659e5ea5874f2ee53b169d3",
+   "taille": 80901
+  },
+  "hr-corroder_cracheur-attaque-main-7.png": {
+   "hauteur": 178,
+   "largeur": 944,
+   "sha256": "b25c96006d0090fd68cc9951519cd394d9a696a6c8b6c29a5bf05722e49b43ab",
+   "taille": 74393
+  },
+  "hr-corroder_cracheur-attaque-shadow-0.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "4137f1f8c7e52dab2989b8709ad4e334ff5114f490036ad4cf8e02c19be23d5c",
+   "taille": 4696
+  },
+  "hr-corroder_cracheur-attaque-shadow-1.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "79b7fb8c84c9adf43feb68be1885420a29306131ac7025e506fd51b97e72b75a",
+   "taille": 4266
+  },
+  "hr-corroder_cracheur-attaque-shadow-2.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "208ce01874b1a23788a9773b510a1bd95486e0d14847b36283c3e3998d157f13",
+   "taille": 3594
+  },
+  "hr-corroder_cracheur-attaque-shadow-3.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "dd0ed5ff4c001623ed27db55588a61a657faece4d03ac59e1d8131cd548e9c0f",
+   "taille": 4180
+  },
+  "hr-corroder_cracheur-attaque-shadow-4.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "20756c70af3d09198ff906196efbd8e6b6a7d697f0f6748accb062a0f6221a67",
+   "taille": 4537
+  },
+  "hr-corroder_cracheur-attaque-shadow-5.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "0ead007988463801abe1b10c5961f12558c0f8f796a17f55ccf0be55b48f476b",
+   "taille": 4237
+  },
+  "hr-corroder_cracheur-attaque-shadow-6.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "4e9d01d88aca18bbdac6b71f7268eecf60191796319df58a8d9002c214c723f3",
+   "taille": 4381
+  },
+  "hr-corroder_cracheur-attaque-shadow-7.png": {
+   "hauteur": 86,
+   "largeur": 504,
+   "sha256": "52d87406c6edb58e7fe2364f7d55bcfacdc094276c5cd6cb9a69a487a4507b6f",
+   "taille": 4308
+  },
+  "hr-corroder_cracheur-course-glow-0.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "bcfa1906ea3fcbc44e398316af6a0b1827b7de6d37bf3f63e5d798327f549cf6",
+   "taille": 9612
+  },
+  "hr-corroder_cracheur-course-glow-1.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "7cbc405246c6ea998740ec2015399f157c297d56d35d063abbd16f54554ecf58",
+   "taille": 10254
+  },
+  "hr-corroder_cracheur-course-glow-2.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "bf2521cc61cfe5cb46ee06ea79669be42aa0d43dbd22016135cdb6c744baae72",
+   "taille": 9909
+  },
+  "hr-corroder_cracheur-course-glow-3.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "a313eb9a0e5bcb7d72fe63875d899898a3a25e4652cf25e5f609901a6243c6ff",
+   "taille": 8461
+  },
+  "hr-corroder_cracheur-course-glow-4.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "6820e852d35419b752873196089508ea07bfd3ac6b75fe507849840cef903d7e",
+   "taille": 7720
+  },
+  "hr-corroder_cracheur-course-glow-5.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "e1faa42f3b3193170ef00e1980ce32ce29d644c91ae39ca7d1b234f0548cd94e",
+   "taille": 8828
+  },
+  "hr-corroder_cracheur-course-glow-6.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "a74cf3203e0b087ad98f0cfcf4763a82c1ca9754af6c6a22a92e5f8364db4422",
+   "taille": 10008
+  },
+  "hr-corroder_cracheur-course-glow-7.png": {
+   "hauteur": 80,
+   "largeur": 848,
+   "sha256": "0b3c9e9175f4979cd47e2acad005a72358c28a8de8f01ef78477b645e35ab93f",
+   "taille": 10557
+  },
+  "hr-corroder_cracheur-course-main-0.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "f872245c5757b594d1a1b61b4b986c5f7de203ccafa9a7187d2695946bb6a5dc",
+   "taille": 185856
+  },
+  "hr-corroder_cracheur-course-main-1.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "3a9fb76051c9dce79675bff78964ea5d2464c2ea997dff3284dc51fe845f61d4",
+   "taille": 195829
+  },
+  "hr-corroder_cracheur-course-main-2.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "e115674cbecc005cd4c193bcaaad7357f1e1ce52b594df021bd7340503b9f561",
+   "taille": 194792
+  },
+  "hr-corroder_cracheur-course-main-3.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "9aa64001a3637e91f43321ce1d490aacbf866bd7d33c01b8697305c3115462fd",
+   "taille": 196770
+  },
+  "hr-corroder_cracheur-course-main-4.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "3c69f6922776aa1ae16aaa20e81083ba92a5ecf1641c7a647dc8322d2afec2e9",
+   "taille": 189214
+  },
+  "hr-corroder_cracheur-course-main-5.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "5ef7325e3afea0600c82bdc540b68d1e96d03b8e8eaa80cc119a0741f77d9c2b",
+   "taille": 193991
+  },
+  "hr-corroder_cracheur-course-main-6.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "63a5265650227c78dcc097f231aa97b8232dd2131db09e5a0c0ae4e8b28d353c",
+   "taille": 191648
+  },
+  "hr-corroder_cracheur-course-main-7.png": {
+   "hauteur": 162,
+   "largeur": 1664,
+   "sha256": "20facf1126b1323c0ce7368305d239f765d55f9d750a19dc553ed09500e08053",
+   "taille": 192737
+  },
+  "hr-corroder_cracheur-course-shadow-0.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "736caa89f79e259e5ab71ad1fc68627ad768a60327c9088d021ffa503b238ed1",
+   "taille": 11807
+  },
+  "hr-corroder_cracheur-course-shadow-1.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "bf21837799b81a178a2fefb98c7da85358dbb5a26884f6a3df756e805044adb4",
+   "taille": 11732
+  },
+  "hr-corroder_cracheur-course-shadow-2.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "952766651be9489f8b941632b274d567ef05a496a09074ba7a1150e957082930",
+   "taille": 12072
+  },
+  "hr-corroder_cracheur-course-shadow-3.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "e590302efe7b9964819a60d8bab5fac7341c2545b8716cae2b99348fde5a86b2",
+   "taille": 11640
+  },
+  "hr-corroder_cracheur-course-shadow-4.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "b84814c0c8713cb53514b3552ac86f3b935645cb47fed126adfbb455355aa14e",
+   "taille": 12374
+  },
+  "hr-corroder_cracheur-course-shadow-5.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "5074820b994d4b2117f5dd839b6a02bc5b5bb18fe68a0cb6627ca4e0154bd7fb",
+   "taille": 13369
+  },
+  "hr-corroder_cracheur-course-shadow-6.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "d8bacf506846146092db25d370e1e2503f20601e480218c71aca323114514d0a",
+   "taille": 13626
+  },
+  "hr-corroder_cracheur-course-shadow-7.png": {
+   "hauteur": 76,
+   "largeur": 896,
+   "sha256": "414bac0496402c6e7abab44c17279e27a49d57f384e1db3580c3585cfbfbe60d",
+   "taille": 13443
   },
   "hr-ecorche-1-attaque-glow-0.png": {
    "hauteur": 106,
@@ -8372,6 +9236,12 @@
    "sha256": "e809f51382fbb983b4af8bc54ad73687b40edc0000953c81db4c2ba8e7ac0d37",
    "taille": 21588
   },
+  "icone-corroder-cadavre.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "b74ac9845522822ab9c57487c12f1d00c53d7c1b3257af6eb10e3db8155baef5",
+   "taille": 5070
+  },
   "icone-ecorche-1.png": {
    "hauteur": 64,
    "largeur": 64,
@@ -13955,9 +14825,14 @@
  },
  "poids_mpx": {
   "corroder": {
-   "haute": 2.53,
+   "haute": 2.71,
+   "images": 104,
+   "normale": 0.68
+  },
+  "corroder_cracheur": {
+   "haute": 2.68,
    "images": 96,
-   "normale": 0.63
+   "normale": 0.67
   },
   "ecorche": {
    "haute": 8.69,
