@@ -15,7 +15,7 @@ local function read(p)
 end
 
 local SPR = dofile("graphics/robots/titans/sprites.lua")
-for _, id in ipairs({ "kaiju", "ecorcheur" }) do
+for _, id in ipairs({ "kaiju", "ecorcheur", "corroder", "corroder_cracheur" }) do
   local K = SPR[id]
   check(K and K.directions == 8 and K.course and K.course.images == 8 and K.attaque and K.attaque.images == 4, id .. " : 8 directions, 8 + 4 images")
   if K and K.course then
@@ -46,5 +46,62 @@ local EC = read("tools/render/pieces/titans/ecorcheur.py")
 check(EC:find("def matieres") and EC:find("muscle") and EC:find("os_ivoire") and EC:find("CAGE THORACIQUE"), "Écorcheur : palette propre et cage thoracique")
 check(not EC:find('M%["anneau"%], G%.oriente%(ring'), "Écorcheur : plus d'anneaux flottants à la queue")
 
+
+-- Corroder : la famille toxique a un corps 3D ; teintes de variantes lues dans les données, distinctes par palier et par sorte
+package.path = "./?.lua;" .. package.path
+local E = require("shared.content.enemies")
+check(E.families.toxic.corps3d == "corroder" and SPR.corroder ~= nil, "famille toxique : corps 3D Corroder et ses feuilles")
+local l1, c1 = E.teinte_variante("toxic", "biter", 1)
+local l12 = E.teinte_variante("toxic", "biter", E.TIERS)
+local s1 = E.teinte_variante("toxic", "spitter", 1)
+local v = E.families.toxic.variantes
+check(l1 and math.abs(l1.r - v.biter.de.r) < 1e-9 and math.abs(l12.b - v.biter.a.b) < 1e-9, "teinte : du « de » au palier 1 au « a » au dernier palier")
+check(math.abs(s1.b - l1.b) + math.abs(s1.r - l1.r) > 0.1, "teinte : cracheur distinct du déchiqueteur")
+local distinct = true
+for t = 2, E.TIERS do
+  local a, b = E.teinte_variante("toxic", "biter", t - 1), E.teinte_variante("toxic", "biter", t)
+  if math.abs(a.r - b.r) + math.abs(a.g - b.g) + math.abs(a.b - b.b) < 1e-3 then distinct = false end
+end
+check(distinct, "teinte : chaque palier a sa teinte")
+check(c1.r <= 1 and c1.g <= 1 and c1.b <= 1 and c1.r >= 1 - E.families.toxic.part_corps - 1e-9, "teinte du corps : blanc mêlé à la part part_corps")
+check(E.teinte_variante("armored", "biter", 3) == nil and E.teinte_variante(nil, "biter", 3) == nil, "teinte : nil hors des familles à variantes")
+local P = read("prototypes/enemies.lua")
+check(P:find("E%.corps3d%(") and not P:find('"corroder"') and not P:find('"toxic"'), "prototype : corps 3D branché par les données (aucun nom en dur)")-- tranche 2 : cracheur à corps propre, cadavre, icône, échelle relevée (données)
+local cb, cs = E.corps3d("toxic", "biter"), E.corps3d("toxic", "spitter")
+check(cb and cs and cb.id == E.families.toxic.corps3d and cs.id == E.families.toxic.corps3d_cracheur and cs.id ~= cb.id, "corps 3D : le cracheur a son propre corps")
+check(cs.cadavre == cs.id and cb.cadavre == cb.id and cb.echelle >= 1.3, "corps 3D : chaque corps a son cadavre, image relevée (≥ 1,3 × l'échelle vanilla)")
+check(E.corps3d("armored", "biter") == nil and E.corps3d(nil, "biter") == nil, "corps 3D : nil hors des familles à corps 3D")
+for _, id in ipairs({ "corroder", "corroder_cracheur" }) do
+  local CAD = SPR[id] and SPR[id].cadavre and SPR[id].cadavre.mort
+  check(CAD and CAD.images == 4 and CAD.couches.main.ll * CAD.couches.main.lpf == 4 and #CAD.couches.main.hr == 8 and #CAD.couches.glow.hr == 8 and #CAD.couches.shadow.hr == 8, "cadavre de " .. id .. " : 8 directions, animation de mort de 4 images (la dernière : la carcasse), trois couches")
+end
+check(SPR.corroder and SPR.corroder.icone and SPR.corroder_cracheur and SPR.corroder_cracheur.icone, "icônes rendues du Corroder et du cracheur")
+local C3 = read("prototypes/corps3d.lua")
+check(C3:find("function M%.cadavre") and C3:find("function M%.icone"), "corps3d.lua : cadavre et icône")
+check(P:find("corpse%.animation = cad") and P:find("icones3d"), "prototype : cadavre et icône du corps 3D branchés")-- tranche 4 (BLOQUANT, capture QA du 14/11) : toute séquence d'images référencée reste dans les bornes de son animation.
+-- Règle du banc data-stage (tests/datastage/engine_rules.lua, R.frame_sequence_errors) éprouvée sur des unités FABRIQUÉES, puis
+-- le prototype : la branche corps 3D efface la séquence d'attaque du cracheur vanilla.
+local Rules = dofile("tests/datastage/engine_rules.lua")
+local anim4 = { layers = { { filenames = { "a.png" }, frame_count = 4, direction_count = 8 } } }
+local seq_vanilla = { warmup_frame_sequence = { 1, 2, 3, 4, 5, 6 }, warmup2_frame_sequence = { 7, 7, 7 }, attacking_frame_sequence = { 7, 8, 9 },
+  cooldown_frame_sequence = { 7 }, prepared_sound_frames = { 1 }, back_to_walk_frame_sequence = { 6, 5, 4, 3, 2, 1 } }
+local mauvais = { attack_parameters = { animation = anim4 }, alternative_attacking_frame_sequence = seq_vanilla }
+local bon = { attack_parameters = { animation = anim4 } }
+local dans = { attack_parameters = { animation = anim4 }, alternative_attacking_frame_sequence = { warmup_frame_sequence = { 1, 2, 3, 4 } } }
+check(#Rules.frame_sequence_errors(mauvais, "unit") > 0, "règle frame-seq : la séquence vanilla (1-16) sur 4 images est refusée")
+check(#Rules.frame_sequence_errors(bon, "unit") == 0 and #Rules.frame_sequence_errors(dans, "unit") == 0, "règle frame-seq : sans séquence, ou séquence dans 1-4 : acceptée")
+check(#Rules.frame_sequence_errors({ animation = { filename = "x.png", frame_count = 3, frame_sequence = { 1, 4 } } }, "corpse") == 1,
+  "règle frame-seq : frame_sequence d'une animation au-delà de son frame_count refusée")
+check(P:find("u%.alternative_attacking_frame_sequence = nil"), "prototype : la branche corps 3D efface la séquence d'attaque vanilla")
+-- séquences des feuilles : chaque animation du corps 3D a ll × lpf = images (pas d'image référencée hors feuille)
+for _, id in ipairs({ "corroder", "corroder_cracheur" }) do
+  local A = SPR[id]
+  for _, a in ipairs({ A and A.course, A and A.attaque, A and A.cadavre and A.cadavre.mort }) do
+    for _, nomc in ipairs({ "main", "glow", "shadow" }) do
+      local c = a and a.couches[nomc]
+      check(c and c.ll * c.lpf == a.images, id .. " : grille exacte (images référencées dans la feuille)")
+    end
+  end
+end
 print(string.format("s43_3d-kaiju-corroder : %d OK, %d échecs", ok_n, ko_n))
 if ko_n > 0 then os.exit(1) end

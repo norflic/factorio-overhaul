@@ -11,6 +11,7 @@ local lib = require("prototypes.lib")
 local Evo = require("prototypes.evolution")
 local E = require("shared.content.enemies")
 local Souches = require("prototypes.souches")
+local Corps3d = require("prototypes.corps3d")
 local enemy_autoplace = require("__base__/prototypes/entity/enemy-autoplace-utils")
 
 local out = {}
@@ -168,7 +169,33 @@ local function make_unit(kind, tier, family)
   -- Évolution visuelle : les plaques de carapace luisent, de plus en plus fort avec le palier ; la couleur
   -- de la lueur dit la famille (braise, arcs, œufs, acier). Les paliers vanilla sans famille restent intacts.
   local glow = (f and f.glow) or (nt and nt.tint2)
-  if glow then
+  local c3 = E.corps3d(family, kind)
+  local icones3d = nil
+  if c3 and not E.spitter_body(kind, family) then
+    -- s43 : corps 3D de la famille (Corroder pour la toxique) à la place du déchiqueteur recoloré ; la variante (palier, déchiqueteur ou
+    -- cracheur) se lit à sa TAILLE (échelle × c3.echelle) et à sa TEINTE (E.teinte_variante) ; le cracheur a son corps (poche, trompe) ;
+    -- cadavre et icône du corps 3D ; la flaque d'acide et la portée du cracheur restent.
+    local lueur, teinte = E.teinte_variante(family, kind, tier)
+    lueur, teinte = lueur or f.glow, teinte or { r = 1, g = 1, b = 1 }
+    local alpha = Evo.tier_alpha(tier, 0.45, 0.05)
+    local k = scale * c3.echelle
+    u.run_animation = Corps3d.animation(c3.id, "course", k, teinte, lueur, alpha)
+    u.attack_parameters.animation = Corps3d.animation(c3.id, "attaque", k, teinte, lueur, alpha, Corps3d.ATTAQUE_VITESSE)
+    u.distance_per_frame = Corps3d.distance_par_image(c3.id, k)
+    -- séquence d'attaque du cracheur vanilla (images 1 à 16) : hors des 4 images du corps 3D, le moteur refuse le prototype
+    -- (capture QA du 14/11 : « Frame index 5 is out of range (1-4) ») ; même remède que prototypes/robots.lua
+    u.alternative_attacking_frame_sequence = nil
+    u.map_color = { r = lueur.r, g = lueur.g, b = lueur.b }
+    local cad = Corps3d.cadavre(c3.cadavre, k, teinte, lueur, alpha * 0.25)
+    if cad then
+      corpse.animation = cad
+      corpse.direction_shuffle, corpse.shuffle_directions_at_frame = nil, nil   -- 8 directions, une image : pas de mélange vanilla (16)
+    end
+    local ic = Corps3d.icone(c3.id)
+    if ic then
+      icones3d = { ic.filename, ic.size, { r = teinte.r, g = teinte.g, b = teinte.b, a = 1 } }
+    end
+  elseif glow then
     local alpha = f and Evo.tier_alpha(tier, 0.22, 0.08) or Evo.tier_alpha(tier - E.VANILLA_TIERS, 0.35, 0.13)
     if E.spitter_body(kind, family) then alpha = alpha * 0.3 end   -- souche sombre : sa lueur est un reflet, pas une peinture
     Evo.glow_masks(u.run_animation, glow, alpha)
@@ -176,8 +203,13 @@ local function make_unit(kind, tier, family)
   end
 
   local base_icon = data.raw.unit[src_name]
-  lib.set_icons(u, lib.tier_icons(base_icon.icon, base_icon.icon_size, t2, tier, base_icon.icon_mipmaps))
-  lib.set_icons(corpse, lib.tier_icons(base_icon.icon, base_icon.icon_size, t2, nil, base_icon.icon_mipmaps))
+  if icones3d then   -- s43 : icône rendue du corps 3D (teinte du corps de la variante), chiffre du palier
+    lib.set_icons(u, lib.tier_icons(icones3d[1], icones3d[2], icones3d[3], tier, nil))
+    lib.set_icons(corpse, lib.tier_icons(icones3d[1], icones3d[2], icones3d[3], nil, nil))
+  else
+    lib.set_icons(u, lib.tier_icons(base_icon.icon, base_icon.icon_size, t2, tier, base_icon.icon_mipmaps))
+    lib.set_icons(corpse, lib.tier_icons(base_icon.icon, base_icon.icon_size, t2, nil, base_icon.icon_mipmaps))
+  end
 
   -- Noms : vanilla "Gros déchiqueteur" + adjectif de famille, ou nom du nouveau palier.
   local base_name = nt and { "entity-name.fo-" .. tn .. "-" .. kind } or { "entity-name." .. src_name }

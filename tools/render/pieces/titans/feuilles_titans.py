@@ -68,7 +68,7 @@ ANIMES = (("juggernaut", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4
           ("sentinelle", ("1", "2", "3"), {"main": 1, "glow": 4, "shadow": 4}, 4096),
           ("ecorche", ("1", "2", "3"), {"main": 1, "glow": 1, "shadow": 1}, 2048))
 # ennemis à une série (un prototype par ère : l'échelle vient du jeu) : Kaiju cristallin, Écorcheur
-ENNEMIS = ("kaiju", "ecorcheur")
+ENNEMIS = ("kaiju", "ecorcheur", "corroder", "corroder_cracheur")   # s43 : Corroder, corps 3D de la famille toxique (prototypes/enemies.lua)
 # s43 (refonte 3D du Kaiju et de l'Écorcheur) : le Kaiju titanesque (15 tuiles de haut) dépasse 2 048 px par feuille ; lueur et ombre
 # à demi-densité (halo diffus, ombre floue : budget de mémoire vidéo), corps à pleine densité
 ENNEMIS_DIVS = {"main": 1, "glow": 2, "shadow": 2}
@@ -133,6 +133,13 @@ def directions_de(module):
     return int(ast.literal_eval(m.group(1)).get("dirs", DIRS)) if m else DIRS
 
 
+def images_mort(module):
+    """s43 : images de l'animation de mort (SERIE["mort"], 1 = carcasse fixe), lu dans le texte du module (il importe bpy)."""
+    src = open(os.path.join(HERE, module + ".py"), encoding="utf-8").read()
+    m = re.search(r"^SERIE\s*=\s*(\{.*\})\s*$", src, re.M)
+    return int(ast.literal_eval(m.group(1)).get("mort", 1)) if m else 1
+
+
 def dossier(src, sub):
     """Le sous-dossier `sub` dans le premier des dossiers de sources (séparés par os.pathsep) qui le contient."""
     for s in src.split(os.pathsep):
@@ -142,7 +149,7 @@ def dossier(src, sub):
     raise SystemExit("MANQUE : " + sub + " dans " + src)
 
 
-def anime(S, src, poids, sub, base, cle, divs, max_px, ndirs=None):
+def anime(S, src, poids, sub, base, cle, divs, max_px, ndirs=None, anims=None):
     """Feuilles d'un titan animé : npz de <src>/<sub>/<base>-<anim>-<image>-<dir>.npz -> hr-<cle>-<anim>-<couche>-<dir>.png (et sans hr-).
     divs : diviseur de densité par couche (hr = densité du rendu / div). Rend { course, attaque, icone }.
     ndirs : directions des feuilles ; à défaut, DIRS du module LU À L'APPEL (feuilles_leviathan.py fixe FT.DIRS = 16 avant d'appeler : une
@@ -151,7 +158,7 @@ def anime(S, src, poids, sub, base, cle, divs, max_px, ndirs=None):
     d = dossier(src, sub)
     out = {}
     icone = None
-    for anim, nb in ANIMS:
+    for anim, nb in (anims or ANIMS):
         images = {}
         for k in range(ndirs):
             for i in range(nb):
@@ -277,6 +284,9 @@ def seul(a):
         # s43 : ennemi à une série (Kaiju, Écorcheur) : même entrée que main() ; source <src>/<nom>/<nom>-<anim>-<image>-<dir>.npz
         e = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
         e.update(anime(S, a.src, pd, nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
+        # s43 : CADAVRE (pièce fixe « mort », une image par direction) s'il est rendu : feuilles hr-<nom>-cadavre-mort-<couche>-<dir>.png
+        if os.path.exists(os.path.join(dossier(a.src, nom), "%s-mort-00-00.npz" % nom)):
+            e["cadavre"] = anime(S, a.src, pd, nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", images_mort(nom)),))
     else:
         _, stades, divs, max_px = ent[0]
         nd = directions_de(nom)
@@ -292,9 +302,17 @@ def seul(a):
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, encoding="utf-8") as f:
         lignes = f.read().split("\n")
-    i = lignes.index("  %s = {" % nom)
-    j = lignes.index("  },", i)
-    lignes[i:j + 1] = ("  %s = %s," % (nom, FX.lua(e, "  "))).split("\n")
+    neuf = ("  %s = %s," % (nom, FX.lua(e, "  "))).split("\n")
+    if "  %s = {" % nom in lignes:
+        i = lignes.index("  %s = {" % nom)
+        j = lignes.index("  },", i)
+        lignes[i:j + 1] = neuf
+    else:
+        # s43 : entrée NOUVELLE (Corroder) : insérée à sa place dans l'ordre alphabétique des entrées de premier niveau
+        cles = [(k, l[2:].split(" = {")[0]) for k, l in enumerate(lignes) if re.match(r"^  [a-z_]+ = \{$", l)]
+        apres = [k for k, c in cles if c > nom]
+        i = apres[0] if apres else max(k for k, l in enumerate(lignes) if l == "}")
+        lignes[i:i] = neuf
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lignes))
     pm = os.path.join(a.dest, "MANIFEST.json")
@@ -363,6 +381,8 @@ def main():
         for nom in ENNEMIS:
             spr[nom] = {"K": 1.0, "foulee": foulee_de(nom), "reduc": REDUC, "directions": DIRS}
             spr[nom].update(anime(S, a.src, poids[nom], nom, nom, nom, ENNEMIS_DIVS, ENNEMIS_MAX_PX))
+            if os.path.exists(os.path.join(dossier(a.src, nom), "%s-mort-00-00.npz" % nom)):   # s43 : cadavre (voir seul())
+                spr[nom]["cadavre"] = anime(S, a.src, poids[nom], nom, nom, nom + "-cadavre", ENNEMIS_DIVS, ENNEMIS_MAX_PX, anims=(("mort", images_mort(nom)),))
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("-- FICHIER GÉNÉRÉ par tools/render/pieces/titans/feuilles_titans.py (lot TITANS) : ne pas modifier à la main.\n")
