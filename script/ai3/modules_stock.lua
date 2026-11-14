@@ -236,9 +236,10 @@ function RT.think(f, cs, tick, c)
       if not rec.stock then fab_open = fab_open + 1 end
     end
   end
-  state(string.format("%d module(s) au coffre, fabrication %s, %d ordre(s) de fabrication ouvert(s)", total,
-    can_make and "possible" or (total > 0 and "non lue" or "impossible"), fab_open))
-  if total <= 0 and fab_open > 0 then return 0 end -- rien à poser et une fabrication déjà ouverte : aucun relevé de statut
+  if total <= 0 and fab_open > 0 then -- rien à poser et une fabrication déjà ouverte : aucun relevé de statut
+    state(string.format("0 module au coffre, %d ordre(s) de fabrication ouvert(s) : attente de la fabrication", fab_open))
+    return 0
+  end
   local danger = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do danger[id] = cs.deps[id].danger and true or nil end
   local memo = {}
