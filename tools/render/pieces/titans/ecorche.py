@@ -40,9 +40,9 @@ AMP = 0.42
 TAILLE = {1: 1.15, 2: 1.45, 3: 1.3}
 AMP_MODELE = [AMP]
 # tranche 3 : éclaircissement des crêtes de fibres par variante (contraste p90-p10 >= 0,35 en gardant l'ordre de luminance)
-CONTRASTE_CRETE = {1: 1.2, 2: 2.8, 3: 2.3}
+CONTRASTE_CRETE = {1: 1.0, 2: 1.0, 3: 1.0}
 # exposition par variante (facteur sur toutes les couleurs de surface) : charte lum. médiane <= 0,38 et ordre rôdeur > hurleur > porteur
-ECLAT = {1: 0.785, 2: 0.66, 3: 0.70}
+ECLAT = {1: 0.72, 2: 0.92, 3: 1.15}
 FOULEE = 2 * 0.42
 
 # Variante : couleurs LINÉAIRES du muscle (creux, fond, crêtes), de l'os, du tendon et de la peau morte ; le reste (silhouette) est dans
@@ -52,17 +52,19 @@ COULEURS = {
     # jauni sombre ; l'ordre de luminance rôdeur > hurleur > porteur reste (tests/titans_test.lua §8)
     # QA tour 3 : rôdeur ROUGE SANG (écarlate, le plus clair des trois), moins d'os blanc ; porteur : chair rouge sombre nettement plus
     # claire que sa charge presque noire (valeurs séparées, nervures claires) ; hurleur cramoisi sombre, crâne d'os jauni sombre
-    1: {"creux": (0.08, 0.012, 0.012), "fond": (0.28, 0.050, 0.037), "crete": (0.80, 0.36, 0.24), "os": (0.24, 0.18, 0.09),
-        "tendon": (0.48, 0.38, 0.24), "peau": (0.10, 0.06, 0.055), "gorge": (0.20, 0.025, 0.03)},
-    2: {"creux": (0.008, 0.003, 0.004), "fond": (0.05, 0.014, 0.016), "crete": (0.34, 0.14, 0.10), "os": (0.15, 0.10, 0.04),
-        "tendon": (0.65, 0.52, 0.32), "peau": (0.025, 0.018, 0.022), "gorge": (0.10, 0.01, 0.015), "sac": (0.008, 0.005, 0.007)},
-    3: {"creux": (0.03, 0.002, 0.004), "fond": (0.28, 0.026, 0.022), "crete": (0.78, 0.22, 0.13), "os": (0.20, 0.13, 0.05),
-        "tendon": (0.42, 0.34, 0.22), "peau": (0.16, 0.035, 0.035), "gorge": (0.20, 0.008, 0.025)},
+    # tranche 4 : séparées aussi par la TEINTE : rôdeur chair rosée (saumon), hurleur rouge sang sombre à collerette noire, porteur
+    # brun-bordeaux sous sa charge noire veinée de nervures claires
+    1: {"creux": (0.12, 0.03, 0.03), "fond": (0.33, 0.115, 0.10), "crete": (0.85, 0.48, 0.40), "os": (0.30, 0.24, 0.14),
+        "tendon": (0.55, 0.45, 0.32), "peau": (0.20, 0.13, 0.12), "gorge": (0.20, 0.025, 0.03)},
+    2: {"creux": (0.010, 0.005, 0.004), "fond": (0.06, 0.025, 0.02), "crete": (0.40, 0.20, 0.12), "os": (0.15, 0.10, 0.04),
+        "tendon": (0.70, 0.56, 0.34), "peau": (0.025, 0.018, 0.022), "gorge": (0.10, 0.01, 0.015), "sac": (0.008, 0.005, 0.007)},
+    3: {"creux": (0.03, 0.002, 0.003), "fond": (0.24, 0.012, 0.014), "crete": (0.66, 0.08, 0.055), "os": (0.18, 0.12, 0.05),
+        "tendon": (0.40, 0.30, 0.20), "peau": (0.012, 0.008, 0.009), "gorge": (0.20, 0.008, 0.025)},
 }
 
 
 # ------------------------------------------------------------------------------------------------ matières
-def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0.0, contraste=1.0):
+def muscle(nom, creux, fond, crete, rough=0.36, echelle=14.0, bosse=0.9, graine=0.0, contraste=1.0):
     """Muscle ÉCORCHÉ : fibres (vagues en bandes le long de u : la longueur des tubes et des lofts), marbrure, relief des fibres, vernis
     humide (couche de vernis). Couleurs linéaires : creux des fibres, fond, crêtes."""
     import bpy
@@ -76,8 +78,9 @@ def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0
     wv.wave_type = "BANDS"
     wv.bands_direction = "Y"
     wv.inputs["Scale"].default_value = echelle
-    wv.inputs["Distortion"].default_value = 9.0
-    wv.inputs["Detail"].default_value = 4.0
+    # tranche 4 : fibres FINES et serrées le long du muscle (peu de distorsion) : des sillons, pas des bandes de tigre
+    wv.inputs["Distortion"].default_value = 1.2
+    wv.inputs["Detail"].default_value = 1.0
     wv.inputs["Detail Scale"].default_value = 1.2
     mp = N.new("ShaderNodeMapping")
     mp.inputs["Location"].default_value = (graine * 0.31, graine * 0.17, 0.0)
@@ -89,31 +92,45 @@ def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0
     L.new(tc.outputs["Object"], nz.inputs["Vector"])
     a = N.new("ShaderNodeMath")
     a.operation = "MULTIPLY"
-    a.inputs[1].default_value = 0.55      # tranche 3 (QA A3 contraste) : fibres plus marquées
+    a.inputs[1].default_value = 0.4      # tranche 4 : la fibre module peu la couleur ; le relief (bosse) la dessine
     L.new(wv.outputs["Fac"], a.inputs[0])
     b = N.new("ShaderNodeMath")
     b.operation = "MULTIPLY_ADD"
     L.new(nz.outputs["Fac"], b.inputs[0])
-    b.inputs[1].default_value = 0.75
+    b.inputs[1].default_value = 0.8      # tranche 4 : marbrure des groupes musculaires (clairs sur les lobes, sombres aux creux)
     L.new(a.outputs["Value"], b.inputs[2])
     rp = N.new("ShaderNodeValToRGB")
     e = rp.color_ramp.elements
     # tranche 3 (QA A3) : creux deux fois plus noirs, crêtes plus claires (CONTRASTE_CRETE de la variante), rampe plus raide
-    e[0].position, e[0].color = 0.32, tuple(c * 0.3 for c in creux) + (1.0,)
-    e[1].position, e[1].color = 0.78, tuple(min(1.0, c * contraste) for c in crete) + (1.0,)
-    mid = e.new(0.55)
+    e[0].position, e[0].color = 0.22, tuple(c * 0.5 for c in creux) + (1.0,)
+    e[1].position, e[1].color = 0.85, tuple(min(1.0, c * contraste) for c in crete) + (1.0,)
+    mid = e.new(0.5)
     mid.color = tuple(fond) + (1.0,)
     L.new(b.outputs["Value"], rp.inputs["Fac"])
-    L.new(rp.outputs["Color"], p.inputs["Base Color"])
+    # tranche 4 : ombres de creux entre les groupes musculaires, sous les côtes et les tendons (occlusion locale dans la couleur) :
+    # le contraste vient du volume, pas de bandes sombres
+    ao = N.new("ShaderNodeAmbientOcclusion")
+    ao.inputs["Distance"].default_value = 0.18
+    mr = N.new("ShaderNodeMapRange")
+    mr.inputs["To Min"].default_value = 0.08
+    L.new(ao.outputs["AO"], mr.inputs["Value"])
+    mx = N.new("ShaderNodeMix")
+    mx.data_type = "RGBA"
+    mx.blend_type = "MULTIPLY"
+    mx.inputs[0].default_value = 1.0
+    ins = [x for x in mx.inputs if x.type == "RGBA"]
+    L.new(rp.outputs["Color"], ins[0])
+    L.new(mr.outputs["Result"], ins[1])
+    L.new([x for x in mx.outputs if x.type == "RGBA"][0], p.inputs["Base Color"])
     p.inputs["Roughness"].default_value = rough
     p.inputs["Metallic"].default_value = 0.0
     # tranche 3 (QA A4) : vernis humide atténué et plus diffus : le reflet du soleil le long du dos (vue de dos) brûlait en blanc
-    for k, v in (("Specular IOR Level", 0.45), ("Coat Weight", 0.15), ("Coat Roughness", 0.35)):
+    for k, v in (("Specular IOR Level", 0.45), ("Coat Weight", 0.3), ("Coat Roughness", 0.25)):
         if k in p.inputs:
             p.inputs[k].default_value = v
     bp = N.new("ShaderNodeBump")
     bp.inputs["Strength"].default_value = bosse
-    bp.inputs["Distance"].default_value = 0.02
+    bp.inputs["Distance"].default_value = 0.008
     L.new(wv.outputs["Fac"], bp.inputs["Height"])
     L.new(bp.outputs["Normal"], p.inputs["Normal"])
     m["fo_kind"] = "surface"
@@ -268,7 +285,15 @@ def patte(lot, M, hanche, pied0, u, l1, l2, r, pole, levee=0.22, griffe=0.24, ap
     pied = (pied0[0] + dx, pied0[1], pied0[2] + dz)
     genou = ik2(hanche, pied, l1, l2, pole)
     lot.put(M["muscle"], ellipsoide(hanche, r * 1.35, r * 1.2, r * 1.3, 10, 5))
-    lot.put(M["muscle"], renfle(hanche, genou, r * 1.1, r * 0.6, 0.45))
+    lot.put(M["muscle"], renfle(hanche, genou, r * 1.1, r * 0.6, 0.7))
+    # tranche 4 : groupes musculaires lisibles par le volume : lobe externe de la cuisse ou de l'épaule, et lobe arrière
+    cu = G.sub(genou, hanche)
+    ext = G.cross(cu, (0.0, 0.0, 1.0))
+    ext = G.norm(ext) if G.length(ext) > 1e-4 else (0.0, 1.0, 0.0)
+    if G.dot(ext, (0.0, 1.0 if hanche[1] >= 0 else -1.0, 0.0)) < 0:
+        ext = G.mul(ext, -1.0)
+    lot.put(M["muscle"], renfle(G.add(hanche, G.mul(ext, r * 0.55)), G.add(G.lerp(hanche, genou, 0.7), G.mul(ext, r * 0.35)), r * 0.7, r * 0.4, 0.8, 6, 9))
+    lot.put(M["muscle"], renfle(G.add(hanche, (0.0, 0.0, r * 0.5)), G.add(G.lerp(hanche, genou, 0.6), (0.0, 0.0, r * 0.4)), r * 0.6, r * 0.35, 0.8, 6, 9))
     lot.put(M["os"], ellipsoide(genou, r * 0.62, r * 0.62, r * 0.62, 8, 4))
     cheville = G.lerp(genou, pied, 0.86)
     lot.put(M["muscle"], renfle(genou, G.lerp(genou, pied, 0.5), r * 0.62, r * 0.32, 0.5, 5, 8))

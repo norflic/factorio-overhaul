@@ -730,7 +730,8 @@ end
 ---------------------------------------------------------------------------------------------------
 -- §8 (VISUELS-DISTINCTS, 10/11) : Écorchés lisibles de loin. Chaque variante a sa lueur propre (données), deux à deux éloignées, et sa
 -- teinte en jeu reste distincte à chaque ère ; les feuilles le PROUVENT : luminance moyenne mesurée de la course (feuilles_titans.py,
--- sprites.lua ecorche.mesure) rôdeur > hurleur > porteur, écarts >= 0,06.
+-- sprites.lua ecorche.mesure) rôdeur > hurleur > porteur, écarts >= 0,03, et chaque paire séparée par la luminance (>= 0,06) ou la
+-- couleur moyenne (distance RVB >= 0,08) (s43 3d-ecorches).
 ---------------------------------------------------------------------------------------------------
 local function dist(a, b) return math.sqrt((a.r - b.r) ^ 2 + (a.g - b.g) ^ 2 + (a.b - b.b) ^ 2) end
 local function juge_ecorches(TT, MES)
@@ -752,8 +753,19 @@ local function juge_ecorches(TT, MES)
   local l = {}
   for i, v in ipairs(V) do l[v.id] = MES and MES[tostring(i)] and MES[tostring(i)].luminance end
   if not (l.rodeur and l.porteur and l.hurleur) then non("luminances non mesurées (feuilles_titans.py non relancé)")
-  elseif l.rodeur - l.hurleur < 0.06 or l.hurleur - l.porteur < 0.06 then
+  elseif l.rodeur - l.hurleur < 0.03 or l.hurleur - l.porteur < 0.03 then
     non(string.format("luminances trop proches ou dans le mauvais ordre : rôdeur %.3f, hurleur %.3f, porteur %.3f", l.rodeur, l.hurleur, l.porteur))
+  else
+    -- s43 3d-ecorches : distinction en TEINTE + luminance : deux variantes se séparent par un écart de luminance >= 0,06 OU par leur
+    -- couleur moyenne mesurée (distance RVB >= 0,08) ; l'ordre rôdeur > hurleur > porteur reste exigé (écarts >= 0,03)
+    for i = 1, #V do
+      for j = i + 1, #V do
+        local a, b = MES[tostring(i)], MES[tostring(j)]
+        local dl = math.abs(a.luminance - b.luminance)
+        local dc = (a.rgb and b.rgb) and math.sqrt((a.rgb[1] - b.rgb[1]) ^ 2 + (a.rgb[2] - b.rgb[2]) ^ 2 + (a.rgb[3] - b.rgb[3]) ^ 2) or 0
+        if dl < 0.06 and dc < 0.08 then non(string.format("%s/%s confondus : écart de luminance %.3f, de couleur %.3f", V[i].id, V[j].id, dl, dc)) end
+      end
+    end
   end
   return refus
 end
@@ -776,7 +788,8 @@ mut8("lueur du porteur copiée du rôdeur", "lueur = { r = 1.00, g = 0.50, b = 0
 mut8("teinte de l'ère seule (part de la variante nulle)", "part_variante = 0.75,", "part_variante = 0,")
 mut8("teinte d'avant (couleur de l'ère)", "tint = T.ecorche_tint(v, era),", "tint = T.era_color(era),")
 for _, m in ipairs({ { "luminances confondues", function(M) M["1"].luminance = M["3"].luminance end },
-  { "porteur clair", function(M) M["2"].luminance = 0.9 end }, { "mesures absentes", function(M) M["1"] = nil end } }) do
+  { "porteur clair", function(M) M["2"].luminance = 0.9 end }, { "mesures absentes", function(M) M["1"] = nil end },
+  { "rôdeur et hurleur de même couleur, luminances proches", function(M) M["1"].rgb = M["3"].rgb; M["1"].luminance = M["3"].luminance + 0.04 end } }) do
   local M2 = {}
   for k, v in pairs(MES or {}) do M2[k] = { luminance = v.luminance, rgb = v.rgb } end
   local ok = pcall(m[2], M2)

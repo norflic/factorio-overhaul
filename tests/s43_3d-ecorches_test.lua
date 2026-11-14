@@ -5,7 +5,8 @@
     2. les feuilles (graphics/robots/titans/sprites.lua, généré par feuilles_titans.py --seul ecorche) : animées, 8 directions, foulée =
        FOULEE du modèle (sinon les pieds glissent en jeu : distance_per_frame = foulée × échelle / images), course 8 et attaque 4 par
        variante, densité = SERIE.densite ;
-    3. lisibilité : luminance mesurée rôdeur > hurleur > porteur, écarts >= 0,06 (même seuil que tests/titans_test.lua §8) ;
+    3. lisibilité : luminance mesurée rôdeur > hurleur > porteur (écarts >= 0,03) et chaque paire séparée par la luminance (>= 0,06)
+       ou la couleur moyenne (distance RVB >= 0,08) (même règle que tests/titans_test.lua §8) ;
     4. mutants : une foulée fausse, des images manquantes, des luminances confondues sont refusées.
   Les PNG sont hors de git (D-6) : sans sprites.lua lisible, les §2 à §4 sont sautés (signalé).
 ]]
@@ -54,7 +55,16 @@ local function juge(EC)
   local l = {}
   for i, v in ipairs(T.ECORCHE.variants) do l[v.id] = M[tostring(i)] and M[tostring(i)].luminance end
   if not (l.rodeur and l.hurleur and l.porteur) then non("luminances non mesurées")
-  elseif l.rodeur - l.hurleur < 0.06 or l.hurleur - l.porteur < 0.06 then non("luminances confondues ou dans le désordre") end
+  elseif l.rodeur - l.hurleur < 0.03 or l.hurleur - l.porteur < 0.03 then non("luminances confondues ou dans le désordre")
+  else
+    for i = 1, 3 do
+      for j = i + 1, 3 do
+        local a, b = M[tostring(i)], M[tostring(j)]
+        local dc = (a.rgb and b.rgb) and math.sqrt((a.rgb[1] - b.rgb[1]) ^ 2 + (a.rgb[2] - b.rgb[2]) ^ 2 + (a.rgb[3] - b.rgb[3]) ^ 2) or 0
+        if math.abs(a.luminance - b.luminance) < 0.06 and dc < 0.08 then non("variantes " .. i .. "/" .. j .. " confondues (luminance et teinte)") end
+      end
+    end
+  end
   return refus
 end
 
@@ -82,6 +92,7 @@ else
     { "attaque à 3 images", function(E) E["2"].attaque.images = 3 end },
     { "luminances confondues", function(E) E.mesure["1"].luminance = E.mesure["3"].luminance end },
     { "porteur plus clair que le hurleur", function(E) E.mesure["2"].luminance = E.mesure["3"].luminance + 0.1 end },
+    { "rôdeur et hurleur de même couleur", function(E) E.mesure["1"].rgb = E.mesure["3"].rgb; E.mesure["1"].luminance = E.mesure["3"].luminance + 0.04 end },
   }
   for _, m in ipairs(muts) do
     local E = copie(EC)
