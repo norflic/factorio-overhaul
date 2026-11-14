@@ -6,7 +6,7 @@
   est un ÉCHEC.
   Usage, depuis la racine du mod :   lua5.2 tests/perf_champ_bench.lua [--ref] [--nowrap] [nom]
     --ref     écrit tests/perf_champ_ref.lua (empreintes de référence, à faire sur le code d'avant l'optimisation)
-    --nowrap  sans enveloppes (temps nu)
+    --nowrap  sans enveloppes (temps nu) ; --reps=N : N passes, le temps le plus court
 ]]
 package.path = "./?.lua;" .. package.path
 local Ch = require("shared.team.champ")
@@ -14,8 +14,10 @@ local Co = require("shared.team.champ_colonne")
 
 local ARGS = {}
 for _, a in ipairs(arg or {}) do ARGS[a] = true end
-local ONLY
-for _, a in ipairs(arg or {}) do if a:sub(1, 2) ~= "--" then ONLY = a end end
+local ONLY, REPS = nil, 1
+for _, a in ipairs(arg or {}) do
+  if a:match("^%-%-reps=%d+$") then REPS = tonumber(a:match("%d+")) elseif a:sub(1, 2) ~= "--" then ONLY = a end
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Empreinte (celle de s46_champ-cout_test)
@@ -148,15 +150,28 @@ local fails = 0
 local total = 0
 for _, cs in ipairs(CASES) do
   if not ONLY or ONLY == cs[1] then
-    for k in pairs(T) do T[k] = nil end
-    for k in pairs(N) do N[k] = nil end
-    Co.EXPANDED = 0
-    local spec = cs[2]()
-    local t0 = os.clock()
-    local p, why = Ch.plan(spec)
-    local dt = os.clock() - t0
+    -- REPS passes (le PC est partagé : le temps retenu est le plus court, avec son détail), chaque passe sur des tables neuves
+    local p, why, dt, h
+    local BT, BN, BX = {}, {}, 0
+    for rep = 1, REPS do
+      for k in pairs(T) do T[k] = nil end
+      for k in pairs(N) do N[k] = nil end
+      Co.EXPANDED = 0
+      local spec = cs[2]()
+      local t0 = os.clock()
+      p, why = Ch.plan(spec)
+      local d1 = os.clock() - t0
+      if not dt or d1 < dt then
+        dt = d1
+        BT, BN, BX = {}, {}, Co.EXPANDED
+        for k, v in pairs(T) do BT[k] = v end
+        for k, v in pairs(N) do BN[k] = v end
+      end
+      local h1 = p and hash(ser(p, {})) or -1
+      if h and h1 ~= h then fails = fails + 1; print("   ECHEC : plan different d'une passe a l'autre") end
+      h = h1
+    end
     total = total + dt
-    local h = p and hash(ser(p, {})) or -1
     out_ref[cs[1]] = h
     local ref = REF[cs[1]] or S46[cs[1]]
     local same = ref == nil and "?" or (ref == h and "=" or "DIFFERENT")
@@ -167,13 +182,14 @@ for _, cs in ipairs(CASES) do
       p and p.refused and #p.refused or 0, tostring(p and p.order_swapped ~= nil), tostring(why)))
     if p and p.coffre_cost then print(string.format("   coffre_cost %d %% sur %d colonne(s)", p.coffre_cost, p.coffre_cols or 0)) end
     for _, c in ipairs(st.coal or {}) do print(string.format("   charbon cote %d : voie %s, %s", c.side, tostring(c.voie), tostring(c.why))) end
+    T, N = BT, BN
     local names = {}
     for k in pairs(T) do names[#names + 1] = k end
     table.sort(names, function(a, b) return T[a] > T[b] end)
     for _, k in ipairs(names) do
       print(string.format("   %-16s %8.1f ms %5.1f %%  %6d appels", k, T[k] * 1000, 100 * T[k] / dt, N[k]))
     end
-    print(string.format("   etats Co.route : %d", Co.EXPANDED or 0))
+    print(string.format("   etats Co.route : %d", BX))
   end
 end
 print(string.format("TOTAL %.0f ms", total * 1000))

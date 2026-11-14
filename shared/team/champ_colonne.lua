@@ -1091,7 +1091,7 @@ function Co.network(cols, side, env)
     res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", man + 1, Co.ROUTE_MAX) return res
   end
   local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box,
-    Co.ROUTE_STATES, tcost)
+    Co.ROUTE_STATES, tcost, env.route_memo)
   if not route then res.why = "trace du charbon : " .. tostring(why) return res end
   if #route > Co.ROUTE_MAX then res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", #route, Co.ROUTE_MAX) return res end
   local nug = 0

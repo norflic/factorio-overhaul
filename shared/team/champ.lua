@@ -649,6 +649,15 @@ local function phase_memo(spec, axis)
   PHASE_MEMO[#PHASE_MEMO + 1] = m
   return m
 end
+--- s49 opti : mémoires de calculs refaits à l'identique entre les plan_once d'un même Ch.plan (tracés du charbon, relais), rangées
+--- DANS la table PHASE_MEMO (champ nommé : la liste des phases, lue par ipairs, n'en voit rien) : même durée de vie qu'elle, nil hors
+--- d'un Ch.plan. Chaque entrée garde les lectures qu'elle a faites et n'est rendue que si elles donnent les mêmes réponses (résultat exact).
+local function run_memo(name)
+  if not PHASE_MEMO then return nil end
+  local m = PHASE_MEMO[name]
+  if not m then m = {}; PHASE_MEMO[name] = m end
+  return m
+end
 local function copy_bands(bands)
   local out = {}
   for i, bd in ipairs(bands) do
@@ -927,6 +936,7 @@ local function plan_once(spec)
             inserter_rate = spec.inserter and spec.inserter.rate,
             soft = spec.soft and function(u, v) local x, y = c.xy(u, v); return spec.soft[Ch.key(x, y)] == true end or nil,
             lane_drills = co and co.rate and Ch.lane_drills(spec.belts[1].lane, co.rate) or nil,
+            route_memo = run_memo("routes"), -- s49 opti : tracés du charbon refaits à l'identique d'un plan_order à l'autre
             bridge = function(poles, free)
               local extra = {}
               local cc = { free = function(u, v) return not extra[Co.tk(u, v)] and free(u, v) end, take = function(u, v) extra[Co.tk(u, v)] = true end }
