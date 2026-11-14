@@ -25,10 +25,12 @@ import mat as MT  # noqa: E402
 import titans_mat as TM  # noqa: E402
 
 NUIT = (0.035, 0.040, 0.052)          # blindage principal : acier de nuit bleuté
-NUIT2 = (0.240, 0.260, 0.310)         # plaques secondaires : acier canon CLAIR (deux tons : chaque plaque se lit sur le blindage de nuit)
+NUIT2 = (0.450, 0.470, 0.530)         # plaques secondaires : acier canon CLAIR (deux tons : chaque plaque se lit sur le blindage de nuit)
 VIF = (0.72, 0.78, 0.88)              # arêtes usées : acier vif
+VIF_SOMBRE = (0.20, 0.22, 0.27)       # usure du blindage principal : le masque d'usure couvre tout un grand plan (dos du torse) et le passait en
+                                      # acier vif poli = aplat blanc de 6 % du corps (d4/d12) ; sombre, il reste lisible sans brûler
 CREUX = (0.010, 0.011, 0.015)
-SKY_GLOSSY = 4.0
+SKY_GLOSSY = 2.5   # 4 -> 2,5 (13/11 nuit) : à 4, tout plan poli qui voit le ciel saturait en aplat blanc (6 % du corps)
 # Iridescence « huile sur acier » : sarcelle de face, bleu roi à mi-angle, violet en rasant (le film mince physique de Blender virait
 # à l'olive ou au mauve uniforme sur les essais du 13/11 : rampe pilotée par l'angle, maîtrisée)
 IRIS_NUIT = ((0.05, 0.42, 0.55), (0.16, 0.24, 0.85), (0.50, 0.20, 0.80))
@@ -63,16 +65,22 @@ def charte(S, M, prefix, gris=False):
     """Remplace dans le jeu de matières `M` (titans_mat.matieres) le blindage, le canon, la structure, les anneaux et les halos."""
     if gris:
         return M
-    M["blind"] = MT.surface(prefix + "v3_blind", NUIT, rough=0.20, met=0.92, tole=(1.6, 0.9), joint=0.05, joint_l=0.022, var=0.10,
-                            usure=0.62, nu=VIF, crasse=0.08, crasse_col=CREUX, relief=0.45, grain=0.0, biseau=0.04, graine=21)
-    M["blind2"] = MT.surface(prefix + "v3_blind2", NUIT2, rough=0.24, met=0.90, tole=(0.8, 0.5), joint=0.05, joint_l=0.026, var=0.12,
-                             usure=0.62, nu=VIF, crasse=0.08, crasse_col=CREUX, relief=0.4, grain=0.0, biseau=0.04, graine=22)
+    M["blind"] = MT.surface(prefix + "v3_blind", NUIT, rough=0.46, met=0.90, tole=(1.6, 0.9), joint=0.05, joint_l=0.022, var=0.10,
+                            usure=0.35, nu=VIF_SOMBRE, crasse=0.08, crasse_col=CREUX, relief=0.45, grain=0.0, biseau=0.04, graine=21)
+    M["blind2"] = MT.surface(prefix + "v3_blind2", NUIT2, rough=0.46, met=0.40, tole=(0.8, 0.5), joint=0.05, joint_l=0.026, var=0.12,
+                             usure=0.35, nu=VIF_SOMBRE, crasse=0.08, crasse_col=CREUX, relief=0.4, grain=0.0, biseau=0.04, graine=22)
     iris, TM.IRIS = TM.IRIS, IRIS_NUIT       # rampe d'iridescence de la charte V3 (rendue après usage : Kaiju & co gardent la leur)
     try:
         TM.iridescence(M["blind"], part=0.55, blend=0.32)
         TM.iridescence(M["blind2"], part=0.65, blend=0.32)
     finally:
         TM.IRIS = iris
+    # sans vernis (Coat 0,6 posé par TM.iridescence) : ce vernis lisse renvoyait le ciel en aplat BLANC sur les grands plans tournés vers
+    # le haut (dessus des épaulières : 6 % du corps du Juggernaut en d4/d12, trouvé par lancer de rayon puis vérifié vernis ôté : 0,15 %)
+    for k in ("blind", "blind2"):
+        pb = M[k].node_tree.nodes["Principled BSDF"]
+        if "Coat Weight" in pb.inputs:
+            pb.inputs["Coat Weight"].default_value = 0.0
     # canon : acier satiné (rugosité 0,42) : poli, ses tubes horizontaux renvoyaient le ciel en traits blancs (2,1 % du corps en d4/d12, salve)
     M["canon"] = MT.surface(prefix + "v3_canon", (0.09, 0.10, 0.12), rough=0.42, met=0.85, tole=(0.5, 0.25), joint=0.08, joint_l=0.03,
                             var=0.08, usure=0.6, nu=VIF, crasse=0.1, crasse_col=CREUX, relief=0.7, grain=0.0, biseau=0.03, graine=25)
@@ -80,5 +88,7 @@ def charte(S, M, prefix, gris=False):
                              crasse=0.15, crasse_col=(0.004, 0.004, 0.006), grain=0.0, biseau=0.03, graine=23)
     M["anneau"] = anneau_mag(S, prefix + "anneau_v3")
     M["halo"] = halo_discret(S, prefix + "halo_v3")
+    # cœurs : force 3 -> 1,6 (à 3, la vue désature le cyan en BLANC : rectangle blanc de 6 % du corps du Juggernaut en d4, mesure QA)
+    M["coeur"] = TM.coeur(S, prefix + "coeur_v3", strength=1.6)
     M["conduit"] = S.mat_emissive(prefix + "conduit_v3", TM.CYAN, strength=3.0, base=(0.02, 0.30, 0.36), main_scale=0.5)
     return M

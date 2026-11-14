@@ -38,7 +38,7 @@ RAYON = 12.0 * KE            # rayon au sol englobant (ombre comprise : calculé
 # 36 tuiles de haut, 8 directions × 12 images × 3 stades : à 24 comme le Kaiju les feuilles pèseraient 1,4 fois plus), rayon au sol et
 # hauteur englobants (cadre fixe pour toutes les images et directions, en tuiles), portée du liseré de contact.
 # ART-16DIR (11/11) : 16 directions réelles ; densité 12,5 pour tenir 80 Mpx HR avec 16 directions (lueur à demi-densité, ombre au quart)
-SERIE = {"course": 8, "attaque": 4, "densite": 12.5, "R": 16.0, "zmax": 38.5, "dirs": 16}
+SERIE = {"course": 8, "attaque": 4, "densite": 12.0, "R": 16.0, "zmax": 38.5, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False           # allié : la lueur garde ses couleurs (cyan, magenta)
 SKY_GLOSSY = TC.SKY_GLOSSY   # s43 (charte V3) : ciel spéculaire poussé, le blindage sombre vit de ses reflets
@@ -235,6 +235,10 @@ def torse(lot, M, stage, r):
                 (w * 0.55, d * 1.15, z), (w, d, z)]
     rings = [sect(18.4, 2.2, 3.6), sect(20.5, 3.0, 4.6), sect(23.5, 3.3, 5.7), sect(26.2, 2.9, 6.6), sect(27.8, 2.1, 5.0)]   # s43 : plus massif
     lot.put(M["blind"], G.loft(rings, True, True))
+    # s43 : COL mécanique sur le dessus du torse (cylindre cannelé sombre) : le couvercle plat et poli du torse renvoyait le ciel en
+    # aplat blanc (hexagone de 6 % du corps en d4/d12, stade 1) ; le col le cache et porte la tête
+    lot.put(M["struct"], G.prisme(R.octo((0.0, 0.0), 4.2, 12), 27.6, 28.3, top_scale=0.8))
+    lot.put(M["canon"], G.prisme(R.octo((0.0, 0.0), 2.6, 12), 28.2, 28.6, top_scale=0.9))
     # plaques pectorales et abdominales (avant, +x)
     # s43 : plaques ÉPAISSES (0,3 -> 0,7) en RECOUVREMENT : pectoraux encadrant le réacteur, abdominaux en écailles (chaque rang
     # recouvre le haut du suivant), flancs ; deux tons (blind2 clair sur blind sombre) pour que chaque plaque se lise à 32 px/tuile
@@ -243,18 +247,20 @@ def torse(lot, M, stage, r):
     for k, z in enumerate((21.7, 20.4, 19.1)):
         lot.put(M["blind2" if k % 2 == 0 else "blind"], plaque((3.15 - 0.25 * k, 0.0, z), G.norm((1.0, 0.0, 0.35)), 4.4 - 0.5 * k, 1.6, 0.6))
     for s in (-1, 1):
-        lot.put(M["blind2"], plaque((0.6, s * 5.9, 22.6), G.norm((0.25, s * 1.0, 0.15)), 3.6, 3.2, 0.7, up=(0, 0, 1)))
+        # flanc : plaque inclinée vers le BAS (normale -0,35) : tournée vers le haut, ce grand plan clair renvoyait le ciel en aplat
+        # blanc (6 % du corps en d4/d12, stade 1)
+        lot.put(M["blind2"], plaque((0.6, s * 5.9, 22.6), G.norm((0.25, s * 1.0, -0.35)), 3.6, 3.2, 0.7, up=(0, 0, 1)))
         lot.put(M["blind"], plaque((-1.4, s * 5.4, 21.0), G.norm((-0.2, s * 1.0, 0.1)), 3.0, 2.6, 0.6, up=(0, 0, 1)))
     # épaulières (stage 1 : simples ; 2 : étagées ; 3 : lourdes avec cristal)
     for s in (-1, 1):
         c = (0.3, s * 7.0, 26.9)
         # s43 : épaulières LOURDES (1,35 fois, épaisseur 1,3 -> 2,0) en trois lames étagées qui retombent sur le bras
-        lot.put(M["blind"], R.pose(G.prisme([(-2.7, -2.2), (3.0, -2.2), (3.5, 0.0), (3.0, 2.2), (-2.7, 2.2), (-3.4, 0.4)], 0.0, 2.0, 0.75), c, G.norm((0.0, s * 0.4, 1.0)), (1, 0, 0)))
+        lot.put(M["blind"], R.pose(G.prisme([(-2.7, -2.2), (3.0, -2.2), (3.5, 0.0), (3.0, 2.2), (-2.7, 2.2), (-3.4, 0.4)], 0.0, 2.0, 0.42), c, G.norm((0.0, s * 0.4, 1.0)), (1, 0, 0)))   # dessus en pointe de diamant (0,42) : un grand plat renvoyait le soleil en aplat blanc (6 % en d4/d12, sondé au lancer de rayon)
         lot.put(M["blind2"], R.pose(G.prisme([(-2.4, -1.0), (2.7, -1.0), (3.1, 0.0), (2.7, 1.0), (-2.4, 1.0)], 0.0, 0.6, 0.85), G.add(c, (0.1, s * 2.2, -0.9)), G.norm((0.0, s * 1.0, 0.45)), (1, 0, 0)))
         lot.put(M["blind"], R.pose(G.prisme([(-2.1, -0.8), (2.4, -0.8), (2.7, 0.0), (2.4, 0.8), (-2.1, 0.8)], 0.0, 0.55, 0.85), G.add(c, (0.1, s * 2.7, -2.2)), G.norm((0.0, s * 1.0, 0.25)), (1, 0, 0)))
         lot.put(M["conduit"], G.sphere(G.add(c, (2.6, s * 1.2, 1.4)), 0.3, 8, 4))
         if stage >= 2:
-            lot.put(M["blind2"], R.pose(G.prisme([(-2.1, -1.6), (2.4, -1.6), (2.8, 0.0), (2.4, 1.6), (-2.1, 1.6)], 0.0, 1.2, 0.8), G.add(c, (0.2, s * 0.9, 1.9)), G.norm((0.1, s * 0.5, 1.0)), (1, 0, 0)))
+            lot.put(M["blind2"], R.pose(G.prisme([(-2.1, -1.6), (2.4, -1.6), (2.8, 0.0), (2.4, 1.6), (-2.1, 1.6)], 0.0, 1.2, 0.5), G.add(c, (0.2, s * 0.9, 1.9)), G.norm((0.1, s * 0.5, 1.0)), (1, 0, 0)))
         if stage >= 3:
             lot.put(M["blind"], R.pose(G.prisme([(-1.2, -1.1), (1.5, -1.1), (1.8, 0.0), (1.5, 1.1), (-1.2, 1.1)], 0.0, 0.9, 0.8), G.add(c, (0.3, s * 1.6, 2.5)), G.norm((0.2, s * 0.7, 1.0)), (1, 0, 0)))
             for k in range(2):
@@ -296,7 +302,8 @@ def torse(lot, M, stage, r):
     # dos : cœur à vortex dans une cage, anneau magnétique flottant autour (axe x), gorge lumineuse
     C = (-3.3, 0.0, 24.2)
     lot.put(M["coeur"], G.sphere(C, 1.35, 16, 8))
-    lot.put(M["halo"], G.sphere(C, 2.3, 16, 8))
+    # s43 : plus de halo autour du cœur dorsal : cette sphère translucide, empilée sur le cœur et la cage, sortait en aplat BLANC opaque
+    # dans la passe principale (hexagone de 6 % du corps en d4/d12, identifié par un rendu à couleurs de matière)
     for k in range(4):
         a = G.TAU * (k + 0.5) / 4
         p0 = (C[0] + 0.2, C[1] + 1.1 * math.cos(a), C[2] + 1.1 * math.sin(a))
