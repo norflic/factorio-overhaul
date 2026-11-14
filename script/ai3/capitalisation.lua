@@ -100,6 +100,7 @@ local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la p
 local Pi = require("shared.ai3.pile")
 local BdRt = require("script.ai3.budget_defense") -- lot S42-DEFENSE : part de la defense selon les pertes recentes
 local Pe = require("shared.ai3.portes_extension") -- lot VIDEO-L6 : portes avant d'étendre (Capi.portes, decide_finish)
+local SatT = require("shared.ai3.saturer_tete") -- s46 saturer2 : ordre Maj+A en tête de la porte des chantiers
 local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : la couverture en boucle passe la porte du transport, modules posés cumulés
 local Pal = require("shared.ai3.palier") -- lot VIDEO-L10 : marches de stabilité, variante B (Capi.palier, decide_start)
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
@@ -2201,6 +2202,12 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   -- Un ordre retenu suit le chemin des refus ci-dessous (« porte L6 : », épargne rendue, cs.refused).
   Capi.say_barils(f, cs, res, tick) -- lot TV-FLUX (G51)
   res.orders = AmRt.after_decision(f, cs, res, tick, minutes(f, tick)) -- lot VIDEO-COUVERTURE 5 : cycles publiés, MÊME plan re-émis après l'exécutant occupé
+  do -- s46 saturer2 : l'ordre Maj+A (o.sat_req) passe la porte des chantiers en tête (un ordre par ressource demandée)
+    local n_sat
+    res.orders, n_sat = SatT.head(res.orders, SatT.wanted(f.outposts or {}, sorted_keys(f.outposts or {})))
+    if n_sat > 0 and res.orders[1] then log(string.format("[FO-COMMANDE] %s : %d ordre(s) de saturation en tete de la porte (%s)",
+      tostring(f.key or f.id), n_sat, tostring(res.orders[1].key))) end
+  end
   local gate_why = Capi.portes(f, cs, res, view, tick)
   cs.couv_wants = Cv.reserve_wants(res.orders, gate_why) -- lot COUVERTURE : la pose prévue est une demande du mall (lue par Ind.think)
   Capi.say_saturation(f, cs, res, tick) -- lot COUVERTURE : [FO-SATURATION]
