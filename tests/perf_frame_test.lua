@@ -125,7 +125,9 @@ do
   -- fenêtre), une rangée de foreuses (largeur x décalages), un tour de relais ; jamais tout un tracé
   local mk = CASES[2][2]
   local _, _, maxw = run(mk, 200)
-  check(maxw < 200 + 3000, string.format("travail max d'un pas au budget 200 : %d", maxw))
+  -- (compte d'un pas : budget + forfaits d'étape Ch.HEAVY_WORK et Ch.STEP_BASE + lectures de place libre + une unité indivisible)
+  local bound = 200 + Ch.HEAVY_WORK + Ch.STEP_BASE + 3000
+  check(maxw < bound, string.format("travail max d'un pas au budget 200 : %d (borne %d)", maxw, bound))
 end
 
 print("== perf-frame : Co.route reprenable == d'un bloc")
@@ -138,13 +140,16 @@ do
     local blocked = {}
     local dens = 0.15 + 0.05 * (trial % 5)
     for u = -40, 40 do for v = -40, 40 do if rnd() < dens then blocked[Co.tk(u, v)] = true end end end
-    if trial % 6 == 0 then for v = -40, 40 do blocked[Co.tk(0, v)] = true end end -- mur : aucun chemin (preuve)
+    -- mur : aucun chemin (preuve) ; perf-astar : 6 tuiles d'épaisseur (ces essais ont des souterrains de 4 : un mur d'une tuile se sautait,
+    -- aucun « aucun chemin » n'était jamais essayé)
+    if trial % 6 == 0 then for v = -40, 40 do for u = -3, 2 do blocked[Co.tk(u, v)] = true end end end
     local function free(u, v) return not blocked[Co.tk(u, v)] end
     local box = { u0 = -40, v0 = -40, u1 = 40, v1 = 40 }
     local s = { u = -30 + math.floor(rnd() * 20), v = math.floor(rnd() * 60) - 30 }
     local t = { u = 10 + math.floor(rnd() * 20), v = math.floor(rnd() * 60) - 30 }
     blocked[Co.tk(s.u, s.v)] = nil; blocked[Co.tk(t.u, t.v)] = nil
     local cap = (trial % 4 == 0) and 1500 or 8000
+    if trial % 6 == 0 then cap = 30000 end -- (perf-astar : plafond au-dessus des états du côté du départ : la preuve peut conclure)
     local ug = (trial % 2 == 0) and 4 or nil
     Co.WORK_LIM = nil
     local r1, w1 = Co.route(s, 2, t, 2, free, nil, ug, box, cap)
