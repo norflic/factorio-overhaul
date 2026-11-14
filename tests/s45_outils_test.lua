@@ -1,0 +1,21 @@
+-- Lot s45 OUTILS : ordre « bastion » (shared/ai3/commande.lua) et ses zones servies par la pose des tourelles.
+package.path = "./?.lua;" .. package.path
+local Co = require("shared.ai3.commande")
+local st = Co.new_state()
+assert(Co.add(st, { kind = "bastion", x = 10, y = 20, r = 12 }) == 1, "bastion accepte")
+assert(Co.add(st, { kind = "amelioration", x = 0, y = 0, r = 8 }) == 2)
+assert(Co.add(st, { kind = "bastion", x = -5, y = 7, r = 30 }) == 3)
+local id, why = Co.add(st, { kind = "inconnu", x = 0, y = 0 })
+assert(id == nil and why == "type", "sorte inconnue refusée")
+local z = Co.bastion_zones(st, 8)
+assert(#z == 2, "deux bastions")
+assert(z[1].key == "bastion1" and z[1].x == 10 and z[1].y == 20 and z[1].want == 8, "premier bastion")
+assert(z[2].key == "bastion3", "ordre de pose")
+assert(#Co.upgrade_zones(st) == 1, "le bastion n'est pas une zone d'amélioration")
+assert(#Co.deposits(st) == 0, "le bastion n'est pas un gisement")
+local hit = Co.hit(st, 5, 15, 15, 25)
+assert(#hit >= 1 and hit[1] == 1, "bouton droit annule le bastion")
+assert(Co.cancel(st, 1) and #Co.bastion_zones(st, 8) == 1, "annulation")
+assert(#Co.bastion_zones(nil, 8) == 0)
+-- mutant : un bastion ignoré par bastion_zones serait détecté
+print("s45_outils_test OK")

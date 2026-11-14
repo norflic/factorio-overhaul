@@ -18,6 +18,7 @@ local Fr = require("shared.team.front")
 local Ds_rule = require("shared.team.defense_stock")
 local Pose = require("shared.team.pose_tourelles")
 local Outposts = require("script.faction.outposts")
+local Co = require("shared.ai3.commande") -- lot s45 OUTILS : bastions désignés
 
 local Ds = {}
 
@@ -102,6 +103,12 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
       if (z.x - p.x) ^ 2 + (z.y - p.y) ^ 2 <= served_r2 then z.served = true break end
     end
     zones[#zones + 1] = z
+  end
+  -- 0. lot s45 OUTILS : bastions défensifs désignés par le joueur (outil de commandement, Maj + R) : servis comme un QG attaqué
+  if f.team and f.team.commande then
+    for _, b in ipairs(Co.bastion_zones(f.team.commande, Ds_rule.GROUP_CAP)) do
+      add({ key = b.key, kind = "qg", x = b.x, y = b.y, score = 0, want = b.want })
+    end
   end
   -- 1. le QG d'une faction qui en a perdu des tourelles (le plus haut nombre vu, f.team.hq_peak)
   if not f.is_player and f.hq_pos then

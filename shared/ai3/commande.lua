@@ -108,7 +108,7 @@ end
 --- Ajoute un ordre { kind = "gisement" | "liaison" | "amelioration", x, y, r, resource?, outpost?, tick }. Rend son numéro, ou nil et la raison
 --- (« plein » : Co.MAX_ORDERS atteint ; « type » : sorte inconnue ; « ressource » : gisement sans type d'avant-poste).
 function Co.add(state, o)
-  if o.kind ~= "gisement" and o.kind ~= "liaison" and o.kind ~= "amelioration" then return nil, "type" end
+  if o.kind ~= "gisement" and o.kind ~= "liaison" and o.kind ~= "amelioration" and o.kind ~= "bastion" then return nil, "type" end
   if o.kind == "gisement" and not o.outpost then return nil, "ressource" end
   if #state.orders >= Co.MAX_ORDERS then return nil, "plein" end
   local id = state.next_id
@@ -290,6 +290,16 @@ function Co.upgrade_zones(state)
   local out = {}
   for _, o in ipairs((state or {}).orders or {}) do
     if o.kind == "amelioration" then out[#out + 1] = o end
+  end
+  return out
+end
+
+--- Lot s45 OUTILS : zones de bastion défensif prioritaire vivantes (ordre de pose). La pose des tourelles du stock les sert d'abord,
+--- comme un lieu attaqué (script/team/defense_stock.lua Ds.view), avec `want` tourelles voulues.
+function Co.bastion_zones(state, want)
+  local out = {}
+  for _, o in ipairs((state or {}).orders or {}) do
+    if o.kind == "bastion" then out[#out + 1] = { key = "bastion" .. o.id, id = o.id, x = o.x, y = o.y, r = o.r, want = want } end
   end
   return out
 end
