@@ -24,17 +24,28 @@ local function key_missing(f, spec, tick)
 end
 
 --- L'extension thermique de l'avant-poste `o` (plaque clé seulement) reste-t-elle permise malgré sa migration en cours ?
-function Famine.open(f, o, tick)
-  if not (f and o and o.migr == "en cours") then return false end
-  local spec = T.outposts[o.kind]
-  if not (spec and spec.product == T.outposts.iron.product) then return false end
-  local starved, missing = key_missing(f, spec, tick)
+local IDLE_STATES = { plan = true, reserve = true, attente = true, demande = true } -- (avant tout fantôme posé)
+--- 0.7.114 (F678) : la bande migrée de l'avant-poste `o` n'a-t-elle encore RIEN bâti (projet en attente de sa matière) ? Rend vrai/faux, bâties.
+local function band_idle(f, o)
   local ms = f.migration
   local st = ms and ms.o and ms.o[o.id]
   local p = st and st.pid and f.build and f.build.projects and f.build.projects[st.pid]
-  -- CHANTIER-GELE : « commencée » = une entité bâtie au moins (ni l'étape de la migration ni les paires retirées ne comptent)
   local built = 0
   for _, e in ipairs(p and p.ents or {}) do if e.built then built = built + 1 end end
+  return p ~= nil and built == 0 and IDLE_STATES[p.state or ""] == true, built, p, st
+end
+
+function Famine.open(f, o, tick)
+  if not (f and o and o.migr == "en cours") then return false end
+  local spec = T.outposts[o.kind]
+  -- 0.7.114 (F678, cause de l'amorçage lent) : une bande demandée gelait l'avant-poste ET tout son gisement dès la demande (o.full, extension
+  -- thermique et remplacement sur place coupés) alors qu'elle attendait sa matière 10 à 20 min (banc JALONS30 : thermiques figées de 18,9 à
+  -- 30 min, fours à vide) : tant que la bande n'a rien bâti, l'avant-poste continue de croître, toute ressource, famine ou non. Les tuiles du
+  -- plan de la bande sont réservées (PlacesQG.is_reserved, Build.reserved_entity) : aucune paire ne se pose sur son emprise.
+  local idle, built, p, st = band_idle(f, o)
+  if idle then return true end
+  if not (spec and spec.product == T.outposts.iron.product) then return false end
+  local starved, missing = key_missing(f, spec, tick)
   -- s43 regr-fer2 : ticks sans progrès de la bande (suivi du retour en arrière, st.pg = { built, since }, écrit par script/team/migration_champ.lua)
   local t = tick or (game and game.tick) or 0
   local stalled = (st and st.pg and st.pg.since) and math.max(0, t - st.pg.since) or 0
@@ -56,5 +67,7 @@ function Famine.team_starved(f, tick)
   local starved, missing = key_missing(f, T.outposts.iron, tick)
   return starved or missing > 0
 end
+
+Famine.band_idle = function(f, o) return (band_idle(f, o)) end -- (lu par script/team/foreuse_swap.lua)
 
 return Famine

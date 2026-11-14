@@ -89,14 +89,22 @@ local f = { team = { ia3 = { starved = { [iron.product] = true } } }, migration 
 local o = { id = 1, kind = "iron", migr = "en cours" }
 check("moteur : plaque clé en famine, bande en réserve : ouverte", Fr.open(f, o) == true)
 f.team.ia3.starved = {}
-check("moteur : plus de famine : fermée", Fr.open(f, o) == false)
+-- 0.7.114 (F678) : bande en réserve qui n'a rien bâti : ouverte même sans famine (l'avant-poste croît pendant que la bande attend)
+check("moteur : plus de famine, bande en réserve sans entité bâtie : ouverte (F678)", Fr.open(f, o) == true)
+f.build.projects[5].ents = { { built = true } }
+check("moteur : plus de famine, bande commencée : fermée", Fr.open(f, o) == false)
+f.build.projects[5].ents = nil
 -- 0.6.75 : la pensée ne manque plus mais le noyau (besoin évalué, frais) manque encore de la plaque clé : ouverte ; noyau périmé : fermée
 f.team.ia3.noyau = { tick = 1000, missing = { [iron.product] = 887 } }
 check("moteur : pensée sans manque, noyau frais à 887 plaques manquantes : ouverte", Fr.open(f, o, 1200) == true)
 check("moteur : idem, plaque clé déclarée en famine pour le planificateur (key_starved)", Fr.key_starved(f, o, 1200) == true)
-check("moteur : noyau périmé : fermée", Fr.open(f, o, 1000 + 1800 + 1) == false)
+f.build.projects[5].ents = { { built = true } }
+check("moteur : noyau périmé, bande commencée : fermée", Fr.open(f, o, 1000 + 1800 + 1) == false)
+f.build.projects[5].ents = nil
 f.team.ia3.noyau = { tick = 1000, missing = { [iron.product] = 0 } }
-check("moteur : noyau couvert : fermée", Fr.open(f, o, 1200) == false)
+f.build.projects[5].ents = { { built = true } }
+check("moteur : noyau couvert, bande commencée : fermée", Fr.open(f, o, 1200) == false)
+f.build.projects[5].ents = nil
 f.team.ia3.noyau = nil
 f.team.ia3.starved = { [iron.product] = true }
 -- CHANTIER-GELE : l'état du journal à 85,9 min (projet 5 : chantier, 0/720 bâties, 3 paires retirées) : ouverte ; une entité bâtie : fermée
@@ -107,7 +115,13 @@ f.build.projects[5].ents[2].built = true
 check("moteur : bande en chantier, une entité bâtie : fermée", Fr.open(f, o) == false)
 f.build.projects[5].state, f.build.projects[5].ents = "reserve", nil
 f.migration.o[1].stage, f.migration.o[1].retired = "projet", 0
-check("moteur : autre matière que la plaque clé : fermée", Fr.open(f, { id = 1, kind = "coal", migr = "en cours" }) == false)
+check("moteur : autre matière, bande en réserve sans entité bâtie : ouverte (F678)", Fr.open(f, { id = 1, kind = "coal", migr = "en cours" }) == true)
+f.build.projects[5].ents = { { built = true } }
+check("moteur : autre matière que la plaque clé, bande commencée : fermée", Fr.open(f, { id = 1, kind = "coal", migr = "en cours" }) == false)
+f.build.projects[5].ents = nil
+f.build.projects[5].state = "chantier"
+check("moteur : bande en chantier (fantômes posés), rien de bâti, sans famine : fermée", Fr.open(f, { id = 1, kind = "coal", migr = "en cours" }) == false)
+f.build.projects[5].state = "reserve"
 check("moteur : sans migration : fermée", Fr.open(f, { id = 1, kind = "iron" }) == false)
 
 print(string.format("[FAMINE-CLE] BILAN : %d OK, %d ECHEC(S)", ok, bad))

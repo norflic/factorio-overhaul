@@ -18,6 +18,7 @@
   Determinisme : listes triees, aucun temps mesure ; etat dans f.swap (tables simples).
 ]]
 
+local Famine = require("script.team.famine_fer") -- 0.7.114 (F678) : bande migrée encore vide (Famine.band_idle)
 local T = require("shared.team.config")
 local S = require("shared.team.foreuse_swap")
 local State = require("script.faction.state")
@@ -182,7 +183,8 @@ local function survey_step(f, surface, pass, budget)
       -- Swap.repli), même avant wait : après une coupure, producing() lit encore le flux de la dernière minute (banc foreuses-panne-diag :
       -- 2 électriques posées 180 ticks après la coupure). producing() reste la condition nécessaire ; la pose reprend quand plus aucune
       -- électrique n'est sans courant.
-      local list = (o.migr == "en cours" or o.dark_units ~= nil) and {} or (o.drill_list or {})
+      -- 0.7.114 (F678) : sauf bande migrée qui n'a encore rien bâti (Famine.band_idle) : les thermiques passent à l'électrique en attendant
+      local list = ((o.migr == "en cours" and not Famine.band_idle(f, o)) or o.dark_units ~= nil) and {} or (o.drill_list or {})
       local fuel = fuel_outpost(o) -- réserve d'amorçage : thermiques DEBOUT de l'avant-poste (toutes, refus et attentes compris)
       while pass.di <= #list do
         local i = pass.di
