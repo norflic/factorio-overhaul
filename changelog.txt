@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.112
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F672) : le plan d'un gisement avance par petites étapes (une phase, une bande ou un côté du réseau du charbon par appel, 30 ticks entre deux étapes) ; sur les gisements réels de la carte du DC, l'étape la plus longue passe à moins de 80 ms hors jeu, plan identique.
+    - IA (F673) : la recherche d'une place de colonne « ailleurs » s'arrête pour une source dès qu'un tracé atteint le plafond d'états (plan identique sur les 8 cas mesurés).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.111
 Date: 2026-11-14
   Bugfixes:
