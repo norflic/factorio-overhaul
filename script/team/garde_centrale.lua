@@ -13,6 +13,7 @@ local T = require("shared.team.config")
 local M = require("shared.team.modules")
 local D = require("shared.team.automatisation_donnees")
 local Guard = require("shared.team.garde_centrale")
+local Vec = require("shared.team.vecteur") -- s44 vecteur
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 
@@ -133,8 +134,22 @@ function GC.view(f, fortify_open, iron)
     fortify = fortify_open and fortify_open["plant"] or false, pause = (g.pause_until or 0) > tick }
   local have, want, npieces, nboilers = 0, 0, 0, 0
   g.seen = g.seen or {}
+  local vec = Vec.fresh(f.vecteur, tick) and f.vecteur or nil -- s44 vecteur : dernière pièce de centrale touchée et son attaquant
   for _, pl in ipairs(plants) do
     pl.rest = ((g.rest or {})[pl.id] or 0) > tick -- pose sans résultat récente : on passe à une autre centrale (pas de famine)
+    pl.threat = nil
+    if vec and #pl.pieces > 0 then
+      local cx, cy, far = Guard.center(pl.pieces)
+      local lim = far + range
+      if (vec.x - cx) ^ 2 + (vec.y - cy) ^ 2 <= lim * lim then
+        pl.threat = { x = vec.ax, y = vec.ay }
+        if g.vec_t ~= vec.t then
+          g.vec_t = vec.t
+          log(string.format("[FO-DEF-VECTEUR] %s : centrale %s attaquee a %.1f min depuis (%.0f, %.0f) ; ligne de tourelles face a l'attaquant prioritaire",
+            f.key or "player", tostring(pl.id), tick / 3600, vec.ax, vec.ay))
+        end
+      end
+    end
     local h = Guard.guards(pl.pieces, turrets, range, T.turret_ammo_low)
     local w = pl.want or Guard.wanted(pl.boilers) -- (CC-BOX : quota d'une box)
     have, want, npieces, nboilers = have + h, want + w, npieces + #pl.pieces, nboilers + pl.boilers
