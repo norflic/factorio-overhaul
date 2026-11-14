@@ -526,8 +526,9 @@ function Ind.think(f, cs, res, view, book, tick)
   -- s44 moteurs : un intermédiaire que la main ne fait pas (charge à la main toujours nulle) est demandé dès sa recette débloquée, tampon borné
   local force = game.forces[f.force]
   if force then
+    local cnt = Mo.memo(function(it) return Stock.count(f, it) or 0 end) -- s45 freeze : un relevé moteur par objet et par passe
     local list = Mo.wants(lec.fab, function(rn) local r = force.recipes[rn] return r ~= nil and r.enabled end,
-      function(n) return book:handcraftable(n) or (Stock.count(f, n) or 0) > 0 end, function(it) return Stock.count(f, it) end)
+      Mo.memo(function(n) return book:handcraftable(n) or cnt(n) > 0 end), cnt)
     Mo.seed(ml, tick, list, Ml)
     local msig = {}
     for _, w in ipairs(list) do msig[#msig + 1] = w.item .. "(" .. w.recipe .. ", " .. w.need .. " pour le tampon, " .. w.users .. " recette(s) l'utilisent)" end

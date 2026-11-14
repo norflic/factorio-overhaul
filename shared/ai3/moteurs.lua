@@ -68,6 +68,18 @@ function Mo.wants(fab, enabled, usable, have)
 end
 
 --- Pose la demande au mall (Ml injecté) : une demande fraîche d'une autre source à débit au moins égal est gardée.
+--- s45 freeze : mémo d'une fonction à un argument pour UNE passe (Stock.count lit le QG et chaque annexe au moteur ; Mo.wants
+--- l'appelait pour chaque ingrédient de chaque recette du relevé, plusieurs fois le même objet). Valeur nil gardée aussi.
+function Mo.memo(fn)
+  local cache, done = {}, {}
+  return function(k)
+    if done[k] then return cache[k] end
+    local v = fn(k)
+    done[k], cache[k] = true, v
+    return v
+  end
+end
+
 function Mo.seed(st, tick, list, Ml)
   local n = 0
   for _, w in ipairs(list or {}) do
