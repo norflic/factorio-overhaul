@@ -31,21 +31,29 @@ from kaiju import pas, ik2, ellipse  # noqa: E402
 
 PREFIX = "em_"
 GRIS = os.environ.get("FO_GRIS", "") == "1"
-SERIE = {"course": 8, "attaque": 4, "densite": 64.0, "R": 3.0, "zmax": 3.0, "sol": 40.0}
+SERIE = {"course": 8, "attaque": 4, "densite": 64.0, "R": 3.3, "zmax": 3.6, "sol": 40.0}
 AO = 0.3
 GLOW_BLANC = True
 AMP = 0.42
+# s43 tranche 2 : TAILLE d'avant rendue (environ 4 tuiles du museau à la queue) : chaque variante est modelée puis agrandie de
+# TAILLE[variante] (lot.xf) ; l'amplitude du pas est divisée d'autant dans le repère du modèle, la foulée au sol reste FOULEE.
+TAILLE = {1: 1.15, 2: 1.45, 3: 1.3}
+AMP_MODELE = [AMP]
 FOULEE = 2 * 0.42
 
 # Variante : couleurs LINÉAIRES du muscle (creux, fond, crêtes), de l'os, du tendon et de la peau morte ; le reste (silhouette) est dans
 # les fonctions de pose propres à chaque variante (POSES).
 COULEURS = {
-    1: {"creux": (0.26, 0.06, 0.06), "fond": (0.64, 0.32, 0.28), "crete": (0.95, 0.80, 0.70), "os": (0.86, 0.80, 0.66),
-        "tendon": (0.92, 0.86, 0.72), "peau": (0.46, 0.43, 0.41), "gorge": (0.30, 0.04, 0.05)},
-    2: {"creux": (0.020, 0.006, 0.010), "fond": (0.095, 0.026, 0.034), "crete": (0.24, 0.085, 0.085), "os": (0.20, 0.17, 0.13),
-        "tendon": (0.30, 0.25, 0.19), "peau": (0.028, 0.020, 0.024), "gorge": (0.10, 0.01, 0.015), "sac": (0.045, 0.026, 0.040)},
-    3: {"creux": (0.10, 0.008, 0.012), "fond": (0.42, 0.040, 0.034), "crete": (0.80, 0.22, 0.14), "os": (0.46, 0.37, 0.29),
-        "tendon": (0.78, 0.70, 0.56), "peau": (0.050, 0.025, 0.030), "gorge": (0.25, 0.01, 0.03)},
+    # s43 tranche 2 (QA : charte lum. médiane <= 0,38, pas de blanc brûlé) : rôdeur gris-rose délavé (et non plus blanc-beige), os
+    # jauni sombre ; l'ordre de luminance rôdeur > hurleur > porteur reste (tests/titans_test.lua §8)
+    # QA tour 3 : rôdeur ROUGE SANG (écarlate, le plus clair des trois), moins d'os blanc ; porteur : chair rouge sombre nettement plus
+    # claire que sa charge presque noire (valeurs séparées, nervures claires) ; hurleur cramoisi sombre, crâne d'os jauni sombre
+    1: {"creux": (0.08, 0.012, 0.012), "fond": (0.40, 0.070, 0.050), "crete": (0.80, 0.36, 0.24), "os": (0.24, 0.18, 0.09),
+        "tendon": (0.48, 0.38, 0.24), "peau": (0.10, 0.06, 0.055), "gorge": (0.20, 0.025, 0.03)},
+    2: {"creux": (0.008, 0.003, 0.004), "fond": (0.075, 0.021, 0.023), "crete": (0.34, 0.14, 0.10), "os": (0.15, 0.10, 0.04),
+        "tendon": (0.50, 0.40, 0.25), "peau": (0.025, 0.018, 0.022), "gorge": (0.10, 0.01, 0.015), "sac": (0.016, 0.009, 0.014)},
+    3: {"creux": (0.03, 0.002, 0.004), "fond": (0.34, 0.032, 0.026), "crete": (0.78, 0.22, 0.13), "os": (0.20, 0.13, 0.05),
+        "tendon": (0.42, 0.34, 0.22), "peau": (0.16, 0.035, 0.035), "gorge": (0.20, 0.008, 0.025)},
 }
 
 
@@ -106,7 +114,7 @@ def muscle(nom, creux, fond, crete, rough=0.36, echelle=4.5, bosse=0.5, graine=0
     return m
 
 
-def lisse(nom, col, rough=0.3, coat=0.25):
+def lisse(nom, col, rough=0.3, coat=0.25, cavites=True):
     """Os, tendon, poche : surface lisse à légère marbrure (bruit), vernis léger."""
     import bpy
     m = bpy.data.materials.new(nom)
@@ -124,7 +132,23 @@ def lisse(nom, col, rough=0.3, coat=0.25):
     e[0].position, e[0].color = 0.3, tuple(c * 0.62 for c in col) + (1.0,)
     e[1].position, e[1].color = 0.75, tuple(min(1.0, c * 1.12) for c in col) + (1.0,)
     L.new(nz.outputs["Fac"], rp.inputs["Fac"])
-    L.new(rp.outputs["Color"], p.inputs["Base Color"])
+    col_out = rp.outputs["Color"]
+    if cavites:
+        # s43 tranche 2 : ombres de cavités (occlusion locale) multipliées dans la couleur : sutures, orbites, creux entre os
+        ao = N.new("ShaderNodeAmbientOcclusion")
+        ao.inputs["Distance"].default_value = 0.12
+        mp2 = N.new("ShaderNodeMapRange")
+        mp2.inputs["To Min"].default_value = 0.18
+        L.new(ao.outputs["AO"], mp2.inputs["Value"])
+        mx = N.new("ShaderNodeMix")
+        mx.data_type = "RGBA"
+        mx.blend_type = "MULTIPLY"
+        mx.inputs[0].default_value = 1.0
+        ins = [x for x in mx.inputs if x.type == "RGBA"]
+        L.new(col_out, ins[0])
+        L.new(mp2.outputs["Result"], ins[1])
+        col_out = [x for x in mx.outputs if x.type == "RGBA"][0]
+    L.new(col_out, p.inputs["Base Color"])
     p.inputs["Roughness"].default_value = rough
     p.inputs["Metallic"].default_value = 0.0
     for k, v in (("Coat Weight", coat), ("Coat Roughness", 0.2)):
@@ -144,7 +168,7 @@ def matieres(S, stage):
     if GRIS:
         for k in ("muscle", "tendon", "sac", "gorge"):
             M[k] = M["chair"]
-        M["peau_morte"] = M["peau"]
+        M["peau_morte"] = M["cavite"] = M["peau"]
         return M
     c = COULEURS[stage]
     M["muscle"] = muscle(PREFIX + "muscle", c["creux"], c["fond"], c["crete"], graine=stage)
@@ -153,7 +177,8 @@ def matieres(S, stage):
     M["os"] = lisse(PREFIX + "os", c["os"], rough=0.42, coat=0.1)
     M["tendon"] = lisse(PREFIX + "tendon", c["tendon"], rough=0.22, coat=0.45)
     M["peau_morte"] = lisse(PREFIX + "peau_morte", c["peau"], rough=0.7, coat=0.0)
-    M["sac"] = lisse(PREFIX + "sac", c.get("sac", c["peau"]), rough=0.25, coat=0.6)
+    M["cavite"] = lisse(PREFIX + "cavite", tuple(x * 0.12 for x in c["os"]), rough=0.8, coat=0.0, cavites=False)
+    M["sac"] = lisse(PREFIX + "sac", c.get("sac", c["peau"]), rough=0.15, coat=0.85)
     # émissifs (couche lueur, rendus blancs, teints en jeu) : yeux, gorge, pustules
     M["oeil"] = S.mat_emissive(PREFIX + "conduit_oeil", (1.0, 0.95, 0.85), strength=3.0, base=(0.6, 0.5, 0.3), main_scale=0.6)
     M["pustule"] = S.mat_emissive(PREFIX + "conduit_pustule", (1.0, 0.75, 0.45), strength=2.4, base=(0.5, 0.25, 0.1), main_scale=0.55)
@@ -230,7 +255,7 @@ def torse(lot, M, ctrl, rayon, cotes, vertebres=True, peau=()):
 
 def patte(lot, M, hanche, pied0, u, l1, l2, r, pole, levee=0.22, griffe=0.24, appui=0.55):
     """Patte : cuisse musclée renflée, tibia sec (os + tendon d'Achille), pied à trois griffes ; `pole` : côté du genou."""
-    dx, dz = pas(u, AMP, levee, appui)
+    dx, dz = pas(u, AMP_MODELE[0], levee, appui)
     pied = (pied0[0] + dx, pied0[1], pied0[2] + dz)
     genou = ik2(hanche, pied, l1, l2, pole)
     lot.put(M["muscle"], ellipsoide(hanche, r * 1.35, r * 1.2, r * 1.3, 10, 5))
@@ -275,6 +300,10 @@ def tete(lot, M, base, k, tangage, ouverture, crane, dents=3, yeux=2, gorge=1.0)
     # arcades et orbites : bourrelets d'os, yeux lumineux enfoncés
     for s in (-1, 1):
         lot.put(M["os"], ellipsoide(P(0.32, s * 0.24, 0.24), 0.09 * k * lx, 0.07 * k, 0.05 * k, 8, 4))
+        # s43 tranche 2 : orbites et fosses (ombres de cavités) : creux sombres autour des yeux, narines, fosse temporale
+        lot.put(M["cavite"], ellipsoide(P(0.33, s * 0.245, 0.13), 0.1 * k * lx, 0.06 * k, 0.07 * k, 8, 4))
+        lot.put(M["cavite"], ellipsoide(P(0.9, s * 0.07, 0.07), 0.05 * k * lx, 0.03 * k, 0.03 * k, 6, 3))
+        lot.put(M["cavite"], ellipsoide(P(0.0, s * 0.27, 0.12), 0.08 * k * lx, 0.05 * k, 0.07 * k, 8, 4))
         for q in range(yeux):
             lot.put(M["oeil"], ellipsoide(P(0.38 - 0.12 * q, s * 0.27, 0.15 - 0.03 * q), 0.035 * k, 0.03 * k, 0.03 * k, 8, 4))
     # mâchoire : tourne autour de la charnière (x = -0.05, z = -0.1) de `ouverture`
@@ -340,16 +369,16 @@ def rodeur(lot, M, u, a, bob, lunge, ouv):
     ctrl = [(-1.15 + x0, 0.0, 0.62 + bob * 0.5), (-0.5 + x0, 0.0, 0.70 + bob), (0.25 + x0, 0.0, 0.74 + bob), (0.85 + x0, 0.0, 0.70 + bob),
             (1.15 + x0, 0.0, 0.64 + bob)]
     def ray(t):
-        rw = 0.20 + 0.10 * math.sin(math.pi * min(1.0, t * 1.1)) - 0.05 * math.exp(-((t - 0.45) / 0.12) ** 2)
-        rh = 0.17 + 0.08 * math.sin(math.pi * min(1.0, t * 1.05))
+        rw = 0.28 + 0.12 * math.sin(math.pi * min(1.0, t * 1.1)) - 0.05 * math.exp(-((t - 0.45) / 0.12) ** 2)
+        rh = 0.24 + 0.09 * math.sin(math.pi * min(1.0, t * 1.05))
         return rw, rh
     pts, prof = torse(lot, M, ctrl, ray, (0.42, 0.85, 6), peau=((0.2, 1), (0.75, -1)))
-    queue(lot, M, [(-1.1 + x0, 0.0, 0.6 + bob * 0.5), (-1.6 + x0, 0.0, 0.48), (-2.1 + x0, 0.0, 0.32), (-2.55 + x0, 0.0, 0.24)], 0.12, -sw * 2.2)
+    queue(lot, M, [(-1.1 + x0, 0.0, 0.6 + bob * 0.5), (-1.6 + x0, 0.0, 0.48), (-2.1 + x0, 0.0, 0.32), (-2.35 + x0, 0.0, 0.24)], 0.17, -sw * 2.2)
     ph = {"AG": 0.0, "PD": 0.0, "AD": 0.5, "PG": 0.5}
     for k, (hx, fx) in (("AG", (0.75, 1.1)), ("AD", (0.75, 1.1)), ("PG", (-0.7, -0.95)), ("PD", (-0.7, -0.95))):
         s = 1 if k[1] == "G" else -1
         hz = 0.66 + bob
-        patte(lot, M, (hx + x0, s * 0.2, hz), (fx + (x0 if a is None else 0.0), s * 0.95, 0.0), u + ph[k], 0.72, 0.82, 0.075,
+        patte(lot, M, (hx + x0, s * 0.2, hz), (fx + (x0 if a is None else 0.0), s * 0.95, 0.0), u + ph[k], 0.72, 0.82, 0.11,
               G.norm((0.15 if k[0] == "A" else -0.15, s * 0.45, 1.0)), levee=0.2, griffe=0.22)
     nuque = pts[-1]
     b = (nuque[0] + 0.28, 0.0, nuque[2] - 0.06)
@@ -373,6 +402,14 @@ def porteur(lot, M, u, a, bob, lunge, ouv):
             (-0.6, 0.0, 0.32, 0.22, 0.30, 0.2))
     for (sx, sy, sz, rx, ry, rz) in sacs:
         lot.put(M["sac"], ellipsoide((sx + x0, sy, cz + sz * 0.9), rx, ry, rz, 14, 7))
+        # s43 tranche 2 (QA : « boules noires brillantes peu lisibles ») : chaque poche est veinée de deux nervures claires
+        for ph0 in (0.35, 1.9):
+            arc = []
+            for q in range(9):
+                t = -1.25 + 2.5 * q / 8.0
+                arc.append((sx + x0 + 1.02 * rx * math.sin(t) * math.cos(ph0), sy + 1.02 * ry * math.sin(t) * math.sin(ph0),
+                            cz + sz * 0.9 + 1.02 * rz * math.cos(t)))
+            lot.put(M["tendon"], G.tube(arc, 0.022, 5))
     for q, (sx, sy, sz) in enumerate(((0.12, 0.3, 0.75), (-0.3, 0.35, 0.6), (0.3, -0.33, 0.62), (-0.48, -0.3, 0.5), (0.0, -0.1, 1.25),
                                       (-0.1, 0.36, 1.05), (0.45, 0.25, 0.75))):
         lot.put(M["pustule"], ellipsoide((sx + x0, sy, cz + sz * 0.9), 0.06, 0.06, 0.05, 8, 4))
@@ -437,7 +474,7 @@ def hurleur(lot, M, u, a, bob, lunge, ouv, cri):
         v = [r0, t0, mid, t1, r1]
         lot.put(M["peau_morte"], (v, [(0, 1, 2), (0, 2, 4), (4, 2, 3)], [(0.0, 0.0)] * 5))
         lot.put(M["peau_morte"], (v, [(2, 1, 0), (4, 2, 0), (3, 2, 4)], [(0.0, 0.0)] * 5))
-    tete(lot, M, b, 0.85, 0.4 + 0.3 * cri, 0.95 + 0.35 * ouv, (1.05, 1.05, 1.0), dents=4, yeux=2, gorge=1.4)
+    tete(lot, M, b, 0.85, 0.4 + 0.3 * cri, 0.95 + 0.35 * ouv, (1.05, 1.05, 1.0), dents=4, yeux=2, gorge=1.1)
 
 
 def build_anime(S, lot, stage, u, attaque):
@@ -445,15 +482,18 @@ def build_anime(S, lot, stage, u, attaque):
     st = int(stage) if stage else 1
     M = matieres(S, st)
     R.raz()
+    K = TAILLE[st]
+    lot.xf = lambda v: (v[0] * K, v[1] * K, v[2] * K)
+    AMP_MODELE[0] = AMP / K
     if attaque is not None:
         a = attaque
         k = math.sin(math.pi * min(1.0, a * 1.4))        # élan : monte puis retombe sur la dernière image
-        lunge, ouv, cri = 0.35 * k, k, k
-        bob, uu = -0.04 * k, 0.0
+        lunge, ouv, cri = 0.12 * k, k, k      # QA A8 : élan court (gigue du centre de masse)
+        bob, uu = -0.02 * k, 0.0
     else:
         a = None
         lunge, ouv, cri = 0.0, 0.0, 0.0
-        bob = 0.04 * math.sin(G.TAU * 2.0 * u)
+        bob = 0.025 * math.sin(G.TAU * 2.0 * u)
         uu = u
     if st == 1:
         rodeur(lot, M, uu, a, bob, lunge, ouv)
