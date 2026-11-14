@@ -50,8 +50,12 @@ for i, t in ipairs(TOOLS) do
       selection_cursor_box_type = "entity", alt_selection_cursor_box_type = "copy",
       reverse_selection_cursor_box_type = "not-allowed", alt_reverse_selection_cursor_box_type = "not-allowed",
       selection_mode = t.mode, entity_type_filters = t.filter and { "resource" } or nil,
-      alt_selection_mode = { "nothing" }, reverse_selection_mode = { "nothing" }, alt_reverse_selection_mode = { "nothing" },
+      -- s46 outils : Maj + glisser (on garde Maj enfoncée après Maj + A) sélectionne comme le glisser simple (le gestionnaire du slot 2 fait
+      -- la même action) : avant, « nothing » rendait une sélection vide et l'ordre de gisement était refusé (« aucun minerai »).
+      alt_selection_mode = t.mode, alt_entity_type_filters = t.filter and { "resource" } or nil,
+      reverse_selection_mode = { "nothing" }, alt_reverse_selection_mode = { "nothing" },
     },
-    { type = "custom-input", name = t.name .. "-touche", key_sequence = t.key, consuming = "none", action = "lua" },
+    -- s46 outils : « game-only » : la touche ne fait plus AUSSI l'action du jeu (Maj + R tournait en sens inverse l'objet en main).
+    { type = "custom-input", name = t.name .. "-touche", key_sequence = t.key, consuming = "game-only", action = "lua" },
   })
 end

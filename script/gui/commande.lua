@@ -23,6 +23,8 @@ local Sites = require("script.faction.sites")
 local T = require("shared.team.config")
 local Co = require("shared.ai3.commande")
 local Om = require("shared.team.outil_main") -- s46 crash
+local Ds_rule = require("shared.team.defense_stock") -- s46 outils : tourelles voulues d'un bastion (GROUP_CAP)
+local TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret" } -- types moteur (aucun nom d'objet)
 
 local Cmd = {}
 
@@ -45,7 +47,11 @@ end
 --- Lot s45 OUTILS : met l'outil `name` dans la main du joueur (joueur d'une équipe seulement).
 -- s46 crash : gardes valid / nil (joueur, prototype, main sans curseur, outil déjà en main) dans shared/team/outil_main.lua.
 local function give_tool(player, name)
-  if not (player and player.valid and team_of(player)) then return end
+  if not (player and player.valid) then return end
+  if not team_of(player) then
+    player.print({ "fo-commande.sans-equipe-outil" }) -- s46 outils : plus de touche muette sans coffre d'équipe
+    return
+  end
   Om.give(player, name, name ~= nil and game.item_prototypes[name] ~= nil)
 end
 
@@ -219,10 +225,18 @@ end
 
 local function add_order(f, player, o)
   local cs = cstate(f)
-  local id, why = Co.add(cs, o)
+  -- s46 outils : plafond atteint : le plus ancien ordre (liaison, amélioration, bastion d'abord) est remplacé au lieu d'un refus « plein »
+  local id, why, old = Co.add_replacing(cs, o)
   if not id then
     player.print({ "fo-commande.refus-" .. why })
+    log(string.format("[FO-COMMANDE] %s : ordre %s refuse (%s, tick %d)", tostring(f.key or f.id), o.kind, tostring(why), game.tick))
     return
+  end
+  if old then
+    undraw(f, old)
+    player.print({ "fo-commande.remplace", old.id, id })
+    log(string.format("[FO-COMMANDE] %s : ordre %d (%s) remplace par l'ordre %d (plafond de %d ordres, tick %d)", tostring(f.key or f.id),
+      old.id, old.kind, id, Co.MAX_ORDERS, game.tick))
   end
   local order = cs.orders[#cs.orders]
   draw(f, order)
@@ -269,6 +283,8 @@ local function do_liaison(e, player, f)
   if not st.liaison_a then
     st.liaison_a = { x = cx, y = cy, r = r, surface = e.surface.index }
     player.print({ "fo-commande.liaison-a", cx, cy })
+    log(string.format("[FO-COMMANDE] %s : liaison point A en (%d, %d) rayon %d (tick %d) : glisser encore sur le point B",
+      tostring(f.key or f.id), cx, cy, r, game.tick))
     return
   end
   local a = st.liaison_a
@@ -308,14 +324,23 @@ local ACTIONS = {
   ["fo-cmd-bastion"] = { do_bastion, do_bastion, do_cancel_area, do_cancel_area },
 }
 
+--- Gestionnaire commun d'une sélection (vraie souris ou interface de banc fo-commande) : rend vrai si l'action a été appelée.
+local function handle(slot, e, player)
+  local acts = ACTIONS[e.item]
+  if not (acts and player) then return false end
+  local f = team_of(player)
+  if not f then
+    player.print({ "fo-commande.sans-equipe-outil" }) -- s46 outils : plus de refus muet sans équipe
+    return false
+  end
+  acts[slot](e, player, f)
+  return true
+end
+
 local function dispatch(slot)
   return function(e)
-    local acts = ACTIONS[e.item]
-    if not acts then return end
-    local player = game.get_player(e.player_index)
-    local f = player and team_of(player)
-    if not f then return end
-    acts[slot](e, player, f)
+    if not ACTIONS[e.item] then return end
+    handle(slot, e, game.get_player(e.player_index))
   end
 end
 Events.on(defines.events.on_player_selected_area, dispatch(1))
@@ -338,7 +363,8 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
     local o = f.outposts[oid]
     if o.pos then ops[#ops + 1] = { kind = o.kind, x = o.pos.x, y = o.pos.y, id = o.id or oid, key = oid,
-      covered = o.full and Co.truly_full(o.full_why) or nil } end
+      covered = o.full and Co.truly_full(o.full_why) or nil,
+      saturated = (o.drills or 0) >= T.max_drills(o.kind) or nil } end -- s46 outils : agrandi jusqu'au plafond de foreuses
   end
   -- s45 saturer : un ordre posé sur un avant-poste déjà là le sature : plein levé (sauf gisement vraiment couvert, migration en cours).
   local by_id = {}
@@ -373,7 +399,43 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
         tostring(o.outpost), game.tick))
     end
   end
-  if #done > 0 then refresh(f) end
+  -- s46 outils : bastion servi (tourelles de l'équipe dans la zone, Ds_rule.GROUP_CAP au moins) : marqué fini. Liaison finie ou refusée :
+  -- marquée par script/team/liaison.lua. Les ordres marqués sont retirés ici (plus de plafond de 8 ordres jamais vidé).
+  local cs = f.team.commande
+  local lst = f.build and f.build.liaison
+  for _, o in ipairs(cs.orders) do
+    if o.kind == "liaison" and not (lst and lst.seen_docks) then
+      -- le relevé des liaisons ne tourne qu'avec la centrale finie et des modules finis (script/team/liaison.lua) : la cause est écrite
+      if Co.note(cs, o.id, "liaison en attente : aucun releve des quais et sorties (centrale et modules finis requis)") then
+        log(string.format("[FO-COMMANDE] %s : ordre %d liaison en attente : aucun releve des quais et sorties (centrale et modules finis requis, tick %d)",
+          tostring(f.key or f.id), o.id, game.tick))
+      end
+    end
+    if o.kind == "bastion" and not o.done then
+      local surface = game.surfaces[o.surface or 1]
+      local n = surface and surface.count_entities_filtered({ position = { o.x, o.y }, radius = o.r, force = f.force,
+        type = TURRET_TYPES }) or 0
+      if n ~= o.have then
+        o.have = n
+        if Co.note(cs, o.id, string.format("bastion : %d tourelle(s) dans la zone sur %d voulues", n, Ds_rule.GROUP_CAP)) then
+          log(string.format("[FO-COMMANDE] %s : ordre %d bastion : %d tourelle(s) dans la zone sur %d voulues (tick %d)",
+            tostring(f.key or f.id), o.id, n, Ds_rule.GROUP_CAP, game.tick))
+        end
+      end
+      if n >= Ds_rule.GROUP_CAP then Co.mark(cs, o.id, "fini") end
+    end
+  end
+  local n_fin = 0
+  for _, id in ipairs(Co.finished(cs)) do
+    local o = Co.cancel(cs, id)
+    if o then
+      n_fin = n_fin + 1
+      undraw(f, o)
+      if game.forces[f.force] then game.forces[f.force].print({ "fo-commande.fini-" .. o.kind, id }) end
+      log(string.format("[FO-COMMANDE] %s : ordre %d (%s) retire : %s (tick %d)", tostring(f.key or f.id), id, o.kind, tostring(o.done), game.tick))
+    end
+  end
+  if #done > 0 or n_fin > 0 then refresh(f) end
 end)
 
 local function all_buttons()
@@ -382,5 +444,61 @@ end
 Events.on_init(all_buttons)
 Events.on_configuration_changed(all_buttons)
 Events.on(defines.events.on_player_created, function(e) ensure_button(game.get_player(e.player_index)) end)
+
+---------------------------------------------------------------------------------------------------
+-- s46 outils : interface de BANC (aucun joueur connecté) : une sélection construite comme celle du moteur, passée au MÊME gestionnaire
+-- (handle) pour l'équipe de la force « player » ; le joueur factice écrit ses messages au journal ([FO-COMMANDE-BANC]).
+---------------------------------------------------------------------------------------------------
+local function bench_player(prints)
+  local force = game.forces.player
+  return { valid = true, name = "banc", index = 0, force = force,
+    print = function(msg)
+      local text = serpent.line(msg)
+      prints[#prints + 1] = text
+      log("[FO-COMMANDE-BANC] " .. text)
+    end }
+end
+
+remote.add_interface("fo-commande", {
+  --- Sélection de l'outil `outil` (slot 1 glisser, 2 Maj + glisser, 3 bouton droit, 4 Maj + bouton droit) sur la zone donnée.
+  --- Rend { appel = vrai si le gestionnaire a tourné, id = ordre posé ou nil, prints = messages au joueur }.
+  ordre = function(outil, slot, x0, y0, x1, y1)
+    local surface = game.surfaces[1]
+    local area = { left_top = { x = math.min(x0, x1), y = math.min(y0, y1) }, right_bottom = { x = math.max(x0, x1), y = math.max(y0, y1) } }
+    local box = { { area.left_top.x, area.left_top.y }, { area.right_bottom.x, area.right_bottom.y } }
+    local mode_res = outil == "fo-cmd-gisement" and slot <= 2
+    local ents = mode_res and surface.find_entities_filtered({ area = box, type = "resource" }) or surface.find_entities_filtered({ area = box })
+    local e = { item = outil, area = area, surface = surface, entities = ents, tick = game.tick, player_index = 0 }
+    local prints = {}
+    local f = State.faction("player")
+    local before = f and f.team and f.team.commande and f.team.commande.next_id or 1
+    local called = handle(slot, e, bench_player(prints))
+    local after = f and f.team and f.team.commande and f.team.commande.next_id or 1
+    log(string.format("[FO-COMMANDE-BANC] ordre %s slot %d zone (%d, %d)-(%d, %d) : %d entite(s), gestionnaire %s, ordre %s (tick %d)",
+      tostring(outil), slot, x0, y0, x1, y1, #ents, tostring(called), after > before and tostring(after - 1) or "aucun", game.tick))
+    return { appel = called, id = after > before and (after - 1) or nil, prints = prints }
+  end,
+  --- État lisible : QG, ordres vivants, traces (Co.note), avant-postes de l'équipe, liaison point A.
+  etat = function()
+    local f = State.faction("player")
+    if not (f and f.team) then return { equipe = false } end
+    local cs = f.team.commande or Co.new_state()
+    local out = { equipe = true, force = f.force, hq = f.hq_pos and { x = f.hq_pos.x, y = f.hq_pos.y } or nil, orders = {}, hist = {},
+      outposts = {}, liaison_a = cs.liaison_a, next_id = cs.next_id }
+    for _, o in ipairs(cs.orders) do
+      out.orders[#out.orders + 1] = { id = o.id, kind = o.kind, x = o.x, y = o.y, r = o.r, resource = o.resource, outpost = o.outpost,
+        after_oid = o.after_oid, done = o.done, have = o.have }
+    end
+    for _, h in ipairs(cs.hist or {}) do out.hist[#out.hist + 1] = { id = h.id, text = h.text } end
+    for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+      local o = f.outposts[oid]
+      if o.pos then out.outposts[#out.outposts + 1] = { id = o.id or oid, kind = o.kind, x = o.pos.x, y = o.pos.y, drills = o.drills or 0,
+        full = o.full, full_why = o.full_why } end
+    end
+    local lst = f.build and f.build.liaison
+    out.docks, out.srcs = lst and lst.seen_docks or {}, lst and lst.seen_srcs or {}
+    return out
+  end,
+})
 
 return Cmd

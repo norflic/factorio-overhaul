@@ -30,6 +30,7 @@ local R = require("shared.ai3.reglages") -- lot IA-G : la tourelle de « défend
 local Bi = require("shared.ai3.bilan") -- lot BILAN : pondération des récoltes par production moins consommation
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : règle pure d'agrandissement lointain (V.extension_refused)
 local Kit = require("shared.ai3.kit_lot") -- lot POSE-PAR-LOTS : kits de fabrication d'un projet (P.want_kit)
+local Co = require("shared.ai3.commande") -- s46 outils : zones des gisements désignés (Co.in_zones)
 
 local P = {}
 
@@ -386,11 +387,14 @@ end
 --- QG du plus proche site admissible, posée pour les factions seulement) : le projet bâtit alors au site proche.
 --- Sans `d2` dans la vue (bancs), l'ordre est celui d'avant (à égalité, le plus ancien) ; sans `sites_near` (équipe du
 --- joueur), le plus proche est choisi sans la règle de renoncement.
-local function extendable(view, kind, undefended)
+--- s46 outils : `zones` (but d'un gisement désigné, Co.goals) : seuls les avant-postes situés dans une de ces zones (o.x, o.y de la vue)
+--- s'agrandissent ; aucun dans la zone : nil (le projet BÂTIT, au site de la zone d'abord). Sans zones : la règle d'avant.
+local function extendable(view, kind, undefended, zones)
   local near = view.sites_near and view.sites_near[kind] or nil
   local best, best_d2
   for _, o in ipairs(view.outposts or {}) do
-    if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
+    if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id])
+      and Co.in_zones(zones, o.x, o.y) then
       local d2 = o.d2 or 0
       if near == nil or not V.extension_refused(math.sqrt(d2), near) then
         if best == nil or d2 < best_d2 then best, best_d2 = o, d2 end
@@ -420,7 +424,7 @@ EMIT.outpost = function(E, proj, g, ctx)
   if pf then turret_ok = false end
   local und = Planner.no_go(view, turret_ok)
   local items = Planner.outpost_items(kind)
-  local ext = extendable(view, kind, und)
+  local ext = extendable(view, kind, und, g.zones)
   if ext then
     local key = "extend:" .. ext.id
     if E.open[key] then return "en_cours" end
@@ -439,7 +443,7 @@ EMIT.outpost = function(E, proj, g, ctx)
   -- jamais et n'attend pas de tourelles ici (le planificateur permanent les pose) : avant-poste non défendu, ou lointain
   -- écarté par R1 : bloqué, revu à la pensée suivante.
   if g.extend_only then return "bloque", "couverture:" .. kind end
-  local wait = df and extendable(view, kind)
+  local wait = df and extendable(view, kind, nil, g.zones)
   if wait then
     -- Défendre d'abord (IA1-b2) : l'avant-poste attend ses tourelles, que le planificateur permanent fabrique et pose
     -- en URGENCE (want_defense, au-dessus de son plancher de fer et de cuivre : les recrues de survie d'abord). Le projet
