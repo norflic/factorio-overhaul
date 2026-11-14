@@ -103,7 +103,8 @@ function Co.add(state, o)
   local id = state.next_id
   state.next_id = id + 1
   state.orders[#state.orders + 1] = { id = id, kind = o.kind, x = o.x, y = o.y, r = clamp(o.r or Co.R_MIN, Co.R_MIN, Co.R_MAX),
-    resource = o.resource, outpost = o.outpost, tick = o.tick or 0, surface = o.surface }
+    resource = o.resource, outpost = o.outpost, tick = o.tick or 0, surface = o.surface,
+    after_oid = o.after_oid } -- s44 : dernier numéro d'avant-poste à la pose de l'ordre (Co.resolve ne compte que les suivants)
   return id
 end
 
@@ -201,6 +202,14 @@ function Co.prefer(list, orders)
   return first
 end
 
+--- s44 : le site `s` est-il dans une zone de gisement désignée de sa ressource ? (la garde de distance R3 de Sites.find ne le retient pas)
+function Co.designated(s, orders)
+  for _, o in ipairs(orders or {}) do
+    if o.kind == "gisement" and (o.resource == nil or o.resource == s.resource) and inside(o, s.x, s.y, Co.SITE_MARGIN) then return true end
+  end
+  return false
+end
+
 --- Candidats restreints aux sites d'une zone désignée s'il y en a (choix par valeur des factions) ; sinon la liste telle quelle.
 function Co.restrict(cands, orders)
   if not orders or #orders == 0 then return cands end
@@ -236,14 +245,16 @@ function Co.prefer_pairs(pairs_, orders)
   return first
 end
 
---- Ordres de gisement remplis : un avant-poste ({ kind, x, y }) du type demandé à rayon + Co.DONE_MARGIN du centre. Rend la liste des
---- numéros remplis (ordre de pose) ; ne modifie rien.
+--- Ordres de gisement remplis : un avant-poste ({ kind, x, y, id }) du type demandé à rayon + Co.DONE_MARGIN du centre. Rend la liste des
+--- numéros remplis (ordre de pose) ; ne modifie rien. s44 : un avant-poste DÉJÀ là à la pose de l'ordre (id <= o.after_oid) ne le
+--- remplit pas (journal du DC 14/11 : ordres 4, 6, 7, 14 « remplis » en 2 s par l'avant-poste 1, rien de neuf construit).
 function Co.resolve(state, outposts)
   local out = {}
   for _, o in ipairs(state.orders) do
     if o.kind == "gisement" then
       for _, op in ipairs(outposts or {}) do
-        if op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
+        local new = not (o.after_oid and op.id) or op.id > o.after_oid
+        if new and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
       end
     end
   end

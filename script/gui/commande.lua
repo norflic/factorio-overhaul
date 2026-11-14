@@ -230,9 +230,10 @@ Events.on(defines.events.on_player_selected_area, function(e)
   local _, _, r = Co.zone(x0, y0, x1, y1)
   local cx, cy = math.floor(sx / n), math.floor(sy / n)
   add_order(f, player, { kind = "gisement", x = cx, y = cy, r = r, resource = res, outpost = kind, tick = game.tick,
-    surface = e.surface.index })
+    surface = e.surface.index, after_oid = f.next_oid or 0 })
   -- Le gisement entre dans la réserve de sites tout de suite (mêmes règles que la prospection), même hors du disque prospecté.
-  if f.hq_pos then Sites.probe_at(f, e.surface, cx, cy, game.tick) end
+  -- s44 : sonde de LA ressource désignée, réserve pleine ou ressource pas encore voulue comprises (Sites.probe_at, 5e argument).
+  if f.hq_pos then Sites.probe_at(f, e.surface, cx, cy, game.tick, res) end
   refresh(f)
 end)
 
@@ -266,7 +267,7 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   local ops = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
     local o = f.outposts[oid]
-    if o.pos then ops[#ops + 1] = { kind = o.kind, x = o.pos.x, y = o.pos.y } end
+    if o.pos then ops[#ops + 1] = { kind = o.kind, x = o.pos.x, y = o.pos.y, id = o.id or oid } end
   end
   local done = Co.resolve(f.team.commande, ops)
   -- Un ordre sans site en réserve (réserve pleine, ressource pas encore voulue) : une nouvelle sonde par passe, la plus ancienne d'abord.
@@ -275,7 +276,7 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   for _, o in ipairs(Co.deposits(f.team.commande)) do
     local surface = game.surfaces[o.surface or 1]
     if not ready[o.id] and f.hq_pos and surface then
-      Sites.probe_at(f, surface, o.x, o.y, game.tick)
+      Sites.probe_at(f, surface, o.x, o.y, game.tick, o.resource)
       break
     end
   end
