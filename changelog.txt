@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.104
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F652) : un nouveau tracé de tapis ne passe plus sur un tapis, un souterrain ou un séparateur existant (posé ou fantôme) ; il passe dessous en souterrain ou fait un détour.
+    - IA (F653) : recherches de chemin plafonnées par tick (toutes équipes) ; une paire en échec attend 10 s, 20 s, 40 s… jusqu'à 30 min ; tracé en boucle refusé ; relevés de stock mémorisés par passe.
+    - IA (F654) : besoin en charbon calculé sur tous les fours et chaudières posés, vides compris (consommation nominale) ; un type d'avant-poste saturé cherche un second gisement sans attendre que l'équipe grossisse.
+    - IA (F655) : coffres d'entrée remplis avec une part du stock libre au lieu d'une minute d'ingrédients ; refus de liaison expliqués au journal.
+    - IA (F656) : une bande électrique sans four (minerai brut hors combustible) ne pose pas plus de foreuses que de paires thermiques remplacées (pierre d'emerald).
+  Changes:
+    - Commandement (F657) : quatre outils distincts, Maj+A gisement, Maj+Z zone d'amélioration, Maj+E liaison A -> B, Maj+R bastion défensif ; un ordre de gisement sur un avant-poste existant lève son drapeau plein et le sature.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.103
 Date: 2026-11-14
   Bugfixes:

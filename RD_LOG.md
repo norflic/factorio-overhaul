@@ -10,6 +10,17 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 12 h 20 : version 0.7.104 (sprint de 20 min : gel, A*, charbon, commandement, flux, après la partie de 1 h 30 du DC en 0.7.103)
+
+Journal archivé : `fo-logs/2026-11-14_partie-DC-1h10-07103/factorio-current.log`. `[FO-CUMUL]` vers 85-90 min, fer : azure 55 872, amber 50 659, player 34 676, scarlet 29 783, emerald 25 621 (pierre 41 740). Banc de contrôle (`s43-parite-seule`, graine 271828182) : 0.7.103 identique à 0.7.102 aux minutes 10 et 20 pour les 5 équipes, aucune erreur Lua ; l'écart de la partie du DC n'est pas attribué au code de la 0.7.103. **Aucun effet des lots ci-dessous n'est mesuré en jeu.**
+
+- **F652 · FAIT · [0.7.104]** Tapis infranchissables (s45-astar-tapis b6bae4a2) : `script/team/traversee.lua` (`Trav.route`) passait le coût de l'appelant tel quel ; `shared/team/tapis_infranchissable.lua`. Tracés qui n'appellent pas `Trav.route` non couverts.
+- **F653 · FAIT · [0.7.104]** Gel (s45-astar-budget be37aeb9, s45-freeze c56ca50f) : pas de plafond global par tick ni de mémo d'échec (azure : 12 refus « trop long » en 5 min à 70 min) ; `shared/team/route_garde.lua`. Aucune ligne `[FO-PERF` dans la partie (profileur fin éteint) : la cause du gel n'est PAS établie ; rythme stable d'environ 22 s réelles par minute de jeu, sauts de 4 à 7 s à 59, 67 et 68 min. `Mo.memo` pour `Stock.count` (lot moteurs de 0.7.103).
+- **F654 · FAIT · [0.7.104]** Charbon (s45-charbon-besoin 3337622d, s45-charbon-colonie f4373d87) : `script/team/plafond_charbon.lua:25` ne comptait que les fours en marche ou sans combustible ; `Bc.consumer_counts`. `script/team/poles.lua:538` : un type saturé ne cherchait un site que si l'équipe dépassait son effectif de départ ; `shared/team/site_sature.lua`. Tapis direct foreuses de charbon -> fours non fait.
+- **F655 · FAIT · [0.7.104]** Flux (s45-buffers d3525130, s45-liaison-directe 585a9a00) : `shared/team/remplissage.lua:56` retombait à la cible ordinaire sous 4 fois le besoin (stock 3 801 pour 2 100, cible 100) ; `R.proportional`. Liaisons : 19 refus « aucune place pour un bras et un tapis » (amber, scarlet), relevé à « 0 paire(s) possible(s) » inexpliqué ; journal du côté bloquant seulement.
+- **F656 · FAIT · [0.7.104]** Pierre (s45-pierre d3c90c89) : `script/team/migration_champ.lua` (`begin_band`) : emerald, bande de pierre de 36 foreuses électriques à 20 min (1 095/min pour 1,5 à 15/min de besoin) ; `shared/team/bande_brute.lua`. Intégrateur : bande de combustible exemptée (`fuel_value`). Murs non en cause.
+- **F657 · FAIT · [0.7.104]** Commandement (s45-outils 60e0011d, s45-saturer 92148ba9) : quatre selection-tools et `custom-input` dans `prototypes/commande.lua`, ordre `bastion` lu par `Ds.view` en tête des lieux ; `Co.saturations` lève le plein d'un avant-poste désigné. Passage en tête à la porte des chantiers et colonne de fonderie forcée non faits.
+
 ## 2026-11-14, 11 h 10 : version 0.7.103 (sprint commando de 30 min : défense, commandement, fours en acier, gisements, après la partie de 2 h 30 du DC en 0.7.102)
 
 Journal archivé : `fo-logs/2026-11-14_partie-DC-2h30-07102/factorio-current.log`. `[FO-CUMUL]` vers 161 min, fer : emerald 309 616, scarlet 150 307, player 128 019, azure 112 796, amber 65 861. Validation : tests unitaires, iag, harness et banc de contenu ; **aucun effet en jeu n'est mesuré** (banc interdit pendant le sprint).
