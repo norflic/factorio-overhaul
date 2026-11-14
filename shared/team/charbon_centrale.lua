@@ -194,7 +194,7 @@ end
 --- entrée d'une centrale neuve (coffre, bras, tête de tapis élargie) n'est prévue que si l'équipe a déjà une centrale FINIE, un réseau SAIN et
 --- au moins Cc.SECOND_COAL charbons au stock : la première centrale, celle du départ, garde la tête d'avant (une entrée), payée plus tôt.
 --- c = { plants_done (centrales finies), healthy (santé du réseau), coal (charbon au stock) }. Rend vrai si la seconde entrée est prévue.
-Cc.SECOND_COAL = 800
+Cc.SECOND_COAL = 0
 function Cc.second_ok(c)
   return c ~= nil and (c.plants_done or 0) >= 1 and c.healthy == true and (c.coal or 0) >= Cc.SECOND_COAL
 end

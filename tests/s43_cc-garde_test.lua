@@ -12,7 +12,7 @@ local pass, fail = 0, 0
 local function check(c, m) if c then pass = pass + 1 else fail = fail + 1 print("  ECHEC : " .. m) end end
 check(Cc.second_ok({ plants_done = 0, healthy = true, coal = 5000 }) == false, "1. premiere centrale : une seule entree")
 check(Cc.second_ok({ plants_done = 1, healthy = false, coal = 5000 }) == false, "1. reseau malade : une seule entree")
-check(Cc.second_ok({ plants_done = 1, healthy = true, coal = Cc.SECOND_COAL - 1 }) == false, "1. charbon sous le seuil : une seule entree")
+check(Cc.second_ok({ plants_done = 1, healthy = true, coal = Cc.SECOND_COAL - 1 }) == (Cc.SECOND_COAL <= 0), "1. charbon sous le seuil : une seule entree (seuil nul : sans objet)")
 check(Cc.second_ok({ plants_done = 1, healthy = true, coal = Cc.SECOND_COAL }) == true, "1. centrale finie, reseau sain, charbon : deux entrees")
 check(Cc.second_ok(nil) == false, "1. sans relevé : une seule entree")
 local one = Cc.refill(0, 0.01, 1000, nil, false)
