@@ -326,6 +326,59 @@ local function bands_for(c, spec, phase, box, origin, frame, rows)
   return bands, total
 end
 
+--- Lot ENJAMBE (plainte du DC, 14/11 : « quand un convoyeur traverse un gisement, le pavage s'arrête net devant l'obstacle ») : la rangée
+--- du tapis `b`, parcourue depuis `from` à contre-courant (le tapis coule dans le sens `flow`) jusqu'à `to` compris. Une tuile non libre
+--- (tapis étranger, bâtiment) est ENJAMBÉE par une paire de souterrains (sortie juste avant l'obstacle côté sortie, entrée juste après côté
+--- amont, écart des positions <= spec.logistics.underground, lu au prototype : max_underground_distance) si les deux tuiles sont libres et
+--- qu'aucun souterrain déjà posé (spec.ug_tiles) n'est dessous. Rend (stop, hops) : stop = première tuile non libre qu'on ne passe pas (nil :
+--- rien n'arrête jusqu'à `to`), hops = { { inp, out } } dans l'ordre du parcours. Souterrain non débloqué : comportement d'avant (aucun hop).
+function Ch.belt_reach(c, spec, b, from, flow, to)
+  local ug = spec.logistics and spec.logistics.underground
+  local hops = {}
+  local span
+  if ug and spec.ug_tiles and #spec.ug_tiles > 0 then
+    span = {}
+    for _, k in ipairs(spec.ug_tiles) do local u, v = c.uv(k[1], k[2]); span[Ch.key(u, v)] = true end
+  end
+  local function inside(u) return (flow > 0 and u >= to) or (flow < 0 and u <= to) end
+  local u = from
+  while inside(u) do
+    if not c.free(u, b) then
+      if not ug or u == from then return u, hops end
+      local w = u
+      while inside(w - flow) and not c.free(w - flow, b) do w = w - flow end
+      local inp, out = w - flow, u + flow
+      local dist = math.abs(out - inp)
+      local ok = dist <= ug and dist >= 2 and inside(inp) and c.free(inp, b)
+      if ok and span then
+        for x = u, w, -flow do if span[Ch.key(x, b)] then ok = false break end end
+      end
+      if not ok then return u, hops end
+      hops[#hops + 1] = { inp = inp, out = out }
+      u = inp
+    end
+    u = u - flow
+  end
+  return nil, hops
+end
+
+--- Lot ENJAMBE : rôle de la tuile `u` du tapis d'un groupe : "input" / "output" (souterrain), "gap" (sous l'obstacle : rien), nil (tapis).
+function Ch.hop_at(hops, u)
+  for _, h in ipairs(hops or {}) do
+    if u == h.inp then return "input" end
+    if u == h.out then return "output" end
+    if (u - h.inp) * (u - h.out) < 0 then return "gap" end
+  end
+  return nil
+end
+
+--- Lot ENJAMBE : hops parcourus par un tapis qui part de `cut` et coule dans le sens `side` (entrée en `cut` ou plus loin dans le courant).
+function Ch.hops_from(hops, cut, side)
+  local out = {}
+  for _, h in ipairs(hops or {}) do if (h.inp - cut) * side >= 0 then out[#out + 1] = h end end
+  return out
+end
+
 --- Groupe d'une bande du côté `side` : foreuses prises depuis le bord tant que le tapis est libre jusqu'au bord et en deçà de la coupe
 --- `limit`. Rend { n, s, cut } (cut : centre de la foreuse la plus loin).
 --- F555 (DC, partie 0.7.3 : « 2 foreuses sur toute la largeur d'un gisement géant ») : le NOMBRE de foreuses ne dépend que du minerai
@@ -343,22 +396,22 @@ local function take_group(c, spec, band, side, edge, used, limit)
   if #all == 0 then return nil end
   local function beyond(cu, lim) return (side > 0 and cu <= lim) or (side < 0 and cu >= lim) end
   local stop = limit
-  local u, far = edge, all[#all].cu
-  while (side > 0 and u >= far) or (side < 0 and u <= far) do
-    if not c.free(u, band.b) then
-      if not stop or not beyond(u, stop) then stop = u end
-      break
-    end
-    u = u - side
-  end
+  local far = all[#all].cu
+  local hit, hops = Ch.belt_reach(c, spec, band.b, edge, side, far) -- lot ENJAMBE : obstacles enjambés par souterrains
+  if hit and (not stop or not beyond(hit, stop)) then stop = hit end
   local g, cnt = { n = {}, s = {} }, { n = 0, s = 0 }
   for i, it in ipairs(all) do
     if stop and beyond(it.cu, stop) then break end
+    if Ch.hop_at(hops, it.cu) == "gap" then goto next_drill end -- sa sortie tomberait sous l'obstacle
     cnt[it.side] = cnt[it.side] + 1
     g[it.side][#g[it.side] + 1] = it.a
     g.cut = it.cu
+    ::next_drill::
   end
   if #g.n + #g.s == 0 or not g.cut then return nil end
+  -- hops que le tapis du groupe parcourt (entre sa dernière foreuse et le bord)
+  local hk = Ch.hops_from(hops, g.cut, side)
+  if #hk > 0 then g.hops = hk end
   return g
 end
 
@@ -854,8 +907,8 @@ function ONCE.band(s)
   if Ch.CFG.both_ends and #cus > k then
     -- les foreuses que le second bout ne joint pas (son tapis barré avant elles) restent au premier
     local far = exit > 0 and umin or umax
-    local u2 = far
-    while u2 >= umin and u2 <= umax and c.free(u2, bd.b) do u2 = u2 + exit end
+    local hit = Ch.belt_reach(c, spec, bd.b, far, -exit, exit > 0 and umax or umin) -- lot ENJAMBE : même parcours que take_group
+    local u2 = hit or (exit > 0 and umax + 1 or umin - 1)
     if exit > 0 then limit = math.min(cus[#cus - k], u2 - 1) else limit = math.max(cus[k + 1], u2 + 1) end
   end
   for _, side in ipairs(Ch.CFG.both_ends and { exit, -exit } or { exit }) do
@@ -924,9 +977,15 @@ function ONCE.band(s)
     local s_end = colonne and (g.s_edge - g.side) or (g.s_edge + g.side * (g.len - 1))
     local nb = 0
     for u = g.cut, s_end, g.side do
-      c.take(u, bd.b)
-      emit(s, "tapis", u, bd.b, 1, g.side, 0, bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
-      nb = nb + 1
+      local hp = Ch.hop_at(g.hops, u) -- lot ENJAMBE
+      if hp == "input" or hp == "output" then
+        c.take(u, bd.b)
+        emit_e(s, { kind = "souterrain", u = u, v = bd.b, size = 1, du = g.side, dv = 0, role = colonne and "bande" or nil, ug = hp }, bi, gi, bd.pr, g.belt)
+      elseif hp == nil then
+        c.take(u, bd.b)
+        emit(s, "tapis", u, bd.b, 1, g.side, 0, bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
+        nb = nb + 1
+      end
     end
     if colonne then
       s.pending[#s.pending + 1] = { bi = bi, gi = gi, pr = bd.pr, b = bd.b, g = g }
@@ -1226,9 +1285,15 @@ function ONCE.bare(s)
     g.belt = belt_for(s, g)
     local nb = 0
     for u = g.cut, e_end, t.side do
-      c.take(u, bd.b)
-      emit(s, "tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
-      nb = nb + 1
+      local hp = Ch.hop_at(Ch.hops_from(g0.hops, g.cut, t.side), u) -- lot ENJAMBE (groupe réduit : hops de son tapis seulement)
+      if hp == "input" or hp == "output" then
+        c.take(u, bd.b)
+        emit_e(s, { kind = "souterrain", u = u, v = bd.b, size = 1, du = t.side, dv = 0, role = colonne and "bande" or nil, ug = hp }, t.bi, gi, bd.pr, g.belt)
+      elseif hp == nil then
+        c.take(u, bd.b)
+        emit(s, "tapis", u, bd.b, 1, t.side, 0, t.bi, gi, bd.pr, colonne and "bande" or nil, g.belt)
+        nb = nb + 1
+      end
     end
     local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
     s.flow_all = s.flow_all + flow
