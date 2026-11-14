@@ -1685,7 +1685,9 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   Profiler.fstart("pet:decide") -- lot PERF3 : portées fines (mesure seulement)
   -- Lot IA-GARDE (règle du DC, 11/11) : sous 2 colonnes de fonderie automatisées et 6 assembleurs actifs, aucune tâche de pétrole : ni site
   -- demandé, ni extension de champ de puits, ni fabrication pour un site pas fini (partie du DC 0.6.96 : Ambre demande son site à 41,6 min)
-  local garde = AdRt.voit(f, "petrole", nil, tick)
+  -- (bancs seulement, lot PLASTIQUE-0716 : st.bench_garde, posé par l'interface distante bench_garde, ouvre la garde pour diagnostiquer la
+  -- chaîne du plastique en 30 min ; jamais posé en partie)
+  local garde = st.bench_garde == true or AdRt.voit(f, "petrole", nil, tick)
   if tick >= (st.next or 0) then
     st.next = tick + Pet.EVERY
     if garde then decide(f, st, General, deposits, tick) else AdRt.compte(f, "petrole", 1, tick) end
@@ -1945,6 +1947,14 @@ remote.add_interface("fo-petrole", {
       parts = { { kind = "module", key = "bench", lot = "site", ox = math.floor(x0), oy = math.floor(y0), k = 0, w = math.ceil(x1 - x0) + 1, h = math.ceil(y1 - y0) + 1 } } }
     f.build.order[#f.build.order + 1] = id
     st.sites[#st.sites + 1] = { key = "bench-champ", id = id, items = spec.items or {}, state = "fini", res = spec.res, x = spec.x, y = spec.y }
+    return true
+  end,
+  -- bancs (lot PLASTIQUE-0716) : la garde anti-dispersion (2 colonnes de fonderie, 6 assembleurs) est ouverte pour l'équipe `key`, la chaîne du
+  -- plastique se diagnostique en 30 min (scénario plastique-diag). Rend vrai.
+  bench_garde = function(key, on)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    state_of(f).bench_garde = on ~= false
     return true
   end,
   -- bancs (lot PETROLE-RANGEE) : chevalets au plus par chantier d'extension (le banc n'a que quelques milliers de ticks)

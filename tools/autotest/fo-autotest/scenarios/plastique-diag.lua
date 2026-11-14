@@ -3,7 +3,8 @@
   de plastique bâtis, tous à 0/min pendant 40 min, « goulot plastic-bar »). Base : petrole_site_common (technologies de la chaîne du
   pack chimique et kit du site au coffre de chaque faction au tick 300). En plus :
     * tick 60 : un gisement de pétrole (5 puits) posé à ~40 tuiles du QG de chaque faction (le banc court ne trouvait pas le pétrole en
-      15 min : « connus [] ») ; la faction le voit en circulant autour du QG (aucune connaissance injectée) ;
+      15 min : « connus [] ») ; la garde anti-dispersion du pétrole (2 colonnes de fonderie, 6 assembleurs : la partie du DC ne l'ouvre
+      que vers 56 min) est ouverte par l'interface de banc fo-petrole.bench_garde, le gisement est vu par l'exploration normale ;
     * chaque minute, par faction, une ligne [FO-PLASTIQUE-DIAG] par machine du pétrole (chevalet, raffinerie, usine chimique) : statut,
       recette, énergie (tampon électrique), contenu des boîtes à fluide, inventaire d'entrée et de sortie ; plus les coffres à 3 tuiles
       d'une usine chimique (le quai d'entrée) et le plastique produit (statistiques de la force).
@@ -107,7 +108,8 @@ base.tick = function(ctx, e)
     for _, row in ipairs(factions()) do
       local hq = s.find_entities_filtered({ name = "fo-faction-hq", force = row.force, limit = 1 })[1]
       local n = hq and oil_patch(s, hq) or 0
-      log(TAG .. "puits de petrole poses equipe=" .. row.key .. " n=" .. n)
+      local okg = pcall(remote.call, "fo-petrole", "bench_garde", row.key, true)
+      log(TAG .. "puits de petrole poses equipe=" .. row.key .. " n=" .. n .. " garde anti-dispersion ouverte=" .. tostring(okg))
     end
   end
   if e.tick > 0 and e.tick % MIN == 0 then
