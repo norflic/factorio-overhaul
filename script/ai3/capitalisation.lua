@@ -1225,7 +1225,7 @@ function Capi.portes(f, cs, res, view, tick)
     local n = meth and short[meth.product] or nil
     if n then product_of[o.key] = meth.product return n end
     local ok, why = Cv.loop({ kind = o.kind, product = meth and meth.product or nil, saturated = saturated,
-      free = free_of[tostring(o.deposit)], crisis = crisis, saturation = o.saturation })
+      free = Cv.free_before(free_of[tostring(o.deposit)], o.n_left or o.n), crisis = crisis, saturation = o.saturation }) -- s44 : places avant l'ordre
     verdict[o.key] = { ok, why }
     if ok then return 1 end -- racine « de boucle » : un nombre > 0 suffit à la porte (le manque n'est pas écrit au journal des racines)
     return nil
