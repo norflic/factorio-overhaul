@@ -292,6 +292,16 @@ function PA.watch(f, surface, tick)
       f.key or "player", tick / 3600, math.max((power + reopened_power) * 60 / 1000, installed_kw), installed_kw, (capacity + reopened_alive) * 60 / 1000, (gate or 0) * 100))
   end
   g.coal_held = (why == C.COAL_REASON) or nil
+  -- lot VAPEUR : la demande nominale manque et la croissance ne part pas : la cause, une fois par cause (journal [FO-VAPEUR])
+  if nominal_kw and not nb and why ~= g.vap_why then
+    log(string.format("[FO-VAPEUR] %s : demande nominale au-dela de la capacite (manque %.0f kW) a %.1f min, extension RETENUE : %s",
+      f.key or "player", nominal_kw, tick / 3600, tostring(why)))
+  end
+  g.vap_why = (nominal_kw and not nb) and why or nil
+  if nominal_kw and nb then
+    log(string.format("[FO-VAPEUR] %s : EXTENSION demandee a %.1f min sur la demande nominale (manque %.0f kW) : centrale de %d chaudiere(s)",
+      f.key or "player", tick / 3600, nominal_kw, nb))
+  end
   if why == C.LOAD_REASON and not g.load_held then
     log(string.format("[FO-ENERGIE] %s : croissance RETENUE a %.1f min : demande mesuree %.0f kW sur %.0f kW batis vivants et %.0f kW en chantier (%.0f %%, seuil %.0f %%) ; declencheur ecarte : %s",
       f.key or "player", tick / 3600, (power + reopened_power) * 60 / 1000, (capacity + reopened_alive) * 60 / 1000, new_kw, (gate or 0) * 100,
