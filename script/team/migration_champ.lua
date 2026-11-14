@@ -2321,7 +2321,9 @@ Events.on_nth_tick(Ent.CFG.kit_every, function(e)
   ids[#ids + 1] = "player"
   for _, id in ipairs(ids) do
     local f = State.faction(id)
-    if f and f.migration and f.migration.ent then Mig.entrepreneur_kit(f, e.tick) end
+    local ms = f and f.migration
+    if ms and ms.ent_wait and not ms.ent then Mig.entrepreneur_follow(f) end -- (la bande demandée est reconnue dès sa demande, pas au scan suivant 5 min plus tard)
+    if ms and ms.ent then Mig.entrepreneur_kit(f, e.tick) end
   end
 end)
 
