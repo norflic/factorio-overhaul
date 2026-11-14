@@ -341,6 +341,9 @@ end
 
 Co.AWAY_ROUTES = 8      -- (lot FONDERIE-BOUT) tracés essayés au plus pour une colonne ailleurs
 Co.AWAY_CAP = 20000     -- états développés au plus par tracé d'une colonne ailleurs
+-- s52 élague (gels de 4 à 5 s de la carte du DC : emerald fer 3, 22 tracés « trop long » de 20 000 états depuis 3 sources, cibles voisines,
+-- détour réel d'environ 340 tuiles pour toutes) : le premier tracé d'une source qui atteint le plafond clôt la recherche de cette source
+-- (les places suivantes, plus loin dans l'ordre des candidats, ne sont plus tracées). Hors jeu : plan identique sur les 8 specs du banc.
 
 --- Lot FONDERIE-BOUT (attendu du DC, 11/11 : la BOX_FONDERIE sur sol neutre, alimentée DIRECTEMENT par le convoyeur collecteur continu
 --- qui sort de la box de minage ; aucun relais coffre -> coffre ni bras intermédiaire). Colonne AILLEURS au bout d'un tapis collecteur
@@ -406,6 +409,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o)
           return { list = list, len = len, s_edge = s_edge, b = b2, count = count, info = info, route = route }
         end
         why = "trace : " .. tostring(rwhy)
+        if rwhy == "trop long" then break end -- s52 élague : source close au premier plafond
       end
     end
   end
