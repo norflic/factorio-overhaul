@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.102
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F643) : la seconde entrée de combustible n'est posée qu'une fois l'équipe dotée d'une centrale finie et d'un réseau sain ; les planchers de charbon se répartissent entre les coffres d'une même centrale.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.101
 Date: 2026-11-14
   Bugfixes:

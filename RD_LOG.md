@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-14, 07 h 30 : version 0.7.102 (coût de la double alimentation des centrales)
+
+- **F643 · FAIT · [0.7.102]** Centrale (s43-cc-garde2 c4da27ea) : E295 découpé. La marge × 1,3 ne change rien (variante B identique à la plaque près) ; la seconde entrée sur la toute première centrale coûte (variante A = revert sur 2 graines). `Cc.second_ok` : seconde entrée seulement avec une centrale finie et un réseau sain ; `Cc.refill` : planchers par centrale, partagés entre ses coffres. Panel `s43-parite-seule` 4 graines : 406 771 (player 63 419) contre release 375 257 (64 477) et revert complet 401 002 (61 160) ; minutes à combustible vide au QG 294 contre 348. La première centrale garde une entrée unique : rattrapage en cours pour respecter le chantier 3.1.
+
 ## 2026-11-14, 06 h 30 : version 0.7.101 (régression de fer : élagage et retenue de la pile)
 
 Panel factions seules (`partie-reelle-60`, 4 graines, 0.7.96 contre release 0.7.99+) : fer 279 120 contre 272 904 (−2,2 %), bandes 60 contre 77, 0 erreur Lua ; l'écart « QG sans charbon libre » était un artefact (deux coffres, deux lignes par pénurie). Panel avec l'équipe du joueur sans humain (`s43-parite-seule`, 4 graines) : 0.7.96 447 928 (player 79 204), release 368 349 (51 253), release + correctifs 375 257 (64 477).
