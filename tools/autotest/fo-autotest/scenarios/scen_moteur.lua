@@ -154,10 +154,97 @@ return function(id)
     r.alertes_site, r.site_envoyees, r.site_refusees = da.site_alerts or 0, da.site_sent or 0, da.site_refused or 0
   end
 
+  -- s43 scen-energie : combustible = objet dont le prototype a une valeur de combustion (aucun nom)
+  local FUEL = {}
+  local function is_fuel(name)
+    if FUEL[name] == nil then
+      local p = game.item_prototypes[name]
+      FUEL[name] = (p and (p.fuel_value or 0) > 0) or false
+    end
+    return FUEL[name]
+  end
+  local function strip(inv)
+    if not (inv and inv.valid) then return 0 end
+    local names, n = {}, 0
+    for name in pairs(inv.get_contents()) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do if is_fuel(name) then n = n + inv.remove({ name = name, count = inv.get_item_count(name) }) end end
+    return n
+  end
+  local function belt_fuel(b, take)
+    local n = 0
+    for i = 1, b.get_max_transport_line_index() do
+      local line = b.get_transport_line(i)
+      local names = {}
+      for name in pairs(line.get_contents()) do names[#names + 1] = name end
+      table.sort(names)
+      for _, name in ipairs(names) do
+        if is_fuel(name) then n = n + (take and line.remove_item({ name = name, count = line.get_item_count(name) }) or line.get_item_count(name)) end
+      end
+    end
+    return n
+  end
+
+  function ACT.assecher_centrale(a, surface, team)
+    local r = a.rayon or 6
+    local boilers = surface.find_entities_filtered({ force = team.force, type = "boiler" })
+    table.sort(boilers, by_pos)
+    if #boilers == 0 then return false, "aucune chaudiere" end
+    local removed, seen, cand = 0, {}, {}
+    for _, bo in ipairs(boilers) do
+      removed = removed + strip(bo.get_fuel_inventory())
+      if bo.burner then bo.burner.remaining_burning_fuel = 0 end
+      local near = surface.find_entities_filtered({ force = team.force, position = bo.position, radius = 2 * r,
+        type = { "container", "logistic-container", "inserter", "transport-belt", "underground-belt", "splitter" } })
+      table.sort(near, by_pos)
+      for _, e in ipairs(near) do
+        local dx, dy = e.position.x - bo.position.x, e.position.y - bo.position.y
+        local d2 = dx * dx + dy * dy
+        if e.type == "container" or e.type == "logistic-container" then
+          if d2 <= r * r and not seen[e.unit_number] then seen[e.unit_number] = true; removed = removed + strip(e.get_inventory(defines.inventory.chest)) end
+        elseif e.type == "inserter" then
+          local h = e.held_stack
+          if d2 <= r * r and h and h.valid_for_read and is_fuel(h.name) then removed = removed + h.count; h.clear() end
+        elseif not seen[e.unit_number] then
+          seen[e.unit_number] = true
+          if belt_fuel(e, false) > 0 and e.type == "transport-belt" then cand[#cand + 1] = { e = e, d = d2 } end
+          removed = removed + belt_fuel(e, true)
+        end
+      end
+    end
+    table.sort(cand, function(x, y) if x.d ~= y.d then return x.d < y.d end return by_pos(x.e, y.e) end)
+    local cut = 0
+    for i = 1, math.min(a.tapis_coupes or 2, #cand) do if cand[i].e.valid then cand[i].e.destroy(); cut = cut + 1 end end
+    return true, string.format("chaudieres %d, combustible retire %d, tapis porteurs %d, coupes %d", #boilers, removed, #cand, cut)
+  end
+
+  local CONSUMERS = { "assembling-machine", "furnace", "lab", "mining-drill", "radar", "inserter", "electric-turret", "pump", "roboport", "beacon" }
+  local function energie(surface, force, r)
+    local en, buf = 0, 0
+    for _, e in ipairs(surface.find_entities_filtered({ force = force, type = CONSUMERS })) do
+      local ok, b = pcall(function() return e.electric_buffer_size end)
+      if ok and b and b > 0 then buf = buf + b; en = en + math.min(e.energy or 0, b) end
+    end
+    r.elec_sat = buf > 0 and en / buf or nil
+    local kw = 0
+    for _, g in ipairs(surface.find_entities_filtered({ force = force, type = "generator" })) do
+      kw = kw + (g.energy_generated_last_tick or 0) * 60 / 1000
+    end
+    r.elec_kw = kw
+    local n, dry = 0, 0
+    for _, bo in ipairs(surface.find_entities_filtered({ force = force, type = "boiler" })) do
+      n = n + 1
+      local inv = bo.get_fuel_inventory()
+      if inv and inv.is_empty() and ((bo.burner and bo.burner.remaining_burning_fuel) or 0) <= 0 then dry = dry + 1 end
+    end
+    r.chaudieres, r.chaudieres_a_sec = n, dry
+  end
+
   local function releve(surface, team, hq, row)
     local r = {}
     local rd = team.st and team.st.raid and team.st.raid[team.key]
     if rd then releve_raid(surface, team, r, rd) end
+    energie(surface, team.force, r)
     local force = game.forces[team.force]
     for _, item in ipairs(S.suivre or {}) do
       local n = 0

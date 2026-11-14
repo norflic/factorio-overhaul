@@ -574,8 +574,8 @@ end
 --- pas de lien ; essais, dernier essai et site : gardés tant que le PROJET du quai existe (un quai absent un relevé ne regagne pas d'essais).
 function Piquage.purge(st, alive, projects)
   local function gone(key) return not alive[key] and not st.links[key] end
-  for _, name in ipairs({ "track", "disc" }) do
-    local t = st[name]
+  for _, name in ipairs({ "track", "disc", "evald" }) do
+    local t = st[name] or {}
     for _, k in ipairs(sorted_keys(t)) do if gone(k) then t[k] = nil end end
   end
   for _, k in ipairs(sorted_keys(st.said)) do
@@ -648,6 +648,17 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     end
   end
   local turn = Piquage.discover_turn(dus, Piquage.DISC_QUOTA)
+  -- sprint s43 (scen-energie) : quais prêts (ou qui le seront après le relevé de ce passage) évalués À TOUR DE RÔLE (Pq.eval_turn)
+  st.evald = st.evald or {}
+  local ready0 = {}
+  for _, d in ipairs(order) do
+    local tr0 = st.track[d.key]
+    for _, key in ipairs(tr0 and tr0.order or {}) do
+      if tr0.tiles[key].obs.n >= Pq.MIN_SAMPLES - 1 then ready0[#ready0 + 1] = d.key break end
+    end
+  end
+  local eturn = Pq.eval_turn(ready0, st.evald, Piquage.EVAL_MAX)
+  local evaluated = {}
   local plan -- sources du plan, lues à la première découverte du relevé
   for _, d in ipairs(order) do
     -- un quai hors tour est relevé (dû mais hors quota, il n'était ni découvert ni relevé)
@@ -667,8 +678,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       if tr.tiles[key].obs.n >= Pq.MIN_SAMPLES then ready = true break end
     end
     if tr and #tr.order > 0 and not ready then mark(st, d.key, "attente", "releves_insuffisants", tick) end
-    if ready and evals < Piquage.EVAL_MAX and not asked then
+    if ready and evals < Piquage.EVAL_MAX and not asked and eturn[d.key] then
       evals = evals + 1
+      st.evald[d.key], evaluated[d.key] = tick, true
       local cands = build_cands(f, surface, b, st, d)
       local ranked = Pq.rank(d, cands, liaison_outs(b, d), {})
       local top = ranked[1]
@@ -731,7 +743,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       end
     end
   end
-  for _, k in ipairs(sorted_keys(st.seen)) do if not seen_now[k] then st.seen[k] = nil end end
+  for _, k in ipairs(sorted_keys(st.seen)) do if Pq.seen_lost(k, seen_now, evaluated) then st.seen[k] = nil end end
   -- bilan APRÈS l'examen des quais de ce relevé (avant, « non_vu » comptait les quais pas encore examinés)
   local alive = {}
   for _, d in ipairs(c.docks) do alive[d.key] = true end

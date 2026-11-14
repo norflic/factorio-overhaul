@@ -23,6 +23,7 @@ local M = require("shared.team.modules")
 local T = require("shared.team.config")
 local Stock = require("script.team.stock")
 local S = require("shared.team.sante_centrale")
+local Sweep = require("script.team.rebuild_sweep") -- s43 : réouverture des pièces manquantes de la centrale (Sweep.reopen_pieces)
 
 local Sante = {}
 
@@ -77,6 +78,7 @@ function Sante.observe(f, surface, p, tick)
     engines = { want = 0, alive = 0 }, pumps = { want = 0, alive = 0 } }
   local prod_j, cap_j = 0, 0
   local first_dry
+  local missing = {} -- s43 : pièces posées absentes du monde (S.to_reopen)
   for _, e in ipairs(p.ents or {}) do
     if not (e.dropped or e.gave_up) then
       local sp = M.spec(e.name) or {}
@@ -89,6 +91,7 @@ function Sante.observe(f, surface, p, tick)
       if bucket then
         bucket.want = bucket.want + 1
         local r = real_of(surface, e, f.force)
+        if not r and e.built then missing[#missing + 1] = e end
         if r then
           bucket.alive = bucket.alive + 1
           if bucket == c.boilers and is_dry(r) then
@@ -100,6 +103,26 @@ function Sante.observe(f, surface, p, tick)
           end
         end
       end
+    end
+  end
+  -- s43 scen-energie : une pièce manquante de la centrale est rouverte TOUT DE SUITE (la réparation suit la cause lue), par la même
+  -- réouverture que le relevé de reconstruction (Sweep.reopen_pieces : fantôme, PNJ, coût pris au stock) ; mêmes gardes que lui
+  if #missing > 0 and not Sante.off(f) then
+    local sw = f.build and f.build.sweep
+    local pieces = {}
+    for i, e in ipairs(missing) do
+      local hand = sw and sw.hand and sw.hand[string.format("%.1f,%.1f", e.x, e.y)] ~= nil
+      local foe = surface.find_nearest_enemy({ position = { x = e.x, y = e.y }, max_distance = Sweep.ENEMY_R, force = f.force })
+      pieces[i] = { built = e.built, item = e.item, alive = false, hand = hand, enemy = foe ~= nil }
+    end
+    local list, names = {}, {}
+    for _, i in ipairs(S.to_reopen(pieces)) do
+      list[#list + 1] = { e = missing[i] }
+      names[#names + 1] = missing[i].name
+    end
+    if #list > 0 then
+      Sweep.reopen_pieces(p, list, tick)
+      say(f, { kind = "repare", plant = p.id, tick = tick, n = #list, what = table.concat(names, ", ") })
     end
   end
   -- coffre de quai (secours) : contenu lu au moteur

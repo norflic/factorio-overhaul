@@ -52,6 +52,12 @@
                                                       pour cette équipe : site_foreuses site_tourelles (à 30 tuiles du site)
                                                       site_unites (unités de l'équipe à 40 tuiles) raid_vivants
                                                       alertes_site site_envoyees site_refusees (fo-ia3k status, stats.dact).
+    assecher_centrale  rayon = r|6, tapis_coupes = k|2   (s43 scen-energie) BLACKOUT : sur toute la surface, pour chaque
+                                                      chaudière de la force : combustible retiré (inventaire, flamme), et dans
+                                                      `rayon` tuiles : coffres, mains des bras et tapis (rayon 2 r) vidés de
+                                                      tout combustible (objet dont le prototype a une valeur de combustion) ;
+                                                      les k tapis porteurs de combustible les plus proches d'une chaudière sont
+                                                      détruits (tapis coupé). Le stock du QG n'est pas touché.
   Les noms d'objets et d'unités vivent dans la déclaration du scénario (jamais dans shared/ai3 ni script/ai3) ; un nom qui
   n'existe pas dans les prototypes chargés donne une ligne « [FO-SCEN] <nom> min <m> | mise en scene ... : ECHEC ».
 
@@ -61,6 +67,8 @@
               tourelles  tourelles_vides  (ammo-turret de la force dans rayon_qg, inventaire de munitions vide)
               pnj  pnj_inactifs  (fo-ia1 « teams » : n et last.idle)   avant_postes  pnj_perdus  (outposts, lost)
               ennemis_proches  (unités de la force enemy dans rayon_qg)   qg_vie  (santé du QG, 0..1 ; 0 = détruit)
+              elec_sat  (s43 : Σ énergie / Σ tampon des consommateurs électriques de la force, 0..1 ; nil sans consommateur)
+              elec_kw  (kW des machines à vapeur et générateurs)   chaudieres  chaudieres_a_sec  (ni combustible ni flamme)
     journal : [FO-SCEN] <nom> releve min <m> <equipe> | champ=valeur champ=valeur ...   (marque aussi les minutes pour le
               lanceur, qui découpe le journal entre deux relevés pour les prédicats « ligne »)
 
@@ -107,7 +115,7 @@ local OPS = {
 }
 F.OPS = OPS
 
-local ACTIONS = { vider_coffres = true, attaque = true, poser = true, detruire = true, raid = true }
+local ACTIONS = { vider_coffres = true, attaque = true, poser = true, detruire = true, raid = true, assecher_centrale = true }
 F.ACTIONS = ACTIONS
 local AGREGATS = { max = true, min = true, moyenne = true, somme = true }
 local LIGNE_FN = { nombre = true, max = true, min = true, somme = true }
@@ -180,6 +188,10 @@ function F.valider(scen)
     if a.action == "detruire" and not (a.type or a.nom) then return w .. " : type ou nom" end
     if a.action == "raid" and (type(a.attaquant) ~= "string" or type(a.soldat) ~= "string" or not is_int(a.n) or a.n < 1) then
       return w .. " : attaquant, soldat, n >= 1"
+    end
+    if a.action == "assecher_centrale" and ((a.rayon ~= nil and type(a.rayon) ~= "number")
+      or (a.tapis_coupes ~= nil and not is_int(a.tapis_coupes))) then
+      return w .. " : rayon (nombre), tapis_coupes (entier)"
     end
   end
   if type(scen.theorie) ~= "table" or #scen.theorie == 0 then return "theorie : au moins un attendu" end
