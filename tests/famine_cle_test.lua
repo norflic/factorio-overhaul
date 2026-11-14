@@ -54,10 +54,10 @@ end
 check("mutant « famine sans issue » (toujours fermée) refusé", survivors(function(s) return (s:gsub("return F%.WAITING%[i%.project or \"\"%] == true", "return false")) end) > 0)
 check("mutant « sans la condition de famine » refusé", survivors(function(s) return (s:gsub("if not %(i and %(i%.starved or %(i%.missing or 0%) > 0%)%) then return false end", "if not i then return false end")) end) > 0)
 check("mutant 0.6.75 « le manque du noyau ignoré » refusé", survivors(function(s) return (s:gsub("i%.starved or %(i%.missing or 0%) > 0", "i.starved")) end) > 0)
-check("mutant « entité bâtie ignorée » refusé", survivors(function(s) return (s:gsub("if %(i%.built or 0%) > 0 then return false end", "")) end) > 0)
+check("mutant « entité bâtie ignorée » refusé", survivors(function(s) return (s:gsub("if %(i%.built or 0%) > 0 then return %(i%.stalled or 0%) >= F%.STUCK end", "")) end) > 0)
 check("mutant CHANTIER-GELE « le chantier ferme la famine » (coupe retirée) refusé", survivors(function(s) return (s:gsub("chantier = true,", "")) end) > 0)
 check("mutant CHANTIER-GELE « les paires retirées ferment la famine » (coupe retirée) refusé",
-  survivors(function(s) return (s:gsub("if %(i%.built or 0%) > 0 then return false end", "if (i.built or 0) > 0 or (i.retired or 0) > 0 then return false end")) end) > 0)
+  survivors(function(s) return (s:gsub("if %(i%.built or 0%) > 0 then return %(i%.stalled or 0%) >= F%.STUCK end", "if (i.built or 0) > 0 or (i.retired or 0) > 0 then return (i.stalled or 0) >= F.STUCK end")) end) > 0)
 
 -- compatibilité avec la règle du DC « plus de paire foreuse + four, l'électrique prend la suite » (shared/team/gisement.lua G.forbid_pairs) :
 -- la famine ne rouvre JAMAIS un cas que G.forbid_pairs interdit (celle-ci ne s'applique déjà jamais à une matière qui manque)

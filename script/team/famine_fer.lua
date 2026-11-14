@@ -35,7 +35,10 @@ function Famine.open(f, o, tick)
   -- CHANTIER-GELE : « commencée » = une entité bâtie au moins (ni l'étape de la migration ni les paires retirées ne comptent)
   local built = 0
   for _, e in ipairs(p and p.ents or {}) do if e.built then built = built + 1 end end
-  return Fam.open({ starved = starved, missing = missing, migr = o.migr, built = built, project = p and p.state })
+  -- s43 regr-fer2 : ticks sans progrès de la bande (suivi du retour en arrière, st.pg = { built, since }, écrit par script/team/migration_champ.lua)
+  local t = tick or (game and game.tick) or 0
+  local stalled = (st and st.pg and st.pg.since) and math.max(0, t - st.pg.since) or 0
+  return Fam.open({ starved = starved, missing = missing, migr = o.migr, built = built, project = p and p.state, stalled = stalled })
 end
 
 --- Lot FORCE-0674 : l'avant-poste `o` produit-il la plaque clé, et cette matière manque-t-elle ? (lu par Planner.no_go par la vue)
