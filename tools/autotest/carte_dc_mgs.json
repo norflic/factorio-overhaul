@@ -1,0 +1,90 @@
+{
+  "_comment": "Lot CARTE-MAX : taille et richesse 600 % (6) de toutes les ressources, frequence inchangee. Genere depuis le recensement des controles de categorie resource (micro-4).",
+  "autoplace_controls": {
+    "coal": {
+      "frequency": 6,
+      "size": 6,
+      "richness": 6
+    },
+    "copper-ore": {
+      "frequency": 6,
+      "size": 6,
+      "richness": 6
+    },
+    "crude-oil": {
+      "frequency": 6,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-bauxite": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-brine": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-cassiterite": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-fumarole": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-galena": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-ilmenite": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-methane": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-monazite": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-resonance-crystal": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-sphalerite": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "fo-tungsten-ore": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    },
+    "iron-ore": {
+      "frequency": 6,
+      "size": 6,
+      "richness": 6
+    },
+    "stone": {
+      "frequency": 6,
+      "size": 6,
+      "richness": 6
+    },
+    "uranium-ore": {
+      "frequency": 1,
+      "size": 6,
+      "richness": 6
+    }
+  }
+}

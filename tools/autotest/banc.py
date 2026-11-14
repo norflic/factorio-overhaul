@@ -730,7 +730,8 @@ def main(argv):
     ap.add_argument("--son", action="store_true")
     ap.add_argument("--carte", action="store_true")
     ap.add_argument("--captures", action="store_true")
-    ap.add_argument("--carte-max", action="store_true", dest="carte_max")  # lot CARTE-MAX : carte creee avec carte_max_mgs.json
+    ap.add_argument("--carte-max", action="store_true", dest="carte_max")
+    ap.add_argument("--mgs", dest="mgs")  # 0.7.111 : fichier map-gen-settings de la carte (avec --carte-max ; défaut carte_max_mgs.json)  # lot CARTE-MAX : carte creee avec carte_max_mgs.json
     ap.add_argument("--visuel")
     ap.add_argument("--seul", action="store_true")
     ap.add_argument("--places", type=int, choices=PLACES)
@@ -766,7 +767,7 @@ def main(argv):
             ap.error("--sauvegarde ne va ni avec --creation ni avec --captures")
         env["FO_SAVE"] = os.path.abspath(a.sauvegarde)
     if a.carte_max:
-        env["FO_MGS"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carte_max_mgs.json")
+        env["FO_MGS"] = os.path.abspath(a.mgs) if a.mgs else os.path.join(os.path.dirname(os.path.abspath(__file__)), "carte_max_mgs.json")
         print("[BANC] " + deployer_max(), flush=True)
     if a.son:
         env["FO_AUDIO"] = "1"
