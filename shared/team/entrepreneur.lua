@@ -22,8 +22,11 @@ E.CFG = {
   cover_max = 850,  -- ‰ : au-dessus, le gisement est jugé plein
   log_max = 200,    -- lignes [FO-ENTREPRENEUR] par équipe au plus
   kit_every = 300,  -- entrepreneur-craft-0716 : suivi du kit complet (ticks), journal [FO-ENTREPRENEUR-KIT]
-  head_max = 21600, -- entrepreneur-craft-0716 : 6 min au plus en tête (coffre et cerveau) ; au-delà la bande garde son monopole (rien n'est
-                    -- rendu) mais rend la tête : banc 1 (joueur, kit de 1 298 objets jamais complet en 18 min) affamait toute la base
+  head_horizon = 18000, -- entrepreneur-craft-0716 : la tête n'est tenue que si le coût en plaques du manque du kit tient dans la PART
+  head_share = 0.5,      -- (head_share) du stock de plaques + débit de l'équipe sur head_horizon ticks (5 min) ; sinon tête rendue, monopole gardé.
+                         -- Banc 1 : le kit du joueur (1 298 objets) jamais complet en 18 min affamait toute sa base (5 fours en marche contre 29).
+                         -- head_share borne aussi la part du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua) : banc 2,
+                         -- scarlet 50 -> 26 fours en marche quand la bande prenait tout.
 }
 
 --- Décision du scan. inp = { delta (plaques produites depuis le relevé), room (place sur un gisement : bool), cover (‰ ou nil),
@@ -109,11 +112,43 @@ function E.kit_report(need, stock, missing, max_items)
     text = table.concat(parts, ", ") }
 end
 
---- entrepreneur-craft-0716 : la bande garde-t-elle la TÊTE (servie avant tout autre projet) ? Oui tant que son kit n'est pas complet et
---- qu'il a été lancé il y a au plus CFG.head_max ticks ; un kit trop gros pour l'économie de l'équipe rend la tête (le monopole reste).
-function E.head_ok(kit_t0, tick, complete)
-  if complete then return false end
-  return kit_t0 == nil or (tick - kit_t0) <= E.CFG.head_max
+--- entrepreneur-craft-0716 : la bande garde-t-elle la TÊTE (servie avant tout autre projet) ? cost = plaques qu'il faut encore pour fabriquer
+--- le manque bloquant du kit (sans la garniture), stock = plaques au coffre, debit = plaques produites par CFG.head_horizon ticks.
+--- Vrai si cost <= head_share x (stock + debit) : le kit se paie sur la part de l'équipe qui lui revient ; rend aussi le budget.
+function E.head_budget(cost, stock, debit)
+  local budget = E.CFG.head_share * ((stock or 0) + math.max(0, debit or 0))
+  return (cost or 0) <= budget, budget
+end
+
+--- entrepreneur-craft-0716 : GARNITURE d'un plan (charges des pièces pas encore bâties : charbon des coffres de combustible posés garnis).
+--- Elle ne bloque pas la pose (build.lua : une pièce sans sa charge est posée vide) : hors du kit bloquant. ents = p.ents. Rend { [objet] = n }.
+function E.garnish(ents)
+  local out = {}
+  for _, e in ipairs(ents or {}) do
+    if not e.built and e.item and e.charge and e.charge.item then out[e.charge.item] = (out[e.charge.item] or 0) + (e.charge.count or 0) end
+  end
+  return out
+end
+
+--- entrepreneur-craft-0716 : coupe une liste { { objet, n } } en partie BLOQUANTE et GARNITURE (garnish = { [objet] = n }, ordre gardé).
+function E.split_garnish(list, garnish)
+  local core, gar = {}, {}
+  for _, it in ipairs(list or {}) do
+    local g = math.min(it[2] or 0, (garnish or {})[it[1]] or 0)
+    if g > 0 then gar[#gar + 1] = { it[1], g } end
+    if (it[2] or 0) - g > 0 then core[#core + 1] = { it[1], it[2] - g } end
+  end
+  return core, gar
+end
+
+--- entrepreneur-craft-0716 : besoin sans la garniture (need, garnish = { [objet] = n }) -> table neuve.
+function E.need_core(need, garnish)
+  local out = {}
+  for k, n in pairs(need or {}) do
+    local m = n - math.min(n, (garnish or {})[k] or 0)
+    if m > 0 then out[k] = m end
+  end
+  return out
 end
 
 --- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets

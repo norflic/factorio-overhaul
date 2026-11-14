@@ -43,6 +43,7 @@ local Dm = require("shared.ai3.demande") -- lot C2 : capacités de plus selon le
 P.EMIT.capi = Ca.emit(P)
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manque par rapport au besoin
 local Fa = require("shared.ai3.famille_armee") -- lot TV-PILOTE (V10) : famille armée à parts réservées
+local Ent = require("shared.team.entrepreneur") -- entrepreneur-craft-0716 : tete de la bande entrepreneur (part du stock, garniture)
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le reste du stock s'investit
 local Fx = require("shared.team.flux") -- lot FLUX : tournée des sorties pleines gardée (règle pure)
@@ -451,24 +452,28 @@ function C.think(view, book, st, ctx)
   -- 16f1b3e0, point 1). Lot DEFAUT7 : l'amélioration exigée par le centre (chaîne Q16) servie d'abord ; étage 3 : le centre passé
   -- devant servi en tête, après les seuls projets qui produisent la matière qui lui manque (Cap.ahead_first).
   local served = Cap.ahead_first(Cap.chain_first(order), E.avail, T.outposts, T.smelter_inputs)
-  -- entrepreneur-craft-0716 : la bande entrepreneur (g.ent, chantier en monopole) est servie EN TÊTE du stock virtuel, après les seuls ordres
-  -- du joueur : son kit entier passe avant tout autre projet, ce qu'il prend (objets et plaques de ses fabrications) n'est plus libre pour eux.
+  -- entrepreneur-craft-0716 : la PARTIE BLOQUANTE du kit de la bande entrepreneur (g.ent, tête tenue par le runtime : coût en plaques dans le
+  -- budget de l'équipe, Ent.head_budget) est servie EN TÊTE du stock virtuel, après les seuls ordres du joueur, sur une PART du stock
+  -- (Ent.CFG.head_share : le reste reste aux autres projets) ; sa garniture (charbon des coffres posés garnis) et ce que la part ne couvre pas
+  -- sont servis à la place ordinaire du but.
+  local ent_head = {}
   do
     local head, tail = {}, {}
     for _, proj in ipairs(served) do
       if proj.goal and proj.goal.ordre then head[#head + 1] = proj end
     end
     for _, proj in ipairs(served) do
-      if proj.goal and proj.goal.ent and not proj.goal.ordre then head[#head + 1] = proj end
+      if proj.goal and proj.goal.ent and not proj.goal.ordre then head[#head + 1] = proj; ent_head[proj] = true end
     end
     if #head > 0 then
       for _, proj in ipairs(served) do
-        if not (proj.goal and (proj.goal.ent or proj.goal.ordre)) then tail[#tail + 1] = proj end
+        if not (proj.goal and proj.goal.ordre) then tail[#tail + 1] = proj end
       end
       for _, proj in ipairs(tail) do head[#head + 1] = proj end
       served = head
     end
   end
+  local ent_done = {}
   -- Lot TV-PILOTE (V10) : FAMILLE ARMÉE à parts réservées (shared/ai3/famille_armee.lua). ctx.armee = { parts = { delta, alpha } } posé par le
   -- runtime quand le réglage fo-war-armee-famille est allumé (nil : la boucle d'avant, ligne pour ligne). La réserve de la famille (munitions et
   -- équipement des soldats, UNE liste) est prêtée aux projets qui n'en sont pas : ils servent le stock MOINS la réserve ; les membres le voient entier.
@@ -479,7 +484,39 @@ function C.think(view, book, st, ctx)
       function(list) return E.book:plan(list, E.avail).raw end, share, share_why)
   end
   for _, proj in ipairs(served) do
-    if famres and next(famres.left) ~= nil then
+    local ent_skip = false
+    if ent_head[proj] and not ent_done[proj] then
+      -- tête : partie bloquante sur la part du stock virtuel ; la garniture et le reste au second passage (place ordinaire)
+      ent_done[proj] = true
+      local g = proj.goal
+      local full = g.missing
+      local core, gar = Ent.split_garnish(full, g.ent_garnish)
+      local held, own = {}, {}
+      for _, it in ipairs(core) do own[it[1]] = true end -- (les pièces du kit déjà au coffre lui reviennent entières : seule la matière est partagée)
+      for _, k in ipairs(sorted_keys(E.avail)) do
+        local v = own[k] and 0 or (E.avail[k] or 0)
+        local keep = v - math.floor(v * Ent.CFG.head_share)
+        if keep > 0 then held[k] = keep; E.avail[k] = v - keep end
+      end
+      g.missing = core
+      local crafts0 = E.crafts
+      if #core > 0 then P.emit(E, proj, ctx, tick) end
+      for _, k in ipairs(sorted_keys(held)) do E.avail[k] = (E.avail[k] or 0) + held[k] end
+      g.missing, g.ent_rest = full, gar
+      g.ent = nil -- second passage : but ordinaire (kits plafonnés), seulement la garniture
+      g.ent_head_crafts = E.crafts - crafts0
+      ent_skip = true
+    elseif ent_done[proj] then
+      local g = proj.goal
+      local full = g.missing
+      g.missing = g.ent_rest or {}
+      if #g.missing > 0 then P.emit(E, proj, ctx, tick) end
+      g.missing, g.ent_rest, g.ent = full, nil, true
+      ent_skip = true
+    end
+    if ent_skip then
+      -- (déjà émis)
+    elseif famres and next(famres.left) ~= nil then
       if Fa.member(proj.goal) then
         local before = Fa.snapshot(E.avail, famres.left)
         P.emit(E, proj, ctx, tick)

@@ -110,10 +110,19 @@ do
   check(r.text == "a 0/1, b 0/1, +1 autre(s)", "kit : texte borne (" .. r.text .. ")")
   local o = E.order_front({ 1, 2, 3, 4, 5 }, 4, { [2] = true })
   check(table.concat(o, ",") == "2,4,1,3,5", "ordre : reparation devant, puis la bande, puis le reste (" .. table.concat(o, ",") .. ")")
-  check(E.head_ok(nil, 99999, false), "tete : kit pas encore lance, tete gardee")
-  check(E.head_ok(1000, 1000 + E.CFG.head_max, false), "tete : a la borne, gardee")
-  check(not E.head_ok(1000, 1001 + E.CFG.head_max, false), "tete : au-dela de la borne, rendue")
-  check(not E.head_ok(1000, 1001, true), "tete : kit complet, plus de tete")
+  local share = E.CFG.head_share
+  local okb, bud = E.head_budget(100, 100, 100)
+  check(okb == (100 <= share * 200) and bud == share * 200, "tete : budget = part x (stock + debit)")
+  check(not E.head_budget(2000, 300, 600), "tete : kit de 2000 plaques pour 300 au coffre et 600 de debit : file")
+  check(E.head_budget(0, 0, 0), "tete : rien a fabriquer, budget nul : tete")
+  check(not E.head_budget(1, 0, -50), "tete : debit negatif compte zero")
+  local gar = E.garnish({ { item = "x", charge = { item = "c", count = 20 } }, { item = "x", built = true, charge = { item = "c", count = 20 } },
+    { item = "y" }, { item = "x", charge = { item = "c", count = 5 } } })
+  check(gar.c == 25 and gar.x == nil, "garniture : charges des pieces pas baties seulement (" .. tostring(gar.c) .. ")")
+  local core, g2 = E.split_garnish({ { "c", 30 }, { "x", 2 } }, { c = 25 })
+  check(#core == 2 and core[1][1] == "c" and core[1][2] == 5 and core[2][2] == 2 and #g2 == 1 and g2[1][2] == 25, "garniture : coupe du manque, ordre garde")
+  local nc = E.need_core({ c = 30, x = 2 }, { c = 40 })
+  check(nc.c == nil and nc.x == 2, "garniture : besoin bloquant sans la garniture")
   o = E.order_front({ 1, 2 }, 9, {})
   check(table.concat(o, ",") == "1,2", "ordre : bande absente, ordre inchange")
 end

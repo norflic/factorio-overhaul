@@ -1045,6 +1045,7 @@ function A.goals(goals, auto, weights, research)
         -- lot RACCORD-BANDE 2 : la LIGNE de poteaux d'une bande (famille « couverture ») est un investissement de fond : elle ne prend pas de place parmi les K
         -- projets (partie neuve 0.6.72 : « auto:ligne-bande:attente » 12 min sur 20, 104 poteaux manquants de 8 à 38 min avec 470 de bois et 330 de cuivre au coffre)
         ent = m.ent or nil, -- entrepreneur-craft-0716 : bande entrepreneur (servie en tête du stock virtuel, kit entier : shared/ai3/cerveau.lua, P.want_kit)
+        ent_garnish = m.ent_garnish, -- (garniture : servie à la place ordinaire du but)
         fond = m.line or nil, invest = m.line or nil, -- (m.line : posé par script/ai3/automatisation.lua pour une ligne de bande et une bande de la migration, lot KITS-VOLES)
         value = capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
     end

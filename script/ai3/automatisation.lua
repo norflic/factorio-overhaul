@@ -674,6 +674,7 @@ function Auto.think(f, view, book, tick, research)
         -- vivaient que des kits des autres projets, remis au premier projet en réserve
         line = true,
         ent = ps.ent, -- entrepreneur-craft-0716 : bande entrepreneur (but servi en tête, kit entier, passe la pile : shared/ai3/cerveau.lua)
+        ent_garnish = ps.ent_garnish, -- (garniture du plan : servie à la place ordinaire du but, pas en tête)
         pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and not ps.ent and fam or nil }
     end
   end
