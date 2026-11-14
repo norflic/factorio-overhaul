@@ -64,7 +64,7 @@ Capital.CENTER_OFFSETS = { { 0, 14 }, { 14, 0 }, { -14, 0 }, { 0, -14 }, { 14, 1
 Capital.CENTER_SEARCH = 12
 Capital.HISTORY = 32
 Capital.REFUSE_TICKS = 5 * 3600 -- une cible refusée par l'exécutant est écartée 5 min (pas de nouvel essai à chaque pensée)
-Capital.TIERS_LOGS = 400       -- lot TIERS : lignes [FO-TIERS] au plus par équipe
+Capital.TIERS_LOGS = 400       -- lot TIERS : lignes [FO-TIERS-MONTEE] au plus par équipe
 Capital.RECHECK_TICKS = 3600    -- lot AGES : un refus « cc-families » (familles à monter connues) n'écarte le centre qu'1 min
 
 local Levels = package.loaded["script.levels.levels"] -- lien inverse : script/levels/levels.lua, Capital.bind
@@ -801,6 +801,10 @@ function Capital.goal(f, view, book, tick, w)
   Capital.log_centre(f, c, d, tick)
   local goal = Cap.goal(d, w)
   local prev = c.current and c.current.key or nil
+  -- Lot TIERS : remplacement de côté (Cap.side_of), numéros seulement (rien du relevé ne va dans global).
+  local sd = d.side
+  c.side = sd and { key = sd.key, ids = { table.unpack(sd.ids) }, pool = Cap.pool(sd),
+    replace = { from = sd.replace.from, to = sd.replace.to, n = sd.replace.n, group = sd.replace.group } } or nil
   if d.none then
     c.current = nil
     local sig = Cap.why_text(d)
@@ -982,7 +986,7 @@ local function pay_replace(f, c, d, tick, limit)
     end
   end
   if n > 0 then
-    -- Lot TIERS : journal [FO-TIERS] de chaque paiement (équipe, type du moteur, de -> vers, nombre, cumul de la paire et de l'équipe), borné.
+    -- Lot TIERS : journal [FO-TIERS-MONTEE] de chaque paiement ([FO-TIERS] est pris par le verrou des assembleurs) (équipe, type du moteur, de -> vers, nombre, cumul de la paire et de l'équipe), borné.
     local cp = machine_catalog().by[d.replace.from]
     local pair = d.replace.from .. ">" .. d.replace.to
     c.tiers = c.tiers or { total = 0, by = {}, logs = 0 }
@@ -990,7 +994,7 @@ local function pay_replace(f, c, d, tick, limit)
     c.tiers.total = c.tiers.total + n
     c.tiers.logs = c.tiers.logs + 1
     if c.tiers.logs <= Capital.TIERS_LOGS then
-      log(string.format("[FO-TIERS] %s : %s %s -> %s x%d (paire %d, equipe %d) a %.1f min", f.key or "player", cp and cp.type or "?",
+      log(string.format("[FO-TIERS-MONTEE] %s : %s %s -> %s x%d (paire %d, equipe %d) a %.1f min", f.key or "player", cp and cp.type or "?",
         d.replace.from, d.replace.to, n, c.tiers.by[pair], c.tiers.total, minutes(f, tick)))
     end
   end
@@ -1332,6 +1336,8 @@ function Capital.continu(f, surface, book, free, tick, hold)
   if not Capital.replace_on() or not (f.team and f.team.capital) then return 0 end
   local c = f.team.capital
   local d = c.current
+  local side = false
+  if not (d and d.replace) then d, side = c.side, true end -- lot TIERS : le but n'est pas un remplacement, celui de côté avance
   if not (d and d.replace) then return 0 end
   local tp = machine_catalog().by[d.replace.to]
   if not (tp and tp.item) then return 0 end
@@ -1364,13 +1370,13 @@ function Capital.continu(f, surface, book, free, tick, hold)
     if done > 0 then
       c.upgrades = (c.upgrades or 0) + done
       if d.replace.group then c.last_group = d.replace.group end
-      c.current, c.goal, c.scan_n = nil, nil, 0
+      if side then c.side, c.scan_n = nil, 0 else c.current, c.goal, c.scan_n = nil, nil, 0 end -- de côté : le but reste, relevé à la pensée suivante
     end
   end
   if (done > 0 or (queued or 0) > 0 or why) and AC.log_ok(st) then
-    log(string.format("[FO-AMELIO-CONTINUE] %s : %s -> %s | lot %d | kit %d au stock, %d en fabrication | remplacees %d%s | pile %s a %.1f min",
+    log(string.format("[FO-AMELIO-CONTINUE] %s : %s -> %s | lot %d | kit %d au stock, %d en fabrication | remplacees %d%s | pile %s%s a %.1f min",
       f.key or "player", d.replace.from, d.replace.to, n, have, tonumber(queued) or 0, done, why and (" | refus " .. tostring(why)) or "",
-      hold and "retenue" or "libre", minutes(f, tick)))
+      hold and "retenue" or "libre", side and " | de cote" or "", minutes(f, tick)))
   end
   return done
 end

@@ -581,6 +581,18 @@ end
 
 --- Le choix : le meilleur candidat (nil s'il n'y en a pas) ; d.ranked = les Cap.TOP premiers { clé, score } ;
 --- d.wanted = objets sans coût connu des candidats de valeur bloqués par eux (H8 -> H9).
+--- Lot TIERS : remplacement « de côté ». Le capital tient UN but à la fois ; mesuré (banc TIERS-1, carte du DC, 30 min) : 'gun:2:50'
+--- 21 min décidé non payé (engrenages 0/3 au stock libre), les remplacements de tapis attendent derrière (« suivantes »). En continu,
+--- le premier candidat de remplacement (score décroissant) est rendu à part quand le but n'en est pas un : Capital.continu fabrique son
+--- kit et le paie dès qu'il est au stock, sans toucher au but. Rend le candidat, ou nil.
+function Cap.side_of(cands, first)
+  if first and first.replace then return nil end
+  for _, c in ipairs(cands or {}) do
+    if c.replace and c.ids and #c.ids > 0 and c.members then return c end
+  end
+  return nil
+end
+
 function Cap.choose(Ld, census, ctx)
   local res = Cap.candidates(Ld, census, ctx)
   -- Lot AGES : le centre reporté plus que son prix passe devant (Cap.starved).
@@ -637,6 +649,7 @@ function Cap.choose(Ld, census, ctx)
   end
   table.sort(kinds)
   d.rep_kinds, d.rep_groups = kinds, groups
+  d.side = ctx.continu and Cap.side_of(res.cands, first) or nil -- lot TIERS
   return d
 end
 
