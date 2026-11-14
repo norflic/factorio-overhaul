@@ -21,6 +21,7 @@
   Déterminisme : listes triées, clés triées ; aucun temps mesuré ; rien de fonctionnel dans global.
 ]]
 
+local Ent = require("shared.team.entrepreneur") -- entrepreneur-0715 : monopole (regle pure)
 local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
@@ -3477,6 +3478,7 @@ end
 local function pile_family(f, p)
   local fam = p.spec and p.spec.pile
   if p.spec and p.spec.ordre then return nil end -- ordres-0715 : un projet d'ordre du joueur n'est jamais suspendu par la pile
+  if Ent.monopoly(p.spec) then return nil end -- entrepreneur-0715 : monopole, la reserve d'un chantier entrepreneur n'est jamais rendue
   if not fam or Sweep.rebuilding(p) or (p.reopened and p.reopened ~= 0) then return nil end
   if fam == "migration" and PileRt.migration_building(f) then return nil end
   return fam

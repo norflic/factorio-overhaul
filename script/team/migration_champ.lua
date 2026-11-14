@@ -38,6 +38,7 @@ local Rb = require("shared.team.migration_retour") -- lot AZURE : retour en arri
 local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Mc = require("shared.team.migration_combustible") -- lot COMBUSTIBLE-MIGRATION : plancher du combustible (générateurs + brûleurs), retrait permis, stock bas (règle pure)
 local Rc = require("shared.team.reconstruction")
+local Ent = require("shared.team.entrepreneur") -- entrepreneur-0715 : scan des 5 min, bande marquee, monopole (regle pure)
 local Bb = require("shared.team.bande_brute") -- s45 pierre : bande sans four bornée aux paires remplacées (règle pure)
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local State = require("script.faction.state")
@@ -1006,6 +1007,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
     domain = "production", lazy_clear = true, pile = ((st.want_until or 0) > tick) and "couverture" or "capi", product = product }
   if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
+  if (st.entre_until or 0) > tick then spec.entrepreneur = true; st.entre_until = nil end -- entrepreneur-0715
   local id, rwhy = Build.request(f, spec)
   if not id then
     st.fails, st.retry = st.fails + 1, tick + CFG.retry
@@ -1884,6 +1886,7 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dorma
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
     domain = "production", lazy_clear = true, pile = "couverture", product = product }
   if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
+  if (st.entre_until or 0) > tick then spec.entrepreneur = true; st.entre_until = nil end -- entrepreneur-0715
   local id, rwhy = Build.request(f, spec)
   if not id then
     st.ahead_retry = tick + CFG.retry
@@ -2152,6 +2155,105 @@ function Mig.projects(f)
   end
   return out
 end
+
+--- entrepreneur-0715 (pansement assumé) : scan d'une équipe toutes les Ent.CFG.period ticks. Lit seulement les tables tenues
+--- (f.migration, f.outposts, f.build.projects) et force.item_production_statistics (aucune recherche d'entités). Décision : Ent.decide.
+--- « declenche » : l'avant-poste/gisement ouvert non plein le plus petit (numéro trié) devient voulu (st.want_until, servi en tête par
+--- start_next) et sa prochaine bande demandée (begin_band / ahead_step) porte spec.entrepreneur ; « attache » : la bande déjà en vol
+--- est marquée. Journal [FO-ENTREPRENEUR] borné (Ent.CFG.log_max par équipe).
+local function ent_say(f, ms, text)
+  ms.ent_logs = (ms.ent_logs or 0) + 1
+  if ms.ent_logs <= Ent.CFG.log_max then log(string.format("[FO-ENTREPRENEUR] %s : %s", name_of(f), text)) end
+end
+
+local function plates_total(f)
+  local force = f.force
+  if type(force) == "string" then force = game.forces[force] end
+  if not (force and force.valid) then return nil end
+  local stats = force.item_production_statistics
+  local seen, n = {}, 0
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local tk = T.outposts[kind]
+    if is_furnace_kind(kind) and tk.product and not seen[tk.product] and game.item_prototypes[tk.product] then
+      seen[tk.product] = true
+      n = n + (stats.get_input_count(tk.product) or 0)
+    end
+  end
+  return n
+end
+
+function Mig.entrepreneur_scan(f, tick)
+  if not (f and f.outposts and f.build and f.build.projects) then return nil end
+  local ms = ms_of(f)
+  local total = plates_total(f)
+  if not total then return nil end
+  local delta = total - (ms.ent_plates or total)
+  local first = ms.ent_plates == nil
+  ms.ent_plates = total
+  if first then delta = total end
+  local cur = ms.ent and f.build.projects[ms.ent.pid]
+  if ms.ent and not (cur and cur.state ~= "fini") then
+    ent_say(f, ms, string.format("fini (projet %s)", tostring(ms.ent.pid)))
+    ms.ent = nil
+    cur = nil
+  end
+  -- place : un avant-poste ou gisement du champ à fours, ouvert, ni fini ni abandonné (ordre trié des numéros)
+  local target
+  local ids = sorted_keys(f.outposts)
+  for _, fid in ipairs(sorted_keys(ms.fields)) do ids[#ids + 1] = fid end
+  for _, oid in ipairs(ids) do
+    local o = Champ.target(f, oid)
+    local st = ms.o[oid]
+    if not target and o and is_champ_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then target = oid end
+  end
+  local inflight = Mig.projects(f)
+  local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0 })
+  if action == "refus" then
+    if cause ~= "chantier en cours" then ent_say(f, ms, "refus " .. cause) end
+    return action, cause
+  end
+  if action == "attache" then
+    local pid = inflight[1].pid
+    local p = f.build.projects[pid]
+    if p and p.spec then
+      p.spec.entrepreneur = true
+      ms.ent = { pid = pid, t0 = tick }
+      ent_say(f, ms, string.format("attache projet %d (bande deja en vol, %d plaque(s) en 5 min)", pid, delta))
+    end
+    return action, cause
+  end
+  local st = ms.o[target]
+  if not st then st = new_state(); ms.o[target] = st end
+  st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)
+  st.entre_until = tick + Ent.CFG.period
+  if st.retry and st.retry > tick then st.retry = tick end
+  ms.next = math.min(ms.next or tick, tick) -- pensée du champ au plus tôt
+  ms.ent_wait = { oid = target, t0 = tick }
+  ent_say(f, ms, string.format("declenche sur %d (%d plaque(s) en 5 min)", target, delta))
+  return action, cause
+end
+
+--- entrepreneur-0715 : un projet demandé portant spec.entrepreneur devient le chantier de l'équipe (lu au scan suivant pour « fini »).
+function Mig.entrepreneur_follow(f)
+  local ms = f and f.migration
+  if not (ms and ms.ent_wait and not ms.ent and f.build) then return end
+  for _, x in ipairs(Mig.projects(f)) do
+    local p = f.build.projects[x.pid]
+    if not ms.ent and p and p.spec and p.spec.entrepreneur then ms.ent = { pid = x.pid, t0 = ms.ent_wait.t0 }; ms.ent_wait = nil end
+  end
+end
+
+Events.on_nth_tick(Ent.CFG.period, function(e)
+  local ids = State.alive()
+  ids[#ids + 1] = "player"
+  for _, id in ipairs(ids) do
+    local f = State.faction(id)
+    if f then
+      Mig.entrepreneur_follow(f)
+      Mig.entrepreneur_scan(f, e.tick)
+    end
+  end
+end)
 
 --- Résumé pour les bancs et la fenêtre (lecture seule) : nombres seulement.
 function Mig.summary(f)
