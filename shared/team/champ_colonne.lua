@@ -395,7 +395,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o)
         local rb = box or { u0 = math.min(from.u, t.u) - Co.ROUTE_MARGIN, u1 = math.max(from.u, t.u) + Co.ROUTE_MARGIN,
           v0 = math.min(from.v, t.v) - Co.ROUTE_MARGIN, v1 = math.max(from.v, t.v) + Co.ROUTE_MARGIN }
         local sd = didx(side, 0)
-        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, Co.AWAY_CAP, o.tcost)
+        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, Co.AWAY_CAP, o.tcost, o.memo)
         if route then
           local list = {}
           for _, e in ipairs(base) do
@@ -602,7 +602,9 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
     end
     return x
   end
+  local expanded = 0
   local function finish(route, why)
+    Co.EXPANDED = Co.EXPANDED + expanded -- s49 opti : états développés, tous tracés (banc tests/perf_champ_bench.lua) ; s52 : ajoutés en fin de tracé
     if memo then
       mlist = memo[mkey]
       if not mlist then mlist = {}; memo[mkey] = mlist end
@@ -617,8 +619,14 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
   local bu0, bv0, bu1, bv1 = box.u0, box.v0, box.u1, box.v1
   local tu, tv = t.u, t.v
   local W = Co.ROUTE_W
-  local abs, floor = math.abs, math.floor
-  local function hh(u, v) return (abs(u - tu) + abs(v - tv)) * W end
+  local floor = math.floor
+  -- s52 mesure : |du| + |dv| sans appel (même somme entière, même produit par W)
+  local function hh(u, v)
+    local a, b = u - tu, v - tv
+    if a < 0 then a = -a end
+    if b < 0 then b = -b end
+    return (a + b) * W
+  end
   -- clé d'un état : tk(u, v) * 10 + (d - 1) * 2 + m (celle de v0.7.107) ; relue : tuile = floor(k / 10), d, m dans k % 10
   local g, pk, pug, closed = {}, {}, {}, {}
   -- tas : tableaux parallèles, ordre (f, h, k) strict
@@ -662,11 +670,14 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
   local k0 = tk(s.u, s.v) * 10 + (sd - 1) * 2
   g[k0] = 0
   do local h0 = hh(s.u, s.v); push(h0, h0, k0) end
-  local expanded = 0
+  -- s52 mesure : la lecture gardée (FR) faite sur place, `free` seulement à la première lecture d'une tuile (mêmes lectures, même ordre)
   local function relax(ck, cg, nu, nv, nd, nm, cost, isug)
     if nu < bu0 or nu > bu1 or nv < bv0 or nv > bv1 then return end
-    if not (free(nu, nv) or (nu == tu and nv == tv)) then return end
-    local nk = tk(nu, nv) * 10 + (nd - 1) * 2 + nm
+    local tkey = (nu + 50000) * 100000 + (nv + 50000)
+    local x = FR[tkey]
+    if x == nil then x = free(nu, nv) end
+    if not (x or (nu == tu and nv == tv)) then return end
+    local nk = tkey * 10 + (nd - 1) * 2 + nm
     if closed[nk] then return end
     local ng = cg + cost
     local og = g[nk]
@@ -674,20 +685,25 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
       g[nk] = ng
       pk[nk] = ck
       pug[nk] = isug
-      local h = hh(nu, nv)
+      local a, b = nu - tu, nv - tv
+      if a < 0 then a = -a end
+      if b < 0 then b = -b end
+      local h = (a + b) * W
       push(ng + h, h, nk)
     end
   end
+  -- s52 mesure : clés entières positives, x - x % n au lieu de floor (même quotient entier, sans appel)
   local function tile_of(k)
-    local q = floor(k / 10)
-    return floor(q / 100000) - 50000, q % 100000 - 50000, floor((k % 10) / 2) + 1, k % 2
+    local r = k % 10
+    local q = (k - r) / 10
+    local v = q % 100000
+    return (q - v) / 100000 - 50000, v - 50000, (r - r % 2) / 2 + 1, r % 2
   end
   while hn > 0 do
     local ck = pop()
     if not closed[ck] then
       closed[ck] = true
       expanded = expanded + 1
-      Co.EXPANDED = Co.EXPANDED + 1 -- s49 opti : états développés, tous tracés (banc tests/perf_champ_bench.lua)
       if expanded > cap then return finish(nil, "trop long") end
       if expanded == Co.PREUVE_APRES and Co.PREUVE then
         local why = Co.unreachable(s, t, free, ug, box, cap) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*

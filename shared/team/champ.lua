@@ -1105,7 +1105,8 @@ local function plan_once(spec)
           if gc then
             aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
               c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
-                span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win })
+                span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win,
+                memo = run_memo("away") }) -- s52 mesure : tracés des colonnes ailleurs refaits à l'identique d'un plan_once à l'autre
             if aw then g = gc break end
           end
         end

@@ -94,6 +94,15 @@ local CASES = {
   { "emerald charbon sans voie", emerald },
   { "foret 55x25", foret },
 }
+-- s52 mesure : specs RÉELLES de la carte du DC (ressources 600 %, graine 271828182), relevées par Profiler.dump("champ-frame") au banc
+-- s52-dump-champ (profileur détail) : { spec, cfg }. Chaque passe relit le fichier (tables neuves).
+for _, fx in ipairs({ { "dc joueur fer 1", "tests/fixtures/champ_joueur_dc.lua" }, { "dc emerald fer 3", "tests/fixtures/champ_emerald_dc.lua" } }) do
+  local fh = io.open(fx[2], "r")
+  if fh then
+    fh:close()
+    CASES[#CASES + 1] = { fx[1], function() return dofile(fx[2]).spec end }
+  end
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Enveloppes (temporaires : seulement dans ce processus)

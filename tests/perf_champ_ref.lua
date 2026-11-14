@@ -6,4 +6,7 @@ return {
   ["riviere disque 40"] = 1643460174,
   ["emerald charbon sans voie"] = 1861573764,
   ["foret 55x25"] = 451379085,
+  -- s52 mesure : specs réelles de la carte du DC (tests/fixtures/champ_*_dc.lua), empreintes du code de release-0.6.77 (avant s52)
+  ["dc joueur fer 1"] = 119286278,
+  ["dc emerald fer 3"] = 521882340,
 }
