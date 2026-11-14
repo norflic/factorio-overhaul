@@ -30,6 +30,25 @@ D.CHEST_SPOTS = { { 6, 6 }, { 6, -8 }, { -8, 6 }, { -8, -8 }, { 16, 0 }, { 0, 16
   { 16, 16 }, { 16, -16 }, { -16, 16 }, { -16, -16 }, { 26, 0 }, { 0, 26 }, { -26, 0 }, { 0, -26 } }
 D.CHEST_CLEAR = 11
 
+--- ordres-0715 (B) : places de repli du coffre d'office au-dela de D.CHEST_SPOTS, en anneaux carres de `step` tuiles jusqu'a `rmax`,
+--- au plus `budget` places ; dans un anneau, ordre fixe (est, sud, ouest, nord, puis coins), deterministe. Rend { { dx, dy } }.
+D.SPIRAL_STEP, D.SPIRAL_MAX, D.SPIRAL_BUDGET = 8, 96, 64
+function D.spiral_spots(step, rmax, budget)
+  step, rmax, budget = step or D.SPIRAL_STEP, rmax or D.SPIRAL_MAX, budget or D.SPIRAL_BUDGET
+  local out = {}
+  local r = 32
+  while r <= rmax and #out < budget do
+    local ring = { { r, 0 }, { 0, r }, { -r, 0 }, { 0, -r }, { r, r }, { -r, r }, { -r, -r }, { r, -r },
+      { r, math.floor(r / 2) }, { -math.floor(r / 2), r }, { -r, -math.floor(r / 2) }, { math.floor(r / 2), -r } }
+    for _, o in ipairs(ring) do
+      if #out >= budget then break end
+      out[#out + 1] = o
+    end
+    r = r + step
+  end
+  return out
+end
+
 --- Place du coffre d'office : cands = liste ORDONNÉE de { pos = place libre ou nil, ore = ressources autour }. Rend le rang de la première
 --- place libre sans ressource ; à défaut celui de la place libre qui en a le moins (la première à égalité) ; nil si aucune place libre.
 function D.pick_chest(cands)

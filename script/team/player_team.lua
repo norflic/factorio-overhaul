@@ -100,6 +100,19 @@ function PlayerTeam.found_default(surface, center)
     cands[i] = { pos = p, ore = ore }
     if p and ore == 0 then break end
   end
+  -- ordres-0715 (B) : toutes les places fixes sur le minerai : spirale bornee (Depart.spiral_spots), premiere place sans minerai
+  if not (cands[#cands] and cands[#cands].pos and cands[#cands].ore == 0) then
+    for _, o in ipairs(Depart.spiral_spots()) do
+      local p = surface.find_non_colliding_position(CHEST, { x = center.x + o[1], y = center.y + o[2] }, 4, 1)
+      local ore = p and surface.count_entities_filtered({ area = { { p.x - R, p.y - R }, { p.x + R, p.y + R } }, type = "resource", limit = 1 }) or 1
+      if p and ore == 0 then
+        cands[#cands + 1] = { pos = p, ore = 0 }
+        log(string.format("[FO-PTEAM] coffre d'office tick %d : places fixes sur le minerai, spirale : place (%d, %d) a %d tuiles du depart",
+          game.tick, math.floor(p.x), math.floor(p.y), math.floor(math.max(math.abs(o[1]), math.abs(o[2])))))
+        break
+      end
+    end
+  end
   local pick = Depart.pick_chest(cands)
   local near = { x = center.x + Depart.CHEST_OFFSET[1], y = center.y + Depart.CHEST_OFFSET[2] }
   local pos = pick and cands[pick].pos or surface.find_non_colliding_position(CHEST, near, 20, 1)

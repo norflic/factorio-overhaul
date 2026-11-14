@@ -141,4 +141,13 @@ do
   local bsrc = io.open("script/team/build.lua"):read("*a")
   ok(bsrc:find("if p.spec and p.spec.ordre then return nil end", 1, true), "ordres-0715 : projet d'ordre jamais suspendu par la pile")
 end
+do -- ordres-0715 (B) : spirale du coffre d'office
+  local D = require("shared.team.depart")
+  local a, b = D.spiral_spots(), D.spiral_spots()
+  ok(#a == D.SPIRAL_BUDGET and a[1][1] == b[1][1] and a[#a][2] == b[#b][2], "spirale : bornee et deterministe")
+  local mx = 0
+  for _, o in ipairs(a) do mx = math.max(mx, math.abs(o[1]), math.abs(o[2])) end
+  ok(mx <= D.SPIRAL_MAX and mx > 26, "spirale : au-dela des places fixes, sous le rayon maximal")
+  ok(D.pick_chest({ { pos = { x = 0, y = 0 }, ore = 5 }, { pos = { x = 40, y = 0 }, ore = 0 } }) == 2, "pick_chest : place sans minerai retenue")
+end
 print(string.format("s46_outils_commande_test OK (%d)", n))
