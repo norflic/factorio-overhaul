@@ -43,7 +43,7 @@ Co.UG_COST = 3         -- surcoût d'une paire de souterrains (préférés seule
 Co.SOFT_COST = 8       -- surcoût d'un tapis posé sur un arbre ou un rocher (lot-20261020, emerald : 2 arbres de marais jamais coupés ont
                        -- bloqué 2 h le chantier d'une bande ; le tracé contourne la forêt, ou passe dessous par souterrain)
 Co.ROUTE_CAP = 200000  -- états développés au plus par tracé
-Co.ROUTE_STATES = 50000 -- s47 : plafond d'états du tracé de charbon d'une colonne (200 x ROUTE_MAX ; un échec coûtait 200000 états)
+Co.ROUTE_STATES = 12000 -- 0.7.107 : plafond d états du tracé de charbon d une colonne (48 x ROUTE_MAX ; 5000 perdait 10 tracés valides de champ_colonne_test ; un échec coûtait 200000 états)
 Co.ROUTE_W = 1.2       -- A* pondéré (heuristique × 1,2) : un tracé de 300 tuiles reste sous le plafond (lot2-20261020 : charbon à ~190 tuiles)
 Co.DEPOSITS = 3        -- gisements de charbon essayés (le plus proche peut être couvert par les paires thermiques de l'équipe)
 Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. (Proposé à ~120 le 3/11 ; mesuré hors jeu : un charbon à 60-70 tuiles

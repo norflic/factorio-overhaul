@@ -5,7 +5,7 @@ local Co = dofile("shared/team/champ_colonne.lua")
 local passes, failures = 0, 0
 local function check(c, m) if c then passes = passes + 1 else failures = failures + 1; print("  ECHEC : " .. m) end end
 check(Co.ROUTE_STATES and Co.ROUTE_STATES < Co.ROUTE_CAP, "ROUTE_STATES sous ROUTE_CAP")
-check(Co.ROUTE_STATES >= 100 * Co.ROUTE_MAX, "ROUTE_STATES borné par un multiple large de ROUTE_MAX")
+check(Co.ROUTE_STATES >= 40 * Co.ROUTE_MAX, "ROUTE_STATES borné par un multiple large de ROUTE_MAX (0.7.107 : 48 x, tracés valides de champ_colonne_test gardés)")
 -- échec coûteux : un mur quasi fermé (passage en zigzag) dans une grande boîte, l'arrivée dans une poche sans entrée
 Co.PREUVE = false
 local box = { u0 = 0, v0 = 0, u1 = 400, v1 = 400 }
