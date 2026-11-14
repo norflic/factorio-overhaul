@@ -714,7 +714,7 @@ M("famine : borne ignorée", "am", "if tick - since >= Am.STARVE_TICKS then out[
 M("famine : paiement ignoré", "am", "local since = math.max(st.seen[k], st.paid[k] or 0)", "local since = st.seen[k]")
 M("but engagé au fond", "cap", "front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi", "front = nil, -- lot AMELIORATION-CONTINUE : servi")
 M("valeur du but engagé non relevée", "cap", "if d.front then base = math.max(base, Cap.GOAL_FRONT) end", "")
-M("candidat front non marqué", "cap", "c.front = (front(c) == 1) or nil end", "c.front = nil end")
+M("candidat front non marqué", "cap", "c.front = (front(c) == 1 or c.zone) or nil end", "c.front = nil end")
 M("lot de fabrication borné à 12", "cap", "Am.fab(total, Cap.REPLACE_FAB), gk, n", "Am.fab(total, Cap.REPLACE_BATCH), gk, n")
 M("au-delà de 12, tout demandé sans borne de matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "k")
 M("au-delà de 12, rien demandé hors matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "feasible(k)")
