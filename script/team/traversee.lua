@@ -18,6 +18,7 @@
 local T = require("shared.team.config")
 local P = require("shared.team.plan")
 local Tv = require("shared.team.traversee")
+local Ti = require("shared.team.tapis_infranchissable")
 
 local Trav = {}
 
@@ -210,6 +211,26 @@ end
 --- Trace d'un tapis de s à t (voir le haut du fichier). `p` : le projet (numéro et nature au journal), facultatif.
 function Trav.route(f, surface, p, s, t, t_dir, bounds, cost, opts)
   opts = opts or {}
+  -- s45 astar-tapis : tuile portant un tapis, un souterrain ou un séparateur (posé ou fantôme) = infranchissable (lecture paresseuse de la boîte)
+  do
+    local occ
+    cost = Ti.guard(cost, function(x, y)
+      if not occ then
+        local boxes = {}
+        local area = { { bounds.x0, bounds.y0 }, { bounds.x1 + 1, bounds.y1 + 1 } }
+        local function add(e)
+          local bb = e.bounding_box
+          boxes[#boxes + 1] = { x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y }
+        end
+        for _, e in ipairs(surface.find_entities_filtered({ area = area, type = Ti.TYPES })) do add(e) end
+        for _, e in ipairs(surface.find_entities_filtered({ area = area, type = "entity-ghost" })) do
+          if Ti.is_belt_type(e.ghost_type) then add(e) end
+        end
+        occ = Ti.tiles(boxes)
+      end
+      return occ[Ti.key(x, y)] == true
+    end, s, t)
+  end
   local ug = Trav.ENABLED and Trav.underground(f, opts.belt) or nil
   -- opts.no_ore : aucun détour de gisement (appelants courts : branches de piquage) ; le gisement n'est alors pas lu du tout
   local ore = (not opts.no_ore) and ore_lookup(surface) or nil
