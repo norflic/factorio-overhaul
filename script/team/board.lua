@@ -905,12 +905,20 @@ function Board.ent_view(f, tick)
   return rec
 end
 
+--- Prise d'une tâche du projet entrepreneur (n'importe quel ouvrier) : la première ouvre la pose (ligne « pose commencee »).
+local function ent_claimed(f, ent, task, agent, tick)
+  if Eo.note_claim(ent, task, tick) and ent.claims == 1 then
+    ent_say(f, string.format("pose commencee : projet %d, premiere tache %s prise par l'ouvrier %s (%s), %.1f min apres le declenchement, a %.1f min",
+      ent.pid, tostring(task.key), tostring(agent.id), agent.id == ent.wid and "dedie" or "autre", (tick - (ent.t0 or ent.t_bind)) / 3600, tick / 3600))
+  end
+end
+
 function Board.claim(f, agent, tick)
   local b = Board.get(f)
   -- Lot entrepreneur-ouvrier : l'ouvrier dédié prend D'ABORD une tâche libre de son projet (matière stricte libre au registre avec la place
   -- de marché) ; sans tâche libre de ce projet, il suit la prise ordinaire (jamais figé).
   local ent = Board.ent_view(f, tick)
-  if ent and ent.wid == agent.id then
+  if ent and Eo.CFG.dedie and ent.wid == agent.id then
     local reg = Board.market(f) and reg_of(f) or nil
     local i = Eo.pick(b.list, b.tasks, ent.pid, function(t)
       if not reg then return true end
@@ -928,13 +936,13 @@ function Board.claim(f, agent, tick)
         if h then b.hint[agent.id] = nil; if b.hinted and b.hinted[h] == agent.id then b.hinted[h] = nil end end
       end
       if b.hinted then b.hinted[best.key] = nil end
-      Eo.note_claim(ent, best, tick)
+      ent_claimed(f, ent, best, agent, tick)
       bump(f, "ent_claims")
       return best
     end
   end
   local got = Board.claim_ordinary(f, agent, tick, b)
-  if ent and got then Eo.note_claim(ent, got, tick) end
+  if ent and got then ent_claimed(f, ent, got, agent, tick) end
   return got
 end
 

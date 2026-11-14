@@ -15,6 +15,7 @@ local Eo = {}
 
 Eo.CFG = {
   refresh = 60, -- ticks entre deux relectures des projets (cache de l'ouvrier dédié)
+  dedie = true, -- l'ouvrier dédié prend d'abord une tâche de son projet (faux : bilan seul, mesure A/B du banc)
   log_max = 120, -- lignes [FO-ENTREPRENEUR-OUVRIER] par équipe au plus
 }
 
