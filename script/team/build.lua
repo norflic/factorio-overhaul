@@ -70,6 +70,21 @@ local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors d
 local Build = {}
 -- lot DECOUPLAGE : le type de prototype d'une entité de gabarit (BOX_MINAGE / BOX_FONDERIE de P.fit), lu dans les données du jeu
 Build.Sm = require("shared.team.sol_minerai")
+Build.Vap = require("shared.team.vapeur") -- lot VAPEUR : lots écartés après un tapis d'alimentation impossible (V.skip_lots)
+Build.skip_lots = Build.Vap.skip_lots
+--- Lot VAPEUR : le tapis d'un projet d'alimentation de centrale (spec.alim) a échoué depuis le lot `place.lot` : ce lot est écarté
+--- Build.Vap.SKIP_TICKS pour les alimentations de l'équipe (b.alim_skip : clés de lots -> tick de fin). Journal [FO-VAPEUR].
+function Build.alim_fail(f, p, place, why)
+  if not (p and p.spec and p.spec.alim and place and place.lot ~= nil) then return end
+  if why == "attente" or why == "budget tick" then return end -- échecs passagers du tracé (Cc.transient) : le lot n'y est pour rien
+  local b = f.build
+  b.alim_skip = Build.Vap.mark_skip(b.alim_skip, place.lot, game.tick)
+  b.alim_skip_logs = (b.alim_skip_logs or 0) + 1
+  if b.alim_skip_logs <= 30 then
+    log(string.format("[FO-VAPEUR] %s : projet %d (alimentation de la centrale %d) : tapis impossible depuis le lot %s (%s) a %.1f min : lot ecarte %.0f min, le prochain essai prend le lot de charbon suivant",
+      f.key or "player", p.id, p.spec.alim, tostring(place.lot), tostring(why), game.tick / 3600, Build.Vap.SKIP_TICKS / 3600))
+  end
+end
 Build.Sm.type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
 -- lot DEFAUTS-REVELES : bloc principal à 200 locales (limite de Lua) ; modules lus en un seul endroit = champs de Build, pas des locales
 Build.Tournee = require("shared.team.tournee_pose") -- lot CHANTIERS-FANTOMES : tournées de pose (règle pure)
@@ -1073,7 +1088,9 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
   local tries = 0
   -- lot TV-PLACE (C07) : le repli simple fournit ses propres lots (spirale) ; sinon le classement par distance d'avant
   Build.Pave.want = Build.Pave.GEN[g.gen] -- lot MALL-PAVAGE : lu et consommé par candidates (un bloc de mall pave un lot déjà pris par un autre)
-  for _, c in ipairs((opts and opts.simple_lots) or candidates(b, kind_states, toward, res)) do
+  local cands = (opts and opts.simple_lots) or candidates(b, kind_states, toward, res)
+  if opts and opts.skip then cands = Build.skip_lots(cands, opts.skip, game.tick) end -- lot VAPEUR : lots dont le tapis d'alimentation a échoué
+  for _, c in ipairs(cands) do
     tries = tries + 1
     if tries > 8 then break end
     local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
@@ -2401,7 +2418,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if g then
       place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
         { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
-          within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
+          within = p.spec and p.spec.degel and p.spec.degel.zone or nil, skip = p.spec and p.spec.alim and b.alim_skip or nil })
       if place then picked, pg = at, g break end
     end
   end
@@ -2412,7 +2429,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, 1) end
     if g then
       place = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
-        { nobad = true, cover_min = Gisements.COVER_LOW, cache = cache, within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
+        { nobad = true, cover_min = Gisements.COVER_LOW, cache = cache, within = p.spec and p.spec.degel and p.spec.degel.zone or nil, skip = p.spec and p.spec.alim and b.alim_skip or nil })
       if place then picked, pg = { n = 1, cover = Gisements.COVER_LOW }, g end
       -- lot TV-REPLI (TODO_VIDEO C07) : plus aucun lot du treillis, et il ne grandit plus : la paire de foreuses va au bord du gisement,
       -- dans une fenêtre libre et sûre autour de lui (mêmes tuiles libres, même couverture minimale que le dernier essai)
@@ -2471,6 +2488,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   if bx1 - bx0 > 120 or by1 - by0 > 120 then
     local mode = nil
     if p.spec and (p.spec.alim or p.spec.alimquai) then mode = Cv.reach(s.x, s.y, a.x, a.y) end -- lot FONDERIE-BLOC : l'alimentation d'un coffre de champ aussi
+    if mode ~= "long" then Build.alim_fail(f, p, place, "trop loin") end -- lot VAPEUR
     if mode ~= "long" then return false, "trop loin" end
   end
   -- lot TRANCHES-FOREUSES : les trois essais du tapis (exact, exact avec marge, pondéré) se calculent par TRANCHES de Tdr.SLICE états, une par pensée
@@ -2530,6 +2548,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   end
   if not tiles then
     p.parts[part] = nil
+    Build.alim_fail(f, p, place, n2)
     Build.drill_diag(f, item, n, a, "tapis " .. tostring(n2), nil, s)
     return false, n2
   end
@@ -2543,6 +2562,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     local pok, pwhy = Build.Pur.check_route(f, surface, p, "foreuses", tiles, item, targets, { own = own })
     if not pok then
       p.parts[part] = nil
+      Build.alim_fail(f, p, place, pwhy)
       Build.drill_diag(f, item, n, a, "tapis " .. tostring(pwhy), nil, s)
       return false, pwhy
     end
@@ -5112,7 +5132,7 @@ local function advance(f, surface, p, tick)
       if prog and not p.progressif then
         p.progressif = true
         log(string.format("[FO-CHANTIER-PROGRESSIF] %s : projet %d (%s) part en chantier sans toute sa matiere a %.1f min : %s", f.key or "player",
-          p.id, p.spec.ext and "extension de champ de puits" or ("bande " .. tostring(p.spec.champ and p.spec.champ.pr)), tick / 3600,
+          p.id, p.spec.ext and "extension de champ de puits" or (p.spec.alim and ("alimentation de la centrale " .. tostring(p.spec.alim))) or ("bande " .. tostring(p.spec.champ and p.spec.champ.pr)), tick / 3600,
           Build.Cp.describe(pd))) -- (lot CC-PETROLE : une extension de champ de puits part aussi ainsi)
       end
       -- lot PETROLE : un site étendu (spec.lazy_clear) ne défriche pas tout d'abord : ses fantômes se posent, et les

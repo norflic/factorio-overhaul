@@ -93,7 +93,7 @@ function Vap.census(f, tick)
   for _, pid in ipairs(plant_ids(b)) do
     local p = b.projects[pid]
     if p and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
-      if p.state == "fini" then
+      if p.state == "fini" or (p.reopened and p.finished) then -- (une centrale rouverte pour une pièce détruite reste une centrale bâtie)
         plants = plants + 1
         local kinds = {}
         for _, pt in ipairs(p.parts or {}) do kinds[#kinds + 1] = pt and pt.kind or "?" end

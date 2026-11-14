@@ -50,9 +50,43 @@ function V.fed_share(fed, total)
   return math.min(1, pos(fed) / total)
 end
 
+-- 5. LOTS ÉCARTÉS (V.skip_lots, V.mark_skip) : un lot de charbon dont le TAPIS jusqu'à la centrale a échoué (« aucun chemin », « trop long »,
+--    « trop loin », tapis impur) est écarté V.SKIP_TICKS pour les projets d'alimentation de l'équipe : le prochain essai prend le lot de
+--    charbon suivant au lieu de retomber sur le même (partie du DC : « trop long » ×5 sur la même centrale d'emerald, à la main 60 min).
+V.SKIP_TICKS = 54000 -- 15 min
+V.SKIP_MAX = 16      -- lots écartés gardés au plus (les plus anciens sortent)
+
+--- Liste `cands` (éléments { k = clé du lot, ... }) sans les lots écartés encore valides à `tick` ; ordre gardé.
+function V.skip_lots(cands, skip, tick)
+  if not skip then return cands end
+  local out = {}
+  for _, c in ipairs(cands or {}) do
+    local u = skip[c.k]
+    if not (u and u > (tick or 0)) then out[#out + 1] = c end
+  end
+  return out
+end
+
+--- Écarte le lot `k` jusqu'à tick + V.SKIP_TICKS ; purge les échus, garde au plus V.SKIP_MAX lots (clés triées : déterministe).
+function V.mark_skip(skip, k, tick)
+  if k == nil then return skip end
+  skip = skip or {}
+  skip[k] = (tick or 0) + V.SKIP_TICKS
+  local keys = {}
+  for key, u in pairs(skip) do
+    if u <= (tick or 0) then skip[key] = nil else keys[#keys + 1] = key end
+  end
+  table.sort(keys, function(a, b)
+    if skip[a] ~= skip[b] then return skip[a] < skip[b] end
+    return tostring(a) < tostring(b)
+  end)
+  for i = 1, #keys - V.SKIP_MAX do skip[keys[i]] = nil end
+  return skip
+end
+
 --- Ligne de journal [FO-VAPEUR]. ev = { team, tick, demand, cap, pending, missing, fed, boilers, auto, plants, sat, hand }.
 function V.line(ev)
-  return string.format("[FO-VAPEUR] %s : a %.1f min : demande nominale %.0f kW (x%.1f = %.0f), capacite %.0f kW (+%.0f en chantier)%s ; chaudieres alimentees %d/%d, centrales nourries par foreuses %d/%d%s ; satisfaction %s",
+  return string.format("[FO-VAPEUR] %s : a %.1f min : demande nominale %.0f kW (x%.1f = %.0f), capacite %.0f kW (+%.0f en chantier)%s ; chaudieres alimentees %d/%d, centrales nourries par foreuses %d/%d%s ; charge (production / capacite des centrales) %s",
     tostring(ev.team or "player"), (ev.tick or 0) / 3600, pos(ev.demand), V.MARGIN, pos(ev.demand) * V.MARGIN, pos(ev.cap), pos(ev.pending),
     pos(ev.missing) > 0 and string.format(", manque %.0f kW : EXTENSION", ev.missing) or ", suffisante",
     ev.fed or 0, ev.boilers or 0, ev.auto or 0, ev.plants or 0,

@@ -63,5 +63,22 @@ check(Cv.after_refusal("foreuses : pas de lot", false) == "attendre", "treillis 
 check(Cc.MAX_OPEN >= 2, "deux projets d'alimentation a la fois")
 check(Cc.RETRY_TICKS <= 7200 and Cc.LONG_RETRY_TICKS <= 36000, "pauses courtes : 2 min puis 10 min")
 
+print("== 5. Lots ecartes apres un tapis impossible")
+local sk = V.mark_skip(nil, "3,4", 100)
+local l = V.skip_lots({ { k = "1,1" }, { k = "3,4" }, { k = "5,5" } }, sk, 200)
+check(#l == 2 and l[1].k == "1,1" and l[2].k == "5,5", "le lot ecarte sort de la liste, ordre garde")
+l = V.skip_lots({ { k = "3,4" } }, sk, 100 + V.SKIP_TICKS)
+check(#l == 1, "a l'echeance le lot revient")
+check(#V.skip_lots({ { k = "a" } }, nil, 0) == 1, "sans ecart : liste inchangee")
+local big = nil
+for i = 1, V.SKIP_MAX + 5 do big = V.mark_skip(big, "L" .. i, i) end
+local nk = 0
+for _ in pairs(big) do nk = nk + 1 end
+check(nk == V.SKIP_MAX and big["L1"] == nil and big["L" .. (V.SKIP_MAX + 5)] ~= nil, "au plus V.SKIP_MAX lots, les plus anciens sortent")
+big = V.mark_skip(big, "Z", 10 * V.SKIP_TICKS)
+nk = 0
+for _ in pairs(big) do nk = nk + 1 end
+check(nk == 1, "les echus sont purges")
+
 print(string.format("\nResultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
