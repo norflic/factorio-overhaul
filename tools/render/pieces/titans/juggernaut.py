@@ -26,6 +26,7 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
+import titans_charte as TC  # noqa: E402
 
 PREFIX = "ju_"
 PSI = -math.radians(40.0)
@@ -37,9 +38,10 @@ RAYON = 12.0 * KE            # rayon au sol englobant (ombre comprise : calculé
 # 36 tuiles de haut, 8 directions × 12 images × 3 stades : à 24 comme le Kaiju les feuilles pèseraient 1,4 fois plus), rayon au sol et
 # hauteur englobants (cadre fixe pour toutes les images et directions, en tuiles), portée du liseré de contact.
 # ART-16DIR (11/11) : 16 directions réelles ; densité 12,5 pour tenir 80 Mpx HR avec 16 directions (lueur à demi-densité, ombre au quart)
-SERIE = {"course": 8, "attaque": 4, "densite": 12.5, "R": 16.0, "zmax": 38.5, "dirs": 16}
+SERIE = {"course": 8, "attaque": 4, "densite": 12.0, "R": 16.0, "zmax": 38.5, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False           # allié : la lueur garde ses couleurs (cyan, magenta)
+SKY_GLOSSY = TC.SKY_GLOSSY   # s43 (charte V3) : ciel spéculaire poussé, le blindage sombre vit de ses reflets
 AMP = 3.0                    # amplitude du pas (unités de modèle) : le pied va de +AMP à -AMP au sol
 LEVEE = 1.6                  # levée du pied en l'air
 FOULEE = 2 * 3.0 * 1.15      # tuiles par cycle = 2 × AMP × KE (distance_per_frame : FOULEE / images)
@@ -86,6 +88,23 @@ def anneau(c, axe, rayon, e, ep):
     """Anneau magnétique : section rectangulaire (e : largeur radiale, ep : épaisseur), axe « x », « y » ou « z », centre c."""
     prof = [(-ep, rayon), (ep, rayon), (ep, rayon + e), (-ep, rayon + e), (-ep, rayon)]
     return G.tour(prof, 48, axe, c)
+
+
+def anneau_seg(lot, M, c, axe, rayon, e, ep, n=6, jour=0.12, noeud=0.0):
+    """s43 (charte V3) : anneau de lévitation MAGNÉTIQUE en n arcs de métal poli séparés par des jours (fraction `jour` de chaque pas) ;
+    un émetteur (cœur) dans chaque jour si `noeud` > 0 (rayon de l'émetteur). Plus lisible qu'un tore plein : la silhouette du corps se lit
+    au travers, l'anneau se lit comme une mécanique (patins), pas comme une brume."""
+    prof = [(-ep, rayon), (ep, rayon), (ep, rayon + e), (-ep, rayon + e), (-ep, rayon)]
+    pas_ = G.TAU / n
+    for k in range(n):
+        a0 = pas_ * (k + jour * 0.5)
+        lot.put(M["anneau"], G.tour(prof, 8, axe, c, a0=a0, a1=a0 + pas_ * (1.0 - jour)))
+        if noeud > 0:
+            a = pas_ * k
+            r = rayon + e * 0.5
+            u, v = r * math.cos(a), r * math.sin(a)
+            q = (0.0, u, v) if axe == "x" else ((v, 0.0, u) if axe == "y" else (u, v, 0.0))
+            lot.put(M["coeur"], G.sphere(G.add(c, q), noeud, 8, 4))
 
 
 def rainure(c, axe, rayon, ep):
@@ -155,20 +174,21 @@ def jambe(lot, M, s, stage, r, u=None, bob=0.0):
         l1, l2 = G.length(G.sub(K0, (0.0, y, 17.0))), G.length(G.sub(A0, K0))
         K = ik2(H, A, l1, l2, (1.0, 0.0, 0.3))           # genou vers l'avant (digitigrade)
     # articulations : sphères de structure
-    for p, rr in ((H, 1.6), (K, 1.3), (A, 1.05)):
+    for p, rr in ((H, 2.0), (K, 1.7), (A, 1.35)):
         lot.put(M["struct"], G.sphere(p, rr, 10, 5))
     lot.put(M["accent"], G.boite(G.add(H, (0.9, s * 1.3, 0.2)), (0.45, 0.22, 0.22)))
     lot.put(M["accent"], G.boite(G.add(K, (0.8, s * 1.0, 0.0)), (0.3, 0.18, 0.18)))
     # cuisse : gros segment hexagonal blindé + plaque avant
-    lot.put(M["blind"], hexseg(H, K, 2.1, 1.5, 6, 0.3))
+    # s43 (refonte géométrie) : cuisse en VOLUME blindé (rayons 2,1/1,5 -> 2,9/2,2), plaques épaisses en recouvrement avant et
+    # extérieure ; tibia blindé (plus de tige de structure nue) ; aucun liseré cyan fin (« fil de fer » à 32 px/tuile)
+    lot.put(M["blind"], hexseg(H, K, 2.9, 2.2, 6, 0.3))
     d = G.norm(G.sub(K, H))
     m = G.lerp(H, K, 0.5)
-    lot.put(M["blind2"], plaque(G.add(m, (0.9, s * 0.9, 0.3)), G.norm((1.0, s * 0.6, 0.45)), 2.4, 3.6, 0.3, up=d))
-    # conduit lumineux le long de la cuisse (côté extérieur)
-    lot.put(M["conduit"], hexseg(G.add(H, (0.4, s * 1.75, -0.6)), G.add(K, (0.2, s * 1.3, 0.3)), 0.14, 0.12, 6))
-    # tibia (vers l'arrière), plus fin, structure apparente + carénage
-    lot.put(M["struct"], hexseg(K, A, 1.2, 0.95, 8))
-    lot.put(M["blind2"], plaque(G.lerp(K, A, 0.45), G.norm((-0.8, s * 0.7, 0.3)), 1.5, 3.2, 0.26, up=G.norm(G.sub(A, K))))
+    lot.put(M["blind2"], plaque(G.add(m, (1.5, s * 1.0, 0.3)), G.norm((1.0, s * 0.5, 0.45)), 3.4, 4.6, 0.7, up=d))
+    lot.put(M["blind2"], plaque(G.add(m, (0.2, s * 2.4, 0.0)), G.norm((0.2, s * 1.0, 0.1)), 2.8, 4.2, 0.6, up=d))
+    lot.put(M["blind"], hexseg(K, A, 1.9, 1.45, 6, 0.1))
+    lot.put(M["blind2"], plaque(G.lerp(K, A, 0.45), G.norm((-0.8, s * 0.6, 0.3)), 2.6, 4.2, 0.6, up=G.norm(G.sub(A, K))))
+    lot.put(M["blind2"], plaque(G.add(G.lerp(K, A, 0.4), (0.0, s * 1.5, 0.0)), G.norm((0.0, s * 1.0, 0.1)), 2.0, 3.6, 0.5, up=G.norm(G.sub(A, K))))
     # vérin de propulsion (piston) de la hanche au talon
     lot.put(M["canon"], G.tube([G.add(H, (-1.2, 0.0, -0.4)), G.add(A, (-0.6, 0.0, 0.5))], 0.32, 8))
     lot.put(M["struct"], G.tube([G.lerp(G.add(H, (-1.2, 0.0, -0.4)), A, 0.55), G.add(A, (-0.6, 0.0, 0.5))], 0.48, 8))
@@ -178,7 +198,7 @@ def jambe(lot, M, s, stage, r, u=None, bob=0.0):
         lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.35), (0.8, 0.5), (1.3, 0.42), (1.35, 0.3)], 10, "z", cap0=True), base, (-0.8, 0.0, -0.45)))
         lot.put(M["turq"], G.oriente(G.tour([(1.2, 0.28), (1.25, 0.0)], 10, "z"), base, (-0.8, 0.0, -0.45)))
     # métatarse et pied : segment incliné vers l'avant, cheville blindée
-    lot.put(M["blind"], hexseg(A, T, 1.1, 0.9, 6, 0.2))
+    lot.put(M["blind"], hexseg(A, T, 1.45, 1.15, 6, 0.2))
     # TITANS2 : griffes CINÉTIQUES (concept : serres articulées) : phalange blindée biseautée, rotule, bague lumineuse, serre recourbée
     for k, (ax, ay) in enumerate(((1.0, 0.0), (0.7, 0.85), (0.7, -0.85))):
         base = G.add(T, (0.3 * ax, ay * 0.6, 0.2))
@@ -189,55 +209,63 @@ def jambe(lot, M, s, stage, r, u=None, bob=0.0):
         lot.put(M["struct"], G.sphere(j1, 0.3, 8, 4))
         lot.put(M["turq"], G.oriente(rainure((0.0, 0.0, 0.0), "z", 0.33, 0.07), G.lerp(base, j1, 0.5), d1))
         lot.put(M["os"], pointe(j1, G.norm((ax, ay * 0.7, -0.7)), 2.0 if k == 0 else 1.6, 0.34, 5))
-    bague(lot, M, A, (0.0, 1.0, 0.0), 1.15)
-    bague(lot, M, K, (0.0, 1.0, 0.0), 1.45)
-    traces(lot, M, H, K, (2.1 * 0.866, 1.5 * 0.866), [0.3 + G.TAU * j / 6 for j in (0, 1, 2, 4, 5)])
-    traces(lot, M, K, A, (1.2 * 0.924, 0.95 * 0.924), [G.TAU * j / 8 for j in (0, 2, 3, 5, 6)], rt=0.085, jog=0.3)
-    traces(lot, M, A, T, (1.1 * 0.866, 0.9 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 4)], rt=0.08, jog=0.25)
+    bague(lot, M, K, (0.0, 1.0, 0.0), 1.85)
+    # un émetteur par genou (le cyan est concentré : réacteur, cœur dorsal, émetteurs)
+    lot.put(M["conduit"], G.sphere(G.add(K, (0.9, s * 1.5, 0.3)), 0.32, 8, 4))
     lot.put(M["os"], pointe(G.add(A, (-0.5, 0.0, -1.2)), (-0.9, 0.0, -0.45), 1.8, 0.36, 5))
     # genouillère (stage 3) et jupe de cuisse (stage 2+)
+    # genouillère épaisse (tous stades) ; jupe de cuisse (stade 2+) ; genouillère doublée (stade 3)
+    lot.put(M["blind"], plaque(G.add(K, (1.5, s * 0.6, 0.4)), G.norm((1.0, s * 0.4, 0.2)), 2.8, 3.2, 0.7, up=(0, 0, 1)))
     if stage >= 2:
-        lot.put(M["blind2"], plaque(G.add(H, (1.0, s * 1.0, 1.6)), G.norm((0.7, s * 0.9, 0.5)), 2.8, 2.2, 0.32, up=(0, 0, 1)))
-        lot.put(M["blind"], plaque(G.add(H, (-1.2, s * 1.2, 1.4)), G.norm((-0.5, s * 1.0, 0.4)), 2.4, 2.0, 0.3, up=(0, 0, 1)))
+        lot.put(M["blind2"], plaque(G.add(H, (1.3, s * 1.4, 1.6)), G.norm((0.7, s * 0.9, 0.5)), 3.6, 2.8, 0.6, up=(0, 0, 1)))
+        lot.put(M["blind"], plaque(G.add(H, (-1.5, s * 1.6, 1.4)), G.norm((-0.5, s * 1.0, 0.4)), 3.2, 2.6, 0.55, up=(0, 0, 1)))
     if stage >= 3:
-        lot.put(M["blind"], plaque(G.add(K, (1.1, s * 0.6, 0.4)), G.norm((1.0, s * 0.4, 0.2)), 2.0, 2.6, 0.34, up=(0, 0, 1)))
+        lot.put(M["blind2"], plaque(G.add(K, (2.0, s * 0.8, 1.2)), G.norm((1.0, s * 0.4, 0.5)), 2.2, 2.0, 0.5, up=(0, 0, 1)))
         lot.put(M["cristal"], pointe(G.add(K, (0.9, s * 0.9, 0.9)), G.norm((0.7, s * 0.5, 0.9)), 1.6, 0.3))
 
 
 def torse(lot, M, stage, r):
     """Bassin, torse en coque angulaire, plaques pectorales, tête-visière, cœur à vortex et son anneau dans le dos."""
     # bassin : prisme octogonal
-    lot.put(M["blind2"], G.prisme(R.octo((0.0, 0.0), 4.6, 8), 15.8, 18.4, top_scale=1.15))
+    lot.put(M["blind2"], G.prisme(R.octo((0.0, 0.0), 5.4, 8), 15.6, 18.4, top_scale=1.15))
     lot.put(M["struct"], G.prisme(R.octo((0.0, 0.0), 3.4, 8), 18.2, 18.8, top_scale=0.95))
     # torse : loft de sections rectangulaires biseautées (épaules larges)
     def sect(z, w, d):
         return [(w, -d, z), (w * 0.55, -d * 1.15, z), (-w * 0.6, -d * 1.1, z), (-w, -d * 0.7, z), (-w, d * 0.7, z), (-w * 0.6, d * 1.1, z),
                 (w * 0.55, d * 1.15, z), (w, d, z)]
-    rings = [sect(18.4, 2.0, 3.2), sect(20.5, 2.8, 4.0), sect(23.5, 3.1, 5.0), sect(26.2, 2.7, 6.0), sect(27.6, 1.9, 4.6)]
+    rings = [sect(18.4, 2.2, 3.6), sect(20.5, 3.0, 4.6), sect(23.5, 3.3, 5.7), sect(26.2, 2.9, 6.6), sect(27.8, 2.1, 5.0)]   # s43 : plus massif
     lot.put(M["blind"], G.loft(rings, True, True))
+    # s43 : COL mécanique sur le dessus du torse (cylindre cannelé sombre) : le couvercle plat et poli du torse renvoyait le ciel en
+    # aplat blanc (hexagone de 6 % du corps en d4/d12, stade 1) ; le col le cache et porte la tête
+    lot.put(M["struct"], G.prisme(R.octo((0.0, 0.0), 4.2, 12), 27.6, 28.3, top_scale=0.8))
+    lot.put(M["canon"], G.prisme(R.octo((0.0, 0.0), 2.6, 12), 28.2, 28.6, top_scale=0.9))
     # plaques pectorales et abdominales (avant, +x)
-    for (z, w, h, yy) in ((25.0, 2.6, 2.4, 1.7), (25.0, 2.6, 2.4, -1.7), (22.2, 3.6, 1.8, 0.0), (20.2, 3.0, 1.5, 0.0)):
-        lot.put(M["blind2"], plaque((3.0 if z > 24 else 2.9, yy, z), G.norm((1.0, yy * 0.15, 0.25)), w, h, 0.3))
-    # conduit central lumineux (poitrine) et fentes de ventilation lumineuses
-    lot.put(M["conduit"], G.boite((3.15, 0.0, 23.2), (0.22, 0.5, 5.2)))
-    for yy in (-1.2, 1.2):
-        lot.put(M["turq"], G.boite((2.95, yy, 21.4), (0.2, 1.0, 0.25)))
+    # s43 : plaques ÉPAISSES (0,3 -> 0,7) en RECOUVREMENT : pectoraux encadrant le réacteur, abdominaux en écailles (chaque rang
+    # recouvre le haut du suivant), flancs ; deux tons (blind2 clair sur blind sombre) pour que chaque plaque se lise à 32 px/tuile
+    for (z, w, h, yy) in ((25.4, 2.6, 3.0, 2.9), (25.4, 2.6, 3.0, -2.9)):
+        lot.put(M["blind2"], plaque((3.1, yy, z), G.norm((1.0, yy * 0.12, 0.3)), w, h, 0.7))
+    for k, z in enumerate((21.7, 20.4, 19.1)):
+        lot.put(M["blind2" if k % 2 == 0 else "blind"], plaque((3.15 - 0.25 * k, 0.0, z), G.norm((1.0, 0.0, 0.35)), 4.4 - 0.5 * k, 1.6, 0.6))
+    for s in (-1, 1):
+        # flanc : plaque inclinée vers le BAS (normale -0,35) : tournée vers le haut, ce grand plan clair renvoyait le ciel en aplat
+        # blanc (6 % du corps en d4/d12, stade 1)
+        lot.put(M["blind2"], plaque((0.6, s * 5.9, 22.6), G.norm((0.25, s * 1.0, -0.35)), 3.6, 3.2, 0.7, up=(0, 0, 1)))
+        lot.put(M["blind"], plaque((-1.4, s * 5.4, 21.0), G.norm((-0.2, s * 1.0, 0.1)), 3.0, 2.6, 0.6, up=(0, 0, 1)))
     # épaulières (stage 1 : simples ; 2 : étagées ; 3 : lourdes avec cristal)
     for s in (-1, 1):
-        c = (0.3, s * 6.6, 26.9)
-        lot.put(M["blind"], R.pose(G.prisme([(-2.0, -1.6), (2.2, -1.6), (2.6, 0.0), (2.2, 1.6), (-2.0, 1.6), (-2.5, 0.3)], 0.0, 1.3, 0.78), c, G.norm((0.0, s * 0.35, 1.0)), (1, 0, 0)))
+        c = (0.3, s * 7.0, 26.9)
+        # s43 : épaulières LOURDES (1,35 fois, épaisseur 1,3 -> 2,0) en trois lames étagées qui retombent sur le bras
+        lot.put(M["blind"], R.pose(G.prisme([(-2.7, -2.2), (3.0, -2.2), (3.5, 0.0), (3.0, 2.2), (-2.7, 2.2), (-3.4, 0.4)], 0.0, 2.0, 0.42), c, G.norm((0.0, s * 0.4, 1.0)), (1, 0, 0)))   # dessus en pointe de diamant (0,42) : un grand plat renvoyait le soleil en aplat blanc (6 % en d4/d12, sondé au lancer de rayon)
+        lot.put(M["blind2"], R.pose(G.prisme([(-2.4, -1.0), (2.7, -1.0), (3.1, 0.0), (2.7, 1.0), (-2.4, 1.0)], 0.0, 0.6, 0.85), G.add(c, (0.1, s * 2.2, -0.9)), G.norm((0.0, s * 1.0, 0.45)), (1, 0, 0)))
+        lot.put(M["blind"], R.pose(G.prisme([(-2.1, -0.8), (2.4, -0.8), (2.7, 0.0), (2.4, 0.8), (-2.1, 0.8)], 0.0, 0.55, 0.85), G.add(c, (0.1, s * 2.7, -2.2)), G.norm((0.0, s * 1.0, 0.25)), (1, 0, 0)))
+        lot.put(M["conduit"], G.sphere(G.add(c, (2.6, s * 1.2, 1.4)), 0.3, 8, 4))
         if stage >= 2:
-            lot.put(M["blind2"], R.pose(G.prisme([(-1.6, -1.3), (1.8, -1.3), (2.1, 0.0), (1.8, 1.3), (-1.6, 1.3)], 0.0, 1.0, 0.8), G.add(c, (0.2, s * 0.9, 1.3)), G.norm((0.1, s * 0.5, 1.0)), (1, 0, 0)))
-            lot.put(M["conduit"], hexseg(G.add(c, (-1.4, s * 0.5, 1.45)), G.add(c, (1.8, s * 0.5, 1.45)), 0.12, 0.12))
+            lot.put(M["blind2"], R.pose(G.prisme([(-2.1, -1.6), (2.4, -1.6), (2.8, 0.0), (2.4, 1.6), (-2.1, 1.6)], 0.0, 1.2, 0.5), G.add(c, (0.2, s * 0.9, 1.9)), G.norm((0.1, s * 0.5, 1.0)), (1, 0, 0)))
         if stage >= 3:
             lot.put(M["blind"], R.pose(G.prisme([(-1.2, -1.1), (1.5, -1.1), (1.8, 0.0), (1.5, 1.1), (-1.2, 1.1)], 0.0, 0.9, 0.8), G.add(c, (0.3, s * 1.6, 2.5)), G.norm((0.2, s * 0.7, 1.0)), (1, 0, 0)))
             for k in range(2):
                 lot.put(M["cristal"], pointe(G.add(c, (-0.6 + 1.2 * k, s * 1.4, 2.9)), G.norm((-0.3 + 0.2 * k, s * 0.5, 1.0)), 2.6 - 0.5 * k, 0.4))
     # TITANS2 : chevrons lumineux de la poitrine (concept : V cyan au plexus) et traces abdominales
-    for (z0, z1, w) in ((26.6, 24.4, 2.2), (25.4, 23.4, 1.5)):
-        lot.put(M["conduit"], G.tube([(3.32, -w, z0), (3.45, 0.0, z1), (3.32, w, z0)], 0.13, 5))
-    for yy in (-2.2, -1.2, 1.2, 2.2):
-        lot.put(M["conduit"], G.tube([(3.2, yy, 19.6), (3.2, yy, 20.6), (3.25, yy * 0.8, 21.2)], 0.09, 5))
     # TITANS2 : lames dorsales en croissant (concept : ailerons biseautés au-dessus des épaules)
     for s in (-1, 1):
         pts = [(-1.8, s * 3.4, 26.8), (-2.3, s * 4.1, 29.3), (-3.3, s * 4.6, 31.4), (-4.7, s * 4.8, 32.4)]
@@ -245,7 +273,6 @@ def torse(lot, M, stage, r):
         for k in range(3):
             lot.put(M["blind2"], hexseg(pts[k], pts[k + 1], rr[k], rr[k + 1], 4, 0.785))
         lot.put(M["os"], pointe(pts[3], G.norm(G.sub(pts[3], pts[2])), 1.2, 0.14, 4))
-        lot.put(M["conduit"], G.tube([G.add(pts[0], (0.0, s * 0.45, 0.2)), G.add(pts[1], (0.0, s * 0.36, 0.1)), G.add(pts[2], (0.0, s * 0.24, 0.0))], 0.08, 4))
     # tête : visière angulaire, fente lumineuse, antennes
     lot.put(M["blind2"], G.loft([[(1.2, -1.2, 27.8), (2.4, -0.9, 27.8), (2.4, 0.9, 27.8), (1.2, 1.2, 27.8), (-0.6, 1.0, 27.8), (-0.6, -1.0, 27.8)],
                                 [(1.5, -1.3, 29.3), (2.9, -0.9, 29.3), (2.9, 0.9, 29.3), (1.5, 1.3, 29.3), (-0.8, 1.1, 29.3), (-0.8, -1.1, 29.3)],
@@ -258,16 +285,32 @@ def torse(lot, M, stage, r):
     lot.put(M["coeur"], G.sphere((1.0, 0.0, 31.3), 0.42, 10, 5))
     for s in (-1, 1):
         lot.put(M["struct"], G.sphere((0.3, s * 1.15, 31.1), 0.28, 8, 4))
+    # s43 (charte V3) : RÉACTEUR PECTORAL à vortex (point focal de face : avant, le seul cœur était dans le dos) : cuvette sombre, disque
+    # incandescent, trois bras de vortex, couronne de quatre patins magnétiques et émetteurs
+    P0 = (3.75, 0.0, 23.9)   # s43 : avancé (torse plus épais)
+    lot.put(M["struct"], G.oriente(G.tour([(-0.6, 1.95), (0.35, 1.85), (0.4, 0.0)], 20, "z", cap1=True), P0, (1.0, 0.0, 0.12)))
+    lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, 1.3)], 20, "z", cap1=True), G.add(P0, (0.42, 0.0, 0.05)), (1.0, 0.0, 0.12)))
+    for b_ in range(3):
+        pts = []
+        for j in range(9):
+            t = j / 8.0
+            a_ = G.TAU * b_ / 3 + t * 2.2 * math.pi
+            rr = 0.25 + 1.25 * t
+            pts.append((P0[0] + 0.55, rr * math.cos(a_), P0[2] + 0.06 + rr * math.sin(a_)))
+        lot.put(M["conduit"], G.tube(pts, 0.09, 5))
+    anneau_seg(lot, M, (P0[0] + 0.3, 0.0, P0[2]), "x", 1.95, 0.4, 0.22, n=4, jour=0.18, noeud=0.2)
     # dos : cœur à vortex dans une cage, anneau magnétique flottant autour (axe x), gorge lumineuse
     C = (-3.3, 0.0, 24.2)
     lot.put(M["coeur"], G.sphere(C, 1.35, 16, 8))
-    lot.put(M["halo"], G.sphere(C, 2.3, 16, 8))
+    # s43 : plus de halo autour du cœur dorsal : cette sphère translucide, empilée sur le cœur et la cage, sortait en aplat BLANC opaque
+    # dans la passe principale (hexagone de 6 % du corps en d4/d12, identifié par un rendu à couleurs de matière)
     for k in range(4):
         a = G.TAU * (k + 0.5) / 4
         p0 = (C[0] + 0.2, C[1] + 1.1 * math.cos(a), C[2] + 1.1 * math.sin(a))
         p1 = (C[0] + 1.3, C[1] + 1.9 * math.cos(a), C[2] + 1.9 * math.sin(a))
         lot.put(M["struct"], G.tube([p0, p1], 0.18, 6))
-    lot.put(M["anneau"], anneau((C[0] - 0.9, 0.0, C[2]), "x", 2.9, 0.55, 0.22))
+    anneau_seg(lot, M, (C[0] - 0.9, 0.0, C[2]), "x", 2.9, 0.55, 0.26, n=4, jour=0.14, noeud=0.26)
+    lot.put(M["turq"], rainure((C[0] - 1.18, 0.0, C[2]), "x", 3.17, 0.07))
     lot.put(M["turq"], rainure((C[0] - 1.15, 0.0, C[2]), "x", 3.15, 0.08))
     # échappements dorsaux (2 cheminées) et conduits du dos
     for s in (-1, 1):
@@ -282,9 +325,9 @@ def torse(lot, M, stage, r):
             lot.put(M["cristal"], pointe((-2.2, yy, 27.2 - 0.2 * abs(yy)), G.norm((-0.55, yy * 0.08, 1.0)), L, 0.42))
     if stage >= 3:
         # grand halo magnétique derrière le torse
-        lot.put(M["anneau"], anneau((-5.2, 0.0, 23.6), "x", 6.3, 0.7, 0.26))
-        lot.put(M["turq"], rainure((-5.5, 0.0, 23.6), "x", 6.65, 0.1))
-        lot.put(M["cristal"], rainure((-5.0, 0.0, 23.6), "x", 6.35, 0.06))
+        # s43 (charte V3) : grand halo en 6 patins magnétiques (le tore plein de 6,3 de rayon masquait le dos et noyait la silhouette)
+        anneau_seg(lot, M, (-5.2, 0.0, 23.6), "x", 5.6, 0.6, 0.3, n=6, jour=0.2, noeud=0.34)
+        lot.put(M["turq"], rainure((-5.52, 0.0, 23.6), "x", 5.9, 0.07))
 
 
 def bras_canon(lot, M, stage, r, swing=0.0, charge=0.0, recul=0.0, eclair=0.0):
@@ -303,8 +346,7 @@ def bras_canon(lot, M, stage, r, swing=0.0, charge=0.0, recul=0.0, eclair=0.0):
         Mz = G.add(Mz, G.mul(d, -recul))
     lot.put(M["struct"], G.sphere(S_, 1.25, 10, 5))
     lot.put(M["accent"], G.boite(G.add(S_, (0.9, s * 0.8, -0.3)), (0.35, 0.2, 0.2)))
-    lot.put(M["blind"], hexseg(S_, E, 1.35, 1.05, 6, 0.2))
-    lot.put(M["conduit"], hexseg(G.add(S_, (0.9, s * 0.9, -0.2)), G.add(E, (0.8, s * 0.6, 0.4)), 0.12, 0.12))
+    lot.put(M["blind"], hexseg(S_, E, 1.8, 1.4, 6, 0.2))
     lot.put(M["struct"], G.sphere(E, 1.05, 10, 5))
     # culasse et bloc rotatif
     lot.put(M["canon"], hexseg(E, G.lerp(E, Mz, 0.38), 1.25, 1.35, 8))
@@ -330,10 +372,11 @@ def bras_canon(lot, M, stage, r, swing=0.0, charge=0.0, recul=0.0, eclair=0.0):
             lot.put(M["struct"], G.oriente(G.boite((ra + 0.5, 0.0, 0.0), (0.5, 0.35, 0.3), rz=a), c, d))
     # bouche : vortex de focalisation (cœur), couronne de cristal ; la charge gonfle le vortex, l'éclair file devant
     rv = 0.82 + 0.6 * charge
-    lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, rv)], 16, "z", cap1=True), G.add(Mz, G.mul(d, 0.15)), d))
+    # s43 : en salve (charge > 0) le vortex de bouche passe en cyan saturé : grossi, le cœur blanchissait le flanc (d4/d12)
+    lot.put(M["conduit"] if charge > 0 else M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.05, rv)], 16, "z", cap1=True), G.add(Mz, G.mul(d, 0.15)), d))
     lot.put(M["halo"], G.sphere(G.add(Mz, G.mul(d, 0.4)), 1.5 + 1.0 * charge, 14, 7))
     if eclair > 0:
-        lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.0), (0.1, 0.9), (3.2 * eclair, 0.5), (4.6 * eclair, 0.0)], 12, "z", cap0=True), G.add(Mz, G.mul(d, 0.3)), d))
+        lot.put(M["conduit"], G.oriente(G.tour([(0.0, 0.0), (0.1, 0.9), (3.2 * eclair, 0.5), (4.6 * eclair, 0.0)], 12, "z", cap0=True), G.add(Mz, G.mul(d, 0.3)), d))   # s43 : éclair cyan saturé (blanc brûlé 2,2 % en d4/d12)
         lot.put(M["halo"], G.sphere(G.add(Mz, G.mul(d, 2.0 * eclair)), 1.2 + 0.8 * eclair, 12, 6))
     for q in range(6):
         a = G.TAU * q / 6
@@ -353,7 +396,6 @@ def bras_canon(lot, M, stage, r, swing=0.0, charge=0.0, recul=0.0, eclair=0.0):
         sg = 1 if k % 2 else -1
         lot.put(M["conduit"], G.tube([prev, G.add(G.lerp(prev, c, 0.5), G.mul(fr[1], 0.3 * sg)), c], 0.06, 4))
         prev = c
-    traces(lot, M, S_, E, (1.35 * 0.866, 1.05 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.085, jog=0.3)
     # munitions / échangeur sur le dessus du canon
     lot.put(M["blind2"], R.pose(G.prisme([(-1.2, -0.7), (1.6, -0.7), (1.9, 0.0), (1.6, 0.7), (-1.2, 0.7)], 0.0, 0.7, 0.8), G.add(G.lerp(E, Mz, 0.3), (0.0, 0.0, 1.3)), (0, 0, 1), (1, 0, 0)))
 
@@ -365,14 +407,11 @@ def bras_griffes(lot, M, stage, r, swing=0.0):
     E = G.rot_y((1.0, s * 7.6, 20.9), swing, S_)
     W = G.rot_y((3.6, s * 7.4, 17.2), swing, S_)
     lot.put(M["struct"], G.sphere(S_, 1.25, 10, 5))
-    lot.put(M["blind"], hexseg(S_, E, 1.35, 1.05, 6, 0.2))
-    lot.put(M["struct"], G.sphere(E, 1.0, 10, 5))
-    lot.put(M["blind2"], hexseg(E, W, 1.1, 0.95, 6, 0.1))
-    lot.put(M["conduit"], hexseg(G.add(E, (0.7, s * 0.7, 0.2)), G.add(W, (0.5, s * 0.7, 0.6)), 0.12, 0.12))
+    lot.put(M["blind"], hexseg(S_, E, 1.8, 1.4, 6, 0.2))
+    lot.put(M["struct"], G.sphere(E, 1.3, 10, 5))
+    lot.put(M["blind2"], hexseg(E, W, 1.55, 1.3, 6, 0.1))
     lot.put(M["struct"], G.sphere(W, 0.85, 10, 5))
-    traces(lot, M, S_, E, (1.35 * 0.866, 1.05 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.085, jog=0.3)
-    traces(lot, M, E, W, (1.1 * 0.866, 0.95 * 0.866), [0.1 + G.TAU * j / 6 for j in (0, 1, 3, 4)], rt=0.08, jog=0.25)
-    bague(lot, M, E, G.norm(G.sub(W, E)), 1.15)
+    bague(lot, M, E, G.norm(G.sub(W, E)), 1.5)
     # garde de la main et lames
     lot.put(M["blind"], plaque(G.add(W, (0.5, s * 0.5, 0.2)), G.norm((0.4, s * 1.0, 0.2)), 1.8, 1.6, 0.3, up=(0, 0, 1)))
     d0 = G.norm(G.rot_y((0.75, 0.0, -0.75), swing))
@@ -386,7 +425,7 @@ def bras_griffes(lot, M, stage, r, swing=0.0):
 
 def build(S, lot, stage=1, u=None, attaque=None, dirs=False):
     """Construit le Juggernaut au stade `stage` (1 à 3) : repos (u et attaque None), marche (u) ou salve (attaque). Rend des comptes pour render.json."""
-    M = TM.matieres(S, "ju_", GRIS)
+    M = TC.charte(S, TM.matieres(S, "ju_", GRIS), "ju_", GRIS)
     xf = XF0 if dirs else XF
     r = G.Rnd(2000 + stage)
     R.raz()

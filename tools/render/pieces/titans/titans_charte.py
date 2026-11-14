@@ -1,0 +1,96 @@
+"""CHARTE V3 des titans du joueur (lot s43-3d-juggernaut-sentinel, 13/11) : Juggernaut et Sentinelle refondus.
+
+Le DC (13/11) : modèles « laids et sans retour visuel ». Charte : blindage SOMBRE IRIDESCENT, anneaux de lévitation MAGNÉTIQUE,
+cœurs et conduits à vortex cyan étincelant ; silhouette lisible au zoom normal, détails mécaniques NETS, contraste FORT.
+
+Ce qui change par rapport à titans_mat.matieres (gardé tel quel pour le Kaiju, le Léviathan et le Ravageur, d'autres lots les rendent) :
+- blindage : acier de nuit (#30343F environ) très métallique et peu rugueux, IRIDESCENCE PHYSIQUE (film mince du Principled de Blender 4.2+ :
+  reflets vert-or / magenta selon l'épaisseur, deux épaisseurs pour les deux tons de plaques) au lieu d'un dégradé violet plat ; arêtes
+  usées en acier VIF (presque blanc) : chaque plaque se découpe par un liseré clair, c'est le « détail mécanique net » ;
+- anneaux : plus de tores cyan translucides (ils noyaient le corps dans une brume cyan) : anneaux de métal poli OPAQUES dont seuls les
+  flancs rasants s'allument (lueur de bord, cyan intense) ; les gorges `turq` restent les traits lumineux ;
+- halos : presque invisibles de jour (7 %), la lueur de nuit vient de la couche additive ;
+- conduits : un cran plus forts (ils sont le seul cyan franc sur le sombre).
+Le ciel vu par les seuls rayons spéculaires est poussé (SKY_GLOSSY du module, lu par batch_titans) : un métal sombre ne vit que de ses reflets.
+S'exécute DANS Blender (bpy).
+"""
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+XP = os.path.normpath(os.path.join(HERE, "..", "experimentaux"))
+if XP not in sys.path:
+    sys.path.insert(0, XP)
+import mat as MT  # noqa: E402
+import titans_mat as TM  # noqa: E402
+
+NUIT = (0.035, 0.040, 0.052)          # blindage principal : acier de nuit bleuté
+NUIT2 = (0.450, 0.470, 0.530)         # plaques secondaires : acier canon CLAIR (deux tons : chaque plaque se lit sur le blindage de nuit)
+VIF = (0.72, 0.78, 0.88)              # arêtes usées : acier vif
+VIF_SOMBRE = (0.20, 0.22, 0.27)       # usure du blindage principal : le masque d'usure couvre tout un grand plan (dos du torse) et le passait en
+                                      # acier vif poli = aplat blanc de 6 % du corps (d4/d12) ; sombre, il reste lisible sans brûler
+CREUX = (0.010, 0.011, 0.015)
+SKY_GLOSSY = 2.5   # 4 -> 2,5 (13/11 nuit) : à 4, tout plan poli qui voit le ciel saturait en aplat blanc (6 % du corps)
+# Iridescence « huile sur acier » : sarcelle de face, bleu roi à mi-angle, violet en rasant (le film mince physique de Blender virait
+# à l'olive ou au mauve uniforme sur les essais du 13/11 : rampe pilotée par l'angle, maîtrisée)
+IRIS_NUIT = ((0.05, 0.42, 0.55), (0.16, 0.24, 0.85), (0.50, 0.20, 0.80))
+
+
+def film(m, nm, ior=1.5):
+    """Iridescence physique (film mince) sur le Principled du matériau, si la version de Blender l'a (4.2+)."""
+    p = m.node_tree.nodes["Principled BSDF"]
+    if "Thin Film Thickness" in p.inputs:
+        p.inputs["Thin Film Thickness"].default_value = float(nm)
+        p.inputs["Thin Film IOR"].default_value = float(ior)
+    return m
+
+
+def anneau_mag(S, name):
+    """Anneau de lévitation magnétique : métal poli sombre OPAQUE, SANS émission propre (contrôle qualité du 13/11 : la lueur de bord
+    faisait un aplat blanc quand un anneau se voyait par la tranche, flanc du Juggernaut en d4/d12) ; le cyan vient des gorges `turq`
+    et des émetteurs posés dans les jours des patins."""
+    m = MT.surface(name, (0.05, 0.06, 0.08), rough=0.16, met=0.95, usure=0.5, nu=VIF, crasse=0.05, crasse_col=CREUX, grain=0.0,
+                   biseau=0.03, graine=24)
+    film(m, 300)
+    return m
+
+
+def halo_discret(S, name):
+    m = S.mat_emissive(name, TM.CYAN, strength=1.0, base=(0.02, 0.2, 0.24), main_scale=0.15)
+    TM.rim(m, 1.0, creux=1.0, blend=0.5)
+    return TM.translucide(m, 0.07)
+
+
+def charte(S, M, prefix, gris=False):
+    """Remplace dans le jeu de matières `M` (titans_mat.matieres) le blindage, le canon, la structure, les anneaux et les halos."""
+    if gris:
+        return M
+    # s43 (retour du coordinateur, 14/11) : panneaux LARGES à joints discrets (4 × 3 unités) au lieu de petites tôles (0,8 × 0,5) qui se
+    # lisaient comme de la maçonnerie à 32 px/tuile ; métal brossé uni (grain fin sur les plaques claires)
+    M["blind"] = MT.surface(prefix + "v3_blind", NUIT, rough=0.46, met=0.90, tole=(4.0, 2.6), joint=0.35, joint_l=0.018, var=0.05,
+                            usure=0.35, nu=VIF_SOMBRE, crasse=0.08, crasse_col=CREUX, relief=0.45, grain=0.0, biseau=0.04, graine=21)
+    M["blind2"] = MT.surface(prefix + "v3_blind2", NUIT2, rough=0.46, met=0.40, tole=(4.5, 3.0), joint=0.45, joint_l=0.016, var=0.04,
+                             usure=0.35, nu=VIF_SOMBRE, crasse=0.08, crasse_col=CREUX, relief=0.4, grain=0.03, biseau=0.04, graine=22)
+    iris, TM.IRIS = TM.IRIS, IRIS_NUIT       # rampe d'iridescence de la charte V3 (rendue après usage : Kaiju & co gardent la leur)
+    try:
+        TM.iridescence(M["blind"], part=0.55, blend=0.32)
+        TM.iridescence(M["blind2"], part=0.65, blend=0.32)
+    finally:
+        TM.IRIS = iris
+    # sans vernis (Coat 0,6 posé par TM.iridescence) : ce vernis lisse renvoyait le ciel en aplat BLANC sur les grands plans tournés vers
+    # le haut (dessus des épaulières : 6 % du corps du Juggernaut en d4/d12, trouvé par lancer de rayon puis vérifié vernis ôté : 0,15 %)
+    for k in ("blind", "blind2"):
+        pb = M[k].node_tree.nodes["Principled BSDF"]
+        if "Coat Weight" in pb.inputs:
+            pb.inputs["Coat Weight"].default_value = 0.0
+    # canon : acier satiné (rugosité 0,42) : poli, ses tubes horizontaux renvoyaient le ciel en traits blancs (2,1 % du corps en d4/d12, salve)
+    M["canon"] = MT.surface(prefix + "v3_canon", (0.09, 0.10, 0.12), rough=0.42, met=0.85, tole=(2.0, 1.0), joint=0.3, joint_l=0.02,
+                            var=0.08, usure=0.6, nu=VIF, crasse=0.1, crasse_col=CREUX, relief=0.7, grain=0.0, biseau=0.03, graine=25)
+    M["struct"] = MT.surface(prefix + "v3_struct", (0.016, 0.017, 0.022), rough=0.38, met=0.8, usure=0.5, nu=(0.40, 0.44, 0.52),
+                             crasse=0.15, crasse_col=(0.004, 0.004, 0.006), grain=0.0, biseau=0.03, graine=23)
+    M["anneau"] = anneau_mag(S, prefix + "anneau_v3")
+    M["halo"] = halo_discret(S, prefix + "halo_v3")
+    # cœurs : force 3 -> 1,6 (à 3, la vue désature le cyan en BLANC : rectangle blanc de 6 % du corps du Juggernaut en d4, mesure QA)
+    M["coeur"] = TM.coeur(S, prefix + "coeur_v3", strength=1.6)
+    M["conduit"] = S.mat_emissive(prefix + "conduit_v3", TM.CYAN, strength=3.0, base=(0.02, 0.30, 0.36), main_scale=0.5)
+    return M

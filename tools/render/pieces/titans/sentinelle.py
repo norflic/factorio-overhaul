@@ -21,7 +21,8 @@ if HERE not in sys.path:
 import geo as G  # noqa: E402
 import greb as R  # noqa: E402
 import titans_mat as TM  # noqa: E402
-from juggernaut import hexseg, pointe, plaque, anneau, rainure, traces, bague  # noqa: E402
+import titans_charte as TC  # noqa: E402
+from juggernaut import hexseg, pointe, plaque, anneau, anneau_seg, rainure, traces, bague  # noqa: E402
 
 PREFIX = "se_"
 PSI = -math.radians(40.0)
@@ -36,6 +37,7 @@ ZC = 16.5                    # centre de la singularité
 SERIE = {"course": 8, "attaque": 4, "densite": 12.0, "R": 17.5, "zmax": 32.5, "sol": 400.0, "dirs": 16}
 AO = 0.6
 GLOW_BLANC = False
+SKY_GLOSSY = TC.SKY_GLOSSY   # s43 (charte V3) : ciel spéculaire poussé, le blindage sombre vit de ses reflets
 FOULEE = 6.0                 # tuiles par cycle de flottement (distance_per_frame du script : FOULEE / images)
 BOB = 0.6                    # amplitude du flottement (unités de modèle)
 ONDE = (0.6, 0.9)            # ondulation d'une patte : vers l'extérieur, vers le haut
@@ -90,8 +92,8 @@ def vortex(lot, M, C, rc, e=1.0):
             a = G.TAU * b / 3 + t * 2.6 * math.pi
             rr = (0.35 + (rc - 1.4) * t) * e
             pts.append((C[0] + math.sqrt(max(R_ * R_ - rr * rr, 0.0)) + 0.14, C[1] + rr * math.cos(a), C[2] + rr * math.sin(a)))
-        lot.put(M["coeur"], G.tube(pts, 0.2, 6, rfun=lambda s_, i: 0.26 * (1.0 - 0.65 * i / 13.0)))
-    lot.put(M["coeur"], G.sphere((C[0] + R_ - 0.25, C[1], C[2]), 0.95 * e, 14, 7))
+        lot.put(M["conduit"], G.tube(pts, 0.2, 6, rfun=lambda s_, i: 0.26 * (1.0 - 0.65 * i / 13.0)))   # s43 : cyan saturé (blanc brûlé > 1 % en d4)
+    lot.put(M["conduit"], G.sphere((C[0] + R_ - 0.25, C[1], C[2]), 0.6 * e, 14, 7))   # s43 : noyau cyan saturé (le cœur blanchissait)
 
 
 def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
@@ -103,12 +105,19 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     for k in range(8):
         a = G.TAU * (k + 0.5) / 8
         p = (C[0] + 0.3, C[1] + (rc + 1.1) * math.cos(a), C[2] + (rc + 1.1) * math.sin(a))
-        lot.put(M["blind2"], plaque(p, G.norm((0.0, math.cos(a), math.sin(a))), 2.2, 1.6, 0.5, up=(1, 0, 0), coins=0.75))
-    lot.put(M["turq"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc + 0.2, 0.08))
-    lot.put(M["conduit"], rainure((C[0] + 0.95, C[1], C[2]), "x", rc - 0.3, 0.06))
+        # s43 (refonte géométrie) : plaques de couronne ÉPAISSES (0,5 -> 1,0) et plus grandes, deux tons alternés en recouvrement
+        lot.put(M["blind2" if k % 2 == 0 else "blind"], plaque(G.add(p, (0.0, 0.25 * math.cos(a), 0.25 * math.sin(a))), G.norm((0.3, math.cos(a), math.sin(a))),
+                                                               3.0, 2.6 if k % 2 == 0 else 2.2, 1.0, up=(1, 0, 0), coins=0.75))
+    # s43 (contrôle qualité du 13/11 : barre blanche verticale en d4) : les gorges lumineuses de la couronne, vues par la tranche, se
+    # projetaient en un trait plein de toute la hauteur ; remplacées par huit émetteurs ponctuels (lisibles de face comme de profil)
+    for k in range(8):
+        a = G.TAU * k / 8
+        lot.put(M["conduit"], G.sphere((C[0] + 0.95, (rc + 0.05) * math.cos(a), C[2] + (rc + 0.05) * math.sin(a)), 0.26, 8, 4))
     # singularité : vortex (cœur) + halo large ; sous-disque sombre derrière
-    lot.put(M["singularite"], G.sphere(C, (rc - 0.9) * gonfle[0], 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
-    lot.put(M["halo"], G.sphere(C, (rc + 0.6) * gonfle[1], 20, 10))
+    # s43 (contrôle qualité du 13/11 : « grande plage cyan floue qui mange le corps ») : singularité réduite à 0,55 du rayon, posée au fond
+    # d'une cuvette sombre ; les bras du vortex (cœur) restent à leur rayon et lui donnent sa forme
+    lot.put(M["singularite"], G.sphere((C[0] - 0.4, C[1], C[2]), (rc - 0.9) * 0.55 * gonfle[0], 20, 10))   # FINITIONS 10/11 : profil d'accrétion, cyan profond, 30 % de jour
+    lot.put(M["halo"], G.sphere(C, (rc - 1.6) * gonfle[1], 20, 10))   # s43 : halo resserré (la brume de rc + 0,6 couvrait la couronne)
     if gonfle[2] > 0:
         # TITANS-8DIR : la singularité se LIBÈRE : jet lumineux vers l'avant
         e = gonfle[2]
@@ -123,7 +132,6 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
         rr = (0.7, 0.52, 0.32, 0.08)
         for j in range(3):
             lot.put(M["blind2"], hexseg(pts[j], pts[j + 1], rr[j], rr[j + 1], 4, 0.785))
-        lot.put(M["conduit"], G.tube([G.add(pts[0], (0.45, 0.0, 0.1)), G.add(pts[1], (0.4, 0.0, 0.0)), G.add(pts[2], (0.25, 0.0, 0.0))], 0.07, 4))
     for a_deg, L in ((90.0, 2.6), (40.0, 2.0), (140.0, 2.0), (-40.0, 1.7), (-140.0, 1.7)):
         a = math.radians(a_deg)
         p = (C[0] + 0.2, (rc + 1.5) * math.cos(a), ZC + (rc + 1.5) * math.sin(a))
@@ -141,28 +149,26 @@ def corps(lot, M, stage, gonfle=(1.0, 1.0, 0.0)):
     for s in (-1, 1):
         lot.put(M["canon"], G.tour([(ZC + 3.5, 0.6), (ZC + 6.8, 0.55), (ZC + 7.4, 0.7), (ZC + 7.5, 0.5)], 10, "z", (-3.2, s * 1.6, 0.0), cap0=True))
         lot.put(M["turq"], G.tour([(ZC + 7.3, 0.45), (ZC + 7.35, 0.0)], 10, "z", (-3.2, s * 1.6, 0.0)))
-        lot.put(M["conduit"], G.tube([(-1.5, s * (rc + 0.6), ZC - 1.0), (-4.5, s * (rc - 1.0), ZC - 2.2)], 0.1, 6))
     # bassin : plateau hexagonal sous la couronne (les hanches y sont), plaques ventrales
     lot.put(M["blind"], G.prisme(R.octo((0.0, 0.0), 4.8, 6), ZC - 7.2, ZC - 5.4, top_scale=1.25))
     lot.put(M["struct"], G.prisme(R.octo((0.0, 0.0), 3.6, 6), ZC - 5.5, ZC - 4.9, top_scale=1.1))
     lot.put(M["blind2"], plaque((3.2, 0.0, ZC - 6.0), G.norm((1.0, 0.0, -0.3)), 3.0, 2.0, 0.4, up=(0, 0, 1)))
     lot.put(M["conduit"], G.boite((3.6, 0.0, ZC - 6.0), (0.2, 1.6, 0.22)))
-    # bec ventral : pointe blindée vers l'avant-bas (le « museau » du concept)
-    lot.put(M["blind"], G.loft([[(1.0, -2.2, ZC - 4.8), (1.0, 2.2, ZC - 4.8), (1.0, 1.6, ZC - 2.2), (1.0, -1.6, ZC - 2.2)],
+    # bec ventral : pointe blindée vers l'avant-bas (le « museau » du concept) ; s43 : acier satiné (struct) : poli, son grand plan renvoyait
+    # le soleil en aplat blanc (1,0 à 1,5 % du corps en d4, d10, d12)
+    lot.put(M["struct"], G.loft([[(1.0, -2.2, ZC - 4.8), (1.0, 2.2, ZC - 4.8), (1.0, 1.6, ZC - 2.2), (1.0, -1.6, ZC - 2.2)],
                                 [(5.4, -1.2, ZC - 6.4), (5.4, 1.2, ZC - 6.4), (5.4, 0.9, ZC - 4.6), (5.4, -0.9, ZC - 4.6)],
                                 [(7.8, -0.3, ZC - 7.6), (7.8, 0.3, ZC - 7.6), (7.8, 0.25, ZC - 7.0), (7.8, -0.25, ZC - 7.0)]], True, True))
-    lot.put(M["conduit"], G.tube([(2.0, 0.0, ZC - 3.0), (6.5, 0.0, ZC - 5.6)], 0.1, 6))
     for s in (-1, 1):
         lot.put(M["accent"], G.boite((2.2, s * 2.0, ZC - 3.6), (0.4, 0.2, 0.3)))
     if stage >= 2:
         # anneau de lévitation autour de la couronne
-        lot.put(M["anneau"], anneau((C[0] - 0.6, 0.0, ZC), "x", rc + 2.6, 0.5, 0.18))
+        anneau_seg(lot, M, (C[0] - 0.6, 0.0, ZC), "x", rc + 2.6, 0.5, 0.22, n=8, jour=0.16, noeud=0.26)   # s43 : patins magnétiques
         for q in range(4):
             a = G.TAU * (q + 0.5) / 4
             lot.put(M["struct"], G.boite((C[0] - 0.6, (rc + 2.8) * math.cos(a), ZC + (rc + 2.8) * math.sin(a)), (0.4, 0.6, 0.5), rx=a))
     if stage >= 3:
-        lot.put(M["anneau"], anneau((C[0] - 1.6, 0.0, ZC), "x", rc + 4.4, 0.6, 0.2))
-        lot.put(M["cristal"], rainure((C[0] - 1.5, 0.0, ZC), "x", rc + 4.5, 0.06))
+        anneau_seg(lot, M, (C[0] - 1.6, 0.0, ZC), "x", rc + 4.0, 0.6, 0.24, n=6, jour=0.22, noeud=0.32)   # s43 : patins (tore plein : brume)
         for k in range(6):
             a = G.TAU * (k + 0.5) / 6
             p = (C[0] + 0.8, (rc + 1.6) * math.cos(a), ZC + (rc + 1.6) * math.sin(a))
@@ -182,8 +188,6 @@ def ailes(lot, M, stage):
             return [G.add(p, G.add(G.mul(ex, -w), G.mul(ez, -0.15))), G.add(p, G.add(G.mul(ex, w), G.mul(ez, -0.15))),
                     G.add(p, G.add(G.mul(ex, w * 0.8), G.mul(ez, 0.15))), G.add(p, G.add(G.mul(ex, -w * 0.8), G.mul(ez, 0.15)))]
         lot.put(M["blind"], G.loft([sec(0.0, 1.6), sec(3.0, 2.6), sec(6.5, 2.2), sec(9.5, 1.2), sec(11.5, 0.2)], True, True))
-        gravure(lot, M, G.add(base, G.mul(d, 5.0)), n, d, 3.0, 7.0, 3)
-        lot.put(M["conduit"], G.tube([G.add(base, G.mul(d, 1.0)), G.add(base, G.mul(d, 10.5))], 0.08, 5))
         # racine blindée et articulation
         lot.put(M["struct"], G.sphere(base, 1.0, 10, 5))
         lot.put(M["blind2"], plaque(G.add(base, (0.6, s * 0.4, -0.8)), G.norm((0.4, s * 0.8, 0.4)), 2.2, 2.6, 0.4, up=(0, 0, 1)))
@@ -212,7 +216,6 @@ def canon_annulaire(lot, M, stage):
         a = G.TAU * (k + 0.5) / 4
         fr = G._frames([E, Mz])[0]
         off = G.add(G.mul(fr[1], 1.05 * math.cos(a)), G.mul(fr[2], 1.05 * math.sin(a)))
-        lot.put(M["conduit"], G.tube([G.add(G.lerp(E, Mz, 0.36), off), G.add(G.lerp(E, Mz, 0.76), off)], 0.08, 5))
     n_an = 2 + (stage >= 2) + (stage >= 3)
     for k in range(n_an):
         t = 0.55 + 0.16 * k
@@ -255,7 +258,7 @@ def tete_canon(lot, M, stage):
         lot.put(M["cristal"], pointe((4.6, s * 7.4 + q * 1.0, ZC + 2.0), G.norm((-0.6, q * 0.5, 0.8)), 1.8, 0.26))
     # flexibles (turq) entre l'épaule et la nuque du mufle
     for q in (-0.5, 0.5):
-        lot.put(M["turq"], G.tube(G.catmull([G.add(E, (0.4, s * 0.6, 0.6)), (2.6, s * 6.0 + q, ZC + 2.6), (4.6, s * 7.4 + q, ZC + 2.1)], 5), 0.1, 6))
+        lot.put(M["struct"], G.tube(G.catmull([G.add(E, (0.4, s * 0.6, 0.6)), (2.6, s * 6.0 + q, ZC + 2.6), (4.6, s * 7.4 + q, ZC + 2.1)], 5), 0.22, 6))
     if stage >= 3:
         lot.put(M["anneau"], anneau((5.2, s * 7.4, ZC + 0.6), "x", 2.0, 0.3, 0.12))
 
@@ -274,18 +277,20 @@ def pattes(lot, M, stage, u=None):
             ro, dz = ONDE[0] * math.sin(ph), ONDE[1] * math.cos(ph)
             T = (T[0] + ro * math.cos(a), T[1] + ro * math.sin(a), T[2] + dz)
             K = (K[0], K[1], K[2] + 0.45 * dz)
-        lot.put(M["struct"], G.sphere(H, 1.0, 10, 5))
-        lot.put(M["blind"], hexseg(H, K, 1.25, 0.95, 6, 0.2))
-        lot.put(M["struct"], G.sphere(K, 0.95, 10, 5))
+        # s43 (refonte géométrie) : pattes en VOLUMES blindés (rayons 1,25/0,95 -> 1,8/1,4 et 1,0/0,7 -> 1,45/1,0), plaques épaisses,
+        # genouillère ; plus de liserés : un émetteur par genou et la tuyère
+        lot.put(M["struct"], G.sphere(H, 1.4, 10, 5))
+        lot.put(M["blind"], hexseg(H, K, 1.8, 1.4, 6, 0.2))
+        lot.put(M["struct"], G.sphere(K, 1.35, 10, 5))
         lot.put(M["accent"], G.boite(G.add(K, (0.0, 0.0, 0.9)), (0.35, 0.35, 0.2)))
-        lot.put(M["blind2"], hexseg(K, T, 1.0, 0.7, 6, 0.1))
+        lot.put(M["blind2"], hexseg(K, T, 1.45, 1.0, 6, 0.1))
         out = G.norm((math.cos(a), math.sin(a), 0.0))
-        lot.put(M["blind"], plaque(G.add(G.lerp(K, T, 0.4), G.mul(out, 0.8)), G.norm(G.add(out, (0, 0, 0.3))), 1.6, 3.0, 0.3, up=G.norm(G.sub(K, T))))
-        lot.put(M["conduit"], hexseg(G.add(G.lerp(H, K, 0.2), G.mul(out, 0.0)), G.add(T, G.mul(out, 0.7)), 0.1, 0.1))
+        lot.put(M["blind"], plaque(G.add(G.lerp(K, T, 0.4), G.mul(out, 1.2)), G.norm(G.add(out, (0, 0, 0.3))), 2.4, 4.0, 0.6, up=G.norm(G.sub(K, T))))
+        lot.put(M["blind2"], plaque(G.add(G.lerp(H, K, 0.5), (0.0, 0.0, 1.3)), G.norm(G.add(out, (0, 0, 1.2))), 2.6, 3.4, 0.6, up=G.norm(G.sub(K, H))))
+        lot.put(M["blind"], plaque(G.add(K, G.add(G.mul(out, 1.1), (0.0, 0.0, 0.5))), G.norm(G.add(out, (0, 0, 0.6))), 2.2, 2.2, 0.6, up=(0, 0, 1)))
+        lot.put(M["conduit"], G.sphere(G.add(K, G.add(G.mul(out, 0.6), (0.0, 0.0, 1.5))), 0.3, 8, 4))
         # TITANS2 : conduits haute densité, bague au genou, échappement d'énergie sous la tuyère
-        traces(lot, M, H, K, (1.25 * 0.866, 0.95 * 0.866), [0.2 + G.TAU * j / 6 for j in (0, 2, 3, 5)], rt=0.08, jog=0.3)
-        traces(lot, M, K, T, (1.0 * 0.866, 0.7 * 0.866), [0.1 + G.TAU * j / 6 for j in (1, 3, 4)], rt=0.075, jog=0.25)
-        bague(lot, M, K, G.norm(G.sub(T, H)), 1.1)
+        bague(lot, M, K, G.norm(G.sub(T, H)), 1.5)
         lot.put(M["halo"], G.oriente(G.tour([(1.6, 0.55), (2.6, 0.45), (3.6, 0.0)], 8, "z", cap0=True), T, (0, 0, -1)))
         # tuyère : cône vers le bas, jet turquoise
         lot.put(M["canon"], G.oriente(G.tour([(0.0, 0.6), (1.0, 0.75), (1.6, 0.55), (1.7, 0.4)], 10, "z", cap0=True), T, (0, 0, -1)))
@@ -301,7 +306,8 @@ def sphere_flottante(lot, M, stage, dz=0.0):
     lot.put(M["blind2"], G.sphere(C, 1.5, 12, 6))
     lot.put(M["coeur"], G.sphere(C, 1.0, 12, 6))
     lot.put(M["halo"], G.sphere(C, 2.0, 12, 6))
-    lot.put(M["anneau"], G.oriente(anneau((0.0, 0.0, 0.0), "z", 2.3, 0.3, 0.1), C, G.norm((0.6, 0.3, 1.0))))
+    # s43 : anneau de la sphère en métal satiné (struct) : poli, vu par la tranche en d10-d12 il renvoyait le ciel en un liseré blanc (1,2 %)
+    lot.put(M["struct"], G.oriente(anneau((0.0, 0.0, 0.0), "z", 2.3, 0.3, 0.1), C, G.norm((0.6, 0.3, 1.0))))
     for k in range(3):
         a = G.TAU * k / 3 + 0.5
         p = (C[0] + 2.2 * math.cos(a), C[1] + 2.2 * math.sin(a), C[2] + 0.4)
@@ -315,7 +321,7 @@ def sphere_flottante(lot, M, stage, dz=0.0):
 
 def build(S, lot, stage=1, u=None, attaque=None, dirs=False):
     """Construit la Sentinelle au stade `stage` (1 à 3) : repos (une image, lacet PSI), marche (u) ou salve (attaque) sans lacet (dirs)."""
-    M = TM.matieres(S, PREFIX, GRIS)
+    M = TC.charte(S, TM.matieres(S, PREFIX, GRIS), PREFIX, GRIS)
     xf = XF0 if dirs else XF
     R.raz()
     gonfle, bob, dz = (1.0, 1.0, 0.0), 0.0, 0.0
