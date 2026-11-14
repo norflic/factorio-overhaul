@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.105
+Date: 2026-11-14
+  Bugfixes:
+    - IA (F658) : plan d'un gisement 1,4 à 1,9 fois moins cher à résultat identique (recherche de phase gardée le temps d'un plan) ; c'est lui qui gelait le jeu 2 à 12 s.
+    - Commandement (F659) : les raccourcis Maj+A/Z/E/R ne lisent plus une main absente et ne vident plus la main quand l'outil y est déjà ; l'avant-poste désigné par Maj+A passe en tête de la porte des chantiers.
+  Changes:
+    - Mesure (F660) : ligne [FO-PERF-PIC] champ:frame <équipe> Duration au journal à chaque plan de gisement (affichage seul).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.104
 Date: 2026-11-14
   Bugfixes:
