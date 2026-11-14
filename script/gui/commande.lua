@@ -545,6 +545,14 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   -- Un ordre sans site en réserve (réserve pleine, ressource pas encore voulue) : une nouvelle sonde par passe, la plus ancienne d'abord.
   local ready = {}
   for _, o in ipairs(Co.ready(Co.deposits(f.team.commande), f.prospects)) do ready[o.id] = true end
+  for _, o in ipairs(Co.deposits(f.team.commande)) do -- commandes-0716 : site de la réserve dans la zone (but du cerveau ou pas), à chaque changement
+    local now = ready[o.id] and true or false
+    if o.ready_seen ~= now then
+      o.ready_seen = now
+      log(string.format("[FO-COMMANDE] %s : ordre %d gisement %s : site en reserve dans la zone %s (%d site(s) en reserve, tick %d)",
+        tostring(f.key or f.id), o.id, tostring(o.resource), now and "OUI (but du cerveau)" or "NON (sonde)", #(f.prospects or {}), game.tick))
+    end
+  end
   for _, o in ipairs(Co.deposits(f.team.commande)) do
     local surface = game.surfaces[o.surface or 1]
     if not ready[o.id] and f.hq_pos and surface then

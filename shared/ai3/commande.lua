@@ -496,7 +496,7 @@ function Co.resolve(state, outposts)
         local new = not (o.after_oid and op.id) or op.id > o.after_oid
         -- s45 saturer : un avant-poste DÉJÀ là, saturé à fond (op.covered : gisement couvert), remplit aussi l'ordre.
         -- s46 outils : de même un avant-poste déjà là, agrandi jusqu'au plafond de foreuses (op.saturated).
-        if (new or op.covered or op.saturated) and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
+        if (new or op.covered or op.saturated) and op.kind == o.outpost and inside(o, op.x, op.y, math.max(Co.DONE_MARGIN, Co.SITE_MARGIN)) then out[#out + 1] = o.id break end -- commandes-0716 : même marge que Co.ready (un site accepté à r + 24 remplit l'ordre une fois bâti)
       end
     end
   end

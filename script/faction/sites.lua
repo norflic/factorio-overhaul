@@ -437,7 +437,8 @@ local function refresh_reserve(f, tick)
     if want > 0 and prospects_of(f, res) >= want then
       local cands = {}
       for _, s in ipairs(f.prospects or {}) do
-        if s.resource == res and not s.seeded then cands[#cands + 1] = s end
+        -- commandes-0716 : un site d'un gisement DÉSIGNÉ par le joueur n'est jamais oublié au renouvellement
+        if s.resource == res and not s.seeded and not Co.designated(s, f.team and f.team.commande and f.team.commande.orders) then cands[#cands + 1] = s end
       end
       if #cands > 0 then
         ctx = ctx or Sites.value_ctx(f, tick)
@@ -1167,7 +1168,7 @@ function Sites.unblock(f, surface, site, resource, tick)
     local function drop_farthest(only_res)
       local drop, dmax = nil, -1
       for i, s in ipairs(f.prospects) do
-        if not s.seeded and (not only_res or s.resource == only_res) then
+        if not s.seeded and (not only_res or s.resource == only_res) and not Co.designated(s, f.team and f.team.commande and f.team.commande.orders) then -- commandes-0716
           local d = (s.x - f.hq_pos.x) ^ 2 + (s.y - f.hq_pos.y) ^ 2
           if d > dmax then drop, dmax = i, d end
         end

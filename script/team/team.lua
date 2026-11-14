@@ -897,8 +897,9 @@ function Team.view(f, tick)
     local yf, yp = CoCmd.bastion_yield(bw, out.front and out.front.pick and out.front.pick.kind, out.plant ~= nil, pl_threat)
     if yf then out.front = { busy = out.front.busy } end
     if yp then out.plant = nil end
-    if (yf or yp) and f.team.bastion_yield_t ~= tick then
-      f.team.bastion_yield_t = tick
+    local ysig = string.format("%d:%s:%s", bw, tostring(yf), tostring(yp)) -- une ligne par changement (le 2e banc : une par pensée)
+    if (yf or yp) and f.team.bastion_yield_t ~= ysig then
+      f.team.bastion_yield_t = ysig
       if (f.team.bastion_yield_n or 0) < 40 then
         f.team.bastion_yield_n = (f.team.bastion_yield_n or 0) + 1
         log(string.format("[FO-COMMANDE] %s : bastion du joueur d'abord (%d tourelle(s) voulues) : front de couverture %s, garde de centrale %s a %.1f min",
