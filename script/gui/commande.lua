@@ -298,7 +298,21 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   local ops = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
     local o = f.outposts[oid]
-    if o.pos then ops[#ops + 1] = { kind = o.kind, x = o.pos.x, y = o.pos.y, id = o.id or oid } end
+    if o.pos then ops[#ops + 1] = { kind = o.kind, x = o.pos.x, y = o.pos.y, id = o.id or oid, key = oid,
+      covered = o.full and Co.truly_full(o.full_why) or nil } end
+  end
+  -- s45 saturer : un ordre posé sur un avant-poste déjà là le sature : plein levé (sauf gisement vraiment couvert, migration en cours).
+  local by_id = {}
+  for _, op in ipairs(ops) do by_id[op.id] = op end
+  for _, sat in ipairs(Co.saturations(f.team.commande, ops)) do
+    local op = by_id[sat.oid]
+    local o = op and f.outposts[op.key]
+    if o and Co.liftable(o) then
+      o.full, o.full_by, o.full_why, o.hold_until, o.ext_fails = false, nil, nil, nil, 0
+      log(string.format("[FO-COMMANDE] %s : ordre %d sature l'avant-poste %s (plein leve, tick %d)", tostring(f.key or f.id), sat.order,
+        tostring(sat.oid), game.tick))
+    end
+    if o then o.sat_req = sat.order end
   end
   local done = Co.resolve(f.team.commande, ops)
   -- Un ordre sans site en réserve (réserve pleine, ressource pas encore voulue) : une nouvelle sonde par passe, la plus ancienne d'abord.

@@ -312,11 +312,39 @@ function Co.resolve(state, outposts)
     if o.kind == "gisement" then
       for _, op in ipairs(outposts or {}) do
         local new = not (o.after_oid and op.id) or op.id > o.after_oid
-        if new and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
+        -- s45 saturer : un avant-poste DÉJÀ là, saturé à fond (op.covered : gisement couvert), remplit aussi l'ordre.
+        if (new or op.covered) and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
       end
     end
   end
   return out
+end
+
+--- s45 saturer : avant-postes DÉJÀ là (id <= o.after_oid) du type demandé dans la zone d'un ordre de gisement : l'ordre demande leur
+--- SATURATION (plein ignoré, extension jusqu'à couverture complète). Rend { { order = id, oid = id } } dans l'ordre des ordres puis des
+--- avant-postes donnés (liste triée par l'appelant) ; ne modifie rien.
+function Co.saturations(state, outposts)
+  local out = {}
+  for _, o in ipairs((state or {}).orders or {}) do
+    if o.kind == "gisement" and o.after_oid then
+      for _, op in ipairs(outposts or {}) do
+        if op.id and op.id <= o.after_oid and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then
+          out[#out + 1] = { order = o.id, oid = op.id }
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- s45 saturer : un plein « pour de bon » (verdict de pose_paires : gisement couvert, épuisé, ou plafond de foreuses atteint) : rien de plus à
+--- poser, l'ordre est rempli. Tout autre plein (attente après échecs, adoption, sans motif) est levé par la saturation ; « electrique »
+--- (foreuses à combustion) n'est ni levé ni rempli (Outposts.extend le reposerait aussitôt).
+function Co.truly_full(why)
+  return why == "couverture" or why == "gisement" or why == "plafond"
+end
+function Co.liftable(o)
+  return o.full == true and not o.migr and not Co.truly_full(o.full_why) and o.full_why ~= "electrique"
 end
 
 return Co
