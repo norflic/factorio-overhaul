@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.121
+Date: 2026-11-15
+  Features:
+    - Commandement : chaque ordre affiche sa ligne d'état (en attente → ouvrier en route → plan posé → en chantier → terminé) et un texte flottant à chaque étape ; l'orientation est relue dès la pensée suivante.
+  Bugfixes:
+    - Maj+A (gisement) : un gisement mêlé désigné n'est plus refusé pour l'espacement d'un site d'une autre ressource ; l'ordre a sa propre clé de construction (il n'attend plus un autre avant-poste du même type) ; l'avant-poste ordonné part sans attendre son combustible. Au banc (ordre à T+5 min) : première pose 21 s, avant-poste bâti en 25 s (jamais en 25 min avant).
+    - Maj+R (bastion) : ses tourelles ne partent plus d'abord à la garde de la centrale ou au front de couverture (10 min au plus) ; ouvrier en route 209 → 4 s, 8 tourelles posées en 410 s contre 1 265 s.
+  Known issues:
+    - Maj+E (liaison) reste sans effet en début de partie (aucune paire sortie/quai finie avant 30 min).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.120
 Date: 2026-11-15
   Optimizations:
