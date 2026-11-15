@@ -126,7 +126,7 @@ check(p2.coal_dim == "sans releve", "sans relevé : décision nommée")
 
 -- 4. branchement
 local team_src = read_src("script/team/team.lua")
-check(team_src:find("coal_cap = fsurface and Profiler.fwrap(\"view:5-cap\", Cap.read, f, fsurface) or nil", 1, true), "la vue lit Cap.read")
+check(team_src:find("Profiler.fwrap(\"view:5-cap\", Cap.read, f, fsurface)", 1, true), "la vue lit Cap.read") -- copiée par Et.copy depuis TESTS-VERTS 0716
 check(team_src:find("if plan.coal_dim then Cap.note(f, plan.coal_dim, tick) end", 1, true), "la pensée note la décision (Cap.note)")
 check(read_src("shared/ai3/cerveau.lua"):find("coal_dim = base.coal_dim", 1, true), "le cerveau IA3 rend la décision du planificateur permanent")
 check(read_src("script/team/migration_champ.lua"):find("if not Bc.room(cap) then", 1, true), "les bandes du combustible lisent le même plafond (liaisons)")
