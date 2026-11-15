@@ -56,9 +56,30 @@ local function say(f, ev)
   log(S.line(ev))
 end
 
+-- lot CENTRALE2 (banc centrale2-c4-20261020, votre équipe : « 2 piece(s) manquante(s) rouverte(s) tout de suite (transport-belt,
+-- transport-belt) » à 21,7 et 24,4 min, centrale 1 rouverte jusqu'à la fin, aucune centrale de plus demandée, 98 % des foreuses du champ sans
+-- courant) : un tapis passé au niveau supérieur sur place (script/team/convoyeurs.lua) n'est pas une pièce manquante. Même règle que la pose
+-- (script/team/build.lua, find_real) : même type et même groupe de remplacement rapide, lus au prototype (aucun nom).
+local UPGRADE_GROUP = {}
+local function upgrade_group(name)
+  local g = UPGRADE_GROUP[name]
+  if g == nil then
+    local protos = game and game.entity_prototypes -- (moteur de bouchons des tests : sans prototypes, aucune équivalence)
+    local pr = protos and protos[name]
+    g = pr and pr.fast_replaceable_group and (pr.type .. "|" .. pr.fast_replaceable_group) or false
+    UPGRADE_GROUP[name] = g
+  end
+  return g
+end
 local function real_of(surface, e, force)
   local found = surface.find_entity(e.name, { e.x, e.y })
   if found and found.valid and found.force.name == force then return found end
+  local g = upgrade_group(e.name)
+  if g then
+    for _, x in ipairs(surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.3, force = force })) do
+      if x.valid and x.name ~= "entity-ghost" and x.name ~= e.name and upgrade_group(x.name) == g then return x end
+    end
+  end
   return nil
 end
 
