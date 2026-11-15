@@ -57,6 +57,39 @@ local function protos()
   return out
 end
 
+-- Recette de chaque objet (données dérivées des prototypes, refaites à chaque chargement ; jamais dans global) : la recette du même nom que
+-- l'objet si elle existe, sinon la première par nom ; ingrédients-objets triés. Matière première : aucune recette.
+local MAKER, RAW_MEMO = nil, nil
+local function maker()
+  if MAKER then return MAKER end
+  local names = {}
+  for name in pairs(game.recipe_prototypes) do names[#names + 1] = name end
+  table.sort(names)
+  local idx = {}
+  for _, rn in ipairs(names) do
+    local r = game.recipe_prototypes[rn]
+    for _, pr in ipairs(r.products or {}) do
+      if pr.type ~= "fluid" and (idx[pr.name] == nil or rn == pr.name) then idx[pr.name] = rn end
+    end
+  end
+  MAKER = idx
+  return idx
+end
+function Vap.ingredients(item)
+  local rn = maker()[item]
+  local r = rn and game.recipe_prototypes[rn]
+  if not r then return nil end
+  local out = {}
+  for _, ing in ipairs(r.ingredients or {}) do if ing.type ~= "fluid" then out[#out + 1] = ing.name end end
+  table.sort(out)
+  return out
+end
+--- Le besoin `want` ({ [objet] = n }) dispute-t-il une matière première à ce qui manque `lack` ({ { objet, n } }) ? (V.competes)
+function Vap.competes(want, lack)
+  if not RAW_MEMO then local m = {}; RAW_MEMO = m end
+  return V.competes(want, lack, Vap.ingredients, RAW_MEMO)
+end
+
 local function rows_of(force, list)
   local rows = {}
   for _, it in ipairs(list) do

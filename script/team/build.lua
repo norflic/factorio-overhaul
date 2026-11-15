@@ -72,6 +72,7 @@ local Build = {}
 Build.Sm = require("shared.team.sol_minerai")
 Build.Vap = require("shared.team.vapeur") -- lot VAPEUR : lots écartés après un tapis d'alimentation impossible (V.skip_lots)
 Build.skip_lots = Build.Vap.skip_lots
+Build.VapRt = require("script.team.vapeur") -- lot VAPEUR : matière première disputée (recettes lues au moteur)
 --- Lot VAPEUR (banc 2026-11-14_VAPEUR-2, carte du DC) : l'alimentation de la centrale 1 de player (161 pièces, ~250 fer) restait 0/161 en
 --- « reserve:materiaux » de 4,7 à 30 min pendant que les bandes de champ (369, 658 pièces) réservaient le même fer. Tant qu'un projet
 --- d'alimentation de centrale attend sa matière (au plus Build.Vap.FIRST_TICKS depuis sa première attente), les AUTRES projets neufs ne
@@ -93,11 +94,20 @@ function Build.alim_first(f, p, tick)
   if not (a and a.state == "reserve" and a.reason == "materiaux") then return false end
   a.vap_first = a.vap_first or tick
   if tick - a.vap_first > Build.Vap.FIRST_TICKS then return false end
+  -- seul un projet qui prendrait une matière PREMIÈRE de ce qui manque à l'alimentation (le fer, typiquement) attend (Vn.competes)
+  local want = {}
+  for it, n in pairs(Build.needs_of(p)) do -- (ensemble : l'ordre est sans effet, Vap.competes trie)
+    local left = n - ((p.stock or {})[it] or 0)
+    if left > 0 then want[it] = left end
+  end
+  local hit, raw = Build.VapRt.competes(want, a.missing)
+  if not hit then return false end
   if not a.vap_said then
     a.vap_said = true
-    log(string.format("[FO-VAPEUR] %s : projet %d (alimentation de la centrale %s) attend sa matiere a %.1f min : les projets neufs ne reservent plus rien pendant %.0f min au plus (premier retenu : projet %d)",
-      f.key or "player", a.id, tostring(a.spec and a.spec.alim), tick / 3600, Build.Vap.FIRST_TICKS / 3600, p.id))
+    log(string.format("[FO-VAPEUR] %s : projet %d (alimentation de la centrale %s) attend sa matiere a %.1f min : les projets neufs qui prendraient la meme matiere premiere ne reservent plus rien pendant %.0f min au plus (premier retenu : projet %d, %s)",
+      f.key or "player", a.id, tostring(a.spec and a.spec.alim), tick / 3600, Build.Vap.FIRST_TICKS / 3600, p.id, tostring(raw)))
   end
+  a.vap_held = (a.vap_held or 0) + 1
   p.missing = {} -- (ses manques ne sont plus fabriqués pendant l'attente : le fer ne part pas dans ses kits)
   p.reason, p.reserve_next = "vapeur", tick + 60
   return true
@@ -3525,6 +3535,7 @@ local function needs_of(p)
   if lq and lq.extra and not p.piq_placed then bump(need, lq.extra.item) end -- lot PIQUAGE : le répartiteur, posé par le script à la fin du projet
   return need
 end
+Build.needs_of = needs_of -- (lot VAPEUR : lu par Build.alim_first)
 
 --- Stock LIBRE du coffre (lot IA3-e) : le coffre moins ce que les tâches prises y ont réservé (registre d'IA3-b,
 --- Board.view_stock ; registre éteint : le coffre tel quel). Le chantier ne prend plus la matière promise à une tâche

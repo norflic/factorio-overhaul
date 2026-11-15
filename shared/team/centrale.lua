@@ -171,7 +171,7 @@ function C.growth(st, n)
     -- (lot VAPEUR : la demande nominale manque encore APRÈS les chantiers ouverts, comptés par vapeur.lua : un chantier de plus, jusqu'à C.MAX_PARALLEL)
     if n.pending > 0 and not C.parallel_kw(st, n) and not (nominal and n.pending < C.MAX_PARALLEL) then return nil, "un chantier de centrale est ouvert" end
     -- (lot VAPEUR : une centrale bâtie ROUVERTE pour une pièce manquante compte, sous la demande nominale : azure, banc VAPEUR-4, 26-30 min, 5 777 kW manquants retenus « aucune centrale finie »)
-    if n.done < 1 then if not (nominal and (n.rebuilding or 0) > 0) then return nil, "aucune centrale finie" end end
+    if n.done < 1 then if not (nominal and ((n.rebuilding or 0) > 0 or (n.built or 0) > 0)) then return nil, "aucune centrale finie" end end -- (n.built : chaudières vivantes, reconstruction figée comprise)
   end
   if n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
   if not nominal and (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end -- (lot VAPEUR : jamais de renoncement sous la demande nominale)

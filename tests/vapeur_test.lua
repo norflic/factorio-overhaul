@@ -66,6 +66,9 @@ check(V.COOL_TICKS < C.COOL, "pause courte sous la demande nominale")
 n = base(); n.nominal_kw = 5777; n.done = 0; n.pending = 1; n.rebuilding = 1
 nb = C.growth({}, n)
 check(nb ~= nil and nb >= 1, "centrale batie rouverte (piece manquante) : l'extension nominale part quand meme (azure, VAPEUR-4)")
+n = base(); n.nominal_kw = 4485; n.done = 0; n.pending = 0; n.rebuilding = 0; n.built = 1
+nb = C.growth({}, n)
+check(nb ~= nil, "reconstruction figee (retiree des chantiers) mais chaudiere vivante : l'extension part (player, 123456789, 30,1 min)")
 n = base(); n.nominal_kw = 5777; n.done = 0; n.pending = 1; n.rebuilding = 0
 nb, why = C.growth({}, n)
 check(nb == nil and why == "aucune centrale finie", "premiere centrale encore en chantier : on l'attend")
@@ -106,6 +109,21 @@ check(body ~= "", "Build.alim_first existe")
 check(not body:find("sp.site", 1, true), "les sites (bandes de champ, lignes, mall) ne sont pas exemptes : seuls projets neufs de player (banc VAPEUR-5)")
 check(body:find("p.missing = {}", 1, true) ~= nil, "un projet retenu ne fait plus fabriquer ses manques")
 check(bsrc:find("if Build.alim_first(f, p, tick) then return true end", 1, true) ~= nil, "branchee dans Build.reserve_suspended")
+
+print("== 7. Matiere premiere disputee (gel cible)")
+local REC = { belt = { "gear", "plate" }, gear = { "plate" }, plate = { "ore" }, furnace = { "stone" }, drill = { "gear", "circuit" },
+  circuit = { "cable", "plate" }, cable = { "copper" }, loop = { "loop" } }
+local function ings(it) return REC[it] end
+local raws = V.raw_of("drill", ings, {})
+check(raws.ore and raws.copper and not raws.gear, "matieres premieres d'une foreuse : minerai et cuivre")
+check(next(V.raw_of("loop", ings, {})) == nil or true, "recette en boucle : pas de recursion infinie")
+local hit, r = V.competes({ belt = 10 }, { { "drill", 2 } }, ings, {})
+check(hit and r == "ore", "un projet de tapis dispute le minerai de fer d'une alimentation qui manque de foreuses")
+hit = V.competes({ furnace = 4 }, { { "drill", 2 } }, ings, {})
+check(not hit, "un projet de fours en pierre passe")
+hit = V.competes({ belt = 10 }, { { "drill", 0 } }, ings, {})
+check(not hit, "rien ne manque a l'alimentation : rien n'est retenu")
+check(V.FIRST_TICKS <= 18000, "gel borne a 5 min")
 
 print(string.format("\nResultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

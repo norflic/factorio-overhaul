@@ -55,7 +55,7 @@ end
 --    charbon suivant au lieu de retomber sur le même (partie du DC : « trop long » ×5 sur la même centrale d'emerald, à la main 60 min).
 V.SKIP_TICKS = 54000 -- 15 min
 V.SKIP_MAX = 16      -- lots écartés gardés au plus (les plus anciens sortent)
-V.FIRST_TICKS = 36000 -- 10 min au plus : une alimentation de centrale qui attend sa matière réserve AVANT les projets neufs (build.lua Build.alim_first)
+V.FIRST_TICKS = 18000 -- 5 min au plus (coordinateur, 15/11 : 10 -> 5) : une alimentation de centrale qui attend sa matière réserve AVANT les projets neufs (build.lua Build.alim_first)
 V.COOL_TICKS = 7200   -- 2 min : pause de la croissance après un refus du plan quand la demande nominale manque (au lieu de C.COOL, 10 min)
 
 --- Liste `cands` (éléments { k = clé du lot, ... }) sans les lots écartés encore valides à `tick` ; ordre gardé.
@@ -84,6 +84,50 @@ function V.mark_skip(skip, k, tick)
   end)
   for i = 1, #keys - V.SKIP_MAX do skip[keys[i]] = nil end
   return skip
+end
+
+-- 6. MATIÈRE LIMITANTE (V.raw_of, V.competes) : le gel de la priorité de l'alimentation ne retient que les projets dont la matière qui leur reste
+--    à prendre partage une matière PREMIÈRE (objet sans recette, lu aux recettes) avec ce qui manque encore à l'alimentation (le fer,
+--    typiquement) ; un projet qui ne prend que de la pierre ou du bois passe. ingredients(item) rend la liste triée des ingrédients-objets de la
+--    recette qui le fabrique (nil : matière première).
+V.RAW_DEPTH = 6
+
+--- Ensemble des matières premières de `item` ({ [nom] = true }) ; `memo` (table) garde les réponses.
+function V.raw_of(item, ingredients, memo, depth)
+  memo = memo or {}
+  if memo[item] then return memo[item] end
+  depth = depth or 0
+  local out = {}
+  local ings = (depth < V.RAW_DEPTH) and ingredients(item) or nil
+  if not ings or #ings == 0 then
+    out[item] = true
+  else
+    memo[item] = out -- (cycle : vide pendant le calcul)
+    for _, ing in ipairs(ings) do
+      for k in next, V.raw_of(ing, ingredients, memo, depth + 1) do out[k] = true end
+    end
+  end
+  memo[item] = out
+  return out
+end
+
+--- Le projet qui veut `want` ({ [objet] = n }) dispute-t-il une matière première à ce qui manque à l'alimentation (`lack` = { { objet, n } }) ?
+--- Rend vrai et la matière (première en ordre de nom), ou faux.
+function V.competes(want, lack, ingredients, memo)
+  local short = {}
+  for _, it in ipairs(lack or {}) do
+    if (it[2] or 0) > 0 then for k in next, V.raw_of(it[1], ingredients, memo) do short[k] = true end end
+  end
+  local names = {}
+  for k, n in next, want or {} do if (n or 0) > 0 then names[#names + 1] = k end end
+  table.sort(names)
+  for _, k in ipairs(names) do
+    local raws = {}
+    for r in next, V.raw_of(k, ingredients, memo) do raws[#raws + 1] = r end
+    table.sort(raws)
+    for _, r in ipairs(raws) do if short[r] then return true, r end end
+  end
+  return false
 end
 
 --- Ligne de journal [FO-VAPEUR]. ev = { team, tick, demand, cap, pending, missing, fed, boilers, auto, plants, sat, hand }.
