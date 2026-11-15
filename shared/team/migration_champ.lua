@@ -423,4 +423,21 @@ function M.power_spare(g)
   return g ~= nil and (g.capacity or 0) > 0 and (g.power or 0) > 0 and not g.saturated
 end
 
+
+--- Lot C3-BOUCLE (banc C3-DIAG-71a2eea7, carte du DC, graine 123456789) : de 27 à 40 min, l'entrepreneur « declenche sur 1 » toutes les 5 min
+--- sans aucune bande : toute la migration est en veille « courant » (power_ok faux : une seule centrale, 1 800 kW sur 1 800, « tapis_manquant »),
+--- pendant que les centrales demandées (projets 8 à 14,1 min et 10 à 22,2 min) restent « reserve:materiaux » 25 min. La tête de l'entrepreneur
+--- (réserve et fabrication avant tout le reste) va alors à la CENTRALE en attente : sans courant, aucune bande ne servirait.
+--- list = { { id, plant (vrai : projet de centrale), state, reopened (vrai : rouverte) } } triée par numéro ; rend le numéro de la plus ancienne centrale vivante pas encore
+--- bâtie, ou nil.
+local PLANT_LIVE = { attente = true, plan = true, reserve = true, defrichage = true, fantomes = true, chantier = true }
+function M.plant_head(list)
+  for _, x in ipairs(list or {}) do
+    -- (une centrale ROUVERTE, reconstruction d'une pièce perdue, n'est pas une centrale neuve : banc C3-DIAG-72002efe, la tête prise par la
+    -- centrale 1 rouverte pour 5 tapis à un fantôme refusé, de 29 à 40 min, pendant que les centrales 8 et 9 attendaient)
+    if x.plant and not x.reopened and PLANT_LIVE[x.state] then return x.id end
+  end
+  return nil
+end
+
 return M

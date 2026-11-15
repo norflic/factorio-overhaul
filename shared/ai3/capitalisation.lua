@@ -1637,7 +1637,9 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
   local held = {}
   if Ca.SIZE_FIRST then
     local ents = {}
-    for _, grp in ipairs({ opened, sites }) do
+    -- (sat_only : la saturation n'ouvre jamais de site ; un site plus grand ne peut donc pas retenir un gisement revendiqué, sinon ce minerai
+    -- sans demande n'aurait plus aucun ordre : ni la couverture du revendiqué, ni l'ouverture du grand)
+    for _, grp in ipairs(sat_only and { opened } or { opened, sites }) do
       for _, f in ipairs(grp) do
         local _, fr, ka = deposit_state(ctx, plan, f, d)
         ents[#ents + 1] = { id = tostring(f.id), tiles = f.tiles or 0, free = fr, kappa = ka, usable = not (f.danger or f.blocked) }

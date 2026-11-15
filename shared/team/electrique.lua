@@ -86,18 +86,20 @@ function E.thermal(s, cfg)
   cfg = cfg_of(cfg)
   s = s or {}
   if s.on == false then return true, "regle coupee" end
-  if not s.obtainable then return true, "foreuse electrique pas obtenable" end
-  if (num(s.plants) or 0) < 1 then return true, "aucune centrale finie" end
-  if not s.poles then return true, "aucun poteau obtenable" end
   -- Lot C3-BOUCLE (partie du DC 0.9.4, 15/11 : « foreuses thermiques en bordure ») : après la BASCULE de 14,5 min, [FO-EXTEND] posait encore
   -- des paires thermiques en bordure des gisements : charbon (avant-poste 2, 17,8 à 26 min, « aucune foreuse electrique ne tourne sur cette
   -- ressource »), fer (avant-poste 1, 21 à 24 min, « aucune foreuse electrique qui tourne ni poteaux au stock », 41 électriques posées mais
   -- arrêtées) et pierre (25 à 30 min) : thermiques debout 38 -> 70. Un AGRANDISSEMENT (s.extend) d'avant-poste ne pose plus de thermique dès
   -- que le réseau électrique EXISTE (s.net : ère électrique datée et au moins une foreuse électrique posée, qu'elle tourne ou non) : le
   -- gisement grandit par les bandes du champ (migration). Exception gardée : le combustible d'une centrale à l'arrêt.
+  -- (avant les causes « matérielles » : banc C3-DIAG-71a2eea7, « aucune centrale finie (capacite 0 kW) » lu à 16,2 min alors que la
+  -- centrale produisait 1 800 kW : les agrandissements de fer repartaient en thermique, 16 -> 27 paires)
   if s.extend and s.net and not (s.fuel and s.healthy == false) then
     return false, "reseau electrique en place : un agrandissement se fait en bandes electriques (champ), plus en paires thermiques"
   end
+  if not s.obtainable then return true, "foreuse electrique pas obtenable" end
+  if (num(s.plants) or 0) < 1 then return true, "aucune centrale finie" end
+  if not s.poles then return true, "aucun poteau obtenable" end
   local live, stock = num(s.el_live) or 0, num(s.poles_stock) or 0
   if live <= 0 and stock < cfg.poles_min then
     return true, string.format("aucune foreuse electrique qui tourne ni poteaux au stock (%d sur %d)", floor(stock), cfg.poles_min)
