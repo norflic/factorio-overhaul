@@ -711,6 +711,41 @@ remote.add_interface("fo-commande", {
     out.docks, out.srcs = lst and lst.seen_docks or {}, lst and lst.seen_srcs or {}
     return out
   end,
+  --- majz-0716 : MESURE de l'effet de Maj + Z (lecture seule). Pièces de l'équipe « player » dans le disque (x, y, r) qui ont une version
+  --- supérieure sur place (Capital.successors_of : chaîne lue dans les prototypes, même règle que le remplacement) : { { name, type, x, y,
+  --- succ = { noms } } } triées par position. `snap` (facultatif) = liste rendue plus tôt : rend en plus, pour chaque pièce, l'entité
+  --- trouvée à sa place (même type) : nom actuel, montée (nom dans ses successeurs) ou disparue.
+  zone_tiers = function(x, y, r, snap)
+    local f = State.faction("player")
+    local Capital = package.loaded["script.ai3.capital"]
+    if not (f and Capital and Capital.successors_of and Capital.machine_names) then return { ok = false } end
+    local surface = game.surfaces[1]
+    if snap then
+      local out = { ok = true, list = {} }
+      for _, s in ipairs(snap) do
+        local now, up = nil, false
+        for _, e in ipairs(surface.find_entities_filtered({ position = { s.x, s.y }, radius = 0.3, type = s.type, force = f.force })) do
+          if e.valid then now = e.name end
+        end
+        for _, n in ipairs(s.succ or {}) do if now == n then up = true end end
+        out.list[#out.list + 1] = { name = s.name, type = s.type, now = now, up = up }
+      end
+      return out
+    end
+    local list = {}
+    for _, e in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = r, force = f.force, name = Capital.machine_names() })) do
+      if e.valid then
+        local succ = Capital.successors_of(e.name) or {}
+        if #succ > 0 then
+          local names = {}
+          for _, s in ipairs(succ) do names[#names + 1] = type(s) == "table" and (s.name or s.to) or s end
+          list[#list + 1] = { name = e.name, type = e.type, x = e.position.x, y = e.position.y, succ = names }
+        end
+      end
+    end
+    table.sort(list, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
+    return { ok = true, list = list }
+  end,
 })
 
 return Cmd

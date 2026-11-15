@@ -77,6 +77,46 @@ end
 
 local function sec(v) return v and string.format("%d s", math.floor(v / 60)) or "jamais" end
 
+-- majz-0716 : EFFET de Maj + Z. À l'ordre, les pièces de la zone qui ont une version supérieure sur place (interface fo-commande
+-- zone_tiers : chaîne lue dans les prototypes) sont notées ; chaque minute, la part de celles qui ont été remplacées par un successeur.
+-- « ouvertes » = pièces dont un successeur a sa recette activée pour la force (montée possible à cet instant).
+local function majz_measure(ctx, s)
+  local z = s.majz
+  if not z then
+    local zo
+    for _, o in ipairs(etat(ctx).orders or {}) do if o.kind == "amelioration" then zo = o end end
+    if not zo then return end
+    local r = ctx.remote("fo-commande", "zone_tiers", zo.x, zo.y, zo.r)
+    if not (r and r.ok) then return end
+    z = { tick = game.tick, id = zo.id, snap = r.list }
+    s.majz = z
+  end
+  local r = ctx.remote("fo-commande", "zone_tiers", 0, 0, 0, z.snap)
+  if not (r and r.ok) then return end
+  local rec = game.forces.player.recipes
+  local n, up, gone, open = #r.list, 0, 0, 0
+  local by = {}
+  for i, x in ipairs(r.list) do
+    local k = by[x.type] or { n = 0, up = 0 }
+    by[x.type] = k
+    k.n = k.n + 1
+    if x.up then up = up + 1; k.up = k.up + 1 end
+    if not x.now then gone = gone + 1 end
+    for _, sn in ipairs(z.snap[i].succ or {}) do if rec[sn] and rec[sn].enabled then open = open + 1 break end end
+  end
+  local types = {}
+  for t in pairs(by) do types[#types + 1] = t end
+  table.sort(types)
+  local parts = {}
+  for _, t in ipairs(types) do parts[#parts + 1] = string.format("%s %d/%d", t, by[t].up, by[t].n) end
+  local m = math.floor((game.tick - z.tick) / 3600 + 0.5)
+  z.last = { m = m, n = n, up = up, open = open }
+  z.at = z.at or {}
+  z.at[m] = { n = n, up = up, open = open }
+  ctx.log(string.format("%sBANC zone Maj+Z ordre %d T+%d min (minute %.0f) : %d piece(s) au tier inferieur a l'ordre, montees %d (%d %%), ouvertes %d, disparues %d ; %s",
+    TAG, z.id, m, game.tick / 3600, n, up, n > 0 and math.floor(100 * up / n) or 0, open, gone, table.concat(parts, ", ")))
+end
+
 local function rows(ctx)
   local s = S(ctx)
   local by = {}
@@ -139,16 +179,25 @@ base.tick = function(ctx, e)
     local a, b = pair_of(st)
     if a then liaison(ctx, a, b, "Maj+E paire"); s.pair = true
     else liaison(ctx, { x = hq.x - 20, y = hq.y }, { x = hq.x + 20, y = hq.y }, "Maj+E QG (aucune paire finie)") end
+    majz_measure(ctx, s) -- majz-0716 : relevé de la zone au moment de l'ordre (T+0)
     return
   end
   if not s.pair and e.tick % 3600 == 0 then
     local a, b = pair_of(st)
     if a then liaison(ctx, a, b, "Maj+E paire apparue"); s.pair = true end
   end
-  if e.tick % 3600 == 0 then report(ctx, "BANC") end
+  if e.tick % 3600 == 0 then report(ctx, "BANC"); majz_measure(ctx, s) end
 end
 base.finish = function(ctx)
   report(ctx, "BILAN")
+  local z = S(ctx).majz
+  if z then
+    for _, m in ipairs({ 5, 10, 20 }) do
+      local a = z.at and z.at[m]
+      ctx.log(string.format("%sBILAN zone Maj+Z T+%d : %s", TAG, m, a and string.format("%d/%d montees (%d %%), ouvertes %d", a.up, a.n,
+        a.n > 0 and math.floor(100 * a.up / a.n) or 0, a.open) or "non mesure"))
+    end
+  end
   local by = {}
   for _, x in ipairs(rows(ctx)) do by[x.d.kind] = by[x.d.kind] or x.d end
   for _, k in ipairs({ "gisement", "amelioration", "bastion", "liaison" }) do
