@@ -60,6 +60,31 @@ function E.pick(inflight, wanted)
   return 1
 end
 
+--- CHANTIER 4 (ordres, 15/11 ; partie du DC 0.9.4 : ordre Maj+A à 29,4 min, bande de l'ordre en vol à 31,8 min, prise à 53,5 min, pose à
+--- 57,8 min : l'entrepreneur finissait d'abord le projet 35 et n'était relancé qu'au scan suivant). Pas de l'ORDRE, joué toutes les
+--- CFG.kit_every ticks et dès qu'un ordre retient son champ : inp = { wanted = { [oid] = vrai } (champs des ordres vivants), cur = { pid, oid }
+--- ou nil (chantier entrepreneur vivant), inflight = liste { { pid, oid } } (bandes en vol, ordre de Mig.projects), waiting = oid de la bande
+--- demandée pas encore en vol, ou nil }. Rend action, arg, suspend :
+---   "rien"                       : chantier déjà sur un ordre, aucun ordre, ou la bande de l'ordre est déjà demandée ;
+---   "attache", i                 : la bande d'ordre inflight[i] devient le chantier ;
+---   "declenche", oid             : aucune bande d'ordre en vol : le champ (plus petit numéro) est voulu, sa prochaine bande est entrepreneur ;
+---   suspend = vrai               : le chantier courant (pas un ordre) est SUSPENDU avant (gardé, repris quand plus aucun ordre n'attend).
+--- Ni débit minimal ni place ne retiennent un ordre (Ent.decide reste la règle du scan sans ordre).
+function E.order_step(inp)
+  local wanted = inp.wanted or {}
+  local cur = inp.cur
+  if cur and cur.oid ~= nil and wanted[cur.oid] then return "rien" end
+  for i, x in ipairs(inp.inflight or {}) do
+    if x.oid ~= nil and wanted[x.oid] then return "attache", i, cur ~= nil end
+  end
+  local oids = {}
+  for k, v in pairs(wanted) do if v then oids[#oids + 1] = k end end
+  if #oids == 0 then return "rien" end
+  table.sort(oids)
+  if inp.waiting ~= nil and wanted[inp.waiting] then return "rien" end
+  return "declenche", oids[1], cur ~= nil
+end
+
 --- entrepreneur-continu (0.9.1) : relance immédiate du scan ? inp = { rate (plaques/min au dernier relevé), busy (chantier entrepreneur
 --- vivant), waiting (bande demandée pas encore reconnue), since (ticks depuis le dernier scan) }. Vrai seulement au-delà de CFG.chain_rate,
 --- sans chantier ni demande en cours, et au moins kit_every ticks après le dernier scan (pas de rafale).

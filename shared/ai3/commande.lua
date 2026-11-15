@@ -282,14 +282,18 @@ end
 --- Buts du cerveau après les ordres de gisement : un but d'extraction (« ordre:<type> ») par type désigné, de valeur Co.ORDER_VALUE
 --- (× poids d'extraction, bornée à 100) ; un but d'extraction déjà émis pour ce type est relevé à cette valeur s'il est plus bas
 --- (et n'est plus « fond » ni « extend_only » : l'ordre demande un NOUVEAU site). Rend la liste (même table, complétée).
-function Co.goals(goals, orders, w_ext, products)
+--- CHANTIER 4 (partie du DC 0.9.4 : ordre 1 « porte par le projet 'ordre:iron' : etat bloque, cause electrique:iron » de 29,4 à 57,8 min) :
+--- `off` = { [type] = raison } des types refusés en thermique (Elec.view_off, vue du cerveau view.thermal_off). Un type refusé n'a ni but
+--- « ordre:<type> » ni but d'extraction relevé : EMIT.outpost le rendrait « bloque » ; l'ordre est porté par la BANDE ÉLECTRIQUE de son champ
+--- (script/gui/commande.lua want_band -> Mig.want, chantier de l'entrepreneur : Mig.entrepreneur_order).
+function Co.goals(goals, orders, w_ext, products, off)
   if not orders or #orders == 0 then return goals end
   local v = clamp(math.floor(Co.ORDER_VALUE * (w_ext or 1000) / 1000), 1, 100)
   v = math.max(v, Co.ORDER_VALUE) -- un poids d'extraction bas ne fait pas passer l'ordre du joueur sous sa valeur
   local seen = {}
   for _, o in ipairs(orders) do
     local k = o.outpost
-    if k and not seen[k] then
+    if k and not seen[k] and not (off and off[k]) then
       seen[k] = true
       -- s46 outils : les ZONES des ordres de ce type vont dans le but : EMIT.outpost n'agrandit que les avant-postes de ces zones,
       -- sinon il bâtit (Sites.find sert d'abord le site de la zone : Co.prefer, Co.designated).
@@ -313,6 +317,18 @@ function Co.goals(goals, orders, w_ext, products)
     end
   end
   return goals
+end
+
+--- CHANTIER 4 (exigence du DC : première tâche d'un ordre en 5 s au plus) : pas joués à la POSE d'un ordre (script/gui/commande.lua,
+--- add_order), sans attendre une passe périodique. "capital" : décision d'amélioration relue à la pensée suivante (300 ticks au plus) ;
+--- "liaison" : relevé des liaisons à ce tick ; "tournee" : liaison sans paire, tournée prioritaire choisie tout de suite (avant : passe de
+--- résolution de 300 ticks PUIS pensée de l'équipe) ; "bande" : gisement, bande de champ voulue et entrepreneur réveillé tout de suite
+--- (avant : première passe de 60 ticks, puis scan de l'entrepreneur toutes les 18 000). Rend une liste ordonnée de noms.
+function Co.pose_steps(kind)
+  local out = { "capital" }
+  if kind == "liaison" then out[#out + 1] = "liaison"; out[#out + 1] = "tournee" end
+  if kind == "gisement" then out[#out + 1] = "bande" end
+  return out
 end
 
 --- Réserve de sites réordonnée : ceux dans une zone de gisement désignée (même ressource) d'abord, l'ordre relatif gardé. Nouvelle liste.

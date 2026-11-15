@@ -274,7 +274,7 @@ function C.think(view, book, st, ctx)
   if ctx.ordres and #ctx.ordres > 0 then -- lot s43 UX-COMMANDE : un gisement désigné = un but d'extraction de son type
     local prod = {}
     for _, k in ipairs(T.OUTPOST_ORDER) do prod[k] = T.outposts[k].product end
-    goals = Co.goals(goals, ctx.ordres, (s.weights or {}).extraction, prod)
+    goals = Co.goals(goals, ctx.ordres, (s.weights or {}).extraction, prod, view.thermal_off) -- CHANTIER 4 : type refusé en thermique : porté par la bande électrique
   end
   -- Lot ZERO-IDLE (DC, 8/11) : PNJ libres et stock qui paie un kit de fonderie (foreuses + fours) : un agrandissement par PNJ libre, tout
   -- de suite, en FOND (shared/ai3/zero_idle.lua) ; ni la saturation, ni les capacités visées, ni la capitalisation ne le retiennent.
