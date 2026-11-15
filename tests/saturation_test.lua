@@ -240,6 +240,13 @@ local inp7c = scene()
 inp7c.deposits[#inp7c.deposits + 1] = { id = "d3", resource = "iron-ore", tiles = 500, amount = 1e7, dist = 200 }
 local r7c = Ca.decide(inp7c, {})
 check(find(r7c, "ouvrir:d3") == nil and refus_of(r7c, "ouvrir:d3") == nil, "§7 site connu non revendique : ni ordre ni refus de la saturation")
+-- 7c bis (lot C3-BOUCLE, priorité par taille) : le site connu est PLUS GRAND que le revendiqué ; sans demande (saturation seule), il ne
+-- retient pas le revendiqué (la saturation ne l'ouvrirait jamais) : le revendiqué garde son ordre de saturation, le site n'est ni ouvert ni accusé.
+local inp7e = scene()
+inp7e.deposits[#inp7e.deposits + 1] = { id = "d3", resource = "iron-ore", tiles = 5000, amount = 1e7, dist = 200 }
+local r7e = Ca.decide(inp7e, {})
+check(ordre(r7e) ~= nil and ordre(r7e).saturation == true and find(r7e, "ouvrir:d3") == nil and refus_of(r7e, "ouvrir:d3") == nil,
+  "§7 site connu plus grand, sans demande : le revendique reste sature, le site n'est ni ouvert ni accuse")
 -- 7d. Budget large : l'ordre entier passe (non réduit) et porte la marque de saturation.
 local r7d = Ca.decide(scene({ stock = pieces({ ["iron-plate"] = 4000, ["electronic-circuit"] = 1e6 }) }), {})
 check(ordre(r7d) and ordre(r7d).saturation == true and ordre(r7d).n > 100, "§7 budget large : l'ordre entier est marque saturation (" .. tostring(ordre(r7d) and ordre(r7d).n) .. ")")
