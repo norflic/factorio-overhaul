@@ -29,6 +29,7 @@ E.CFG = {
                          -- dans la même minute, budget à 1 % près)
   debit_min = 1200,      -- entrepreneur-craft-0716 : plaques par période (5 min) au moins pour déclencher ou attacher une bande (banc 0720 :
                          -- le joueur, 600 à 1 500 plaques par 5 min, reculait de 6 % avec des bandes entrepreneur trop chères pour lui)
+  chain_since = 6000,    -- lot EXPO : relance sous chain_rate (bande en vol) au plus tôt 100 s après le dernier relevé
   chain_rate = 350,      -- entrepreneur-continu (0.9.1) : au-delà de ce débit (plaques des fours par minute, toutes plaques), la bande suivante
                          -- est demandée dès la fin de la précédente (relance au pas de kit_every), sans attendre le scan de 5 min
   head_avail = 1.0,     -- part de la MATIÈRE du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua). Banc 3 (0.5) : kits lents
@@ -106,9 +107,13 @@ function E.release_early(inp)
   return (inp.rate or 0) >= E.CFG.chain_rate
 end
 
+--- Lot EXPO : sous le débit d'enchaînement, la relance vaut quand même si une bande est DÉJÀ EN VOL (inp.inflight) et que le dernier relevé
+--- date d'au moins CFG.chain_since ticks (le débit du scan reste mesuré sur une fenêtre assez longue). Mesuré (banc expo-1) : bande du joueur
+--- posée à 16,7 min, la suivante (en vol) attachée au scan de 20,0 min.
 function E.chain(inp)
   if inp.busy or inp.waiting then return false end
-  if not inp.rate or inp.rate < E.CFG.chain_rate then return false end
+  if not inp.rate then return false end
+  if inp.rate < E.CFG.chain_rate then return inp.inflight == true and (inp.since or 0) >= E.CFG.chain_since end
   return (inp.since or 0) >= E.CFG.kit_every
 end
 

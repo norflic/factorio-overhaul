@@ -151,5 +151,30 @@ do
   check(eo:find("Ent.monopoly(p.spec) and not Ent.closed(p.state)", 1, true) ~= nil, "ouvrier dédié : un projet refusé ne le garde pas")
 end
 
+-- §7 relance sous le débit d'enchaînement quand une bande est en vol
+do
+  local r, s = E.CFG.chain_rate, E.CFG.chain_since
+  local function suite(ch)
+    local t = {
+      ch({ rate = r - 1, busy = false, waiting = false, since = s, inflight = true }) == true,
+      ch({ rate = r - 1, busy = false, waiting = false, since = s - 1, inflight = true }) == false,
+      ch({ rate = r - 1, busy = false, waiting = false, since = s }) == false,
+      ch({ rate = r - 1, busy = true, waiting = false, since = s, inflight = true }) == false,
+      ch({ rate = r, busy = false, waiting = false, since = E.CFG.kit_every }) == true,
+    }
+    for _, v in ipairs(t) do if not v then return false end end
+    return true
+  end
+  check(suite(E.chain), "Ent.chain : sous le seuil, bande en vol et relevé assez vieux : relance")
+  local old = function(inp)
+    if inp.busy or inp.waiting then return false end
+    if not inp.rate or inp.rate < r then return false end
+    return (inp.since or 0) >= E.CFG.kit_every
+  end
+  check(not suite(old), "mutant 0.9.7 (seuil seul) : doit échouer")
+  local src = read("script/team/migration_champ.lua")
+  check(src:find("since = tick - ms.ent_tick, inflight = inflight })", 1, true) ~= nil, "relance câblée avec la bande en vol")
+end
+
 print(string.format("expo_test : %d OK, %d ECHEC", ok, ko))
 if ko > 0 then os.exit(1) end

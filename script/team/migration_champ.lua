@@ -2735,7 +2735,9 @@ function Mig.entrepreneur_chain(f, ms, tick)
   end
   local busy = cur ~= nil and not Ent.closed(cur.state)
   local waiting = ms.ent_wait ~= nil and (tick - (ms.ent_wait.t0 or tick)) < Ent.CFG.period
-  if not Ent.chain({ rate = ms.ent_rate, busy = busy, waiting = waiting, since = tick - ms.ent_tick }) then return end
+  -- lot EXPO : sous le débit d'enchaînement, la relance attend une bande en vol (lue seulement dans ce cas)
+  local inflight = not busy and not waiting and (ms.ent_rate or 0) < Ent.CFG.chain_rate and #ent_inflight(f) > 0 or nil
+  if not Ent.chain({ rate = ms.ent_rate, busy = busy, waiting = waiting, since = tick - ms.ent_tick, inflight = inflight }) then return end
   ent_say(f, ms, string.format("enchaine a %.1f min (%d plaque(s)/min au dernier releve)", tick / 3600, ms.ent_rate or 0))
   local action = Mig.entrepreneur_scan(f, tick)
   if action == "refus" or action == nil then ms.ent_chain_off = tick + Ent.CFG.period end
