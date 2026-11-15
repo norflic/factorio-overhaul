@@ -313,6 +313,9 @@ function Pi.update(st, sig, tick)
       if a.n - a.claimed > 0 then claims.rebuild[#claims.rebuild + 1] = { item, a.n - a.claimed } end
     end
     for _, it in ipairs(sig.plan_wants or {}) do claims.rebuild[#claims.rebuild + 1] = it end
+    -- lot CHAMP-0916 (B4) : une bande de champ en attente de ses pièces : le budget n'est pas « couvert » sans elles (aucune recherche, aucun
+    -- mall ni capital en parallèle pendant qu'elle attend)
+    for _, it in ipairs(sig.plan_growth or {}) do claims.rebuild[#claims.rebuild + 1] = it end
     budget = Bg.assess(sig.book, sig.avail or {}, claims, st.parallel)
     if budget.covered then hold, parallel = false, true end
   end
@@ -519,7 +522,7 @@ function Pi.signals(view, base, inp, s, ctx, bud)
     penurie = view.survie and true or false,
     prep = ctx and ctx.prevu or nil, -- lot PREVISION
     book = bud and bud.book or nil, avail = bud and bud.avail or nil, upgrades = bud and bud.upgrades or nil, -- lot PILE-BUDGET
-    plan_wants = inp.plan_wants, recruit_claim = recruit_claim }
+    plan_wants = inp.plan_wants, plan_growth = inp.plan_growth, recruit_claim = recruit_claim }
 end
 
 --- Ligne du journal [FO-PILE] (lue par script/team/pile.lua ; aucune décision ne la lit).

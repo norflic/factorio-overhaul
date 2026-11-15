@@ -30,11 +30,20 @@ local PileRt = {}
 --- présents des deux côtés.
 local function plan_reopened(f, book, have, craft)
   local b = f.build
-  if not (R.REBUILD_SWEEP and b and b.projects and b.order and Rule.todo and Rule.HOLD_STATES) then return false, true, {} end
+  if not (R.REBUILD_SWEEP and b and b.projects and b.order and Rule.todo and Rule.HOLD_STATES) then return false, true, {}, {} end
   local open, path = false, true
   local wants = {} -- lot PILE-BUDGET : objets que ces projets doivent encore prendre au coffre
+  local growth = {} -- lot CHAMP-0916 : objets qu'une BANDE DE CHAMP en attente doit encore prendre (budget de la pile seulement, jamais le noyau)
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
+    if q and q.spec and q.spec.champ and not Rule.rebuilding(q) and Rule.HOLD_STATES[q.state] then
+      -- lot CHAMP-0916 (B4, partie du DC en 0.9.3 : bande de fer « stock : fer libre 9 sous 620 » pendant que la pile passait « en parallèle ») :
+      -- les pièces de la bande qui attend sont un besoin chiffré de l'arbitre ; elles ne vont PAS au noyau (la bande les prend elle-même au coffre)
+      local held = q.stock or {}
+      for _, it in ipairs((Rule.todo(q))) do
+        if it[2] - (held[it[1]] or 0) > 0 then growth[#growth + 1] = { it[1], it[2] - (held[it[1]] or 0) } end
+      end
+    end
     if Rule.rebuilding(q) and Rule.HOLD_STATES[q.state] then -- lot FUITES-PILE : reconstruction seulement (pas un agrandissement)
       local held = q.stock or {}
       for _, it in ipairs((Rule.todo(q))) do
@@ -51,7 +60,7 @@ local function plan_reopened(f, book, have, craft)
       end
     end
   end
-  return open, path, wants
+  return open, path, wants, growth
 end
 
 --- Entrées de la pile pour la pensée de l'équipe `f`.
@@ -81,8 +90,8 @@ function PileRt.inputs(f, book, tick)
       end
     end
   end
-  local reopened, path, wants = plan_reopened(f, book, have, craft)
-  return { repair = repair, plan_reopened = reopened, plan_path = path, plan_wants = wants }
+  local reopened, path, wants, growth = plan_reopened(f, book, have, craft)
+  return { repair = repair, plan_reopened = reopened, plan_path = path, plan_wants = wants, plan_growth = growth }
 end
 
 --- La pile retient-elle l'amélioration de l'équipe ? (faux sans cerveau par besoins ni pile)

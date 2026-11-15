@@ -111,6 +111,14 @@ function Dp.step(st, inp)
   -- Essai 3 : le centre d'abord. Essai 4 (accord du lead, 5/11) : tant qu'il attend, seuls les LABORATOIRES sont retenus (10 circuits
   -- chacun : ce que le centre attendait, C4 de l'essai 2) ; l'armement passe et reçoit la part de la recherche.
   res.labs = res.hold and 0 or math.min(Dp.LABS_MAX, math.floor(res.research / Dp.LAB_PLATES + 1e-9))
+  -- Lot CHAMP-0916 (partie du DC en 0.9.3 : 5 -> 11 laboratoires de 33 à 38 min sur le seul cuivre qui dort, fer en famine) : un laboratoire
+  -- coûte toutes les plaques des fonderies ; aucun de plus tant que l'une d'elles est EN MANQUE (p.missing, noyau de la réserve). La part de
+  -- la recherche reste à l'armement de la matière qui dort.
+  if res.labs > 0 then
+    for _, p in ipairs(inp.products or {}) do
+      if not p.def_only and p.missing then res.labs, res.famine = 0, tostring(p.key) break end
+    end
+  end
   -- Armement par matière (E4) : la part de chaque matière après les laboratoires (pris au prorata des parts de la recherche).
   local left = math.max(0, res.research - res.labs * Dp.LAB_PLATES)
   for _, p in ipairs(inp.products or {}) do
@@ -124,7 +132,8 @@ function Dp.step(st, inp)
     if res.arms_by[k] then ab[#ab + 1] = k .. " " .. math.floor(res.arms_by[k]) end
   end
   local lab_txt = res.hold and string.format("CENTRE EN ATTENTE : laboratoires retenus, recherche %d plaque(s) a l'armement", math.floor(res.research))
-    or string.format("recherche %d plaque(s) -> %d laboratoire(s) de plus", math.floor(res.research), res.labs)
+    or string.format("recherche %d plaque(s) -> %d laboratoire(s) de plus%s", math.floor(res.research), res.labs,
+      res.famine and (" (laboratoires retenus : famine de " .. res.famine .. ")") or "")
   res.why = string.format("%s | %s | armement %d plaque(s) {%s}",
     #parts > 0 and table.concat(parts, " ; ") or "rien ne dort", lab_txt, math.floor(res.arms), table.concat(ab, ", "))
   return st, res
