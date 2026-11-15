@@ -2231,7 +2231,7 @@ function Mig.entrepreneur_scan(f, tick)
     local p = f.build.projects[x.pid]
     if p and p.state ~= "fini" then inflight[#inflight + 1] = x end
   end
-  local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0 })
+  local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0, debit_min = Ent.CFG.debit_min })
   if action == "refus" then
     if cause ~= "chantier en cours" then ent_say(f, ms, "refus " .. cause) end
     return action, cause
@@ -2338,8 +2338,11 @@ function Mig.entrepreneur_kit(f, tick)
     else
       local order = {}
       for _, id in ipairs(f.build.order) do if id ~= ent.pid then order[#order + 1] = id end end
-      order[#order + 1] = ent.pid -- (en queue de la réserve au coffre : les autres projets reprennent le stock qui arrive ; le monopole garde la réserve)
+      order[#order + 1] = ent.pid -- (en queue de la réserve au coffre : les autres projets reprennent le stock qui arrive)
       f.build.order = order
+      -- le monopole ne couvre que le budget : tête rendue, la réserve au coffre d'une bande pas encore en chantier est rendue (projet ordinaire,
+      -- la pile peut de nouveau la suspendre : build.lua pile_family)
+      if p.state == "reserve" then Build.give_back(f, p) end
     end
     if not r.complete then
       say(string.format("%s : manque bloquant %.0f plaque(s) pour un budget de %.0f (%.0f%% de %d au coffre + %.0f de debit en %d min) ; %d/%d au coffre",

@@ -110,6 +110,10 @@ do
   check(r.text == "a 0/1, b 0/1, +1 autre(s)", "kit : texte borne (" .. r.text .. ")")
   local o = E.order_front({ 1, 2, 3, 4, 5 }, 4, { [2] = true })
   check(table.concat(o, ",") == "2,4,1,3,5", "ordre : reparation devant, puis la bande, puis le reste (" .. table.concat(o, ",") .. ")")
+  local a1, c1 = E.decide({ delta = 600, room = true, debit_min = 1200 })
+  check(a1 == "refus" and c1 == "debit sous le minimum", "debit 600 sous le minimum 1200 : refus (" .. tostring(c1) .. ")")
+  check(E.decide({ delta = 1200, room = true, debit_min = 1200 }) == "declenche", "debit au minimum : declenche")
+  check(E.decide({ delta = 1300, room = true, inflight = true, debit_min = 1200 }) == "attache", "debit au-dessus : attache")
   local share = E.CFG.head_share
   local okb, bud = E.head_budget(100, 100, 100)
   check(okb == (100 <= share * 200) and bud == share * 200, "tete : budget = part x (stock + debit)")

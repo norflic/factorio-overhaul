@@ -3590,7 +3590,7 @@ end
 local function pile_family(f, p)
   local fam = p.spec and p.spec.pile
   if p.spec and p.spec.ordre then return nil end -- ordres-0715 : un projet d'ordre du joueur n'est jamais suspendu par la pile
-  if Ent.monopoly(p.spec) then return nil end -- entrepreneur-0715 : monopole, la reserve d'un chantier entrepreneur n'est jamais rendue
+  if Ent.monopoly(p.spec) and not p.spec.ent_queue then return nil end -- entrepreneur-0715 : monopole, la reserve d'un chantier entrepreneur n'est jamais rendue (entrepreneur-craft-0716 : tant qu'il tient la tete)
   if not fam or Sweep.rebuilding(p) or (p.reopened and p.reopened ~= 0) then return nil end
   if fam == "migration" and PileRt.migration_building(f) then return nil end
   return fam

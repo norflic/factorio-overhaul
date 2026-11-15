@@ -27,6 +27,8 @@ E.CFG = {
                          -- Banc 1 : le kit du joueur (1 298 objets) jamais complet en 18 min affamait toute sa base (5 fours en marche contre 29).
   head_hyst = 0.25,      -- hystérésis : la tête tenue n'est rendue qu'au-delà de (1 + head_hyst) x budget (banc 4 : emerald prise, rendue, reprise
                          -- dans la même minute, budget à 1 % près)
+  debit_min = 1200,      -- entrepreneur-craft-0716 : plaques par période (5 min) au moins pour déclencher ou attacher une bande (banc 0720 :
+                         -- le joueur, 600 à 1 500 plaques par 5 min, reculait de 6 % avec des bandes entrepreneur trop chères pour lui)
   head_avail = 1.0,      -- part de la MATIÈRE du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua). Banc 3 (0.5) : kits lents
                          -- (azure, 70 objets en 12,6 min sous la tête) ; la porte du budget (head_share) suffit à protéger la base.
 }
@@ -37,6 +39,8 @@ E.CFG = {
 function E.decide(inp)
   if inp.busy then return "refus", "chantier en cours" end
   if not inp.delta or inp.delta <= 0 then return "refus", "aucune plaque produite" end
+  -- entrepreneur-craft-0716 : sous un débit minimal (plaques par période, inp.debit_min), l'équipe n'a pas de quoi payer une bande en monopole
+  if inp.debit_min and inp.delta < inp.debit_min then return "refus", "debit sous le minimum" end
   local room = inp.room == true
   if inp.cover ~= nil and inp.cover >= E.CFG.cover_max and not inp.recense then room = false end
   if inp.recense then room = true end
