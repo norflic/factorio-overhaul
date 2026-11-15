@@ -894,7 +894,7 @@ end
 Mig.FRAME_WAIT = FRAME_WAIT -- (tests : la file même)
 Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] then Mig.frame_tick(e.tick) end end) -- (file vide ou pas trop tôt : rien)
 
-local function begin_band(f, surface, ms, o, st, list, tick, free)
+local function begin_band(f, surface, ms, o, st, list, tick, free, pre)
   st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE
   -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
   -- colonne à tapis ; dès qu'une bande est posée ou demandée, le cadre garde son motif (les bandes voisines partagent leurs rangées)
@@ -912,7 +912,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   for _, k in ipairs(st.bad or {}) do bad[k] = true end
   for _, k in ipairs(st.stopped or {}) do bad[k] = true end -- lot AZURE : bandes parquées (réserve définitive), jamais relancées
   local product = T.outposts[o.kind].product
-  local pr
+  local pr = pre and pre.pr or nil -- lot MAJA-097 : bande déjà choisie (et planifiée) par la bascule d'un ordre Maj+A (order_swap)
   -- lot C3C : gisement voulu par un ordre Maj+A vivant (o.band_fid) : la bande du cadre la plus proche de la zone de l'ordre d'abord (Mg.near_order)
   local seq = st.order
   for _, od in ipairs(f.team and f.team.commande and f.team.commande.orders or {}) do
@@ -965,7 +965,8 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
         #list > 0 and string.format(", %d paire(s) hors des bandes : %s", #list, how) or ""))
     return false
   end
-  local bd, why = Champ.band(f, surface, o, st.frame, pr)
+  local bd, why
+  if pre and pre.bd then bd = pre.bd else bd, why = Champ.band(f, surface, o, st.frame, pr) end
   if not bd then
     st.bad = st.bad or {}
     st.bad[#st.bad + 1] = pr
@@ -2299,6 +2300,65 @@ local function ent_resume(f, ms, tick)
   return ms.ent ~= nil
 end
 
+--- Lot MAJA-097 (banc INTEG-096-ordres, graine 123456789 : ordre Maj+A au tick 72060 sur (44, -36), première entité posée dans la zone à
+--- +1 492 s) : la bande -13 du champ 100001, demandée à 18,7 min AVANT l'ordre (53/253 pièces au coffre), était attachée par l'ordre et se
+--- posait hors de sa zone (x = 108) ; la bande de la zone ne venait qu'après elle (33,2 min), son kit complet à 42,8 min. Bascule : la bande
+--- en vol d'un champ voulu par un ordre, PAS ENCORE ENTAMÉE (réserve, rien de bâti, ni rouverte ni progressive), qui ne coupe pas le cercle
+--- de l'ordre est annulée (sa réserve rendue au coffre, sans échec compté ni bande écartée) et remplacée sur-le-champ par la bande qui
+--- coupe le cercle (Mg.order_swap ; plan de la bande lu AVANT l'annulation : un plan refusé n'annule rien). Une fois par ordre. Rend vrai
+--- si une bascule a eu lieu.
+local SWAP_STATES = { attente = true, plan = true, reserve = true }
+local function ent_order_swap(f, ms, tick)
+  local did = false
+  for _, od in ipairs(f.team and f.team.commande and f.team.commande.orders or {}) do
+    local fid = od.band_fid
+    local st = fid ~= nil and ms.o and ms.o[fid]
+    if od.kind == "gisement" and st and not od.t_fin and not od.ent_served and not od.swap_t and od.x and od.y
+      and st.stage == "projet" and st.pid and st.band_key ~= nil and st.frame and st.order and (st.rollbacks or 0) == 0 then
+      local p = f.build.projects[st.pid]
+      local fresh = p and SWAP_STATES[p.state] and not p.reopened and not p.progressif and not p.degele
+      for _, e in ipairs(fresh and p.ents or {}) do if e.built then fresh = false break end end
+      local o = fresh and Champ.target(f, fid)
+      local surface = o and f.hq and f.hq.valid and f.hq.surface
+      if surface then
+        od.swap_t = tick
+        local skip = {}
+        for _, k in ipairs(st.bad or {}) do skip[k] = true end
+        for _, k in ipairs(st.stopped or {}) do skip[k] = true end
+        for _, x in ipairs(st.order) do
+          local k = tostring(x)
+          if (st.done_pr and st.done_pr[k]) or (st.ahead and st.ahead[k]) or (st.prot and st.prot[x]) then skip[x] = true end
+        end
+        local cands = Mg.order_swap(st.order, st.frame.axis, { x = od.x, y = od.y, r = od.r }, st.band_key, skip)
+        local pr, bd
+        for i = 1, math.min(#cands, 3) do
+          local b2, why = Champ.band(f, surface, o, st.frame, cands[i])
+          if b2 then pr, bd = cands[i], b2 break end
+          st.bad = st.bad or {}
+          st.bad[#st.bad + 1] = cands[i]
+          say(f, ms, string.format("avant-poste %d : bande %d de la zone de l'ordre %d ecartee (%s)", o.id, cands[i], od.id, tostring(why)), true)
+        end
+        local old, old_pr = st.pid, st.band_key
+        if pr and Build.cancel(f, old, "ordre: bande hors de la zone de l'ordre") then
+          for _, pid in ipairs(sorted_keys(f.build.projects)) do -- (réseaux du charbon reportés, liés à la bande annulée)
+            local q = f.build.projects[pid]
+            if q and q.spec and q.spec.champ and q.spec.champ.link == old then Build.cancel(f, pid, "ordre: bande liee annulee") end
+          end
+          st.stage, st.pid, st.ids, st.band_key, st.gate_t0, st.t_done = "veille", nil, nil, nil, nil, nil
+          st.entre_until = tick + Ent.CFG.period -- (la bande de la zone porte le marquage entrepreneur dès sa demande)
+          local okb = begin_band(f, surface, ms, o, st, survey_field(f, o), tick, nil, { pr = pr, bd = bd })
+          if not okb then st.retry, ms.next = tick, math.min(ms.next or tick, tick) end
+          od.swap_pid = okb and st.pid or nil
+          ent_say(f, ms, string.format("ORDRE %d : bande %s (projet %d, en reserve, hors de la zone) remplacee par la bande %d de la zone : %s a %.1f min (tick %d)",
+            od.id, tostring(old_pr), old, pr, okb and ("projet " .. tostring(st.pid)) or "demande refusee, reprise par la pensee", tick / 3600, tick))
+          did = did or okb
+        end
+      end
+    end
+  end
+  return did
+end
+
 --- CHANTIER 4 (partie du DC 0.9.4 : ordre Maj+A à 29,4 min, pose à 57,8 min, 1 706 s) : pas de l'ORDRE de l'entrepreneur (Ent.order_step),
 --- joué toutes les Ent.CFG.kit_every ticks ET dès qu'un ordre retient son champ (script/gui/commande.lua, want_band). Un chantier qui n'est
 --- pas celui d'un ordre est SUSPENDU (marquage retiré : ni tête ni ouvrier dédié ; sa réserve au coffre est gardée, spec.ent_susp, build.lua
@@ -2319,6 +2379,7 @@ function Mig.entrepreneur_order(f, tick)
     ent_resume(f, ms, tick)
     return "rien"
   end
+  ent_order_swap(f, ms, tick) -- lot MAJA-097 : la bande en vol hors de la zone de l'ordre, pas entamée, cède la place à celle de la zone
   local inflight = ent_inflight(f)
   local cur_oid
   if ms.ent then
@@ -2371,6 +2432,8 @@ function Mig.entrepreneur_order(f, tick)
     local p = f.build.projects[pid]
     if p and p.spec then
       p.spec.entrepreneur, p.spec.ent_queue = true, nil
+      p.spec.ordre = true -- lot MAJA-097 : bande d'un ordre du joueur : départ en chantier avec ce qui est au coffre (Cp.go, Cp.ready_order)
+      p.reserve_next = nil -- (relue au pas suivant du plan, sans attendre la seconde de la réserve)
       ms.ent = { pid = pid, t0 = (ms.ent_wait and ms.ent_wait.t0) or tick, ordre = true, oid = inflight[arg].oid }
       ms.ent_wait = nil
       Mig.entrepreneur_front(f, pid)
@@ -2489,7 +2552,11 @@ function Mig.entrepreneur_follow(f)
   if not (ms and ms.ent_wait and not ms.ent and f.build) then return end
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if not ms.ent and p and p.spec and p.spec.entrepreneur then ms.ent = { pid = x.pid, t0 = ms.ent_wait.t0, ordre = ms.ent_wait.ordre, oid = ms.ent_wait.ordre and x.oid or nil }; ms.ent_wait = nil end
+    if not ms.ent and p and p.spec and p.spec.entrepreneur then
+      ms.ent = { pid = x.pid, t0 = ms.ent_wait.t0, ordre = ms.ent_wait.ordre, oid = ms.ent_wait.ordre and x.oid or nil }
+      if ms.ent_wait.ordre then p.spec.ordre, p.reserve_next = true, nil end -- lot MAJA-097 : bande d'un ordre du joueur (Cp.ready_order)
+      ms.ent_wait = nil
+    end
   end
 end
 
