@@ -1383,7 +1383,7 @@ local function continu_track(f, c, d, side, surface, book, free, tick, hold)
       local uses = {}
       for _, k in ipairs(sorted_keys(q.uses)) do uses[#uses + 1] = { k, q.uses[k] } end
       queued = Board.add(f, { { key = "craft:" .. item .. ":amelio", kind = "craft", prio = T.swap.prio + (zone and AC.ZONE_PRIO or 0), item = item, count = m,
-        steps = q.crafts, uses = uses, tag = "amelio" } }, tick) or 0
+        steps = q.crafts, uses = uses, tag = "amelio", hold_until = zone and (tick + AC.ZONE_HOLD) or nil } }, tick) or 0
     end
   end
   local done, why = 0, nil

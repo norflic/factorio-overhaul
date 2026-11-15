@@ -15,7 +15,8 @@ AC.MAX_SCAN = 600 -- pièces au plus dans le relevé d'une pensée (borne N)
 AC.KIT_CAP = 12   -- objets cibles fabriqués d'avance au plus (un lot de Cap.REPLACE_BATCH)
 AC.LOGS = 30      -- lignes [FO-AMELIO-CONTINUE] au plus par équipe
 AC.ZONE_KIT = 40  -- majz-0716 : pièces d'une zone Maj + Z servies par un même kit (réserve et quota élargis)
-AC.ZONE_PRIO = 15 -- majz-0716 : priorité de plus pour le kit d'une zone Maj + Z
+AC.ZONE_PRIO = 30 -- majz-0716 : priorité de plus pour le kit d'une zone Maj + Z
+AC.ZONE_HOLD = 3600 -- majz-0716 : ticks pendant lesquels la tâche du kit d'une zone survit aux synchros du tableau (Board.sync)
 
 --- Rang de priorité d'un type du moteur (1 = d'abord) ; un type absent passe après tous.
 function AC.rank(t)

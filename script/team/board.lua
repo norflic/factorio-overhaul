@@ -331,7 +331,9 @@ function Board.sync(f, planned, tick, plan, view, book)
   -- pour Board.add (le fond est rouvert après la pensée d'organisation).
   local born = {}
   for key, t in pairs(b.tasks) do
-    if t.worker then keep[key] = t else born[key] = t.created end
+    -- majz-0716 : une tâche hors plan marquée `hold_until` (kit d'une zone Maj + Z, script/ai3/capital.lua) survit aux synchros jusqu'à ce
+    -- tick : sans cela elle était retirée à chaque pensée et n'était prise que si un PNJ passait entre deux synchros.
+    if t.worker or (t.hold_until and tick < t.hold_until) then keep[key] = t else born[key] = t.created end
   end
   -- lot ELECTRIQUE (a) : tâches libres d'agrandissement, d'avant-poste neuf ou de fabrication de thermiques refusées quand l'électrique est
   -- possible (script/team/electrique.lua, cause écrite dans [FO-ELECTRIQUE]) ; une tâche déjà prise est gardée plus haut
