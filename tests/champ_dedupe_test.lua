@@ -98,16 +98,21 @@ check(src:find("function(_, _, owner) return Cd.own(owner, o.id) end", 1, true) 
 check(src:find("Cd.dead(Cd.owners(b.occ), alive)", 1, true) ~= nil and src:find('q.state ~= "refuse"', 1, true) ~= nil, "Champ.report libère les cadres sans projet de champ vivant")
 check(src:find("[FO-CHAMP-VOIE]", 1, true) ~= nil and src:find("vlogs < 8", 1, true) ~= nil, "relevé de la voie de charbon par projet (borné à 8 lignes)")
 -- lot CC-SAUT (F515) : Champ.frame retient les tuiles hors ressource du cadre dès qu'il est figé (avant tout autre projet)
+-- perf-reste : la réservation part en tranches (fin_chunk, FINJOB) après le plan, avant que le cadre soit rendu (dernière tranche)
 local fi = src:find("function Champ.frame(f, surface, o)", 1, true)
 local fe = fi and src:find("\nfunction ", fi + 10, true) or nil
 local fblk = (fi and fe) and src:sub(fi, fe) or ""
-local wr = fblk:find("Cd.reserve(f.build.occ, Cd.frame_tiles(plan.ents, is_res), o.id, P.tkey)", 1, true)
+local ci = src:find("local function fin_chunk(f, o, J)", 1, true)
+local cblk = ci and src:sub(ci, src:find("\nend\n", ci, true)) or ""
+local wr = cblk:find("Cd.reserve(f.build.occ, Cd.frame_tiles(slice, is_res), o.id, P.tkey)", 1, true)
 local pl = fblk:find("local plan, why = Ch.plan_result(seq.st)", 1, true) -- s49 tranches : le plan entier sort de sa séquence pas à pas
-local rt = fblk:find("return plan.frame, prs, plan", 1, true)
-check(wr ~= nil and pl ~= nil and rt ~= nil and pl < wr and wr < rt, "Champ.frame : tuiles du cadre figé retenues après le plan, avant de rendre le cadre")
-check(fblk:find("for i = 1, #spec.ore - 1, 2 do res[Ch.key(spec.ore[i], spec.ore[i + 1])] = true end", 1, true) ~= nil and fblk:find("spec.foreign and spec.foreign[k]", 1, true) ~= nil,
+local fj = fblk:find("FINJOB[sk] = { f = f, key = key, plan = plan, spec = spec", 1, true)
+local fr = fblk:find("local fr, prs, plan = fin_chunk(f, o, FJ)", 1, true)
+local rt = cblk:find("return plan.frame, prs, plan", 1, true)
+check(wr ~= nil and pl ~= nil and fj ~= nil and fr ~= nil and rt ~= nil and pl < fj and wr < rt, "Champ.frame : tuiles du cadre figé retenues après le plan, avant de rendre le cadre")
+check(cblk:find("for i = J.i, last, 2 do J.res[Ch.key(ore[i], ore[i + 1])] = true end", 1, true) ~= nil and cblk:find("spec.foreign and spec.foreign[k]", 1, true) ~= nil,
   "Champ.frame : le minerai visé ET les autres ressources restent libres (lignes de poteaux à travers le gisement)")
-check(fblk:find("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan", 1, true) ~= nil, "Champ.frame : la réservation se lit au journal")
+check(cblk:find("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan", 1, true) ~= nil, "Champ.frame : la réservation se lit au journal")
 
 local function load_with(path, from, to)
   local s = read(path)

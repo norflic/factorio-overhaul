@@ -729,6 +729,7 @@ local PLAN_TICK = nil -- s47 axe : tick du dernier Ch.plan de cadre (local au mo
 -- s49 tranches : séquence de variantes du plan en cours, par avant-poste : { f, key, spec, st (Ch.plan_begin), tick du dernier pas } (local, non
 -- sauvegardé : absente après chargement, la séquence est reprise du début sur une spec neuve ; même plan pour la même spec)
 local SEQ = {}
+local FINJOB = {} -- perf-reste : fins de plan en tranches (réservation des tuiles du cadre), par équipe et avant-poste (local, non sauvegardé)
 local SPECJOB = {} -- perf-frame : lectures de spec en cours (étapes spec_step), par équipe et avant-poste : { f, key, J, tick } (local, non sauvegardé)
 local SEQ_GAP = 1800 -- s49 tranches : un pas de plus de 30 s après le précédent repart du début (spec relue : le monde a pu changer)
 local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
@@ -742,12 +743,152 @@ local function okey(f, oid) return tostring(f and f.key or "player") .. ":" .. t
 function Champ.inner_step(f, oid)
   local seq = SEQ[okey(f, oid)]
   -- perf-frame : la lecture de la spec en étapes (SPECJOB) et le premier pas après elle suivent aussi l'espacement court
-  if SPECJOB[okey(f, oid)] ~= nil then return true end
+  if SPECJOB[okey(f, oid)] ~= nil or FINJOB[okey(f, oid)] ~= nil then return true end
   return seq ~= nil and (seq.st.inner == true or seq.st.k == 0)
+end
+
+--- perf-reste : une tranche de la fin d'un plan (FINJOB) ; rend le cadre, l'ordre des bandes et le plan à la dernière, sinon nil.
+Champ.CFG.fin_tiles = Champ.CFG.fin_tiles or 6000 -- tuiles du minerai relues par tranche (ensemble des ressources du cadre)
+Champ.CFG.fin_ents = Champ.CFG.fin_ents or 600   -- pièces du plan dont les tuiles sont retenues par tranche
+local function fin_chunk(f, o, J)
+  local spec, plan = J.spec, J.plan
+  if J.st == "res" then
+    local ore = spec.ore
+    local last = math.min(#ore - 1, J.i + 2 * Champ.CFG.fin_tiles - 2)
+    for i = J.i, last, 2 do J.res[Ch.key(ore[i], ore[i + 1])] = true end
+    J.i = last + 2
+    if J.i > #ore - 1 then J.st, J.i = "ents", 1 end
+    return nil
+  end
+  if J.st == "ents" then
+    if f.build and f.build.occ then
+      local res = J.res
+      local function is_res(x, y)
+        local k = Ch.key(x, y)
+        return res[k] or (spec.foreign and spec.foreign[k]) or false
+      end
+      local ents = plan.ents
+      local last = math.min(#ents, J.i + Champ.CFG.fin_ents - 1)
+      local slice = {}
+      for i = J.i, last do slice[#slice + 1] = ents[i] end
+      J.n = J.n + Cd.reserve(f.build.occ, Cd.frame_tiles(slice, is_res), o.id, P.tkey)
+      J.i = last + 1
+      if J.i <= #ents then return nil end
+    end
+    J.st = "fin"
+    return nil
+  end
+  local nres = J.n
+  if nres > 0 then
+    log(string.format("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan (cadre:%d : colonnes, coffres, poteaux et tapis hors ressource des bandes futures) a %.1f min",
+      f.key or "player", o.id, nres, o.id, game.tick / 3600))
+  end
+  -- lot COUT-600 : la vérification du plan (Cv.verify : 0,2 M d'instructions à l'ordinaire, 4,7 M sur un champ de 600 %) ne sert qu'à la ligne de
+  -- journal [FO-CHAMP] ci-dessous : elle part dans une pensée à part (Champ.flush), le plan et l'ordre des bandes sont rendus tout de suite
+  -- ce qui occupe le gisement (hors de nos paires) : cause des tuiles que le champ ne couvre pas
+  local why, keys = {}, {}
+  for i = 1, #spec.ore - 1, 2 do
+    local k = Ch.key(spec.ore[i], spec.ore[i + 1])
+    local w = spec.blocked[k]
+    if w and not spec.mine[k] then
+      w = tostring(w)
+      if not why[w] then why[w] = 0; keys[#keys + 1] = w end
+      why[w] = why[w] + 1
+    end
+  end
+  table.sort(keys)
+  local occ = {}
+  for _, w in ipairs(keys) do occ[#occ + 1] = w .. " " .. why[w] end
+  -- ordre : bandes qui portent des paires de l'avant-poste (le plus de paires d'abord), puis la plus proche du QG en travers
+  local hv = (plan.axis == "x") and f.hq_pos.y or f.hq_pos.x
+  local pairs_in = {}
+  for _, d in ipairs(o.drill_list or {}) do
+    if d.valid then
+      local v = (plan.axis == "x") and d.position.y or d.position.x
+      for _, bd in ipairs(plan.bands) do
+        if v >= bd.pr and v < bd.pr + plan.pitch then pairs_in[bd.pr] = (pairs_in[bd.pr] or 0) + 1 end
+      end
+    end
+  end
+  local order = {}
+  -- lot BANDE-GELEE : une bande sans groupe dont les foreuses attendent une fonderie (bd.orphans, lot COUPLAGE) reste dans l'ordre : demandée
+  -- seule (Champ.band), elle reçoit sa colonne si elle trouve sa place alors, sinon elle est écartée comme toute bande vide ; elle passe APRÈS
+  -- les bandes à fonderie (graine 123456789, scarlet : une telle bande demandée la première, refusée, retardait tout le champ)
+  for _, bd in ipairs(plan.bands) do
+    if #bd.groups > 0 or bd.orphans > 0 then
+      order[#order + 1] = { pr = bd.pr, n = pairs_in[bd.pr] or 0, d = math.abs(bd.b - hv), wait = #bd.groups == 0 }
+    end
+  end
+  table.sort(order, function(a, b)
+    if a.wait ~= b.wait then return b.wait end
+    if (a.n > 0) ~= (b.n > 0) then return a.n > 0 end
+    if a.n ~= b.n then return a.n > b.n end
+    if a.d ~= b.d then return a.d < b.d end
+    return a.pr < b.pr
+  end)
+  local prs, with = {}, 0
+  for _, it in ipairs(order) do prs[#prs + 1] = it.pr; if it.n > 0 then with = with + 1 end end
+  -- lot FONDERIE : motif, charbon de chaque côté (voie ou coffre de tête, et pourquoi), souterrains et répartiteurs posés
+  local cs = {}
+  for _, c in ipairs(plan.stats.coal or {}) do
+    cs[#cs + 1] = string.format("cote %s %s%s", c.side > 0 and "+" or "-", c.voie and "voie de charbon" or "coffre de tete",
+      c.why and (" (" .. c.why .. ")") or "")
+  end
+  -- (lot COUT-600 : la ligne du plan est écrite tout de suite, comme avant, sans le résultat de Cv.verify ; ce résultat suit sur sa propre ligne,
+  -- écrite par Champ.flush avec log seul : say compte les lignes dans f.champ_logs (global), un compte écrit en différé ferait diverger une
+  -- partie rechargée de la même partie continuée)
+  say(f, string.format("avant-poste %d (%s) : plan du champ, %d bande(s) (%d avec des paires), axe %s, sortie %s ; %d foreuses, %d fours, %d poteaux, %d tapis ; %s",
+    o.id, o.kind, #prs, with, plan.axis, plan.exit > 0 and "+" or "-", plan.stats.drills, plan.stats.furnaces,
+    plan.stats.poles, plan.stats.belts, "verification du plan : ligne suivante") .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
+    .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
+      plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
+    .. string.format(" ; colonnes posees ailleurs %d, tapis collecteurs seuls %d, foreuses sans fonderie non posees %d%s", plan.stats.away or 0, plan.stats.bare or 0, plan.stats.orphans or 0,
+      plan.stats.away_why and (" (" .. plan.stats.away_why .. ")") or "")
+    .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
+      spec.coal and spec.coal.nforeign or 0))
+  -- (revue-fonderie, 3/11) réseau du charbon calculé dans l'autre ordre des côtés : moins de coffres de tête
+  if plan.order_swapped then
+    log(string.format("[FO-CHAMP] %s : avant-poste %d : reseau du charbon calcule cote %s d'abord : coffres de tete %d -> %d, foreuses du champ %d -> %d a %.1f min",
+      f.key or "player", o.id, plan.exit > 0 and "-" or "+", plan.order_swapped.chests, Ch.head_chests(plan), plan.order_swapped.drills, Ch.field_drills(plan),
+      game.tick / 3600))
+  end
+  -- lot FONDERIE (3/11, décision du lead) : refuser aurait coûté plus de la moitié des foreuses du champ : ce cadre garde ses colonnes au
+  -- coffre de tête (0.6.42)
+  if plan.coffre_cost then
+    log(string.format("[FO-CHAMP] %s : cadre a coffres : refus coutait %d %% du champ (avant-poste %d, %d colonne(s) sans voie de charbon) a %.1f min",
+      f.key or "player", plan.coffre_cost, o.id, plan.coffre_cols or 0, game.tick / 3600))
+  end
+  -- lot FONDERIE (3/11, 0.6.43) : colonnes refusées faute de voie de charbon (plus aucun coffre de tête à remplir)
+  for _, x in ipairs(plan.refused or {}) do
+    -- (hors du plafond des lignes [FO-CHAMP] de say : un refus se voit toujours)
+    log(string.format("[FO-CHAMP] %s : colonne refusee : pas de voie de charbon (avant-poste %d, bande %d, cote %s : %s) a %.1f min", f.key or "player",
+      o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
+  end
+  FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, oid = o.id, kind = o.kind }
+  return plan.frame, prs, plan
 end
 
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
 function Champ.frame(f, surface, o)
+  -- perf-reste : fin de plan en tranches en cours (FINJOB) : une tranche, sans Cd.clear (les tuiles déjà retenues de ce cadre restent)
+  do
+    local fk = okey(f, o.id)
+    local FJ = FINJOB[fk]
+    if FJ and (FJ.f ~= f or game.tick - FJ.tick > SEQ_GAP) then FINJOB[fk], FJ = nil, nil end
+    if FJ then
+      FJ.tick = game.tick
+      local g0 = game
+      local pf = g0.create_profiler and g0.create_profiler() or nil
+      local fr, prs, plan = fin_chunk(f, o, FJ)
+      if pf then
+        pf.stop()
+        log({ "", string.format("[FO-PERF-FIN] %s %d tranche %s : ", tostring(f.key or "player"), o.id, tostring(FJ.st)), pf })
+      end
+      if not plan then return nil, Ax.WAIT end
+      FINJOB[fk] = nil
+      return fr, prs, plan
+    end
+  end
   if f.build and f.build.occ then Cd.clear(f.build.occ, o.id) end -- lot COMBUSTIBLE-MIGRATION : un cadre refait libère les tuiles retenues par l'ancien
   -- s47 axe : au plus UN Ch.plan par tick (toutes équipes) ; l'essai de l'autre orientation part au tick suivant (o.axis_try, comptes du premier)
   local step = Ax.step(o.axis_try, game.tick, PLAN_TICK)
@@ -851,108 +992,12 @@ function Champ.frame(f, surface, o)
     o.axis_try = nil
     if not plan then return nil, why end
   end
-  -- Lot CC-SAUT (F515, mandat du DC du 10/11, 22 h 20) : le cadre figé fixe la place de la colonne de fours de TOUTES ses bandes futures (rejouée sans
-  -- recherche) ; ses tuiles hors ressource sont retenues au plan dès maintenant, sous le marqueur du cadre (Cd.frame_tiles) : libres pour les projets de
-  -- cet avant-poste, évitées par tous les autres (lignes de poteaux comprises). Avant, seules celles du réseau du charbon reporté l'étaient : la ligne de
-  -- poteaux de l'avant-poste, planifiée entre la demande de la bande et son plan, prenait la place figée de sa colonne et la bande ENTIÈRE était refusée
-  -- (référence 0.6.91, graine 314159265, joueur : projet 3 à 8,2 min, 17 foreuses ; puis le projet 19, 34 foreuses). Le minerai reste libre.
-  if f.build and f.build.occ then
-    local res = {}
-    for i = 1, #spec.ore - 1, 2 do res[Ch.key(spec.ore[i], spec.ore[i + 1])] = true end
-    local function is_res(x, y)
-      local k = Ch.key(x, y)
-      return res[k] or (spec.foreign and spec.foreign[k]) or false
-    end
-    local nres = Cd.reserve(f.build.occ, Cd.frame_tiles(plan.ents, is_res), o.id, P.tkey)
-    if nres > 0 then
-      log(string.format("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan (cadre:%d : colonnes, coffres, poteaux et tapis hors ressource des bandes futures) a %.1f min",
-        f.key or "player", o.id, nres, o.id, game.tick / 3600))
-    end
-  end
-  -- lot COUT-600 : la vérification du plan (Cv.verify : 0,2 M d'instructions à l'ordinaire, 4,7 M sur un champ de 600 %) ne sert qu'à la ligne de
-  -- journal [FO-CHAMP] ci-dessous : elle part dans une pensée à part (Champ.flush), le plan et l'ordre des bandes sont rendus tout de suite
-  -- ce qui occupe le gisement (hors de nos paires) : cause des tuiles que le champ ne couvre pas
-  local why, keys = {}, {}
-  for i = 1, #spec.ore - 1, 2 do
-    local k = Ch.key(spec.ore[i], spec.ore[i + 1])
-    local w = spec.blocked[k]
-    if w and not spec.mine[k] then
-      w = tostring(w)
-      if not why[w] then why[w] = 0; keys[#keys + 1] = w end
-      why[w] = why[w] + 1
-    end
-  end
-  table.sort(keys)
-  local occ = {}
-  for _, w in ipairs(keys) do occ[#occ + 1] = w .. " " .. why[w] end
-  -- ordre : bandes qui portent des paires de l'avant-poste (le plus de paires d'abord), puis la plus proche du QG en travers
-  local hv = (plan.axis == "x") and f.hq_pos.y or f.hq_pos.x
-  local pairs_in = {}
-  for _, d in ipairs(o.drill_list or {}) do
-    if d.valid then
-      local v = (plan.axis == "x") and d.position.y or d.position.x
-      for _, bd in ipairs(plan.bands) do
-        if v >= bd.pr and v < bd.pr + plan.pitch then pairs_in[bd.pr] = (pairs_in[bd.pr] or 0) + 1 end
-      end
-    end
-  end
-  local order = {}
-  -- lot BANDE-GELEE : une bande sans groupe dont les foreuses attendent une fonderie (bd.orphans, lot COUPLAGE) reste dans l'ordre : demandée
-  -- seule (Champ.band), elle reçoit sa colonne si elle trouve sa place alors, sinon elle est écartée comme toute bande vide ; elle passe APRÈS
-  -- les bandes à fonderie (graine 123456789, scarlet : une telle bande demandée la première, refusée, retardait tout le champ)
-  for _, bd in ipairs(plan.bands) do
-    if #bd.groups > 0 or bd.orphans > 0 then
-      order[#order + 1] = { pr = bd.pr, n = pairs_in[bd.pr] or 0, d = math.abs(bd.b - hv), wait = #bd.groups == 0 }
-    end
-  end
-  table.sort(order, function(a, b)
-    if a.wait ~= b.wait then return b.wait end
-    if (a.n > 0) ~= (b.n > 0) then return a.n > 0 end
-    if a.n ~= b.n then return a.n > b.n end
-    if a.d ~= b.d then return a.d < b.d end
-    return a.pr < b.pr
-  end)
-  local prs, with = {}, 0
-  for _, it in ipairs(order) do prs[#prs + 1] = it.pr; if it.n > 0 then with = with + 1 end end
-  -- lot FONDERIE : motif, charbon de chaque côté (voie ou coffre de tête, et pourquoi), souterrains et répartiteurs posés
-  local cs = {}
-  for _, c in ipairs(plan.stats.coal or {}) do
-    cs[#cs + 1] = string.format("cote %s %s%s", c.side > 0 and "+" or "-", c.voie and "voie de charbon" or "coffre de tete",
-      c.why and (" (" .. c.why .. ")") or "")
-  end
-  -- (lot COUT-600 : la ligne du plan est écrite tout de suite, comme avant, sans le résultat de Cv.verify ; ce résultat suit sur sa propre ligne,
-  -- écrite par Champ.flush avec log seul : say compte les lignes dans f.champ_logs (global), un compte écrit en différé ferait diverger une
-  -- partie rechargée de la même partie continuée)
-  say(f, string.format("avant-poste %d (%s) : plan du champ, %d bande(s) (%d avec des paires), axe %s, sortie %s ; %d foreuses, %d fours, %d poteaux, %d tapis ; %s",
-    o.id, o.kind, #prs, with, plan.axis, plan.exit > 0 and "+" or "-", plan.stats.drills, plan.stats.furnaces,
-    plan.stats.poles, plan.stats.belts, "verification du plan : ligne suivante") .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
-    .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
-      plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
-    .. string.format(" ; colonnes posees ailleurs %d, tapis collecteurs seuls %d, foreuses sans fonderie non posees %d%s", plan.stats.away or 0, plan.stats.bare or 0, plan.stats.orphans or 0,
-      plan.stats.away_why and (" (" .. plan.stats.away_why .. ")") or "")
-    .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
-      spec.coal and spec.coal.nforeign or 0))
-  -- (revue-fonderie, 3/11) réseau du charbon calculé dans l'autre ordre des côtés : moins de coffres de tête
-  if plan.order_swapped then
-    log(string.format("[FO-CHAMP] %s : avant-poste %d : reseau du charbon calcule cote %s d'abord : coffres de tete %d -> %d, foreuses du champ %d -> %d a %.1f min",
-      f.key or "player", o.id, plan.exit > 0 and "-" or "+", plan.order_swapped.chests, Ch.head_chests(plan), plan.order_swapped.drills, Ch.field_drills(plan),
-      game.tick / 3600))
-  end
-  -- lot FONDERIE (3/11, décision du lead) : refuser aurait coûté plus de la moitié des foreuses du champ : ce cadre garde ses colonnes au
-  -- coffre de tête (0.6.42)
-  if plan.coffre_cost then
-    log(string.format("[FO-CHAMP] %s : cadre a coffres : refus coutait %d %% du champ (avant-poste %d, %d colonne(s) sans voie de charbon) a %.1f min",
-      f.key or "player", plan.coffre_cost, o.id, plan.coffre_cols or 0, game.tick / 3600))
-  end
-  -- lot FONDERIE (3/11, 0.6.43) : colonnes refusées faute de voie de charbon (plus aucun coffre de tête à remplir)
-  for _, x in ipairs(plan.refused or {}) do
-    -- (hors du plafond des lignes [FO-CHAMP] de say : un refus se voit toujours)
-    log(string.format("[FO-CHAMP] %s : colonne refusee : pas de voie de charbon (avant-poste %d, bande %d, cote %s : %s) a %.1f min", f.key or "player",
-      o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
-  end
-  FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, oid = o.id, kind = o.kind }
-  fin_log("cadre rendu")
-  return plan.frame, prs, plan
+  -- perf-reste (banc PERFRESTE-4, 123456789 : fin d'un plan jusqu'à 69 ms d'un bloc, [FO-PERF-FIN]) : la réservation des tuiles du cadre
+  -- (Cd.frame_tiles, Cd.reserve) part en TRANCHES aux appels suivants (FINJOB : minerai puis pièces, dans le même ordre), puis la suite
+  -- (journal, ordre des bandes) au dernier appel ; Cd.clear du début de Champ.frame n'est pas refait pendant ces tranches
+  FINJOB[sk] = { f = f, key = key, plan = plan, spec = spec, st = "res", i = 1, res = {}, n = 0, tick = game.tick }
+  fin_log("plan fini, fin en tranches")
+  return nil, Ax.WAIT
 end
 
 --- Lot COUT-600 : UNE vérification de cadre en attente de l'équipe `f` (la plus ancienne) : Cv.verify puis la ligne de journal [FO-CHAMP]. À appeler à
