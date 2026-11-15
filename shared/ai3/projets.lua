@@ -403,6 +403,19 @@ end
 --- joueur), le plus proche est choisi sans la règle de renoncement.
 --- s46 outils : `zones` (but d'un gisement désigné, Co.goals) : seuls les avant-postes situés dans une de ces zones (o.x, o.y de la vue)
 --- s'agrandissent ; aucun dans la zone : nil (le projet BÂTIT, au site de la zone d'abord). Sans zones : la règle d'avant.
+--- Lot CUIVRE (14/11, nuit) : besoin du kit d'un avant-poste SANS confisquer le combustible qu'il ne peut pas encore prendre. Mesure (carte
+--- du DC, graine 20261020, journal [FO-CUIVRE]) : « extraction:iron manque {coal 80} » et « extraction:copper manque {coal 30} » pendant
+--- 15 min : le projet du fer, servi d'abord, mettait à 0 tout le charbon du stock virtuel (P.want) sans jamais réunir ses 80 ; le cuivre,
+--- qui n'en demande que 30, n'en voyait aucun (3 foreuses de cuivre contre 22 de fer à 15 min ; aucune chez votre équipe). Le combustible
+--- que le kit ne peut pas prendre en entier reste au stock virtuel pour le projet suivant ; son manque est noté comme avant (minage, journal).
+local function want_outpost(E, proj, list, prio, kind)
+  local fuel, need = T.fuel, 0
+  for _, it in ipairs(list) do if it[1] == fuel then need = need + it[2] end end
+  local have = E.avail[fuel] or 0
+  P.want(E, proj, list, prio, false, kind)
+  if need > 0 and have < need then E.avail[fuel] = have end
+end
+
 local function extendable(view, kind, undefended, zones)
   local near = view.sites_near and view.sites_near[kind] or nil
   local best, best_d2
@@ -469,7 +482,7 @@ EMIT.outpost = function(E, proj, g, ctx)
     -- Lot SCALE-COMPLET : la couverture d'un produit saturé pendant qu'une autre matière manque (g.take_only, B.generate) ne
     -- prend que ce qui reste au stock virtuel : elle ne fait rien fabriquer (la matière va d'abord à ce qui manque).
     if g.take_only then return "matiere" end
-    P.want(E, proj, items, prio, false, kind)
+    want_outpost(E, proj, items, prio, kind)
     return "matiere"
   end
   -- Lot SCALE-COMPLET : un but de COUVERTURE (g.extend_only, B.generate) n'agrandit qu'un avant-poste existant ; il ne bâtit
@@ -519,7 +532,7 @@ EMIT.outpost = function(E, proj, g, ctx)
         ia3 = proj.id, why = proj.key })
       return "ok"
     end
-    P.want(E, proj, list, prio, false, kind)
+    want_outpost(E, proj, list, prio, kind)
     return "matiere"
   end
   -- Aucun site connu : explorer, et préparer les objets pendant ce temps (un joueur fabrique ses foreuses en route).
@@ -527,7 +540,7 @@ EMIT.outpost = function(E, proj, g, ctx)
   if not (ctx and ctx.known and ctx.known[spec.resource]) then
     E.explore[spec.resource] = math.max(E.explore[spec.resource] or 0, prio)
   end
-  P.want(E, proj, list, prio - 5, false, kind)
+  want_outpost(E, proj, list, prio - 5, kind)
   return "bloque", "site:" .. kind
 end
 
