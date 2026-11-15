@@ -677,13 +677,17 @@ Recon.RUIN_CRAFT_CAP = 4      -- foreuses fabriquées d'avance par objet (la pre
 Recon.RUIN_MINE_CAP = 50      -- matière brute minée par tâche
 Recon.RUIN_FAB_LOGS = 200
 
-local function fab_note(f, s, x, tick, what, ...)
-  if tick - (x.fab_log or -math.huge) < 3600 then return end
+local function fab_note(f, s, oid, item, tick, what, ...)
+  s.fab_log = s.fab_log or {}
+  if tick - (s.fab_log[item] or -math.huge) < 3600 then return end
   if (s.stats.ruin_fab_logs or 0) >= Recon.RUIN_FAB_LOGS then return end
-  x.fab_log = tick
+  s.fab_log[item] = tick
   s.stats.ruin_fab_logs = (s.stats.ruin_fab_logs or 0) + 1
-  log(string.format("[FO-RUINE-FAB] %s : avant-poste %d (%s) a %.1f min, %.1f min apres la perte : " .. what, f.key or "player", x.oid,
-    tostring(x.kind), tick / 3600, (tick - x.tick) / 3600, ...))
+  local x = s.ruins and s.ruins[oid]
+  local o = f.outposts and f.outposts[oid]
+  local where = x and string.format("ruine %d (%s), %.1f min apres la perte", oid, tostring(x.kind), (tick - x.tick) / 3600)
+    or string.format("avant-poste %d (%s)", oid, tostring(o and o.kind))
+  log(string.format("[FO-RUINE-FAB] %s : %s a %.1f min : " .. what, f.key or "player", where, tick / 3600, ...))
 end
 
 local function minable(raw)
@@ -692,8 +696,9 @@ local function minable(raw)
 end
 
 function Recon.ruin_craft(f, s, book, free, due, tick, prio)
-  if not (Recon.RUIN_CRAFT and s and s.ruins and next(s.ruins) and book and free) then return 0 end
-  local wanted = Ru.demand(due, s.ruins, function(item) return free[item] or 0 end, Recon.RUIN_CRAFT_CAP)
+  if not (Recon.RUIN_CRAFT and s and book and free) then return 0 end
+  local function host(oid) return (f.outposts and f.outposts[oid] ~= nil) or (s.ruins ~= nil and s.ruins[oid] ~= nil) end
+  local wanted = Ru.demand(due, host, function(item) return free[item] or 0 end, Recon.RUIN_CRAFT_CAP)
   if #wanted == 0 then return 0 end
   s.stats = s.stats or {}
   local avail = {}
@@ -701,7 +706,6 @@ function Recon.ruin_craft(f, s, book, free, due, tick, prio)
   local added = {}
   for _, w in ipairs(wanted) do
     local item, n, oid = w[1], w[2], w[3]
-    local x = s.ruins[oid]
     if book:handcraftable(item) then
       local saved = avail[item]
       avail[item] = 0
@@ -719,7 +723,7 @@ function Recon.ruin_craft(f, s, book, free, due, tick, prio)
           if u[1] ~= item then avail[u[1]] = (avail[u[1]] or 0) - u[2] end
         end
         s.stats.ruin_crafts = (s.stats.ruin_crafts or 0) + 1
-        fab_note(f, s, x, tick, "%d %s a fabriquer (voulues %d, stock libre %d)", m, item, n, free[item] or 0)
+        fab_note(f, s, oid, item, tick, "%d %s a fabriquer (voulues %d, stock libre %d)", m, item, n, free[item] or 0)
       else
         local miss, mines = {}, {}
         for _, k in ipairs(State.sorted_keys(q.raw)) do
@@ -732,11 +736,11 @@ function Recon.ruin_craft(f, s, book, free, due, tick, prio)
             s.stats.ruin_mines = (s.stats.ruin_mines or 0) + 1
           end
         end
-        fab_note(f, s, x, tick, "%d %s non fabricable(s), matiere manquante {%s} ; minage a la main {%s}", n, item, table.concat(miss, ", "),
+        fab_note(f, s, oid, item, tick, "%d %s non fabricable(s), matiere manquante {%s} ; minage a la main {%s}", n, item, table.concat(miss, ", "),
           table.concat(mines, ", "))
       end
     else
-      fab_note(f, s, x, tick, "%s non fabricable a la main", item)
+      fab_note(f, s, oid, item, tick, "%s non fabricable a la main", item)
     end
   end
   if #added > 0 then return Board.add(f, added, tick) end
@@ -755,8 +759,8 @@ function Recon.craft_spares(f, book, free, tick)
   Profiler.fstart("spares:poteaux")
   substitute_poles(f, s, book, free, tick, Recon.S5 and { ok = {}, raw = {} } or nil, keys)
   Profiler.fstop("spares:poteaux")
-  -- Lot RECONSTRUCTION-0716 : les foreuses des ruines vivantes sont fabriquées (ou leur matière brute minée), à la priorité de l'infrastructure.
-  if s.ruins and next(s.ruins) then
+  -- Lot RECONSTRUCTION-0716 : les pièces d'avant-poste dues (vivant ou ruine) sont fabriquées (ou leur matière brute minée), à la priorité de l'infrastructure.
+  do
     Profiler.fstart("spares:ruines")
     Recon.ruin_craft(f, s, book, free, scarce_first(f, s, Rc.due(s, tick)), tick, Rc.task_prio(Rc.INFRA_VALUE))
     Profiler.fstop("spares:ruines")
