@@ -977,14 +977,18 @@ function ONCE.setup(s)
   return false
 end
 
+-- perf-reste (banc REF0722, carte du DC : étapes « band » jusqu'à 68 ms d'un bloc) : une bande en DEUX pas, un par bout (le groupe de
+-- foreuses et la place de sa fonderie, Co.place), puis l'émission des pièces avec le second ; l'état entre deux pas (s.bst : foreuses
+-- prises, groupes, limite) est celui qu'avait la boucle des bouts : même ordre, même plan
 function ONCE.band(s)
-  local bi, bd = s.bi, s.bands[s.bi]
-  if not bd then s.bi = nil; s.stage = "charbon" return false end
-  s.bi = bi + 1
-  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une bande par appel de Ch.plan_steps)
+  local B = s.bst
   local spec, c, F = s.spec, s.c, s.F
   local d, colonne, exit, umin, umax, lane, fuelled = spec.drill, s.colonne, s.exit, s.umin, s.umax, s.lane, s.fuelled
   local shared_plate = function(u, v, e) return s.plate_dir[Co.tk(u, v)] == e.du end
+  if not B then
+  local bi, bd = s.bi, s.bands[s.bi]
+  if not bd then s.bi = nil; s.stage = "charbon" return false end
+  s.bi = bi + 1
   s.offsets[tostring(bd.pr)] = { bd.on, bd.os }
   local used, groups = {}, {}
   -- F555 : le premier bout prend `first_k` foreuses (les plus près de son bord), le second bout TOUT le reste, sans plafond ; premier
@@ -1001,7 +1005,13 @@ function ONCE.band(s)
     local u2 = hit or (exit > 0 and umax + 1 or umin - 1)
     if exit > 0 then limit = math.min(cus[#cus - k], u2 - 1) else limit = math.max(cus[k + 1], u2 + 1) end
   end
-  for _, side in ipairs(Ch.CFG.both_ends and { exit, -exit } or { exit }) do
+  B = { bi = bi, used = used, groups = groups, limit = limit, sides = Ch.CFG.both_ends and { exit, -exit } or { exit }, si = 1 }
+  s.bst = B
+  end
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une bande par appel de Ch.plan_steps ; perf-reste : un bout par appel)
+  local bi, bd, used, groups, limit = B.bi, s.bands[B.bi], B.used, B.groups, B.limit
+  do
+    local side = B.sides[B.si]
     local edge = side > 0 and umax or umin
     local g = take_group(c, spec, bd, side, edge, used, limit)
     limit = nil
@@ -1054,6 +1064,10 @@ function ONCE.band(s)
       end
     end
   end
+  B.limit = limit
+  B.si = B.si + 1
+  if B.si <= #B.sides then return true end
+  s.bst = nil
   -- orphans : foreuses de la bande non posées faute de fonderie (lot COUPLAGE) ; lu par l'ordre des bandes (script/team/champ.lua,
   -- Champ.frame) : une bande sans groupe mais à foreuses en attente reste demandée seule plus tard (lot BANDE-GELEE)
   local bo = { pr = bd.pr, b = bd.b, groups = {}, orphans = 0 }
@@ -1794,6 +1808,7 @@ function Ch.plan_steps(st, tick_work)
     Ch.STEP_WORK = w0
     used = used + Co.WORK
   until done or not st.inner or used >= tick_work
+  Ch.LAST_WORK = used -- perf-reste : travail compté de l'appel (journal [FO-PERF-ETAPE] ; jamais lu pour une décision)
   return done
 end
 

@@ -812,8 +812,8 @@ function Champ.frame(f, surface, o)
   if prof_step then
     prof_step.stop()
     local cur = seq.st.cur
-    log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=%s pass=%s k=%d %s n=%d spec=", tostring(f.key or "player"), o.id, step,
-      tostring(cur and cur.i or "fin"), tostring(cur and cur.o.pass or "-"), seq.st.k, Ch.LAST_STEP, seq.st.k - k0), "0 pas=", prof_step })
+    log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=%s pass=%s k=%d %s n=%d travail=%d spec=", tostring(f.key or "player"), o.id, step,
+      tostring(cur and cur.i or "fin"), tostring(cur and cur.o.pass or "-"), seq.st.k, Ch.LAST_STEP, seq.st.k - k0, Ch.LAST_WORK or 0), "0 pas=", prof_step })
   end
   Profiler.fstop("champ:frame-plan")
   if not done then return nil, Ax.WAIT end
