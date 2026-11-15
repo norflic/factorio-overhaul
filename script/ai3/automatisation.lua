@@ -640,10 +640,23 @@ function Auto.think(f, view, book, tick, research)
   end
   -- Lot CORR-ENERGIE : une centrale de plus, demandée par le plan directeur (saturation), est un projet du cerveau comme la
   -- première : ses matériaux (chaudière, machines à vapeur) sont fabriqués pour elle
+  -- Lot CENTRALE2 : la centrale de plus demandée pendant que la centrale finie est SATURÉE (ou en déficit de kW) est URGENTE (A.goals : valeur
+  -- A.PLANT_URGENT, au-dessus des modules et de la recherche) : tout ce qui est électrique attend son courant. Journal [FO-CENTRALE2] par minute.
+  local grow = f.build and f.build.grow or {}
+  local urgent = (grow.saturated or (grow.def_n or 0) > 0) and true or nil
   for _, id in ipairs(f.build and f.build.extra_plants or {}) do
     local ps = Build.brief(f, id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      mods[#mods + 1] = { id = id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+      mods[#mods + 1] = { id = id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain,
+        urgent = urgent }
+      if tick >= (st.c2_log or 0) then
+        st.c2_log = tick + 3600
+        local miss = {}
+        for _, m in ipairs(ps.missing or {}) do miss[#miss + 1] = tostring(m[1]) .. " " .. tostring(m[2]) end
+        log(string.format("[FO-CENTRALE2] %s : centrale de plus (projet %d) %s/%s a %.1f min : but du cerveau %s (gain %s) ; manque %s",
+          f.key or "player", id, tostring(ps.state), tostring(ps.reason), minutes(f, tick), urgent and "URGENT" or "ordinaire",
+          tostring(st.plant_gain or 0), #miss > 0 and table.concat(miss, ", ") or "-"))
+      end
     end
   end
   -- Lot ENERGIE (relecture) : le projet d'alimentation de la centrale (foreuses, tapis, poteaux ; demandé par le plan directeur, charbon_step)

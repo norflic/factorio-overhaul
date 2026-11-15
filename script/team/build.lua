@@ -5250,6 +5250,14 @@ local function advance(f, surface, p, tick)
         end
       end
       p.reason, p.reserve_next = "materiaux", tick + 60
+      -- lot CENTRALE2 (diagnostic, lecture seule) : une centrale de plus en réserve : ce qui lui manque, toutes les 2 min
+      if p.spec.plant and tick >= (p.c2_log or 0) then
+        p.c2_log = tick + 7200
+        local parts = {}
+        for _, m in ipairs(p.missing or {}) do parts[#parts + 1] = string.format("%s %d (coffre %d)", m[1], m[2], Stock.count(f, m[1])) end
+        log(string.format("[FO-CENTRALE2] %s : projet %d (centrale) en reserve:materiaux depuis %.1f min a %.1f min : manque %s",
+          f.key or "player", p.id, (tick - (p.started or tick)) / 3600, tick / 3600, #parts > 0 and table.concat(parts, ", ") or "-"))
+      end
     end
     return
   end
