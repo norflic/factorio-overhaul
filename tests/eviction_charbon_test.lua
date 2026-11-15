@@ -63,6 +63,35 @@ do -- mutants
   end
 end
 
+-- 1 bis. Lot libéré réservé tant que son projet est ouvert (B7 : libéré à la fin du détenteur) -----------------------------------------
+local function held_battery(H, Pr)
+  local ok, n = 0, 0
+  local function c(cond) n = n + 1 if cond then ok = ok + 1 end end
+  local rects = { { pid = 6, x0 = -324, y0 = -324, x1 = -300, y1 = -300 }, { pid = 9, x0 = 0, y0 = 0, x1 = 24, y1 = 24 } }
+  local openset = { [6] = true }
+  local function open(pid) return openset[pid] == true end
+  c(H(rects, -320, -320, 2, 2, open) == true)            -- foreuse d'avant-poste dans le lot du projet 6 ouvert
+  c(H(rects, -301, -301, 2, 2, open) == true)            -- à cheval sur le bord
+  c(H(rects, -300, -320, 2, 2, open) == false)           -- x1 exclu
+  c(H(rects, 5, 5, 2, 2, open) == false)                 -- lot du projet 9 fermé : libéré
+  openset[6] = nil
+  c(H(rects, -320, -320, 2, 2, open) == false)           -- projet 6 fini : libéré
+  openset[9] = true
+  local kept = Pr(rects, open)
+  c(#kept == 1 and kept[1].pid == 9)
+  return ok, n
+end
+ok, n = held_battery(Ev.held, Ev.prune)
+check(ok == n, string.format("1 bis. reservation : %d/%d", ok, n))
+do
+  local k, t = held_battery(function(rects, x0, y0, w, h) -- mutant : réservation sans fin (verrou jamais libéré)
+    for _, r in ipairs(rects) do if x0 < r.x1 and x0 + w > r.x0 and y0 < r.y1 and y0 + h > r.y0 then return true end end
+    return false end, Ev.prune)
+  check(k < t, "1 bis. mutant (verrou jamais libere) doit echouer")
+  k, t = held_battery(function() return false end, Ev.prune)
+  check(k < t, "1 bis. mutant (aucune reservation) doit echouer")
+end
+
 -- 2. Pause du projet d'alimentation --------------------------------------------------------------------------------------------------
 local Cc = fresh("shared.team.charbon_centrale")
 local function cc_battery(C)
@@ -141,6 +170,8 @@ check(team:find("Centrale.survie(", 1, true) ~= nil, "4. team.lua lit le verrou 
 check(team:find("if ia3 and not energie_hold then Ia3.capital_continu(", 1, true) ~= nil, "4. remplacement continu sous le verrou")
 check(team:find("if energie_hold then\n    Ia3.capital_attente(f, energie_why, tick)\n  elseif ia3 and not (pile_hold or recon_hold) then", 1, true) ~= nil,
   "4. paiement de l'amelioration sous le verrou (avant le degel)")
+check(build:find("if held and EvC.held(b.evict_rects, x0, y0, w, h, EvRt.open_fn(b)) then return true end", 1, true) ~= nil,
+  "4. le crochet unique des tuiles reservees lit les lots liberes")
 local rt = read("script/team/eviction_charbon.lua")
 check(rt:find("State.disown(unit)", 1, true) ~= nil and rt:find("raise_destroyed = true", 1, true) ~= nil, "4. retrait comme revert_one (plus possedee, mine)")
 

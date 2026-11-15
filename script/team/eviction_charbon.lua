@@ -60,8 +60,20 @@ function R.vain(f, p, tried, tick)
   end
 end
 
---- Retire du lot `rect` les foreuses et coffres des avant-postes de `item`. Rend le nombre d'entités retirées.
+--- Le projet `pid` de l'équipe est-il ouvert (ni fini, ni refusé, ni abandonné) ?
+function R.open_fn(b)
+  return function(pid)
+    local q = b and b.projects and b.projects[pid]
+    return q ~= nil and q.state ~= "fini" and q.state ~= "refuse" and not q.abandoned and not (q.state == "bloque" and not q.retry_at)
+  end
+end
+
+--- Retire du lot `rect` les foreuses et coffres des avant-postes de `item` ; le lot reste réservé au projet `p` tant qu'il est ouvert
+--- (b.evict_rects, lu par Build.reserved_entity). Rend le nombre d'entités retirées.
 function R.lot(f, item, rect, p, tick)
+  local b0 = f.build
+  b0.evict_rects = Ev.prune(b0.evict_rects, R.open_fn(b0))
+  b0.evict_rects[#b0.evict_rects + 1] = { pid = p.id, x0 = rect.x0, y0 = rect.y0, x1 = rect.x1, y1 = rect.y1 }
   local pick = pick_of(f, item, rect)
   if #pick == 0 then return 0 end
   local nd, ns, kept, touched, tids = 0, 0, 0, {}, {}

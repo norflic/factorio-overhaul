@@ -34,6 +34,24 @@ function Ev.inside(list, rect)
   return out
 end
 
+--- Lot ENERGIE-0916 (banc ENERGIE-0916-apres30, amber : le lot vidé à 14,1 min portait de nouveau 6 foreuses d'avant-poste à 21,3 min, le plan
+--- du projet en plusieurs passes n'avait pas encore réservé ses tuiles) : un lot libéré reste RÉSERVÉ tant que son projet d'alimentation est
+--- ouvert. rects : liste de { pid, x0, y0, x1, y1 } ; open(pid) -> vrai si le projet est ouvert. L'emprise [x0, x0 + w) × [y0, y0 + h)
+--- touche-t-elle un lot réservé ? (ordre de la liste, aucun `pairs`)
+function Ev.held(rects, x0, y0, w, h, open)
+  for _, r in ipairs(rects or {}) do
+    if open(r.pid) and x0 < r.x1 and x0 + w > r.x0 and y0 < r.y1 and y0 + h > r.y0 then return true end
+  end
+  return false
+end
+
+--- Liste des lots réservés sans ceux des projets fermés (fini, refusé, abandonné) : libération à la fin du détenteur.
+function Ev.prune(rects, open)
+  local out = {}
+  for _, r in ipairs(rects or {}) do if open(r.pid) then out[#out + 1] = r end end
+  return out
+end
+
 --- Ligne de journal (texte seul).
 function Ev.line(r)
   return string.format("[FO-EVICTION-CHARBON] %s : projet %d (alimentation de la centrale %s) : lot (%d, %d) libere pour la centrale : %d foreuse(s) et %d coffre(s) de l'avant-poste retires au stock, %d garde(s) (stock plein) a %.1f min",

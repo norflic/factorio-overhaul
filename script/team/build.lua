@@ -2115,12 +2115,14 @@ function Build.reserved_entity(f, name, pos, dir, opts)
   local occ = b and b.occ
   -- lot ÉTAGE 5 : une emprise sur le couloir d'accès d'un avant-poste est réservée (agrandissements, tourelles, remplacements)
   local cor = (opts and opts.couloir == false) and Build.NO_COULOIR or Build.couloirs(f)
-  if not occ and next(cor) == nil then return false end
+  local held = b and b.evict_rects and #b.evict_rects > 0 -- lot ENERGIE-0916 : lots libérés pour l'alimentation d'une centrale
+  if not occ and next(cor) == nil and not held then return false end
   local p = game.entity_prototypes[name]
   if not p then return false end
   local w, h = p.tile_width or 1, p.tile_height or 1
   if dir == 2 or dir == 6 then w, h = h, w end
   local x0, y0 = math.floor(pos.x - w / 2 + 0.01), math.floor(pos.y - h / 2 + 0.01)
+  if held and EvC.held(b.evict_rects, x0, y0, w, h, EvRt.open_fn(b)) then return true end
   local keep = opts and opts.keep
   local by_cor = false
   for ty = y0, y0 + h - 1 do
