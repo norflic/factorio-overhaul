@@ -3829,7 +3829,8 @@ local UPGRADE_GROUP = {}
 local function upgrade_group(name)
   local g = UPGRADE_GROUP[name]
   if g == nil then
-    local pr = game.entity_prototypes[name]
+    local protos = game and game.entity_prototypes -- (moteur de bouchons des tests : sans prototypes, aucune équivalence)
+    local pr = protos and protos[name]
     g = pr and pr.fast_replaceable_group and (pr.type .. "|" .. pr.fast_replaceable_group) or false
     UPGRADE_GROUP[name] = g
   end
