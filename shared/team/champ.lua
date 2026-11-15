@@ -110,8 +110,12 @@ local function bind(c)
     return all[Ch.key(x, y)] == true
   end
   local nfree = 0 -- perf-frame : lectures de place libre de l'étape (compte du travail, Ch.once_step ; jamais une décision)
+  local FW = Ch.FREE_WORK
   c.free = function(u, v)
     nfree = nfree + 1
+    -- perf-reste (banc PERFRESTE-2 : pas « net » à 7 488 de travail pour un budget de 2 000, les lectures de place libre n'étaient comptées
+    -- qu'après le pas) : chaque lecture compte tout de suite, les recherches reprenables s'arrêtent au budget en les voyant
+    Co.WORK = Co.WORK + FW
     local x, y = c.xy(u, v)
     local k = Ch.key(x, y)
     return not c.taken[k] and (c.mine[k] or not c.blocked[k])
@@ -137,9 +141,11 @@ local function unbind(c) for _, k in ipairs(CTX_FN) do c[k] = nil end end
 Ch.CTX_CHUNK = 6000
 -- perf-frame : budget de travail d'un pas de plan (Ch.once_step) : états développés des tracés (Co.route), places et tuiles lues des
 -- recherches de colonne ailleurs (Co.away). Un compte fixe : même découpage, même plan sur toutes les machines.
-Ch.STEP_WORK = 2000 -- perf-astar : 3 000 avant (pas jusqu a 120 ms en jeu, carte du DC), 1 500 au banc 3 (plans trop lents)
+Ch.STEP_WORK = 1600 -- perf-astar : 3 000 avant (pas jusqu a 120 ms en jeu, carte du DC), 1 500 au banc 3 (plans trop lents) ;
+                    -- perf-reste : 2 000 -> 1 600 (PERFRESTE-7 : un pas « net » ou « bare » de 2 500 de travail, 52 ms)
 Ch.STEP_BASE = 500 -- travail compté pour tout pas (en plus de ses recherches)
 Ch.HEAVY_WORK = 3000 -- forfait d'une étape d'un bloc (une bande, les bras, les poteaux, une tranche du contexte)
+Ch.BAND_WORK = 500 -- perf-reste : forfait d'un pas de bande (un bout), sa recherche de place (Co.place) comptée et reprenable à part
 Ch.FREE_WORK = 0.5 --travail compté par lecture de place libre du contexte (c.free) pendant le pas
 Ch.ROW_WORK = 1 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
 local function context_new(spec, axis)
@@ -977,14 +983,18 @@ function ONCE.setup(s)
   return false
 end
 
+-- perf-reste (banc REF0722, carte du DC : étapes « band » jusqu'à 68 ms d'un bloc) : une bande en DEUX pas, un par bout (le groupe de
+-- foreuses et la place de sa fonderie, Co.place), puis l'émission des pièces avec le second ; l'état entre deux pas (s.bst : foreuses
+-- prises, groupes, limite) est celui qu'avait la boucle des bouts : même ordre, même plan
 function ONCE.band(s)
-  local bi, bd = s.bi, s.bands[s.bi]
-  if not bd then s.bi = nil; s.stage = "charbon" return false end
-  s.bi = bi + 1
-  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une bande par appel de Ch.plan_steps)
+  local B = s.bst
   local spec, c, F = s.spec, s.c, s.F
   local d, colonne, exit, umin, umax, lane, fuelled = spec.drill, s.colonne, s.exit, s.umin, s.umax, s.lane, s.fuelled
   local shared_plate = function(u, v, e) return s.plate_dir[Co.tk(u, v)] == e.du end
+  if not B then
+  local bi, bd = s.bi, s.bands[s.bi]
+  if not bd then s.bi = nil; s.stage = "charbon" return false end
+  s.bi = bi + 1
   s.offsets[tostring(bd.pr)] = { bd.on, bd.os }
   local used, groups = {}, {}
   -- F555 : le premier bout prend `first_k` foreuses (les plus près de son bord), le second bout TOUT le reste, sans plafond ; premier
@@ -1001,9 +1011,22 @@ function ONCE.band(s)
     local u2 = hit or (exit > 0 and umax + 1 or umin - 1)
     if exit > 0 then limit = math.min(cus[#cus - k], u2 - 1) else limit = math.max(cus[k + 1], u2 + 1) end
   end
-  for _, side in ipairs(Ch.CFG.both_ends and { exit, -exit } or { exit }) do
+  B = { bi = bi, used = used, groups = groups, limit = limit, sides = Ch.CFG.both_ends and { exit, -exit } or { exit }, si = 1 }
+  s.bst = B
+  end
+  -- perf-reste : forfait réduit (Ch.BAND_WORK) : la place de la fonderie (Co.place) est reprenable au budget, ses lectures comptées
+  -- (banc PERFRESTE-4 : à 500 dès le premier passage, trois bouts dans un appel, 130 ms : le premier passage d'un bout garde le forfait d'un
+  -- bloc, Ch.HEAVY_WORK, la reprise d'une place suspendue compte Ch.BAND_WORK)
+  -- (PERFRESTE-5 : une reprise à Ch.BAND_WORK laissait commencer le bout suivant dans le même appel, 73 ms : chaque passage garde le
+  -- forfait d'un bloc, un passage par appel ; la place suspendue avance d'un recul au moins à chaque passage)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK
+  local bi, bd, used, groups, limit = B.bi, s.bands[B.bi], B.used, B.groups, B.limit
+  do
+    local side = B.sides[B.si]
     local edge = side > 0 and umax or umin
-    local g = take_group(c, spec, bd, side, edge, used, limit)
+    -- (reprise d'une place de fonderie suspendue : le groupe du premier appel, gardé)
+    local g = B.g or take_group(c, spec, bd, side, edge, used, limit)
+    B.g = nil
     limit = nil
     if g then
       local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
@@ -1017,8 +1040,14 @@ function ONCE.band(s)
         elseif not (F and F.cols) or fixed then
           local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
           half = half_of(s, bd.pr, fixed)
+          B.P = B.P or {}
           list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
-            c.is_resource, mode, fixed, half, shared_plate, run_memo("places"))
+            c.is_resource, mode, fixed, half, shared_plate, run_memo("places"), Co.WORK_LIM and B.P or nil)
+          if not list and len == Co.SUSPEND then
+            B.g, B.limit = g, B.limit -- même bout au pas suivant (limite d'avant le groupe inchangée)
+            return true
+          end
+          B.P = nil
           if not list and not s.no_smelter_at then
             -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
             local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))
@@ -1054,6 +1083,10 @@ function ONCE.band(s)
       end
     end
   end
+  B.limit = limit
+  B.si = B.si + 1
+  if B.si <= #B.sides then return true end
+  s.bst = nil
   -- orphans : foreuses de la bande non posées faute de fonderie (lot COUPLAGE) ; lu par l'ordre des bandes (script/team/champ.lua,
   -- Champ.frame) : une bande sans groupe mais à foreuses en attente reste demandée seule plus tard (lot BANDE-GELEE)
   local bo = { pr = bd.pr, b = bd.b, groups = {}, orphans = 0 }
@@ -1208,15 +1241,25 @@ function ONCE.net(s)
   return true
 end
 
+-- perf-reste (banc REF0722 : étapes « branch » jusqu'à 63 ms d'un bloc, 2 500 pièces) : les colonnes en attente sont reprises par TRANCHES
+-- de Ch.BRANCH_ENTS pièces émises au plus par pas (curseur s.br.i, dans l'ordre de s.pending : même plan), la fin au dernier pas
+Ch.BRANCH_ENTS = 600
 function ONCE.branch(s)
   Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : seul dans son appel de Ch.plan_steps)
   local spec, c, F = s.spec, s.c, s.F
   local d, exit, nets, coal_frame, ents = spec.drill, s.exit, s.nets, s.coal_frame, s.ents
-  s.zone, s.coal_set, s.coal_list, s.ugs, s.first, s.side_i = nil, nil, nil, nil, nil, nil
-  local shared_done = {}
-  local fallback = {}
-  s.fallback = fallback
-  for _, it in ipairs(s.pending) do
+  if not s.br then
+    s.zone, s.coal_set, s.coal_list, s.ugs, s.first, s.side_i = nil, nil, nil, nil, nil, nil
+    s.fallback = {}
+    s.br = { i = 1, shared_done = {} }
+  end
+  local shared_done = s.br.shared_done
+  local fallback = s.fallback
+  local e0 = #ents
+  while s.br.i <= #s.pending do
+    if #ents - e0 >= Ch.BRANCH_ENTS then return true end
+    local it = s.pending[s.br.i]
+    s.br.i = s.br.i + 1
     local g = it.g
     local key = tostring(it.pr)
     local nt = nets[g.side]
@@ -1273,6 +1316,7 @@ function ONCE.branch(s)
     local og = s.out_bands[it.bi] and s.out_bands[it.bi].groups[it.gi]
     if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
   end
+  s.br = nil
   for _, side in ipairs({ exit, -exit }) do
     local nt = nets[side]
     if nt then
@@ -1554,7 +1598,7 @@ function Ch.once_step(s)
   repeat ran[#ran + 1] = s.stage; heavy = ONCE[s.stage](s) until heavy or s.done
   Co.WORK_LIM = nil
   -- (étapes non comptées : une bande, les poteaux... : un forfait et leurs lectures de place libre ; borne les pas groupés par Ch.plan_steps)
-  Co.WORK = Co.WORK + Ch.STEP_BASE + ((s.c and s.c.nfree) and math.floor(s.c.nfree() * Ch.FREE_WORK) or 0)
+  Co.WORK = Co.WORK + Ch.STEP_BASE -- (perf-reste : les lectures de place libre sont comptées à chaque lecture, c.free)
   -- mesure : étapes faites dans cet appel et tailles (journal [FO-PERF-ETAPE] du câblage ; jamais lu pour une décision)
   Ch.LAST_STEP = string.format("%s tuiles=%d bandes=%d bi=%s ph=%s pending=%d bare=%d/%d ents=%d", table.concat(ran, ">"),
     s.c and #s.c.list or 0, s.bands and #s.bands or 0, tostring(s.bi), tostring(s.ph), s.pending and #s.pending or 0,
@@ -1794,6 +1838,7 @@ function Ch.plan_steps(st, tick_work)
     Ch.STEP_WORK = w0
     used = used + Co.WORK
   until done or not st.inner or used >= tick_work
+  Ch.LAST_WORK = used -- perf-reste : travail compté de l'appel (journal [FO-PERF-ETAPE] ; jamais lu pour une décision)
   return done
 end
 

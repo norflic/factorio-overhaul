@@ -49,8 +49,13 @@ Champ.CFG = {
   -- perf-frame : travail des étapes du plan groupées dans un appel (Ch.plan_steps ; compte d'états et de tuiles, jamais un temps :
   -- même découpage sur toutes les machines). Banc 0.7.113 carte du DC : 3 000 unités de recherche ~ 1,5 à 2 ms
   -- perf-astar (banc carte du DC, 30 min, 6 000 : appels de 90 à 166 ms en jeu, une unité y coûte bien plus que hors jeu) : 2 000
-  tick_work = 3000, -- perf-astar 2 : 2000 retardait les plans (fer -9 % a T+30, graine de la carte du DC)
+  tick_work = 2200, -- perf-astar 2 : 2000 retardait les plans (fer -9 % a T+30, graine de la carte du DC) ; perf-reste : 3000 -> 2200
+                    -- (PERFRESTE-5 : appels « net » et « bare » de 3 500 de travail à 55 ms ; PERFRESTE-6 : « net » à 2 500, 52 ms)
   spec_cells = 20000, -- perf-astar : tuiles du rectangle lu relues par appel à l étape « occ » de la spec (réserves, couloirs)
+  read_cells = 1500, -- perf-reste (PERFRESTE-6, 123456789 : à 6 000, une bande du disque du charbon dense, 64 ms ; PERFRESTE-7 : à 3 000, 72 ms) : tuiles du rectangle (ou du carré d'un rayon) demandées au moteur par appel aux étapes de lecture de la
+                     -- spec (ore, charbon, foreign, blocked, autour) ; bandes de colonnes entières (banc REF0722 : 60 à 196 ms d'un bloc)
+  read_check = 0,    -- perf-reste : lectures par rayon comparées à la requête d'un bloc d'avant (journal [FO-PERF-LECTURE], mesure seule ;
+                     -- 0 : bancs PERFRESTE-2 à 5, 10 lectures identiques sur 2 graines, et la requête de contrôle faisait elle-même un pic)
   radius = 96,      -- tuiles autour de l'avant-poste où le gisement est lu
   side = 8,         -- foreuses par côté et par groupe au plus (une bande coûte ce que sa fonderie coûte : la suivante l'agrandit)
   margin_v = 10,    -- tuiles lues en travers au-delà du gisement
@@ -231,6 +236,7 @@ end
 
 --- Lot FONDERIE : tuiles de charbon du gisement le plus proche du champ (fenêtre autour de la tuile la plus proche de `pos`, triées) et
 --- leur boîte, ou nil.
+local coal_from
 local function coal_tiles(surface, pos)
   local res = T.outposts.coal.resource
   -- perf-astar (14/11, lecture de la spec jusqu'à 180 ms dans un tick sur la carte du DC : des dizaines de milliers de tuiles de charbon dans
@@ -246,6 +252,10 @@ local function coal_tiles(surface, pos)
       pts[#pts + 1] = { x = x, y = y, d = (x - pos.x) ^ 2 + (y - pos.y) ^ 2 }
     end
   end
+  return coal_from(pts, pos)
+end
+--- perf-reste : la suite de coal_tiles sur les positions lues (pts = { {x, y, d} }, l'ordre de lecture est sans effet)
+coal_from = function(pts, pos)
   if #pts == 0 then return nil end
   -- (lot FONDERIE, lot2-20261020) jusqu'à 3 gisements : fenêtres autour de la tuile la plus proche, puis de la plus proche hors des fenêtres
   -- déjà prises (le plus proche peut être couvert par les paires thermiques de l'équipe : la règle pure garde celui qui porte le plus)
@@ -283,16 +293,19 @@ local function coal_tiles(surface, pos)
 end
 
 --- Tuiles (liste plate) du gisement de l'avant-poste : composante connexe des tuiles de minerai autour de son centre.
+local function ore_from(raw, o)
+  local comp = Paires.nearest_component(raw, Paires.GAP, o.pos) -- lot COUT-600 : = component(sorted(...)) sans trier les gisements voisins
+  local out = {}
+  for _, t in ipairs(comp) do out[#out + 1] = math.floor(t.x); out[#out + 1] = math.floor(t.y) end
+  return out
+end
 local function ore_tiles(surface, o)
   local res = T.outposts[o.kind].resource
   local raw = {}
   for _, r in ipairs(surface.find_entities_filtered({ position = o.pos, radius = Champ.CFG.radius, name = res })) do
     if r.valid then local p = r.position; raw[#raw + 1] = { x = p.x, y = p.y } end -- perf-astar : position lue une fois
   end
-  local comp = Paires.nearest_component(raw, Paires.GAP, o.pos) -- lot COUT-600 : = component(sorted(...)) sans trier les gisements voisins
-  local out = {}
-  for _, t in ipairs(comp) do out[#out + 1] = math.floor(t.x); out[#out + 1] = math.floor(t.y) end
-  return out
+  return ore_from(raw, o)
 end
 
 local function add_box(set, e, what)
@@ -339,19 +352,92 @@ local function category(name)
 end
 Champ.category = category
 
+-- perf-reste (banc REF0722, carte du DC : étapes de lecture de la spec de 60 à 196 ms d'un bloc) : chaque requête au moteur sur un rectangle
+-- est faite par BANDES de colonnes entières, au plus Champ.CFG.read_cells tuiles par appel (l'étape est rappelée tant qu'il reste des
+-- colonnes). Mêmes réponses : les bandes partitionnent le rectangle, une entité à cheval sur deux bandes est relue (ensembles : écriture
+-- idempotente ; listes : dédoublonnées par tuile) ; les listes sont triées ensuite comme avant (gisement, charbon, souterrains). Une
+-- lecture par RAYON (gisement, charbon) lit le carré du rayon par bandes et garde les ressources du disque (Champ.in_disc).
+local function strips_new(x0, y0, x1, y1) return { x = math.floor(x0), xe = math.ceil(x1), x0 = x0, y0 = y0, x1 = x1, y1 = y1 } end
+--- Bande suivante : bornes réelles de la zone (ax0, ax1) pour le moteur, ou nil quand tout est lu. `hi_open` : la zone d'avant allait
+--- jusqu'à x1 + 1 (foreign_in) ; sinon jusqu'à x1.
+local function strip_next(st, hi)
+  if st.x > st.xe then return nil end
+  local h = math.ceil(st.y1) - math.floor(st.y0) + 1
+  local w = math.max(1, math.floor(Champ.CFG.read_cells / math.max(1, h)))
+  local xa = st.x
+  local xb = math.min(st.xe, xa + w - 1)
+  st.x = xb + 1
+  local lo = (xa == math.floor(st.x0)) and st.x0 or xa
+  local up = (st.x > st.xe) and hi or (xb + 1)
+  return lo, up
+end
+--- Disque du moteur (position + rayon) : une ressource y est si sa POSITION est à `R` au plus (banc PERFRESTE-1, 123456789 : la règle
+--- « boîte de collision qui touche le cercle » rendait 3 tuiles de trop sur 1 887 ; contrôle [FO-PERF-LECTURE])
+function Champ.in_disc(px, py, cx, cy, R)
+  return (px - cx) * (px - cx) + (py - cy) * (py - cy) <= R * R
+end
+--- Lecture par rayon en bandes : st = { pos, R, name, strips, pts = { {x, y} }, seen } ; rend vrai quand tout est lu.
+local CHECK = { left = nil }
+local function disc_read(surface, st)
+  local pos, R = st.pos, st.R
+  if not st.strips then st.strips, st.pts, st.seen = strips_new(pos.x - R - 2, pos.y - R - 2, pos.x + R + 2, pos.y + R + 2), {}, {} end
+  local ax0, ax1 = strip_next(st.strips, pos.x + R + 2)
+  if not ax0 then return true end
+  for _, r in ipairs(surface.find_entities_filtered({ area = { { ax0, pos.y - R - 2 }, { ax1, pos.y + R + 2 } }, name = st.name })) do
+    if r.valid then
+      local p = r.position
+      local x, y = p.x, p.y
+      if Champ.in_disc(x, y, pos.x, pos.y, R) then
+        local k = Ch.key(math.floor(x), math.floor(y))
+        if not st.seen[k] then st.seen[k] = true; st.pts[#st.pts + 1] = { x = x, y = y } end
+      end
+    end
+  end
+  return st.strips.x > st.strips.xe
+end
+--- Mesure seule (Champ.CFG.read_check premières lectures de la session) : la lecture en bandes rend-elle les mêmes tuiles que la requête
+--- d'un bloc (position + rayon) ? Journal [FO-PERF-LECTURE] ; aucune décision ne le lit.
+local function disc_check(surface, st, what)
+  if CHECK.left == nil then CHECK.left = Champ.CFG.read_check end
+  if CHECK.left <= 0 then return end
+  CHECK.left = CHECK.left - 1
+  local one, n1, miss, extra = {}, 0, 0, 0
+  for _, r in ipairs(surface.find_entities_filtered({ position = st.pos, radius = st.R, name = st.name })) do
+    if r.valid then
+      local p = r.position
+      local k = Ch.key(math.floor(p.x), math.floor(p.y))
+      if not one[k] then one[k] = true; n1 = n1 + 1; if not st.seen[k] then miss = miss + 1 end end
+    end
+  end
+  for _, t in ipairs(st.pts) do if not one[Ch.key(math.floor(t.x), math.floor(t.y))] then extra = extra + 1 end end
+  log(string.format("[FO-PERF-LECTURE] %s : rayon %d, %d tuile(s) d'un bloc, %d en bandes, %d manquante(s), %d en trop (%s) a %.1f min",
+    what, st.R, n1, #st.pts, miss, extra, (miss == 0 and extra == 0) and "identique" or "DIFFERENT", game.tick / 3600))
+end
+
 --- Rend les tuiles d'une AUTRE ressource minable (lot MELANGE), leur nombre et, lot TAMPON-MINERAI, TOUTES les tuiles de ressource lues
 --- (n'importe quel nom ou catégorie : le même minerai d'un AUTRE gisement compris), où aucune fonderie ne se pose (Sm.forbidden).
-local function foreign_in(surface, res, cats, x0, y0, x1, y1)
-  local out, n, all = {}, 0, {}
-  for _, r in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1 + 1, y1 + 1 } }, type = "resource" })) do
+local function foreign_acc(acc, surface, res, cats, ax0, y0, ax1, y1)
+  local out, all = acc.out, acc.all
+  for _, r in ipairs(surface.find_entities_filtered({ area = { { ax0, y0 }, { ax1, y1 + 1 } }, type = "resource" })) do
     if r.valid then
       local k = Ch.key(math.floor(r.position.x), math.floor(r.position.y))
       all[k] = true
       local c = r.name ~= res and category(r.name)
-      if c and cats[c] and not out[k] then out[k] = true; n = n + 1 end
+      if c and cats[c] and not out[k] then out[k] = true; acc.n = acc.n + 1 end
     end
   end
-  return out, n, all
+end
+local function foreign_in(surface, res, cats, x0, y0, x1, y1)
+  local acc = { out = {}, n = 0, all = {} }
+  foreign_acc(acc, surface, res, cats, x0, y0, x1 + 1, y1)
+  return acc.out, acc.n, acc.all
+end
+--- perf-reste : foreign_in en bandes ; st = { strips, acc } ; rend vrai quand tout est lu (acc.out, acc.n, acc.all : mêmes ensembles)
+local function foreign_strips(st, surface, res, cats, x0, y0, x1, y1)
+  if not st.strips then st.strips, st.acc = strips_new(x0, y0, x1, y1), { out = {}, n = 0, all = {} } end
+  local ax0, ax1 = strip_next(st.strips, x1 + 1)
+  if ax0 then foreign_acc(st.acc, surface, res, cats, ax0, y0, ax1, y1) end
+  return st.strips.x > st.strips.xe
 end
 
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
@@ -377,6 +463,39 @@ local function blocked_scan(f, surface, x0, y0, x1, y1, soft_out)
   Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   Fal.mark_learned(f.build and f.build.hard, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   return blocked
+end
+--- perf-reste : blocked_scan en bandes, même ordre d'écriture qu'en un bloc : TOUTE l'eau d'abord (bandes), puis TOUS les bâtiments
+--- (bandes : une entité à cheval est réécrite à l'identique), puis falaises et falaises apprises (un appel). st = { phase, strips, blocked }
+local function blocked_strips(st, f, surface, x0, y0, x1, y1, soft_out)
+  if not st.phase then st.phase, st.blocked, st.strips = "eau", {}, strips_new(x0, y0, x1, y1) end
+  local blocked = st.blocked
+  if st.phase == "eau" then
+    local ax0, ax1 = strip_next(st.strips, x1)
+    if ax0 then
+      for _, t in ipairs(surface.find_tiles_filtered({ area = { { ax0, y0 }, { ax1, y1 } }, collision_mask = "water-tile" })) do
+        local p = t.position
+        blocked[Ch.key(math.floor(p.x), math.floor(p.y))] = "eau"
+      end
+    end
+    if st.strips.x > st.strips.xe then st.phase, st.strips = "obj", strips_new(x0, y0, x1, y1) end
+    return false
+  end
+  if st.phase == "obj" then
+    local ax0, ax1 = strip_next(st.strips, x1)
+    if ax0 then
+      for _, e in ipairs(surface.find_entities_filtered({ area = { { ax0, y0 }, { ax1, y1 } }, collision_mask = "object-layer" })) do
+        local ty = e.type
+        local soft = ty == "tree" or ty == "simple-entity" or (ty ~= "cliff" and e.force.name == "neutral")
+        if not soft and ty ~= "resource" and ty ~= "cliff" then add_box(blocked, e, e.name) end
+        if soft and soft_out and (ty == "tree" or ty == "simple-entity") then add_box(soft_out, e) end
+      end
+    end
+    if st.strips.x > st.strips.xe then st.phase = "falaise" end
+    return false
+  end
+  Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
+  Fal.mark_learned(f.build and f.build.hard, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
+  return true
 end
 local function blocked_occ(f, blocked, y0, y1, xa, xb, occ_libre)
   local occ = f.build and f.build.occ or {}
@@ -410,12 +529,22 @@ end
 ---   fin      relevé du reroutage, spec
 --- J = spec_begin(...) ; spec_step(J) -> fini, spec, names (fini : spec, ou nil et raison). spec_of enchaîne les étapes (bande seule).
 local SPEC_STAGES = { "ore", "charbon", "foreign", "blocked", "occ", "autour", "fin" }
+
 local SPEC = {}
 function SPEC.ore(J)
   local f, surface, o, frame, axis_force = J.f, J.surface, J.o, J.frame, J.axis_force
-  local data, names = Champ.data(f, o.kind)
-  if not data then return true, nil, names end
-  local ore = ore_tiles(surface, o)
+  if not J.rd_ore then
+    local data, names = Champ.data(f, o.kind)
+    if not data then return true, nil, names end
+    J.data0, J.names0 = data, names
+    J.rd_ore = { pos = { x = o.pos.x, y = o.pos.y }, R = Champ.CFG.radius, name = T.outposts[o.kind].resource }
+  end
+  -- perf-reste : le disque du gisement lu par bandes (étape rappelée tant qu'il reste des colonnes)
+  if not disc_read(surface, J.rd_ore) then return false, nil, nil, true end
+  disc_check(surface, J.rd_ore, "gisement")
+  local data, names = J.data0, J.names0
+  local ore = ore_from(J.rd_ore.pts, o)
+  J.rd_ore, J.data0, J.names0 = nil, nil, nil
   if #ore < 2 then return true, nil, "gisement epuise" end
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
   for i = 1, #ore - 1, 2 do
@@ -440,7 +569,15 @@ function SPEC.charbon(J)
   local coal
   if not frame and data.design == "colonne" and data.furnace and data.furnace.fuel and data.coal_rate then
     local box
-    coal, box = coal_tiles(surface, J.center)
+    -- perf-reste : le disque du charbon lu par bandes (étape rappelée)
+    J.rd_coal = J.rd_coal or { pos = { x = J.center.x, y = J.center.y }, R = Champ.CFG.coal_r, name = T.outposts.coal.resource }
+    if not disc_read(surface, J.rd_coal) then return false, nil, nil, true end
+    disc_check(surface, J.rd_coal, "charbon")
+    local pos = J.center
+    local pts = {}
+    for _, t in ipairs(J.rd_coal.pts) do pts[#pts + 1] = { x = t.x, y = t.y, d = (t.x - pos.x) ^ 2 + (t.y - pos.y) ^ 2 } end
+    J.rd_coal = nil
+    coal, box = coal_from(pts, pos)
     if box then
       local m = Champ.CFG.route_margin
       x0, y0, x1, y1 = math.min(x0, box[1] - m), math.min(y0, box[2] - m), math.max(x1, box[3] + m), math.max(y1, box[4] + m)
@@ -452,7 +589,8 @@ end
 function SPEC.foreign(J)
   local f, surface, o, data, names, ore, coal = J.f, J.surface, J.o, J.data, J.names, J.ore, J.coal
   local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
-  local mine = mine_of(f, o)
+  local mine = J.mine0 or mine_of(f, o)
+  J.mine0 = mine
   local soft = coal and {} or nil
   -- lot MELANGE : autres ressources minables autour du gisement (une foreuse se pose au plus côté + portée hors du minerai)
   local ox0, oy0, ox1, oy1 = math.huge, math.huge, -math.huge, -math.huge
@@ -462,8 +600,13 @@ function SPEC.foreign(J)
   end
   local fm = data.drill.size + 2 * data.drill.reach + 1
   -- F500 : relevées aussi sur tout le rectangle lu (x0..x1, y0..y1), où la fonderie se place : aucun four sur un autre gisement
-  local foreign, nforeign, resources = foreign_in(surface, names.resource, names.cats, math.min(ox0 - fm, x0), math.min(oy0 - fm, y0),
-    math.max(ox1 + fm, x1), math.max(oy1 + fm, y1))
+  -- perf-reste : par bandes (étape rappelée tant qu'il reste des colonnes)
+  J.rd_for = J.rd_for or {}
+  if not foreign_strips(J.rd_for, surface, names.resource, names.cats, math.min(ox0 - fm, x0), math.min(oy0 - fm, y0),
+    math.max(ox1 + fm, x1), math.max(oy1 + fm, y1)) then return false, nil, nil, true end
+  local acc = J.rd_for.acc
+  J.rd_for, J.mine0 = nil, nil
+  local foreign, nforeign, resources = acc.out, acc.n, acc.all
   J.mine, J.soft, J.fm, J.foreign, J.nforeign, J.resources = mine, soft, fm, foreign, nforeign, resources
   return false
 end
@@ -472,9 +615,14 @@ function SPEC.blocked(J)
   local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
   Profiler.fstart("champ:blocked")
   -- perf-astar : eau, bâtiments, falaises ici ; réserves et couloirs par colonnes à l'étape « occ » (même rectangle, mêmes réponses)
-  J.blocked = blocked_scan(f, surface, x0, y0, x1, y1, J.soft)
-  J.ox = math.floor(x0)
+  -- perf-reste : eau puis bâtiments par bandes, falaises au dernier appel (étape rappelée)
+  J.rd_bl = J.rd_bl or {}
+  local fini = blocked_strips(J.rd_bl, f, surface, x0, y0, x1, y1, J.soft)
   Profiler.fstop("champ:blocked")
+  if not fini then return false, nil, nil, true end
+  J.blocked = J.rd_bl.blocked
+  J.rd_bl = nil
+  J.ox = math.floor(x0)
   return false
 end
 -- perf-astar : réserves du plan directeur et couloirs, au plus Champ.CFG.spec_cells tuiles du rectangle par appel (colonnes entières, de
@@ -502,13 +650,29 @@ function SPEC.autour(J)
       cx0, cx1 = math.min(cx0, coal[i]), math.max(cx1, coal[i])
       cy0, cy1 = math.min(cy0, coal[i + 1]), math.max(cy1, coal[i + 1])
     end
-    J.cforeign, J.cnforeign = foreign_in(surface, T.outposts.coal.resource, names.cats, cx0 - fm, cy0 - fm, cx1 + fm, cy1 + fm)
-    local ugs = {}
-    for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = T.LOGISTIC_TYPES.underground })) do
-      local p = e.position
-      ugs[#ugs + 1] = { math.floor(p.x), math.floor(p.y) }
+    -- perf-reste : autres ressources par bandes, puis souterrains par bandes (étape rappelée ; dédoublonnés par tuile, triés comme avant)
+    J.rd_au = J.rd_au or { f = {} }
+    local A = J.rd_au
+    if not A.done_f then
+      if not foreign_strips(A.f, surface, T.outposts.coal.resource, names.cats, cx0 - fm, cy0 - fm, cx1 + fm, cy1 + fm) then return false, nil, nil, true end
+      A.done_f = true
+      return false, nil, nil, true
     end
+    A.u = A.u or { strips = strips_new(x0, y0, x1, y1), ugs = {}, seen = {} }
+    local ax0, ax1 = strip_next(A.u.strips, x1)
+    if ax0 then
+      for _, e in ipairs(surface.find_entities_filtered({ area = { { ax0, y0 }, { ax1, y1 } }, type = T.LOGISTIC_TYPES.underground })) do
+        local p = e.position
+        local tx, ty = math.floor(p.x), math.floor(p.y)
+        local k = Ch.key(tx, ty)
+        if not A.u.seen[k] then A.u.seen[k] = true; A.u.ugs[#A.u.ugs + 1] = { tx, ty } end
+      end
+    end
+    if A.u.strips.x <= A.u.strips.xe then return false, nil, nil, true end
+    local ugs = A.u.ugs
     table.sort(ugs, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
+    J.cforeign, J.cnforeign = A.f.acc.out, A.f.acc.n
+    J.rd_au = nil
     J.ugs = ugs
   end
   return false
@@ -567,6 +731,7 @@ local PLAN_TICK = nil -- s47 axe : tick du dernier Ch.plan de cadre (local au mo
 -- s49 tranches : séquence de variantes du plan en cours, par avant-poste : { f, key, spec, st (Ch.plan_begin), tick du dernier pas } (local, non
 -- sauvegardé : absente après chargement, la séquence est reprise du début sur une spec neuve ; même plan pour la même spec)
 local SEQ = {}
+local FINJOB = {} -- perf-reste : fins de plan en tranches (réservation des tuiles du cadre), par équipe et avant-poste (local, non sauvegardé)
 local SPECJOB = {} -- perf-frame : lectures de spec en cours (étapes spec_step), par équipe et avant-poste : { f, key, J, tick } (local, non sauvegardé)
 local SEQ_GAP = 1800 -- s49 tranches : un pas de plus de 30 s après le précédent repart du début (spec relue : le monde a pu changer)
 local FRAME_PENDING = {} -- lot COUT-600 : { f, plan, spec, journal } des cadres dont la vérification attend sa pensée (Champ.flush)
@@ -580,123 +745,45 @@ local function okey(f, oid) return tostring(f and f.key or "player") .. ":" .. t
 function Champ.inner_step(f, oid)
   local seq = SEQ[okey(f, oid)]
   -- perf-frame : la lecture de la spec en étapes (SPECJOB) et le premier pas après elle suivent aussi l'espacement court
-  if SPECJOB[okey(f, oid)] ~= nil then return true end
+  if SPECJOB[okey(f, oid)] ~= nil or FINJOB[okey(f, oid)] ~= nil then return true end
   return seq ~= nil and (seq.st.inner == true or seq.st.k == 0)
 end
 
---- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
-function Champ.frame(f, surface, o)
-  if f.build and f.build.occ then Cd.clear(f.build.occ, o.id) end -- lot COMBUSTIBLE-MIGRATION : un cadre refait libère les tuiles retenues par l'ancien
-  -- s47 axe : au plus UN Ch.plan par tick (toutes équipes) ; l'essai de l'autre orientation part au tick suivant (o.axis_try, comptes du premier)
-  local step = Ax.step(o.axis_try, game.tick, PLAN_TICK)
-  if step == "wait" then return nil, Ax.WAIT end
-  local try = o.axis_try
-  local axis_force = (step == "other" or step == "final") and try.axe or nil
-  -- s49 tranches : au plus UN plan_order par tick (Ch.plan_step) ; les variantes de Ch.plan (autre ordre des côtés, rangées gloutonnes) d'un même
-  -- plan partent aux appels suivants sur la MÊME spec (SEQ, mémoire locale) ; chaque axe essayé a sa séquence (clé : étape, axe, tick de l'essai)
-  local key = step .. ":" .. tostring(axis_force) .. ":" .. tostring(try and try.tick)
-  local sk = okey(f, o.id)
-  local seq = SEQ[sk]
-  local g = game
-  local prof_spec, prof_step = nil, nil -- mesure [FO-PERF-ETAPE] : affichage seul, aucune décision
-  if not (seq and seq.f == f and seq.key == key and game.tick - seq.tick <= SEQ_GAP) then
-    -- perf-frame : la spec est lue en étapes (spec_step), une par appel (SPECJOB, mémoire locale comme SEQ : perdue au chargement, la
-    -- lecture repart du début) ; le premier pas du plan part à l'appel suivant
-    local sj = SPECJOB[sk]
-    if not (sj and sj.f == f and sj.key == key and game.tick - sj.tick <= SEQ_GAP) then
-      sj = { f = f, key = key, J = spec_begin(f, surface, o, nil, nil, axis_force) }
-      SPECJOB[sk] = sj
-    end
-    sj.tick = game.tick
-    PLAN_TICK = game.tick
-    prof_spec = g.create_profiler and g.create_profiler() or nil
-    Profiler.fstart("champ:frame-spec")
-    local fin, spec, names = spec_step(sj.J)
-    Profiler.fstop("champ:frame-spec")
-    if prof_spec then
-      prof_spec.stop()
-      log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=spec pass=- k=0 spec:%s tuiles=%d bandes=0 x spec=", tostring(f.key or "player"), o.id,
-        step, tostring(sj.J.last), sj.J.ore and math.floor(#sj.J.ore / 2) or 0), prof_spec, " pas=", prof_spec })
-    end
-    if not fin then return nil, Ax.WAIT end
-    SPECJOB[sk] = nil
-    if not spec then SEQ[sk] = nil; o.axis_try = nil; return nil, names end
-    Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
-    seq = { f = f, key = key, spec = spec, st = Ch.plan_begin(spec), tick = game.tick }
-    SEQ[sk] = seq
-    return nil, Ax.WAIT
+--- perf-reste : une tranche de la fin d'un plan (FINJOB) ; rend le cadre, l'ordre des bandes et le plan à la dernière, sinon nil.
+Champ.CFG.fin_tiles = Champ.CFG.fin_tiles or 6000 -- tuiles du minerai relues par tranche (ensemble des ressources du cadre)
+Champ.CFG.fin_ents = Champ.CFG.fin_ents or 600   -- pièces du plan dont les tuiles sont retenues par tranche
+local function fin_chunk(f, o, J)
+  local spec, plan = J.spec, J.plan
+  if J.st == "res" then
+    local ore = spec.ore
+    local last = math.min(#ore - 1, J.i + 2 * Champ.CFG.fin_tiles - 2)
+    for i = J.i, last, 2 do J.res[Ch.key(ore[i], ore[i + 1])] = true end
+    J.i = last + 2
+    if J.i > #ore - 1 then J.st, J.i = "ents", 1 end
+    return nil
   end
-  local spec = seq.spec
-  Profiler.fstart("champ:frame-plan")
-  PLAN_TICK = game.tick
-  seq.tick = game.tick
-  prof_step = g.create_profiler and g.create_profiler() or nil
-  Ch.LAST_STEP = "-"
-  local k0 = seq.st.k
-  -- perf-frame : plusieurs étapes d'une même variante par appel sous le budget de travail du tick (un compte : même découpage partout)
-  local done = Ch.plan_steps(seq.st, Champ.CFG.tick_work)
-  if prof_step then
-    prof_step.stop()
-    local cur = seq.st.cur
-    log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=%s pass=%s k=%d %s n=%d spec=", tostring(f.key or "player"), o.id, step,
-      tostring(cur and cur.i or "fin"), tostring(cur and cur.o.pass or "-"), seq.st.k, Ch.LAST_STEP, seq.st.k - k0), "0 pas=", prof_step })
+  if J.st == "ents" then
+    if f.build and f.build.occ then
+      local res = J.res
+      local function is_res(x, y)
+        local k = Ch.key(x, y)
+        return res[k] or (spec.foreign and spec.foreign[k]) or false
+      end
+      local ents = plan.ents
+      local last = math.min(#ents, J.i + Champ.CFG.fin_ents - 1)
+      local slice = {}
+      for i = J.i, last do slice[#slice + 1] = ents[i] end
+      J.n = J.n + Cd.reserve(f.build.occ, Cd.frame_tiles(slice, is_res), o.id, P.tkey)
+      J.i = last + 1
+      if J.i <= #ents then return nil end
+    end
+    J.st = "fin"
+    return nil
   end
-  Profiler.fstop("champ:frame-plan")
-  if not done then return nil, Ax.WAIT end
-  SEQ[sk] = nil
-  if seq.st.n > 1 then
-    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : plan du cadre en %d variantes et %d etapes (une par appel, jamais deux dans un tick) a %.1f min",
-      f.key or "player", o.id, o.kind, seq.st.n, seq.st.k, game.tick / 3600))
-  end
-  local plan, why = Ch.plan_result(seq.st)
-  if step == "first" then
-    if not plan then return nil, why end
-    -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie -> l'autre orientation est essayee UNE fois, au tick suivant
-    if Ch.axis_retry(plan) then
-      o.axis_try = Ax.memo(plan, game.tick)
-      -- 0.7.107 : le premier plan est gardé (mémoire locale du module, jamais dans global) : s'il gagne, il est repris tel quel au lieu d'être refait
-      FIRST_PLAN[sk] = { spec = spec, plan = plan, tick = game.tick }
-      return nil, Ax.WAIT
-    end
-  elseif step == "other" then
-    local keep = Ax.better(try, plan)
-    local first, reused = FIRST_PLAN[sk], false
-    FIRST_PLAN[sk] = nil
-    if not keep and first and first.tick == try.tick then
-      -- 0.7.107 : l'axe long garde : son plan, calculé à l'essai précédent, est repris (plus de troisième plan complet)
-      log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : axe long garde (plan repris) a %.1f min",
-        f.key or "player", o.id, o.kind, try.first, try.drills, try.orphans, try.axe,
-        plan and tostring(Ch.field_drills(plan)) or "-", plan and tostring(plan.stats.orphans or 0) or "-", game.tick / 3600))
-      spec, plan, keep = first.spec, first.plan, true
-      reused = true
-    end
-    if not reused then log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : %s a %.1f min",
-      f.key or "player", o.id, o.kind, try.first, try.drills, try.orphans, try.axe,
-      plan and tostring(Ch.field_drills(plan)) or "-", plan and tostring(plan.stats.orphans or 0) or "-",
-      keep and "gardee" or "axe long garde", game.tick / 3600)) end
-    if not keep then o.axis_try = { axe = try.first, tick = game.tick, final = true }; return nil, Ax.WAIT end
-    o.axis_try = nil
-  else
-    o.axis_try = nil
-    if not plan then return nil, why end
-  end
-  -- Lot CC-SAUT (F515, mandat du DC du 10/11, 22 h 20) : le cadre figé fixe la place de la colonne de fours de TOUTES ses bandes futures (rejouée sans
-  -- recherche) ; ses tuiles hors ressource sont retenues au plan dès maintenant, sous le marqueur du cadre (Cd.frame_tiles) : libres pour les projets de
-  -- cet avant-poste, évitées par tous les autres (lignes de poteaux comprises). Avant, seules celles du réseau du charbon reporté l'étaient : la ligne de
-  -- poteaux de l'avant-poste, planifiée entre la demande de la bande et son plan, prenait la place figée de sa colonne et la bande ENTIÈRE était refusée
-  -- (référence 0.6.91, graine 314159265, joueur : projet 3 à 8,2 min, 17 foreuses ; puis le projet 19, 34 foreuses). Le minerai reste libre.
-  if f.build and f.build.occ then
-    local res = {}
-    for i = 1, #spec.ore - 1, 2 do res[Ch.key(spec.ore[i], spec.ore[i + 1])] = true end
-    local function is_res(x, y)
-      local k = Ch.key(x, y)
-      return res[k] or (spec.foreign and spec.foreign[k]) or false
-    end
-    local nres = Cd.reserve(f.build.occ, Cd.frame_tiles(plan.ents, is_res), o.id, P.tkey)
-    if nres > 0 then
-      log(string.format("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan (cadre:%d : colonnes, coffres, poteaux et tapis hors ressource des bandes futures) a %.1f min",
-        f.key or "player", o.id, nres, o.id, game.tick / 3600))
-    end
+  local nres = J.n
+  if nres > 0 then
+    log(string.format("[FO-CHAMP] %s : avant-poste %d : %d tuile(s) du cadre fige retenue(s) au plan (cadre:%d : colonnes, coffres, poteaux et tapis hors ressource des bandes futures) a %.1f min",
+      f.key or "player", o.id, nres, o.id, game.tick / 3600))
   end
   -- lot COUT-600 : la vérification du plan (Cv.verify : 0,2 M d'instructions à l'ordinaire, 4,7 M sur un champ de 600 %) ne sert qu'à la ligne de
   -- journal [FO-CHAMP] ci-dessous : elle part dans une pensée à part (Champ.flush), le plan et l'ordre des bandes sont rendus tout de suite
@@ -781,6 +868,138 @@ function Champ.frame(f, surface, o)
   end
   FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, oid = o.id, kind = o.kind }
   return plan.frame, prs, plan
+end
+
+--- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan (écrite par Champ.flush).
+function Champ.frame(f, surface, o)
+  -- perf-reste : fin de plan en tranches en cours (FINJOB) : une tranche, sans Cd.clear (les tuiles déjà retenues de ce cadre restent)
+  do
+    local fk = okey(f, o.id)
+    local FJ = FINJOB[fk]
+    if FJ and (FJ.f ~= f or game.tick - FJ.tick > SEQ_GAP) then FINJOB[fk], FJ = nil, nil end
+    if FJ then
+      FJ.tick = game.tick
+      local g0 = game
+      local pf = g0.create_profiler and g0.create_profiler() or nil
+      local fr, prs, plan = fin_chunk(f, o, FJ)
+      if pf then
+        pf.stop()
+        log({ "", string.format("[FO-PERF-FIN] %s %d tranche %s : ", tostring(f.key or "player"), o.id, tostring(FJ.st)), pf })
+      end
+      if not plan then return nil, Ax.WAIT end
+      FINJOB[fk] = nil
+      return fr, prs, plan
+    end
+  end
+  if f.build and f.build.occ then Cd.clear(f.build.occ, o.id) end -- lot COMBUSTIBLE-MIGRATION : un cadre refait libère les tuiles retenues par l'ancien
+  -- s47 axe : au plus UN Ch.plan par tick (toutes équipes) ; l'essai de l'autre orientation part au tick suivant (o.axis_try, comptes du premier)
+  local step = Ax.step(o.axis_try, game.tick, PLAN_TICK)
+  if step == "wait" then return nil, Ax.WAIT end
+  local try = o.axis_try
+  local axis_force = (step == "other" or step == "final") and try.axe or nil
+  -- s49 tranches : au plus UN plan_order par tick (Ch.plan_step) ; les variantes de Ch.plan (autre ordre des côtés, rangées gloutonnes) d'un même
+  -- plan partent aux appels suivants sur la MÊME spec (SEQ, mémoire locale) ; chaque axe essayé a sa séquence (clé : étape, axe, tick de l'essai)
+  local key = step .. ":" .. tostring(axis_force) .. ":" .. tostring(try and try.tick)
+  local sk = okey(f, o.id)
+  local seq = SEQ[sk]
+  local g = game
+  local prof_spec, prof_step = nil, nil -- mesure [FO-PERF-ETAPE] : affichage seul, aucune décision
+  if not (seq and seq.f == f and seq.key == key and game.tick - seq.tick <= SEQ_GAP) then
+    -- perf-frame : la spec est lue en étapes (spec_step), une par appel (SPECJOB, mémoire locale comme SEQ : perdue au chargement, la
+    -- lecture repart du début) ; le premier pas du plan part à l'appel suivant
+    local sj = SPECJOB[sk]
+    if not (sj and sj.f == f and sj.key == key and game.tick - sj.tick <= SEQ_GAP) then
+      sj = { f = f, key = key, J = spec_begin(f, surface, o, nil, nil, axis_force) }
+      SPECJOB[sk] = sj
+    end
+    sj.tick = game.tick
+    PLAN_TICK = game.tick
+    prof_spec = g.create_profiler and g.create_profiler() or nil
+    Profiler.fstart("champ:frame-spec")
+    local fin, spec, names = spec_step(sj.J)
+    Profiler.fstop("champ:frame-spec")
+    if prof_spec then
+      prof_spec.stop()
+      log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=spec pass=- k=0 spec:%s tuiles=%d bandes=0 x spec=", tostring(f.key or "player"), o.id,
+        step, tostring(sj.J.last), sj.J.ore and math.floor(#sj.J.ore / 2) or 0), prof_spec, " pas=", prof_spec })
+    end
+    if not fin then return nil, Ax.WAIT end
+    SPECJOB[sk] = nil
+    if not spec then SEQ[sk] = nil; o.axis_try = nil; return nil, names end
+    Profiler.dump("champ-frame", { spec = spec, cfg = Ch.CFG }) -- lot PERF3 : entrées du plan, bancs de détail seulement
+    seq = { f = f, key = key, spec = spec, st = Ch.plan_begin(spec), tick = game.tick }
+    SEQ[sk] = seq
+    return nil, Ax.WAIT
+  end
+  local spec = seq.spec
+  Profiler.fstart("champ:frame-plan")
+  PLAN_TICK = game.tick
+  seq.tick = game.tick
+  prof_step = g.create_profiler and g.create_profiler() or nil
+  Ch.LAST_STEP = "-"
+  local k0 = seq.st.k
+  -- perf-frame : plusieurs étapes d'une même variante par appel sous le budget de travail du tick (un compte : même découpage partout)
+  local done = Ch.plan_steps(seq.st, Champ.CFG.tick_work)
+  if prof_step then
+    prof_step.stop()
+    local cur = seq.st.cur
+    log({ "", string.format("[FO-PERF-ETAPE] %s %d %s var=%s pass=%s k=%d %s n=%d travail=%d spec=", tostring(f.key or "player"), o.id, step,
+      tostring(cur and cur.i or "fin"), tostring(cur and cur.o.pass or "-"), seq.st.k, Ch.LAST_STEP, seq.st.k - k0, Ch.LAST_WORK or 0), "0 pas=", prof_step })
+  end
+  Profiler.fstop("champ:frame-plan")
+  if not done then return nil, Ax.WAIT end
+  -- perf-reste (banc PERFRESTE-2 : appels « finish » de 100 ms pour un pas de 20 ms) : mesure de ce qui suit le dernier pas (mesure seule)
+  local prof_fin = g.create_profiler and g.create_profiler() or nil
+  local function fin_log(what)
+    if prof_fin then
+      prof_fin.stop()
+      log({ "", string.format("[FO-PERF-FIN] %s %d %s %s : ", tostring(f.key or "player"), o.id, step, what), prof_fin })
+    end
+  end
+  SEQ[sk] = nil
+  if seq.st.n > 1 then
+    log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : plan du cadre en %d variantes et %d etapes (une par appel, jamais deux dans un tick) a %.1f min",
+      f.key or "player", o.id, o.kind, seq.st.n, seq.st.k, game.tick / 3600))
+  end
+  local plan, why = Ch.plan_result(seq.st)
+  if step == "first" then
+    if not plan then return nil, why end
+    -- s42 gisements (chantier 4.3 du DC) : des foreuses non posees faute de fonderie -> l'autre orientation est essayee UNE fois, au tick suivant
+    if Ch.axis_retry(plan) then
+      o.axis_try = Ax.memo(plan, game.tick)
+      -- 0.7.107 : le premier plan est gardé (mémoire locale du module, jamais dans global) : s'il gagne, il est repris tel quel au lieu d'être refait
+      FIRST_PLAN[sk] = { spec = spec, plan = plan, tick = game.tick }
+      fin_log("autre axe a essayer")
+      return nil, Ax.WAIT
+    end
+  elseif step == "other" then
+    local keep = Ax.better(try, plan)
+    local first, reused = FIRST_PLAN[sk], false
+    FIRST_PLAN[sk] = nil
+    if not keep and first and first.tick == try.tick then
+      -- 0.7.107 : l'axe long garde : son plan, calculé à l'essai précédent, est repris (plus de troisième plan complet)
+      log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : axe long garde (plan repris) a %.1f min",
+        f.key or "player", o.id, o.kind, try.first, try.drills, try.orphans, try.axe,
+        plan and tostring(Ch.field_drills(plan)) or "-", plan and tostring(plan.stats.orphans or 0) or "-", game.tick / 3600))
+      spec, plan, keep = first.spec, first.plan, true
+      reused = true
+    end
+    if not reused then log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : autre orientation essayee (axe %s : %d foreuses, %d non posees ; axe %s : %s foreuses, %s non posees) : %s a %.1f min",
+      f.key or "player", o.id, o.kind, try.first, try.drills, try.orphans, try.axe,
+      plan and tostring(Ch.field_drills(plan)) or "-", plan and tostring(plan.stats.orphans or 0) or "-",
+      keep and "gardee" or "axe long garde", game.tick / 3600)) end
+    if not keep then o.axis_try = { axe = try.first, tick = game.tick, final = true }; return nil, Ax.WAIT end
+    o.axis_try = nil
+  else
+    o.axis_try = nil
+    if not plan then return nil, why end
+  end
+  -- perf-reste (banc PERFRESTE-4, 123456789 : fin d'un plan jusqu'à 69 ms d'un bloc, [FO-PERF-FIN]) : la réservation des tuiles du cadre
+  -- (Cd.frame_tiles, Cd.reserve) part en TRANCHES aux appels suivants (FINJOB : minerai puis pièces, dans le même ordre), puis la suite
+  -- (journal, ordre des bandes) au dernier appel ; Cd.clear du début de Champ.frame n'est pas refait pendant ces tranches
+  FINJOB[sk] = { f = f, key = key, plan = plan, spec = spec, st = "res", i = 1, res = {}, n = 0, tick = game.tick }
+  fin_log("plan fini, fin en tranches")
+  return nil, Ax.WAIT
 end
 
 --- Lot COUT-600 : UNE vérification de cadre en attente de l'équipe `f` (la plus ancienne) : Cv.verify puis la ligne de journal [FO-CHAMP]. À appeler à

@@ -248,15 +248,19 @@ local function place_copy(list, len, s_edge, count, info)
   return l, len, s_edge, count, inf
 end
 local place_raw
-function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, memo)
-  if not memo or fixed then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared) end
+-- perf-reste (banc PERFRESTE-2 : un bout de bande, Co.place, jusqu'à 68 ms d'un bloc) : `P` (facultatif, table de l'appelant, avec le budget
+-- Co.WORK_LIM) rend la recherche REPRENABLE entre deux reculs t de la fonderie : curseur P.t et lectures notées pour la mémoire gardés dans P ;
+-- budget atteint -> nil, Co.SUSPEND, et le rappel avec le même P reprend au recul suivant (mêmes lectures dans le même ordre : même place)
+function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, memo, P)
+  if fixed then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared) end
+  if not memo then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, P) end
   local parts = { b, side, edge, count, gap, shift, mode, half ~= nil, half and half.mirror, half and half.jog, half and half.lead,
     shared ~= nil, Co.EXT, Co.SF, Co.PICKUP }
   for i = 1, 15 do parts[i] = tostring(parts[i]) end
   local mkey = table.concat(parts, ",")
   local f, p, ins = spec.furnace, spec.pole, spec.inserter
   local mlist = memo[mkey]
-  if mlist then
+  if mlist and not (P and P.t) then
     for _, m in ipairs(mlist) do
       if m.f == f and m.p == p and m.ins == ins then
         local ok = true
@@ -273,7 +277,12 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     end
   end
   local tk = Co.tk
-  local FR, OR, SH, fl, ol, sl = {}, {}, {}, {}, {}, {}
+  local FR, OR, SH, fl, ol, sl
+  if P and P.t then FR, OR, SH, fl, ol, sl = P.FR, P.OR, P.SH, P.fl, P.ol, P.sl
+  else
+    FR, OR, SH, fl, ol, sl = {}, {}, {}, {}, {}, {}
+    if P then P.FR, P.OR, P.SH, P.fl, P.ol, P.sl = FR, OR, SH, fl, ol, sl end
+  end
   local function rfree(u, v)
     local k = tk(u, v)
     local x = FR[k]
@@ -292,7 +301,10 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     if x == nil then x = shared(u, v, e) and true or false; SH[k] = x; sl[#sl + 1] = u; sl[#sl + 1] = v; sl[#sl + 1] = e.du; sl[#sl + 1] = x end
     return x
   end or nil
-  local list, len, s_edge, cnt, info = place_raw(spec, b, side, edge, count, gap, shift, rfree, rore, mode, nil, half, rshared)
+  local list, len, s_edge, cnt, info = place_raw(spec, b, side, edge, count, gap, shift, rfree, rore, mode, nil, half, rshared, P)
+  if not list and len == Co.SUSPEND then return nil, Co.SUSPEND end
+  if P then P.t, P.FR, P.OR, P.SH, P.fl, P.ol, P.sl = nil, nil, nil, nil, nil, nil, nil end
+  mlist = memo[mkey]
   if not mlist then mlist = {}; memo[mkey] = mlist end
   if #mlist < 6 then
     local ml, mlen, ms, mc, mi = place_copy(list, len, s_edge, cnt, info)
@@ -300,7 +312,7 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
   end
   return list, len, s_edge, cnt, info
 end
-place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared)
+place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, P)
   local function common(e) return shared ~= nil and e.kind == "tapis" and e.role == "sortie" and shared(e.u, e.v, e) end
   -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
   -- autres ressources) ; plus de seconde passe qui acceptait le minerai. Lot DECOUPLAGE : la colonne d'un cadre figé (`fixed`) aussi.
@@ -326,7 +338,12 @@ place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode,
     if list and fits(fixed.s_edge, list) then return own(list), len, fixed.s_edge, fixed.count, info end
     return nil
   end
-  for t = 0, shift do
+  local lim = P and Co.WORK_LIM
+  for t = (P and P.t) or 0, shift do
+    -- perf-reste : budget du pas atteint avant ce recul -> reprise ici au rappel (le premier recul de l'appel est toujours fait : la
+    -- recherche avance toujours)
+    if lim and P.t and t > P.t and Co.WORK >= lim then P.t = t; return nil, Co.SUSPEND end
+    if P and not P.t then P.t = t end
     local s_edge = edge + side * (gap + 1 + t)
     local list, len, info = Co.layout(spec, b, side, s_edge, count, mode, half)
     if list and fits(s_edge, list) then
@@ -412,7 +429,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   end
   while has do
     if routes >= Co.AWAY_ROUTES then break end
-    if lim and not (A.job and A.job.R) and Co.WORK + work >= lim then save() return nil, Co.SUSPEND end
+    if lim and not (A.job and (A.job.R or A.job.MV)) and Co.WORK + work >= lim then save() return nil, Co.SUSPEND end
     local k = cd_ak * (cd_ak == 0 and 1 or cd_sg)
     local b2, s_edge = from.v + k, from.u + side * (cd_d - cd_ak + 1)
     local fine = true
@@ -432,7 +449,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
       for _, r in ipairs(rel) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end
       if not mine[Co.tk(t.u, t.v)] then
         A.job = A.job or {}
-        local resumed = A.job.R ~= nil
+        local resumed = A.job.R ~= nil or A.job.MV ~= nil -- (perf-reste : relecture de la mémoire en cours, même tracé)
         if not resumed then routes = routes + 1 end
         local function rfree(u, v) return inb(u, v) and not mine[Co.tk(u, v)] and free(u, v) end
         local rb = box or { u0 = math.min(from.u, t.u) - Co.ROUTE_MARGIN, u1 = math.max(from.u, t.u) + Co.ROUTE_MARGIN,
@@ -604,6 +621,29 @@ local function memo_valid(e, free, span, tcost)
   for i = 1, #L, 3 do if tcost(L[i], L[i + 1]) ~= L[i + 2] then return false end end
   return true
 end
+-- perf-reste (pas « bare » et « net » jusqu'à 10 000 de travail pour un budget de 2 000, fixtures du DC : la relecture d'une entrée de la
+-- mémoire des tracés, des milliers de tuiles, se faisait d'un bloc) : la même relecture, REPRENABLE au budget (job.MV = { e, part, i }) ;
+-- rend true, false ou "suspend" (mêmes lectures dans le même ordre : même réponse qu'en un bloc)
+local function memo_valid_r(e, free, span, tcost, MV, lim)
+  local lists = { e.fr, e.sp, e.tc }
+  local did = false
+  for part = MV.part or 1, 3 do
+    local L = lists[part]
+    local i = (part == (MV.part or 1)) and (MV.i or 1) or 1
+    while i <= #L do
+      if lim and did and Co.WORK >= lim then MV.part, MV.i = part, i return "suspend" end
+      local ok
+      if part == 1 then ok = (free(L[i], L[i + 1]) and true or false) == L[i + 2]
+      elseif part == 2 then ok = (span(L[i], L[i + 1]) and true or false) == L[i + 2]; Co.WORK = Co.WORK + 0.5
+      else ok = tcost(L[i], L[i + 1]) == L[i + 2]; Co.WORK = Co.WORK + 0.5 end
+      if not ok then MV.part, MV.i = nil, nil return false end
+      did = true
+      i = i + 3
+    end
+  end
+  MV.part, MV.i = nil, nil
+  return true
+end
 local function copy_route(r)
   if not r then return nil end
   local o = {}
@@ -630,10 +670,29 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
     mkey = table.concat(parts, ",")
     mlist = memo[mkey]
     if mlist and not R then -- (reprise : la mémoire a déjà été lue au premier appel, sans réponse)
-      for _, e in ipairs(mlist) do
-        if memo_valid(e, free, span, tcost) then
-          if e.route then return copy_route(e.route), e.n end
-          return nil, e.why
+      local lim = job and Co.WORK_LIM
+      if lim then
+        -- perf-reste : relecture reprenable (job.MV : entrée et position), le tracé ne commence qu'après la dernière entrée
+        job.MV = job.MV or { e = 1 }
+        local MV = job.MV
+        while MV.e <= #mlist do
+          local e = mlist[MV.e]
+          local v = memo_valid_r(e, free, span, tcost, MV, lim)
+          if v == "suspend" then return nil, Co.SUSPEND end
+          if v then
+            job.MV = nil
+            if e.route then return copy_route(e.route), e.n end
+            return nil, e.why
+          end
+          MV.e = MV.e + 1
+        end
+        job.MV = nil
+      else
+        for _, e in ipairs(mlist) do
+          if memo_valid(e, free, span, tcost) then
+            if e.route then return copy_route(e.route), e.n end
+            return nil, e.why
+          end
         end
       end
     end
