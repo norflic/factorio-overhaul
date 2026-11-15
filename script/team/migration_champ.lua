@@ -2745,7 +2745,11 @@ function Mig.entrepreneur_chain(f, ms, tick)
   -- lot EXPO : kit complet et pose en cours : l'entrepreneur passe au kit de la bande suivante (Ent.release_early) ; la bande en pose garde son
   -- monopole (spec.entrepreneur) et n'est plus « en vol » pour lui (spec.ent_pose)
   local e = ms.ent
-  if cur and e and Ent.release_early({ complete = e.complet ~= nil, state = cur.state, ordre = e.ordre, rate = ms.ent_rate }) then
+  local other = false -- (banc expo-1 : sans autre bande en vol, la bande suivante attend de toute façon le créneau de la bande en pose)
+  if cur and e and e.complet ~= nil and not e.ordre then
+    for _, x in ipairs(ent_inflight(f)) do if x.pid ~= e.pid then other = true break end end
+  end
+  if other and Ent.release_early({ complete = e.complet ~= nil, state = cur.state, ordre = e.ordre, rate = ms.ent_rate }) then
     if cur.spec then cur.spec.ent_pose = true end
     ent_say(f, ms, string.format("kit complet du projet %d (%s) : pose laissee aux PNJ, bande suivante a %.1f min", e.pid, tostring(cur.state), tick / 3600))
     ent_finish(f, ms, tick)

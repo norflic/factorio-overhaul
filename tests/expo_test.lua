@@ -138,7 +138,7 @@ do
   check(suite(E.release_early), "Ent.release_early : kit complet + pose + débit d'enchaînement, jamais un ordre ni une bande close")
   check(not suite(function() return false end), "mutant 0.9.7 (jamais libéré) : doit échouer")
   local src = read("script/team/migration_champ.lua")
-  check(src:find("Ent.release_early({ complete = e.complet ~= nil, state = cur.state, ordre = e.ordre, rate = ms.ent_rate })", 1, true) ~= nil,
+  check(src:find("if other and Ent.release_early({ complete = e.complet ~= nil, state = cur.state, ordre = e.ordre, rate = ms.ent_rate })", 1, true) ~= nil,
     "relance : câblée sur Ent.release_early")
   check(src:find("not Ent.closed(p.state) and not (p.spec and p.spec.ent_pose) and x.item and plate[x.item]", 1, true) ~= nil, "bande en pose ou close : plus en vol pour l'entrepreneur")
   check(src:find("p.spec.entrepreneur and not p.spec.ent_pose and not Ent.closed(p.state)", 1, true) ~= nil, "suivi : ni la bande en pose ni une refusée")
