@@ -96,6 +96,14 @@ do
   check(src:find("ready = bands[tostring(cs.oid) .. \":\" .. tostring(cs.pr)] == true", 1, true) ~= nil, "réseau prêt = sa bande (avant-poste, rang) posée ou en pose")
 end
 
+-- §4 bis bandes hors des créneaux (parquées) visibles de l'entrepreneur
+do
+  local src = read("script/team/migration_champ.lua")
+  check(src:find("if waiting and not q.spec.ent_pose and not q.abandoned then orphan[#orphan + 1] = pid end", 1, true) ~= nil, "bande en attente hors créneau retenue")
+  check(src:find("if tk and tk.product and plate[tk.product] then inflight[#inflight + 1] = { pid = pid, oid = cs.oid, item = tk.product } end", 1, true) ~= nil,
+    "bande hors créneau : en vol pour l'entrepreneur (plaque seulement)")
+end
+
 -- §5 seuil lu dans les recettes : une bande en vol payable sur une période s'attache sous le débit minimal
 do
   local m = E.CFG.debit_min

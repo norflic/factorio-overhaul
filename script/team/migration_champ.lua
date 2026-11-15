@@ -2262,15 +2262,29 @@ local function ent_inflight(f)
   end
   -- lot EXPO : réseaux du charbon (spec.champ.coal) des bandes de plaques, en tête quand leur bande (même avant-poste, même rang) est posée ou
   -- en pose (Ent.feed_first)
-  local list, bands = {}, {}
+  local list, bands, orphan = {}, {}, {}
   local b = f.build
   for _, pid in ipairs(sorted_keys(b.projects)) do
     local q = b.projects[pid]
     local cs = q and q.spec and q.spec.champ
     if cs and cs.coal == nil and cs.link == nil and cs.pr ~= nil then
-      local posed = q.state == "fini" or (q.spec.ent_pose == true) or not (Ent.closed(q.state) or q.state == "plan" or q.state == "attente" or q.state == "reserve")
+      local waiting = q.state == "plan" or q.state == "attente" or q.state == "reserve"
+      local posed = q.state == "fini" or (q.spec.ent_pose == true) or not (Ent.closed(q.state) or waiting)
       if posed then bands[tostring(cs.oid) .. ":" .. tostring(cs.pr)] = true end
+      if waiting and not q.spec.ent_pose and not q.abandoned then orphan[#orphan + 1] = pid end
     end
+  end
+  -- lot EXPO (banc expo-1 : 9 bandes du joueur « reserve:materiaux » hors des créneaux de la migration, parquées ou laissées par la migration
+  -- élargie ; l'entrepreneur ne les voyait pas et le gisement de fer attendait derrière elles) : une bande de plaque qui attend ses matières hors
+  -- des créneaux est aussi « en vol » pour lui, la plus ancienne d'abord, après celles des créneaux
+  local seen = {}
+  for _, x in ipairs(inflight) do seen[x.pid] = true end
+  table.sort(orphan)
+  for _, pid in ipairs(orphan) do
+    local cs = b.projects[pid].spec.champ
+    local o = not seen[pid] and Champ.target(f, cs.oid)
+    local tk = o and T.outposts[o.kind]
+    if tk and tk.product and plate[tk.product] then inflight[#inflight + 1] = { pid = pid, oid = cs.oid, item = tk.product } end
   end
   for _, pid in ipairs(sorted_keys(b.projects)) do
     local q = b.projects[pid]
