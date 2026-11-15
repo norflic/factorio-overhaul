@@ -264,7 +264,9 @@ local function heading(f, o)
     local a = Registry.get(id)
     if a and a.faction and a.task and a.entity and a.entity.valid and State.faction(a.faction) == f then
       for _, p in ipairs(agent_points(a)) do
-        if Co.inside(o, p[1], p[2], o.kind == "gisement" and Co.SITE_MARGIN or Co.DONE_MARGIN) then
+        -- c4b : une liaison compte aussi l'ouvrier qui va à son point A (la tournée prioritaire part de là) : avant, le jalon « route » de
+        -- Maj+E ne tombait qu'au RETOUR de la tournée au QG (point B), 30 s après l'ordre
+        if Co.inside(o, p[1], p[2], o.kind == "gisement" and Co.SITE_MARGIN or Co.DONE_MARGIN) or (o.a and Co.inside(o.a, p[1], p[2], Co.DONE_MARGIN)) then
           local pos = a.entity.position
           out[#out + 1] = { key = tostring(id) .. ":" .. tostring(a.task.key), id = id, kind = tostring(a.task.kind),
             d = math.floor(math.sqrt((pos.x - o.x) ^ 2 + (pos.y - o.y) ^ 2)) }
@@ -343,10 +345,34 @@ local function flying(o, what, secs)
     text = { "fo-commande.jalon-" .. what, o.id, secs } })
 end
 
+--- c4b : projet du plan de la bande de champ d'un ordre Maj+A (o.band_fid), ou nil.
+local function band_pid_of(f, o)
+  if o.kind ~= "gisement" or o.band_fid == nil then return nil end
+  for _, x in ipairs(MigChamp.projects(f)) do
+    if x.oid == o.band_fid then return x.pid end
+  end
+  return nil
+end
+
+--- c4b : première tâche du tableau de l'équipe qui sert l'ordre (Co.task_hits) : rend la tâche ou nil (liste triée du tableau, lecture seule).
+local function first_task(f, o)
+  local b = f.team and f.team.board
+  local bp = band_pid_of(f, o)
+  for _, t in ipairs(b and b.list or {}) do
+    if Co.task_hits(o, t, bp) then return t end
+  end
+  return nil
+end
+
 --- Jalons d'un ordre (une observation) ; `fin` vrai quand l'effet complet est atteint (ordre rempli ou servi).
 local function track_step(f, o, tick, fin)
   if o.wm == nil then return end
   local obs = { fin = fin or nil }
+  local first_t
+  if not o.t_tache then
+    first_t = first_task(f, o)
+    obs.tache = first_t ~= nil
+  end
   local need_scan = (not (o.t_ghost and o.t_pose)) or (tick % 300 == 0)
   local first_h
   if not o.t_route then
@@ -357,6 +383,8 @@ local function track_step(f, o, tick, fin)
     end
     obs.route = first_h ~= nil
   end
+  -- c4b : un ouvrier en route vaut une tâche émise (tâche prise et retirée du tableau entre deux relevés)
+  if not o.t_tache and (obs.route or o.t_route or o.t_kit) then obs.tache = true end -- (Maj+A : kit de la bande lancé, Mig.entrepreneur_kit)
   if need_scan and not fin then
     local rows = {}
     -- MAJA-0916 : un ordre de gisement ne compte que les poses SUR son minerai (o.resource, lu à la sélection) ; case lue une fois (o.ore_cells)
@@ -393,7 +421,8 @@ local function track_step(f, o, tick, fin)
     local secs = math.floor(m.ticks / 60)
     log(string.format("[FO-COMMANDE] %s : ordre %d (%s) jalon %s apres %d s (%.1f min de jeu%s ; entites posees dans la zone %d)",
       tostring(f.key or f.id), o.id, o.kind, m.what, secs, tick / 3600,
-      (m.what == "route" and first_h) and string.format(" ; ouvrier %d, tache %s, a %d tuiles", first_h.id, first_h.kind, first_h.d) or "",
+      ((m.what == "route" and first_h) and string.format(" ; ouvrier %d, tache %s, a %d tuiles", first_h.id, first_h.kind, first_h.d))
+        or ((m.what == "tache" and first_t) and string.format(" ; %d ticks, tache %s (%s)", m.ticks, tostring(first_t.key), tostring(first_t.kind))) or "",
       o.n_new or 0))
     flying(o, m.what, secs)
   end
@@ -811,12 +840,28 @@ remote.add_interface("fo-commande", {
       outposts = {}, liaison_a = cs.liaison_a, next_id = cs.next_id }
     for _, o in ipairs(cs.orders) do
       out.orders[#out.orders + 1] = { id = o.id, kind = o.kind, x = o.x, y = o.y, r = o.r, resource = o.resource, outpost = o.outpost,
-        after_oid = o.after_oid, done = o.done, have = o.have }
+        after_oid = o.after_oid, done = o.done, have = o.have, band_fid = o.band_fid, band_msg = o.band_msg, ent_served = o.ent_served,
+        t_ent = o.t_ent, t_susp = o.t_susp, t_kit = o.t_kit, tick = o.tick } -- c4b : champ de l'ordre, entrepreneur (ticks absolus)
+    end
+    -- c4b : chantier entrepreneur de l'équipe (projet, ordre ou pas, état du projet), chantiers suspendus, bande attendue, reprises
+    local ms = f.migration
+    if ms then
+      local projs = f.build and f.build.projects or {}
+      local ent = ms.ent
+      out.ent = { pid = ent and ent.pid, ordre = ent and ent.ordre or false, oid = ent and ent.oid,
+        state = ent and projs[ent.pid] and projs[ent.pid].state or nil, wait = ms.ent_wait and ms.ent_wait.oid or nil,
+        wait_ordre = ms.ent_wait and ms.ent_wait.ordre or false, resumes = ms.ent_resumes or 0, susp = {} }
+      for _, r in ipairs(ms.ent_susp or {}) do out.ent.susp[#out.ent.susp + 1] = r.pid end
+      out.fields = {}
+      for _, fid in ipairs(State.sorted_keys(ms.fields or {})) do
+        local q = ms.fields[fid]
+        if q.pos then out.fields[#out.fields + 1] = { id = fid, kind = q.kind, x = q.pos.x, y = q.pos.y } end
+      end
     end
     for _, h in ipairs(cs.hist or {}) do out.hist[#out.hist + 1] = { id = h.id, text = h.text } end
     out.delais = {} -- commandes-0716 : délais par ordre (ticks depuis la pose ; nil : jalon pas encore atteint)
     for _, d in ipairs(cs.delais or {}) do
-      out.delais[#out.delais + 1] = { id = d.id, kind = d.kind, tick = d.tick, x = d.x, y = d.y, r = d.r, route = d.route, ghost = d.ghost,
+      out.delais[#out.delais + 1] = { id = d.id, kind = d.kind, tick = d.tick, x = d.x, y = d.y, r = d.r, tache = d.tache, route = d.route, ghost = d.ghost,
         pose = d.pose, fin = d.fin, n_new = d.n_new }
     end
     for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
