@@ -68,6 +68,54 @@ local function jalon(ctx, tick)
   end
 end
 
+-- N098 (mandat de nuit, captures 220200 et 220208 du DC) : sonde des tapis en CUL-DE-SAC (tapis sans sortie, chargé, qu'aucun bras ne
+-- vide) et des lignes COUPÉES PAR UN POTEAU (tapis sans sortie dont la case suivante porte un poteau et la case d'après un tapis du même
+-- sens). Une ligne [FO-CUL-DE-SAC] par équipe (compte et 5 premières positions) ; captures des 2 premiers cas du joueur en session images.
+local DIRV = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
+local function culs(ctx, minute)
+  local s = ctx.surface()
+  local p = game.connected_players[1]
+  for _, row in ipairs(remote.call("fo-ia1", "teams") or {}) do
+    local force = row.force and game.forces[row.force]
+    if force then
+      local n, cut, pos, cutpos = 0, 0, {}, {}
+      for _, b in ipairs(s.find_entities_filtered({ force = force, type = { "transport-belt", "underground-belt" } })) do
+        if b.valid and not (b.type == "underground-belt" and b.belt_to_ground_type == "input") and #b.belt_neighbours.outputs == 0 then
+          local d = DIRV[b.direction]
+          local x, y = b.position.x, b.position.y
+          local fx, fy = x + d[1], y + d[2]
+          local pole = s.find_entities_filtered({ position = { fx, fy }, radius = 0.4, type = "electric-pole", force = force, limit = 1 })[1]
+          local after = pole and s.find_entities_filtered({ position = { fx + d[1], fy + d[2] }, radius = 0.4, type = { "transport-belt", "underground-belt" }, force = force, limit = 1 })[1]
+          if after and after.direction == b.direction then
+            cut = cut + 1
+            if #cutpos < 5 then cutpos[#cutpos + 1] = string.format("(%g,%g)", fx, fy) end
+          else
+            local items = b.get_transport_line(1).get_item_count() + b.get_transport_line(2).get_item_count()
+            if items >= 6 then
+              local picked = false
+              for _, i in ipairs(s.find_entities_filtered({ position = { x, y }, radius = 2.5, type = "inserter", force = force })) do
+                local q = i.pickup_position
+                if math.floor(q.x) == math.floor(x) and math.floor(q.y) == math.floor(y) then picked = true break end
+              end
+              if not picked then
+                n = n + 1
+                if #pos < 5 then pos[#pos + 1] = string.format("(%g,%g)", x, y) end
+                if p and row.key == "player" and n <= 2 then
+                  local file = string.format("fo-shots/cul-de-sac-m%03d-%s-%d.png", minute, tostring(row.key), n)
+                  game.take_screenshot({ player = p, surface = s, position = { x, y }, resolution = { 960, 720 }, zoom = 1,
+                    path = file, show_entity_info = true, daytime = 0, allow_in_replay = true, force_render = true })
+                end
+              end
+            end
+          end
+        end
+      end
+      log(string.format("[FO-CUL-DE-SAC] minute=%d equipe=%s culs_de_sac=%d %s coupes_poteau=%d %s", minute, tostring(row.key), n,
+        table.concat(pos, " "), cut, table.concat(cutpos, " ")))
+    end
+  end
+end
+
 local function shots(ctx, minute)
   local p = game.connected_players[1]
   if not p then return end
@@ -96,6 +144,10 @@ base.tick = function(ctx, e)
   if e.tick > 0 and e.tick % MIN == 0 and e.tick <= DUREE * MIN then
     local ok, err = pcall(jalon, ctx, e.tick)
     if not ok then log(TAG .. "ERREUR " .. tostring(err)) end
+  end
+  if e.tick > 0 and e.tick % (30 * MIN) == 0 and e.tick <= DUREE * MIN then
+    local ok, err = pcall(culs, ctx, e.tick / MIN)
+    if not ok then log("[FO-CUL-DE-SAC] ERREUR " .. tostring(err)) end
   end
   if e.tick == 15 * MIN then
     local ok, err = pcall(shots, ctx, 15)

@@ -369,6 +369,28 @@ end
 
 Co.AWAY_ROUTES = 8      -- (lot FONDERIE-BOUT) tracés essayés au plus pour une colonne ailleurs
 Co.AWAY_CAP = 20000     -- états développés au plus par tracé d'une colonne ailleurs
+-- N098-DETOUR (partie du DC 0.9.7, capture 220503 : lien foreuses -> fonderie déportée d'environ 150 tuiles en grand rectangle autour du
+-- vide pour une distance directe d'environ 17) : un tracé est ACCEPTÉ d'emblée s'il tient sous AWAY_DETOUR × (distance de Manhattan) +
+-- AWAY_SLACK ; sinon il est gardé comme repli et les places suivantes sont essayées (même plafond de tracés) ; à la fin, le plus court
+-- des tracés trouvés gagne. Une place un peu plus loin mais en ligne directe bat la place la plus proche contournée.
+Co.AWAY_DETOUR = 1.5
+Co.AWAY_SLACK = 12
+
+--- Longueur posée d'un tracé (tuiles parcourues, souterrains compris) ; 0 pour un tracé vide.
+function Co.route_len(route)
+  local n = 0
+  for i = 2, #(route or {}) do
+    local a, b = route[i - 1], route[i]
+    n = n + math.abs(b.u - a.u) + math.abs(b.v - a.v)
+  end
+  return n
+end
+
+--- Le tracé `route` de `from` à `t` est-il direct (sans détour au-delà de la tolérance) ?
+function Co.direct_enough(route, from, t)
+  local man = math.abs(from.u - t.u) + math.abs(from.v - t.v)
+  return Co.route_len(route) <= Co.AWAY_DETOUR * man + Co.AWAY_SLACK
+end
 -- s52 élague (gels de 4 à 5 s de la carte du DC : emerald fer 3, 22 tracés « trop long » de 20 000 états depuis 3 sources, cibles voisines,
 -- détour réel d'environ 340 tuiles pour toutes) : le premier tracé d'une source qui atteint le plafond clôt la recherche de cette source
 -- (les places suivantes, plus loin dans l'ordre des candidats, ne sont plus tracées). Hors jeu : plan identique sur les 8 specs du banc.
@@ -500,7 +522,12 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
           end
           local info = { far = info0.far, head_pole = info0.head_pole, need = info0.need, plates = info0.plates, bay = info0.bay,
             mode = info0.mode, b_coal = info0.b_coal + b2, b_link = info0.b_link + b2 }
-          return { list = list, len = len, s_edge = s_edge, b = b2, count = count, info = info, route = route }
+          local res = { list = list, len = len, s_edge = s_edge, b = b2, count = count, info = info, route = route }
+          -- N098-DETOUR : un tracé direct gagne tout de suite ; un détour est gardé (le plus court) et les places suivantes sont essayées
+          if Co.direct_enough(route, from, t) then return res end
+          local rl = Co.route_len(route)
+          if not A.best or rl < A.best_len then A.best, A.best_len = res, rl end
+          why = "detour"
         end
         why = "trace : " .. tostring(rwhy)
         if rwhy == "trop long" then stop = true end -- s52 élague : source close au premier plafond
@@ -510,6 +537,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
     has = next_cand()
   end
   Co.WORK = Co.WORK + work
+  if A.best then return A.best end -- N098-DETOUR : aucun tracé direct, le plus court des détours
   return nil, why
 end
 

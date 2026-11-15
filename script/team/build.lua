@@ -4063,6 +4063,11 @@ end
 local function place_ghost(surface, f, e, p)
   if find_real(surface, e, f.force) then return "deja" end
   if find_ghost(surface, e, f.force) then return "ok" end
+  -- N098-POTEAU : un poteau 1 x 1 ne se pose pas sur une case qu'un autre projet réserve à un tapis (shift_pole le déplace)
+  if p and P.wire(e.name) and Build.belt_planned_at(f.build, e.x, e.y, p.id) then
+    local w, h = P.size(e.name, e.dir)
+    if w == 1 and h == 1 then return "occupe" end
+  end
   local function can_place()
     return surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
       build_check_type = defines.build_check_type.ghost_revive })
@@ -4323,6 +4328,141 @@ local function shift_pole(f, surface, p, e)
   return false
 end
 
+--- N098-POTEAU (partie du DC 0.9.7, capture 220200 : un poteau de l'équipe posé sur une case de tapis coupait la ligne, minerai
+--- bloqué en amont) : un TAPIS (tout type de transport : tapis, souterrain, répartiteur, chargeur, lus au prototype) refusé « occupe »
+--- quand TOUT ce qui tient son emprise est un ou des poteaux 1 × 1 de l'équipe : chaque poteau est DÉPLACÉ (teleport : registre et
+--- numéro gardés) sur la case libre la plus proche (2 tuiles au plus), hors des cases réservées au plan, sans couper le réseau
+--- (Build.PoleCut.components, comme shift_pole), puis relié aux poteaux à portée. La pièce du plan qui tenait le poteau suit (x, y).
+--- Le tapis a la priorité : la ligne n'est plus jamais coupée par un poteau. Rend vrai si l'emprise est libérée.
+Build.PoleCut = {}
+--- Composantes connexes (fil de portée `reach`) des poteaux `near` (liste de { x, y }) plus un poteau en (x, y).
+function Build.PoleCut.components(near, x, y, reach)
+  local pts = { { x = x, y = y } }
+  for _, n in ipairs(near) do pts[#pts + 1] = n end
+  local comp, count = {}, 0
+  local r2 = reach * reach + 1e-9
+  for i = 1, #pts do
+    if not comp[i] then
+      count = count + 1
+      comp[i] = count
+      local stack = { i }
+      while #stack > 0 do
+        local u = table.remove(stack)
+        for v = 1, #pts do
+          if not comp[v] and (pts[u].x - pts[v].x) ^ 2 + (pts[u].y - pts[v].y) ^ 2 <= r2 then
+            comp[v] = count
+            stack[#stack + 1] = v
+          end
+        end
+      end
+    end
+  end
+  return count
+end
+Build.BELT_TYPES = { ["transport-belt"] = true, ["underground-belt"] = true, splitter = true, loader = true, ["loader-1x1"] = true,
+  ["linked-belt"] = true }
+Build.POLE_OFF_LOGS = 20
+function Build.pole_off_belt(f, surface, p, e)
+  local pr = game.entity_prototypes[e.name]
+  if not (pr and Build.BELT_TYPES[pr.type]) then return false end
+  local found = surface.find_entities_filtered({ area = footprint(e), collision_mask = "object-layer" })
+  if #found == 0 then return false end
+  for _, x in ipairs(found) do
+    if not (x.valid and x.force.name == f.force) then return false end
+    local ghost = x.type == "entity-ghost"
+    if not ((ghost and x.ghost_type == "electric-pole") or x.type == "electric-pole") then return false end
+    local xp = ghost and x.ghost_prototype or x.prototype
+    if (xp.tile_width or 1) ~= 1 or (xp.tile_height or 1) ~= 1 then return false end
+  end
+  local b = f.build
+  local st = b.stats
+  for _, x in ipairs(found) do
+   if x.type == "entity-ghost" then
+    -- fantôme de poteau : retiré ; sa pièce le repose ailleurs (garde Build.belt_planned_at puis shift_pole)
+    x.destroy()
+    st.pole_ghosts_off_belt = (st.pole_ghosts_off_belt or 0) + 1
+   else
+    local from = { x = x.position.x, y = x.position.y }
+    local reach = x.prototype.max_wire_distance or P.wire(x.name) or 7.5
+    local win = 2 * reach + 2
+    local near = {}
+    for _, o in ipairs(surface.find_entities_filtered({ position = from, radius = win, type = "electric-pole", force = f.force })) do
+      if o ~= x then near[#near + 1] = { x = o.position.x, y = o.position.y, ent = o } end
+    end
+    local before = Build.PoleCut.components(near, from.x, from.y, reach)
+    local cands = {}
+    for dy = -2, 2 do
+      for dx = -2, 2 do
+        if dx ~= 0 or dy ~= 0 then cands[#cands + 1] = { x = from.x + dx, y = from.y + dy, d = dx * dx + dy * dy } end
+      end
+    end
+    table.sort(cands, function(a, c)
+      if a.d ~= c.d then return a.d < c.d end
+      if a.y ~= c.y then return a.y < c.y end
+      return a.x < c.x
+    end)
+    local moved = false
+    for _, c in ipairs(cands) do
+      local k = P.tkey(math.floor(c.x), math.floor(c.y))
+      if not b.occ[k] and Build.PoleCut.components(near, c.x, c.y, reach) <= before
+        and surface.can_place_entity({ name = x.name, position = { c.x, c.y }, force = f.force })
+        and surface.count_entities_filtered({ position = { c.x, c.y }, radius = 0.4, type = { "transport-belt", "underground-belt", "splitter" } }) == 0
+        and x.teleport({ c.x, c.y }) then
+        for _, n in ipairs(near) do
+          if n.ent.valid and (n.x - c.x) ^ 2 + (n.y - c.y) ^ 2 <= reach * reach + 1e-9 then pcall(x.connect_neighbour, n.ent) end
+        end
+        -- la pièce du plan qui tenait ce poteau suit
+        local ok_, nk = P.tkey(math.floor(from.x), math.floor(from.y)), k
+        local q = b.occ[ok_] and b.projects[b.occ[ok_]] or nil
+        if q and q.ents then
+          for _, pe in ipairs(q.ents) do
+            if pe.name == x.name and pe.x == from.x and pe.y == from.y then
+              pe.x, pe.y = c.x, c.y
+              b.occ[nk] = q.id
+              break
+            end
+          end
+        end
+        b.occ[ok_] = p.id
+        st.poles_off_belt = (st.poles_off_belt or 0) + 1
+        if st.poles_off_belt <= Build.POLE_OFF_LOGS then
+          log(string.format("[FO-POTEAU-TAPIS] %s : projet %d, %s de (%g, %g) deplace en (%g, %g) : il tenait la case du tapis %s (le tapis passe d'abord, reseau garde) [%d]",
+            f.key or "player", p.id or 0, x.name, from.x, from.y, c.x, c.y, e.name, st.poles_off_belt))
+        end
+        moved = true
+        break
+      end
+    end
+    if not moved then
+      if not e.pole_off_logged then
+        e.pole_off_logged = true
+        log(string.format("[FO-POTEAU-TAPIS] %s : projet %d, %s en (%g, %g) sur la case du tapis %s : aucune case voisine libre qui garde le reseau",
+          f.key or "player", p.id or 0, x.name, from.x, from.y, e.name))
+      end
+      return false
+    end
+   end
+  end
+  return true
+end
+
+--- N098-POTEAU : un poteau à poser sur une case que le plan (ce projet ou un autre) réserve à un tapis est refusé « occupe » (shift_pole le
+--- déplace ensuite) : l'ordre de pose entre projets ne laisse plus un poteau couper une ligne prévue.
+function Build.belt_planned_at(b, x, y, pid)
+  local qid = b.occ and b.occ[P.tkey(math.floor(x), math.floor(y))]
+  if not qid then return false end
+  local q = b.projects and b.projects[qid]
+  if not (q and q.ents) then return false end
+  local fx, fy = math.floor(x), math.floor(y)
+  for _, pe in ipairs(q.ents) do
+    if not pe.dropped and math.floor(pe.x) == fx and math.floor(pe.y) == fy then
+      local pr = game.entity_prototypes[pe.name]
+      if pr ~= nil and Build.BELT_TYPES[pr.type] == true then return true end
+    end
+  end
+  return false
+end
+
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
 --- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
 local function revive_one(surface, f, p, e, inv, tick, self)
@@ -4342,6 +4482,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     if r == "deja" then e.built = true return true end
     if r == "pnj" then npc_block(f, p, e, surface) return false end
     if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e, p) end -- lot TOURELLES-HORS-AXE
+    if r == "occupe" and Build.pole_off_belt(f, surface, p, e) then r = place_ghost(surface, f, e, p) end -- N098-POTEAU : le tapis passe d'abord
     if r == "deja" then e.built = true return true end
     if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
     if r == "occupe" and Build.relics_off(f, surface, p, e) > 0 then r = place_ghost(surface, f, e, p) end -- lot RETROFIT : relique démontée, place libre
@@ -5433,6 +5574,7 @@ local function advance(f, surface, p, tick)
         if not Tokens.take(f, tick, Build.COST_GHOST) then return end
         local r = place_ghost(surface, f, e, p)
         if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e, p) end -- lot TOURELLES-HORS-AXE
+        if r == "occupe" and Build.pole_off_belt(f, surface, p, e) then r = place_ghost(surface, f, e, p) end -- N098-POTEAU : le tapis passe d'abord
         if r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
         elseif r == "deja" then e.built = true
         elseif r == "obstacle" then

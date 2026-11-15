@@ -166,7 +166,7 @@ local MUTANTS = {
   { "capw", "ch", "cap = nrows > 2 * pitch and Ch.CFG.away_cap_wide or nil,", "cap = nil,", "dc-emerald", "cov" },
   { "pwin", "ch", "if pwin[Co.tk(u, v)] or front[Co.tk(u, v)]", "if front[Co.tk(u, v)]", "dc-joueur", "cov" },
   { "front", "ch", "if pwin[Co.tk(u, v)] or front[Co.tk(u, v)]", "if pwin[Co.tk(u, v)]", "dc-joueur", "ok" },
-  { "relf", "co", "for _, r in ipairs(relf) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end", "", "dc-joueur", "ok" },
+  { "relf", "co", "for _, r in ipairs(relf) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end", "Co.AWAY_DETOUR = 1e9", "dc-joueur", "ok" }, -- (N098-DETOUR : sur dc-joueur, le lien qui longeait la ligne de plaques était un détour, refusé depuis ; le maillon se montre sous la règle d'avant, premier tracé gardé)
   { "prune", "ch", "  s.unpowered = Ch.prune_unpowered(s)", "  s.unpowered = 0", "dc-joueur", "ok" },
 }
 local killed = 0

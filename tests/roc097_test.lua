@@ -190,7 +190,7 @@ do
   check(b:find("and not (Build.deblai(surface, f, p, e) > 0 and can_place())", 1, true) ~= nil, "build : déblaiement avant le refus « obstacle »")
   check(b:find("x.prototype.count_as_rock_for_filtered_deconstruction", 1, true) ~= nil, "build : drapeau de rocher lu au prototype")
   local _, n = b:gsub("place_ghost%(surface, f, e, p%)", "")
-  check(n == 6, "build : place_ghost reçoit le projet (définition et 5 appels d'un projet : " .. n .. ")")
+  check(n == 8, "build : place_ghost reçoit le projet (définition et 7 appels d'un projet, dont 2 de N098-POTEAU : " .. n .. ")")
   local _, z = b:gsub("not Build%.Db%.lazy%(p%.spec%)", "")
   check(z == 2, "build : un champ ne s'arrête pas à l'étape defrichage (" .. z .. ")")
 end
