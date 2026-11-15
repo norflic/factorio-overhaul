@@ -33,6 +33,10 @@ c, w = Th.slot_cfg(2500, 1000, true, custom)
 check(not w, "seuil lu au réglage (3x)")
 
 -- 3. free_slot avec le réglage élargi : un 2e chantier de fer et un 4e créneau
+c, w = Th.slot_cfg(1800, 180, true)
+check(not w and c.slots == Th.CFG.slots, "centrale neuve a vide (10x la demande, banc THERMO-eada6505) : pas d'elargissement")
+c, w = Th.slot_cfg(2500, 1000, true)
+check(w, "2,5x la demande en charge (partie du DC) : elargie")
 local wide = Th.slot_cfg(2500, 1000, true)
 local busy = { total = 3, iron = 1, copper = 1, coal = 1, key = "iron", stuck = {} }
 check(not Th.free_slot("stone", busy), "base : 3 créneaux pris, pierre refusée")

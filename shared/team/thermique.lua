@@ -65,6 +65,8 @@ M.CFG = {
   -- lot THERMO-0915 (partie du DC 0.9.1 : foreuses thermiques à 909 de pollution/min après 1 h, courant à 2,5x la demande) : marge électrique
   -- (capacité des centrales finies / production servie) à partir de laquelle la migration des paires thermiques s'élargit
   surplus_ratio = 2.0,
+  surplus_min_load = 0.25, -- sprint 0915 : la production servie doit valoir au moins cette part de la capacité (centrale neuve à vide = 10x la demande
+                           -- dès la 1re minute : banc THERMO-eada6505, élargissement à 61 s et 25 foreuses de cuivre perdues)
   surplus_slots = 5,       -- créneaux de bande au plus en excédent (les 5 créneaux réels, SLOTS de migration_champ)
   surplus_per_mineral = 2, -- chantiers de bande par minerai au plus en excédent
 }
@@ -412,6 +414,7 @@ end
 function M.slot_cfg(cap, served, healthy, cfg)
   cfg = cfg_of(cfg)
   if not healthy or (served or 0) <= EPS or (cap or 0) < cfg.surplus_ratio * served then return cfg, false end
+  if served < (cfg.surplus_min_load or 0) * (cap or 0) then return cfg, false end
   local out = setmetatable({}, { __index = cfg }) -- (copie paresseuse : aucun parcours de table)
   out.slots = math.max(cfg.slots, cfg.surplus_slots)
   out.per_mineral = math.max(cfg.per_mineral, cfg.surplus_per_mineral)
