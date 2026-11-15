@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.127
+Date: 2026-11-15
+  Features:
+    - Commandement (Maj+E) : sans paire sortie/quai finie (début de partie), l'ordre de liaison déclenche une tournée prioritaire de l'avant-poste désigné vers le QG, avec sa ligne d'état ; au banc (ordre à T+5 min), ordre servi en 30 s, 30 objets rapportés (jamais servi en 30 min avant).
+  Known issues:
+    - Ce repli fait un seul voyage : ce n'est pas une liaison durable.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.126
 Date: 2026-11-15
   Features:

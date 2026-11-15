@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 06 h 20 : version 0.7.127 (Maj+E en début de partie)
+
+- **F700 · VALIDÉ · DÉPLOYÉ 0.7.127** Maj+E restait sans effet avant 30 min (aucune paire sortie/quai finie). Repli : avant-poste le plus proche du point A (≤ rayon + 48), tournée de service à priorité 93, ordre servi à la tournée faite. Scénario `commandes-delais` (point A = avant-poste le plus proche, B = QG) : `2026-11-15_MAJE-avant2` / `-apres2` : effet jamais → 30 s, bilan 12 OK 1 ECHEC → 13 OK. Test `liaison_maje_test` 16 OK. content 621 OK.
+
 ## 2026-11-15, 05 h 35 : version 0.7.126 (défense contre les factions)
 
 - **F699 · VALIDÉ · DÉPLOYÉ 0.7.126** Banc 120 min (`2026-11-15_defense-longue-1`) : sur la carte du DC, presque aucune attaque de biters avant 120 min ; les pertes viennent de la guerre entre factions (les 4 déclarent la guerre au joueur après 30 min de grâce en difficulté normale). Tourelle de base ~30 dégâts/s contre ~84 pour un mitrailleur d'amber : position et munitions n'y changent rien. Leviers sans toucher l'équilibre : poids de guerre des technos (`R.WAR_EFFECT`, catalogue) +150 par point pendant 30 min après une perte PvP ; `script/team/murs_garde.lua` (7 murs devant la tourelle tuée). Bancs `2026-11-15_defac-{base,cand}-g{1,2}` : pertes du joueur à 120 min 130 → 115, 127 → 81. content 621 OK.
