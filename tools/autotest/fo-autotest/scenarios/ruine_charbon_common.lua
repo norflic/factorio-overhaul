@@ -3,7 +3,8 @@
 -- ([FO-RUINE]) doit refaire le champ. Chaque minute ensuite, ligne [FO-SCEN-RUINE] : foreuses de l'équipe à moins de R tuiles du site.
 -- Témoin (`avec` faux) : la fabrication des foreuses des ruines est coupée (remote fo-recon.set_ruin_craft(false)).
 --   py -3.9 -B tools/autotest/banc.py --out <archive> --graine G --carte-max --mgs tools/autotest/carte_dc_mgs.json -- 108400 ruine-charbon <source>
-return function(avec)
+-- `vide` : à la destruction, les objets des foreuses détruites sont aussi retirés des coffres de l'équipe (cas « sans objet au stock »).
+return function(avec, vide)
 local base = require("scenarios/jalons_common")(30)
 local MIN = 3600
 local TAG = "[FO-SCEN-RUINE] "
@@ -41,10 +42,24 @@ local function strike(ctx, tick)
   local list = s.find_entities_filtered({ type = "mining-drill", force = force, area = { { site.x - R, site.y - R }, { site.x + R, site.y + R } } })
   table.sort(list, function(a, b) return a.unit_number < b.unit_number end)
   killed = 0
+  local names = {}
+  for _, d in ipairs(list) do
+    local its = d.prototype.items_to_place_this
+    if its and its[1] then names[#names + 1] = its[1].name end
+  end
   for _, d in ipairs(list) do
     if d.valid then d.die("enemy") killed = killed + 1 end
   end
   at = tick
+  if vide then
+    local gone = 0
+    local cs = s.find_entities_filtered({ type = "container", force = force })
+    table.sort(cs, function(a, b) return a.unit_number < b.unit_number end)
+    for _, c in ipairs(cs) do
+      for _, nm in ipairs(names) do gone = gone + c.remove_item({ name = nm, count = 100000 }) end
+    end
+    log(TAG .. string.format("stock vide : %d objet(s) de foreuse retire(s) des coffres de l'equipe", gone))
+  end
   log(TAG .. string.format("%s : avant-poste de charbon en (%.0f, %.0f) : %d foreuse(s) detruite(s) a %.1f min", avec and "avec" or "TEMOIN",
     site.x, site.y, killed, tick / MIN))
   return killed > 0
