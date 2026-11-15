@@ -122,5 +122,34 @@ do
   check(Em.decide({ delta = m - 100, room = true, busy = false, inflight = true, debit_min = m, cost = 1 }) ~= "attache", "mutant 0.9.7 : refuse (le test le voit)")
 end
 
+-- §6 kit n+1 pendant la pose n
+do
+  local r = E.CFG.chain_rate
+  local function suite(rel)
+    local t = {
+      rel({ complete = true, state = "fantomes", rate = r }) == true,
+      rel({ complete = true, state = "chantier", rate = r + 1 }) == true,
+      rel({ complete = true, state = "defrichage", rate = r }) == true,
+      rel({ complete = true, state = "reserve", rate = r }) == false,
+      rel({ complete = false, state = "chantier", rate = r }) == false,
+      rel({ complete = true, state = "chantier", rate = r - 1 }) == false,
+      rel({ complete = true, state = "chantier", rate = r, ordre = true }) == false,
+      rel({ complete = true, state = "fini", rate = r }) == false,
+      rel({ complete = true, state = "refuse", rate = r }) == false,
+    }
+    for _, v in ipairs(t) do if not v then return false end end
+    return true
+  end
+  check(suite(E.release_early), "Ent.release_early : kit complet + pose + débit d'enchaînement, jamais un ordre ni une bande close")
+  check(not suite(function() return false end), "mutant 0.9.7 (jamais libéré) : doit échouer")
+  local src = read("script/team/migration_champ.lua")
+  check(src:find("Ent.release_early({ complete = e.complet ~= nil, state = cur.state, ordre = e.ordre, rate = ms.ent_rate })", 1, true) ~= nil,
+    "relance : câblée sur Ent.release_early")
+  check(src:find("and x.item and not (p.spec and p.spec.ent_pose) then", 1, true) ~= nil, "bande en pose : plus en vol pour l'entrepreneur")
+  check(src:find("p.spec.entrepreneur and not p.spec.ent_pose and not Ent.closed(p.state)", 1, true) ~= nil, "suivi : ni la bande en pose ni une refusée")
+  local eo = read("shared/team/entrepreneur_ouvrier.lua")
+  check(eo:find("Ent.monopoly(p.spec) and not Ent.closed(p.state)", 1, true) ~= nil, "ouvrier dédié : un projet refusé ne le garde pas")
+end
+
 print(string.format("expo_test : %d OK, %d ECHEC", ok, ko))
 if ko > 0 then os.exit(1) end

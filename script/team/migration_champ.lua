@@ -2257,7 +2257,7 @@ local function ent_inflight(f)
   local fuel_live = false
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if p and not Ent.closed(p.state) and x.item then
+    if p and not Ent.closed(p.state) and x.item and not (p.spec and p.spec.ent_pose) then
       live[#live + 1] = x
       if x.item == T.fuel then fuel_live = true end
     end
@@ -2602,7 +2602,7 @@ function Mig.entrepreneur_follow(f)
   if not (ms and ms.ent_wait and not ms.ent and f.build) then return end
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if not ms.ent and p and p.spec and p.spec.entrepreneur then
+    if not ms.ent and p and p.spec and p.spec.entrepreneur and not p.spec.ent_pose and not Ent.closed(p.state) then -- (lot EXPO : ni la bande en pose, ni une refusée)
       ms.ent = { pid = x.pid, t0 = ms.ent_wait.t0, ordre = ms.ent_wait.ordre, oid = ms.ent_wait.ordre and x.oid or nil }
       if ms.ent_wait.ordre then p.spec.ordre, p.reserve_next = true, nil end -- lot MAJA-097 : bande d'un ordre du joueur (Cp.ready_order)
       ms.ent_wait = nil
@@ -2724,6 +2724,15 @@ end
 function Mig.entrepreneur_chain(f, ms, tick)
   if not (f.build and f.build.projects) or ms.ent_tick == nil or tick < (ms.ent_chain_off or 0) then return end
   local cur = ms.ent and f.build.projects[ms.ent.pid]
+  -- lot EXPO : kit complet et pose en cours : l'entrepreneur passe au kit de la bande suivante (Ent.release_early) ; la bande en pose garde son
+  -- monopole (spec.entrepreneur) et n'est plus « en vol » pour lui (spec.ent_pose)
+  local e = ms.ent
+  if cur and e and Ent.release_early({ complete = e.complet ~= nil, state = cur.state, ordre = e.ordre, rate = ms.ent_rate }) then
+    if cur.spec then cur.spec.ent_pose = true end
+    ent_say(f, ms, string.format("kit complet du projet %d (%s) : pose laissee aux PNJ, bande suivante a %.1f min", e.pid, tostring(cur.state), tick / 3600))
+    ent_finish(f, ms, tick)
+    cur = nil
+  end
   local busy = cur ~= nil and not Ent.closed(cur.state)
   local waiting = ms.ent_wait ~= nil and (tick - (ms.ent_wait.t0 or tick)) < Ent.CFG.period
   if not Ent.chain({ rate = ms.ent_rate, busy = busy, waiting = waiting, since = tick - ms.ent_tick }) then return end

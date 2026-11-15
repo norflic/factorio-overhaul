@@ -94,6 +94,18 @@ end
 --- entrepreneur-continu (0.9.1) : relance immédiate du scan ? inp = { rate (plaques/min au dernier relevé), busy (chantier entrepreneur
 --- vivant), waiting (bande demandée pas encore reconnue), since (ticks depuis le dernier scan) }. Vrai seulement au-delà de CFG.chain_rate,
 --- sans chantier ni demande en cours, et au moins kit_every ticks après le dernier scan (pas de rafale).
+--- Lot EXPO (chantier 2 du DC, point 2 : « deux projets qui ne se disputent pas le goulot -> en parallèle ») : le chantier entrepreneur dont
+--- le KIT EST COMPLET et qui est en POSE (état ni plan, ni attente, ni réserve, ni clos) ne prend plus de plaques : seulement des PNJ. Au-delà
+--- du débit d'enchaînement (CFG.chain_rate), l'entrepreneur le laisse finir (monopole gardé sur ce qu'il tient) et passe tout de suite au
+--- kit de la bande suivante : kit n+1 pendant la pose n. Mesuré en 0.9.7 : pose 1,1 à 3,9 min après le kit complet, cycle 4 à 11 min, une
+--- seule bande à la fois. Jamais pour la bande d'un ordre du joueur (son ordre est servi à la pose). inp = { complete, state, ordre, rate }.
+local PRE_POSE = { plan = true, attente = true, reserve = true }
+function E.release_early(inp)
+  if not inp.complete or inp.ordre then return false end
+  if E.closed(inp.state) or PRE_POSE[inp.state] then return false end
+  return (inp.rate or 0) >= E.CFG.chain_rate
+end
+
 function E.chain(inp)
   if inp.busy or inp.waiting then return false end
   if not inp.rate or inp.rate < E.CFG.chain_rate then return false end
