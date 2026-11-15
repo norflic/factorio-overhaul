@@ -475,4 +475,32 @@ function M.near_order(prs, axis, od)
   return out
 end
 
+--- Lot MAJA-097 (banc INTEG-096-ordres, graine 123456789 : ordre Maj+A au tick 72060 sur (44, -36) ; la bande -13 du champ 100001, demandée
+--- à 18,7 min AVANT l'ordre, était encore en réserve (53/253 pièces) et l'ordre l'ATTACHAIT : elle se posait vers x = 108, hors de la zone,
+--- et la première entité dans la zone n'arrivait qu'à +1 492 s). Faut-il remplacer la bande en vol `cur` (pas encore entamée) par une bande
+--- qui coupe le cercle de l'ordre ? prs, axis, od : comme M.near_order ; skip = { [bande] = vrai } (posées, écartées, en avance : jamais
+--- choisies ; `cur` n'y est pas). Rend la liste des bandes candidates (qui coupent le cercle, la plus proche d'abord), vide si `cur` coupe
+--- déjà le cercle ou si aucune bande ne le coupe (rien de mieux : la bande en vol reste).
+function M.order_swap(prs, axis, od, cur, skip)
+  local out = {}
+  if not (od and od.x and od.y and cur ~= nil) then return out end
+  skip = skip or {}
+  local sorted = {}
+  for i, x in ipairs(prs or {}) do sorted[i] = x end
+  table.sort(sorted)
+  local pitch
+  for i = 2, #sorted do
+    local d = sorted[i] - sorted[i - 1]
+    if d > 0 and (pitch == nil or d < pitch) then pitch = d end
+  end
+  pitch = pitch or 0
+  local c, r = (axis == "x") and od.y or od.x, od.r or 0
+  local function touches(x) return math.abs(x + pitch / 2 - c) <= r + pitch / 2 end
+  if touches(cur) then return out end
+  for _, x in ipairs(M.near_order(prs, axis, od)) do
+    if x ~= cur and not skip[x] and touches(x) then out[#out + 1] = x end
+  end
+  return out
+end
+
 return M

@@ -110,6 +110,22 @@ function Cp.ready_band(need, stock, lead, whole)
   return #short == 0 and leads > 0, { pieces = pieces, total = total, short = short, lead = true }
 end
 
+-- Lot MAJA-097 (banc INTEG-096-ordres, graine 123456789) : la bande d'un ordre Maj+A attendait au plancher commun (tapis : 102 sur 152) ;
+-- 13 fours et 40 poteaux au coffre dès l'ordre, chantier parti à +8,1 min. Une bande d'ORDRE du joueur (spec.ordre, posé par l'entrepreneur
+-- quand il l'attache) part dès qu'UNE pièce de son kit est réservée : chaque pièce se pose à son arrivée (la préemption du joueur prime sur
+-- le « ne pas partir à moitié »). La garde du dégel reste (voie entière avant de retirer des paires qui produisent).
+function Cp.ready_order(need, stock)
+  local pieces, total = 0, 0
+  stock = stock or {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local n = math.floor(tonumber(need[it]) or 0)
+    if n > 0 then
+      pieces, total = pieces + math.min(math.floor(tonumber(stock[it]) or 0), n), total + n
+    end
+  end
+  return pieces > 0 and total > 0, { pieces = pieces, total = total, short = {}, ordre = true }
+end
+
 --- Un projet `p` (vue : state, reopened, spec.champ, stock, need) peut-il partir en chantier progressif ? Seulement la BANDE elle-même,
 --- neuve (spec.champ posé par le plan directeur du champ, sans `coal` ni `link` : un réseau du charbon, lié ou non, garde le tout-ou-rien :
 --- son kit est surtout du combustible et sa pose partielle déroute la migration, mesure EXPANSION-C, graine 271828182 : le réseau lié de la
@@ -122,6 +138,9 @@ function Cp.go(p)
   local s = p.spec
   -- 0.7.114 (F676) : bande de champ dont les foreuses sont données (p.lead, build.lua) : départ par les foreuses, voie entière si dégel
   local c0 = s and s.champ
+  if c0 and s.ordre and c0.coal == nil and c0.link == nil and not s.ext and not (s.degel and not p.degele) then
+    return Cp.ready_order(p.need or {}, p.stock or {}) -- lot MAJA-097 : bande d'un ordre du joueur
+  end
   if c0 and c0.coal == nil and c0.link == nil and p.lead and next(p.lead) ~= nil and not s.ext then
     return Cp.ready_band(p.need or {}, p.stock or {}, p.lead, s.degel ~= nil and not p.degele)
   end
