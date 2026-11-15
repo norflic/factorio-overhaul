@@ -89,6 +89,11 @@ local function culs(ctx, minute)
           if after and after.direction == b.direction then
             cut = cut + 1
             if #cutpos < 5 then cutpos[#cutpos + 1] = string.format("(%g,%g)", fx, fy) end
+            if p and cut <= 1 then
+              game.take_screenshot({ player = p, surface = s, position = { fx, fy }, resolution = { 960, 720 }, zoom = 1,
+                path = string.format("fo-shots/coupe-poteau-m%03d-%s-%d.png", minute, tostring(row.key), cut), show_entity_info = true,
+                daytime = 0, allow_in_replay = true, force_render = true })
+            end
           else
             local items = b.get_transport_line(1).get_item_count() + b.get_transport_line(2).get_item_count()
             if items >= 6 then
@@ -100,7 +105,7 @@ local function culs(ctx, minute)
               if not picked then
                 n = n + 1
                 if #pos < 5 then pos[#pos + 1] = string.format("(%g,%g)", x, y) end
-                if p and row.key == "player" and n <= 2 then
+                if p and n <= 2 then
                   local file = string.format("fo-shots/cul-de-sac-m%03d-%s-%d.png", minute, tostring(row.key), n)
                   game.take_screenshot({ player = p, surface = s, position = { x, y }, resolution = { 960, 720 }, zoom = 1,
                     path = file, show_entity_info = true, daytime = 0, allow_in_replay = true, force_render = true })
@@ -145,8 +150,8 @@ base.tick = function(ctx, e)
     local ok, err = pcall(jalon, ctx, e.tick)
     if not ok then log(TAG .. "ERREUR " .. tostring(err)) end
   end
-  if e.tick > 0 and e.tick % (30 * MIN) == 0 and e.tick <= DUREE * MIN then
-    local ok, err = pcall(culs, ctx, e.tick / MIN)
+  if e.tick > 0 and (e.tick % (30 * MIN) == 0 or e.tick == DUREE * MIN - 600) and e.tick <= DUREE * MIN then
+    local ok, err = pcall(culs, ctx, math.floor(e.tick / MIN + 0.5))
     if not ok then log("[FO-CUL-DE-SAC] ERREUR " .. tostring(err)) end
   end
   if e.tick == 15 * MIN then
