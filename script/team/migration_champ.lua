@@ -2278,6 +2278,24 @@ function Mig.entrepreneur_scan(f, tick)
     end
     return action, cause
   end
+  -- lot C3-BOUCLE : sans réseau qui produit (power_ok faux), aucune bande ne part (Mg.start_ok « courant ») : la tête va à la centrale en attente
+  if not power_ok(f.build) then
+    local list = {}
+    for _, id in ipairs(sorted_keys(f.build.projects)) do
+      local p = f.build.projects[id]
+      local plant = (p.spec and p.spec.plant) or id == f.build.plant
+      for _, x in ipairs(f.build.extra_plants or {}) do if x == id then plant = true end end
+      list[#list + 1] = { id = id, plant = plant and true or false, state = p.state }
+    end
+    local pid = Mg.plant_head(list)
+    local p = pid and f.build.projects[pid]
+    if p and p.spec then
+      p.spec.entrepreneur = true
+      ms.ent = { pid = pid, t0 = tick }
+      ent_say(f, ms, string.format("attache la centrale %d (migration en veille : courant ; %d plaque(s) en 5 min)", pid, delta))
+      return "attache", "courant"
+    end
+  end
   local st = ms.o[target]
   if not st then st = new_state(); ms.o[target] = st end
   st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)

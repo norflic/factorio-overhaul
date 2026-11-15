@@ -246,6 +246,8 @@ local function suite(E)
     check(E.thermal(avant) == true, "8d : pas de reseau (aucune electrique posee) : regle d'avant, permise")
     local batir = { el_live = 0, poles_stock = 0, obtainable = true, plants = 1, poles = true, healthy = true, net = true }
     check(E.thermal(batir) == true, "8e : un avant-poste NEUF (pas un agrandissement) garde la regle d'avant")
+    local cap0 = { el_live = 0, obtainable = true, plants = 0, poles = true, healthy = true, extend = true, net = true }
+    check(E.thermal(cap0) == false, "8f : capacite lue a 0 (centrale qui produit pourtant), reseau en place : agrandissement refuse")
   end
   return failures - before
 end
