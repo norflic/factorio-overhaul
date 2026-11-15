@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.128
+Date: 2026-11-15
+  Features:
+    - IA (équipe du joueur, entrepreneur) : l'ouvrier entrepreneur fabrique d'un coup le kit complet d'un projet (toutes les pièces lues dans ses besoins) avant de partir le poser, au lieu d'aller-retours pièce par pièce. Banc 30 min (carte du DC) : fer + cuivre total +4,0 % sur 2 graines ; équipe du joueur +2,2 % sur 4 graines, -4,1 % sur 2 graines (dans le bruit).
+  Known issues:
+    - La deuxième centrale à vapeur prioritaire (lot centrale2) est retirée de cette version : elle affamait l'équipe du joueur avant 30 min (-26 %).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.127
 Date: 2026-11-15
   Features:
