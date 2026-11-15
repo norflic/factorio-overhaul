@@ -2285,7 +2285,7 @@ function Mig.entrepreneur_scan(f, tick)
       local p = f.build.projects[id]
       local plant = (p.spec and p.spec.plant) or id == f.build.plant
       for _, x in ipairs(f.build.extra_plants or {}) do if x == id then plant = true end end
-      list[#list + 1] = { id = id, plant = plant and true or false, state = p.state }
+      list[#list + 1] = { id = id, plant = plant and true or false, state = p.state, reopened = (p.reopened and p.reopened ~= 0) and true or nil }
     end
     local pid = Mg.plant_head(list)
     local p = pid and f.build.projects[pid]

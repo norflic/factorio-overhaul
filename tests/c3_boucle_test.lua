@@ -98,6 +98,8 @@ if type(Mg.plant_head) == "function" then
   check(Mg.plant_head(L) == 8, "la plus ancienne centrale vivante (8), pas la finie (1) ni une bande (3)")
   check(Mg.plant_head({ { id = 4, plant = true, state = "refuse" }, { id = 5, plant = false, state = "reserve" } }) == nil, "aucune centrale vivante : nil")
   check(Mg.plant_head({ { id = 9, plant = true, state = "chantier" } }) == 9, "une centrale au chantier garde la tete")
+  check(Mg.plant_head({ { id = 1, plant = true, state = "chantier", reopened = true }, { id = 8, plant = true, state = "reserve" } }) == 8,
+    "une centrale rouverte (reconstruction) ne prend pas la tete : la neuve (8)")
 end
 check(MS:find('if not power_ok(f.build) then', 1, true) ~= nil and MS:find("local pid = Mg.plant_head(list)", 1, true) ~= nil, "branche dans Mig.entrepreneur_scan")
 
