@@ -258,6 +258,9 @@ Build.Agents = require("script.companion.registry") -- lot MESURE-MODULE : l'age
 Build.Sites = require("shared.team.sites_dedup") -- lot MESURE-MODULE : copies de coffres de p.quais / p.outs (champ de Build, pas une locale)
 -- Lot REMPLISSAGE : cible des coffres d'entrée quand le stock est abondant (colle de shared/team/remplissage.lua) ; champ de Build, même raison.
 Build.Rempl = require("script.team.remplissage_glue")
+-- Lot POTEAU-CHANTIER (0716) : poteau prévu d'un chantier en réserve, non fabricable faute de matière : repli sur le meilleur poteau fabricable,
+-- relais et compensation de zone (script/team/poteau_chantier.lua) ; champ de Build, même raison que les autres (limite des locales).
+Build.PoleCh = require("script.team.poteau_chantier")
 Build.Elec = require("script.team.electrique") -- lot RETROFIT : ère électrique datée (Elec.era), reliques thermiques démontées par le chantier d'une bande
 -- Lot TV-VAPEUR : tampon de vapeur de la centrale (V36, colle de shared/team/vapeur_tampon.lua) et dégradation sous charge (V89, script/core/
 -- charge.lua) ; champs de Build, pas des locales (199 locales sur 200).
@@ -4800,6 +4803,21 @@ function Build.carry_anchor(b, x, y)
   return { x = fx, y = fy }
 end
 
+--- Lot POTEAU-CHANTIER : point d'appui d'une pièce AJOUTÉE à un plan déjà fait (poteau de repli, relais) : même calcul que le plan (carrefour
+--- du treillis, place libre à portée de pose), champs e.ax, e.ay, e.anchor posés.
+function Build.anchor_ent(f, e)
+  local b = f.build
+  local a = P.anchor_for(b.lat, e.x, e.y, seg_passable(b))
+  local ax, ay
+  if a then ax, ay = a.x, a.y else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+  local fx, fy = free_spot(b, nil, ax, ay, nil)
+  if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, nil, e.x, e.y, nil) end
+  e.ax, e.ay = fx, fy
+  e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+  return e
+end
+Build.PoleCh.anchor = Build.anchor_ent
+
 --- Tâches de COLLECTE des coffres de sortie d'un projet (une par coffre au seuil). Lot COLLECTE : appelée aussi pour un projet qui n'est ni
 --- « fini » ni « chantier » (bande du champ « reserve:pile », « refuse:migration »... dont les coffres posés se remplissent encore : journal du
 --- DC du 7/11, 8 coffres au seuil de 159 à 174 min) ; un coffre absent (rien de bâti) est ignoré.
@@ -5263,6 +5281,7 @@ local function advance(f, surface, p, tick)
         end
       end
       p.reason, p.reserve_next = "materiaux", tick + 60
+      Build.PoleCh.try(f, p, tick, surface) -- lot POTEAU-CHANTIER : la réserve suivante relit le plan (poteaux remplacés, relais)
     end
     return
   end
