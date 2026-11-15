@@ -109,7 +109,7 @@ function Ds.view(f, fortify_open, out, stock, hq_turrets, outposts)
   -- 0. lot s45 OUTILS : bastions défensifs désignés par le joueur (outil de commandement, Maj + R) : servis comme un QG attaqué
   if f.team and f.team.commande then
     for _, b in ipairs(bastions) do
-      add({ key = b.key, kind = "qg", x = b.x, y = b.y, score = 0, want = b.want, ordre = true, r = b.r }) -- s46 : spirale, sous la réserve
+      add({ key = b.key, kind = "qg", x = b.x, y = b.y, score = 0, want = b.want, ordre = true, r = b.r, x0 = b.x0, y0 = b.y0, x1 = b.x1, y1 = b.y1 }) -- s46 : spirale, sous la réserve
     end
   end
   -- 1. le QG d'une faction qui en a perdu des tourelles (le plus haut nombre vu, f.team.hq_peak)
@@ -222,7 +222,10 @@ function Ds.place(f, surface, task, carrier)
   if not (c and key) then return 0 end
   local zr = task.ordre_r -- s46 outils : bastion du joueur : toute place dans le rayon de l'ordre, arbres et rochers dégagés
   local accept
-  if zr then
+  local zb = task.ordre_box -- ux-sel : le RECTANGLE du bastion (Co.in_zone) ; sans rectangle (tâche d'avant), le disque
+  if zr and zb then
+    accept = function(pos) return Co.in_zone(zb, pos.x, pos.y) end
+  elseif zr then
     local lim = zr + 1
     accept = function(pos) return (pos.x - c.x) ^ 2 + (pos.y - c.y) ^ 2 <= lim * lim end
   else
@@ -246,8 +249,12 @@ function Ds.place(f, surface, task, carrier)
   st.poses = st.poses + n
   if zr and st.logs < Ds.LOGS then
     -- diagnostic : ce qui occupe la zone du bastion (types moteur), lu une fois par pose
-    local function cnt(ty) return surface.count_entities_filtered({ position = { c.x, c.y }, radius = zr, type = ty }) end
-    local own = surface.count_entities_filtered({ position = { c.x, c.y }, radius = zr, force = f.force })
+    local function where(q) -- ux-sel : le rectangle du bastion (sinon le disque d'avant)
+      if zb then q.area = { { zb.x0, zb.y0 }, { zb.x1, zb.y1 } } else q.position, q.radius = { c.x, c.y }, zr end
+      return q
+    end
+    local function cnt(ty) return surface.count_entities_filtered(where({ type = ty })) end
+    local own = surface.count_entities_filtered(where({ force = f.force }))
     st.logs = st.logs + 1
     log(string.format("[FO-DEFENSE] reserve %s bastion %s en (%.0f, %.0f) rayon %d : %d emplacement(s) en spirale, %d tourelle(s) posee(s), "
       .. "%d arbre(s)/rocher(s) degage(s) ; zone : minerai %d case(s), arbres %d, rochers et decors %d, entites de l'equipe %d, falaises %d",

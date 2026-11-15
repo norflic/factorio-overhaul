@@ -446,6 +446,17 @@ end
 --- (numéros de bande = coordonnée en travers de l'axe, début de la bande), axis = axe du cadre ("x" : bandes le long de x, en travers = y),
 --- od = { x, y, r } (centre et rayon de l'ordre). Le pas des bandes est lu sur l'ordre lui-même (plus petit écart entre deux numéros).
 --- Rend une NOUVELLE liste : bandes qui coupent le cercle d'abord, puis la plus proche du centre en travers, puis l'ordre du cadre.
+--- ux-sel : intervalle de l'ordre EN TRAVERS de l'axe du cadre { lo, hi } : celui de son RECTANGLE (od.x0 .. od.x1, y0 .. y1), sinon (ordre
+--- d'avant) centre +- rayon.
+local function across(axis, od)
+  local c, r = (axis == "x") and od.y or od.x, od.r or 0
+  if od.x0 ~= nil then
+    if axis == "x" then return od.y0, od.y1 end
+    return od.x0, od.x1
+  end
+  return c - r, c + r
+end
+
 function M.near_order(prs, axis, od)
   local out = {}
   if not (od and od.x and od.y) then for i, x in ipairs(prs or {}) do out[i] = x end return out end
@@ -459,16 +470,18 @@ function M.near_order(prs, axis, od)
   end
   pitch = pitch or 0
   local c = (axis == "x") and od.y or od.x
+  local lo, hi = across(axis, od)
   local rank = {}
   for i, x in ipairs(prs or {}) do
     local mid = x + pitch / 2
-    -- (à pas égal, la distance du milieu de bande au centre range d'elle-même d'abord les bandes qui coupent le cercle : une bande
-    -- [x, x + pitch) touche [c - r, c + r] si et seulement si |milieu - c| <= r + pitch / 2)
-    rank[x] = { d = math.abs(mid - c), i = i }
+    -- ux-sel : une bande [x, x + pitch] qui coupe le RECTANGLE de l'ordre passe d'abord (avant : le disque, par la seule distance au centre) ;
+    -- puis la distance du milieu de bande au centre, puis l'ordre du cadre
+    rank[x] = { t = (x <= hi and x + pitch >= lo) and 0 or 1, d = math.abs(mid - c), i = i }
     out[#out + 1] = x
   end
   table.sort(out, function(a, b)
     local ra, rb = rank[a], rank[b]
+    if ra.t ~= rb.t then return ra.t < rb.t end
     if ra.d ~= rb.d then return ra.d < rb.d end
     return ra.i < rb.i
   end)
@@ -494,8 +507,8 @@ function M.order_swap(prs, axis, od, cur, skip)
     if d > 0 and (pitch == nil or d < pitch) then pitch = d end
   end
   pitch = pitch or 0
-  local c, r = (axis == "x") and od.y or od.x, od.r or 0
-  local function touches(x) return math.abs(x + pitch / 2 - c) <= r + pitch / 2 end
+  local lo, hi = across(axis, od) -- ux-sel : le RECTANGLE de l'ordre (avant : le disque)
+  local function touches(x) return x <= hi and x + pitch >= lo end
   if touches(cur) then return out end
   for _, x in ipairs(M.near_order(prs, axis, od)) do
     if x ~= cur and not skip[x] and touches(x) then out[#out + 1] = x end

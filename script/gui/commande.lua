@@ -72,17 +72,27 @@ local function order_text(o)
   return { "fo-commande.carte-liaison" }
 end
 
+--- ux-sel : le retour visuel d'un ordre est son RECTANGLE (celui de la zone d'action, Co.in_zone), le texte du type et l'état collés à son coin
+--- haut-gauche (le coin se lit sans chercher le centre). Liaison : le rectangle du point A est dessiné de même, marqué « A ».
 local function draw(f, o)
   local surface = game.surfaces[o.surface or 1]
   local force = game.forces[f.force]
   if not (surface and force) then return end
   local c = COLOR[o.kind] or COLOR.liaison
+  local x0, y0, x1, y1 = Co.box_of(o)
   o.draw = {
-    rendering.draw_circle({ color = c, radius = o.r, width = 4, filled = false, target = { x = o.x, y = o.y }, surface = surface,
+    rendering.draw_rectangle({ color = c, width = 4, filled = false, left_top = { x0, y0 }, right_bottom = { x1, y1 }, surface = surface,
       forces = { force }, draw_on_ground = true }),
-    rendering.draw_text({ text = order_text(o), color = c, target = { x = o.x, y = o.y - o.r - 1 }, surface = surface,
-      forces = { force }, scale = 2, alignment = "center" }),
+    rendering.draw_text({ text = order_text(o), color = c, target = { x = x0, y = y0 - 1.3 }, surface = surface,
+      forces = { force }, scale = 2, alignment = "left", vertical_alignment = "bottom" }),
   }
+  if o.a then
+    local ax0, ay0, ax1, ay1 = Co.box_of(o.a)
+    o.draw[#o.draw + 1] = rendering.draw_rectangle({ color = c, width = 4, filled = false, left_top = { ax0, ay0 }, right_bottom = { ax1, ay1 },
+      surface = surface, forces = { force }, draw_on_ground = true })
+    o.draw[#o.draw + 1] = rendering.draw_text({ text = "A #" .. o.id, color = c, target = { x = ax0, y = ay0 - 0.1 }, surface = surface,
+      forces = { force }, scale = 1.5, alignment = "left", vertical_alignment = "bottom" })
+  end
   -- Étiquette de carte : texte riche sans langue (icône du minerai, numéro de l'ordre).
   local ok, tag = pcall(force.add_chart_tag, surface, { position = { x = o.x, y = o.y },
     text = o.kind == "gisement" and ("[entity=" .. tostring(o.resource) .. "] #" .. o.id) or (o.kind == "amelioration" and ("^ #" .. o.id) or (o.kind == "bastion" and ("[!] #" .. o.id) or ("<-> #" .. o.id))) })
@@ -151,9 +161,9 @@ local function build(player)
     if o.kind == "gisement" then
       r.add({ type = "label", caption = { "fo-commande.ligne-gisement", o.id, { "entity-name." .. tostring(o.resource) }, o.x, o.y } })
     elseif o.kind == "bastion" then -- lot s45 OUTILS
-      r.add({ type = "label", caption = { "fo-commande.ligne-bastion", o.id, o.x, o.y, o.r } })
+      r.add({ type = "label", caption = { "fo-commande.ligne-bastion", o.id, o.x, o.y, Co.size_of(o) } })
     elseif o.kind == "amelioration" then -- lot s44 COMMANDE-UPGRADE
-      r.add({ type = "label", caption = { "fo-commande.ligne-amelioration", o.id, o.x, o.y, o.r } })
+      r.add({ type = "label", caption = { "fo-commande.ligne-amelioration", o.id, o.x, o.y, Co.size_of(o) } })
     else
       r.add({ type = "label", caption = { "fo-commande.ligne-liaison", o.id, o.x, o.y } })
     end
@@ -282,13 +292,16 @@ end
 local function zone_ents(o)
   local surface = game.surfaces[o.surface or 1]
   if not surface then return {} end
-  return surface.find_entities_filtered({ position = { o.x, o.y }, radius = o.kind == "gisement" and (o.r + Co.SITE_MARGIN) or o.r }) -- gisement : la marge de Co.ready (site accepté à r + 24)
+  -- ux-sel : le RECTANGLE de l'ordre (gisement : élargi de la marge de Co.ready, site accepté à 24 tuiles)
+  local x0, y0, x1, y1 = Co.box_of(o)
+  local m = o.kind == "gisement" and Co.SITE_MARGIN or 0
+  return surface.find_entities_filtered({ area = { { x0 - m, y0 - m }, { x1 + m, y1 + m } } })
 end
 
 local function delay_row(cs, o)
   cs.delais = cs.delais or {}
   for _, d in ipairs(cs.delais) do if d.id == o.id then return d end end
-  local d = { id = o.id, kind = o.kind, tick = o.tick, x = o.x, y = o.y, r = o.r }
+  local d = { id = o.id, kind = o.kind, tick = o.tick, x = o.x, y = o.y, r = o.r, x0 = o.x0, y0 = o.y0, x1 = o.x1, y1 = o.y1 }
   cs.delais[#cs.delais + 1] = d
   while #cs.delais > DELAIS_MAX do table.remove(cs.delais, 1) end
   return d
@@ -328,8 +341,9 @@ local function track_init(f, o)
   o.n_new = 0
   local surface, force = game.surfaces[o.surface or 1], game.forces[f.force]
   if surface and force then
-    o.st_draw = rendering.draw_text({ text = status_text(o), color = COLOR[o.kind] or COLOR.liaison, target = { x = o.x, y = o.y + o.r + 0.5 },
-      surface = surface, forces = { force }, scale = 1.5, alignment = "center" })
+    local bx0, by0 = Co.box_of(o)
+    o.st_draw = rendering.draw_text({ text = status_text(o), color = COLOR[o.kind] or COLOR.liaison, target = { x = bx0, y = by0 - 0.1 },
+      surface = surface, forces = { force }, scale = 1.5, alignment = "left", vertical_alignment = "bottom" }) -- ux-sel : collé au coin haut-gauche
     o.draw = o.draw or {}
     o.draw[#o.draw + 1] = o.st_draw
   end
@@ -522,8 +536,9 @@ local function add_order(f, player, o)
     elseif step == "tournee" and order.a and not order.tour then liaison_tour(f, cs, order, f.build and f.build.liaison)
     elseif step == "bande" then order.band_next = nil; want_band(f, order, game.tick) end -- (bande voulue et entrepreneur réveillé à la pose)
   end
-  log(string.format("[FO-COMMANDE] %s : ordre %d %s %s en (%d, %d) rayon %d (tick %d)", tostring(f.key or f.id), id, o.kind,
-    tostring(o.resource or "-"), o.x, o.y, order.r, game.tick))
+  local lx0, ly0, lx1, ly1 = Co.box_of(order)
+  log(string.format("[FO-COMMANDE] %s : ordre %d %s %s en (%d, %d) rayon %d, rectangle (%d, %d)-(%d, %d) (tick %d)", tostring(f.key or f.id), id, o.kind,
+    tostring(o.resource or "-"), o.x, o.y, order.r, lx0, ly0, lx1, ly1, game.tick))
   player.print({ "fo-commande.pose-" .. o.kind, id })
 end
 
@@ -546,10 +561,9 @@ local function do_gisement(e, player, f)
   for _, ent in ipairs(e.entities) do
     if ent.valid and ent.name == res then sx, sy, n = sx + ent.position.x, sy + ent.position.y, n + 1 end
   end
-  local x0, y0, x1, y1 = area_of(e)
-  local _, _, r = Co.zone(x0, y0, x1, y1)
+  local z = Co.rect(area_of(e)) -- ux-sel : le rectangle glissé (centre du gisement = centre de gravité du minerai désigné)
   local cx, cy = math.floor(sx / n), math.floor(sy / n)
-  add_order(f, player, { kind = "gisement", x = cx, y = cy, r = r, resource = res, outpost = kind, tick = game.tick,
+  add_order(f, player, { kind = "gisement", x = cx, y = cy, r = z.r, x0 = z.x0, y0 = z.y0, x1 = z.x1, y1 = z.y1, resource = res, outpost = kind, tick = game.tick,
     surface = e.surface.index, after_oid = f.next_oid or 0 })
   -- Le gisement entre dans la réserve de sites tout de suite (mêmes règles que la prospection), même hors du disque prospecté.
   -- s44 : sonde de LA ressource désignée, réserve pleine ou ressource pas encore voulue comprises (Sites.probe_at, 5e argument).
@@ -558,12 +572,12 @@ local function do_gisement(e, player, f)
 end
 
 local function do_liaison(e, player, f)
-  local x0, y0, x1, y1 = area_of(e)
-  local cx, cy, r = Co.zone(x0, y0, x1, y1)
+  local z = Co.rect(area_of(e)) -- ux-sel : rectangle glissé
+  local cx, cy, r = z.x, z.y, z.r
   -- s44 commande-liaison : premier Maj + glisser = point A (départ), second = point B (arrivée) ; l'ordre porte les deux zones
   local st = cstate(f)
   if not st.liaison_a then
-    st.liaison_a = { x = cx, y = cy, r = r, surface = e.surface.index }
+    st.liaison_a = { x = cx, y = cy, r = r, x0 = z.x0, y0 = z.y0, x1 = z.x1, y1 = z.y1, surface = e.surface.index }
     player.print({ "fo-commande.liaison-a", cx, cy })
     log(string.format("[FO-COMMANDE] %s : liaison point A en (%d, %d) rayon %d (tick %d) : glisser encore sur le point B",
       tostring(f.key or f.id), cx, cy, r, game.tick))
@@ -572,7 +586,7 @@ local function do_liaison(e, player, f)
   local a = st.liaison_a
   st.liaison_a = nil
   if a and a.surface ~= e.surface.index then a = nil end
-  add_order(f, player, { kind = "liaison", x = cx, y = cy, r = r, a = a, tick = game.tick, surface = e.surface.index })
+  add_order(f, player, { kind = "liaison", x = cx, y = cy, r = r, x0 = z.x0, y0 = z.y0, x1 = z.x1, y1 = z.y1, a = a, tick = game.tick, surface = e.surface.index })
   refresh(f)
 end
 
@@ -581,9 +595,8 @@ end
 -- Annulation : bouton « Annuler » du panneau ou bouton droit sur la zone.
 local function zone_order(kind)
   return function(e, player, f)
-    local x0, y0, x1, y1 = area_of(e)
-    local cx, cy, r = Co.zone(x0, y0, x1, y1)
-    add_order(f, player, { kind = kind, x = cx, y = cy, r = r, tick = game.tick, surface = e.surface.index })
+    local z = Co.rect(area_of(e)) -- ux-sel : rectangle glissé
+    add_order(f, player, { kind = kind, x = z.x, y = z.y, r = z.r, x0 = z.x0, y0 = z.y0, x1 = z.x1, y1 = z.y1, tick = game.tick, surface = e.surface.index })
     refresh(f)
   end
 end
@@ -757,7 +770,8 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
     end
     if o.kind == "bastion" and not o.done then
       local surface = game.surfaces[o.surface or 1]
-      local n = surface and surface.count_entities_filtered({ position = { o.x, o.y }, radius = o.r, force = f.force,
+      local bx0, by0, bx1, by1 = Co.box_of(o) -- ux-sel : tourelles dans le RECTANGLE du bastion
+      local n = surface and surface.count_entities_filtered({ area = { { bx0, by0 }, { bx1, by1 } }, force = f.force,
         type = TURRET_TYPES }) or 0
       if n ~= o.have then
         o.have = n
@@ -839,7 +853,7 @@ remote.add_interface("fo-commande", {
     local out = { equipe = true, force = f.force, hq = f.hq_pos and { x = f.hq_pos.x, y = f.hq_pos.y } or nil, orders = {}, hist = {},
       outposts = {}, liaison_a = cs.liaison_a, next_id = cs.next_id }
     for _, o in ipairs(cs.orders) do
-      out.orders[#out.orders + 1] = { id = o.id, kind = o.kind, x = o.x, y = o.y, r = o.r, resource = o.resource, outpost = o.outpost,
+      out.orders[#out.orders + 1] = { id = o.id, kind = o.kind, x = o.x, y = o.y, r = o.r, x0 = o.x0, y0 = o.y0, x1 = o.x1, y1 = o.y1, resource = o.resource, outpost = o.outpost,
         after_oid = o.after_oid, done = o.done, have = o.have, band_fid = o.band_fid, band_msg = o.band_msg, ent_served = o.ent_served,
         t_ent = o.t_ent, t_susp = o.t_susp, t_kit = o.t_kit, tick = o.tick } -- c4b : champ de l'ordre, entrepreneur (ticks absolus)
     end
@@ -877,7 +891,7 @@ remote.add_interface("fo-commande", {
   --- supérieure sur place (Capital.successors_of : chaîne lue dans les prototypes, même règle que le remplacement) : { { name, type, x, y,
   --- succ = { noms } } } triées par position. `snap` (facultatif) = liste rendue plus tôt : rend en plus, pour chaque pièce, l'entité
   --- trouvée à sa place (même type) : nom actuel, montée (nom dans ses successeurs) ou disparue.
-  zone_tiers = function(x, y, r, snap)
+  zone_tiers = function(x, y, r, snap, box) -- ux-sel : `box` { x0, y0, x1, y1 } = le RECTANGLE de l'ordre (sinon le disque x, y, r)
     local f = State.faction("player")
     local Capital = package.loaded["script.ai3.capital"]
     if not (f and Capital and Capital.successors_of and Capital.machine_names) then return { ok = false } end
@@ -895,7 +909,8 @@ remote.add_interface("fo-commande", {
       return out
     end
     local list = {}
-    for _, e in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = r, force = f.force, name = Capital.machine_names() })) do
+    for _, e in ipairs(surface.find_entities_filtered({ position = (not box) and { x, y } or nil, radius = (not box) and r or nil,
+      area = box and { { box.x0, box.y0 }, { box.x1, box.y1 } } or nil, force = f.force, name = Capital.machine_names() })) do
       if e.valid then
         local succ = Capital.successors_of(e.name) or {}
         if #succ > 0 then

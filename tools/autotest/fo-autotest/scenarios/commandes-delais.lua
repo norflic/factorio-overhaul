@@ -91,8 +91,8 @@ local function open_count(snap)
   end
   return n
 end
-local function majz_snap(ctx, s, id, x, y, r, label)
-  local q = ctx.remote("fo-commande", "zone_tiers", x, y, r)
+local function majz_snap(ctx, s, id, x, y, r, label, box)
+  local q = ctx.remote("fo-commande", "zone_tiers", x, y, r, false, box) -- ux-sel : la zone de l'ordre est son rectangle
   if not (q and q.ok) then return end
   s.majz = s.majz or {}
   s.majz[#s.majz + 1] = { id = id, label = label, tick = game.tick, snap = q.list, at = {} }
@@ -143,7 +143,7 @@ local function majz_open_order(ctx, s, hq)
   local rr = order(ctx, "fo-cmd-amelioration", 1, best.x - MAJZ_R, best.y - MAJZ_R, best.x + MAJZ_R, best.y + MAJZ_R, "Maj+Z ouvert")
   local o
   for _, oo in ipairs(etat(ctx).orders or {}) do if oo.id == rr.id then o = oo end end
-  if o then majz_snap(ctx, s, o.id, o.x, o.y, o.r, "Maj+Z ouvert") end
+  if o then majz_snap(ctx, s, o.id, o.x, o.y, o.r, "Maj+Z ouvert", o.x0 and { x0 = o.x0, y0 = o.y0, x1 = o.x1, y1 = o.y1 } or nil) end
 end
 
 local function rows(ctx)
@@ -217,7 +217,7 @@ base.tick = function(ctx, e)
     elseif op0 then liaison(ctx, { x = op0.x, y = op0.y }, { x = hq.x, y = hq.y }, "Maj+E avant-poste " .. tostring(op0.id) .. " (" .. tostring(op0.kind) .. ") -> QG (aucune paire finie)")
     else liaison(ctx, { x = hq.x - 20, y = hq.y }, { x = hq.x + 20, y = hq.y }, "Maj+E QG (aucune paire finie)") end
     for _, o in ipairs(etat(ctx).orders or {}) do
-      if o.kind == "amelioration" then majz_snap(ctx, s, o.id, o.x, o.y, o.r, "Maj+Z QG") end -- majz-0716 : relevé à l'ordre (T+0)
+      if o.kind == "amelioration" then majz_snap(ctx, s, o.id, o.x, o.y, o.r, "Maj+Z QG", o.x0 and { x0 = o.x0, y0 = o.y0, x1 = o.x1, y1 = o.y1 } or nil) end -- majz-0716 : relevé à l'ordre (T+0)
     end
     majz_measure(ctx, s)
     return

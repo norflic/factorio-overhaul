@@ -141,17 +141,31 @@ end
 --- s46 outils : emplacements d'un bastion, en spirale autour du centre jusqu'au rayon `r` de l'ordre : points d'une grille de pas `step`
 --- (au moins 2 tuiles, la tourelle), du plus proche au plus loin (égalité : y puis x). Sans trigonométrie, sans pairs. Au plus ~150
 --- points : le pas grandit avec le rayon.
-function S.spiral(x, y, r, step)
+function S.spiral(x, y, r, step, box)
   r = math.max(0, math.floor(r or 0))
-  step = step or math.max(2, math.ceil(r / 7))
   local cx, cy = math.floor(x), math.floor(y)
   local pts = {}
-  local k = math.floor(r / step)
-  for i = -k, k do
-    for j = -k, k do
-      local dx, dy = i * step, j * step
-      local d2 = dx * dx + dy * dy
-      if d2 <= r * r then pts[#pts + 1] = { x = cx + dx, y = cy + dy, d2 = d2 } end
+  if box then
+    -- ux-sel : bastion = RECTANGLE glissé { x0, y0, x1, y1 } : points de la grille (pas >= 2, au plus ~150 points) DANS le rectangle
+    local w, h = box.x1 - box.x0, box.y1 - box.y0
+    step = step or math.max(2, math.ceil(math.sqrt(math.max(1, w * h) / 150)))
+    local kx0, kx1 = math.ceil((box.x0 - cx) / step), math.floor((box.x1 - cx) / step)
+    local ky0, ky1 = math.ceil((box.y0 - cy) / step), math.floor((box.y1 - cy) / step)
+    for i = kx0, kx1 do
+      for j = ky0, ky1 do
+        local dx, dy = i * step, j * step
+        pts[#pts + 1] = { x = cx + dx, y = cy + dy, d2 = dx * dx + dy * dy }
+      end
+    end
+  else
+    step = step or math.max(2, math.ceil(r / 7))
+    local k = math.floor(r / step)
+    for i = -k, k do
+      for j = -k, k do
+        local dx, dy = i * step, j * step
+        local d2 = dx * dx + dy * dy
+        if d2 <= r * r then pts[#pts + 1] = { x = cx + dx, y = cy + dy, d2 = d2 } end
+      end
     end
   end
   table.sort(pts, function(a, b)
@@ -181,7 +195,8 @@ function S.plan(p)
   local rows = {}
   for _, z in ipairs(p.zones or {}) do
     local row = { key = z.key, kind = z.kind, x = z.x, y = z.y, score = z.score or 0, have = z.have or 0, dist = z.dist or 0,
-      served = z.served and true or false, ordre = z.ordre and true or nil, zr = z.r }
+      served = z.served and true or false, ordre = z.ordre and true or nil, zr = z.r,
+      zbox = z.x0 ~= nil and { x0 = z.x0, y0 = z.y0, x1 = z.x1, y1 = z.y1 } or nil }
     row.want = S.group_want(z.kind, z.score, z.want)
     row.missing = math.max(0, row.want - row.have)
     if z.hold then row.skip, row.why = "tenue", z.why end
@@ -224,8 +239,8 @@ function S.plan(p)
             -- s46 outils : un bastion cherche ses places en spirale dans tout le rayon de l'ordre (ses huit points d'anneau pouvaient tous
             -- tomber sur le minerai ou les arbres : 0 posée, lieu au repos, banc S46-OUTILS-2)
             pick = { key = r.key, kind = r.kind, x = r.x, y = r.y, score = r.score, have = r.have, want = r.want, count = n,
-              ammo_each = each, ordre = r.ordre, zr = r.zr,
-              sites = r.ordre and S.spiral(r.x, r.y, r.zr or Fr.ACCEPT) or Fr.sites(r.x, r.y, p.turrets) }
+              ammo_each = each, ordre = r.ordre, zr = r.zr, zbox = r.zbox,
+              sites = r.ordre and S.spiral(r.x, r.y, r.zr or Fr.ACCEPT, nil, r.zbox) or Fr.sites(r.x, r.y, p.turrets) }
           end
         end
       end

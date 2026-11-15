@@ -102,6 +102,46 @@ function Co.zone(x0, y0, x1, y1)
   return cx, cy, clamp(r, Co.R_MIN, Co.R_MAX)
 end
 
+-- ux-sel (0.9.8, chantier 3 du DC) : la zone d'un ordre est le RECTANGLE glissé à l'écran (et non plus un disque : le retour visuel,
+-- la zone d'action et les filtres « dans la zone » sont les mêmes). Bords arrondis aux tuiles vers l'extérieur (floor du coin haut-gauche,
+-- ceil du coin bas-droit : la sélection est toujours contenue dans la zone) ; côté minimal Co.SIDE_MIN (un clic sans glisser), côté
+-- maximal Co.SIDE_MAX (2 x Co.R_MAX : la borne d'avant, pour les recherches d'entités), recentré sur le milieu.
+Co.SIDE_MIN, Co.SIDE_MAX = 2, 2 * Co.R_MAX
+local function side(a, b)
+  local lo, hi = math.floor(math.min(a, b)), math.ceil(math.max(a, b))
+  local n = hi - lo
+  if n < Co.SIDE_MIN or n > Co.SIDE_MAX then
+    local m = (lo + hi) / 2
+    n = clamp(n, Co.SIDE_MIN, Co.SIDE_MAX)
+    lo = math.floor(m - n / 2)
+    hi = lo + n
+  end
+  return lo, hi
+end
+
+--- Rectangle d'une sélection (deux coins quelconques) : { x0, y0, x1, y1 } entiers, x0 < x1, y0 < y1, plus le centre (x, y, entiers) et
+--- `r` (demi-diagonale bornée de Co.zone, gardée pour les lecteurs qui attendent encore un rayon : cartouche, tournée, journal).
+function Co.rect(x0, y0, x1, y1)
+  local rx0, rx1 = side(x0, x1)
+  local ry0, ry1 = side(y0, y1)
+  local dx, dy = (rx1 - rx0) / 2, (ry1 - ry0) / 2
+  return { x0 = rx0, y0 = ry0, x1 = rx1, y1 = ry1, x = math.floor((rx0 + rx1) / 2), y = math.floor((ry0 + ry1) / 2),
+    r = clamp(math.floor(math.sqrt(dx * dx + dy * dy)), Co.R_MIN, Co.R_MAX) }
+end
+
+--- Dimensions en tuiles (« largeur x hauteur ») de la zone d'un ordre : texte du panneau.
+function Co.size_of(o)
+  local x0, y0, x1, y1 = Co.box_of(o)
+  return string.format("%d x %d", x1 - x0, y1 - y0)
+end
+
+--- Rectangle d'un ordre ou d'une zone { x0, y0, x1, y1 } : le sien s'il en a un ; sinon (ordre posé avant ux-sel, sauvegarde) le carré
+--- circonscrit de son ancien disque. Rend x0, y0, x1, y1.
+function Co.box_of(o)
+  if o.x0 ~= nil then return o.x0, o.y0, o.x1, o.y1 end
+  return o.x - o.r, o.y - o.r, o.x + o.r, o.y + o.r
+end
+
 --- Ressource majoritaire d'une liste de noms (égalité : le plus petit nom), ou nil.
 function Co.majority(names)
   local n, order = {}, {}
@@ -132,8 +172,9 @@ function Co.add(state, o)
   local id = state.next_id
   state.next_id = id + 1
   state.orders[#state.orders + 1] = { id = id, kind = o.kind, x = o.x, y = o.y, r = clamp(o.r or Co.R_MIN, Co.R_MIN, Co.R_MAX),
+    x0 = o.x0, y0 = o.y0, x1 = o.x1, y1 = o.y1, -- ux-sel : le rectangle glissé (absent : ancien disque x, y, r)
     resource = o.resource, outpost = o.outpost, tick = o.tick or 0, surface = o.surface,
-    a = o.a and { x = o.a.x, y = o.a.y, r = clamp(o.a.r or Co.R_MIN, Co.R_MIN, Co.R_MAX) } or nil,
+    a = o.a and { x = o.a.x, y = o.a.y, r = clamp(o.a.r or Co.R_MIN, Co.R_MIN, Co.R_MAX), x0 = o.a.x0, y0 = o.a.y0, x1 = o.a.x1, y1 = o.a.y1 } or nil,
     after_oid = o.after_oid } -- s44 : dernier numéro d'avant-poste à la pose de l'ordre (Co.resolve ne compte que les suivants)
   return id
 end
@@ -238,12 +279,20 @@ function Co.cancel(state, id)
   return nil
 end
 
+--- ux-sel : LA règle d'appartenance à la zone d'un ordre (ou de son point A) : dans le RECTANGLE (bords compris), élargi de `margin`
+--- tuiles de chaque côté (marges Co.SITE_MARGIN / Co.DONE_MARGIN : le point d'un site ou d'un avant-poste n'est pas le minerai glissé).
+--- Une zone sans rectangle (ordre d'avant ux-sel) garde son disque. Tous les filtres « dans la zone » passent ici.
 local function inside(o, x, y, margin)
+  local m = margin or 0
+  if o.x0 ~= nil then
+    return x >= o.x0 - m and x <= o.x1 + m and y >= o.y0 - m and y <= o.y1 + m
+  end
   local dx, dy = x - o.x, y - o.y
-  local r = o.r + (margin or 0)
+  local r = o.r + m
   return dx * dx + dy * dy <= r * r
 end
 Co.inside = inside
+Co.in_zone = inside
 
 --- Numéros des ordres touchés par une zone (annulation au bouton droit) : le centre de l'ordre dans la zone, ou la zone dans l'ordre.
 function Co.hit(state, x0, y0, x1, y1)
@@ -299,7 +348,7 @@ function Co.goals(goals, orders, w_ext, products, off)
       -- sinon il bâtit (Sites.find sert d'abord le site de la zone : Co.prefer, Co.designated).
       local zones = {}
       for _, q in ipairs(orders) do
-        if q.outpost == k then zones[#zones + 1] = { x = q.x, y = q.y, r = q.r } end
+        if q.outpost == k then zones[#zones + 1] = { x = q.x, y = q.y, r = q.r, x0 = q.x0, y0 = q.y0, x1 = q.x1, y1 = q.y1 } end
       end
       local hit = false
       for _, g in ipairs(goals) do
@@ -432,7 +481,7 @@ end
 function Co.bastion_zones(state, want)
   local out = {}
   for _, o in ipairs((state or {}).orders or {}) do
-    if o.kind == "bastion" then out[#out + 1] = { key = "bastion" .. o.id, id = o.id, x = o.x, y = o.y, r = o.r, want = want } end
+    if o.kind == "bastion" then out[#out + 1] = { key = "bastion" .. o.id, id = o.id, x = o.x, y = o.y, r = o.r, want = want, x0 = o.x0, y0 = o.y0, x1 = o.x1, y1 = o.y1 } end
   end
   return out
 end
@@ -549,17 +598,18 @@ end
 --- tiré du cercle de l'ordre (id « cmd-<n> »), pour que la bande de champ soit quand même demandée.
 function Co.pick_deposit(deps, o)
   if not (o and o.resource) then return nil end
+  local zx0, zy0, zx1, zy1 = Co.box_of(o) -- ux-sel : boîte du gisement qui touche le RECTANGLE de l'ordre
   local best
   for _, d in ipairs(deps or {}) do
-    if d.resource == o.resource and d.x0 and o.x + o.r >= d.x0 and o.x - o.r <= d.x1 and o.y + o.r >= d.y0 and o.y - o.r <= d.y1 then
+    if d.resource == o.resource and d.x0 and zx1 >= d.x0 and zx0 <= d.x1 and zy1 >= d.y0 and zy0 <= d.y1 then
       if not best or (d.tiles or 0) > (best.tiles or 0) or ((d.tiles or 0) == (best.tiles or 0) and tostring(d.id) < tostring(best.id)) then
         best = d
       end
     end
   end
   if best then return best end
-  return { id = "cmd-" .. tostring(o.id), resource = o.resource, tiles = 0, x0 = o.x - o.r, y0 = o.y - o.r, x1 = o.x + o.r,
-    y1 = o.y + o.r, cx = o.x, cy = o.y }
+  return { id = "cmd-" .. tostring(o.id), resource = o.resource, tiles = 0, x0 = zx0, y0 = zy0, x1 = zx1,
+    y1 = zy1, cx = o.x, cy = o.y }
 end
 
 --- commandes-0716 : mot d'état affiché sous l'ordre (clé de traduction « fo-commande.etat-<mot> ») : le dernier jalon atteint.

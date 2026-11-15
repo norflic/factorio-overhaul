@@ -905,7 +905,7 @@ function P.plan(view, book)
           local items = turret_items(n, each)
           if take(items) then
             add({ key = "fortify:reserve", kind = "fortify", prio = Dsr.prio(pk.kind), outpost = "reserve", items = items, sites = pk.sites,
-              pos = { x = pk.x, y = pk.y }, cell_key = pk.key, reserve = true, ordre_r = pk.ordre and (pk.zr or 0) or nil })
+              pos = { x = pk.x, y = pk.y }, cell_key = pk.key, reserve = true, ordre_r = pk.ordre and (pk.zr or 0) or nil, ordre_box = pk.ordre and pk.zbox or nil })
             out.reserve.why, out.reserve.count = "tache_creee", n
           else
             out.reserve.why = "stock"
