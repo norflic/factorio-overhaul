@@ -149,9 +149,10 @@ Ch.STEP_WORK = 1600 -- perf-astar : 3 000 avant (pas jusqu a 120 ms en jeu, cart
                     -- perf-reste : 2 000 -> 1 600 (PERFRESTE-7 : un pas « net » ou « bare » de 2 500 de travail, 52 ms)
 Ch.STEP_BASE = 500 -- travail compté pour tout pas (en plus de ses recherches)
 Ch.HEAVY_WORK = 3000 -- forfait d'une étape d'un bloc (une bande, les bras, les poteaux, une tranche du contexte)
+Ch.EMIT_WORK = 4 -- C5-PERF : travail compté par pièce émise (emit, emit_e) : une étape qui émet des centaines de pièces finit son appel
 Ch.BAND_WORK = 500 -- perf-reste : forfait d'un pas de bande (un bout), sa recherche de place (Co.place) comptée et reprenable à part
 Ch.FREE_WORK = 0.5 --travail compté par lecture de place libre du contexte (c.free) pendant le pas
-Ch.ROW_WORK = 1 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
+Ch.ROW_WORK = 3 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for) ; C5B : 1 -> 3 (une rangée lit la zone de chaque foreuse : 5 fois plus d'instructions par unité que les autres pas, fixtures du DC)
 local function context_new(spec, axis)
   return { axis = axis, taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {},
     resources = spec.resources or {}, ore_uv = {}, has_foreign = next(spec.foreign or {}) ~= nil }
@@ -818,6 +819,7 @@ end
 --- même plan (empreintes de tests/s46_champ-cout_ref.lua, tests/perf_champ_ref.lua, tests/s52_bandes_test.lua).
 local function emit(s, kind, u, v, size, du, dv, bi, gi, pr, role, belt, module)
   local c, ents = s.c, s.ents
+  Co.WORK = Co.WORK + Ch.EMIT_WORK -- C5-PERF : une pièce émise compte au budget du pas
   local x, y = c.xy(u, v)
   local x2, y2 = c.xy(u + size - 1, v + size - 1)
   ents[#ents + 1] = { kind = kind, x = math.min(x, x2) + size / 2, y = math.min(y, y2) + size / 2, size = size,
@@ -826,6 +828,7 @@ end
 -- (lot FONDERIE) une entité de la colonne ou du réseau de charbon : rectangle w × h (répartiteur), sens de souterrain
 local function emit_e(s, e, bi, gi, pr, belt)
   local c, ents = s.c, s.ents
+  Co.WORK = Co.WORK + Ch.EMIT_WORK -- C5-PERF : une pièce émise compte au budget du pas (liens de centaines de tuiles des colonnes ailleurs)
   local w, h = e.w or e.size, e.h or e.size
   local xa, ya = c.xy(e.u, e.v)
   local xb, yb = c.xy(e.u + w - 1, e.v + h - 1)
@@ -1396,7 +1399,7 @@ end
 
 function ONCE.bare(s)
   local t = s.bare_todo[s.ti]
-  if not t then s.ti, s.ug_uv, s.pwin = nil, nil, nil; s.stage = "poles" return false end
+  if not t then s.ti, s.ug_uv, s.pwin, s.front, s.front_n = nil, nil, nil, nil, nil; s.stage = "poles" return false end
   -- perf-frame : recherche de colonne ailleurs reprenable (Co.away, état s.bw) : un pas qui atteint le budget s'arrête et le pas suivant
   -- rejoue ce bout (lectures et prises d'avant la recherche : mêmes réponses, prises identiques) puis reprend la recherche où elle était
   local ti = s.ti
@@ -1456,14 +1459,20 @@ function ONCE.bare(s)
     end
     -- (et la tuile devant le bout d'un tapis déjà émis : la ligne de plaques ou de charbon d'une colonne y déverserait sur le lien ;
     -- fer du joueur, 546 tuiles de voies mêlées)
-    local front = {}
-    for _, e in ipairs(s.ents) do
+    -- C5-PERF : ensemble gardé dans s.front et complété des seules pièces émises depuis (s.ents ne fait que grandir pendant l'étape :
+    -- même ensemble ; avant, refait de toutes les pièces à chaque bout et à chaque reprise, 0,16 Mo par pas)
+    local front = s.front or {}
+    local ents0 = s.ents
+    for i = (s.front_n or 0) + 1, #ents0 do
+      local e = ents0[i]
       if (e.kind == "tapis" or (e.kind == "souterrain" and e.ug == "output")) and DIRS[e.dir] then
         local dv = DIRS[e.dir]
         local fu, fv = c.uv(math.floor(e.x) + dv[1], math.floor(e.y) + dv[2])
         front[Co.tk(fu, fv)] = true
       end
     end
+    Co.WORK = Co.WORK + (#ents0 - (s.front_n or 0))
+    s.front, s.front_n = front, #ents0
     local function away_free(u, v)
       if pwin[Co.tk(u, v)] or front[Co.tk(u, v)] then return false end
       return c.free(u, v)
@@ -1477,7 +1486,10 @@ function ONCE.bare(s)
       tries[#tries + 1] = { cnt, 2 * pitch }
       if wide > 2 * pitch then tries[#tries + 1] = { cnt, wide } end
     end
+    -- C5-PERF : colonne trouvée au pas précédent (bw.aw) : ce pas n'en fait que l'émission
+    if bw and bw.aw then aw, g = bw.aw, bw.g end
     for ci, tr in ipairs(tries) do
+      if aw then break end
       local cnt, nrows = tr[1], tr[2]
       if bw and ci < bw.ci then
         aw_why = bw.why -- (colonnes déjà essayées sans place avant la reprise : leur raison)
@@ -1505,6 +1517,14 @@ function ONCE.bare(s)
       end
     end
     if not aw and not s.away_why then s.away_why = string.format("bande %d : %s", bd.pr, tostring(aw_why)) end
+    -- C5-PERF (fixtures du DC après C2-PAVAGE : un pas « bare » de 1,5 Mo, fin du tracé d'un lien de centaines de tuiles PUIS émission
+    -- du lien et de la colonne) : la colonne trouvée est émise au pas suivant (même bout, mêmes prises : même plan)
+    if aw and not (bw and bw.aw) then
+      s.bw = { ti = ti, g0 = g0, e_end = e_end, pre = pre, aw = aw, g = g }
+      s.ti = ti
+      Ch.YIELD = true -- (l'appel de Ch.plan_steps s'arrête ici : l'émission part seule à l'appel suivant)
+      return true
+    end
   end
   if aw then
     for _, a in ipairs(g.n) do t.used[a .. "n"] = true end
@@ -2036,10 +2056,11 @@ function Ch.plan_steps(st, tick_work)
   local done
   repeat
     Ch.STEP_WORK = math.max(1, math.min(w0, tick_work - used))
+    Ch.YIELD = false
     done = Ch.plan_step(st)
     Ch.STEP_WORK = w0
     used = used + Co.WORK
-  until done or not st.inner or used >= tick_work
+  until done or not st.inner or used >= tick_work or Ch.YIELD -- (C5-PERF : Ch.YIELD, une étape demande la fin de l'appel)
   Ch.LAST_WORK = used -- perf-reste : travail compté de l'appel (journal [FO-PERF-ETAPE] ; jamais lu pour une décision)
   return done
 end

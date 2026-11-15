@@ -49,7 +49,7 @@ Co.DEPOSITS = 3        -- gisements de charbon essayés (le plus proche peut êt
 Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. (Proposé à ~120 le 3/11 ; mesuré hors jeu : un charbon à 60-70 tuiles
                        -- du champ donne des tracés de 136 à 207 tuiles, le tracé contournant le champ et ses colonnes : 120 renvoyait presque
                        -- tout au coffre de tête. Ce qui faisait attendre les bandes au lot3 était le charbon à 320 tuiles posé par la bande.)
-Co.ROUTE_NB = 127      -- C5-PERF : seaux des tables d'états d'un tracé (Co.route), nombre PREMIER : 10^6 et 10^5 (pas des clés en u) n'en sont pas multiples, les clés se répartissent (64 divisait 10^6 : un tracé le long de u tombait dans quelques seaux)
+Co.ROUTE_NB = 509      -- C5-PERF : seaux des tables d'états d'un tracé (Co.route), nombre PREMIER : 10^6 et 10^5 (pas des clés en u) n'en sont pas multiples, les clés se répartissent (64 divisait 10^6 : un tracé le long de u tombait dans quelques seaux)
 Co.LAYOUT_WORK = 2     -- C5-PERF : travail compté par pièce d'une colonne construite (Co.layout)
 Co.PUSH_WORK = 2       -- C5-PERF : travail compté par état mis au tas (en plus de 1 par état développé)
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
@@ -974,6 +974,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
           end
           local out = {}
           for i = #rev, 1, -1 do out[#out + 1] = rev[i] end
+          Co.WORK = Co.WORK + 3 * #out -- C5-PERF : chemin rendu (pièces, copie de la mémoire) compté au budget
           return finish(out, expanded)
         end
       else
@@ -1044,8 +1045,40 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
   end
   local W = LS and LS.W -- (reprise : la mémoire a déjà été lue au premier appel ; lectures notées gardées)
   if mlist and not W then
-    for _, m in ipairs(mlist) do
-      if same(m.fr, free) and same(m.co, is_coal) and (not is_foreign or same(m.fo, is_foreign)) then return line_copy(m.line) end
+    local lim = LS and Co.WORK_LIM
+    if not lim then
+      for _, m in ipairs(mlist) do
+        if same(m.fr, free) and same(m.co, is_coal) and (not is_foreign or same(m.fo, is_foreign)) then return line_copy(m.line) end
+      end
+    else
+      -- C5B (banc carte du DC : pas « net » du joueur de 33 à 49 ms pour 3 500 de travail) : la relecture de la mémoire des lignes,
+      -- des milliers de tuiles par entrée, se faisait d'un bloc et seules les lectures de place libre étaient comptées : la même relecture,
+      -- dans le même ordre, REPRENABLE au budget (LS.MV = { m, part, i }), chaque lecture comptée
+      local MV = LS.MV or { m = 1 }
+      LS.MV = nil
+      local did = false
+      while MV.m <= #mlist do
+        local m = mlist[MV.m]
+        local lists = { m.fr, m.co, is_foreign and m.fo or nil }
+        local fns = { free, is_coal, is_foreign }
+        local ok = true
+        for part = MV.part or 1, 3 do
+          local L, f = lists[part], fns[part]
+          if not L then break end
+          local i = (part == (MV.part or 1)) and (MV.i or 1) or 1
+          while i <= #L do
+            if did and Co.WORK >= lim then MV.part, MV.i = part, i; LS.MV = MV return nil, Co.SUSPEND end
+            did = true
+            Co.WORK = Co.WORK + 0.5
+            if (f(L[i], L[i + 1]) and true or false) ~= L[i + 2] then ok = false break end
+            i = i + 3
+          end
+          MV.part, MV.i = nil, nil
+          if not ok then break end
+        end
+        if ok then return line_copy(m.line) end
+        MV.m = MV.m + 1
+      end
     end
   end
   local function rec(f, L, M)
