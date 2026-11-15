@@ -2324,7 +2324,9 @@ function Mig.entrepreneur_kit(f, tick)
   for _, k in ipairs(plate_names()) do stock = stock + Stock.count(f, k) end
   local debit = (ms.ent_debit or 0) * Ent.CFG.head_horizon / Ent.CFG.period
   local ok, budget = Ent.head_budget(cost, stock, debit, ent.kit ~= nil and not (p.spec and p.spec.ent_queue))
-  if r.complete then ok = false end
+  -- kit complet : la tête n'a plus d'objet (rien à fabriquer) mais l'état ne bascule pas : avant, la bascule rendait la réserve du kit complet au
+  -- coffre (banc 0722-g123 : joueur, projet 3 complet à 15,2 min, rendu, jamais posé en 30 min)
+  if r.complete then ok = not (p.spec and p.spec.ent_queue) end
   if not ent.kit then
     ent.kit = tick
     say(string.format("kit lance : %d objet(s) bloquant(s) de %d sorte(s) [%s] ; deja en stock %d ; a fabriquer %d (%.0f plaque(s), budget %.0f : %s) ; garniture hors kit %d ; declenche il y a %.1f min",
