@@ -52,6 +52,7 @@ local COLOR = {
 
 Storage.declare("gui_flux", function() return { open = {} } end)
 local function state() return Storage.ns("gui_flux") end
+local shown = {} -- mémo local de la fenêtre de chaque joueur (voir refs_of) : jamais dans `global`
 
 local function resources()
   local list = {}
@@ -193,6 +194,7 @@ end
 local function build(player)
   local left = player.gui.left
   if left[FRAME] then left[FRAME].destroy() end
+  shown[player.index] = nil
   local frame = left.add({ type = "frame", name = FRAME, direction = "vertical", caption = { "fo-flux.titre" } })
   frame.style.minimal_width = 380
   frame.add({ type = "label", name = "etat", caption = "" })
@@ -230,48 +232,82 @@ local function build(player)
   return frame
 end
 
---- Écrit la vue dans la fenêtre du joueur (éléments modifiés en place ; la fenêtre est refaite si un élément manque).
+--- Références des éléments (une passe de lectures par fenêtre, mémo local : perdu au chargement, relu alors) et dernières valeurs écrites :
+--- un rafraîchissement n'écrit que ce qui a changé (le coût d'une passe vient des lectures et écritures de la fenêtre, pas du calcul).
+local function refs_of(player, frame)
+  local s = shown[player.index]
+  if s and s.frame == frame and frame.valid then return s end
+  s = { frame = frame, last = {}, kinds = {}, cats = {} }
+  s.etat, s.charbon, s.t2 = frame["etat"], frame["charbon"], frame["t_cats"]
+  for _, kind in ipairs(Flux.KINDS) do
+    local tbl = frame["t_" .. kind]
+    if tbl then
+      local k = { head = frame["h_" .. kind], l = {}, b = {}, p = {} }
+      for _, c in ipairs(Fx.CATS) do k.l[c], k.b[c], k.p[c] = tbl["l_" .. c], tbl["b_" .. c], tbl["p_" .. c] end
+      k.l[Fx.FREE], k.b[Fx.FREE], k.p[Fx.FREE] = tbl["l_" .. Fx.FREE], tbl["b_" .. Fx.FREE], tbl["p_" .. Fx.FREE]
+      s.kinds[kind] = k
+    end
+  end
+  for _, c in ipairs(Fx.CATS) do s.cats[c] = { b = s.t2["b_" .. c], p = s.t2["p_" .. c], t = s.t2["t_" .. c] } end
+  shown[player.index] = s
+  return s
+end
+
+local function put(s, key, sig, el, prop, value)
+  if s.last[key] == sig then return end
+  s.last[key] = sig
+  el[prop] = value
+end
+
+--- Écrit la vue dans la fenêtre du joueur (éléments modifiés en place, seulement si leur valeur change ; la fenêtre est refaite si elle est
+--- d'une autre version).
 local function paint(player, view)
   local frame = player.gui.left[FRAME]
   if not frame then return end
   if not frame["t_cats"] then frame = build(player) end
-  frame["etat"].caption = ""
+  local s = refs_of(player, frame)
+  put(s, "etat", "", s.etat, "caption", "")
   for _, kind in ipairs(Flux.KINDS) do
     local o = T.outposts[kind]
-    local tbl = o and frame["t_" .. kind]
-    if tbl then
+    local k = o and s.kinds[kind]
+    if k then
       local rs = view.sm.res[o.product]
       local by = {}
       for _, b in ipairs(rs and rs.bars or {}) do by[b.cat] = b end
       local total = rs and rs.total or 0
-      frame["h_" .. kind].caption = { "fo-flux.entete", { "item-name." .. o.product }, math.floor(total) }
-      local keys = {}
-      for _, c in ipairs(Fx.CATS) do keys[#keys + 1] = c end
-      keys[#keys + 1] = Fx.FREE
-      for _, c in ipairs(keys) do
+      local tot = math.floor(total)
+      put(s, "h" .. kind, tot, k.head, "caption", { "fo-flux.entete", { "item-name." .. o.product }, tot })
+      for _, c in ipairs(Fx.CATS) do
         local b = by[c]
         local show = b ~= nil
-        tbl["l_" .. c].visible, tbl["b_" .. c].visible, tbl["p_" .. c].visible = show, show, show
+        local key = kind .. c
+        if s.last["v" .. key] ~= show then
+          s.last["v" .. key] = show
+          k.l[c].visible, k.b[c].visible, k.p[c].visible = show, show, show
+        end
         if show then
-          tbl["b_" .. c].value = math.min(1, b.n / math.max(total, 1))
-          tbl["p_" .. c].caption = { "fo-flux.part", b.pct, math.floor(b.n) }
+          local n = math.floor(b.n)
+          put(s, "p" .. key, b.pct * 1e7 + n, k.p[c], "caption", { "fo-flux.part", b.pct, n })
+          put(s, "b" .. key, b.n / math.max(total, 1), k.b[c], "value", math.min(1, b.n / math.max(total, 1)))
         end
       end
     end
   end
-  local cl = frame["charbon"]
+  local cl = s.charbon
   if view.coal then
-    cl.caption = { "fo-flux.charbon", string.format("%.0f", view.coal.need), string.format("%.0f", view.coal.capacity) }
-    cl.visible = true
-  else
-    cl.visible = false
+    local need, cap = string.format("%.0f", view.coal.need), string.format("%.0f", view.coal.capacity)
+    put(s, "charbon", need .. "/" .. cap, cl, "caption", { "fo-flux.charbon", need, cap })
   end
-  local t2 = frame["t_cats"]
+  if s.last.charbon_vis ~= (view.coal ~= nil) then
+    s.last.charbon_vis = view.coal ~= nil
+    cl.visible = view.coal ~= nil
+  end
   for _, c in ipairs(Fx.CATS) do
-    local cs = view.sm.cats[c]
-    t2["b_" .. c].value = cs.pct / 100
-    t2["p_" .. c].caption = { "fo-flux.pct", cs.pct }
-    t2["t_" .. c].caption = { "fo-flux.temps", Fx.mmss(cs.since), cs.count }
+    local cs, r = view.sm.cats[c], s.cats[c]
+    put(s, "cb" .. c, cs.pct, r.b, "value", cs.pct / 100)
+    put(s, "cp" .. c, cs.pct, r.p, "caption", { "fo-flux.pct", cs.pct })
+    local tm = Fx.mmss(cs.since)
+    put(s, "ct" .. c, tm .. cs.count, r.t, "caption", { "fo-flux.temps", tm, cs.count })
   end
 end
 
@@ -333,10 +369,10 @@ Events.on(defines.events.on_player_created, function(e) ensure_button(game.get_p
 Events.on(defines.events.on_player_removed, function(e) local ns = state(); if ns then ns.open[e.player_index] = nil end end)
 
 ---------------------------------------------------------------------------------------------------
--- Interface de BANC (lecture et ouverture du panneau, journal [FO-FLUX]) : aucune décision ne la lit
+-- Interface de BANC (lecture et ouverture du panneau, journal [FO-FLUX-IA]) : aucune décision ne la lit
 ---------------------------------------------------------------------------------------------------
 remote.add_interface("fo-flux", {
-  --- Écrit la ligne [FO-FLUX] de l'équipe du joueur (minute donnée) et la rend ; nil sans équipe.
+  --- Écrit la ligne [FO-FLUX-IA] de l'équipe du joueur (minute donnée) et la rend ; nil sans équipe.
   ligne = function(minute)
     local f = State.faction("player")
     if not (f and f.team) then return nil end
@@ -357,23 +393,34 @@ remote.add_interface("fo-flux", {
     local p = game.get_player(index)
     if p then close(p) end
   end,
-  --- Mesure du coût d'un rafraîchissement (`n` passes de la vue et du dessin pour le joueur `index`, mémo d'agrégat chaud, puis froid) :
-  --- une ligne [FO-FLUX-COUT] avec les profileurs du moteur.
+  --- Mesure du coût d'un rafraîchissement pour le joueur `index`, `n` passes chacune : la VUE (lecture et calcul, agrégat en mémo), la PEINTURE
+  --- (valeurs inchangées : passe ordinaire), puis une passe à FROID (agrégat refait) et une OUVERTURE (tous les éléments relus et réécrits).
+  --- Une ligne [FO-FLUX-COUT] avec les profileurs du moteur.
   cout = function(index, n)
     local p = game.get_player(index)
     local f = State.faction("player")
     if not (p and f and f.team) then return false end
     n = n or 20
     if not p.gui.left[FRAME] then open(p) end
-    local warm = game.create_profiler()
-    for _ = 1, n do paint(p, Flux.view(f, game.tick)) end
-    warm.stop()
-    local cold = game.create_profiler()
+    local view = Flux.view(f, game.tick)
+    local t_view = game.create_profiler()
+    for _ = 1, n do view = Flux.view(f, game.tick) end
+    t_view.stop()
+    local t_paint = game.create_profiler()
+    for _ = 1, n do paint(p, view) end
+    t_paint.stop()
+    local t_cold = game.create_profiler()
     memo.tick = nil
-    paint(p, Flux.view(f, game.tick))
-    cold.stop()
-    warm.divide(n)
-    log({ "", "[FO-FLUX-COUT] passe a chaud (moyenne de ", n, ") : ", warm, " ; passe a froid (agregat refait) : ", cold })
+    view = Flux.view(f, game.tick)
+    t_cold.stop()
+    local t_open = game.create_profiler()
+    shown[p.index] = nil
+    paint(p, view)
+    t_open.stop()
+    t_view.divide(n)
+    t_paint.divide(n)
+    log({ "", "[FO-FLUX-COUT] passes de ", n, " : vue ", t_view, " ; peinture inchangee ", t_paint, " ; vue a froid (agregat refait) ", t_cold,
+      " ; ouverture (tout relu et reecrit) ", t_open })
     return true
   end,
 })

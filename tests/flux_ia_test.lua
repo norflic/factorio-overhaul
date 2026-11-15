@@ -74,7 +74,7 @@ local sm3 = Fx.summarize({ tick = 600, resources = { "a" }, builds = {}, starts 
 check(sm3.cats.defense.since == 480, "starts connus d'ailleurs")
 -- ligne de journal
 local ln = Fx.line("player", 10, sm)
-check(ln:find("^%[FO%-FLUX%] player minute 10") and ln:find("champ=") and ln:find("defense=") and ln:find("hors categorie 1"), "ligne de journal : " .. ln)
+check(ln:find("^%[FO%-FLUX%-IA%] player minute 10") and ln:find("champ=") and ln:find("defense=") and ln:find("hors categorie 1"), "ligne de journal : " .. ln)
 
 -- 4. mutants : le test doit échouer sur un classement ou un calcul faux
 local function mutant(name, f, probe)

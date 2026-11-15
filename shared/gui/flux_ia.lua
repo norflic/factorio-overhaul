@@ -135,14 +135,14 @@ function Fx.summarize(inp)
   return out
 end
 
---- Ligne de journal [FO-FLUX] lisible (aucune décision ne la lit) : pourcentages des catégories et temps du plus ancien projet.
+--- Ligne de journal [FO-FLUX-IA] lisible (le tag [FO-FLUX] est celui de script/team/flux.lua) (aucune décision ne la lit) : pourcentages des catégories et temps du plus ancien projet.
 function Fx.line(key, minute, sm)
   local parts = {}
   for _, c in ipairs(Fx.CATS) do
     local cs = sm.cats[c]
     parts[#parts + 1] = string.format("%s=%d%%/%s/%d", c, cs.pct, Fx.mmss(cs.since), cs.count)
   end
-  return string.format("[FO-FLUX] %s minute %d : engage %d | %s | hors categorie %d", tostring(key), minute, math.floor(sm.engaged), table.concat(parts, " "),
+  return string.format("[FO-FLUX-IA] %s minute %d : engage %d | %s | hors categorie %d", tostring(key), minute, math.floor(sm.engaged), table.concat(parts, " "),
     sm.other)
 end
 
