@@ -216,7 +216,9 @@ local function build(player)
       tbl.add({ type = "label", name = "p_" .. Fx.FREE, caption = "" })
     end
   end
-  frame.add({ type = "label", name = "charbon", caption = "" })
+  local cl = frame.add({ type = "label", name = "charbon", caption = "" })
+  cl.style.single_line = false
+  cl.style.maximal_width = 400
   frame.add({ type = "line" })
   frame.add({ type = "label", caption = { "fo-flux.etage2" }, style = "caption_label" })
   local t2 = frame.add({ type = "table", name = "t_cats", column_count = 4 })
@@ -228,7 +230,10 @@ local function build(player)
     t2.add({ type = "label", name = "p_" .. c, caption = "" })
     t2.add({ type = "label", name = "t_" .. c, caption = "" })
   end
-  frame.add({ type = "label", name = "note", caption = { "fo-flux.note" }, style = "subheader_caption_label" })
+  local note = frame.add({ type = "label", name = "note", caption = { "fo-flux.note" } })
+  note.style.single_line = false
+  note.style.maximal_width = 400
+  note.style.font_color = { r = 0.7, g = 0.7, b = 0.7 }
   return frame
 end
 
