@@ -481,12 +481,15 @@ local function executor_run(scn)
   Build.gave = {}
   Build.give_back = function(f, p) Build.gave[#Build.gave + 1] = p.id end -- (lot AZURE : matière rendue au coffre)
   local saved = {}
-  for _, name in ipairs({ "script.faction.state", "script.team.stock", "script.team.build", "script.team.migration_champ" }) do
+  for _, name in ipairs({ "script.faction.state", "script.team.stock", "script.team.build", "script.team.migration_champ", "script.team.foreuse_swap" }) do
     saved[name] = package.loaded[name]
   end
   package.loaded["script.faction.state"] = State
   package.loaded["script.team.stock"] = Stock
   package.loaded["script.team.build"] = Build
+  -- foreuse_swap factice (entrepreneur-craft-0716) : le vrai module tire board -> registry, qui accroche des événements
+  -- absents du moteur simulé ; book_of reste nil comme au chargement du vrai module (aucun livre hors de la pensée)
+  package.loaded["script.team.foreuse_swap"] = {}
   package.loaded["script.team.migration_champ"] = nil
   local Mig
   if scn.mutant then
