@@ -934,11 +934,76 @@ function Recon.repair_act(agent, f, task, surface)
 end
 
 --- Programme de l'ouvrier qui prend la tâche (script/team/worker.lua, Worker.program). Les pièces sont marquées prises.
+--- Lot RECONSTRUCTION-0716 : la pièce posée brûle-t-elle un combustible ? (prototype : burner_prototype ; mémoire LOCALE)
+local BURNS = {}
+local function burns(name)
+  local v = BURNS[name]
+  if v == nil then
+    local p = game.entity_prototypes[name]
+    v = (p and p.burner_prototype ~= nil) or false
+    BURNS[name] = v
+  end
+  return v
+end
+
 function Recon.program(f, task)
   local s = f.recon
   if not (s and task.pos and task.items) then return nil end
   Rc.claim(s, task.recs, task.key)
+  -- Lot RECONSTRUCTION-0716 : le combustible des pièces à combustion est porté avec elles (prise souple : ce que le coffre a). Avant : le
+  -- champ de charbon refait à 10,4 min (banc ruine-charbon, 123456789) restait à sec, coffre du QG sans charbon, toute la fonte arrêtée.
+  local nb = 0
+  for _, k in ipairs(task.recs or {}) do
+    local r = s.lost[k]
+    if r and burns(r.place or r.name) then nb = nb + 1 end
+  end
+  if nb > 0 then
+    return { { "home" }, { "take", task.items, strict = true }, { "take", { { T.fuel, nb * T.fuel_per_burner } } }, { "goto", task.pos, 4 },
+      { "act", "rebuild" }, { "home" } }
+  end
   return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 4 }, { "act", "rebuild" }, { "home" } }
+end
+
+--- Lot RECONSTRUCTION-0716 (trace [FO-RECON-AMORCE]) : une pièce à combustion refaite reçoit son combustible : celui que porte le PNJ, sinon,
+--- quand personne n'en a (coffre du QG vide : le champ de charbon détruit était la source), le PNJ en mine à la main sous la pièce si le
+--- gisement donne un objet combustible (prototype : fuel_value > 0), le gisement perd ce qui est pris. Rend le nombre posé.
+Recon.PRIME_LOGS = 40
+local function prime(f, s, inv, ent, surface)
+  local fuel = ent.get_fuel_inventory and ent.get_fuel_inventory()
+  if not (fuel and fuel.valid and fuel.is_empty()) then return 0 end
+  local n = math.min(T.fuel_per_burner, inv.get_item_count(T.fuel))
+  local how = "porte"
+  if n > 0 then
+    n = fuel.insert({ name = T.fuel, count = n })
+    if n > 0 then inv.remove({ name = T.fuel, count = n }) end
+  else
+    local p = ent.position
+    local res = surface.find_entities_filtered({ type = "resource", area = { { p.x - 1.5, p.y - 1.5 }, { p.x + 1.5, p.y + 1.5 } } })
+    table.sort(res, function(a, b)
+      if a.position.x ~= b.position.x then return a.position.x < b.position.x end
+      return a.position.y < b.position.y
+    end)
+    for _, r in ipairs(res) do
+      local mp = r.prototype.mineable_properties
+      local prod = mp and mp.products and mp.products[1]
+      local ip = prod and prod.type == "item" and game.item_prototypes[prod.name]
+      if ip and (ip.fuel_value or 0) > 0 and r.amount > T.fuel_per_burner and fuel.can_insert({ name = prod.name, count = 1 }) then
+        n = fuel.insert({ name = prod.name, count = T.fuel_per_burner })
+        if n > 0 then r.amount = r.amount - n end
+        how = "mine a la main (" .. prod.name .. ")"
+        break
+      end
+    end
+  end
+  if n > 0 then
+    stat(s, "primed", n)
+    if (s.stats.prime_logs or 0) < Recon.PRIME_LOGS then
+      s.stats.prime_logs = (s.stats.prime_logs or 0) + 1
+      log(string.format("[FO-RECON-AMORCE] %s : %s refait(e) en (%.1f, %.1f) : %d combustible(s) %s a %.1f min", f.key or "player", ent.name,
+        ent.position.x, ent.position.y, n, how, game.tick / 3600))
+    end
+  end
+  return n
 end
 
 --- Emprise de la pièce (boîte de collision du prototype, tournée selon la direction) élargie de 0,3 : { x0, y0, x1, y1 }.
@@ -1025,6 +1090,7 @@ function Recon.act(agent, f, task, surface)
             raise_built = true })
           if ent and ent.valid then
             inv.remove({ name = r.item, count = 1 })
+            if ent.burner then prime(f, s, inv, ent, surface) end -- lot RECONSTRUCTION-0716 : jamais refaite à sec
             if r.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, r.recipe) end
             if r.kind and ent.unit_number then
               State.own(ent, f.id, r.kind, r.oid)
