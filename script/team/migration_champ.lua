@@ -1449,6 +1449,8 @@ local function step_build(f, surface, ms, o, st, tick)
     if rwhy == "presque-finie" then
       say_why(f, ms, st, "presque-finie", string.format("avant-poste %d : projet %d bati a %d/%d, sans progres : on le finit (pas de retour en arriere)", o.id, st.pid,
         nb_built, nb_total), true)
+      -- lot CHAMP-0916 (B5) : refus définitif du retour en arrière : plus de paires à reposer ; la sortie au délai (block_max) peut partir
+      st.undo, st.pg = nil, nil
     end
     if dec == "retour" then
       local res = rollback(f, surface, ms, o, st, p, tick, rwhy, ab)

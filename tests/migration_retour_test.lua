@@ -124,6 +124,17 @@ check(S:find("Rb.decide({ undo = #st.undo, produced = false", 1, true) ~= nil an
 check(S:find("if Rb.cooling(st.cool, tick) then", 1, true) ~= nil, "pause après un retour avant tout nouveau retrait")
 check(S:find("for _, k in ipairs(st.stopped or {}) do bad[k] = true end", 1, true) ~= nil, "begin_band écarte les bandes parquées (réserve définitive ; hors cadre la migration de l'avant-poste s'arrête)")
 check(S:find("log(Rb.line(", 1, true) ~= nil, "journal [FO-ROLLBACK]")
+-- Lot CHAMP-0916 (B5, partie du DC en 0.9.3 : player, avant-poste 3, projet 2 bâti à 275/284, « sans progres : on le finit » 101 fois en 30 min) :
+-- la sortie au délai d'une bande bloquée (CHAMP_CFG.block_max) attend st.undo vide ; « presque-finie » est un refus DÉFINITIF du retour en
+-- arrière : la liste des paires à reposer est vidée dans la même branche, sinon la bande garde son créneau pour toujours.
+do
+  local a = S:find('if rwhy == "presque-finie" then', 1, true)
+  local b = a and S:find("\n    end\n", a, true)
+  local branch = a and b and S:sub(a, b) or ""
+  check(branch:find("st.undo, st.pg = nil, nil", 1, true) ~= nil, "B5 : presque-finie vide st.undo (la sortie au délai block_max peut partir)")
+  check(S:find("if p and p.state == \"bloque\" and not (st.undo and #st.undo > 0) then", 1, true) ~= nil,
+    "B5 : la sortie au délai reste gardée par st.undo (le retour en arrière décide d'abord tant qu'il le peut)")
+end
 
 -- mutants
 local src = read("shared/team/migration_retour.lua")
