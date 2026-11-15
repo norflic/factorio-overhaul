@@ -350,6 +350,68 @@ local function category(name)
 end
 Champ.category = category
 
+-- perf-reste (banc REF0722, carte du DC : étapes de lecture de la spec de 60 à 196 ms d'un bloc) : chaque requête au moteur sur un rectangle
+-- est faite par BANDES de colonnes entières, au plus Champ.CFG.read_cells tuiles par appel (l'étape est rappelée tant qu'il reste des
+-- colonnes). Mêmes réponses : les bandes partitionnent le rectangle, une entité à cheval sur deux bandes est relue (ensembles : écriture
+-- idempotente ; listes : dédoublonnées par tuile) ; les listes sont triées ensuite comme avant (gisement, charbon, souterrains). Une
+-- lecture par RAYON (gisement, charbon) lit le carré du rayon par bandes et garde les ressources du disque (Champ.in_disc).
+local function strips_new(x0, y0, x1, y1) return { x = math.floor(x0), xe = math.ceil(x1), x0 = x0, y0 = y0, x1 = x1, y1 = y1 } end
+--- Bande suivante : bornes réelles de la zone (ax0, ax1) pour le moteur, ou nil quand tout est lu. `hi_open` : la zone d'avant allait
+--- jusqu'à x1 + 1 (foreign_in) ; sinon jusqu'à x1.
+local function strip_next(st, hi)
+  if st.x > st.xe then return nil end
+  local h = math.ceil(st.y1) - math.floor(st.y0) + 1
+  local w = math.max(1, math.floor(Champ.CFG.read_cells / math.max(1, h)))
+  local xa = st.x
+  local xb = math.min(st.xe, xa + w - 1)
+  st.x = xb + 1
+  local lo = (xa == math.floor(st.x0)) and st.x0 or xa
+  local up = (st.x > st.xe) and hi or (xb + 1)
+  return lo, up
+end
+--- Disque du moteur (position + rayon) : une ressource y est si sa POSITION est à `R` au plus (banc PERFRESTE-1, 123456789 : la règle
+--- « boîte de collision qui touche le cercle » rendait 3 tuiles de trop sur 1 887 ; contrôle [FO-PERF-LECTURE])
+function Champ.in_disc(px, py, cx, cy, R)
+  return (px - cx) * (px - cx) + (py - cy) * (py - cy) <= R * R
+end
+--- Lecture par rayon en bandes : st = { pos, R, name, strips, pts = { {x, y} }, seen } ; rend vrai quand tout est lu.
+local CHECK = { left = nil }
+local function disc_read(surface, st)
+  local pos, R = st.pos, st.R
+  if not st.strips then st.strips, st.pts, st.seen = strips_new(pos.x - R - 2, pos.y - R - 2, pos.x + R + 2, pos.y + R + 2), {}, {} end
+  local ax0, ax1 = strip_next(st.strips, pos.x + R + 2)
+  if not ax0 then return true end
+  for _, r in ipairs(surface.find_entities_filtered({ area = { { ax0, pos.y - R - 2 }, { ax1, pos.y + R + 2 } }, name = st.name })) do
+    if r.valid then
+      local p = r.position
+      local x, y = p.x, p.y
+      if Champ.in_disc(x, y, pos.x, pos.y, R) then
+        local k = Ch.key(math.floor(x), math.floor(y))
+        if not st.seen[k] then st.seen[k] = true; st.pts[#st.pts + 1] = { x = x, y = y } end
+      end
+    end
+  end
+  return st.strips.x > st.strips.xe
+end
+--- Mesure seule (Champ.CFG.read_check premières lectures de la session) : la lecture en bandes rend-elle les mêmes tuiles que la requête
+--- d'un bloc (position + rayon) ? Journal [FO-PERF-LECTURE] ; aucune décision ne le lit.
+local function disc_check(surface, st, what)
+  if CHECK.left == nil then CHECK.left = Champ.CFG.read_check end
+  if CHECK.left <= 0 then return end
+  CHECK.left = CHECK.left - 1
+  local one, n1, miss, extra = {}, 0, 0, 0
+  for _, r in ipairs(surface.find_entities_filtered({ position = st.pos, radius = st.R, name = st.name })) do
+    if r.valid then
+      local p = r.position
+      local k = Ch.key(math.floor(p.x), math.floor(p.y))
+      if not one[k] then one[k] = true; n1 = n1 + 1; if not st.seen[k] then miss = miss + 1 end end
+    end
+  end
+  for _, t in ipairs(st.pts) do if not one[Ch.key(math.floor(t.x), math.floor(t.y))] then extra = extra + 1 end end
+  log(string.format("[FO-PERF-LECTURE] %s : rayon %d, %d tuile(s) d'un bloc, %d en bandes, %d manquante(s), %d en trop (%s) a %.1f min",
+    what, st.R, n1, #st.pts, miss, extra, (miss == 0 and extra == 0) and "identique" or "DIFFERENT", game.tick / 3600))
+end
+
 --- Rend les tuiles d'une AUTRE ressource minable (lot MELANGE), leur nombre et, lot TAMPON-MINERAI, TOUTES les tuiles de ressource lues
 --- (n'importe quel nom ou catégorie : le même minerai d'un AUTRE gisement compris), où aucune fonderie ne se pose (Sm.forbidden).
 local function foreign_acc(acc, surface, res, cats, ax0, y0, ax1, y1)
@@ -466,80 +528,6 @@ end
 --- J = spec_begin(...) ; spec_step(J) -> fini, spec, names (fini : spec, ou nil et raison). spec_of enchaîne les étapes (bande seule).
 local SPEC_STAGES = { "ore", "charbon", "foreign", "blocked", "occ", "autour", "fin" }
 
--- perf-reste (banc REF0722, carte du DC : étapes de lecture de la spec de 60 à 196 ms d'un bloc) : chaque requête au moteur sur un rectangle
--- est faite par BANDES de colonnes entières, au plus Champ.CFG.read_cells tuiles par appel (l'étape est rappelée tant qu'il reste des
--- colonnes). Mêmes réponses : les bandes partitionnent le rectangle, une entité à cheval sur deux bandes est relue (ensembles : écriture
--- idempotente ; listes : dédoublonnées par tuile) ; les listes sont triées ensuite comme avant (gisement, charbon, souterrains). Une
--- lecture par RAYON (gisement, charbon) lit le carré du rayon par bandes et garde les ressources du disque (Champ.in_disc).
-local function strips_new(x0, y0, x1, y1) return { x = math.floor(x0), xe = math.ceil(x1), x0 = x0, y0 = y0, x1 = x1, y1 = y1 } end
---- Bande suivante : bornes réelles de la zone (ax0, ax1) pour le moteur, ou nil quand tout est lu. `hi_open` : la zone d'avant allait
---- jusqu'à x1 + 1 (foreign_in) ; sinon jusqu'à x1.
-local function strip_next(st, hi)
-  if st.x > st.xe then return nil end
-  local h = math.ceil(st.y1) - math.floor(st.y0) + 1
-  local w = math.max(1, math.floor(Champ.CFG.read_cells / math.max(1, h)))
-  local xa = st.x
-  local xb = math.min(st.xe, xa + w - 1)
-  st.x = xb + 1
-  local lo = (xa == math.floor(st.x0)) and st.x0 or xa
-  local up = (st.x > st.xe) and hi or (xb + 1)
-  return lo, up
-end
---- Disque du moteur (position + rayon) : une ressource y est si sa boîte de collision touche le cercle (point le plus proche de la boîte).
-local CBOX = {}
-local function cbox(name)
-  local b = CBOX[name]
-  if b == nil then
-    local pp = game.entity_prototypes[name]
-    local cb = pp and pp.collision_box
-    b = cb and { cb.left_top.x, cb.left_top.y, cb.right_bottom.x, cb.right_bottom.y } or { 0, 0, 0, 0 }
-    CBOX[name] = b
-  end
-  return b
-end
-function Champ.in_disc(px, py, b, cx, cy, R)
-  local qx = math.max(px + b[1], math.min(cx, px + b[3]))
-  local qy = math.max(py + b[2], math.min(cy, py + b[4]))
-  return (qx - cx) * (qx - cx) + (qy - cy) * (qy - cy) <= R * R
-end
---- Lecture par rayon en bandes : st = { pos, R, name, strips, pts = { {x, y} }, seen } ; rend vrai quand tout est lu.
-local CHECK = { left = nil }
-local function disc_read(surface, st)
-  local pos, R = st.pos, st.R
-  if not st.strips then st.strips, st.pts, st.seen = strips_new(pos.x - R - 2, pos.y - R - 2, pos.x + R + 2, pos.y + R + 2), {}, {} end
-  local ax0, ax1 = strip_next(st.strips, pos.x + R + 2)
-  if not ax0 then return true end
-  local b = cbox(st.name)
-  for _, r in ipairs(surface.find_entities_filtered({ area = { { ax0, pos.y - R - 2 }, { ax1, pos.y + R + 2 } }, name = st.name })) do
-    if r.valid then
-      local p = r.position
-      local x, y = p.x, p.y
-      if Champ.in_disc(x, y, b, pos.x, pos.y, R) then
-        local k = Ch.key(math.floor(x), math.floor(y))
-        if not st.seen[k] then st.seen[k] = true; st.pts[#st.pts + 1] = { x = x, y = y } end
-      end
-    end
-  end
-  return st.strips.x > st.strips.xe
-end
---- Mesure seule (Champ.CFG.read_check premières lectures de la session) : la lecture en bandes rend-elle les mêmes tuiles que la requête
---- d'un bloc (position + rayon) ? Journal [FO-PERF-LECTURE] ; aucune décision ne le lit.
-local function disc_check(surface, st, what)
-  if CHECK.left == nil then CHECK.left = Champ.CFG.read_check end
-  if CHECK.left <= 0 then return end
-  CHECK.left = CHECK.left - 1
-  local one, n1, miss, extra = {}, 0, 0, 0
-  for _, r in ipairs(surface.find_entities_filtered({ position = st.pos, radius = st.R, name = st.name })) do
-    if r.valid then
-      local p = r.position
-      local k = Ch.key(math.floor(p.x), math.floor(p.y))
-      if not one[k] then one[k] = true; n1 = n1 + 1; if not st.seen[k] then miss = miss + 1 end end
-    end
-  end
-  for _, t in ipairs(st.pts) do if not one[Ch.key(math.floor(t.x), math.floor(t.y))] then extra = extra + 1 end end
-  log(string.format("[FO-PERF-LECTURE] %s : rayon %d, %d tuile(s) d'un bloc, %d en bandes, %d manquante(s), %d en trop (%s) a %.1f min",
-    what, st.R, n1, #st.pts, miss, extra, (miss == 0 and extra == 0) and "identique" or "DIFFERENT", game.tick / 3600))
-end
 local SPEC = {}
 function SPEC.ore(J)
   local f, surface, o, frame, axis_force = J.f, J.surface, J.o, J.frame, J.axis_force
