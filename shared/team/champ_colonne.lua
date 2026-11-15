@@ -429,7 +429,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   end
   while has do
     if routes >= Co.AWAY_ROUTES then break end
-    if lim and not (A.job and A.job.R) and Co.WORK + work >= lim then save() return nil, Co.SUSPEND end
+    if lim and not (A.job and (A.job.R or A.job.MV)) and Co.WORK + work >= lim then save() return nil, Co.SUSPEND end
     local k = cd_ak * (cd_ak == 0 and 1 or cd_sg)
     local b2, s_edge = from.v + k, from.u + side * (cd_d - cd_ak + 1)
     local fine = true
@@ -449,7 +449,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
       for _, r in ipairs(rel) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end
       if not mine[Co.tk(t.u, t.v)] then
         A.job = A.job or {}
-        local resumed = A.job.R ~= nil
+        local resumed = A.job.R ~= nil or A.job.MV ~= nil -- (perf-reste : relecture de la mémoire en cours, même tracé)
         if not resumed then routes = routes + 1 end
         local function rfree(u, v) return inb(u, v) and not mine[Co.tk(u, v)] and free(u, v) end
         local rb = box or { u0 = math.min(from.u, t.u) - Co.ROUTE_MARGIN, u1 = math.max(from.u, t.u) + Co.ROUTE_MARGIN,
@@ -621,6 +621,29 @@ local function memo_valid(e, free, span, tcost)
   for i = 1, #L, 3 do if tcost(L[i], L[i + 1]) ~= L[i + 2] then return false end end
   return true
 end
+-- perf-reste (pas « bare » et « net » jusqu'à 10 000 de travail pour un budget de 2 000, fixtures du DC : la relecture d'une entrée de la
+-- mémoire des tracés, des milliers de tuiles, se faisait d'un bloc) : la même relecture, REPRENABLE au budget (job.MV = { e, part, i }) ;
+-- rend true, false ou "suspend" (mêmes lectures dans le même ordre : même réponse qu'en un bloc)
+local function memo_valid_r(e, free, span, tcost, MV, lim)
+  local lists = { e.fr, e.sp, e.tc }
+  local did = false
+  for part = MV.part or 1, 3 do
+    local L = lists[part]
+    local i = (part == (MV.part or 1)) and (MV.i or 1) or 1
+    while i <= #L do
+      if lim and did and Co.WORK >= lim then MV.part, MV.i = part, i return "suspend" end
+      local ok
+      if part == 1 then ok = (free(L[i], L[i + 1]) and true or false) == L[i + 2]
+      elseif part == 2 then ok = (span(L[i], L[i + 1]) and true or false) == L[i + 2]; Co.WORK = Co.WORK + 0.5
+      else ok = tcost(L[i], L[i + 1]) == L[i + 2]; Co.WORK = Co.WORK + 0.5 end
+      if not ok then MV.part, MV.i = nil, nil return false end
+      did = true
+      i = i + 3
+    end
+  end
+  MV.part, MV.i = nil, nil
+  return true
+end
 local function copy_route(r)
   if not r then return nil end
   local o = {}
@@ -647,10 +670,29 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
     mkey = table.concat(parts, ",")
     mlist = memo[mkey]
     if mlist and not R then -- (reprise : la mémoire a déjà été lue au premier appel, sans réponse)
-      for _, e in ipairs(mlist) do
-        if memo_valid(e, free, span, tcost) then
-          if e.route then return copy_route(e.route), e.n end
-          return nil, e.why
+      local lim = job and Co.WORK_LIM
+      if lim then
+        -- perf-reste : relecture reprenable (job.MV : entrée et position), le tracé ne commence qu'après la dernière entrée
+        job.MV = job.MV or { e = 1 }
+        local MV = job.MV
+        while MV.e <= #mlist do
+          local e = mlist[MV.e]
+          local v = memo_valid_r(e, free, span, tcost, MV, lim)
+          if v == "suspend" then return nil, Co.SUSPEND end
+          if v then
+            job.MV = nil
+            if e.route then return copy_route(e.route), e.n end
+            return nil, e.why
+          end
+          MV.e = MV.e + 1
+        end
+        job.MV = nil
+      else
+        for _, e in ipairs(mlist) do
+          if memo_valid(e, free, span, tcost) then
+            if e.route then return copy_route(e.route), e.n end
+            return nil, e.why
+          end
         end
       end
     end
