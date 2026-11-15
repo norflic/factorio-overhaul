@@ -137,6 +137,17 @@ end
 
 function P.outpost_items(kind) return outpost_items(kind) end
 
+--- Lot CHARBON-QG : charbon que le coffre du QG doit tenir pour poser un kit d'avant-poste : le plus grand combustible des kits (données).
+function P.hq_coal_min()
+  local m = 0
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    for _, it in ipairs(outpost_items(kind)) do
+      if it[1] == T.fuel and it[2] > m then m = it[2] end
+    end
+  end
+  return m
+end
+
 --- Avant-poste minimal (reconstruction) : 2 paires et leur combustible.
 local function minimal_items(kind)
   local spec = T.outposts[kind]
@@ -636,9 +647,15 @@ function P.plan(view, book)
   -- le débit nominal des foreuses posées : Bc.dim) ; la décision prise ici est rendue dans out.coal_dim (journal [FO-CHARBON-DIM]).
   do
     local cc = view.coal_cap
+    -- Lot CHARBON-QG (15/11, nuit). Mesure (v0.7.122, REF0722-30, graines 123456789 et 271828182) : « offre suffisante » 22 à 25 minutes sur 30
+    -- par faction pendant que les projets d'avant-postes attendaient « manque {coal 80} » (Zero-Idle : combustible 30 à 70 % des minutes) :
+    -- le dimensionnement ne compte que les brûleurs posés, jamais le charbon que le COFFRE DU QG doit tenir pour poser la capacité suivante (le
+    -- combustible d'un kit d'avant-poste, lu à Planner.outpost_items : 80 sur les données vanilla). Sous ce niveau, l'offre n'est pas suffisante.
+    local hq_min = P.hq_coal_min()
+    local hq_low = cc ~= nil and (view.stock[T.fuel] or 0) < hq_min
     if cc == nil then out.coal_dim = "sans releve"
     elseif #view.outposts == 0 then out.coal_dim = "aucun avant-poste"
-    elseif not Bc.room(cc) then out.coal_dim = "offre suffisante"
+    elseif not Bc.room(cc) and not hq_low then out.coal_dim = "offre suffisante"
     elseif (view.pending.coal or 0) > 0 then out.coal_dim = "avant-poste de combustible deja en cours"
     elseif Th.raw_full(T.outposts.coal, view.stock) then out.coal_dim = "stock de combustible plein"
     else
@@ -667,6 +684,9 @@ function P.plan(view, book)
           end
         else out.coal_dim = "batir un avant-poste (pieces introuvables)" end
       else out.coal_dim = "avant-poste en attente de ses tourelles" end
+    end
+    if hq_low and cc ~= nil and not Bc.room(cc) and out.coal_dim ~= "aucun avant-poste" then
+      out.coal_dim = out.coal_dim .. string.format(" (coffre du QG %d sous %d)", math.floor(view.stock[T.fuel] or 0), hq_min)
     end
   end
 
