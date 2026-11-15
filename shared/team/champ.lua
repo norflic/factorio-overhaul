@@ -1222,15 +1222,25 @@ function ONCE.net(s)
   return true
 end
 
+-- perf-reste (banc REF0722 : étapes « branch » jusqu'à 63 ms d'un bloc, 2 500 pièces) : les colonnes en attente sont reprises par TRANCHES
+-- de Ch.BRANCH_ENTS pièces émises au plus par pas (curseur s.br.i, dans l'ordre de s.pending : même plan), la fin au dernier pas
+Ch.BRANCH_ENTS = 600
 function ONCE.branch(s)
   Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : seul dans son appel de Ch.plan_steps)
   local spec, c, F = s.spec, s.c, s.F
   local d, exit, nets, coal_frame, ents = spec.drill, s.exit, s.nets, s.coal_frame, s.ents
-  s.zone, s.coal_set, s.coal_list, s.ugs, s.first, s.side_i = nil, nil, nil, nil, nil, nil
-  local shared_done = {}
-  local fallback = {}
-  s.fallback = fallback
-  for _, it in ipairs(s.pending) do
+  if not s.br then
+    s.zone, s.coal_set, s.coal_list, s.ugs, s.first, s.side_i = nil, nil, nil, nil, nil, nil
+    s.fallback = {}
+    s.br = { i = 1, shared_done = {} }
+  end
+  local shared_done = s.br.shared_done
+  local fallback = s.fallback
+  local e0 = #ents
+  while s.br.i <= #s.pending do
+    if #ents - e0 >= Ch.BRANCH_ENTS then return true end
+    local it = s.pending[s.br.i]
+    s.br.i = s.br.i + 1
     local g = it.g
     local key = tostring(it.pr)
     local nt = nets[g.side]
@@ -1287,6 +1297,7 @@ function ONCE.branch(s)
     local og = s.out_bands[it.bi] and s.out_bands[it.bi].groups[it.gi]
     if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
   end
+  s.br = nil
   for _, side in ipairs({ exit, -exit }) do
     local nt = nets[side]
     if nt then
