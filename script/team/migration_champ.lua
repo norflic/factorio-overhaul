@@ -2221,15 +2221,19 @@ function Mig.entrepreneur_scan(f, tick)
   for _, oid in ipairs(ids) do
     local o = Champ.target(f, oid)
     local st = ms.o[oid]
-    if not target and o and is_champ_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then target = oid end
+    -- (entrepreneur-craft-0716 : un champ à FOURS seulement, sa bande produit une plaque ; banc 0722-g123 : la bande entrepreneur du joueur était
+    -- une bande de charbon de 36 foreuses, payée en plaques sans en rendre)
+    if not target and o and is_champ_kind(o.kind) and is_furnace_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then target = oid end
   end
   -- entrepreneur-ouvrier (14/11) : une bande dont le projet est fini (ou disparu) n'est plus « en vol » : avant, Mig.projects la gardait
   -- tant que la ligne attendait son premier produit et le scan l'attachait toutes les 5 min (amber, JALONS60-entrepreneur : projet 9
   -- « fini » puis « attache » de 33 à 60 min, aucun chantier nouveau)
   local inflight = {}
+  local plate = {}
+  for _, k in ipairs(plate_names()) do plate[k] = true end
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if p and p.state ~= "fini" then inflight[#inflight + 1] = x end
+    if p and p.state ~= "fini" and x.item and plate[x.item] then inflight[#inflight + 1] = x end -- (entrepreneur-craft-0716 : bande d'une plaque seulement)
   end
   local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0, debit_min = Ent.CFG.debit_min })
   if action == "refus" then
