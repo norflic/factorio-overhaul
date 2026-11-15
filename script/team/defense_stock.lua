@@ -240,7 +240,7 @@ function Ds.place(f, surface, task, carrier)
     end
     return hit
   end or nil
-  local n = Outposts.fortify_at(f, surface, Ds.OID .. key, task.sites or {}, task.items[1][2], carrier, accept, nil, clear)
+  local n = Outposts.fortify_at(f, surface, Ds.OID .. key, task.sites or {}, task.items[1][2], carrier, accept, nil, clear, zr ~= nil)
   local tick = game.tick
   local st = state(f, tick)
   st.poses = st.poses + n

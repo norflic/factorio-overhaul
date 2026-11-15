@@ -729,8 +729,9 @@ end
 --- Les objets viennent de l'inventaire `carrier` (déjà pris au stock par la tâche). Rend le nombre posé.
 --- s46 outils : `clear(site)` (facultatif) dégage les obstacles naturels d'un emplacement sans place libre ; rend vrai si quelque chose a
 --- été dégagé (l'emplacement est alors relu une fois).
-function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, ammos, clear)
+function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, ammos, clear, ordre)
   local placed = 0
+  local carried0 = carrier.get_item_count(T.turret)
   ammos = ammos or { T.turret_ammo }
   -- lot TOURELLES-HORS-AXE : couloirs d'extension des lignes de l'équipe (Build.corridors, crochet posé par script/team/build.lua),
   -- lus une fois par pose ; emprise de la tourelle en tuiles (prototype)
@@ -748,9 +749,17 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
   -- lot TUILES-RESERVEES : place interdite (réservée au plan, couloir d'extension, hors de la zone voulue, sur une ressource), lue par la
   -- recherche ET par le repli : le repli n'en gardait qu'une partie (couloir, ressource) et posait sur une tuile réservée (fo-lvl-gun-2
   -- sur le tapis d'entrée du projet 31 d'amber, mall-rangee-2, 30 refus « occupé », TETE-CHAMP, 2507543475)
+  -- 0.9.7 Maj+R : un bastion ORDONNÉ par le joueur (ordre) se pose dans la zone glissée : ni les tuiles réservées au plan directeur
+  -- ni les couloirs d'extension ne le refusent (au banc des ordres 0.9.6, 149 emplacements d'une zone vide en (-54, 6) refusés : 0 pose
+  -- en 30 min) ; la ressource et la zone restent des refus. Causes comptées pour [FO-TOUR-ECART].
+  local why = { reserve = 0, couloir = 0, zone = 0, minerai = 0 }
   local function banned(q)
-    return PlacesQG.is_reserved(f, T.turret, q) or in_axe(q) ~= nil or (accept ~= nil and not accept(q))
-      or PlacesQG.on_resource(surface, T.turret, q) -- (lot DECOUPLAGE : aucune tourelle sur une ressource)
+    if accept ~= nil and not accept(q) then why.zone = why.zone + 1 return true end
+    if PlacesQG.on_resource(surface, T.turret, q) then why.minerai = why.minerai + 1 return true end -- (lot DECOUPLAGE)
+    if ordre then return false end
+    if PlacesQG.is_reserved(f, T.turret, q) then why.reserve = why.reserve + 1 return true end
+    if in_axe(q) ~= nil then why.couloir = why.couloir + 1 return true end
+    return false
   end
   -- lot PD-ESPACEMENT (D07) : tourelles de l'équipe autour des emplacements (lues une fois, puis complétées à chaque pose) ; une
   -- position plus proche que l'écart voulu d'une autre tourelle est refusée comme une tuile réservée. Passe 1 : Pose.gap ;
@@ -818,6 +827,7 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
     end
     if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
   end
+  ec.why, ec.carried0, ec.ordre = why, carried0, ordre and true or false
   Outposts.ecart_log(f, oid, count, placed, gaps, ec)
   return placed
 end
@@ -864,7 +874,9 @@ function Outposts.ecart_log(f, oid, count, placed, gaps, ec)
   if f.stats.ecart_logs > Outposts.ECART_LOGS then return end
   log(string.format("[FO-TOUR-ECART] %s poste %s : %s ; %d posee(s) sur %d voulue(s), %d a l'ecart >= %g, %d au plancher >= %g ; plus proche voisine %s ; %d place(s) refusee(s) pour l'ecart ; %d tourelle(s) deja autour",
     f.key or "player", tostring(oid or "hq"), cause, placed, count, ec.by_pass[1], gaps[1], ec.by_pass[2], gaps[2],
-    ec.min and string.format("%.1f tuiles", ec.min) or "aucune", ec.refused, ec.near0))
+    ec.min and string.format("%.1f tuiles", ec.min) or "aucune", ec.refused, ec.near0)
+    .. (ec.why and string.format(" ; refus reserve %d, couloir %d, zone %d, minerai %d ; tourelles portees %d ; ordre %s",
+      ec.why.reserve, ec.why.couloir, ec.why.zone, ec.why.minerai, ec.carried0 or -1, tostring(ec.ordre)) or ""))
 end
 
 ---------------------------------------------------------------------------------------------------
