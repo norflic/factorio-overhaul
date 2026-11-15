@@ -322,7 +322,10 @@ function Elec.view_off(f, tick)
   local out, any = {}, false
   for _, kind in ipairs(T.OUTPOST_ORDER or {}) do
     local spec = T.outposts[kind]
-    local ok, why = E.thermal(inputs(v, kind, false))
+    -- lot C3-BOUCLE : le zéro-idle (shared/ai3/zero_idle.lua) donne ses agrandissements à un PNJ DÉJÀ choisi : ils ne passent pas le filtre du
+    -- tableau (tâche prise) ; banc C3-APRES-a6a22cb6 : « iron:1:thermique » x1 à x5 par minute de 15 à 23 min, thermiques du fer 21 -> 34. Un
+    -- type qui a déjà un avant-poste n'a plus que des agrandissements : la vue les refuse comme le filtre (E.thermal, s.extend).
+    local ok, why = E.thermal(inputs(v, kind, false, ((v.kinds or {})[kind] or 0) > 0))
     if not ok then out[kind], any = why, true end
   end
   return any and out or nil

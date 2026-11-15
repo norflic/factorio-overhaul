@@ -78,6 +78,12 @@ check(SRC:find("local blocked = f.danger or f.blocked or no_power or small_by", 
 check(SRC:find("if held[tostring(f.id)] then goto next_site end", 1, true) ~= nil, "ouvrir : un site plus petit n'est pas ouvert avant le grand")
 check(SRC:find('why_open = "taille : gisement plus grand "', 1, true) ~= nil, "un site plus grand s'ouvre quand il retient un gisement ouvert")
 
+print("== 2 bis. Glue electrique : agrandissements refuses au tableau ET dans la vue du cerveau (zero-idle)")
+local EL = read("script/team/electrique.lua")
+check(EL:find('E.thermal(inputs(v, t.outpost_kind, t.kind == "craft", t.kind == "extend"))', 1, true) ~= nil, "filtre du tableau : tache extend")
+check(EL:find("E.thermal(inputs(v, kind, false, ((v.kinds or {})[kind] or 0) > 0))", 1, true) ~= nil, "vue du cerveau : type qui a un avant-poste = agrandissement")
+check(EL:find("net = (v.era ~= nil and (v.el_placed or 0) > 0) or nil", 1, true) ~= nil, "reseau en place : ere datee et une electrique posee")
+
 print("== 3. Mutants")
 local mutants = {
   { "plus grand ignore", "if lt == nil or t > lt or", "if lt == nil or t < lt or" },
