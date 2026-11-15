@@ -32,6 +32,16 @@ Conv.TRIES = 3          -- essais en vain par tuile avant qu'elle soit écartée
 
 local LIST = nil -- cache local (les prototypes ne changent pas dans une session ; jamais dans global)
 
+--- majz-0716 : tapis au stock MOINS ceux que le kit d'une zone Maj + Z attend (Capital.zone_hold : l'ordre du joueur passe devant
+--- l'amélioration des tracés et les nouveaux tracés). Sans zone : Stock.count (règle d'avant).
+local function stock_free(f, item)
+  local n = Stock.count(f, item)
+  local Capital = package.loaded["script.ai3.capital"]
+  local hold = Capital and Capital.zone_hold and Capital.zone_hold(f) or nil
+  if hold and hold[item] then n = math.max(0, n - hold[item]) end
+  return n
+end
+
 --- Tapis des données { name, speed, item } triés par vitesse puis nom. Les prototypes cachés ou sans objet sont ignorés.
 function Conv.belts()
   if LIST then return LIST end
@@ -97,7 +107,7 @@ end
 --- Tapis d'un nouveau tracé dont `flow` objets/s passent sur une voie. nil : aucun tapis débloqué.
 --- `len` (lot FIX-P4, facultatif) : longueur du tracé en tuiles ; le tapis rapide « déjà au stock » doit la couvrir.
 function Conv.choose(f, flow, len)
-  local name = C.stocked(Conv.belts(), Conv.usable(f), function(item) return Stock.count(f, item) end, Conv.NEW_MIN, len)
+  local name = C.stocked(Conv.belts(), Conv.usable(f), function(item) return stock_free(f, item) end, Conv.NEW_MIN, len)
     or C.pick(Conv.belts(), Conv.usable(f), flow, { need_only = Conv.MODE == "besoin" })
   if f.build then
     local ok = unlocked(f)
@@ -135,7 +145,7 @@ local function upgrade(f, surface, p, idx, part, target)
   local done = 0
   for _, i in ipairs(C.next_batch(sub, part.belt, Conv.BATCH)) do
     local e = sub[i]
-    if Stock.count(f, new_item) < 1 then
+    if stock_free(f, new_item) < 1 then
       b.conv_wait = { item = new_item, count = remaining(p, idx, part.belt) }
       break
     end
@@ -278,7 +288,7 @@ function Conv.step(f, surface, tick)
   local segs = segments(f, b, usable)
   local ranked = Cs.rank(segs, Cs.CFG)
   local kit = {}
-  for _, s in ipairs(ranked) do if s.item and kit[s.item] == nil then kit[s.item] = Stock.count(f, s.item) end end
+  for _, s in ipairs(ranked) do if s.item and kit[s.item] == nil then kit[s.item] = stock_free(f, s.item) end end
   local plan = Cs.budget(ranked, kit, { min_pieces = Conv.BATCH })
   say_plan(f, b, plan)
   if plan.short[1] and not b.conv_wait then b.conv_wait = { item = plan.short[1].item, count = plan.short[1].n } end

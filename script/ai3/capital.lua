@@ -1404,6 +1404,26 @@ local function continu_track(f, c, d, side, surface, book, free, tick, hold)
   return done
 end
 
+--- majz-0716 : objets que les remplacements d'une zone Maj + Z attendent ({ [objet] = pièces de la réserve }) : le but, la voie de côté et
+--- celle des fours quand ils portent le drapeau `zone`. Lu par script/team/convoyeurs.lua (le tapis du kit n'est pas pris par les tracés).
+--- nil sans zone.
+function Capital.zone_hold(f)
+  local c = f.team and f.team.capital
+  if not c then return nil end
+  local out = nil
+  for _, d in ipairs({ c.current or false, c.side or false, c.side_pf or false }) do
+    if d and d.zone and d.replace then
+      local tp = machine_catalog().by[d.replace.to]
+      if tp and tp.item then
+        out = out or {}
+        local pool = (d.pool and #d.pool > #(d.ids or {})) and d.pool or (d.ids or {})
+        out[tp.item] = (out[tp.item] or 0) + #pool
+      end
+    end
+  end
+  return out
+end
+
 function Capital.continu(f, surface, book, free, tick, hold)
   if not Capital.replace_on() or not (f.team and f.team.capital) then return 0 end
   local c = f.team.capital
