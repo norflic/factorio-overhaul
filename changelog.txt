@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.129
+Date: 2026-11-15
+  Optimizations:
+    - Fluidité : lecture du cadre des champs par bandes de colonnes, fin de plan, branchement et pas de bande découpés par travail compté (budgets 2200/1600). Banc 30 min (carte du DC, 2 graines) : pics au-dessus de 50 ms 51 → 4 et 28 → 0, pic max 133 → 73 ms et 140 → 46 ms ; mêmes plans par construction.
+  Bugfixes:
+    - Reconstruction : un avant-poste en ruine refait ses pièces (fabrication par l'équipe) et le PNJ amorce les foreuses à combustion avec du combustible (pris au coffre, sinon miné à la main sous la foreuse). Champ de charbon détruit à 10 min : 0/11 foreuses en marche à 30 min → 13/13 dès 24 min.
+  Known issues:
+    - Production à 30 min : total +0,4 % en moyenne, équipe du joueur -26 % sur une graine et +13 % sur l'autre (le découpage décale le calendrier, la partie diverge).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.128
 Date: 2026-11-15
   Features:

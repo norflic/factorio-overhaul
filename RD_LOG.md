@@ -12,6 +12,7 @@
 
 ## 2026-11-15, 06 h 20 : version 0.7.127 (Maj+E en début de partie)
 
+- **F702 · VALIDÉ · DÉPLOYÉ 0.7.129** perf-reste (champ.lua : lectures par bandes de 1 500 tuiles, réservation en tranches de 600, budgets 2200/1600) + reconstruction (Ru.demand, amorçage combustible [FO-RECON-AMORCE]). 30 min contre 0.7.128 : pics > 50 ms 51 → 4 (123456789), 28 → 0 (3338690507) ; total 61 014 → 57 414 et 59 600 → 63 570 ; joueur 15 704 → 11 538 et 11 651 → 13 122 (chaos de calendrier, plans identiques par perf_champ_bench). Ruine charbon à 10 min : 13/13 foreuses en marche (0/11 avant). content 621 OK.
 - **F701 · VALIDÉ · DÉPLOYÉ 0.7.128** Entrepreneur : craft groupé du kit complet d'un projet ([FO-ENTREPRENEUR-KIT], `Build.needs_of`). 30 min carte du DC, contre 0.7.127 : total 60 635/55 320 → 61 014/59 600 (+4,0 %, graines 123456789 et 3338690507), joueur 16 307/12 216 → 15 704/11 651 (-4,1 %) ; +2,2 % joueur sur 4 graines au premier passage. centrale2 (urgence 95) mesurée au-dessus : joueur -26 % → revert 928d3dbf. content 621 OK.
 - **F700 · VALIDÉ · DÉPLOYÉ 0.7.127** Maj+E restait sans effet avant 30 min (aucune paire sortie/quai finie). Repli : avant-poste le plus proche du point A (≤ rayon + 48), tournée de service à priorité 93, ordre servi à la tournée faite. Scénario `commandes-delais` (point A = avant-poste le plus proche, B = QG) : `2026-11-15_MAJE-avant2` / `-apres2` : effet jamais → 30 s, bilan 12 OK 1 ECHEC → 13 OK. Test `liaison_maje_test` 16 OK. content 621 OK.
 
