@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.120
+Date: 2026-11-15
+  Optimizations:
+    - Plan du champ (gisements) reprenable : recherches de tracés (A*), fenêtres de charbon et lecture de la zone du gisement découpées par budget de travail sur plusieurs ticks, même plan qu'avant. Banc 30 min sur la carte du DC, 2 graines : étapes de plus de 50 ms 444 → 73, pic maximal 1 373 → 132 ms ; fer + cuivre +6,9 % (plans finis plus tôt).
+  Known issues:
+    - Il reste des étapes de 50 à 130 ms (réseau du charbon, forfaits de bande) : l'objectif de 15 ms par tick n'est pas atteint. L'état de recherche reste en mémoire du module (plan refait au chargement d'une sauvegarde).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.119
 Date: 2026-11-15
   Features:
