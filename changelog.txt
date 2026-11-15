@@ -1,4 +1,21 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.6
+Date: 2026-11-15
+  Bugfixes:
+    - C1-COUT : plans de champ neufs au tapis de base (0 tapis rapide demande, banc carte du DC) ; verrou des ameliorations automatiques tapis/bras tant que le plus grand gisement de fer/cuivre/charbon est sous 80 % (Maj+Z jamais bloque).
+    - C2-PAVAGE : foreuses orphelines des bouts de bande donnees a l'autre bout, fonderie deportee cherchee sur toute la largeur, poteaux et bouts de tapis respectes : couverture du plan fer joueur (carte du DC) 42 -> 83 %, emerald 47 -> 73 %, fer entre cuivre et charbon 68 -> 100 %.
+    - C3-BOUCLE : la bande de l'entrepreneur n'est plus gelee par la priorite d'alimentation des centrales ; plus d'agrandissement thermique des que le reseau electrique existe ; un petit gisement attend tant qu'un plus grand du meme minerai est sous 85 % ; journal [FO-MIGRATION] plafonne par fenetre de 5 min.
+    - C3C : un ordre Maj+A vivant fait choisir la bande du cadre la plus proche de sa zone.
+    - C4-ORDRES : un ordre reveille l'entrepreneur sans attendre son scan de 5 min et suspend le chantier non-ordre (repris ensuite) ; l'ordre n'est plus bloque par la garde electrique ; Maj+E choisit sa tournee a la pose. C4C : le plan de cadre d'un champ n'est plus jete pendant la verification d'un autre cadre (Maj+A : premiere action 6000 -> 300 ticks en jeu).
+    - P2-ENERGIE : un but de fabrication par centrale (avant : toutes les centrales derriere un seul but, centrales neuves jamais fabriquees) ; un tapis remplace par sa variante compte comme bati ; reserve:vapeur seulement en vrai manque d'energie.
+    - C5-PERF : planificateur de champ decoupe en tranches bornees (trace A*, lectures de la spec, colonne, coal_line), memoire par appel sous 1,2 Mo, plan identique.
+    - C1: new field plans use the base belt; automatic belt/inserter upgrades locked until the largest iron/copper/coal deposit is 80 % covered (Shift+Z never locked).
+    - C2: much denser field tiling on irregular/adjacent deposits (player iron plan 42 -> 83 % coverage on the DC map).
+    - C3: continuous field bands (no steam freeze on the contractor band), no thermal expansion once power exists, larger deposits first.
+    - C3C/C4/C4C: player orders wake the contractor at once and pre-empt a non-order site; Shift+A first action 300 ticks; nearest band to the order.
+    - P2: one crafting goal per power plant; upgraded belt variants count as built; steam hold only on a real power shortage.
+    - C5: field planner sliced into bounded steps, memory per call under 1.2 MB, identical plan.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.5
 Date: 2026-11-15
   Bugfixes:
