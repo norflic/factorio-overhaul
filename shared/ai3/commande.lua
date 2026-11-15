@@ -498,6 +498,8 @@ function Co.task_hits(o, t, band_pid)
   if o.kind == "liaison" and o.tour and o.tour.oid ~= nil and t.kind == "service" and t.outpost == o.tour.oid then return true end
   if (t.created or -1) < (o.tick or 0) then return false end
   if o.kind == "amelioration" and t.tag == "amelio" then return true end
+  -- bastion sans tourelle au coffre : la fabrication de ses tourelles (cerveau, but « ordre:bastion », étiquette « tourelle ») est sa première action
+  if o.kind == "bastion" and t.kind == "craft" and type(t.key) == "string" and t.key:find(":tourelle:", 1, true) then return true end
   local m = o.kind == "gisement" and Co.SITE_MARGIN or Co.DONE_MARGIN
   local pts = {}
   if ia and ia.ax then pts[#pts + 1] = { ia.ax, ia.ay } end

@@ -384,7 +384,7 @@ local function track_step(f, o, tick, fin)
     obs.route = first_h ~= nil
   end
   -- c4b : un ouvrier en route vaut une tâche émise (tâche prise et retirée du tableau entre deux relevés)
-  if not o.t_tache and (obs.route or o.t_route) then obs.tache = true end
+  if not o.t_tache and (obs.route or o.t_route or o.t_kit) then obs.tache = true end -- (Maj+A : kit de la bande lancé, Mig.entrepreneur_kit)
   if need_scan and not fin then
     local rows = {}
     -- MAJA-0916 : un ordre de gisement ne compte que les poses SUR son minerai (o.resource, lu à la sélection) ; case lue une fois (o.ore_cells)
@@ -841,7 +841,7 @@ remote.add_interface("fo-commande", {
     for _, o in ipairs(cs.orders) do
       out.orders[#out.orders + 1] = { id = o.id, kind = o.kind, x = o.x, y = o.y, r = o.r, resource = o.resource, outpost = o.outpost,
         after_oid = o.after_oid, done = o.done, have = o.have, band_fid = o.band_fid, band_msg = o.band_msg, ent_served = o.ent_served,
-        t_ent = o.t_ent, t_susp = o.t_susp, tick = o.tick } -- c4b : champ de l'ordre, entrepreneur (ticks absolus)
+        t_ent = o.t_ent, t_susp = o.t_susp, t_kit = o.t_kit, tick = o.tick } -- c4b : champ de l'ordre, entrepreneur (ticks absolus)
     end
     -- c4b : chantier entrepreneur de l'équipe (projet, ordre ou pas, état du projet), chantiers suspendus, bande attendue, reprises
     local ms = f.migration

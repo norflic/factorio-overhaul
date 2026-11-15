@@ -2524,6 +2524,12 @@ function Mig.entrepreneur_kit(f, tick)
   if ent.ordre then ok = true end -- CHANTIER 4 : la bande d'un ordre du joueur tient la tête quel que soit le budget (matières concentrées sur elle)
   if not ent.kit then
     ent.kit = tick
+    -- c4b : le kit d'une bande d'ordre lancé = première action de l'ordre (fabrications en tête du cerveau) : od.t_kit, jalon « tache »
+    if ent.ordre and ent.oid ~= nil then
+      for _, od in ipairs(f.team and f.team.commande and f.team.commande.orders or {}) do
+        if od.band_fid == ent.oid and od.t_kit == nil then od.t_kit = tick end
+      end
+    end
     say(string.format("kit lance : %d objet(s) bloquant(s) de %d sorte(s) [%s] ; deja en stock %d ; a fabriquer %d (%.0f plaque(s), budget %.0f : %s) ; garniture hors kit %d ; declenche il y a %.1f min",
       r.total, r.kinds, r.text, r.have, r.craft, cost, budget, ok and "tete" or "file", gar_n, mins(ent.t0)))
   end

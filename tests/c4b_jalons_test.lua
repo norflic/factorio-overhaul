@@ -32,6 +32,8 @@ local function battery(Co)
   -- bastion : tâche « fortify » née après l'ordre, posée dans la zone
   local R = { kind = "bastion", x = 60, y = 0, r = 10, tick = 100 }
   ck(Co.task_hits(R, { kind = "fortify", pos = { x = 62, y = 1 }, created = 160 }, nil))
+  ck(Co.task_hits(R, { kind = "craft", key = "ia3:0:craft:gun-turret:tourelle:1", created = 160 }, nil))
+  ck(not Co.task_hits(R, { kind = "craft", key = "ia3:0:craft:gun-turret:tourelle:1", created = 50 }, nil))
   -- amélioration : tâche du kit (tag amelio) née après l'ordre
   local Z = { kind = "amelioration", x = 0, y = 0, r = 29, tick = 100 }
   ck(Co.task_hits(Z, { kind = "craft", tag = "amelio", created = 200 }, nil))
@@ -54,11 +56,13 @@ check(m1 ~= nil and battery(m1) > 0, "1. mutant (tâche de la bande d'ordre igno
 local m2 = mutant("shared/ai3/commande.lua", " or %(o%.a and inside%(o%.a, p%[1%], p%[2%], Co%.DONE_MARGIN%)%)", "")
 check(m2 ~= nil and battery(m2) > 0, "1. mutant (point A d'une liaison ignoré) : la batterie échoue")
 local m3 = mutant("shared/ai3/commande.lua", "if %(t%.created or %-1%) < %(o%.tick or 0%) then return false end", "")
+local m4 = mutant("shared/ai3/commande.lua", "if o%.kind == \"bastion\" and t%.kind == \"craft\"", "if false and t.kind == \"craft\"")
+check(m4 ~= nil and battery(m4) > 0, "1. mutant (fabrication des tourelles du bastion ignorée) : la batterie échoue")
 check(m3 ~= nil and battery(m3) > 0, "1. mutant (tâches nées avant l'ordre comptées) : la batterie échoue")
 
 local CMD = read("script/gui/commande.lua")
 check(CMD:find("or (o.a and Co.inside(o.a, p[1], p[2], Co.DONE_MARGIN)) then", 1, true) ~= nil, "2. route de Maj+E : l'ouvrier vers le point A compte")
-check(CMD:find("first_t = first_task(f, o)", 1, true) ~= nil and CMD:find("(obs.route or o.t_route) then obs.tache = true end", 1, true) ~= nil,
+check(CMD:find("first_t = first_task(f, o)", 1, true) ~= nil and CMD:find("(obs.route or o.t_route or o.t_kit) then obs.tache = true end", 1, true) ~= nil,
   "2. jalon tache relevé dans track_step (une route vaut une tâche)")
 check(read("locale/fr/commande.cfg"):find("jalon-tache=", 1, true) and read("locale/en/commande.cfg"):find("jalon-tache=", 1, true), "2. jalon tache traduit FR et EN")
 local MC = read("script/team/migration_champ.lua")
