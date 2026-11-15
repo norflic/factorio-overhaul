@@ -275,6 +275,19 @@ function K.build(dump, opts)
     products[name] = ps
     if r.enabled ~= false or unlockable[name] then recipes[name] = r end
   end
+  -- Lot DEFENSE-FACTIONS : poids de guerre d'une technologie = effets qui renforcent les tourelles (R.WAR_EFFECT) + recettes débloquées qui
+  -- produisent une munition (objet de type R.ITEM_AMMO), lus dans le relevé (aucun nom).
+  for _, name in ipairs(sorted_keys(techs)) do
+    local n = 0
+    for _, ty in ipairs(dump.techs[name].effects or {}) do if R.WAR_EFFECT[ty] then n = n + 1 end end
+    for _, r in ipairs(techs[name].unlocks) do
+      for _, p in ipairs(products[r] or {}) do
+        local it = dump.items[p]
+        if it and it.type == R.ITEM_AMMO then n = n + 1 end
+      end
+    end
+    techs[name].war = n
+  end
   local spec = { recipes = recipes, techs = gtechs, machines = machines, resources = resources, pseudo_recipes = pseudo,
     hand_categories = hand, fuel = fuel, electricity = K.ELEC }
   local cat = { g = G.new(spec), spec = spec, techs = techs, tech_list = sorted_keys(techs), packs = packs,

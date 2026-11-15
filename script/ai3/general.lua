@@ -44,6 +44,8 @@ local General = {}
 General.ENABLED = true
 General.AUTO_STALL = 10 * 3600 -- lot AUTO (K1, IA3-e) : recherche pour l'automatisation sans unité payée depuis 10 min…
 General.AUTO_PAUSE = 20 * 3600 -- … les autres passent 20 min
+General.WAR_MEMORY = 30 * 3600 -- lot DEFENSE-FACTIONS : une perte face à une autre équipe garde les recherches de guerre en tête 30 min
+General.WAR_LOGS = 40 -- lignes « [FO-DEFENSE] guerre » au plus par équipe
 -- Votre équipe : une recherche (quelle qu'elle soit) sans unité payée depuis 8 min laisse la place aux autres pendant 30 min
 -- (un joueur ne garde pas son seul laboratoire sur une recherche dont il ne peut pas fabriquer les packs : moteur réel,
 -- etape1-guide, « defender » gardait le laboratoire de 27,8 à 38,8 min, puis de 27,8 à 49,3 min).
@@ -656,8 +658,12 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   -- Lot LEVIERS : recherches à effet choisies par la capitalisation (script/ai3/capitalisation.lua), lues à l'appel.
   local Capi = package.loaded["script.ai3.capitalisation"]
   local levers = Capi and Capi.techs_wanted and Capi.techs_wanted(f) or nil
+  -- Lot DEFENSE-FACTIONS : l'équipe a perdu des pièces face à une autre équipe depuis moins de General.WAR_MEMORY (f.pvp_hit_t, noté par
+  -- script/team/front.lua) : les recherches qui renforcent ses tourelles ou débloquent une munition passent en tête (Gen.V_WAR).
+  local war = f.pvp_hit_t ~= nil and tick - f.pvp_hit_t < General.WAR_MEMORY
   local function choose()
     return Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
+      war = war or nil,
       k1 = k1 or nil, levers = levers, new_pack = Pet.on() or nil, -- lot PETROLE (réglage fo-war-petrole)
       -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier ; la recette est celle que les planificateurs commandent
       -- (T.turret), la règle pure ne la nomme pas. Lot EQUIPE (1/11) : aussi pour votre équipe (recherche de la tourelle à 10,9 min,
@@ -667,6 +673,11 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   Profiler.fstart("iag:gen-choose")
   local d = choose()
   Profiler.fstop("iag:gen-choose")
+  if war and d.tech and (c.techs[d.tech] and c.techs[d.tech].war or 0) > 0 and st.war_log ~= d.tech and (st.war_logs or 0) < General.WAR_LOGS then
+    st.war_log, st.war_logs = d.tech, (st.war_logs or 0) + 1
+    log(string.format("[FO-DEFENSE] guerre %s : recherche '%s' en tete (effets tourelles et munitions %d) a %.1f min ; pertes face aux equipes %d, la derniere il y a %.1f min",
+      f.key or "player", d.tech, c.techs[d.tech].war, minutes(f, tick), f.pvp_hits or 0, (tick - f.pvp_hit_t) / 3600))
+  end
   -- Lot RB-FLUIDE : rien d'autre de payable : la recherche lâchée depuis le plus longtemps revient (le laboratoire ne reste pas oisif), sans reprise de la garde avant la fin de la pause
   if not d.tech then
     local back = Im.lift(st, tick)

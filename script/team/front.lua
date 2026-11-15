@@ -23,6 +23,7 @@ local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE (c) : cel
 local Stock = require("script.team.stock")
 local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
 local RegT = require("script.team.registre_types") -- lot UPS : registre des machines par force et par type (plus de recherche sur toute la surface)
+local MursGarde = require("script.team.murs_garde") -- lot DEFENSE-FACTIONS : murs devant une tourelle tuée par une autre équipe
 
 local Front = {}
 
@@ -75,6 +76,12 @@ local function on_died(e)
     if not ((o and o.f == f.id) or (u and f.adopt and f.adopt.units and f.adopt.units[u])) then return end
   end
   local st = state(f, e.tick)
+  -- Lot DEFENSE-FACTIONS : pièce tuée par une AUTRE ÉQUIPE (faction ou force du joueur), pas par les biters : l'équipe est en guerre et perd
+  -- (lu par script/ai3/general.lua : recherches de guerre en tête). f.pvp_hit_t (tick), f.pvp_hits (compte) : nombres, créés en événement.
+  if killer.name == "player" or State.by_force(killer.name) then
+    f.pvp_hit_t, f.pvp_hits = e.tick, (f.pvp_hits or 0) + 1
+    MursGarde.note(f, ent, e)
+  end
   Fr.decay(st.mem, e.tick) -- la mémoire est à jour avant d'y ajouter : l'ancien poids décroît, le nouveau non
   local pos = ent.position
   local key = Fr.record(st.mem, pos.x, pos.y, Fr.weight(role))
