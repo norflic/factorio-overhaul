@@ -402,14 +402,14 @@ end
 --- perf-frame (carte du DC à 600 % : la lecture d'une spec de cadre neuf tenait 80 à 200 ms dans UN tick) : lecture en ÉTAPES, une par
 --- appel de spec_step (même code, même ordre, mêmes lectures ; le monde peut changer entre deux étapes, comme entre deux pas du plan) :
 ---   ore      données, tuiles du gisement, boîte, axe
----   coal     gisement de charbon le plus proche (perf-astar : étape à part)
+---   charbon  gisement de charbon le plus proche (perf-astar : étape à part)
 ---   foreign  place nôtre (mine_of), autres ressources du rectangle lu
 ---   blocked  obstacles du rectangle lu (eau, bâtiments, falaises)
 ---   occ      réserves et couloirs, par colonnes (perf-astar : étape rappelée)
----   coalres  autres ressources autour du charbon, souterrains posés (perf-astar)
+---   autour   autres ressources autour du charbon, souterrains posés (perf-astar)
 ---   fin      relevé du reroutage, spec
 --- J = spec_begin(...) ; spec_step(J) -> fini, spec, names (fini : spec, ou nil et raison). spec_of enchaîne les étapes (bande seule).
-local SPEC_STAGES = { "ore", "coal", "foreign", "blocked", "occ", "coalres", "fin" }
+local SPEC_STAGES = { "ore", "charbon", "foreign", "blocked", "occ", "autour", "fin" }
 local SPEC = {}
 function SPEC.ore(J)
   local f, surface, o, frame, axis_force = J.f, J.surface, J.o, J.frame, J.axis_force
@@ -431,7 +431,7 @@ function SPEC.ore(J)
 end
 -- perf-astar : la lecture du charbon dans son étape (même calcul qu'à la fin de l'étape « ore » d'avant ; le monde peut changer entre deux
 -- étapes, comme entre deux pas du plan)
-function SPEC.coal(J)
+function SPEC.charbon(J)
   local surface, frame, data = J.surface, J.frame, J.data
   local r = J.rect
   local x0, y0, x1, y1 = r[1], r[2], r[3], r[4]
@@ -491,7 +491,7 @@ function SPEC.occ(J)
   return false, nil, nil, J.ox <= math.ceil(x1)
 end
 -- perf-astar : autres ressources autour du charbon et souterrains posés, avant la fin (mêmes lectures qu'à la fin d'avant)
-function SPEC.coalres(J)
+function SPEC.autour(J)
   local surface, names, coal, fm = J.surface, J.names, J.coal, J.fm
   local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
   if coal then
@@ -528,7 +528,7 @@ function SPEC.fin(J)
   }
   if coal then
     spec.coal = { tiles = coal, rate = data.coal_rate }
-    spec.coal.foreign, spec.coal.nforeign = J.cforeign, J.cnforeign -- (perf-astar : lus à l'étape « coalres »)
+    spec.coal.foreign, spec.coal.nforeign = J.cforeign, J.cnforeign -- (perf-astar : lus à l étape « autour »)
     spec.ug_tiles = J.ugs
   end
   if frame then
