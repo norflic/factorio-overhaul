@@ -305,6 +305,7 @@ Build.Mall = require("script.team.mall") -- lot MALL (tranche 1) : secteur du ma
 Build.Place = require("script.team.place_glue") -- lot TV-PLACE : sonde 30 x 30 (G37), défrichage préventif 50 x 50 (G38), repli de placement simple (C07)
 Build.Hygiene = require("script.team.hygiene") -- lot SCAN-TRANCHES (DC 9/11) : audit électrique en lecture seule par impulsions (s'abonne lui-même à on_tick) ; champ de Build, pas une locale (199 locales)
 local TREE_TYPES = { "tree", "simple-entity" }
+Build.Db = require("shared.team.champ_deblai") -- ROC-097 : déblaiement des arbres et rochers sous une pièce de champ à la pose (règle pure) ; champ de Build (199 locales)
 
 
 ---------------------------------------------------------------------------------------------------
@@ -4033,14 +4034,40 @@ function Build.adopt_variant(surface, f, e)
   return false
 end
 
-local function place_ghost(surface, f, e)
+--- ROC-097 (DC, 15/11 : aucune rangée de foreuses de champ rejetée ni tronquée par un rocher ou un arbre) : sous l'emprise d'une pièce
+--- d'un projet de CHAMP (Build.Db.applies), les obstacles mineurs (Build.Db.minor : arbre, entité simple marquée rocher par son prototype,
+--- count_as_rock_for_filtered_deconstruction) sont retirés juste avant la pose, comme Ds.place (script/team/defense_stock.lua). Avant :
+--- refus « obstacle », foreuse de bande SAUTÉE au 3e refus (Saut.skip), tapis ou poteau refusé 6 fois : bande « bloque ». Rend le nombre retiré.
+Build.DEBLAI_LOGS = 12
+function Build.deblai(surface, f, p, e)
+  if not (p and Build.Db.applies(p.spec)) then return 0 end
+  local n = 0
+  for _, x in ipairs(surface.find_entities_filtered({ area = footprint(e), type = TREE_TYPES })) do
+    if x.valid and Build.Db.minor(x.type, x.type == "simple-entity" and x.prototype.count_as_rock_for_filtered_deconstruction or false) then
+      x.destroy({ raise_destroy = true })
+      n = n + 1
+    end
+  end
+  if n > 0 then
+    local st = f.build.stats
+    st.deblai = (st.deblai or 0) + n
+    st.deblai_logs = (st.deblai_logs or 0) + 1
+    if st.deblai_logs <= Build.DEBLAI_LOGS then
+      log(string.format("[FO-DEBLAI] %s : projet %d : %d arbre(s) ou rocher(s) retire(s) sous %s en (%g, %g) avant la pose (%d en tout)",
+        f.key or "player", p.id or 0, n, tostring(e.name), e.x, e.y, st.deblai))
+    end
+  end
+  return n
+end
+
+local function place_ghost(surface, f, e, p)
   if find_real(surface, e, f.force) then return "deja" end
   if find_ghost(surface, e, f.force) then return "ok" end
   local function can_place()
     return surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
       build_check_type = defines.build_check_type.ghost_revive })
   end
-  if not can_place() and not (clear_floor(surface, e) > 0 and can_place()) then
+  if not can_place() and not (clear_floor(surface, e) > 0 and can_place()) and not (Build.deblai(surface, f, p, e) > 0 and can_place()) then
     local area = footprint(e)
     if surface.count_entities_filtered({ area = area, type = TREE_TYPES, limit = 1 }) > 0 then return "obstacle" end
     if npc_on(surface, e) then return "pnj" end
@@ -4311,13 +4338,13 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   end
   local gh = find_ghost(surface, e, f.force)
   if not gh then
-    local r = place_ghost(surface, f, e)
+    local r = place_ghost(surface, f, e, p)
     if r == "deja" then e.built = true return true end
     if r == "pnj" then npc_block(f, p, e, surface) return false end
-    if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
+    if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e, p) end -- lot TOURELLES-HORS-AXE
     if r == "deja" then e.built = true return true end
     if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
-    if r == "occupe" and Build.relics_off(f, surface, p, e) > 0 then r = place_ghost(surface, f, e) end -- lot RETROFIT : relique démontée, place libre
+    if r == "occupe" and Build.relics_off(f, surface, p, e) > 0 then r = place_ghost(surface, f, e, p) end -- lot RETROFIT : relique démontée, place libre
     if r == "deja" then e.built = true return true end
     -- lot FONDERIE : une foreuse de BANDE refusée « occupe » pour la 3e fois, quand tout ce qui occupe son emprise est une tourelle de l'équipe
     -- posée après le plan (que move_turrets_off n'a pas pu déplacer), est SAUTÉE : la bande finit et produit sans elle, la tourelle reste
@@ -5350,12 +5377,12 @@ local function advance(f, surface, p, tick)
       -- lot PETROLE : un site étendu (spec.lazy_clear) ne défriche pas tout d'abord : ses fantômes se posent, et les
       -- arbres sont coupés pendant le chantier, entité par entité (moteur réel, petrole-site : 58 arbres sur un site
       -- de 92 entités, chantier jamais commencé en 8 min)
-      p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear) and "defrichage" or "fantomes", nil, nil
+      p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear and not Build.Db.lazy(p.spec)) and "defrichage" or "fantomes", nil, nil -- ROC-097 : un champ déblaie à la pose
     elseif Rr.partial_go(p) and not (p.spec.degel and not p.degele) then
       -- lot REBUILD-RAPIDE (a) : un projet ROUVERT reprend son chantier avec ce qui est au coffre (réservé par `reserve` ci-dessus) au lieu
       -- d'attendre toute sa matière (Scarlet, partie du DC du 29/10 : fonderie 7 en « reserve[materiaux] » 40 min pour 2 bras sans cuivre,
       -- 27 tapis à refaire) ; le reste est pris au coffre par le PNJ à sa prise (Build.take_reserved) et suivi par refresh_missing.
-      p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear) and "defrichage" or "fantomes", nil, nil
+      p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear and not Build.Db.lazy(p.spec)) and "defrichage" or "fantomes", nil, nil -- ROC-097 : un champ déblaie à la pose
     else
       -- lot CENTRALE-PRES : une réserve de centrale qu'aucun coffre ni aucune fabrication ne peut couvrir (recette fermée, rien au
       -- coffre) ne se lèvera jamais : refus tout de suite avec sa cause, la pause de la croissance prend le relais (plant_arms), au
@@ -5404,8 +5431,8 @@ local function advance(f, surface, p, tick)
       if not e.built and not e.ghosted then
         if placed >= Build.GHOSTS_PER_PULSE then pending = pending + 1 break end
         if not Tokens.take(f, tick, Build.COST_GHOST) then return end
-        local r = place_ghost(surface, f, e)
-        if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
+        local r = place_ghost(surface, f, e, p)
+        if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e, p) end -- lot TOURELLES-HORS-AXE
         if r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
         elseif r == "deja" then e.built = true
         elseif r == "obstacle" then

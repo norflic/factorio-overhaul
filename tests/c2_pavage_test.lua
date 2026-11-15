@@ -22,7 +22,7 @@
   chacun avec un MUTANT (substitution unique dans le source, module rechargé : la suite doit échouer) :
     extend   bout orphelin -> ses foreuses au groupe de l'autre bout (tapis prolongé)          falaise 93 -> 82
     release  premier bout orphelin des deux : collecteur rendu, l'autre bout essaie             entre 100 -> 40
-    wide     colonne ailleurs cherchée sur toute la largeur lue (avant : deux pas de bande)    joueur 83 -> 58
+    wide     colonne ailleurs cherchée sur toute la largeur lue (avant : deux pas de bande)    emerald 73 -> 47 (ROC-097)
     capw     plafond du tracé de la recherche large (Ch.CFG.away_cap_wide)                      emerald 73 -> 47
     pwin     le lien ne prend pas les places des poteaux des foreuses                           joueur 83 -> 34
     front    le lien ne passe pas devant le bout d'un tapis déjà posé                           joueur : voies mêlées
@@ -160,7 +160,9 @@ end
 local MUTANTS = {
   { "extend", "ch", "local ext = Ch.extend_other(s, t, bo, g0, e_end)", "local ext = 0", "falaise", "cov" },
   { "release", "ch", "if o.bi == t.bi and o.side == -t.side then later = true end", "", "entre", "cov" },
-  { "wide", "ch", "if win then r = math.max(r, win.v1 - win.v0) end", "", "dc-joueur", "cov" },
+  -- (ROC-097 : sur dc-joueur, les bouts dont la colonne est refusée faute de voie de charbon cherchent aussi une colonne ailleurs ; sans
+  -- la recherche large, ils la trouvent sur deux pas de bande : 83 % sans ce maillon. Il se montre sur dc-emerald, 73 -> 47.)
+  { "wide", "ch", "if win then r = math.max(r, win.v1 - win.v0) end", "", "dc-emerald", "cov" },
   { "capw", "ch", "cap = nrows > 2 * pitch and Ch.CFG.away_cap_wide or nil,", "cap = nil,", "dc-emerald", "cov" },
   { "pwin", "ch", "if pwin[Co.tk(u, v)] or front[Co.tk(u, v)]", "if front[Co.tk(u, v)]", "dc-joueur", "cov" },
   { "front", "ch", "if pwin[Co.tk(u, v)] or front[Co.tk(u, v)]", "if pwin[Co.tk(u, v)]", "dc-joueur", "ok" },
