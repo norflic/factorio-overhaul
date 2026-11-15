@@ -156,7 +156,8 @@ do
   end
   local p = Ch.once_result(s)
   -- (étape laissée en « phase » : après init, puis après chacune des phases 0 .. pas - 2 ; la dernière passe aux bandes)
-  check(p ~= nil and (per.phase or 0) == 2 * 3 + 2, string.format("recherche de phase : une phase par étape (%s étapes en phase)", tostring(per.phase)))
+  -- perf-frame : une phase peut prendre plusieurs étapes (passe reprise par rangées au budget du pas) : au moins une par phase
+  check(p ~= nil and (per.phase or 0) >= 2 * 3 + 2, string.format("recherche de phase : au moins une étape par phase (%s étapes en phase)", tostring(per.phase)))
   check(p ~= nil and (per.band or 0) >= #p.bands - 1, string.format("une bande par étape (%s étapes pour %d bandes)", tostring(per.band), p and #p.bands or -1))
   check(n >= #p.bands + 8, string.format("plan_once en %d étapes (au moins bandes + phases)", n))
   -- plan_once d'un bloc (enchaîné) == pas à pas
