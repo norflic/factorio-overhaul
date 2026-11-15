@@ -51,6 +51,15 @@ function E.decide(inp)
   return "declenche", "bande demandee"
 end
 
+--- ORDRE-0955 : rang de la bande à attacher parmi celles en vol (liste ordonnée { pid, oid }) : la première dont le gisement est voulu par
+--- un ordre du joueur (wanted[oid]), sinon la première. Rend un indice (1 si la liste n'a aucune bande d'ordre).
+function E.pick(inflight, wanted)
+  for i, x in ipairs(inflight) do
+    if wanted and x.oid ~= nil and wanted[x.oid] then return i end
+  end
+  return 1
+end
+
 --- entrepreneur-continu (0.9.1) : relance immédiate du scan ? inp = { rate (plaques/min au dernier relevé), busy (chantier entrepreneur
 --- vivant), waiting (bande demandée pas encore reconnue), since (ticks depuis le dernier scan) }. Vrai seulement au-delà de CFG.chain_rate,
 --- sans chantier ni demande en cours, et au moins kit_every ticks après le dernier scan (pas de rafale).

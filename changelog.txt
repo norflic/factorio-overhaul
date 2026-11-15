@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.5
+Date: 2026-11-15
+  Bugfixes:
+    - ORDRE-0955 : la bande de champ d'un ordre Maj+A passe devant les bandes plus anciennes chez l'entrepreneur (partie du DC 0.9.4 : 22 min d'attente). Livree SANS banc.
+    - ORDRE-0955: a Shift+A order's field band now jumps ahead of older bands for the contractor. Delivered WITHOUT a game bench.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.4
 Date: 2026-11-15
   Bugfixes:

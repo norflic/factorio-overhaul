@@ -2158,7 +2158,7 @@ function Mig.projects(f)
     local st = id and ms.o and ms.o[id]
     local o = id and Champ.target(f, id)
     if st and (st.stage == "projet" or st.stage == "chantier") and st.pid then
-      out[#out + 1] = { pid = st.pid, item = st.frame and o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
+      out[#out + 1] = { pid = st.pid, oid = id, item = st.frame and o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
     end
   end
   -- lot MEGA-FONDERIE (A2) : les bandes en avance aussi (le cerveau fabrique leurs matières manquantes)
@@ -2166,7 +2166,7 @@ function Mig.projects(f)
     local st = ms.o[oid]
     local o = st.ahead and Champ.target(f, oid)
     for _, k in ipairs(sorted_keys(st.ahead)) do
-      out[#out + 1] = { pid = st.ahead[k].pid, item = o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
+      out[#out + 1] = { pid = st.ahead[k].pid, oid = oid, item = o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
     end
   end
   return out
@@ -2262,7 +2262,11 @@ function Mig.entrepreneur_scan(f, tick)
     return action, cause
   end
   if action == "attache" then
-    local pid = inflight[1].pid
+    -- ORDRE-0955 : la bande d'un ordre du joueur (Maj+A, o.band_fid) passe avant les bandes plus anciennes (partie du DC 0.9.4 : 22 min d'attente)
+    local wanted = {}
+    local orders = f.team and f.team.commande and f.team.commande.orders or {}
+    for _, od in ipairs(orders) do if od.band_fid then wanted[od.band_fid] = true end end
+    local pid = inflight[Ent.pick(inflight, wanted)].pid
     local p = f.build.projects[pid]
     if p and p.spec then
       p.spec.entrepreneur = true

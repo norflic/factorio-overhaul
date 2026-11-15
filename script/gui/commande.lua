@@ -417,6 +417,7 @@ local function want_band(f, o, tick)
   end
   local dep = Co.pick_deposit(deps, o)
   local ok, fid, why = pcall(MigChamp.want, f, dep, tick)
+  if ok and fid then o.band_fid = fid end -- (ORDRE-0955 : l'entrepreneur sert d'abord la bande de cet ordre)
   local msg = ok and (fid and ("champ " .. tostring(fid) .. " voulu") or ("refus : " .. tostring(why))) or ("erreur : " .. tostring(fid))
   if msg ~= o.band_msg then
     o.band_msg = msg
