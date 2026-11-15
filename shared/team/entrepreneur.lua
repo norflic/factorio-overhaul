@@ -213,6 +213,26 @@ function E.closed(state)
   return state == nil or state == "fini" or state == "refuse"
 end
 
+--- Lot EXPO (chantier 2 du DC, point 2 : « goulot = la ressource la plus en manque, 100 % au n° 1 ») : bandes en vol que l'entrepreneur peut
+--- prendre, dans l'ordre. Une bande d'une plaque (plate[item]) comme avant ; une bande du COMBUSTIBLE (item == fuel) seulement quand son offre
+--- mesurée est sous le besoin (deficit : Bc.room de la mesure Cap.read), et alors EN TÊTE : les fours ne fondent pas sans elle. Mesuré en 0.9.7
+--- (partie de référence du DC) : emerald, charbon 3,25/s pour un besoin de 4,0 à 6,5/s de 15 à 50 min (fours en marche 60 sur 122 à 60 min),
+--- sa bande de charbon (projet 7, 12 foreuses) « en attente (matieres) » de 14,6 à 47 min pendant que l'entrepreneur enchaînait les bandes de
+--- plaques. Sans déficit, une bande de combustible reste hors de l'entrepreneur (banc 0722-g123 : 36 foreuses de charbon payées en plaques
+--- sans en rendre). list = { { pid, oid, item } } ; rend une liste neuve.
+function E.inflight_pick(list, plate, fuel, deficit)
+  local head, tail = {}, {}
+  for _, x in ipairs(list or {}) do
+    if x.item ~= nil and fuel ~= nil and x.item == fuel then
+      if deficit then head[#head + 1] = x end
+    elseif x.item ~= nil and plate and plate[x.item] then
+      tail[#tail + 1] = x
+    end
+  end
+  for _, x in ipairs(tail) do head[#head + 1] = x end
+  return head
+end
+
 --- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets
 --- qui réparent (rouverts : front[id] vrai). order = liste de numéros, pid = la bande, front = { [id] = vrai }. Rend une liste neuve.
 function E.order_front(order, pid, front)

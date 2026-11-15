@@ -82,5 +82,24 @@ do
   check(nh2 == 0 and old:find("x ~= st.band_key and not held[k]", 1, true) == nil, "mutant sans garde : détecté")
 end
 
+-- §4 goulot du combustible
+do
+  local plate = { ["P1"] = true, ["P2"] = true }
+  local list = { { pid = 3, item = "P1" }, { pid = 7, item = "F" }, { pid = 9, item = "P2" }, { pid = 11, item = "X" } }
+  local function ids(l) local t = {} for _, x in ipairs(l) do t[#t + 1] = tostring(x.pid) end return table.concat(t, ",") end
+  local function suite(pick)
+    local a = ids(pick(list, plate, "F", true))
+    local b = ids(pick(list, plate, "F", false))
+    return a == "7,3,9" and b == "3,9", a .. " | " .. b
+  end
+  local good, why = suite(E.inflight_pick)
+  check(good, "déficit : combustible en tête puis plaques ; sans déficit : plaques seules (" .. why .. ")")
+  local old = function(l, pl) local o = {} for _, x in ipairs(l) do if pl[x.item] then o[#o + 1] = x end end return o end
+  check(not (suite(old)), "mutant 0.9.7 (plaques seules) : doit échouer")
+  check(#E.inflight_pick(nil, plate, "F", true) == 0, "liste absente : vide")
+  local src = read("script/team/migration_champ.lua")
+  check(src:find("return Ent.inflight_pick(live, plate, T.fuel, deficit)", 1, true) ~= nil, "ent_inflight : câblé sur Ent.inflight_pick")
+end
+
 print(string.format("expo_test : %d OK, %d ECHEC", ok, ko))
 if ko > 0 then os.exit(1) end

@@ -2249,15 +2249,25 @@ local function plates_total(f)
   return n
 end
 
---- Bandes d'une plaque en vol (projet vivant), dans l'ordre de Mig.projects : liste { pid, oid, item }.
+--- Bandes d'une plaque en vol (projet vivant), dans l'ordre de Mig.projects : liste { pid, oid, item }. Lot EXPO : la bande du combustible en
+--- vol passe EN TÊTE quand son offre mesurée est sous le besoin (Ent.inflight_pick, Bc.room de Cap.read), sinon elle reste hors de l'entrepreneur.
 local function ent_inflight(f)
-  local inflight, plate = {}, {}
+  local live, plate = {}, {}
   for _, k in ipairs(plate_names()) do plate[k] = true end
+  local fuel_live = false
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if p and not Ent.closed(p.state) and x.item and plate[x.item] then inflight[#inflight + 1] = x end -- (entrepreneur-craft-0716 : bande d'une plaque seulement)
+    if p and not Ent.closed(p.state) and x.item then
+      live[#live + 1] = x
+      if x.item == T.fuel then fuel_live = true end
+    end
   end
-  return inflight
+  local deficit = false
+  if fuel_live then -- (la mesure, mémorisée, n'est lue que si une bande du combustible est en vol)
+    local surface = f.hq and f.hq.valid and f.hq.surface
+    deficit = surface ~= nil and Bc.room(Cap.read(f, surface)) or false
+  end
+  return Ent.inflight_pick(live, plate, T.fuel, deficit)
 end
 
 --- CHANTIER 4 : champs retenus par les ordres Maj+A vivants (o.band_fid, script/gui/commande.lua) : { [oid] = vrai } et leur nombre.
