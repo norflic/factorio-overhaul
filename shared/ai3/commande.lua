@@ -476,16 +476,28 @@ function Co.cell_key(x, y)
   return tostring(math.floor(x)) .. "," .. tostring(math.floor(y))
 end
 
+--- MAJA-0916 : marque dans `cells` TOUTES les tuiles d'une boîte (x0, y0)-(x1, y1) (empreinte d'un bâtiment déjà là à la pose de l'ordre) :
+--- un remplacement sur place dont le centre change de tuile (foreuse 2 x 2 -> 3 x 3, nouvelle taille) reste un remplacement.
+function Co.mark_box(cells, x0, y0, x1, y1)
+  local EPS = 0.01
+  for tx = math.floor(x0 + EPS), math.ceil(x1 - EPS) - 1 do
+    for ty = math.floor(y0 + EPS), math.ceil(y1 - EPS) - 1 do cells[tostring(tx) .. "," .. tostring(ty)] = true end
+  end
+  return cells
+end
+
 --- maja-0915 (partie réelle 0.9.1 : « 175 bâties » sans une seule rangée posée) : compte des entités POSÉES PAR L'ORDRE. Une entité ne
 --- compte que si elle est née après l'ordre (numéro > `wm`), de la force de l'équipe, bâtie (ni fantôme ni `skip[type]`) et sur une case
 --- qui était LIBRE à la pose de l'ordre (`pre[Co.cell_key]`) : un bâtiment déjà là puis remplacé (amélioration de niveau, foreuse
 --- thermique -> électrique, nouvelle taille) reçoit un numéro neuf mais n'est pas une pose de l'ordre. `ents` : { un, x, y, type, force }.
 --- Rend n (posées), ghost (au moins un fantôme neuf sur une case libre).
-function Co.count_new(ents, wm, pre, force, skip)
+--- MAJA-0916 : `on_ore` vrai (ordre de gisement) : seule une entité dont la case du centre porte le minerai de l'ordre (`e.ore`, lu par
+--- l'appelant) compte (partie réelle 0.9.3 : « 84 posés » faits de tapis de centrale reconstruits et de modules du QG dans la zone).
+function Co.count_new(ents, wm, pre, force, skip, on_ore)
   local n, ghost = 0, false
   pre, skip, wm = pre or {}, skip or {}, wm or 0
   for _, e in ipairs(ents or {}) do
-    if e.un and e.un > wm and e.force == force and not pre[Co.cell_key(e.x, e.y)] then
+    if e.un and e.un > wm and e.force == force and not pre[Co.cell_key(e.x, e.y)] and (not on_ore or e.ore == true) then
       if e.type == "entity-ghost" then ghost = true
       elseif not skip[e.type] then n = n + 1 end
     end

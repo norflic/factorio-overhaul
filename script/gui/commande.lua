@@ -314,7 +314,11 @@ local function track_init(f, o)
   -- maja-0915 : cases déjà bâties à la pose (un remplacement sur place n'est pas une pose de l'ordre, Co.count_new)
   local cells = {}
   for _, e in ipairs(zone_ents(o)) do
-    if e.valid and e.unit_number and not NOT_BUILT[e.type] and e.force.name == f.force then cells[Co.cell_key(e.position.x, e.position.y)] = true end
+    if e.valid and e.unit_number and not NOT_BUILT[e.type] and e.force.name == f.force then
+      cells[Co.cell_key(e.position.x, e.position.y)] = true
+      local bb = e.bounding_box -- MAJA-0916 : toute l'empreinte (un remplacement à centre décalé n'est pas une pose)
+      if bb and bb.left_top and bb.right_bottom then Co.mark_box(cells, bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y) end
+    end
   end
   o.pre_cells = cells
   o.pre = {}
@@ -355,12 +359,28 @@ local function track_step(f, o, tick, fin)
   end
   if need_scan and not fin then
     local rows = {}
+    -- MAJA-0916 : un ordre de gisement ne compte que les poses SUR son minerai (o.resource, lu à la sélection) ; case lue une fois (o.ore_cells)
+    local on_ore = o.kind == "gisement" and o.resource ~= nil
+    local surface = on_ore and game.surfaces[o.surface or 1]
+    if on_ore then o.ore_cells = o.ore_cells or {} end
+    local pre = o.pre_cells or {}
     for _, e in ipairs(zone_ents(o)) do
       if e.valid and e.unit_number and e.unit_number > o.wm then
-        rows[#rows + 1] = { un = e.unit_number, x = e.position.x, y = e.position.y, type = e.type, force = e.force.name }
+        local row = { un = e.unit_number, x = e.position.x, y = e.position.y, type = e.type, force = e.force.name }
+        local ck = Co.cell_key(row.x, row.y)
+        if on_ore and surface and row.force == f.force and not pre[ck] then
+          local v = o.ore_cells[ck]
+          if v == nil then
+            local tx, ty = math.floor(row.x), math.floor(row.y)
+            v = surface.count_entities_filtered({ area = { { tx, ty }, { tx + 1, ty + 1 } }, type = "resource", name = o.resource, limit = 1 }) > 0
+            o.ore_cells[ck] = v
+          end
+          row.ore = v
+        end
+        rows[#rows + 1] = row
       end
     end
-    local n_new, ghost = Co.count_new(rows, o.wm, o.pre_cells, f.force, NOT_BUILT) -- maja-0915 : posées PAR L'ORDRE seulement
+    local n_new, ghost = Co.count_new(rows, o.wm, o.pre_cells, f.force, NOT_BUILT, on_ore) -- maja-0915 : posées PAR L'ORDRE seulement
     o.n_new = n_new -- compte du moment (plus de maximum gardé : une entité retirée ne compte plus)
     obs.ghost = ghost or n_new > 0
     obs.pose = n_new > 0
