@@ -1013,6 +1013,17 @@ end
 --- celle du but « recherche ») : il ne prend ni les matières ni les bras dont elle a besoin (moteur réel, e6 à e10-usine,
 --- critère K1 : palier 3 de 18,7 à 43,8 min ou jamais atteint, réserves de chantier servies avant les packs). Une
 --- recherche voulue par l'automatisation elle-même (for_auto : poteau moyen) ne plafonne rien.
+--- Lot P2-ENERGIE (pilier 2 du DC, 15/11 : « l'énergie suit en continu ») : produit du but d'un projet de CENTRALE. A.goals ne garde qu'un but
+--- par produit ; toutes les centrales portaient « centrale » : les centrales de plus se construisaient UNE À LA FOIS (partie du DC 0.9.4 :
+--- projets 24, 27, 41, 48, 60 servis à la file, le 48 à 0 entité bâtie de 32 à 62 min), et une centrale ROUVERTE bloquée (tapis montés en
+--- tapis rapides : « fantome refuse », banc C3-APRES de 15 à 40 min) tenait le seul but pendant que les centrales neuves 8 et 9 restaient en
+--- « reserve:materiaux » sans aucune fabrication. Chaque centrale a désormais son but : la première (first_id) garde « centrale », les
+--- autres « centrale-<numéro du projet> » (stable d'une pensée à l'autre). Rend la chaîne.
+function A.plant_product(id, first_id)
+  if id == nil or id == first_id then return "centrale" end
+  return "centrale-" .. tostring(id)
+end
+
 function A.goals(goals, auto, weights, research)
   if not auto then return goals end
   local rvalue = nil

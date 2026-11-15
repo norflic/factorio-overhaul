@@ -640,10 +640,11 @@ function Auto.think(f, view, book, tick, research)
   end
   -- Lot CORR-ENERGIE : une centrale de plus, demandée par le plan directeur (saturation), est un projet du cerveau comme la
   -- première : ses matériaux (chaudière, machines à vapeur) sont fabriqués pour elle
+  -- (lot P2-ENERGIE : un but PAR centrale, A.plant_product ; avant, un seul but « centrale » pour toutes : construites à la file)
   for _, id in ipairs(f.build and f.build.extra_plants or {}) do
     local ps = Build.brief(f, id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      mods[#mods + 1] = { id = id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+      mods[#mods + 1] = { id = id, product = A.plant_product(id, st.plant_id), state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end
   -- Lot ENERGIE (relecture) : le projet d'alimentation de la centrale (foreuses, tapis, poteaux ; demandé par le plan directeur, charbon_step)
