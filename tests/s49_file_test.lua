@@ -78,7 +78,9 @@ do
   local npop = 0
   for _ in blk:gmatch("table%.remove%(FRAME_WAIT, i%)") do npop = npop + 1 end -- 0.7.114 (F675) : la première entrée dont l'équipe a passé son écart
   check(npop == 1 and blk:find("frame_take(f, w.surface, ms, o, st, tick)", 1, true) ~= nil, "Mig.frame_tick : UNE entrée par tick, le même pas que la pensée")
-  check(blk:find("st.frame or st.abandoned or ms.verify_due", 1, true) ~= nil, "entrée laissée si le cadre est déjà pris, abandonné ou un autre en vérification")
+  -- c4c : une vérification d'un autre cadre (ms.verify_due) ne JETTE plus l'entrée : elle reste en file (Ax.wait_fate « garder »)
+  check(blk:find("Ax.wait_fate(st ~= nil and o ~= nil, st ~= nil and st.frame ~= nil, st ~= nil and st.abandoned, ms.verify_due)", 1, true) ~= nil
+    and blk:find('if fate == "laisser" then return false end', 1, true) ~= nil, "entrée laissée si le cadre est déjà pris ou abandonné, gardée en file si un autre est en vérification")
   local ti = src:find("local function frame_take(", 1, true)
   local te = ti and src:find("\nend\n", ti, true)
   local tb = (ti and te) and src:sub(ti, te) or ""

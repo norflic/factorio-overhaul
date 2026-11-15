@@ -881,7 +881,13 @@ function Mig.frame_tick(tick)
   if not (w.surface and w.surface.valid and f and f.outposts and f.hq and f.hq.valid and f.build and f.migration) then return false end
   local ms = f.migration
   local st, o = ms.o and ms.o[w.oid], Champ.target(f, w.oid)
-  if not (st and o) or st.frame or st.abandoned or ms.verify_due then return false end
+  local fate = Ax.wait_fate(st ~= nil and o ~= nil, st ~= nil and st.frame ~= nil, st ~= nil and st.abandoned, ms.verify_due)
+  if fate == "garder" then -- c4c : un autre cadre de l'équipe attend sa vérification : l'entrée reste en file (sa séquence ne périme pas)
+    Ax.push(FRAME_WAIT, w)
+    NEXT_STEP[team_key(f)] = tick + Mig.STEP_GAP
+    return false
+  end
+  if fate == "laisser" then return false end
   frame_take(f, w.surface, ms, o, st, tick)
   return true
 end
