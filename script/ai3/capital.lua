@@ -806,6 +806,9 @@ function Capital.goal(f, view, book, tick, w)
   local sd = d.side
   c.side = sd and { key = sd.key, ids = { table.unpack(sd.ids) }, pool = Cap.pool(sd),
     replace = { from = sd.replace.from, to = sd.replace.to, n = sd.replace.n, group = sd.replace.group } } or nil
+  local sp = d.side_pf -- lot TIERS-MACHINES : seconde voie de côté (fours : Cap.side_pf_of)
+  c.side_pf = sp and { key = sp.key, ids = { table.unpack(sp.ids) }, pool = Cap.pool(sp),
+    replace = { from = sp.replace.from, to = sp.replace.to, n = sp.replace.n, group = sp.replace.group } } or nil
   if d.none then
     c.current = nil
     local sig = Cap.why_text(d)
@@ -1333,19 +1336,15 @@ function Capital.replace_entity(f, e, to) return replace_one(f, state_of(f), e, 
 ---   2. kit : au plus AC.KIT_CAP objets cibles fabriqués d'avance (tâche « craft » bornée, comme foreuse_swap.lua, craft) ;
 ---   3. kit au stock : le lot est payé tout de suite (pay_replace), même pile retenue (AC.pile_permits : rien n'est réservé).
 --- Rend le nombre de pièces remplacées.
-function Capital.continu(f, surface, book, free, tick, hold)
-  if not Capital.replace_on() or not (f.team and f.team.capital) then return 0 end
-  local c = f.team.capital
-  local d = c.current
-  local side = false
-  if not (d and d.replace) then d, side = c.side, true end -- lot TIERS : le but n'est pas un remplacement, celui de côté avance
+local function continu_track(f, c, d, side, surface, book, free, tick, hold)
   if not (d and d.replace) then return 0 end
   local tp = machine_catalog().by[d.replace.to]
   if not (tp and tp.item) then return 0 end
   local item = tp.item
   local st = c.continu_st or {}
   c.continu_st = st
-  if unlocked(f, item) then Voulues.clear(f, "amelio-continue") else Voulues.set(f, "amelio-continue", { item }, tick) return 0 end
+  local vkey = side == "pf" and "amelio-continue-pf" or "amelio-continue" -- lot TIERS-MACHINES : la voie des fours a sa propre clé
+  if unlocked(f, item) then Voulues.clear(f, vkey) else Voulues.set(f, vkey, { item }, tick) return 0 end
   local have = Stock.count(f, item)
   -- Lot TIERS : le kit et le paiement portent sur la réserve du lot (d.pool, au plus Cap.REPLACE_BATCH pièces du même groupe), pas
   -- sur les seules pièces payables à la décision (d.ids : souvent 1, stock vide).
@@ -1376,13 +1375,29 @@ function Capital.continu(f, surface, book, free, tick, hold)
     if done > 0 then
       c.upgrades = (c.upgrades or 0) + done
       if d.replace.group then c.last_group = d.replace.group end
-      if side then c.side, c.scan_n = nil, 0 else c.current, c.goal, c.scan_n = nil, nil, 0 end -- de côté : le but reste, relevé à la pensée suivante
+      if side == "pf" then c.side_pf, c.scan_n = nil, 0 -- lot TIERS-MACHINES
+      elseif side then c.side, c.scan_n = nil, 0 else c.current, c.goal, c.scan_n = nil, nil, 0 end -- de côté : le but reste, relevé à la pensée suivante
     end
   end
   if (done > 0 or (queued or 0) > 0 or why) and AC.log_ok(st) then
     log(string.format("[FO-AMELIO-CONTINUE] %s : %s -> %s | lot %d | kit %d au stock, %d en fabrication | remplacees %d%s | pile %s%s a %.1f min",
       f.key or "player", d.replace.from, d.replace.to, n, have, tonumber(queued) or 0, done, why and (" | refus " .. tostring(why)) or "",
-      hold and "retenue" or "libre", side and " | de cote" or "", minutes(f, tick)))
+      hold and "retenue" or "libre", side == "pf" and " | voie des fours" or (side and " | de cote" or ""), minutes(f, tick)))
+  end
+  return done
+end
+
+function Capital.continu(f, surface, book, free, tick, hold)
+  if not Capital.replace_on() or not (f.team and f.team.capital) then return 0 end
+  local c = f.team.capital
+  local d = c.current
+  local side = false
+  if not (d and d.replace) then d, side = c.side, true end -- lot TIERS : le but n'est pas un remplacement, celui de côté avance
+  local done = continu_track(f, c, d, side, surface, book, free, tick, hold)
+  -- Lot TIERS-MACHINES : la voie des fours avance en même temps (son kit, son paiement), sans toucher au but ni à la voie de côté.
+  local pf = c.side_pf
+  if pf and pf.replace and not (d and d.replace and d.replace.group == pf.replace.group) then
+    done = done + continu_track(f, c, pf, "pf", surface, book, free, tick, hold)
   end
   return done
 end
