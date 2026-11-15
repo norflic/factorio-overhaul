@@ -471,6 +471,46 @@ function Co.progress(o, obs, tick)
   return out
 end
 
+--- maja-0915 : clé de case (tuile entière) d'une position, pour le relevé des places déjà occupées à la pose de l'ordre.
+function Co.cell_key(x, y)
+  return tostring(math.floor(x)) .. "," .. tostring(math.floor(y))
+end
+
+--- maja-0915 (partie réelle 0.9.1 : « 175 bâties » sans une seule rangée posée) : compte des entités POSÉES PAR L'ORDRE. Une entité ne
+--- compte que si elle est née après l'ordre (numéro > `wm`), de la force de l'équipe, bâtie (ni fantôme ni `skip[type]`) et sur une case
+--- qui était LIBRE à la pose de l'ordre (`pre[Co.cell_key]`) : un bâtiment déjà là puis remplacé (amélioration de niveau, foreuse
+--- thermique -> électrique, nouvelle taille) reçoit un numéro neuf mais n'est pas une pose de l'ordre. `ents` : { un, x, y, type, force }.
+--- Rend n (posées), ghost (au moins un fantôme neuf sur une case libre).
+function Co.count_new(ents, wm, pre, force, skip)
+  local n, ghost = 0, false
+  pre, skip, wm = pre or {}, skip or {}, wm or 0
+  for _, e in ipairs(ents or {}) do
+    if e.un and e.un > wm and e.force == force and not pre[Co.cell_key(e.x, e.y)] then
+      if e.type == "entity-ghost" then ghost = true
+      elseif not skip[e.type] then n = n + 1 end
+    end
+  end
+  return n, ghost
+end
+
+--- maja-0915 : gisement recensé (liste triée de { id, resource, tiles, x0, y0, x1, y1, cx, cy }) que désigne l'ordre de gisement `o` :
+--- même ressource, boîte qui touche le cercle de l'ordre ; le plus de tuiles d'abord, puis le numéro. Sans recensement : un gisement
+--- tiré du cercle de l'ordre (id « cmd-<n> »), pour que la bande de champ soit quand même demandée.
+function Co.pick_deposit(deps, o)
+  if not (o and o.resource) then return nil end
+  local best
+  for _, d in ipairs(deps or {}) do
+    if d.resource == o.resource and d.x0 and o.x + o.r >= d.x0 and o.x - o.r <= d.x1 and o.y + o.r >= d.y0 and o.y - o.r <= d.y1 then
+      if not best or (d.tiles or 0) > (best.tiles or 0) or ((d.tiles or 0) == (best.tiles or 0) and tostring(d.id) < tostring(best.id)) then
+        best = d
+      end
+    end
+  end
+  if best then return best end
+  return { id = "cmd-" .. tostring(o.id), resource = o.resource, tiles = 0, x0 = o.x - o.r, y0 = o.y - o.r, x1 = o.x + o.r,
+    y1 = o.y + o.r, cx = o.x, cy = o.y }
+end
+
 --- commandes-0716 : mot d'état affiché sous l'ordre (clé de traduction « fo-commande.etat-<mot> ») : le dernier jalon atteint.
 function Co.status_word(o)
   if not o then return "attente" end

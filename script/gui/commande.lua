@@ -25,6 +25,7 @@ local Co = require("shared.ai3.commande")
 local Om = require("shared.team.outil_main") -- s46 crash
 local Ds_rule = require("shared.team.defense_stock") -- s46 outils : tourelles voulues d'un bastion (GROUP_CAP)
 local Registry = require("script.companion.registry") -- commandes-0716 : ouvriers en route vers la zone d'un ordre
+local MigChamp = require("script.team.migration_champ") -- maja-0915 : l'ordre de gisement demande une BANDE de champ (rangées électriques)
 local TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret" } -- types moteur (aucun nom d'objet)
 
 local Cmd = {}
@@ -310,6 +311,12 @@ local function track_init(f, o)
     if e.valid and e.unit_number and e.unit_number > wm then wm = e.unit_number end
   end
   o.wm = wm
+  -- maja-0915 : cases déjà bâties à la pose (un remplacement sur place n'est pas une pose de l'ordre, Co.count_new)
+  local cells = {}
+  for _, e in ipairs(zone_ents(o)) do
+    if e.valid and e.unit_number and not NOT_BUILT[e.type] and e.force.name == f.force then cells[Co.cell_key(e.position.x, e.position.y)] = true end
+  end
+  o.pre_cells = cells
   o.pre = {}
   for _, h in ipairs(heading(f, o)) do o.pre[#o.pre + 1] = h.key end
   o.n_new = 0
@@ -347,14 +354,14 @@ local function track_step(f, o, tick, fin)
     obs.route = first_h ~= nil
   end
   if need_scan and not fin then
-    local n_new, ghost = 0, false
+    local rows = {}
     for _, e in ipairs(zone_ents(o)) do
-      if e.valid and e.unit_number and e.unit_number > o.wm and e.force.name == f.force then
-        if e.type == "entity-ghost" then ghost = true
-        elseif not NOT_BUILT[e.type] then n_new = n_new + 1 end
+      if e.valid and e.unit_number and e.unit_number > o.wm then
+        rows[#rows + 1] = { un = e.unit_number, x = e.position.x, y = e.position.y, type = e.type, force = e.force.name }
       end
     end
-    o.n_new = math.max(o.n_new or 0, n_new)
+    local n_new, ghost = Co.count_new(rows, o.wm, o.pre_cells, f.force, NOT_BUILT) -- maja-0915 : posées PAR L'ORDRE seulement
+    o.n_new = n_new -- compte du moment (plus de maximum gardé : une entité retirée ne compte plus)
     obs.ghost = ghost or n_new > 0
     obs.pose = n_new > 0
   end
@@ -373,11 +380,37 @@ local function track_step(f, o, tick, fin)
   if #news > 0 or need_scan then set_status(o) end
 end
 
+--- maja-0915 (partie réelle 0.9.1 : « Coloniser : fer » n'aboutissait qu'à des foreuses isolées) : un ordre de gisement d'un minerai
+--- à fondre demande aussi une BANDE du plan de champ sur le gisement désigné (Mig.want : cible « voulue », servie en tête), toutes les
+--- 10 s tant que l'ordre court. Le gisement vient du recensement de la capitalisation (f.team.capi.deps), sinon du cercle de l'ordre.
+local function want_band(f, o, tick)
+  if o.kind ~= "gisement" or not o.resource then return end
+  if (o.band_next or 0) > tick then return end
+  o.band_next = tick + 600
+  local deps = {}
+  local all = f.team and f.team.capi and f.team.capi.deps
+  if all then
+    local ids = {}
+    for id in pairs(all) do ids[#ids + 1] = id end
+    table.sort(ids, function(a, b) return tostring(a) < tostring(b) end)
+    for _, id in ipairs(ids) do deps[#deps + 1] = all[id] end
+  end
+  local dep = Co.pick_deposit(deps, o)
+  local ok, fid, why = pcall(MigChamp.want, f, dep, tick)
+  local msg = ok and (fid and ("champ " .. tostring(fid) .. " voulu") or ("refus : " .. tostring(why))) or ("erreur : " .. tostring(fid))
+  if msg ~= o.band_msg then
+    o.band_msg = msg
+    log(string.format("[FO-COMMANDE] %s : ordre %d (gisement %s) bande de champ sur %s : %s (tick %d)", tostring(f.key or f.id), o.id,
+      tostring(o.resource), tostring(dep and dep.id), msg, tick))
+  end
+end
+
 Events.on_nth_tick(60, function(e)
   local f = State.faction("player")
   if not (f and f.team and f.team.commande and #f.team.commande.orders > 0) then return end
   for _, o in ipairs(f.team.commande.orders) do
     if o.wm ~= nil and not o.t_fin then track_step(f, o, e.tick, false) end
+    if not o.t_fin then want_band(f, o, e.tick) end
   end
 end)
 
