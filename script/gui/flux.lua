@@ -165,7 +165,7 @@ local function free_of(f, tick, res)
   local free = {}
   local rin = Rsv.input(f, tick)
   for _, r in ipairs(res) do
-    if rin and rin.free and rin.free[r] ~= nil then free[r] = rin.free[r]
+    if rin and rin.free then free[r] = rin.free[r] or 0 -- (absente de `free` : le besoin évalué la prend en entier)
     elseif f.hq and f.hq.valid then free[r] = Stock.count(f, r) end
   end
   return free
