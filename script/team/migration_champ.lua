@@ -2249,25 +2249,18 @@ local function plates_total(f)
   return n
 end
 
---- Bandes d'une plaque en vol (projet vivant), dans l'ordre de Mig.projects : liste { pid, oid, item }. Lot EXPO : la bande du combustible en
---- vol passe EN TÊTE quand son offre mesurée est sous le besoin (Ent.inflight_pick, Bc.room de Cap.read), sinon elle reste hors de l'entrepreneur.
+--- Bandes d'une plaque en vol (projet vivant), dans l'ordre de Mig.projects : liste { pid, oid, item }. (Lot EXPO, banc expo-1 : la bande du
+--- combustible mise en tête quand l'offre manque est REFUSÉE : la bande de charbon d'emerald, kit complet à 21,8 min, attendait le retrait de ses
+--- paires thermiques sous le plancher du combustible et a tenu l'entrepreneur jusqu'à son refus à 42,1 min ; azure, 26 foreuses de charbon à 50 min.)
 local function ent_inflight(f)
-  local live, plate = {}, {}
+  local inflight, plate = {}, {}
   for _, k in ipairs(plate_names()) do plate[k] = true end
-  local fuel_live = false
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if p and not Ent.closed(p.state) and x.item and not (p.spec and p.spec.ent_pose) then
-      live[#live + 1] = x
-      if x.item == T.fuel then fuel_live = true end
-    end
+    -- (entrepreneur-craft-0716 : bande d'une plaque seulement ; lot EXPO : ni close, ni en pose laissée aux PNJ)
+    if p and not Ent.closed(p.state) and not (p.spec and p.spec.ent_pose) and x.item and plate[x.item] then inflight[#inflight + 1] = x end
   end
-  local deficit = false
-  if fuel_live then -- (la mesure, mémorisée, n'est lue que si une bande du combustible est en vol)
-    local surface = f.hq and f.hq.valid and f.hq.surface
-    deficit = surface ~= nil and Bc.room(Cap.read(f, surface)) or false
-  end
-  return Ent.inflight_pick(live, plate, T.fuel, deficit)
+  return inflight
 end
 
 --- CHANTIER 4 : champs retenus par les ordres Maj+A vivants (o.band_fid, script/gui/commande.lua) : { [oid] = vrai } et leur nombre.

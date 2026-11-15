@@ -70,8 +70,7 @@ do
   local _, nc = src:gsub("not %(cur and not Ent%.closed%(cur%.state%)%)", "")
   check(nc == 2, "scan et pas de l'ordre : chantier clos par Ent.closed (" .. nc .. ")")
   check(src:find("local busy = cur ~= nil and not Ent.closed(cur.state)", 1, true) ~= nil, "relance : chantier clos par Ent.closed")
-  check(src:find("if p and not Ent.closed(p.state) and x.item", 1, true) ~= nil, "bandes en vol : une refusée n'en est pas")
-  check(src:find("not (cur and cur.state ~= \"fini\")", 1, true) == nil, "mutant 0.9.7 : plus aucune lecture « fini » seul du chantier")
+    check(src:find("not (cur and cur.state ~= \"fini\")", 1, true) == nil, "mutant 0.9.7 : plus aucune lecture « fini » seul du chantier")
   local _, nh = src:gsub("and not held%[tostring%(x%)%]", "")
   check(nh == 2, "begin_band : les deux passes écartent les bandes portées (" .. nh .. ")")
   check(src:find("x ~= st.band_key and not held[k]", 1, true) ~= nil, "bande en avance : écarte les bandes portées")
@@ -80,25 +79,6 @@ do
   local old = src:gsub("and not held%[tostring%(x%)%]", ""):gsub(" and not held%[k%]", "")
   local _, nh2 = old:gsub("and not held%[tostring%(x%)%]", "")
   check(nh2 == 0 and old:find("x ~= st.band_key and not held[k]", 1, true) == nil, "mutant sans garde : détecté")
-end
-
--- §4 goulot du combustible
-do
-  local plate = { ["P1"] = true, ["P2"] = true }
-  local list = { { pid = 3, item = "P1" }, { pid = 7, item = "F" }, { pid = 9, item = "P2" }, { pid = 11, item = "X" } }
-  local function ids(l) local t = {} for _, x in ipairs(l) do t[#t + 1] = tostring(x.pid) end return table.concat(t, ",") end
-  local function suite(pick)
-    local a = ids(pick(list, plate, "F", true))
-    local b = ids(pick(list, plate, "F", false))
-    return a == "7,3,9" and b == "3,9", a .. " | " .. b
-  end
-  local good, why = suite(E.inflight_pick)
-  check(good, "déficit : combustible en tête puis plaques ; sans déficit : plaques seules (" .. why .. ")")
-  local old = function(l, pl) local o = {} for _, x in ipairs(l) do if pl[x.item] then o[#o + 1] = x end end return o end
-  check(not (suite(old)), "mutant 0.9.7 (plaques seules) : doit échouer")
-  check(#E.inflight_pick(nil, plate, "F", true) == 0, "liste absente : vide")
-  local src = read("script/team/migration_champ.lua")
-  check(src:find("return Ent.inflight_pick(live, plate, T.fuel, deficit)", 1, true) ~= nil, "ent_inflight : câblé sur Ent.inflight_pick")
 end
 
 -- §5 seuil lu dans les recettes : une bande en vol payable sur une période s'attache sous le débit minimal
@@ -145,7 +125,7 @@ do
   local src = read("script/team/migration_champ.lua")
   check(src:find("Ent.release_early({ complete = e.complet ~= nil, state = cur.state, ordre = e.ordre, rate = ms.ent_rate })", 1, true) ~= nil,
     "relance : câblée sur Ent.release_early")
-  check(src:find("and x.item and not (p.spec and p.spec.ent_pose) then", 1, true) ~= nil, "bande en pose : plus en vol pour l'entrepreneur")
+  check(src:find("not Ent.closed(p.state) and not (p.spec and p.spec.ent_pose) and x.item and plate[x.item]", 1, true) ~= nil, "bande en pose ou close : plus en vol pour l'entrepreneur")
   check(src:find("p.spec.entrepreneur and not p.spec.ent_pose and not Ent.closed(p.state)", 1, true) ~= nil, "suivi : ni la bande en pose ni une refusée")
   local eo = read("shared/team/entrepreneur_ouvrier.lua")
   check(eo:find("Ent.monopoly(p.spec) and not Ent.closed(p.state)", 1, true) ~= nil, "ouvrier dédié : un projet refusé ne le garde pas")
