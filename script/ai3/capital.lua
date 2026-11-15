@@ -287,7 +287,8 @@ local function scan_machines(f)
   for _, z in ipairs(Co.upgrade_zones(f.team and f.team.commande)) do
     local zs = game.surfaces[z.surface or 1]
     if zs and zs.index == surface.index then
-      local found = surface.find_entities_filtered({ position = { z.x, z.y }, radius = z.r, force = f.force, name = cat.names })
+      local zx0, zy0, zx1, zy1 = Co.box_of(z) -- ux-sel : le RECTANGLE glissé (et non le disque)
+      local found = surface.find_entities_filtered({ area = { { zx0, zy0 }, { zx1, zy1 } }, force = f.force, name = cat.names })
       for _, e in ipairs(found) do
         if e.valid and e.unit_number and not ents[e.unit_number] then add(e, nil, "zone" .. z.id) end
       end

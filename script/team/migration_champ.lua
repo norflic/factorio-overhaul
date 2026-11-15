@@ -2329,7 +2329,7 @@ local function ent_order_swap(f, ms, tick)
           local k = tostring(x)
           if (st.done_pr and st.done_pr[k]) or (st.ahead and st.ahead[k]) or (st.prot and st.prot[x]) then skip[x] = true end
         end
-        local cands = Mg.order_swap(st.order, st.frame.axis, { x = od.x, y = od.y, r = od.r }, st.band_key, skip)
+        local cands = Mg.order_swap(st.order, st.frame.axis, { x = od.x, y = od.y, r = od.r, x0 = od.x0, y0 = od.y0, x1 = od.x1, y1 = od.y1 }, st.band_key, skip)
         local pr, bd
         for i = 1, math.min(#cands, 3) do
           local b2, why = Champ.band(f, surface, o, st.frame, cands[i])
