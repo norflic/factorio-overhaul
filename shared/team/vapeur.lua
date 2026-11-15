@@ -71,6 +71,17 @@ function V.exempt(sp, reopened, plant, monopoly)
   return monopoly == true
 end
 
+--- Lot P2-ENERGIE (pilier 2 du DC, 15/11 : « l'électricité ne doit jamais brider la croissance minière ») : la priorité de matière d'une
+--- alimentation de centrale (build.lua Build.alim_first, « reserve:vapeur ») ne vaut que si l'énergie MANQUE : centrale saturée (C.observe),
+--- chaudières à sec (Sante.coal_short) ou demande nominale au-delà de la capacité et des chantiers (missing_kw > 0, V.missing_kw). Mesuré
+--- (référence INTEG-096-a, carte du DC, graine 123456789) : à 28,7 et 37,8 min, 5 400 puis 7 200 kW de capacité pour 2 254 et 4 780 kW
+--- produits, la bande 10 (252 pièces) et la liaison 13 (320) gelées « reserve:vapeur » 5 min chacune pour une alimentation qui n'avait rien
+--- d'urgent ; à 20,8 min (chaudières à sec) la priorité reste. Rend vrai si la priorité s'applique.
+function V.energy_short(saturated, dry, missing_kw)
+  if saturated == true or dry == true then return true end
+  return type(missing_kw) == "number" and missing_kw > 0
+end
+
 --- Liste `cands` (éléments { k = clé du lot, ... }) sans les lots écartés encore valides à `tick` ; ordre gardé.
 function V.skip_lots(cands, skip, tick)
   if not skip then return cands end

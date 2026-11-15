@@ -97,6 +97,16 @@ function Build.alim_first(f, p, tick)
       f.key or "player", a.id, tostring(a.spec and a.spec.alim), tostring(a.reason), tick / 3600))
   end
   if not (a and a.state == "reserve" and a.reason == "materiaux") then return false end
+  -- lot P2-ENERGIE : la priorité ne vaut que si l'énergie manque (Build.Vap.energy_short) ; sinon les projets neufs réservent comme avant
+  local vap = b.vapeur
+  if not Build.Vap.energy_short((b.grow or {}).saturated == true, Sante.coal_short(f), vap and vap.missing or 0) then
+    if not a.vap_free_said then
+      a.vap_free_said = true
+      log(string.format("[FO-VAPEUR] %s : projet %d (alimentation de la centrale %s) attend sa matiere a %.1f min, energie suffisante (ni saturee, ni a sec, ni demande nominale manquante) : aucune priorite, les projets neufs reservent",
+        f.key or "player", a.id, tostring(a.spec and a.spec.alim), tick / 3600))
+    end
+    return false
+  end
   a.vap_first = a.vap_first or tick
   if tick - a.vap_first > Build.Vap.FIRST_TICKS then return false end
   -- seul un projet qui prendrait une matière PREMIÈRE de ce qui manque à l'alimentation (le fer, typiquement) attend (Vn.competes)
@@ -195,6 +205,7 @@ end
 Build.Sm.type_of = function(name) local pr = game.entity_prototypes[name]; return pr and pr.type end
 -- lot DEFAUTS-REVELES : bloc principal à 200 locales (limite de Lua) ; modules lus en un seul endroit = champs de Build, pas des locales
 Build.Tournee = require("shared.team.tournee_pose") -- lot CHANTIERS-FANTOMES : tournées de pose (règle pure)
+Build.Variante = require("shared.team.piece_variante") -- lot P2-ENERGIE : pièce déjà tenue par une variante (tapis monté en tapis rapide)
 Build.RevueObst = require("shared.team.revue_obstacles") -- lot AGEBLOCAGE : curseur de la revue des obstacles
 Build.Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 Build.Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
@@ -3989,6 +4000,39 @@ local function clear_floor(surface, e)
   return n
 end
 
+--- Lot P2-ENERGIE : l'emprise refusée porte-t-elle une VARIANTE de la pièce, de l'équipe (même type et groupe de remplacement rapide lus aux
+--- prototypes, même position et orientation : Build.Variante.same_piece) ? Alors la pièce est adoptée : e.name et e.item deviennent ceux de
+--- la variante, et l'appelant la compte bâtie (« deja »). Avant : la centrale 1 dont l'amélioration avait monté les tapis en tapis rapides,
+--- rouverte, refusait ses fantômes « occupe » sans fin (banc C3-APRES, 20 à 40 min « bloque »). Rend vrai si adoptée.
+Build.VARIANT_LOGS = 20
+function Build.adopt_variant(surface, f, e)
+  local pr = game.entity_prototypes[e.name]
+  local grp = pr and pr.fast_replaceable_group
+  if not grp or grp == "" then return false end
+  local plan = { type = pr.type, group = grp, x = e.x, y = e.y, dir = e.dir, ug = pr.type == "underground-belt" and e.type or nil }
+  for _, x in ipairs(surface.find_entities_filtered({ area = { { e.x - 0.05, e.y - 0.05 }, { e.x + 0.05, e.y + 0.05 } }, type = pr.type, force = f.force })) do
+    if x.valid and x.name ~= e.name then
+      local xp = x.prototype
+      local occ = { type = x.type, group = xp.fast_replaceable_group, x = x.position.x, y = x.position.y, dir = x.direction, own = true,
+        ug = x.type == "underground-belt" and x.belt_to_ground_type or nil }
+      if Build.Variante.same_piece(plan, occ) then
+        local items = xp.items_to_place_this
+        local it = items and items[1] and items[1].name or nil
+        local b = f.build
+        b.variant_logs = (b.variant_logs or 0) + 1
+        if b.variant_logs <= Build.VARIANT_LOGS then
+          log(string.format("[FO-VARIANTE] %s : %s en (%g, %g) deja tenu par %s de l'equipe (meme type, meme groupe) : piece adoptee, batie a %.1f min",
+            f.key or "player", e.name, e.x, e.y, x.name, game.tick / 3600))
+        end
+        e.name = x.name
+        if it then e.item = it end
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function place_ghost(surface, f, e)
   if find_real(surface, e, f.force) then return "deja" end
   if find_ghost(surface, e, f.force) then return "ok" end
@@ -4000,6 +4044,7 @@ local function place_ghost(surface, f, e)
     local area = footprint(e)
     if surface.count_entities_filtered({ area = area, type = TREE_TYPES, limit = 1 }) > 0 then return "obstacle" end
     if npc_on(surface, e) then return "pnj" end
+    if Build.adopt_variant(surface, f, e) then return "deja" end -- lot P2-ENERGIE : variante de la pièce déjà en place
     return "occupe"
   end
   -- lot FONDERIE : `type` (« input » | « output ») d'un tapis souterrain, passé au fantôme comme à l'entité (H-FONDERIE-1, à prouver au banc)
