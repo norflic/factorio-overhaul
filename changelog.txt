@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.124
+Date: 2026-11-15
+  Bugfixes:
+    - IA (charbon du QG) : le dimensionnement du charbon jugeait l'offre suffisante en ne comptant que les brûleurs posés, alors que le coffre du QG n'avait pas le combustible d'un kit d'avant-poste (« manque coal 80 » la plupart des minutes) : fer et cuivre se disputaient ce charbon et le cuivre ne partait jamais. Tant que le coffre est sous le combustible d'un kit (calculé sur les kits), l'avant-poste de charbon s'agrandit ; un kit ne confisque plus le charbon qu'il ne peut prendre en entier.
+    - Banc 30 min (carte du DC) contre 0.7.122 : fer + cuivre toutes équipes +36 % et +13 % (graines 123456789 et 271828182), équipe du joueur 11 357 → 16 917 et 4 142 → 8 849.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.123
 Date: 2026-11-15
   Features:

@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 03 h 50 : version 0.7.124 (charbon du coffre du QG)
+
+- **F696 · VALIDÉ · DÉPLOYÉ 0.7.124** Diagnostic du lot cuivre (journal [FO-CUIVRE]) : le fer et le cuivre se disputent le charbon du coffre du QG ; le kit du fer met tout le charbon à 0 sans réunir ses 80, le cuivre ne voit jamais ses 30. Sur REF0722 le manque existe encore (factions 6-12 min sur 15, joueur 14-15) alors que [FO-CHARBON-DIM] répond « offre suffisante » 18-29 min sur 30 : l'offre n'était comparée qu'aux brûleurs posés. `P.hq_coal_min()` (combustible d'un kit, lu dans les kits) dans `shared/team/planner.lua` + charbon du kit non confisqué (`want_outpost`). Archives `2026-11-15_CHARBONQG-1-123456789`, `-2-271828182` contre `REF0722-30-*` : 47 612 → 64 613, 47 493 → 53 459 ; joueur 11 357 → 16 917, 4 142 → 8 849. content 621 OK.
+
 ## 2026-11-15, 03 h 30 : version 0.7.123 (montée des fours et des bras)
 
 - **F695 · VALIDÉ · DÉPLOYÉ 0.7.123** `AC.MAX_SCAN` (600 pièces) trié tapis d'abord : vers 30 min, 600 tapis remplissaient la liste, fours, foreuses thermiques et bras (sans rang de priorité) n'y entraient plus (base 271828182 : emerald a le four acier à 23,9 min, 0 four remplacé en 60 min). Part par type (`AC.order`), bras au rang 4 (`R.AMELIO_PRIO`), voie des fours (`Cap.side_pf_of`), techno du four acier non décotée d'un quart quand le levier est retenu (`Gen.value`). Bancs 60 min `2026-11-15_TIERSM-{base60,cand60}-{123456789,271828182}`. content 621 OK.
