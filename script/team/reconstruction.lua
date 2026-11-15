@@ -705,7 +705,7 @@ function Recon.ruin_craft(f, s, book, free, due, tick, prio)
   for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
   local added = {}
   for _, w in ipairs(wanted) do
-    local item, n, oid = w[1], w[2], w[3]
+    local item, n, oid, kind = w[1], w[2], w[3], w[4]
     if book:handcraftable(item) then
       local saved = avail[item]
       avail[item] = 0
@@ -728,7 +728,7 @@ function Recon.ruin_craft(f, s, book, free, due, tick, prio)
         local miss, mines = {}, {}
         for _, k in ipairs(State.sorted_keys(q.raw)) do
           miss[#miss + 1] = string.format("%s %d", k, q.raw[k])
-          if minable(k) then
+          if kind == "drill" and s.ruins and s.ruins[oid] and minable(k) then -- bootstrap d'une ruine seulement (banc 120 : le minage pour les fours d'un avant-poste vivant coûtait des bras)
             local c = math.min(Recon.RUIN_MINE_CAP, math.max(1, math.ceil(q.raw[k])))
             added[#added + 1] = { key = "recon:ruine:mine:" .. k, kind = "mine", prio = prio, resource = k, count = c, short = c,
               prudent = true, domain = "gisements", tag = "reconstruction" }
@@ -957,7 +957,7 @@ function Recon.program(f, task)
     local r = s.lost[k]
     if r and burns(r.place or r.name) then nb = nb + 1 end
   end
-  if nb > 0 then
+  if nb > 0 and Recon.PRIME then
     return { { "home" }, { "take", task.items, strict = true }, { "take", { { T.fuel, nb * T.fuel_per_burner } } }, { "goto", task.pos, 4 },
       { "act", "rebuild" }, { "home" } }
   end
@@ -967,6 +967,7 @@ end
 --- Lot RECONSTRUCTION-0716 (trace [FO-RECON-AMORCE]) : une pièce à combustion refaite reçoit son combustible : celui que porte le PNJ, sinon,
 --- quand personne n'en a (coffre du QG vide : le champ de charbon détruit était la source), le PNJ en mine à la main sous la pièce si le
 --- gisement donne un objet combustible (prototype : fuel_value > 0), le gisement perd ce qui est pris. Rend le nombre posé.
+Recon.PRIME = true
 Recon.PRIME_LOGS = 40
 local function prime(f, s, inv, ent, surface)
   local fuel = ent.get_fuel_inventory and ent.get_fuel_inventory()
@@ -1090,7 +1091,7 @@ function Recon.act(agent, f, task, surface)
             raise_built = true })
           if ent and ent.valid then
             inv.remove({ name = r.item, count = 1 })
-            if ent.burner then prime(f, s, inv, ent, surface) end -- lot RECONSTRUCTION-0716 : jamais refaite à sec
+            if Recon.PRIME and ent.burner then prime(f, s, inv, ent, surface) end -- lot RECONSTRUCTION-0716 : jamais refaite à sec
             if r.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, r.recipe) end
             if r.kind and ent.unit_number then
               State.own(ent, f.id, r.kind, r.oid)
@@ -1159,6 +1160,7 @@ remote.add_interface("fo-recon", {
   set_gather = function(on) Recon.GATHER = on and true or false return Recon.GATHER end,
   -- Banc seulement (ruine-charbon : témoin sans la fabrication des foreuses des ruines, lot RECONSTRUCTION-0716). Mémoire LOCALE.
   set_ruin_craft = function(on) Recon.RUIN_CRAFT = on and true or false return Recon.RUIN_CRAFT end,
+  set_prime = function(on) Recon.PRIME = on and true or false return Recon.PRIME end,
   status = function(key)
     local f = (key == nil or key == "player") and State.faction("player") or nil
     if not f and key ~= nil then

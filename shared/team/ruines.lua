@@ -133,7 +133,7 @@ function Ru.demand(due, host, have, cap)
   for _, list in ipairs({ order.drill, order.sink }) do
     for _, item in ipairs(list) do
       local n = math.min(cap, need[item]) - (have(item) or 0)
-      if n > 0 then out[#out + 1] = { item, n, first[item] } end
+      if n > 0 then out[#out + 1] = { item, n, first[item], list == order.drill and "drill" or "sink" } end
     end
   end
   return out
