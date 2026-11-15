@@ -629,13 +629,14 @@ function Auto.think(f, view, book, tick, research)
   -- Contexte du cerveau.
   local mods, cap, covered = {}, {}, {}
   local fini_rate, target = {}, {}
+  local plants = {} -- lot CENTRALE2 : centrales (premiere et de plus), ajoutees a mods plus bas, celles a qui il MANQUE quelque chose d'abord
   -- La centrale est un PROJET du cerveau comme un module (lot IA3-e, e3-usine : demandée seule au plan directeur, sa
   -- réserve « materiaux » attendait 64 min, personne ne fabriquait ses chaudière et machines à vapeur), avec la valeur
   -- du module électrique qui l'attend.
   if st.plant_id and st.plant_state ~= "fini" and st.plant_state ~= "refuse" then
     local ps = Build.brief(f, st.plant_id)
     if ps then
-      mods[#mods + 1] = { id = st.plant_id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+      plants[#plants + 1] = { id = st.plant_id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end
   -- Lot CORR-ENERGIE : une centrale de plus, demandée par le plan directeur (saturation), est un projet du cerveau comme la
@@ -647,7 +648,7 @@ function Auto.think(f, view, book, tick, research)
   for _, id in ipairs(f.build and f.build.extra_plants or {}) do
     local ps = Build.brief(f, id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      mods[#mods + 1] = { id = id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain,
+      plants[#plants + 1] = { id = id, product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain,
         urgent = urgent }
       if tick >= (st.c2_log or 0) then
         st.c2_log = tick + 3600
@@ -657,6 +658,13 @@ function Auto.think(f, view, book, tick, research)
           f.key or "player", id, tostring(ps.state), tostring(ps.reason), minutes(f, tick), urgent and "URGENT" or "ordinaire",
           tostring(st.plant_gain or 0), #miss > 0 and table.concat(miss, ", ") or "-"))
       end
+    end
+  end
+  -- Lot CENTRALE2 (banc centrale2-c2-123456789, azure : centrale 1 rouverte en chantier sans manque, centrale de plus 9 en reserve 20 min avec un
+  -- but URGENT jamais servi) : A.goals ne garde qu'un but par produit, le premier ; une centrale a qui il manque quelque chose passe devant.
+  for pass = 1, 2 do
+    for _, m in ipairs(plants) do
+      if (pass == 1) == (#m.missing > 0) then mods[#mods + 1] = m end
     end
   end
   -- Lot ENERGIE (relecture) : le projet d'alimentation de la centrale (foreuses, tapis, poteaux ; demandé par le plan directeur, charbon_step)
