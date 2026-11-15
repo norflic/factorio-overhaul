@@ -111,6 +111,8 @@ check(read("script/team/build.lua"):find("if p.spec and p.spec.ent_susp then ret
 check(MC:find("if ent.ordre then ok = true end", 1, true) ~= nil, "4. la bande d'un ordre tient la tête (kit)")
 check(read("shared/ai3/cerveau.lua"):find("prod, view.thermal_off)", 1, true) ~= nil, "4. le cerveau passe la garde électrique à Co.goals")
 check(MC:find("ordre = ms.ent_wait.ordre", 1, true) ~= nil, "4. une bande d'ordre reconnue par follow garde sa marque d'ordre")
+check(MC:find("not od.ent_served and not wanted[fid]", 1, true) ~= nil and select(2, MC:gsub("ent_finish%(f, ms, tick%)", "")) == 3,
+  "4. un ordre servi (première bande posée) rend la main : vu par le scan comme par le pas de l'ordre")
 
 print(string.format("[C4-ORDRES] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 if ko > 0 then os.exit(1) end
