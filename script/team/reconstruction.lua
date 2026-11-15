@@ -697,7 +697,10 @@ end
 
 function Recon.ruin_craft(f, s, book, free, due, tick, prio)
   if not (Recon.RUIN_CRAFT and s and book and free) then return 0 end
-  local function host(oid) return (f.outposts and f.outposts[oid] ~= nil) or (s.ruins ~= nil and s.ruins[oid] ~= nil) end
+  -- ruines seulement (banc 120 min : fabriquer aussi pour les avant-postes vivants changeait la partie sans gain mesuré ; leurs pièces en
+  -- attente n'attendaient pas l'objet, ns0)
+  if not (s.ruins and next(s.ruins)) then return 0 end
+  local function host(oid) return s.ruins[oid] ~= nil end
   local wanted = Ru.demand(due, host, function(item) return free[item] or 0 end, Recon.RUIN_CRAFT_CAP)
   if #wanted == 0 then return 0 end
   s.stats = s.stats or {}
@@ -955,7 +958,8 @@ function Recon.program(f, task)
   local nb = 0
   for _, k in ipairs(task.recs or {}) do
     local r = s.lost[k]
-    if r and burns(r.place or r.name) then nb = nb + 1 end
+    -- seulement les foreuses d'une RUINE (banc 120 min : porter le charbon pour toutes les pièces refaites changeait la partie sans gain mesuré)
+    if r and r.kind == "drill" and s.ruins and s.ruins[r.oid] and burns(r.place or r.name) then nb = nb + 1 end
   end
   if nb > 0 and Recon.PRIME then
     return { { "home" }, { "take", task.items, strict = true }, { "take", { { T.fuel, nb * T.fuel_per_burner } } }, { "goto", task.pos, 4 },
@@ -1091,7 +1095,8 @@ function Recon.act(agent, f, task, surface)
             raise_built = true })
           if ent and ent.valid then
             inv.remove({ name = r.item, count = 1 })
-            if Recon.PRIME and ent.burner then prime(f, s, inv, ent, surface) end -- lot RECONSTRUCTION-0716 : jamais refaite à sec
+            -- lot RECONSTRUCTION-0716 : la foreuse d'une ruine n'est jamais refaite à sec (la ruine vit jusqu'à la pensée qui suit sa recréation)
+            if Recon.PRIME and ent.burner and r.kind == "drill" and s.ruins and s.ruins[r.oid] then prime(f, s, inv, ent, surface) end
             if r.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, r.recipe) end
             if r.kind and ent.unit_number then
               State.own(ent, f.id, r.kind, r.oid)
