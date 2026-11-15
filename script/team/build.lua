@@ -43,6 +43,7 @@ local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en ra
 local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
 local CvRegle = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
+local Vgr = require("script.team.verrou_gisements") -- lot C1-COUT : verrou des améliorations (grands gisements pas couverts)
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : zone des ennemis d'un second chemin de poteaux
 local Pt = require("shared.team.poteaux")   -- lot POTEAUX-COURT : longueur de fil, choix direct ou escalier (règles pures)
@@ -6064,7 +6065,12 @@ function Build.think(f, surface, tick)
   Profiler.fstart("e2:conv")
   -- Lot FUITES-PILE : amélioration des tapis (R3, ses tapis pris au stock) suspendue pendant une retenue de la pile
   local conv_ok, conv_why = PileRt.porte(f, "upgrade", nil)
-  if conv_ok then
+  -- Lot C1-COUT (CHANTIER 1 du DC) : ni tapis rapides ni montée des tracés tant que les grands gisements ne sont pas couverts à 80 %
+  -- (la cause est au journal [FO-VERROU-GISEMENTS] quand le verrou change d'état : pas de ligne de la pile à chaque pensée)
+  local vg_hold = Vgr.hold(f)
+  if conv_ok and vg_hold then
+    -- retenu : rien
+  elseif conv_ok then
     Conv.step(f, surface, tick) -- lot CONVOYEURS : amélioration des tapis saturés, tâche de fond bornée
   else
     PileRt.refuse(f, "convoyeurs", "amelioration des tapis suspendue (" .. tostring(conv_why) .. ")", tick)

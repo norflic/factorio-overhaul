@@ -102,12 +102,13 @@ local function band_only()
   return spec46(ellipse(0, 0, 45, 30), { coal = ellipse(0, 50, 8, 8), frame = fr })
 end
 
+-- (lot C1-COUT : empreintes refaites au tapis de base, voir tests/s52_bandes_ref.lua)
 -- { nom, spec neuve, empreinte du plan de release-0.6.77 (Ch.plan d'avant s52, d'un bloc ; lua5.2 sur le champ.lua de 7b4ebf93) }
 local CASES = {
-  { "petit", function() return spec46(ellipse(0, 0, 12, 9), { coal = ellipse(0, 20, 5, 5) }) end, 1169538760 },
-  { "ellipse 45x30", function() return spec46(ellipse(0, 0, 45, 30), { coal = ellipse(0, 50, 8, 8) }) end, 988782013 },
-  { "disque sans charbon", function() return spec46(disc(0, 0, 20), {}) end, 1195242882 },
-  { "joueur 271828182", load_spec("tests/fixtures/champ_spec_player_271828182.txt"), 1105317308 },
+  { "petit", function() return spec46(ellipse(0, 0, 12, 9), { coal = ellipse(0, 20, 5, 5) }) end, 1269820902 },
+  { "ellipse 45x30", function() return spec46(ellipse(0, 0, 45, 30), { coal = ellipse(0, 50, 8, 8) }) end, 1772277250 },
+  { "disque sans charbon", function() return spec46(disc(0, 0, 20), {}) end, 514226589 },
+  { "joueur 271828182", load_spec("tests/fixtures/champ_spec_player_271828182.txt"), 384759795 },
   { "coffres (sans four)", function() local s = spec46(disc(0, 0, 18), {}); s.furnace = nil; return s end, nil },
   { "four electrique", function() return spec46(ellipse(0, 0, 30, 16), { furnace = { size = 2, rate = 0.625, fuel = false } }) end, nil },
   { "bande seule (cadre fige)", band_only, nil },

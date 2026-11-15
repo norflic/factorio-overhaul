@@ -48,6 +48,7 @@ local Board = require("script.team.board") -- lot AMELIO-CONTINUE : tâche « cr
 local Bm = require("shared.team.book_max") -- lot AMELIO-CONTINUE : plus grand nombre fabricable du kit
 local T = require("shared.team.config")
 local Reg = require("shared.ai3.registre") -- lot TIERS : matière libre au registre (comme Board.prenable)
+local Vgr = require("script.team.verrou_gisements") -- lot C1-COUT : verrou des améliorations (grands gisements pas couverts)
 
 local Capital = {}
 
@@ -711,6 +712,7 @@ function Capital.goal(f, view, book, tick, w)
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
     zones = Co.upgrade_zones(f.team and f.team.commande), -- lot s44 COMMANDE-UPGRADE : zones d'amélioration prioritaire (rang 0)
+    rang_hold = Vgr.hold(f) or nil, -- lot C1-COUT (CHANTIER 1 du DC) : tapis et bras hors zone retenus tant que les grands gisements ne sont pas couverts
     exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false, tick = tick,
     lead = c.lead or { done = {} }, cash = true, -- lot S42 QG-NIVEAUX : chaîne du centre devant (bornée), centre payé dès que son coût dort au stock
     blocs = (census.list ~= nil and Capital.blocs_on()) or nil, -- lot AMELIORATION
@@ -1366,6 +1368,8 @@ local function continu_track(f, c, d, side, surface, book, free, tick, hold)
   local pool = (d.pool and #d.pool > #(d.ids or {})) and d.pool or (d.ids or {})
   local n = #pool
   local zone = d.zone and true or false -- majz-0716 : zone Maj + Z du joueur
+  -- lot C1-COUT : un tapis ou un bras décidé avant le verrou (ou de côté) n'est ni fabriqué ni payé hors zone Maj + Z
+  if not zone and Capital.rang_held(f, d.replace) then return 0 end
   local want = AC.kit_want({ [item] = n }, { [item] = have }, zone and AC.ZONE_KIT or nil)
   local queued = 0
   if want[1] and book and book:handcraftable(item) then
@@ -1422,6 +1426,14 @@ function Capital.zone_hold(f)
     end
   end
   return out
+end
+
+--- Lot C1-COUT : vrai si le remplacement `rep` ({ from, to }) monte un tapis ou un bras (rang, lu au TYPE du prototype) alors que le verrou
+--- des grands gisements tient (script/team/verrou_gisements.lua). Une zone Maj + Z du joueur n'appelle pas cette garde.
+function Capital.rang_held(f, rep)
+  local mp = rep and rep.from and machine_catalog().by[rep.from]
+  if not (mp and mp.rang) then return false end
+  return Vgr.hold(f) == true
 end
 
 function Capital.continu(f, surface, book, free, tick, hold)

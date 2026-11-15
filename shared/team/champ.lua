@@ -841,11 +841,14 @@ local function half_of(s, pr, fixed)
   local i = math.floor((pr - (s.box.v0 - s.phase)) / pitch + 0.5)
   return s.double and Co.half(spec, pitch, Co.is_facing(i) and s.band_at[pr - Co.SF * pitch] == true) or nil
 end
-local function belt_for(s, g) -- tapis du groupe : le plus lent qui porte ses foreuses
-  local spec = s.spec
-  local need_lane = s.fuelled and (#g.n + #g.s) or math.max(#g.n, #g.s)
-  for i, bt in ipairs(spec.belts) do if Ch.lane_drills(bt.lane, spec.drill.rate) >= need_lane then return i end end
-  return #spec.belts
+--- Tapis du groupe. Lot C1-COUT (CHANTIER 1 du DC, 15/11) : le tapis de BASE (le premier de spec.belts, le plus lent et le moins cher,
+--- lu aux données), même quand le groupe sature une voie. Avant : « le plus lent qui porte ses foreuses », donc le tapis rapide au-delà de
+--- ~15 foreuses par côté (partie 0.9.4 du DC : la bande -18 du champ de fer a attendu 216 tapis rapides, 0 pose de 31,8 à 53,6 min).
+--- La géométrie (groupes, fonderie) ne change pas ; une voie au-delà du tapis de base est comptée à part par le contrôle (rep.saturated) ;
+--- la montée des tapis posés (Conv.step, remplacements du capital) attend que les grands gisements soient couverts
+--- (shared/team/verrou_gisements.lua). Les pièces déjà posées d'un cadre figé gardent leur tapis (elles sont dans leur projet).
+local function belt_for(s, g) -- luacheck: ignore s g
+  return 1 -- C1-COUT : tapis de base
 end
 local function once_fail(s, why) s.done, s.why = true, why; return true end
 
@@ -1569,6 +1572,7 @@ function ONCE.finish(s)
     axis = s.axis, exit = s.exit, phase = s.phase, pitch = s.pitch, ents = ents, bands = out_bands, design = colonne and "colonne" or nil,
     fallback = s.fallback,
     fuelled = s.fuelled or nil,
+    belt_rule = "base", -- lot C1-COUT : tapis de base pour chaque groupe (lu par le contrôle, shared/team/champ_verif.lua)
     frame = frame,
     stats = { tiles = #s.c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
       chests = n.coffre, capped = s.capped, flow = s.flow_all, capacity = s.cap_all, umin = s.umin, umax = s.umax, no_smelter = s.no_smelter,

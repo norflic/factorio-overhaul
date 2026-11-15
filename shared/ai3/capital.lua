@@ -246,6 +246,17 @@ function Cap.replace_candidates(Ld, census, ctx)
   end
   local has_exclude = ctx.exclude ~= nil and next(ctx.exclude) ~= nil
   local has_zones = ctx.zones ~= nil and #ctx.zones > 0 -- lot s44 COMMANDE-UPGRADE
+  -- Lot C1-COUT (CHANTIER 1 du DC) : verrou des grands gisements (ctx.rang_hold, script/team/verrou_gisements.lua) : aucun tapis ni bras
+  -- (rang, lu au TYPE du prototype) monté hors d'une zone Maj + Z du joueur tant que les grands gisements ne sont pas couverts. Relevé
+  -- filtré AVANT la boucle (aucune instruction de plus par pièce sans verrou : budget du §8 d'amelioration_continue_test).
+  if ctx.rang_hold then
+    local kept = {}
+    for _, m in ipairs(machines) do
+      local p = ctx.mproto(m.name)
+      if not (p and p.rang) or (has_zones and Co.upgrade_rank(ctx.zones, m.x, m.y) == 0) then kept[#kept + 1] = m end
+    end
+    machines = kept
+  end
   local pending = {} -- cibles bloquées : le nombre de pièces du nom n'est connu qu'après le relevé entier
   local parsed, gcache = {}, {}
   local evals = {} -- tables d'évaluation créées (pour le compte de pièces par nom)

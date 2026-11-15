@@ -78,19 +78,20 @@ local function load_spec(path)
   end
 end
 
+-- (lot C1-COUT : empreintes refaites au tapis de base, voir tests/s52_bandes_ref.lua)
 -- { nom, spec neuve, variantes attendues, empreinte du plan de v0.7.107 (Ch.plan d'avant s49) }
 local CASES = {
-  { "petit", function() return spec46(ellipse(0, 0, 12, 9), { coal = ellipse(0, 20, 5, 5) }) end, nil, 1169538760 },
-  { "ellipse 45x30", function() return spec46(ellipse(0, 0, 45, 30), { coal = ellipse(0, 50, 8, 8) }) end, nil, 988782013 },
-  { "ellipse 45x30 axe y", function() return spec46(ellipse(0, 0, 45, 30), { coal = ellipse(0, 50, 8, 8), axis = "y" }) end, nil, 702834682 },
+  { "petit", function() return spec46(ellipse(0, 0, 12, 9), { coal = ellipse(0, 20, 5, 5) }) end, nil, 1269820902 },
+  { "ellipse 45x30", function() return spec46(ellipse(0, 0, 45, 30), { coal = ellipse(0, 50, 8, 8) }) end, nil, 1772277250 },
+  { "ellipse 45x30 axe y", function() return spec46(ellipse(0, 0, 45, 30), { coal = ellipse(0, 50, 8, 8), axis = "y" }) end, nil, 1563091711 },
   { "disque sans charbon", function() return spec46(disc(0, 0, 20), {}) end, nil, nil },
   { "joueur 271828182", load_spec("tests/fixtures/champ_spec_player_271828182.txt"), nil, nil },
   { "scarlet 20261020", load_spec("tests/fixtures/champ_spec_scarlet_20261020.txt"), nil, nil },
 }
 local REF107 = { -- lua5.2 sur le champ.lua de v0.7.107 (Ch.plan d'avant s49), mêmes specs
-  ["disque sans charbon"] = 1195242882,
-  ["joueur 271828182"] = 1105317308,
-  ["scarlet 20261020"] = 281488711,
+  ["disque sans charbon"] = 514226589,
+  ["joueur 271828182"] = 384759795,
+  ["scarlet 20261020"] = 825793951,
 }
 for _, cs in ipairs(CASES) do cs[4] = cs[4] or REF107[cs[1]] end
 

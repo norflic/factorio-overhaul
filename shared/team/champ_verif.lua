@@ -229,7 +229,7 @@ local function find(parent)
 end
 
 function Cv.verify(plan, spec)
-  local rep = { overlaps = 0, blocked = 0, unpowered = 0, components = 0, traverse = 0, inside = 0, drops = 0, arms = 0, starved = 0, melange = 0 }
+  local rep = { overlaps = 0, blocked = 0, unpowered = 0, components = 0, traverse = 0, inside = 0, drops = 0, arms = 0, starved = 0, saturated = 0, melange = 0 }
   local at = {}        -- clé de tuile -> entité
   local R, wire = spec.pole.reach, spec.pole.wire
   local d = spec.drill
@@ -413,7 +413,11 @@ function Cv.verify(plan, spec)
         end
       end
       -- un tapis plus lent que le plus rapide doit porter tout le groupe
-      if not bt or (g.belt ~= #spec.belts and flow + 1e-9 < (p[0] + p[2] + p[4] + p[6]) * d.rate) then rep.starved = rep.starved + 1 end
+      if not bt then rep.starved = rep.starved + 1
+      elseif g.belt ~= #spec.belts and flow + 1e-9 < (p[0] + p[2] + p[4] + p[6]) * d.rate then
+        -- lot C1-COUT : règle du DC (tapis de base tant que les grands gisements ne sont pas couverts) : voie sursaturée voulue, comptée à part
+        if plan.belt_rule == "base" and g.belt == 1 then rep.saturated = rep.saturated + 1 else rep.starved = rep.starved + 1 end
+      end
       -- (lot DECOUPLAGE) un groupe sans fonderie dans ce plan (tapis collecteur seul, g.bare) n'est pas jugé sur ses fours
       if not g.bare and (count[k] or 0) * rate + 1e-9 < flow then rep.starved = rep.starved + 1 end
     end

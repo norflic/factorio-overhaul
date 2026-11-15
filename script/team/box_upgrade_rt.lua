@@ -40,6 +40,7 @@ local R = require("shared.ai3.reglages")
 local T = require("shared.team.config")
 local L = require("shared.levels.config")
 local Se = require("script.team.swap_entity") -- lot RETROFIT-GABARITS : remplacement à emprise différente (primitive partagée)
+local Vgr = require("script.team.verrou_gisements") -- lot C1-COUT : verrou des améliorations (grands gisements pas couverts)
 
 local Bur = {}
 
@@ -182,6 +183,9 @@ local function survey(f, surface, box)
       end
     end
   end
+  -- Lot C1-COUT (CHANTIER 1 du DC) : aucun bras monté tant que les grands gisements ne sont pas couverts (les bras restent relevés : la
+  -- machine qui grandit les déplace toujours)
+  local arms_held = Vgr.hold(f)
   for _, a in ipairs(arms) do
     local role, mid, far = arm_role(a.e, machines, is_machine)
     if mid then
@@ -190,7 +194,7 @@ local function survey(f, surface, box)
       list[#list + 1] = { id = a.e.unit_number, x = math.floor(a.e.position.x), y = math.floor(a.e.position.y),
         far = far and { x = math.floor(far.x), y = math.floor(far.y) } or nil, e = a.e, pe = a.pe }
     end
-    local u = unit_of(f, a.e, role, memo)
+    local u = (not arms_held) and unit_of(f, a.e, role, memo) or nil
     if u then u.machine = mid units[#units + 1] = u refs[u.id] = { e = a.e, pe = a.pe, ctx = ctx } end
   end
   return units, refs
