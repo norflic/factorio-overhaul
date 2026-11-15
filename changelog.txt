@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.2
+Date: 2026-11-15
+  Bugfixes:
+    - Commandement (Maj+A) : le compteur ne compte plus les bâtiments qui existaient dans le cercle avant l'ordre (ni les remplacements sur place) : seules les poses sur des cases libres à l'ordre comptent, et le chiffre peut redescendre. Banc commandes-delais : ordre « fer » 0 posé (avant : foreuses existantes comptées), ordre « gisement mêlé » 14 posés.
+  Features:
+    - Commandement (Maj+A) : l'ordre sur un gisement demande aussi une bande du plan de champ (rangées de foreuses électriques, tapis, fonderie) sur ce gisement, toutes les 10 s tant qu'il court (journal « bande de champ ... champ voulu »).
+    - IA (migration thermique → électrique) : quand la centrale tient au moins 2 fois la demande ET sert au moins 25 % de sa capacité, la migration ouvre 5 chantiers de bande au lieu de 3, et 2 par minerai. Banc 15 min (carte du DC) : équipe du joueur identique à la référence (2 868 fer, 1 022 cuivre).
+  Known issues:
+    - Maj+A : la pose réelle d'une rangée électrique par l'ordre n'est pas encore vue au banc (14 min après l'ordre). Effet de la migration élargie sur la pollution à 60 min non mesuré.
+    - Ouvriers oisifs au QG en famine de fer : correctif essayé et refusé (fer du joueur -42 % à 15 min), défaut toujours présent.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.1
 Date: 2026-11-15
   Features:
