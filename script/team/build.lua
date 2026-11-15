@@ -3834,30 +3834,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Fantômes
 ---------------------------------------------------------------------------------------------------
--- lot CENTRALE2 (banc centrale2-c2-123456789, azure : centrale 1 finie à 15,3 min, ses 5 tapis passés au tapis rapide par l'amélioration des
--- convoyeurs, script/team/convoyeurs.lua ; le projet les croyait perdus, rouvert, fantômes refusés « occupe » 30 min, centrale jamais finie de
--- nouveau) : une pièce REMPLACÉE sur place par un niveau supérieur (même type, même groupe de remplacement rapide, lus au prototype, aucun
--- nom) est la pièce elle-même.
-local UPGRADE_GROUP = {}
-local function upgrade_group(name)
-  local g = UPGRADE_GROUP[name]
-  if g == nil then
-    local protos = game and game.entity_prototypes -- (moteur de bouchons des tests : sans prototypes, aucune équivalence)
-    local pr = protos and protos[name]
-    g = pr and pr.fast_replaceable_group and (pr.type .. "|" .. pr.fast_replaceable_group) or false
-    UPGRADE_GROUP[name] = g
-  end
-  return g
-end
 local function find_real(surface, e, force)
   local found = surface.find_entity(e.name, { e.x, e.y })
   if found and found.force.name == force then return found end
-  local g = upgrade_group(e.name)
-  if g then
-    for _, x in ipairs(surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.3, force = force })) do
-      if x.valid and x.name ~= "entity-ghost" and x.name ~= e.name and upgrade_group(x.name) == g then return x end
-    end
-  end
   return nil
 end
 
@@ -5284,14 +5263,6 @@ local function advance(f, surface, p, tick)
         end
       end
       p.reason, p.reserve_next = "materiaux", tick + 60
-      -- lot CENTRALE2 (diagnostic, lecture seule) : une centrale de plus en réserve : ce qui lui manque, toutes les 2 min
-      if p.spec.plant and tick >= (p.c2_log or 0) then
-        p.c2_log = tick + 7200
-        local parts = {}
-        for _, m in ipairs(p.missing or {}) do parts[#parts + 1] = string.format("%s %d (coffre %d)", m[1], m[2], Stock.count(f, m[1])) end
-        log(string.format("[FO-CENTRALE2] %s : projet %d (centrale) en reserve:materiaux depuis %.1f min a %.1f min : manque %s",
-          f.key or "player", p.id, (tick - (p.started or tick)) / 3600, tick / 3600, #parts > 0 and table.concat(parts, ", ") or "-"))
-      end
     end
     return
   end
@@ -5307,29 +5278,11 @@ local function advance(f, surface, p, tick)
     log(string.format("[FO-ENTREPRENEUR-OUVRIER] %s : projet %d en %s : manques relus en chantier (suivi progressif) a %.1f min", f.key or "player",
       p.id, p.state, tick / 3600))
   end
-  -- lot CENTRALE2 (banc centrale2-c-20261020, scarlet, projet 14 : 52 pièces sur 55 posées à 32 min, 3 poteaux en fantôme jusqu'à 57 min, « manque - »)
-  -- : une CENTRALE relit aussi ses manques en chantier (un objet perdu en route est redemandé au cerveau, but « auto:centrale »)
-  if (p.reopened or p.progressif or (p.spec and (p.spec.lg or p.spec.plant))) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
+  if (p.reopened or p.progressif or (p.spec and p.spec.lg)) and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
     p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
     Profiler.fstart("ch:missing")
     refresh_missing(f, p)
     Profiler.fstop("ch:missing")
-  end
-  -- lot CENTRALE2 (diagnostic, lecture seule) : une centrale de plus en chantier : pièces non bâties, leur objet au stock du projet, toutes les 2 min
-  if p.spec and p.spec.plant and (p.state == "fantomes" or p.state == "chantier") and tick >= (p.c2_log or 0) then
-    p.c2_log = tick + 7200
-    local left, parts = 0, {}
-    for _, e in ipairs(p.ents) do
-      if not e.built and not e.skipped then
-        left = left + 1
-        if #parts < 4 then parts[#parts + 1] = string.format("%s en (%.1f, %.1f)%s%s (stock projet %d, coffre %d)", tostring(e.name), e.x or 0, e.y or 0,
-          e.ghosted and " fantome" or "", (e.fails or 0) > 0 and (" refus " .. e.fails) or "", (p.stock or {})[e.item or ""] or 0, Stock.count(f, e.item or e.name)) end
-      end
-    end
-    local miss = {}
-    for _, m in ipairs(p.missing or {}) do miss[#miss + 1] = m[1] .. " " .. m[2] end
-    log(string.format("[FO-CENTRALE2] %s : projet %d (centrale) en %s a %.1f min : %d piece(s) non baties : %s ; manque %s", f.key or "player", p.id, p.state,
-      tick / 3600, left, table.concat(parts, " ; "), #miss > 0 and table.concat(miss, ", ") or "-"))
   end
   if p.state == "defrichage" then
     if review_obstacles(surface, p) == 0 then p.state = "fantomes" end

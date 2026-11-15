@@ -84,8 +84,6 @@ A.RESEARCH_WINDOW = 5    -- minutes : un objet impossible (recherche) se voit d�
 A.MAX_PER_PRODUCT = 2    -- modules finis au plus par objet
 A.VALUE = 64             -- valeur de base du projet d'un module (famille capital, pondérée par le chef)…
 A.VALUE_PER_PNJ = 8      -- … plus 8 par PNJ libéré (gain G), au plus A.VALUE_MAX : un module qui libère 2 PNJ passe
-A.PLANT_URGENT = 95 -- lot CENTRALE2 : centrale de plus pendant la saturation (m.urgent) : au-dessus de tout module et de la recherche (scarlet, graine
-                   -- 20261020 : centrales 17 et 18 demandées à 27 min, « reserve:materiaux » 25 min, but « auto:centrale » ouvert à 51 min seulement)
 A.VALUE_MAX = 90         -- devant l'armée et la recherche au service du fer (piège de pauvreté, e3-usine : réserve
                          -- « materiaux » 64 min, le fer mangé par l'armée et les munitions servies avant lui)
 A.BURNER_RATE = 0.25     -- minerai/s d'une foreuse à combustion (avant-postes : capacité d'un module en unités d'avant-poste)
@@ -1049,7 +1047,7 @@ function A.goals(goals, auto, weights, research)
         ent = m.ent or nil, -- entrepreneur-craft-0716 : bande entrepreneur (servie en tête du stock virtuel, kit entier : shared/ai3/cerveau.lua, P.want_kit)
         ent_garnish = m.ent_garnish, -- (garniture : servie à la place ordinaire du but)
         fond = m.line or nil, invest = m.line or nil, -- (m.line : posé par script/ai3/automatisation.lua pour une ligne de bande et une bande de la migration, lot KITS-VOLES)
-        value = m.urgent and A.PLANT_URGENT or capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
+        value = capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
     end
   end
   -- Un module FINI se nourrit depuis le coffre du QG (quais d'entrée remplis par les porteurs, plan directeur) : ce qui
