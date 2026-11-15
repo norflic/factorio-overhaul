@@ -503,4 +503,22 @@ function M.order_swap(prs, axis, od, cur, skip)
   return out
 end
 
+--- Lot EXPO (nuit 0.9.8, partie de référence du DC, graine 4251870853) : bandes du cadre `frame` de l'avant-poste `oid` déjà PORTÉES par un
+--- projet du plan directeur (en vol : plan, réserve, chantier, bloqué ; ou posées). Mesuré en 0.9.7 : la bande -47 du fer du joueur, en vol
+--- (projet 13, matières pas réunies), redemandée 15 fois en 2 min (projets 14 à 27, « aucune entite a poser pour cette bande » : toutes ses
+--- tuiles au plan du projet 13), puis 3 échecs de suite : migration du gisement de fer ARRÊTÉE à 50 min (4 088 tuiles, 15 % couvertes).
+--- projects = liste { state, abandoned, champ = spec.champ } (spec.champ = { oid, pr, frame, coal, link }) ; un réseau du charbon (coal, link)
+--- n'est pas une bande ; un projet refusé ou abandonné ne porte rien ; un autre cadre (frame différent) non plus. Rend { [tostring(pr)] = vrai }.
+function M.held_bands(projects, oid, frame)
+  local held = {}
+  for _, q in ipairs(projects or {}) do
+    local cs = q.champ
+    if cs and cs.oid == oid and cs.pr ~= nil and cs.coal == nil and cs.link == nil and (frame == nil or cs.frame == frame)
+      and q.state ~= "refuse" and not q.abandoned then
+      held[tostring(cs.pr)] = true
+    end
+  end
+  return held
+end
+
 return M

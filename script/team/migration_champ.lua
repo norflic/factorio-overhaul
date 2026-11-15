@@ -894,6 +894,17 @@ end
 Mig.FRAME_WAIT = FRAME_WAIT -- (tests : la file même)
 Events.on_nth_tick(1, function(e) if FRAME_WAIT[1] then Mig.frame_tick(e.tick) end end) -- (file vide ou pas trop tôt : rien)
 
+--- Lot EXPO : bandes du cadre de `o` déjà portées par un projet vivant (Mg.held_bands) : jamais redemandées (projets 14 à 27 du joueur en 0.9.7).
+local function held_bands(f, o, st)
+  local list = {}
+  local b = f.build
+  for _, pid in ipairs(sorted_keys(b and b.projects or {})) do
+    local q = b.projects[pid]
+    if q and q.spec and q.spec.champ then list[#list + 1] = { state = q.state, abandoned = q.abandoned, champ = q.spec.champ } end
+  end
+  return Mg.held_bands(list, o.id, st.frame)
+end
+
 local function begin_band(f, surface, ms, o, st, list, tick, free, pre)
   st.rollbacks = 0 -- lot AZURE (revue A2) : le compte des retours en arrière est PAR BANDE
   -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
@@ -921,15 +932,21 @@ local function begin_band(f, surface, ms, o, st, list, tick, free, pre)
       break
     end
   end
+  local held = pr == nil and held_bands(f, o, st) or {}
   for _, x in ipairs(seq) do
-    if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[tostring(x)]) then pr = x end
+    if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[tostring(x)]) and not held[tostring(x)] then pr = x end
   end
   if not pr and st.prot then
     -- lot THERMIQUE : toutes les bandes restantes ont été retenues par la protection : on les redemande, la coupe attendra au dégel
     st.prot = nil
     for _, x in ipairs(st.order) do
-      if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.ahead and st.ahead[tostring(x)]) then pr = x end
+      if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.ahead and st.ahead[tostring(x)]) and not held[tostring(x)] then pr = x end
     end
+  end
+  if not pr and next(held) ~= nil then
+    -- lot EXPO : les bandes qui restent sont déjà en vol (projets vivants) : le champ n'est ni « posé » ni en échec, il attend qu'elles finissent
+    st.retry = tick + CFG.retry_refuse
+    return false
   end
   if not pr and st.ahead then
     -- lot MEGA-FONDERIE (A2) : des bandes en avance sont encore au plan : le champ n'est pas « posé » tant qu'elles ne le sont pas
@@ -1885,9 +1902,10 @@ local function ahead_launch(f, surface, ms, o, st, tick, free, book, hold, dorma
   for _, k in ipairs(st.bad or {}) do bad[k] = true end
   for _, k in ipairs(st.stopped or {}) do bad[k] = true end
   local pr
+  local held = held_bands(f, o, st) -- lot EXPO : ni une bande déjà en vol dans un autre projet
   for _, x in ipairs(st.order) do
     local k = tostring(x)
-    if not pr and not st.done_pr[k] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[k]) and x ~= st.band_key then pr = x end
+    if not pr and not st.done_pr[k] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[k]) and x ~= st.band_key and not held[k] then pr = x end
   end
   if not pr then return refuse("aucune bande de plus dans le cadre") end
   local bd, bwhy = Champ.band(f, surface, o, st.frame, pr)
@@ -2237,7 +2255,7 @@ local function ent_inflight(f)
   for _, k in ipairs(plate_names()) do plate[k] = true end
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if p and p.state ~= "fini" and x.item and plate[x.item] then inflight[#inflight + 1] = x end -- (entrepreneur-craft-0716 : bande d'une plaque seulement)
+    if p and not Ent.closed(p.state) and x.item and plate[x.item] then inflight[#inflight + 1] = x end -- (entrepreneur-craft-0716 : bande d'une plaque seulement)
   end
   return inflight
 end
@@ -2370,7 +2388,7 @@ function Mig.entrepreneur_order(f, tick)
   local wanted, n = ent_orders_wanted(f, tick)
   if ms.ent_wait and ms.ent_wait.ordre and not wanted[ms.ent_wait.oid] then ms.ent_wait = nil end -- (ordre retiré : l'attente tombe)
   local cur = ms.ent and f.build.projects[ms.ent.pid]
-  if ms.ent and not (cur and cur.state ~= "fini") then
+  if ms.ent and not (cur and not Ent.closed(cur.state)) then -- (lot EXPO : une bande refusée libère aussi l'entrepreneur)
     ent_finish(f, ms, tick)
     cur = nil
     wanted, n = ent_orders_wanted(f, tick)
@@ -2475,7 +2493,7 @@ function Mig.entrepreneur_scan(f, tick)
   if first then delta = total end
   ms.ent_rate = math.floor((first and ms.ent_debit or delta) * 3600 / Ent.CFG.period) -- plaques par minute (Ent.chain)
   local cur = ms.ent and f.build.projects[ms.ent.pid]
-  if ms.ent and not (cur and cur.state ~= "fini") then
+  if ms.ent and not (cur and not Ent.closed(cur.state)) then -- (lot EXPO : une bande refusée libère aussi l'entrepreneur)
     ent_finish(f, ms, tick)
     cur = nil
   end
@@ -2674,7 +2692,7 @@ end
 function Mig.entrepreneur_chain(f, ms, tick)
   if not (f.build and f.build.projects) or ms.ent_tick == nil or tick < (ms.ent_chain_off or 0) then return end
   local cur = ms.ent and f.build.projects[ms.ent.pid]
-  local busy = cur ~= nil and cur.state ~= "fini"
+  local busy = cur ~= nil and not Ent.closed(cur.state)
   local waiting = ms.ent_wait ~= nil and (tick - (ms.ent_wait.t0 or tick)) < Ent.CFG.period
   if not Ent.chain({ rate = ms.ent_rate, busy = busy, waiting = waiting, since = tick - ms.ent_tick }) then return end
   ent_say(f, ms, string.format("enchaine a %.1f min (%d plaque(s)/min au dernier releve)", tick / 3600, ms.ent_rate or 0))

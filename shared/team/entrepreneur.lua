@@ -204,6 +204,15 @@ function E.need_core(need, garnish)
   return out
 end
 
+--- Lot EXPO (nuit 0.9.8) : le chantier entrepreneur est-il CLOS ? Un projet « fini » ou « refuse » (état terminal du plan directeur : un
+--- projet refusé n'est jamais repris, script/team/build.lua) ne tient plus l'entrepreneur. Mesuré en 0.9.7 (partie de référence du DC,
+--- graine 4251870853) : bande du joueur refusée à 43,2 min (projet 54) ; le scan la lisait « en cours » (état différent de « fini ») et ne
+--- déclenchait plus RIEN jusqu'à 90 min (aucune ligne [FO-ENTREPRENEUR] du joueur après 41,4 min). Une bande refusée n'est pas non plus
+--- « en vol » (rien à attacher). state = p.state ou nil (projet disparu : clos).
+function E.closed(state)
+  return state == nil or state == "fini" or state == "refuse"
+end
+
 --- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets
 --- qui réparent (rouverts : front[id] vrai). order = liste de numéros, pid = la bande, front = { [id] = vrai }. Rend une liste neuve.
 function E.order_front(order, pid, front)
