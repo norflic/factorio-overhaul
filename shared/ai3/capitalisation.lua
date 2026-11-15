@@ -82,6 +82,7 @@ local Cf = require("shared.ai3.confirmation") -- lot VIDEO-COUVERTURE 5 : module
 local Pr = require("shared.ai3.porte_rang") -- lot VIDEO-L2 : porte de rang ciblée
 local Cv = require("shared.ai3.couverture") -- lot COUVERTURE : saturation totale des gisements revendiqués (Cv.saturation)
 local Mg = require("shared.ai3.marge") -- lot MARGE-TIERS : marge de 20 % des tiers 0 et 1, gel des tiers supérieurs
+local Ent = require("shared.team.entrepreneur") -- lot C3-BOUCLE : seuil « gisement plein » (E.CFG.cover_max, lu, aucun réglage nouveau)
 
 local Ca = {}
 
@@ -114,6 +115,32 @@ function Ca.size_credit(tiles)
   if tiles >= Ca.GIANT_FULL then return Ca.GIANT_CREDIT end
   return math.floor(Ca.GIANT_CREDIT * (tiles - Ca.GIANT_SMALL) / (Ca.GIANT_FULL - Ca.GIANT_SMALL))
 end
+--- Lot C3-BOUCLE (partie du DC 0.9.4, 15/11 : « grands gisements vides à 80-90 %, quelques foreuses sur des micro-gisements ») : PRIORITÉ PAR
+--- TAILLE. À 45 et 60 min, le fer de votre équipe avait un ordre « couvrir » sur iron-ore@-2,-28 (609 tuiles, 3 places) pendant que
+--- iron-ore@-105,-75 (2 031 tuiles) restait à 121 pour mille et iron-ore@-137,17 (2 866 tuiles) jamais ouvert ; le cuivre ouvrait
+--- copper-ore@-101,-69 (400 tuiles) à 2 min parce qu'il était le plus proche. Un gisement est RETENU tant qu'un gisement PLUS GRAND du même
+--- minerai, utilisable (ni danger ni interdit), a encore des places et reste sous le seuil « plein » (Ent.CFG.cover_max pour mille, celui
+--- de l'entrepreneur). entries = { { id, tiles, free, kappa, usable } } (liste triée) ; rend { [id] = id du plus grand qui le retient }.
+function Ca.size_held(entries, cover_max)
+  cover_max = cover_max or Ent.CFG.cover_max
+  local held = {}
+  -- le plus GRAND gisement utilisable pas couvert (à taille égale, le plus petit identifiant) retient tous les gisements strictement plus
+  -- petits ; une seule passe (coût linéaire : 200 gisements dans une décision, tests §12)
+  local lead, lt = nil, nil
+  for _, b in ipairs(entries or {}) do
+    if b.usable and (b.free or 0) > 0 and (b.kappa or 0) < cover_max then
+      local t = b.tiles or 0
+      if lt == nil or t > lt or (t == lt and tostring(b.id) < tostring(lead)) then lead, lt = b.id, t end
+    end
+  end
+  if lead == nil then return held end
+  for _, a in ipairs(entries) do
+    if (a.tiles or 0) < lt then held[a.id] = lead end -- (même taille : jamais retenus l'un par l'autre)
+  end
+  return held
+end
+Ca.SIZE_FIRST = true -- (mutant : false)
+
 --- Rang d'un site `f` ({ dist, tiles }) : plus petit d'abord.
 function Ca.site_rank(f)
   return (f.dist or Ca.DIST) - Ca.size_credit(f.tiles)
@@ -1606,6 +1633,18 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
     return by_dist(a, b)
   end)
   local per, cov = Ca.comb(d)
+  -- lot C3-BOUCLE : priorité par taille (Ca.size_held) sur les gisements ouverts ET les sites connus de ce minerai
+  local held = {}
+  if Ca.SIZE_FIRST then
+    local ents = {}
+    for _, grp in ipairs({ opened, sites }) do
+      for _, f in ipairs(grp) do
+        local _, fr, ka = deposit_state(ctx, plan, f, d)
+        ents[#ents + 1] = { id = tostring(f.id), tiles = f.tiles or 0, free = fr, kappa = ka, usable = not (f.danger or f.blocked) }
+      end
+    end
+    held = Ca.size_held(ents)
+  end
   local sh_cache = {}
   local function mk_drills(kind, f, n, fixed)
     local key = tostring(f.id)
@@ -1673,7 +1712,13 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
   for _, f in ipairs(opened) do
     local key = "couvrir:" .. tostring(f.id)
     local covered, free, kappa = deposit_state(ctx, plan, f, d)
-    local blocked = f.danger or f.blocked or no_power
+    -- lot C3-BOUCLE : un gisement retenu par un plus grand compte comme couvert (comme un gisement interdit : il ne bloque pas l'ouverture
+    -- du grand) et ne reçoit aucun ordre
+    local small_by = held[tostring(f.id)]
+    if small_by and free > 0 and not Ca.taken(plan, key) then
+      refuse(ctx, key, "couvrir", item, "taille : le gisement plus grand " .. tostring(small_by) .. " n'est pas couvert")
+    end
+    local blocked = f.danger or f.blocked or no_power or small_by
     if not blocked then
       n_usable = n_usable + 1
       free_total = free_total + free
@@ -1681,7 +1726,7 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
       if free > 0 and kappa < Ca.KAPPA then all_covered = false end
       if kappa < kmin then kmin = kappa end
     end
-    if free > 0 and not Ca.taken(plan, key) then
+    if free > 0 and not small_by and not Ca.taken(plan, key) then
       local n, ahead = 0, false
       if def > Ca.EPS then
         n = math.min(free, n_need)
@@ -1755,12 +1800,22 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
     else why_open = "aucun gisement ouvert" end
   elseif #opened > 0 and Ri > 0 and life < Ca.H_LIFE then why_open = "epuisement en " .. fmt(life) .. " min"
   elseif #opened > 0 and reserve_low then why_open = "reserve de places basse" end
+  -- lot C3-BOUCLE : un gisement ouvert retenu par un SITE plus grand (pas encore ouvert) : ce site s'ouvre, sinon plus rien ne couvre ce minerai
+  if not why_open then
+    local site_id = {}
+    for _, f in ipairs(sites) do site_id[tostring(f.id)] = true end
+    for _, f in ipairs(opened) do
+      local by = held[tostring(f.id)]
+      if by and site_id[by] then why_open = "taille : gisement plus grand " .. by .. " a ouvrir" break end
+    end
+  end
   local any_site = false
-  for _, f in ipairs(sites) do if not (f.danger or f.blocked) then any_site = true end end
+  for _, f in ipairs(sites) do if not (f.danger or f.blocked or held[tostring(f.id)]) then any_site = true end end
   local evaluated, cheap_done = 0, false
   for _, f in ipairs(sites) do
     local key = "ouvrir:" .. tostring(f.id)
     local redundant, near_dep = false, nil
+    if held[tostring(f.id)] then goto next_site end -- lot C3-BOUCLE : un site plus petit n'est pas ouvert (ni compté évalué) avant le grand
     if not Ca.taken(plan, key) and not f.danger and not f.blocked then
       -- Lot GISEMENTS (DC 31/10 : « ils voulaient même faire un avant-poste de cuivre alors que le gisement est à côté ») : un
       -- gisement ouvert voisin du même minerai a des places : pas de site de plus, sauf s'il s'épuise (epuisement en N min).
@@ -1807,6 +1862,7 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
     elseif (f.danger or f.blocked) and not Ca.taken(plan, key) and why_open then
       refuse(ctx, key, "ouvrir", item, f.danger and "danger" or tostring(f.blocked))
     end
+    ::next_site::
   end
   if why_open and not any_site and not ctx.threat then ctx.explore[item] = why_open end
 end

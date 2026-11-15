@@ -58,6 +58,19 @@ V.SKIP_MAX = 16      -- lots écartés gardés au plus (les plus anciens sortent
 V.FIRST_TICKS = 18000 -- 5 min au plus (coordinateur, 15/11 : 10 -> 5) : une alimentation de centrale qui attend sa matière réserve AVANT les projets neufs (build.lua Build.alim_first)
 V.COOL_TICKS = 7200   -- 2 min : pause de la croissance après un refus du plan quand la demande nominale manque (au lieu de C.COOL, 10 min)
 
+--- Projet EXEMPTÉ de la priorité de matière d'une alimentation de centrale (build.lua Build.alim_first) ? sp = spec du projet, reopened =
+--- p.reopened (0 ou nil : neuf), plant = le projet est une centrale de l'équipe, monopoly = chantier entrepreneur (shared/team/entrepreneur.lua
+--- E.monopoly). Lot C3-BOUCLE (partie du DC 0.9.4, 15/11) : la bande que l'entrepreneur tient n'était PAS exemptée ; [FO-VAPEUR] « projet 39
+--- (alimentation de la centrale 24) attend sa matiere a 25.4 min » puis projet 56 à 38.8 min : la bande 30 (kit 235/236, 1 bras à fabriquer)
+--- et la bande 35 (kit complet à 38.9 min) restaient « reserve:vapeur » 5 min chacune, leurs manques effacés (p.missing = {} : le dernier
+--- bras jamais fabriqué), seule bande de champ en vol de l'équipe : 10 min sans pose sur 30. Le monopole est « jamais suspendu ».
+function V.exempt(sp, reopened, plant, monopoly)
+  sp = sp or {}
+  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.plant or plant then return true end
+  if reopened and reopened ~= 0 then return true end
+  return monopoly == true
+end
+
 --- Liste `cands` (éléments { k = clé du lot, ... }) sans les lots écartés encore valides à `tick` ; ordre gardé.
 function V.skip_lots(cands, skip, tick)
   if not skip then return cands end

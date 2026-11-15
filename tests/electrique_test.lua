@@ -231,6 +231,22 @@ local function suite(E)
     local _, s4 = E.refused_window({ { tick = 100, n = 2 } }, 100 + E.CFG.refused_ttl - 1)
     check(s4 == 2, "7d : juste avant le delai : compte")
   end
+  -- 8. Lot C3-BOUCLE : plus d'agrandissement thermique en bordure quand le reseau electrique existe (partie du DC 0.9.4)
+  do
+    -- fer a 21 min : 41 electriques posees mais aucune ne tourne, 0 poteau au stock (la regle globale rendait la thermique)
+    local fer = { el_live = 0, poles_stock = 0, obtainable = true, plants = 1, poles = true, healthy = true, res_live = 0, kind_outposts = 1 }
+    fer.extend, fer.net = true, true
+    check(E.thermal(fer) == false, "8a : agrandissement, reseau en place, aucune electrique qui tourne : thermique refusee")
+    -- charbon a 17,8 min : aucune electrique sur le charbon (res_live 0), centrale saine
+    local ch = { el_live = 19, obtainable = true, plants = 1, poles = true, healthy = true, res_live = 0, fuel = true, kind_outposts = 1, extend = true, net = true }
+    check(E.thermal(ch) == false, "8b : agrandissement du charbon, reseau en place : refusee")
+    ch.healthy = false
+    check(E.thermal(ch) == true, "8c : combustible d'une centrale a l'arret : permise (seule exception)")
+    local avant = { el_live = 0, poles_stock = 0, obtainable = true, plants = 1, poles = true, healthy = true, extend = true }
+    check(E.thermal(avant) == true, "8d : pas de reseau (aucune electrique posee) : regle d'avant, permise")
+    local batir = { el_live = 0, poles_stock = 0, obtainable = true, plants = 1, poles = true, healthy = true, net = true }
+    check(E.thermal(batir) == true, "8e : un avant-poste NEUF (pas un agrandissement) garde la regle d'avant")
+  end
   return failures - before
 end
 
@@ -349,6 +365,9 @@ local function mutate(from, to)
 end
 
 local mutants = {
+  { "thermal : C3 agrandissement en reseau ignore", "if s.extend and s.net and not (s.fuel and s.healthy == false) then", "if false then" },
+  { "thermal : C3 reseau ignore", "if s.extend and s.net and not (s.fuel and s.healthy == false) then", "if s.extend and not (s.fuel and s.healthy == false) then" },
+  { "thermal : C3 exception combustible supprimee", "if s.extend and s.net and not (s.fuel and s.healthy == false) then", "if s.extend and s.net then" },
   { "thermal : interblocage sans avant-poste rendu (CHARBON-JOUEUR)", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if false then" },
   { "thermal : sans avant-poste, voie electrique ignoree", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if num(s.kind_outposts) == 0 then" },
   { "thermal : avant-postes ignores", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if s.elec_path == false then" },

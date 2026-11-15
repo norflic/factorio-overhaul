@@ -110,6 +110,16 @@ check(not body:find("sp.site", 1, true), "les sites (bandes de champ, lignes, ma
 check(body:find("p.missing = {}", 1, true) ~= nil, "un projet retenu ne fait plus fabriquer ses manques")
 check(bsrc:find("if Build.alim_first(f, p, tick) then return true end", 1, true) ~= nil, "branchee dans Build.reserve_suspended")
 
+print("== 6 bis. C3-BOUCLE : la bande de l'entrepreneur n'est jamais retenue par l'alimentation (V.exempt)")
+check(type(V.exempt) == "function", "V.exempt existe")
+if type(V.exempt) == "function" then
+  check(V.exempt({ champ = { pr = 18 }, site = true }, 0, false, true) == true, "bande entrepreneur (monopole), neuve : exemptee")
+  check(V.exempt({ champ = { pr = -55 }, site = true }, 0, false, false) == false, "bande ordinaire neuve : retenue (banc VAPEUR-5 garde)")
+  check(V.exempt({ champ = { pr = 2 } }, nil, false, nil) == false, "sans monopole lu : retenue")
+  check(V.exempt({ alim = 24 }, 0, false, false) and V.exempt({}, 3, false, false) and V.exempt({}, 0, true, false), "alimentation, reconstruction, centrale : exemptees")
+end
+check(bsrc:find("Build.Vap.exempt(sp, p.reopened, plant, Ent.monopoly(sp))", 1, true) ~= nil, "alim_first lit le monopole de l'entrepreneur")
+
 print("== 7. Matiere premiere disputee (gel cible)")
 local REC = { belt = { "gear", "plate" }, gear = { "plate" }, plate = { "ore" }, furnace = { "stone" }, drill = { "gear", "circuit" },
   circuit = { "cable", "plate" }, cable = { "copper" }, loop = { "loop" } }
