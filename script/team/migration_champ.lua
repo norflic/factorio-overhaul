@@ -2260,7 +2260,32 @@ local function ent_inflight(f)
     -- (entrepreneur-craft-0716 : bande d'une plaque seulement ; lot EXPO : ni close, ni en pose laissée aux PNJ)
     if p and not Ent.closed(p.state) and not (p.spec and p.spec.ent_pose) and x.item and plate[x.item] then inflight[#inflight + 1] = x end
   end
-  return inflight
+  -- lot EXPO : réseaux du charbon (spec.champ.coal) des bandes de plaques, en tête quand leur bande (même avant-poste, même rang) est posée ou
+  -- en pose (Ent.feed_first)
+  local list, bands = {}, {}
+  local b = f.build
+  for _, pid in ipairs(sorted_keys(b.projects)) do
+    local q = b.projects[pid]
+    local cs = q and q.spec and q.spec.champ
+    if cs and cs.coal == nil and cs.link == nil and cs.pr ~= nil then
+      local posed = q.state == "fini" or (q.spec.ent_pose == true) or not (Ent.closed(q.state) or q.state == "plan" or q.state == "attente" or q.state == "reserve")
+      if posed then bands[tostring(cs.oid) .. ":" .. tostring(cs.pr)] = true end
+    end
+  end
+  for _, pid in ipairs(sorted_keys(b.projects)) do
+    local q = b.projects[pid]
+    local cs = q and q.spec and q.spec.champ
+    if cs and cs.coal ~= nil and not Ent.closed(q.state) and not q.spec.ent_pose then
+      local o = Champ.target(f, cs.oid)
+      local tk = o and T.outposts[o.kind]
+      local item = tk and tk.product
+      if item and plate[item] then
+        list[#list + 1] = { pid = pid, oid = cs.oid, item = item, net = true, ready = bands[tostring(cs.oid) .. ":" .. tostring(cs.pr)] == true }
+      end
+    end
+  end
+  for _, x in ipairs(inflight) do list[#list + 1] = x end
+  return Ent.feed_first(list)
 end
 
 --- CHANTIER 4 : champs retenus par les ordres Maj+A vivants (o.band_fid, script/gui/commande.lua) : { [oid] = vrai } et leur nombre.

@@ -236,6 +236,24 @@ function E.closed(state)
   return state == nil or state == "fini" or state == "refuse"
 end
 
+--- Lot EXPO (chantier 2 du DC, point 2 : le goulot d'abord) : une bande de fours POSÉE (ou en pose) sans son réseau du charbon (projet à part,
+--- lot FONDERIE : spec.champ.coal) ne fond rien. Mesuré au banc expo-1 (votre équipe, 67 min) : 18 fours de bande sans combustible, 9 projets
+--- « reserve:materiaux », alors que l'entrepreneur enchaînait les bandes. Ordre des projets que l'entrepreneur peut prendre : d'abord les
+--- réseaux du charbon PRÊTS (leur bande est posée ou en pose : x.net et x.ready), puis les bandes, dans l'ordre donné ; un réseau dont la bande
+--- n'est pas encore posée attend (il n'est pas rendu). list = { { pid, oid, item, net, ready } } ; rend une liste neuve.
+function E.feed_first(list)
+  local head, tail = {}, {}
+  for _, x in ipairs(list or {}) do
+    if x.net then
+      if x.ready then head[#head + 1] = x end
+    else
+      tail[#tail + 1] = x
+    end
+  end
+  for _, x in ipairs(tail) do head[#head + 1] = x end
+  return head
+end
+
 --- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets
 --- qui réparent (rouverts : front[id] vrai). order = liste de numéros, pid = la bande, front = { [id] = vrai }. Rend une liste neuve.
 function E.order_front(order, pid, front)

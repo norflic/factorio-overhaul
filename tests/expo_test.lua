@@ -81,6 +81,21 @@ do
   check(nh2 == 0 and old:find("x ~= st.band_key and not held[k]", 1, true) == nil, "mutant sans garde : détecté")
 end
 
+-- §4 réseau du charbon d'une bande posée d'abord
+do
+  local list = {
+    { pid = 4, net = true, ready = false }, { pid = 6, net = true, ready = true }, { pid = 2 }, { pid = 9 }, { pid = 11, net = true, ready = true },
+  }
+  local function ids(l) local t = {} for _, x in ipairs(l) do t[#t + 1] = tostring(x.pid) end return table.concat(t, ",") end
+  check(ids(E.feed_first(list)) == "6,11,2,9", "réseaux prêts en tête, réseau sans bande posée écarté, bandes ensuite (" .. ids(E.feed_first(list)) .. ")")
+  check(#E.feed_first(nil) == 0, "liste absente : vide")
+  local old = function(l) local o = {} for _, x in ipairs(l) do if not x.net then o[#o + 1] = x end end return o end
+  check(ids(old(list)) ~= "6,11,2,9", "mutant 0.9.7 (bandes seules) : détecté")
+  local src = read("script/team/migration_champ.lua")
+  check(src:find("return Ent.feed_first(list)", 1, true) ~= nil, "ent_inflight câblé sur Ent.feed_first")
+  check(src:find("ready = bands[tostring(cs.oid) .. \":\" .. tostring(cs.pr)] == true", 1, true) ~= nil, "réseau prêt = sa bande (avant-poste, rang) posée ou en pose")
+end
+
 -- §5 seuil lu dans les recettes : une bande en vol payable sur une période s'attache sous le débit minimal
 do
   local m = E.CFG.debit_min
