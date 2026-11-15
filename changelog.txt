@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.125
+Date: 2026-11-15
+  Bugfixes:
+    - IA (centrale) : la priorité de matière à l'alimentation au charbon d'une centrale exemptait tous les projets « site » (bandes du champ, lignes, mall), si bien qu'elle ne se déclenchait jamais pour l'équipe du joueur ; les sites ne sont plus exemptés, et seuls les projets qui prendraient la matière qui manque encore à l'alimentation attendent, 5 min au plus. Une centrale rouverte figée compte pour l'extension (plus de blocage « aucune centrale finie »). Banc 30 min, 2 graines, contre 0.7.122 : centrale du joueur nourrie par foreuses à 12,2 et 8,5 min (22,1 et 10,4 avant), joueur +9,1 %, toutes équipes +0,6 %.
+    - IA (reconstruction) : un poteau détruit qu'on ne peut pas refaire (matière manquante, ex. acier) est remplacé par le meilleur poteau fabricable et des relais du même modèle quand son fil ne rejoint pas les voisins d'un coup ; au banc, site du pétrole rebranché en 2 min. Non-régression identique à la référence sur 2 graines.
+  Known issues:
+    - Les poteaux d'un chantier en cours (pas une reconstruction) ne profitent pas encore du repli.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.124
 Date: 2026-11-15
   Bugfixes:

@@ -10,6 +10,11 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 04 h 25 : version 0.7.125 (alimentation de la centrale, poteau de repli)
+
+- **F697 · VALIDÉ · DÉPLOYÉ 0.7.125** `Build.alim_first` exemptait `spec.site` (bandes, lignes, mall) : chez le joueur tous les projets neufs sont de ce type, la priorité ne se déclenchait jamais. Non-exemption + gel ciblé (matière première manquante à l'alimentation, lue dans les recettes, 5 min) + centrale rouverte figée comptée. Bancs `2026-11-15_VAPG22-*` (gel ciblé sur v0.7.122) et `VAPSG-*` (sans gel) contre `REF0722-30-*` : total 95 105 → 95 678 / 94 941, joueur 15 499 → 16 902 / 16 490 ; le −5,4 % vu plus tôt venait de la base (C0721 → v0.7.122 : −4,1 %).
+- **F698 · VALIDÉ · DÉPLOYÉ 0.7.125** `Rc.pick_chain` / `Rc.chain_points` (shared/team/reconstruction.lua) : poteau de repli + relais (≤ 6) quand aucun poteau fabricable n'a le fil pour rejoindre les voisins. Scénario `poteau-repli` (`2026-11-15_REPLI-coupe`) : azure repli à 42,1 min, reposé à 44,1, usine rebranchée ; emerald reposé à 45,2 (plastique 142 → 308). Non-régression 30 min identique à REF0722 (1618033988, 271828182). content 621 OK.
+
 ## 2026-11-15, 03 h 50 : version 0.7.124 (charbon du coffre du QG)
 
 - **F696 · VALIDÉ · DÉPLOYÉ 0.7.124** Diagnostic du lot cuivre (journal [FO-CUIVRE]) : le fer et le cuivre se disputent le charbon du coffre du QG ; le kit du fer met tout le charbon à 0 sans réunir ses 80, le cuivre ne voit jamais ses 30. Sur REF0722 le manque existe encore (factions 6-12 min sur 15, joueur 14-15) alors que [FO-CHARBON-DIM] répond « offre suffisante » 18-29 min sur 30 : l'offre n'était comparée qu'aux brûleurs posés. `P.hq_coal_min()` (combustible d'un kit, lu dans les kits) dans `shared/team/planner.lua` + charbon du kit non confisqué (`want_outpost`). Archives `2026-11-15_CHARBONQG-1-123456789`, `-2-271828182` contre `REF0722-30-*` : 47 612 → 64 613, 47 493 → 53 459 ; joueur 11 357 → 16 917, 4 142 → 8 849. content 621 OK.
