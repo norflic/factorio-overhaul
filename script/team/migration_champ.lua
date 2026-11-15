@@ -907,7 +907,15 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   for _, k in ipairs(st.stopped or {}) do bad[k] = true end -- lot AZURE : bandes parquées (réserve définitive), jamais relancées
   local product = T.outposts[o.kind].product
   local pr
-  for _, x in ipairs(st.order) do
+  -- lot C3C : gisement voulu par un ordre Maj+A vivant (o.band_fid) : la bande du cadre la plus proche de la zone de l'ordre d'abord (Mg.near_order)
+  local seq = st.order
+  for _, od in ipairs(f.team and f.team.commande and f.team.commande.orders or {}) do
+    if od.kind == "gisement" and od.band_fid == o.id and not od.t_fin and od.x and od.y then
+      seq = Mg.near_order(st.order, st.frame and st.frame.axis, od)
+      break
+    end
+  end
+  for _, x in ipairs(seq) do
     if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[tostring(x)]) then pr = x end
   end
   if not pr and st.prot then

@@ -440,4 +440,39 @@ function M.plant_head(list)
   return nil
 end
 
+
+--- Lot C3C (banc C4B-preemption : ordre Maj+A visant (44, -36), le champ 100001 prenait la bande -13 vers x = 108..159, pose dans la
+--- zone seulement à +1 395 s) : ordre des bandes d'un cadre quand le gisement est voulu par un ordre du joueur. prs = ordre du cadre
+--- (numéros de bande = coordonnée en travers de l'axe, début de la bande), axis = axe du cadre ("x" : bandes le long de x, en travers = y),
+--- od = { x, y, r } (centre et rayon de l'ordre). Le pas des bandes est lu sur l'ordre lui-même (plus petit écart entre deux numéros).
+--- Rend une NOUVELLE liste : bandes qui coupent le cercle d'abord, puis la plus proche du centre en travers, puis l'ordre du cadre.
+function M.near_order(prs, axis, od)
+  local out = {}
+  if not (od and od.x and od.y) then for i, x in ipairs(prs or {}) do out[i] = x end return out end
+  local sorted = {}
+  for i, x in ipairs(prs or {}) do sorted[i] = x end
+  table.sort(sorted)
+  local pitch
+  for i = 2, #sorted do
+    local d = sorted[i] - sorted[i - 1]
+    if d > 0 and (pitch == nil or d < pitch) then pitch = d end
+  end
+  pitch = pitch or 0
+  local c = (axis == "x") and od.y or od.x
+  local rank = {}
+  for i, x in ipairs(prs or {}) do
+    local mid = x + pitch / 2
+    -- (à pas égal, la distance du milieu de bande au centre range d'elle-même d'abord les bandes qui coupent le cercle : une bande
+    -- [x, x + pitch) touche [c - r, c + r] si et seulement si |milieu - c| <= r + pitch / 2)
+    rank[x] = { d = math.abs(mid - c), i = i }
+    out[#out + 1] = x
+  end
+  table.sort(out, function(a, b)
+    local ra, rb = rank[a], rank[b]
+    if ra.d ~= rb.d then return ra.d < rb.d end
+    return ra.i < rb.i
+  end)
+  return out
+end
+
 return M
