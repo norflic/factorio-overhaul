@@ -31,6 +31,26 @@ do
   for _, m in ipairs(o) do if ty[m.id] == furn then nf = nf + 1 else nb = nb + 1 end end
   check(#o == 600 and nf == 60 and nb == 540, "part par rang : 60 fours gardés, 540 tapis (" .. nf .. "/" .. nb .. ")")
 end
+-- majz-0716 : les pièces d'une zone Maj + Z (fours aux numéros 741-760) entrent toutes au relevé, avant les parts des rangs
+do
+  local big, ty = {}, {}
+  for id = 1, 700 do big[#big + 1] = { id = id }; ty[id] = belt end
+  for id = 701, 760 do big[#big + 1] = { id = id }; ty[id] = furn end
+  local z = function(m) return m.id > 740 end
+  local o = AC.order(big, function(m) return ty[m.id] end, 30, z)
+  local nz = 0
+  for _, m in ipairs(o) do if m.id > 740 then nz = nz + 1 end end
+  check(#o == 30 and nz == 20, "zone d'abord : les 20 fours de la zone dans un relevé de 30 (" .. nz .. ")")
+  local o2 = AC.order(big, function(m) return ty[m.id] end, 10, z)
+  local all = true
+  for _, m in ipairs(o2) do if m.id <= 740 then all = false end end
+  check(#o2 == 10 and all, "borne plus petite que la zone : seulement des pièces de la zone")
+  local o3 = AC.order(big, function(m) return ty[m.id] end, 600)
+  local o4 = AC.order(big, function(m) return ty[m.id] end, 600, function() return false end)
+  local same = #o3 == #o4
+  for i = 1, #o3 do if o3[i].id ~= o4[i].id then same = false end end
+  check(same, "sans zone : relevé inchangé")
+end
 local w = AC.kit_want({ b = 30, a = 2 }, { a = 1, b = 4 }, 12)
 check(#w == 2 and w[1][1] == "a" and w[1][2] == 1 and w[2][1] == "b" and w[2][2] == 8, "quota de kit borné et trié")
 check(#AC.kit_want({ a = 3 }, { a = 5 }) == 0, "kit déjà au stock : rien à fabriquer")

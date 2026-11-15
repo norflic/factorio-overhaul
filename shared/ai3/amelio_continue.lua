@@ -14,6 +14,8 @@ local AC = {}
 AC.MAX_SCAN = 600 -- pièces au plus dans le relevé d'une pensée (borne N)
 AC.KIT_CAP = 12   -- objets cibles fabriqués d'avance au plus (un lot de Cap.REPLACE_BATCH)
 AC.LOGS = 30      -- lignes [FO-AMELIO-CONTINUE] au plus par équipe
+AC.ZONE_KIT = 40  -- majz-0716 : pièces d'une zone Maj + Z servies par un même kit (réserve et quota élargis)
+AC.ZONE_PRIO = 15 -- majz-0716 : priorité de plus pour le kit d'une zone Maj + Z
 
 --- Rang de priorité d'un type du moteur (1 = d'abord) ; un type absent passe après tous.
 function AC.rank(t)
@@ -24,22 +26,31 @@ end
 --- Lot TIERS-MACHINES : chaque rang PRÉSENT a d'abord sa part (⌊n ÷ rangs présents⌋ pièces), le reste va par priorité. Mesuré
 --- (banc DC60-cand0715, azure) : 600 tapis à 30,8 min remplissaient seuls le relevé, les 55 fours en pierre et les 81 foreuses en sortaient,
 --- leur remplacement ne pouvait plus être décidé. La priorité tapis -> foreuses -> fours reste celle du choix (engagement, scores).
-function AC.order(list, type_of, n)
+--- majz-0716 : `first(entry)` (facultatif) vrai pour une pièce d'une ZONE D'AMÉLIORATION PRIORITAIRE du joueur (Maj + Z) : ces pièces entrent
+--- TOUTES au relevé avant les parts des rangs (dans la borne n) ; sans elles, 600 tapis du reste de la base pouvaient en sortir les pièces
+--- de la zone, que le choix (groupe « z| », rang 0) ne voyait alors jamais.
+function AC.order(list, type_of, n, first)
   local keyed = {}
-  for i, m in ipairs(list or {}) do keyed[i] = { m = m, r = AC.rank(type_of(m)), id = m.id or 0 } end
+  for i, m in ipairs(list or {}) do keyed[i] = { m = m, r = AC.rank(type_of(m)), id = m.id or 0, z = (first and first(m)) and 0 or 1 } end
   table.sort(keyed, function(a, b)
+    if a.z ~= b.z then return a.z < b.z end
     if a.r ~= b.r then return a.r < b.r end
     return a.id < b.id
   end)
   n = n or AC.MAX_SCAN
-  local ranks, by = {}, {}
-  for _, k in ipairs(keyed) do
-    if not by[k.r] then by[k.r] = 0; ranks[#ranks + 1] = k.r end
-  end
-  local quota = #ranks > 0 and math.floor(n / #ranks) or 0
   local taken, picked, total = {}, {}, 0
+  for i, k in ipairs(keyed) do -- la zone d'abord (ordre du tri)
+    if k.z == 0 and total < n then taken[i] = true; total = total + 1 end
+  end
+  local ranks, by = {}, {}
+  for i, k in ipairs(keyed) do
+    if not taken[i] and not by[k.r] then by[k.r] = 0; ranks[#ranks + 1] = k.r end
+  end
+  local quota = #ranks > 0 and math.floor((n - total) / #ranks) or 0
   for i, k in ipairs(keyed) do -- part de chaque rang (ordre du tri : rang, puis numéro)
+    if taken[i] then goto continue end
     if by[k.r] < quota and total < n then by[k.r] = by[k.r] + 1; taken[i] = true; total = total + 1 end
+    ::continue::
   end
   for i = 1, #keyed do -- le reste, par priorité
     if total >= n then break end

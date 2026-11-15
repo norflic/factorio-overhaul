@@ -301,7 +301,10 @@ local function scan_machines(f)
   local keep = {}
   local pre = {}
   for _, id in ipairs(sorted_keys(ents)) do pre[#pre + 1] = { id = id } end
-  for _, m in ipairs(AC.order(pre, function(m) return ents[m.id].type end, AC.MAX_SCAN)) do keep[m.id] = true end
+  -- majz-0716 : les pièces d'une zone Maj + Z entrent toutes au relevé avant les parts des rangs (AC.order, `first`).
+  local zl = Co.upgrade_zones(f.team and f.team.commande)
+  local zfirst = #zl > 0 and function(m) local p = ents[m.id].position return Co.upgrade_rank(zl, p.x, p.y) == 0 end or nil
+  for _, m in ipairs(AC.order(pre, function(m) return ents[m.id].type end, AC.MAX_SCAN, zfirst)) do keep[m.id] = true end
   for _, id in ipairs(sorted_keys(ents)) do
     if not keep[id] then ents[id], refs[id], blocks[id], slots[id] = nil, nil, nil, nil end
   end
@@ -670,6 +673,17 @@ function Capital.log_centre(f, c, d, tick)
   end
 end
 
+--- majz-0716 : réserve d'un remplacement d'une zone Maj + Z : jusqu'à AC.ZONE_KIT pièces du groupe (au lieu de Cap.REPLACE_BATCH), pour que
+--- le kit soit fabriqué pour la zone entière et payé dès qu'il est au stock. nil hors zone (règle d'avant : Cap.pool).
+local function zone_pool(d)
+  if not (d and d.zone and d.members and d.ids) then return nil end
+  local pn = math.max(#d.ids, math.min(AC.ZONE_KIT, #d.members))
+  if pn <= #d.ids then return nil end
+  local out = {}
+  for i, m in ipairs(Am.first_n(d.members, pn)) do out[i] = m.id end
+  return out
+end
+
 --- But « amélioration » de la pensée (nil : aucun, ou éteint). w = poids des familles (B.weights).
 function Capital.goal(f, view, book, tick, w)
   if not Capital.any_on() then
@@ -804,10 +818,10 @@ function Capital.goal(f, view, book, tick, w)
   local prev = c.current and c.current.key or nil
   -- Lot TIERS : remplacement de côté (Cap.side_of), numéros seulement (rien du relevé ne va dans global).
   local sd = d.side
-  c.side = sd and { key = sd.key, ids = { table.unpack(sd.ids) }, pool = Cap.pool(sd),
+  c.side = sd and { key = sd.key, ids = { table.unpack(sd.ids) }, pool = zone_pool(sd) or Cap.pool(sd), zone = sd.zone or nil,
     replace = { from = sd.replace.from, to = sd.replace.to, n = sd.replace.n, group = sd.replace.group } } or nil
   local sp = d.side_pf -- lot TIERS-MACHINES : seconde voie de côté (fours : Cap.side_pf_of)
-  c.side_pf = sp and { key = sp.key, ids = { table.unpack(sp.ids) }, pool = Cap.pool(sp),
+  c.side_pf = sp and { key = sp.key, ids = { table.unpack(sp.ids) }, pool = zone_pool(sp) or Cap.pool(sp), zone = sp.zone or nil,
     replace = { from = sp.replace.from, to = sp.replace.to, n = sp.replace.n, group = sp.replace.group } } or nil
   if d.none then
     c.current = nil
@@ -826,7 +840,7 @@ function Capital.goal(f, view, book, tick, w)
       ids = {}
       for i, v in ipairs(d.ids) do ids[i] = v end
     end
-    local pool = d.replace and Cap.pool(d) or nil -- lot TIERS : réserve du lot (numéros seulement : rien du relevé ne va dans global)
+    local pool = d.replace and (zone_pool(d) or Cap.pool(d)) or nil -- lot TIERS : réserve du lot (numéros seulement : rien du relevé ne va dans global) ; majz-0716 : zone Maj + Z, réserve élargie
     local unit = nil
     if d.unit then
       unit = {}
@@ -835,7 +849,8 @@ function Capital.goal(f, view, book, tick, w)
     c.current = { key = d.key, id = d.id, family = d.family, from = d.from, to = d.to, build = d.build or nil,
       center = d.center or nil, value = d.value, work = d.work, score = d.score, cost = cost, ids = ids,
       bloc = d.bloc, n = d.n, unit = unit, bloc_low = d.bloc_low, pool = pool,
-      replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n, group = d.replace.group } or nil }
+      replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n, group = d.replace.group } or nil,
+      zone = d.zone or nil } -- majz-0716 : remplacement dans une zone Maj + Z (lu par continu_track : kit pour toute la zone)
     if d.key ~= prev then
       c.decisions = (c.decisions or 0) + 1
       -- Dépliage du coût par le graphe du cerveau général (le même que pour la recherche) : ce que la faction fabriquera
@@ -1350,7 +1365,8 @@ local function continu_track(f, c, d, side, surface, book, free, tick, hold)
   -- sur les seules pièces payables à la décision (d.ids : souvent 1, stock vide).
   local pool = (d.pool and #d.pool > #(d.ids or {})) and d.pool or (d.ids or {})
   local n = #pool
-  local want = AC.kit_want({ [item] = n }, { [item] = have })
+  local zone = d.zone and true or false -- majz-0716 : zone Maj + Z du joueur
+  local want = AC.kit_want({ [item] = n }, { [item] = have }, zone and AC.ZONE_KIT or nil)
   local queued = 0
   if want[1] and book and book:handcraftable(item) then
     local avail = {}
@@ -1358,19 +1374,20 @@ local function continu_track(f, c, d, side, surface, book, free, tick, hold)
     -- 30 kits émis et jamais pris, tapis du rang 1 réservés aux projets) ; le kit se fabrique alors depuis les plaques.
     local reg = f.team and f.team.reg
     for _, k in ipairs(sorted_keys(free)) do
-      avail[k] = reg and math.min(free[k], math.max(0, Reg.free(reg, k))) or free[k]
+      -- majz-0716 : le kit d'une zone Maj + Z passe devant les réservations du registre (ordre du joueur), sur le stock libre
+      avail[k] = (reg and not zone) and math.min(free[k], math.max(0, Reg.free(reg, k))) or free[k]
     end
     avail[item] = 0
     local m, q = Bm.best(book, item, want[1][2], avail)
     if m > 0 then
       local uses = {}
       for _, k in ipairs(sorted_keys(q.uses)) do uses[#uses + 1] = { k, q.uses[k] } end
-      queued = Board.add(f, { { key = "craft:" .. item .. ":amelio", kind = "craft", prio = T.swap.prio, item = item, count = m,
+      queued = Board.add(f, { { key = "craft:" .. item .. ":amelio", kind = "craft", prio = T.swap.prio + (zone and AC.ZONE_PRIO or 0), item = item, count = m,
         steps = q.crafts, uses = uses, tag = "amelio" } }, tick) or 0
     end
   end
   local done, why = 0, nil
-  if have >= 1 and AC.pile_permits(hold, have) then
+  if have >= 1 and (zone or AC.pile_permits(hold, have)) then
     done, why = pay_replace(f, c, { ids = pool, replace = d.replace }, tick, math.min(have, n))
     if done > 0 then
       c.upgrades = (c.upgrades or 0) + done
@@ -1382,7 +1399,7 @@ local function continu_track(f, c, d, side, surface, book, free, tick, hold)
   if (done > 0 or (queued or 0) > 0 or why) and AC.log_ok(st) then
     log(string.format("[FO-AMELIO-CONTINUE] %s : %s -> %s | lot %d | kit %d au stock, %d en fabrication | remplacees %d%s | pile %s%s a %.1f min",
       f.key or "player", d.replace.from, d.replace.to, n, have, tonumber(queued) or 0, done, why and (" | refus " .. tostring(why)) or "",
-      hold and "retenue" or "libre", side == "pf" and " | voie des fours" or (side and " | de cote" or ""), minutes(f, tick)))
+      hold and "retenue" or "libre", (side == "pf" and " | voie des fours" or (side and " | de cote" or "")) .. (zone and " | zone Maj+Z" or ""), minutes(f, tick)))
   end
   return done
 end
