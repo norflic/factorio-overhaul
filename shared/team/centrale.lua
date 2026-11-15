@@ -64,6 +64,16 @@ function C.observe(st, power, capacity)
   return st.saturated
 end
 
+--- Lot ENERGIE-0916 (verrou de survie, ordre du DC du 15/11 : « ne dépense jamais une plaque dans des convoyeurs rouges, fours en acier ou
+--- usines secondaires » pendant un déficit électrique) : les améliorations (shared/ai3/amelioration.lua, payées par Capital.pay et
+--- Capital.continu) attendent tant que la centrale est SATURÉE (production >= C.SAT de la capacité pendant C.SAT_CHECKS relevés, sortie
+--- sous C.SAT_EXIT : C.observe) ou que ses chaudières sont à sec (`dry`, Sante.coal_short). g : f.build.grow. Rend vrai et la cause, ou faux.
+function C.survie(g, dry)
+  if dry then return true, "energie:chaudieres a sec" end
+  if g and g.saturated then return true, "energie:centrale saturee" end
+  return false, nil
+end
+
 --- Lot TV-ENERGIE (G65) : l'équipe est-elle en CRISE d'énergie ? Deux causes : la centrale est PERDUE (n.lost : machines détruites, Cv.lost) ;
 --- ou la saturation dure depuis C.HOLD_PASS relevés PENDANT le repli de l'équipe (crise de matière : n.hold, les réserves sont affamées, un
 --- champ entier ne se réunirait pas). Rend vrai/faux et la cause ("perte" | "repli" | nil).

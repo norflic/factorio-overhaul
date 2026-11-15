@@ -39,6 +39,8 @@ local Rappel = require("script.team.rappel_urgent") -- lot COLLECTE : rappel d'u
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local PlacesQG = require("script.ai3.places_qg") -- lot DECOUPLAGE : Q.on_resource (tourelles de départ hors des ressources)
 local Pl = require("shared.ai3.places") -- lot TOURELLES-MINERAI : place recalée sur la grille de la tourelle (Pl.snap)
+local Centrale = require("shared.team.centrale") -- lot ENERGIE-0916 : verrou de survie des améliorations (C.survie)
+local SanteC = require("script.team.sante_centrale") -- lot ENERGIE-0916 : chaudières à sec (Sante.coal_short)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
 local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qui dorment et des brûleurs vitaux à sec
@@ -1300,7 +1302,13 @@ TT.e6 = function(f, surface, tick, et)
   -- Lot AGES : le gel du centre n'est pas indéfini (shared/team/degel.lua) : au-delà de 20 min de gel cumulées, et la défense minimale du QG
   -- tenue, le centre (lui seul) se paie avec le stock moins la réserve de la reconstruction (SANS-GEL).
   local thaw = ia3 and (pile_hold or recon_hold) and Ia3.capital_thaw(f, true, tick)
-  if ia3 and not (pile_hold or recon_hold) then
+  -- Lot ENERGIE-0916 : verrou de survie : aucune amélioration payée (ni le centre au dégel, ni le remplacement continu) tant que la centrale
+  -- est saturée ou à sec ; la matière reste à l'énergie et au charbon (shared/team/centrale.lua, C.survie)
+  local energie_hold, energie_why = false, nil
+  if ia3 then energie_hold, energie_why = Centrale.survie(f.build and f.build.grow, f.build ~= nil and SanteC.coal_short(f)) end
+  if energie_hold then
+    Ia3.capital_attente(f, energie_why, tick)
+  elseif ia3 and not (pile_hold or recon_hold) then
     Ia3.capital_thaw(f, false, tick)
     Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))
   elseif ia3 then
@@ -1315,7 +1323,7 @@ TT.e6 = function(f, surface, tick, et)
     end
   end
   -- Lot AMELIO-CONTINUE (DC 14/11) : kit du remplacement décidé fabriqué d'avance, payé dès qu'il est au stock (pile retenue ou non).
-  if ia3 then Ia3.capital_continu(f, surface, book_for(f), stock, tick, (pile_hold or recon_hold) and true or false) end
+  if ia3 and not energie_hold then Ia3.capital_continu(f, surface, book_for(f), stock, tick, (pile_hold or recon_hold) and true or false) end
   if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
   Profiler.fstop("tt:capital")
   Profiler.fstart("tt:fin")

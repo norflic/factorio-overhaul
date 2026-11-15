@@ -63,6 +63,8 @@ local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles
 local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG avant un module neuf (règle pure)
 local Ic = require("shared.team.ilots_croissance") -- lot C3 EXTENSION : le treillis grandit au-delà du mur, en îlots défendus (règles pures)
 local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (tapis par relais, refus de l'alimentation)
+local EvC = require("shared.team.eviction_charbon") -- lot ENERGIE-0916 : l'alimentation d'une centrale passe avant l'avant-poste de combustible (règle pure)
+local EvRt = require("script.team.eviction_charbon") -- lot ENERGIE-0916 : retrait des foreuses et coffres d'avant-poste du lot
 local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-CENTRALE : coffre de la centrale en urgence, foreuses de la centrale (règles pures)
 local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pures de la centrale lointaine (D-24)
 local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors du treillis, ligne de poteaux
@@ -1202,7 +1204,12 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
     -- lot AGENCEMENT : `opts.cache` (scan_cache) garde les relevés d'un lot entre deux tailles essayées
     local masks, ores = lot_scan(f, surface, c, rect, res, opts and opts.cache)
-    local fopts = { free = masks.free, res = masks.res, toward = toward, margin = (opts and opts.margin) or 1 }
+    local free = masks.free
+    if opts and opts.free_also then -- lot ENERGIE-0916 : essai à blanc d'une éviction, tuiles des entités d'avant-poste comptées libres
+      local fa, mf = opts.free_also, masks.free
+      free = function(tx, ty) if fa[P.tkey(tx, ty)] then return true end return mf(tx, ty) end
+    end
+    local fopts = { free = free, res = masks.res, toward = toward, margin = (opts and opts.margin) or 1 }
     -- lot FONDERIES : la tête d'alimentation regarde le gisement (shared/team/plan.lua, P.fit)
     if opts and opts.head_toward then fopts.head_toward = opts.head_toward end
     -- lot AGENCEMENT : couverture visée des foreuses (80 % d'abord) et bras de sortie par quai (P.fit : place du second bras)
@@ -2516,16 +2523,47 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   if p.spec and p.spec.paires then top = math.max(1, math.min(top, p.spec.paires)) end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
   local cfg = T.ligne or {}
   local cache, picked, pg = scan_cache(f), nil, nil -- pg : le gabarit NON tourné posé (lot FONDERIE-DYNAMIQUE : paires de foreuses)
-  for _, at in ipairs(Rg.attempts(top, top, { high = cfg.cover })) do
-    local nn = at.n
-    local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
-    if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
-    if g then
-      place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
-        { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
-          within = p.spec and p.spec.degel and p.spec.degel.zone or nil, skip = p.spec and p.spec.alim and b.alim_skip or nil })
-      if place then picked, pg = at, g break end
+  local function try_lots(free_also)
+    for _, at in ipairs(Rg.attempts(top, top, { high = cfg.cover })) do
+      local nn = at.n
+      local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
+      if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
+      if g then
+        place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
+          { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
+            within = p.spec and p.spec.degel and p.spec.degel.zone or nil, skip = p.spec and p.spec.alim and b.alim_skip or nil, free_also = free_also })
+        if place then picked, pg = at, g return end
+      end
     end
+  end
+  try_lots()
+  -- Lot ENERGIE-0916 (partie du DC en 0.9.2 : 5 centrales sur 6 nourries à la main, refus « foreuses : minerai » ; banc DIAG-ENERGIE : le lot
+  -- de charbon le plus proche pris à 94 % par l'avant-poste de combustible) : l'alimentation d'une centrale passe AVANT l'avant-poste. Les
+  -- foreuses et coffres d'avant-poste du premier lot candidat où la ligne TIENT une fois ces tuiles libres (essai à blanc d'abord : un lot trop
+  -- pauvre en minerai n'est jamais vidé pour rien) sont retirés au stock, puis les lots sont relus (une fois par projet).
+  if not place and p.spec and p.spec.alim and EvC.wanted({ alim = true, why = why, done = p.evicted }) then
+    p.evicted = true
+    local why0, tried = why, 0
+    for _, c in ipairs(candidates(b, { gisement = true }, { x = a.x, y = a.y }, item)) do
+      local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
+      local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+      local tiles, nt = EvRt.tiles(f, item, rect, P.tkey)
+      if nt > 0 then
+        tried = tried + 1
+        cache = {}
+        try_lots(tiles)
+        local fits = place ~= nil
+        place, picked, pg, why = nil, nil, nil, why0
+        if fits then
+          EvRt.lot(f, item, rect, p, game.tick)
+          cache = {} -- (les relevés d'avant l'éviction sont périmés)
+          try_lots()
+          break
+        end
+        if tried >= EvC.MAX_LOTS then break end
+      end
+    end
+    if not place and tried > 0 then EvRt.vain(f, p, tried, game.tick) end
   end
   if not place then
     -- Lot GISEMENTS (« tapis des foreuses (minerai) », 1 144 refus au journal du DC) : dernier essai, une paire en bord de gisement ; le
@@ -5495,11 +5533,11 @@ local function charbon_step(f, tick)
     if alim and (alim.state == "refuse" or (alim.state == "bloque" and not alim.retry_at)) then
       -- refus du plan (pas de gisement à portée, pas de tracé) ou chantier abandonné : pause, puis nouvel essai
       local why = tostring(alim.reason)
-      Cc.refused(st, tick, alim.cv_grew)
+      Cc.refused(st, tick, alim.cv_grew, Sante.coal_short(f)) -- (lot ENERGIE-0916 : chaudières à sec, pause courte seulement)
       b.charbon_logs = (b.charbon_logs or 0) + 1
       if b.charbon_logs <= Cc.LOGS then
         log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, projet d'alimentation %d %s (%s) a %.1f min : refus %d (pause %s apres %d), nouvel essai a %.1f min ; le coffre reste rempli en urgence",
-          f.key or "player", p.id, alim.id, alim.state, why, tick / 3600, st.tries, st.tries < Cc.MAX_TRIES and "courte" or "longue",
+          f.key or "player", p.id, alim.id, alim.state, why, tick / 3600, st.tries, (st.retry_at - tick) <= Cc.RETRY_TICKS and "courte" or "longue",
           Cc.MAX_TRIES, st.retry_at / 3600))
       end
       alim = nil

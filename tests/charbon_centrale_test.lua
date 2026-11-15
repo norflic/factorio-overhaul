@@ -161,7 +161,7 @@ local env = {
   T = require("shared.team.config"),
   Outposts = { smelters = function() return W.smelter_levels or {} end, burners = function(o) return o.levels or {} end,
     fuel_levels = function(list) return list end },
-  Sante = { tasks = function() end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
+  Sante = { tasks = function() end, coal_short = function() return false end }, -- (lot ENERGIE-0916 : chaudières à sec, lues par charbon_step) -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,
   defines = { inventory = { chest = 1 } },

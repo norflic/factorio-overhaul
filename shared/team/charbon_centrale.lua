@@ -157,16 +157,19 @@ function Cc.want_alim(st, c)
 end
 
 --- Pause (ticks) après le refus numéro `tries` : courte jusqu'à Cc.MAX_TRIES, longue ensuite (jamais d'abandon définitif).
-function Cc.pause(tries)
+--- Lot ENERGIE-0916 : `dry` (chaudières de l'équipe à sec, Sante.coal_short : la consigne « étendre le charbon » de la croissance) garde la
+--- pause COURTE : la centrale à sec n'attend jamais 10 min son alimentation (partie du DC en 0.9.2 : centrale 1 en pause longue dès 28 min).
+function Cc.pause(tries, dry)
+  if dry then return Cc.RETRY_TICKS end
   return ((tries or 0) < Cc.MAX_TRIES) and Cc.RETRY_TICKS or Cc.LONG_RETRY_TICKS
 end
 
 --- Le projet d'alimentation a été refusé (plan impossible : pas de gisement à portée, pas de tracé) ou abandonné. grew (lot ENERGIE,
 --- relecture) : le refus a fait grandir le treillis ; il ne compte pas vers la pause longue, le prochain essai voit de nouveaux lots
 --- (le nombre de ces refus est borné par le rayon maximal du treillis).
-function Cc.refused(st, tick, grew)
+function Cc.refused(st, tick, grew, dry)
   st.tries = (st.tries or 0) + (grew and 0 or 1)
-  st.retry_at = tick + Cc.pause(st.tries)
+  st.retry_at = tick + Cc.pause(st.tries, dry)
   st.alim = nil
 end
 
