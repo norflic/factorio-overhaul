@@ -37,6 +37,18 @@ function Ax.push(q, e)
   return true
 end
 
+--- c4c (preuve du chantier 4 : champ 100001 du joueur, carte du DC, graine 123456789 : plan de l'autre axe arrêté à 10,5 min à l'étape 4 623,
+--- repris à 15,7 min DE ZÉRO, fini à 21,1 min) : sort d'une entrée de la file sortie à ce tick. `ok` : son état et sa cible existent ;
+--- `framed` : son cadre est déjà pris ; `abandoned` ; `verify_due` : la vérification d'un AUTRE cadre de la même équipe attend la pensée
+--- suivante (empêchement passager, une pensée au plus). Rend "laisser" (plus rien à planifier), "garder" (remise en file : le plan en cours
+--- reprend à la pensée qui suit, avant que sa séquence ne périme ; avant : entrée jetée, séquence périmée après 30 s, plan refait de zéro)
+--- ou "pas" (le pas part).
+function Ax.wait_fate(ok, framed, abandoned, verify_due)
+  if not ok or framed or abandoned then return "laisser" end
+  if verify_due then return "garder" end
+  return "pas"
+end
+
 --- s49 tranches : la première entrée de la file (ordre d'arrivée), retirée ; nil si la file est vide. Une entrée par tick (appelant).
 function Ax.pop(q)
   if #q == 0 then return nil end
