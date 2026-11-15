@@ -52,7 +52,7 @@ Champ.CFG = {
   tick_work = 2200, -- perf-astar 2 : 2000 retardait les plans (fer -9 % a T+30, graine de la carte du DC) ; perf-reste : 3000 -> 2200
                     -- (PERFRESTE-5 : appels « net » et « bare » de 3 500 de travail à 55 ms ; PERFRESTE-6 : « net » à 2 500, 52 ms)
   spec_cells = 20000, -- perf-astar : tuiles du rectangle lu relues par appel à l étape « occ » de la spec (réserves, couloirs)
-  read_cells = 3000, -- perf-reste (PERFRESTE-6, 123456789 : à 6 000, une bande du disque du charbon dense, 64 ms) : tuiles du rectangle (ou du carré d'un rayon) demandées au moteur par appel aux étapes de lecture de la
+  read_cells = 1500, -- perf-reste (PERFRESTE-6, 123456789 : à 6 000, une bande du disque du charbon dense, 64 ms ; PERFRESTE-7 : à 3 000, 72 ms) : tuiles du rectangle (ou du carré d'un rayon) demandées au moteur par appel aux étapes de lecture de la
                      -- spec (ore, charbon, foreign, blocked, autour) ; bandes de colonnes entières (banc REF0722 : 60 à 196 ms d'un bloc)
   read_check = 0,    -- perf-reste : lectures par rayon comparées à la requête d'un bloc d'avant (journal [FO-PERF-LECTURE], mesure seule ;
                      -- 0 : bancs PERFRESTE-2 à 5, 10 lectures identiques sur 2 graines, et la requête de contrôle faisait elle-même un pic)

@@ -141,7 +141,8 @@ local function unbind(c) for _, k in ipairs(CTX_FN) do c[k] = nil end end
 Ch.CTX_CHUNK = 6000
 -- perf-frame : budget de travail d'un pas de plan (Ch.once_step) : états développés des tracés (Co.route), places et tuiles lues des
 -- recherches de colonne ailleurs (Co.away). Un compte fixe : même découpage, même plan sur toutes les machines.
-Ch.STEP_WORK = 2000 -- perf-astar : 3 000 avant (pas jusqu a 120 ms en jeu, carte du DC), 1 500 au banc 3 (plans trop lents)
+Ch.STEP_WORK = 1600 -- perf-astar : 3 000 avant (pas jusqu a 120 ms en jeu, carte du DC), 1 500 au banc 3 (plans trop lents) ;
+                    -- perf-reste : 2 000 -> 1 600 (PERFRESTE-7 : un pas « net » ou « bare » de 2 500 de travail, 52 ms)
 Ch.STEP_BASE = 500 -- travail compté pour tout pas (en plus de ses recherches)
 Ch.HEAVY_WORK = 3000 -- forfait d'une étape d'un bloc (une bande, les bras, les poteaux, une tranche du contexte)
 Ch.BAND_WORK = 500 -- perf-reste : forfait d'un pas de bande (un bout), sa recherche de place (Co.place) comptée et reprenable à part
