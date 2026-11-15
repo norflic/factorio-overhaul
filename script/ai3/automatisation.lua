@@ -673,7 +673,9 @@ function Auto.think(f, view, book, tick, research)
         -- créneaux 2 et 3 n'avaient jamais de place (emerald, graine 2507543475 : bandes 5 et 14 sans projet du cerveau de 17 à 60 min, K 4) et ne
         -- vivaient que des kits des autres projets, remis au premier projet en réserve
         line = true,
-        pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
+        ent = ps.ent, -- entrepreneur-craft-0716 : bande entrepreneur (but servi en tête, kit entier, passe la pile : shared/ai3/cerveau.lua)
+        ent_garnish = ps.ent_garnish, -- (garniture du plan : servie à la place ordinaire du but, pas en tête)
+        pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and not ps.ent and fam or nil }
     end
   end
   -- Lot TAPIS-MANQUANTS : le RÉSEAU DU CHARBON d'une bande de champ (projet à part, lot FONDERIE) est un projet du cerveau comme l'alimentation

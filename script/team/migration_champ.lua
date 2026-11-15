@@ -39,6 +39,7 @@ local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage
 local Mc = require("shared.team.migration_combustible") -- lot COMBUSTIBLE-MIGRATION : plancher du combustible (générateurs + brûleurs), retrait permis, stock bas (règle pure)
 local Rc = require("shared.team.reconstruction")
 local Ent = require("shared.team.entrepreneur") -- entrepreneur-0715 : scan des 5 min, bande marquee, monopole (regle pure)
+local FoSwap = require("script.team.foreuse_swap") -- entrepreneur-craft-0716 : livre de recettes de l'equipe (FoSwap.book_of, pose par script/team/team.lua) pour le budget de la tete
 local Bb = require("shared.team.bande_brute") -- s45 pierre : bande sans four bornée aux paires remplacées (règle pure)
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
 local State = require("script.faction.state")
@@ -2166,6 +2167,20 @@ local function ent_say(f, ms, text)
   if ms.ent_logs <= Ent.CFG.log_max then log(string.format("[FO-ENTREPRENEUR] %s : %s", name_of(f), text)) end
 end
 
+--- entrepreneur-craft-0716 : plaques des avant-postes à fours (produits lus sur la config et les prototypes, triés) : budget de la tête.
+local function plate_names()
+  local seen, out = {}, {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local tk = T.outposts[kind]
+    if is_furnace_kind(kind) and tk.product and not seen[tk.product] and game.item_prototypes[tk.product] then
+      seen[tk.product] = true
+      out[#out + 1] = tk.product
+    end
+  end
+  table.sort(out)
+  return out
+end
+
 local function plates_total(f)
   local force = f.force
   if type(force) == "string" then force = game.forces[force] end
@@ -2191,6 +2206,7 @@ function Mig.entrepreneur_scan(f, tick)
   local delta = total - (ms.ent_plates or total)
   local first = ms.ent_plates == nil
   ms.ent_plates = total
+  ms.ent_debit = first and math.floor(total * Ent.CFG.period / math.max(tick, Ent.CFG.period)) or delta -- entrepreneur-craft-0716 : debit (plaques par periode) du budget de la tete
   if first then delta = total end
   local cur = ms.ent and f.build.projects[ms.ent.pid]
   if ms.ent and not (cur and cur.state ~= "fini") then
@@ -2205,17 +2221,21 @@ function Mig.entrepreneur_scan(f, tick)
   for _, oid in ipairs(ids) do
     local o = Champ.target(f, oid)
     local st = ms.o[oid]
-    if not target and o and is_champ_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then target = oid end
+    -- (entrepreneur-craft-0716 : un champ à FOURS seulement, sa bande produit une plaque ; banc 0722-g123 : la bande entrepreneur du joueur était
+    -- une bande de charbon de 36 foreuses, payée en plaques sans en rendre)
+    if not target and o and is_champ_kind(o.kind) and is_furnace_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then target = oid end
   end
   -- entrepreneur-ouvrier (14/11) : une bande dont le projet est fini (ou disparu) n'est plus « en vol » : avant, Mig.projects la gardait
   -- tant que la ligne attendait son premier produit et le scan l'attachait toutes les 5 min (amber, JALONS60-entrepreneur : projet 9
   -- « fini » puis « attache » de 33 à 60 min, aucun chantier nouveau)
   local inflight = {}
+  local plate = {}
+  for _, k in ipairs(plate_names()) do plate[k] = true end
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if p and p.state ~= "fini" then inflight[#inflight + 1] = x end
+    if p and p.state ~= "fini" and x.item and plate[x.item] then inflight[#inflight + 1] = x end -- (entrepreneur-craft-0716 : bande d'une plaque seulement)
   end
-  local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0 })
+  local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0, debit_min = Ent.CFG.debit_min })
   if action == "refus" then
     if cause ~= "chantier en cours" then ent_say(f, ms, "refus " .. cause) end
     return action, cause
@@ -2250,6 +2270,118 @@ function Mig.entrepreneur_follow(f)
     if not ms.ent and p and p.spec and p.spec.entrepreneur then ms.ent = { pid = x.pid, t0 = ms.ent_wait.t0 }; ms.ent_wait = nil end
   end
 end
+
+--- entrepreneur-craft-0716 : la bande entrepreneur passe en tête de f.build.order (Ent.order_front) : sa réserve au coffre (Build : reserve,
+--- une fois par seconde, dans l'ordre b.order) prend le stock avant tout autre projet ; seuls les projets rouverts (réparer) restent devant.
+function Mig.entrepreneur_front(f, pid)
+  local b = f and f.build
+  if not (b and b.order and b.projects[pid]) then return end
+  local front = {}
+  for _, id in ipairs(b.order) do
+    local q = b.projects[id]
+    if q and q.reopened and q.reopened ~= 0 and q.state ~= "fini" then front[id] = true end
+  end
+  b.order = Ent.order_front(b.order, pid, front)
+end
+
+--- entrepreneur-craft-0716 : suivi du KIT COMPLET de la bande entrepreneur (toutes les Ent.CFG.kit_every ticks). Le kit = les pièces pas encore
+--- bâties du plan de la bande (Build.needs_of : foreuses, tapis, souterrains, poteaux, bras, fours, lus sur p.ents, aucun nom) ; « en stock » =
+--- réservé au projet (p.stock, monopole : jamais rendu, build.lua pile_family) ; « mis en craft » = son manque (p.missing), servi en tête par le
+--- cerveau (g.ent : shared/ai3/cerveau.lua, P.want_kit sans plafond de kits). Journal [FO-ENTREPRENEUR-KIT] : kit lancé, avancement (une ligne
+--- par minute au plus tant qu'il manque), kit complet (délai depuis le déclenchement), chantier parti, bande posée (délai).
+
+function Mig.entrepreneur_kit(f, tick)
+  local ms = f and f.migration
+  local ent = ms and ms.ent
+  if not (ent and f.build) then return end
+  local p = f.build.projects[ent.pid]
+  if not p then return end
+  local function say(text)
+    ms.entk_logs = (ms.entk_logs or 0) + 1
+    if ms.entk_logs <= Ent.CFG.log_max then
+      log(string.format("[FO-ENTREPRENEUR-KIT] %s : projet %d (%s) : %s a %.1f min", name_of(f), ent.pid, tostring(p.state), text, tick / 3600))
+    end
+  end
+  local function mins(t) return (tick - (t or tick)) / 3600 end
+  if p.state == "fini" or p.state == "refuse" then
+    if not ent.posee then
+      ent.posee = tick
+      say(string.format("bande %s : %.1f min depuis le declenchement (kit complet %s)", p.state == "fini" and "posee" or "refusee", mins(ent.t0),
+        ent.complet and string.format("a +%.1f min", (ent.complet - ent.t0) / 3600) or "jamais"))
+    end
+    return
+  end
+  if p.state == "plan" or p.state == "attente" or not p.ents or #p.ents == 0 then return end
+  -- kit BLOQUANT : pièces pas encore bâties sans la garniture (charges des coffres posés garnis : une pièce se pose sans elle)
+  local garnish = Ent.garnish(p.ents)
+  local core_miss, gar_miss = Ent.split_garnish(p.missing or {}, garnish)
+  local r = Ent.kit_report(Ent.need_core(Build.needs_of(p), garnish), p.stock or {}, core_miss)
+  local gar_n = 0
+  for _, it in ipairs(gar_miss) do gar_n = gar_n + it[2] end
+  -- budget en plaques : coût (livre de recettes de l'équipe) du manque bloquant, contre la part head_share du stock de plaques et du débit
+  local cost, stock = 0, 0
+  if #core_miss > 0 then
+    local book = FoSwap.book_of and FoSwap.book_of(f)
+    local raw = book and book:raw_cost(core_miss) or {}
+    for _, k in ipairs(plate_names()) do cost = cost + (raw[k] or 0) end
+  end
+  for _, k in ipairs(plate_names()) do stock = stock + Stock.count(f, k) end
+  local debit = (ms.ent_debit or 0) * Ent.CFG.head_horizon / Ent.CFG.period
+  local ok, budget = Ent.head_budget(cost, stock, debit, ent.kit ~= nil and not (p.spec and p.spec.ent_queue))
+  -- kit complet : la tête n'a plus d'objet (rien à fabriquer) mais l'état ne bascule pas : avant, la bascule rendait la réserve du kit complet au
+  -- coffre (banc 0722-g123 : joueur, projet 3 complet à 15,2 min, rendu, jamais posé en 30 min)
+  if r.complete then ok = not (p.spec and p.spec.ent_queue) end
+  if not ent.kit then
+    ent.kit = tick
+    say(string.format("kit lance : %d objet(s) bloquant(s) de %d sorte(s) [%s] ; deja en stock %d ; a fabriquer %d (%.0f plaque(s), budget %.0f : %s) ; garniture hors kit %d ; declenche il y a %.1f min",
+      r.total, r.kinds, r.text, r.have, r.craft, cost, budget, ok and "tete" or "file", gar_n, mins(ent.t0)))
+  end
+  local queued = p.spec and p.spec.ent_queue or false
+  if p.spec and queued == ok then
+    p.spec.ent_queue = (not ok) or nil
+    if ok then
+      Mig.entrepreneur_front(f, ent.pid)
+    else
+      local order = {}
+      for _, id in ipairs(f.build.order) do if id ~= ent.pid then order[#order + 1] = id end end
+      order[#order + 1] = ent.pid -- (en queue de la réserve au coffre : les autres projets reprennent le stock qui arrive)
+      f.build.order = order
+      -- le monopole ne couvre que le budget : tête rendue, la réserve au coffre d'une bande pas encore en chantier est rendue (projet ordinaire,
+      -- la pile peut de nouveau la suspendre : build.lua pile_family)
+      if p.state == "reserve" then Build.give_back(f, p) end
+    end
+    if not r.complete then
+      say(string.format("%s : manque bloquant %.0f plaque(s) pour un budget de %.0f (%.0f%% de %d au coffre + %.0f de debit en %d min) ; %d/%d au coffre",
+        ok and "tete prise" or "tete rendue", cost, budget, Ent.CFG.head_share * 100, stock, debit, Ent.CFG.head_horizon / 3600, r.have, r.total))
+    end
+  elseif ok and p.state == "reserve" then
+    Mig.entrepreneur_front(f, ent.pid) -- (gardée en tête tant qu'elle réserve : centrales et alimentations se remettent devant)
+  end
+  if p.state ~= "reserve" and not ent.depart then
+    ent.depart = tick
+    say(string.format("chantier parti (%d/%d au coffre, %d a fabriquer) a +%.1f min du declenchement", r.have, r.total, r.craft, mins(ent.t0)))
+  end
+  if r.complete and not ent.complet then
+    ent.complet = tick
+    say(string.format("kit complet : %d objet(s) bloquant(s) de %d sorte(s) en %.1f min depuis le declenchement (%.1f min depuis le lancement du kit) ; garniture qui manque %d",
+      r.total, r.kinds, mins(ent.t0), mins(ent.kit), gar_n))
+  elseif not r.complete and tick >= (ent.next_say or 0) and tick > ent.kit then
+    ent.next_say = tick + 3600
+    say(string.format("kit %d/%d au coffre, %d a fabriquer (%.0f plaque(s), budget %.0f, %s) [%s]", r.have, r.total, r.craft, cost, budget,
+      ok and "tete" or "file", r.text))
+  end
+end
+
+Events.on_nth_tick(Ent.CFG.kit_every, function(e)
+  local ids = State.alive()
+  ids[#ids + 1] = "player"
+  for _, id in ipairs(ids) do
+    local f = State.faction(id)
+    local ms = f and f.migration
+    if ms and ms.ent_wait and not ms.ent then Mig.entrepreneur_follow(f) end -- (la bande demandée est reconnue dès sa demande, pas au scan suivant 5 min plus tard)
+    if ms and ms.ent then Mig.entrepreneur_kit(f, e.tick) end
+  end
+end)
 
 Events.on_nth_tick(Ent.CFG.period, function(e)
   local ids = State.alive()
