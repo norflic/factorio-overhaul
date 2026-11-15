@@ -41,6 +41,7 @@ Gen.V_LOG = 30         -- logistique (tapis, bras, poteau, coffre) ; FIX-P3 : 10
 -- FIX-P3 : 5 -> 0. Une technologie sans usage n'a plus de note positive ; elle reste prise par Gen.fallback (prérequis) ou par sa chaîne.
 Gen.V_OTHER = 0
 Gen.V_BONUS = { militaire = 25, capital = 10 }
+Gen.V_WAR = 150        -- lot DEFENSE-FACTIONS : par effet de tourelle ou munition débloquée, quand l'équipe perd des pièces face à une autre équipe
 Gen.FAMILY = { pack = "recherche", wanted = "capital", militaire = "armee", machine = "capital", logistique = "capital",
   autre = "capital" }
 Gen.CHAIN = 100        -- valeur d'une chaîne vers un pack, partagée entre ses technologies manquantes
@@ -147,6 +148,12 @@ function Gen.value(cat, ev, state, t, ctx)
     v = v + math.floor(Gen.V_WANTED * wf(w, Gen.FAMILY.wanted))
     why[#why + 1] = { "levier", t }
   end
+  -- Lot DEFENSE-FACTIONS : équipe en guerre qui subit des pertes face à une autre équipe (ctx.war) : les recherches qui renforcent ses
+  -- tourelles ou débloquent une munition (spec.war, shared/ai3/catalogue.lua) passent en tête.
+  if ctx and ctx.war and (spec.war or 0) > 0 then
+    v = v + Gen.V_WAR * spec.war
+    why[#why + 1] = { "guerre", t }
+  end
   for _, fam in ipairs(sorted_keys(spec.bonus)) do
     local base = Gen.V_BONUS[fam] or 0
     local family = fam == "militaire" and "armee" or "capital"
@@ -179,7 +186,8 @@ function Gen.chains(cat, ev, state, ctx)
           if ctx and ctx.wanted and ctx.wanted[p] and ev.feas[p] then wanted_hit = true end
         end
       end
-      if palier or wanted_hit then
+      local war_hit = ctx and ctx.war and (cat.techs[u].war or 0) > 0 -- lot DEFENSE-FACTIONS : la chaîne vers une recherche de guerre est servie
+      if palier or wanted_hit or war_hit then
         local list, seen = {}, {}
         local function walk(n)
           if seen[n] or state.techs[n] then return end

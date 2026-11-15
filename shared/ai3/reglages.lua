@@ -142,6 +142,10 @@ R.LEVER_EFFECT = {
   ["character-crafting-speed"] = "labor",
   ["character-mining-speed"] = "labor",
 }
+-- Lot DEFENSE-FACTIONS (16/11) : effets de technologie qui renforcent les TOURELLES (dégâts, cadence) et type d'objet des munitions ;
+-- une équipe en guerre qui subit des pertes face à une autre équipe met ces recherches en tête (shared/ai3/general.lua, ctx.war).
+R.WAR_EFFECT = { ["turret-attack"] = true, ["ammo-damage"] = true, ["gun-speed"] = true }
+R.ITEM_AMMO = "ammo"
 -- Type d'objet du moteur qui porte des effets de module (LuaItemPrototype.type).
 R.ITEM_MODULE = "module"
 
