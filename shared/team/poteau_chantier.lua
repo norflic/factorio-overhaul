@@ -11,6 +11,7 @@ local Pc = {}
 
 Pc.WAIT = 2 * 3600 -- ticks : le poteau prévu doit manquer (ni au coffre, ni fabricable) depuis 2 min avant le repli
 Pc.RING = 3        -- tuiles : distance au bord de la machine essayée pour un poteau de compensation
+Pc.RETRY = 1800    -- ticks : un repli impossible (tuiles prises) est réessayé 30 s plus tard (le chantier peut avoir bougé)
 
 --- La zone d'alimentation (demi-côté `supply`) d'un poteau en (px, py) touche-t-elle la boîte { x0, y0, x1, y1 } ?
 function Pc.covers(px, py, supply, box)
@@ -59,6 +60,37 @@ function Pc.compensate(machines, poles, supply, wire, free)
     end
   end
   return added, lost
+end
+
+--- Relais d'UN segment, du poteau `a` au voisin `b`, au fil `wire` : points de Rc.chain_points (`pts`, dans l'ordre de a vers b), chacun
+--- DÉCALÉ si sa tuile est prise vers la tuile libre la plus proche (jusqu'à Pc.NUDGE tuiles) qui garde chaque pas ≤ wire (point précédent
+--- posé, point suivant prévu ; le dernier pas vers b est contrôlé à la fin). Rend la liste posée ou nil (aucune tuile ne tient).
+Pc.NUDGE = 2
+function Pc.place_chain(a, b, pts, wire, free)
+  local out, prev = {}, a
+  for i, q in ipairs(pts) do
+    local nxt = pts[i + 1] or b
+    local best, bd = nil, math.huge
+    for r = 0, Pc.NUDGE do
+      for dy = -r, r do
+        for dx = -r, r do
+          if math.max(math.abs(dx), math.abs(dy)) == r then
+            local c = { x = q.x + dx, y = q.y + dy }
+            if dist(c, prev) <= wire and dist(c, nxt) <= wire and free(c.x, c.y) then
+              local d = dx * dx + dy * dy
+              if d < bd then best, bd = c, d end
+            end
+          end
+        end
+      end
+      if best then break end
+    end
+    if not best then return nil end
+    out[#out + 1] = best
+    prev = best
+  end
+  if dist(prev, b) > wire then return nil end
+  return out
 end
 
 return Pc

@@ -132,36 +132,41 @@ local function substitute(f, p, item, free, surface, tick)
   local function within(a, q, r) local dx, dy = a.x - q.x, a.y - q.y return dx * dx + dy * dy <= r * r + 1e-9 end
   -- le poteau de repli : celui du premier poteau prévu (même modèle pour tout le chantier), puis contrôle des autres
   local chosen, relays, seen = nil, {}, {}
+  local segs = {} -- { a, b } : segments à relayer, dans l'ordre
   for i, e in ipairs(old) do
     local nbrs = {}
     for _, w in ipairs(world) do if within(w, e, c0.wire) then nbrs[#nbrs + 1] = { x = w.x, y = w.y } end end
     for _, o in ipairs(others) do if within(o, e, c0.wire) then nbrs[#nbrs + 1] = { x = o.x, y = o.y } end end
     for j = i + 1, #old do if within(old[j], e, c0.wire) then nbrs[#nbrs + 1] = { x = old[j].x, y = old[j].y } end end
-    local c, pts = Rc.pick_chain(chosen and { chosen } or alt, { x = e.x, y = e.y }, nbrs, can)
+    local c = Rc.pick_chain(chosen and { chosen } or alt, { x = e.x, y = e.y }, nbrs, can)
     if not c then
       say_once(p, item .. ":chaine", string.format("[FO-POTEAU-CHANTIER] %s : projet %d : %s non fabricable, aucun poteau de repli fabricable ne rejoint les voisins (relais au plus %d) a %.1f min",
         f.key or "player", p.id, item, Rc.CHAIN_MAX, tick / 3600))
       return false
     end
     chosen = c
-    for _, q in ipairs(pts) do
-      local k = q.x .. "," .. q.y
-      if not seen[k] then seen[k] = true relays[#relays + 1] = q end
-    end
+    for _, n in ipairs(nbrs) do segs[#segs + 1] = { a = { x = e.x, y = e.y }, b = n } end
   end
   local function free_tile(x, y)
     if b.occ[P.tkey(math.floor(x), math.floor(y))] then return false end
     if seen[x .. "," .. y] then return false end
+    for _, e in ipairs(old) do if e.x == x and e.y == y then return false end end
     return surface.can_place_entity({ name = chosen.name, position = { x, y }, force = f.force })
   end
-  for _, q in ipairs(relays) do
-    seen[q.x .. "," .. q.y] = nil
-    if not free_tile(q.x, q.y) then
-      say_once(p, item .. ":relais", string.format("[FO-POTEAU-CHANTIER] %s : projet %d : relais de %s en (%.1f, %.1f) sur une tuile prise : repli abandonne a %.1f min",
-        f.key or "player", p.id, chosen.name, q.x, q.y, tick / 3600))
-      return false
+  for _, sg in ipairs(segs) do
+    local pts = Rc.chain_points(sg.a, { sg.b }, chosen.wire)
+    if #pts > 0 then
+      local put = Pc.place_chain(sg.a, sg.b, pts, chosen.wire, free_tile)
+      if not put then
+        say_once(p, item .. ":relais", string.format("[FO-POTEAU-CHANTIER] %s : projet %d : aucun relais de %s ne tient entre (%.1f, %.1f) et (%.1f, %.1f) (tuiles prises a %d pres) : repli remis a plus tard a %.1f min",
+          f.key or "player", p.id, chosen.name, sg.a.x, sg.a.y, sg.b.x, sg.b.y, Pc.NUDGE, tick / 3600))
+        return false
+      end
+      for _, q in ipairs(put) do
+        seen[q.x .. "," .. q.y] = true
+        relays[#relays + 1] = q
+      end
     end
-    seen[q.x .. "," .. q.y] = true
   end
   -- compensation de la zone d'alimentation : machines électriques du chantier, réseau prévu après le repli
   local machines = {}
@@ -218,7 +223,10 @@ function PC.try(f, p, tick, surface)
         p.pc_since[item] = nil
       else
         p.pc_since[item] = p.pc_since[item] or tick
-        if tick - p.pc_since[item] >= Pc.WAIT and substitute(f, p, item, free, surface, tick) then done = true end
+        p.pc_next = p.pc_next or {}
+        if tick - p.pc_since[item] >= Pc.WAIT and tick >= (p.pc_next[item] or 0) then
+          if substitute(f, p, item, free, surface, tick) then done = true else p.pc_next[item] = tick + Pc.RETRY end
+        end
       end
     end
   end

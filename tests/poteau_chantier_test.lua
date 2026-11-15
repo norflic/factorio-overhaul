@@ -42,6 +42,27 @@ check(same, "meme entree, memes ajouts")
 local cands = { { name = "petit", item = "ip", supply = 2.5, wire = 7.5 }, { name = "moyen", item = "im", supply = 3.5, wire = 9 } }
 local c, pts = Rc.pick_chain(cands, { x = 0.5, y = 0.5 }, { { x = 9.5, y = 0.5 } }, function(x) return x.item == "ip" end)
 check(c and c.name == "petit" and #pts == 1, "chantier : petit poteau et un relais vers le voisin a 9")
+-- relais décalés : la tuile prévue est prise, un voisin libre garde chaque pas sous le fil
+do
+  local a, b = { x = 0.5, y = 0.5 }, { x = 9.5, y = 0.5 }
+  local pts = Rc.chain_points(a, { b }, 7.5)
+  local blocked = {}
+  for _, q in ipairs(pts) do blocked[q.x .. "," .. q.y] = true end
+  local put = Pc.place_chain(a, b, pts, 7.5, function(x, y) return not blocked[x .. "," .. y] end)
+  check(put and #put == #pts, "relais decale quand sa tuile est prise")
+  local okw = put ~= nil
+  local prev = a
+  for _, q in ipairs(put or {}) do
+    if math.sqrt((q.x - prev.x) ^ 2 + (q.y - prev.y) ^ 2) > 7.5 then okw = false end
+    if blocked[q.x .. "," .. q.y] then okw = false end
+    prev = q
+  end
+  if math.sqrt((b.x - prev.x) ^ 2 + (b.y - prev.y) ^ 2) > 7.5 then okw = false end
+  check(okw, "chaque pas de la chaine decalee reste sous le fil, hors des tuiles prises")
+  check(Pc.place_chain(a, b, pts, 7.5, function() return false end) == nil, "aucune tuile libre : nil")
+  local put2 = Pc.place_chain(a, b, pts, 7.5, function() return true end)
+  check(put2 and put2[1].x == pts[1].x and put2[1].y == pts[1].y, "tuile libre : le relais reste a sa place")
+end
 -- mutant : la compensation qui ignore le fil
 local src = io.open("shared/team/poteau_chantier.lua"):read("*a")
 local mut = src:gsub("if near <= wire and near < bd then", "if near < bd then", 1)
