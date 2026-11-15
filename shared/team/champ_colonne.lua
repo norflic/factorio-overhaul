@@ -49,6 +49,9 @@ Co.DEPOSITS = 3        -- gisements de charbon essayés (le plus proche peut êt
 Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. (Proposé à ~120 le 3/11 ; mesuré hors jeu : un charbon à 60-70 tuiles
                        -- du champ donne des tracés de 136 à 207 tuiles, le tracé contournant le champ et ses colonnes : 120 renvoyait presque
                        -- tout au coffre de tête. Ce qui faisait attendre les bandes au lot3 était le charbon à 320 tuiles posé par la bande.)
+Co.ROUTE_NB = 127      -- C5-PERF : seaux des tables d'états d'un tracé (Co.route), nombre PREMIER : 10^6 et 10^5 (pas des clés en u) n'en sont pas multiples, les clés se répartissent (64 divisait 10^6 : un tracé le long de u tombait dans quelques seaux)
+Co.LAYOUT_WORK = 2     -- C5-PERF : travail compté par pièce d'une colonne construite (Co.layout)
+Co.PUSH_WORK = 2       -- C5-PERF : travail compté par état mis au tas (en plus de 1 par état développé)
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
 Co.EXT = 3             -- (s41 sortie-bus) tuiles de trop-plein au-delà du quai : le moins qui donne deux tuiles avec un tapis derrière et devant
@@ -100,7 +103,15 @@ function Co.is_facing(i) return i % 2 == ((Co.SF < 0) and 0 or 1) end
 --- Entités de la demi-colonne { kind, u, v, size, du, dv, role }, longueur et info { far, head_pole, need, plates, bay, mode }.
 --- mode : "voie" (charbon par tapis depuis le tronc), "coffre" (coffre de tête), nil pour un four électrique. half : Co.half (demi-colonne
 --- d'en face : fours du côté -Co.SF, minerai décalé de half.jog depuis le collecteur b, tête une colonne plus loin), ou nil.
+local layout_raw
+--- C5-PERF : chaque colonne construite compte ses pièces au budget du pas (Co.LAYOUT_WORK par pièce : des centaines de tables par colonne,
+--- appelée à chaque recul de Co.place, jamais comptée avant : pas « band » de 0,6 Mo alloués pour 189 de travail, fixtures du DC)
 function Co.layout(spec, b, side, s_edge, count, mode, half, ext)
+  local ents, len, info = layout_raw(spec, b, side, s_edge, count, mode, half, ext)
+  if ents then Co.WORK = Co.WORK + Co.LAYOUT_WORK * #ents end
+  return ents, len, info
+end
+layout_raw = function(spec, b, side, s_edge, count, mode, half, ext)
   local f = spec.furnace
   local sf = (half and half.mirror) and -Co.SF or Co.SF
   local fs, R = f.size, spec.pole.reach
@@ -374,11 +385,17 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   local box = o.box
   local function inb(u, v) return not box or (u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1) end
   -- la colonne ne dépend de (s_edge, b) que par translation : calculée une fois en (0, 0), ses tuiles décalées pour chaque place
-  local base, len, info0 = Co.layout(spec, 0, side, 0, count, mode)
-  if not base then return nil, "colonne impossible" end
-  local rel = {}
-  for _, e in ipairs(base) do
-    for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v } end end
+  -- C5-PERF : reprise (A.base) : la colonne en (0, 0) et ses tuiles gardées du premier appel (mêmes arguments : même colonne ; avant, refaites
+  -- à chaque reprise, 0,2 Mo alloués par pas « bare » des fixtures du DC)
+  local base, len, info0, rel
+  if A and A.base then base, len, info0, rel = A.base, A.len, A.info0, A.rel else
+    base, len, info0 = Co.layout(spec, 0, side, 0, count, mode)
+    if not base then return nil, "colonne impossible" end
+    rel = {}
+    for _, e in ipairs(base) do
+      for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v } end end
+    end
+    if A then A.base, A.len, A.info0, A.rel = base, len, info0, rel end
   end
   -- perf-frame : `A` (facultatif, table de l'appelant) rend la recherche REPRENABLE : curseur des places, lectures du sol neutre, tracés
   -- comptés, tracé en cours (A.job) ; budget du pas atteint (Co.WORK >= Co.WORK_LIM) -> nil, Co.SUSPEND, et le rappel avec les mêmes
@@ -447,6 +464,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
     if fine then
       local mine = {}
       for _, r in ipairs(rel) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end
+      work = work + #rel -- C5-PERF : l'emprise notée (une table de #rel clés) compte au budget
       if not mine[Co.tk(t.u, t.v)] then
         A.job = A.job or {}
         local resumed = A.job.R ~= nil or A.job.MV ~= nil -- (perf-reste : relecture de la mémoire en cours, même tracé)
@@ -536,14 +554,14 @@ function Co.unreachable(s, t, free, ug, box, cap, U)
       local nu, nv = u + d[1], v + d[2]
       if landing(nu, nv) then
         local k = tk(nu, nv)
-        if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { nu, nv } end
+        if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { nu, nv }; if lim then Co.WORK = Co.WORK + Co.PUSH_WORK end end
       end
       for kk = 2, maxk do
         local mu, mv = u + kk * d[1], v + kk * d[2]
         local yu, yv = mu + d[1], mv + d[2]
         if fr(mu, mv) and not is_t(mu, mv) and landing(yu, yv) then
           local k = tk(yu, yv)
-          if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { yu, yv } end
+          if not fseen[k] then fseen[k] = true; fn = fn + 1; fq[#fq + 1] = { yu, yv }; if lim then Co.WORK = Co.WORK + Co.PUSH_WORK end end
         end
       end
     end
@@ -556,7 +574,7 @@ function Co.unreachable(s, t, free, ug, box, cap, U)
       local xu, xv = u - d[1], v - d[2]
       if holder(xu, xv) then
         local k = tk(xu, xv)
-        if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu, xv } end
+        if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu, xv }; if lim then Co.WORK = Co.WORK + Co.PUSH_WORK end end
       end
       -- paire de souterrains x -> y : sortie m = y - d libre (et pas la cible), x = y - (kk + 1) d
       local mu, mv = u - d[1], v - d[2]
@@ -565,7 +583,7 @@ function Co.unreachable(s, t, free, ug, box, cap, U)
           local xu2, xv2 = u - (kk + 1) * d[1], v - (kk + 1) * d[2]
           if holder(xu2, xv2) then
             local k = tk(xu2, xv2)
-            if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu2, xv2 } end
+            if not rseen[k] then rseen[k] = true; rn = rn + 1; rq[#rq + 1] = { xu2, xv2 }; if lim then Co.WORK = Co.WORK + Co.PUSH_WORK end end
           end
         end
       end
@@ -612,13 +630,32 @@ end
 --- (4) `memo` (facultatif, tenu le temps d'UN Ch.plan) : un tracé de mêmes entrées scalaires dont TOUTES les tuiles lues donnent les
 --- mêmes réponses est rendu sans recherche (l'A* est déterministe : mêmes lectures, mêmes réponses, même résultat).
 local MEMO_PER_KEY = 6
+-- C5-PERF : lectures notées d'un tracé (fl, sl, tl : triplets u, v, réponse) en PAGES de NOTE_PAGE valeurs (multiple de 3 : un triplet
+-- ne chevauche jamais deux pages) : L = { n = valeurs, [1] = page, ... } ; une liste plate de 100 000 valeurs était recopiée d'un bloc
+-- à chaque doublement (0,7 Mo dans une tranche de tracé). Mêmes triplets, même ordre.
+local NOTE_PAGE = 3000
+local function note(L, u, v, x)
+  local n = L.n
+  local q = n % NOTE_PAGE
+  local pg
+  if q == 0 then pg = {}; L[#L + 1] = pg else pg = L[#L] end
+  pg[q + 1] = u; pg[q + 2] = v; pg[q + 3] = x
+  L.n = n + 3
+end
+local function note_list() return { n = 0 } end
+-- triplet à la position i (1, 4, 7, ...) : page et décalage
+local function note_at(L, i)
+  local q = (i - 1) % NOTE_PAGE
+  local pg = L[(i - 1 - q) / NOTE_PAGE + 1]
+  return pg[q + 1], pg[q + 2], pg[q + 3]
+end
 local function memo_valid(e, free, span, tcost)
   local L = e.fr
-  for i = 1, #L, 3 do if (free(L[i], L[i + 1]) and true or false) ~= L[i + 2] then return false end end
+  for i = 1, L.n, 3 do local u, v, x = note_at(L, i); if (free(u, v) and true or false) ~= x then return false end end
   L = e.sp
-  for i = 1, #L, 3 do if (span(L[i], L[i + 1]) and true or false) ~= L[i + 2] then return false end end
+  for i = 1, L.n, 3 do local u, v, x = note_at(L, i); if (span(u, v) and true or false) ~= x then return false end end
   L = e.tc
-  for i = 1, #L, 3 do if tcost(L[i], L[i + 1]) ~= L[i + 2] then return false end end
+  for i = 1, L.n, 3 do local u, v, x = note_at(L, i); if tcost(u, v) ~= x then return false end end
   return true
 end
 -- perf-reste (pas « bare » et « net » jusqu'à 10 000 de travail pour un budget de 2 000, fixtures du DC : la relecture d'une entrée de la
@@ -630,12 +667,13 @@ local function memo_valid_r(e, free, span, tcost, MV, lim)
   for part = MV.part or 1, 3 do
     local L = lists[part]
     local i = (part == (MV.part or 1)) and (MV.i or 1) or 1
-    while i <= #L do
+    while i <= L.n do
       if lim and did and Co.WORK >= lim then MV.part, MV.i = part, i return "suspend" end
       local ok
-      if part == 1 then ok = (free(L[i], L[i + 1]) and true or false) == L[i + 2]
-      elseif part == 2 then ok = (span(L[i], L[i + 1]) and true or false) == L[i + 2]; Co.WORK = Co.WORK + 0.5
-      else ok = tcost(L[i], L[i + 1]) == L[i + 2]; Co.WORK = Co.WORK + 0.5 end
+      local u, v, x = note_at(L, i)
+      if part == 1 then ok = (free(u, v) and true or false) == x
+      elseif part == 2 then ok = (span(u, v) and true or false) == x; Co.WORK = Co.WORK + 0.5
+      else ok = tcost(u, v) == x; Co.WORK = Co.WORK + 0.5 end
       if not ok then MV.part, MV.i = nil, nil return false end
       did = true
       i = i + 3
@@ -698,17 +736,26 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
     end
   end
   -- lectures d'une tuile, gardées (et notées pour la mémoire)
+  -- C5-PERF : FR (lectures de place libre) et les tables d'états (g, prédécesseur, fermés) sont rangés par SEAUX (Co.ROUTE_NB sous-tables,
+  -- seau = clé % NB + 1) : plus de recopie d'une table de 32 768 clés d'un bloc quand elle double (banc 0.9.4 de la carte du DC : pas
+  -- « bare » de 62 ms dans un tick, 1,3 Mo alloués d'un bloc au doublement de g et des fermés ; le ramasse-miettes du jeu paie
+  -- chaque octet). Mêmes valeurs aux mêmes clés : même suite d'états, même tracé.
+  local NB = Co.ROUTE_NB
   local FR, SP, TC = {}, {}, {}
-  local fl, sl, tl = {}, {}, {}
+  local fl, sl, tl = note_list(), note_list(), note_list()
   if R then FR, SP, TC, fl, sl, tl = R.FR, R.SP, R.TC, R.fl, R.sl, R.tl end
   local free0, span0, tcost0 = free, span, tcost
   free = function(u, v)
     local k = tk(u, v)
-    local x = FR[k]
+    local b = k % NB + 1
+    local fb = FR[b]
+    if not fb then fb = {}; FR[b] = fb end
+    local x = fb[k]
     if x == nil then
       x = free0(u, v) and true or false
-      FR[k] = x
-      fl[#fl + 1] = u; fl[#fl + 1] = v; fl[#fl + 1] = x
+      fb[k] = x
+      note(fl, u, v, x)
+      Co.WORK = Co.WORK + Co.PUSH_WORK -- C5-PERF : une lecture gardée (deux tables qui grandissent) compte au budget
     end
     return x
   end
@@ -719,7 +766,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
       if x == nil then
         x = span0(u, v) and true or false
         SP[k] = x
-        sl[#sl + 1] = u; sl[#sl + 1] = v; sl[#sl + 1] = x
+        note(sl, u, v, x)
       end
       return x
     end
@@ -731,7 +778,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
     if x == nil then
       x = tcost0(u, v)
       TC[k] = x
-      tl[#tl + 1] = u; tl[#tl + 1] = v; tl[#tl + 1] = x
+      note(tl, u, v, x)
     end
     return x
   end
@@ -764,10 +811,12 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
     return (a + b) * W
   end
   -- clé d'un état : tk(u, v) * 10 + (d - 1) * 2 + m (celle de v0.7.107) ; relue : tuile = floor(k / 10), d, m dans k % 10
-  local g, pk, pug, closed = {}, {}, {}, {}
+  -- (C5-PERF : par seaux ; PK[b][k] = prédécesseur * 2 + 1 si l'arête est une paire de souterrains, l'ancien pug ; clés < 2^40 : exact)
+  local G, PK, CL = {}, {}, {}
   -- tas : tableaux parallèles, ordre (f, h, k) strict
   local HF, HH, HK, hn = {}, {}, {}, 0
-  if R then g, pk, pug, closed, HF, HH, HK, hn = R.g, R.pk, R.pug, R.closed, R.HF, R.HH, R.HK, R.hn end
+  if R then G, PK, CL, HF, HH, HK, hn = R.G, R.PK, R.CL, R.HF, R.HH, R.HK, R.hn end
+  local PW = Co.PUSH_WORK
   local function push(f, h, k)
     hn = hn + 1
     local i = hn
@@ -806,24 +855,30 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
   end
   if not R then
     local k0 = tk(s.u, s.v) * 10 + (sd - 1) * 2
-    g[k0] = 0
+    G[k0 % NB + 1] = { [k0] = 0 }
+    PK[k0 % NB + 1] = {}
     local h0 = hh(s.u, s.v); push(h0, h0, k0)
   end
   -- s52 mesure : la lecture gardée (FR) faite sur place, `free` seulement à la première lecture d'une tuile (mêmes lectures, même ordre)
   local function relax(ck, cg, nu, nv, nd, nm, cost, isug)
     if nu < bu0 or nu > bu1 or nv < bv0 or nv > bv1 then return end
     local tkey = (nu + 50000) * 100000 + (nv + 50000)
-    local x = FR[tkey]
+    local fb = FR[tkey % NB + 1]
+    local x = fb and fb[tkey]
     if x == nil then x = free(nu, nv) end
     if not (x or (nu == tu and nv == tv)) then return end
     local nk = tkey * 10 + (nd - 1) * 2 + nm
-    if closed[nk] then return end
+    local b = nk % NB + 1
+    local cb = CL[b]
+    if cb and cb[nk] then return end
     local ng = cg + cost
-    local og = g[nk]
+    local gb = G[b]
+    if not gb then gb = {}; G[b] = gb; PK[b] = {} end
+    local og = gb[nk]
     if og == nil or ng < og then
-      g[nk] = ng
-      pk[nk] = ck
-      pug[nk] = isug
+      gb[nk] = ng
+      PK[b][nk] = ck * 2 + (isug and 1 or 0)
+      Co.WORK = Co.WORK + PW -- C5-PERF : une entrée de plus (tas, g) compte au budget du pas
       local a, b = nu - tu, nv - tv
       if a < 0 then a = -a end
       if b < 0 then b = -b end
@@ -844,7 +899,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
   -- développement attend la fin de la preuve, et l'état de la preuve), reprise au prochain appel (même suite d'états)
   local pend, proof = R and R.pend, R and R.proof
   local function save(pk_, pr_)
-    job.R = { FR = FR, SP = SP, TC = TC, fl = fl, sl = sl, tl = tl, expanded = expanded, g = g, pk = pk, pug = pug, closed = closed,
+    job.R = { FR = FR, SP = SP, TC = TC, fl = fl, sl = sl, tl = tl, expanded = expanded, G = G, PK = PK, CL = CL,
       HF = HF, HH = HH, HK = HK, hn = hn, pend = pk_, proof = pr_ }
   end
   while pend or hn > 0 do
@@ -859,8 +914,11 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
       -- Ch.STEP_BASE et Ch.HEAVY_WORK compris, reprend sans fin ce même tracé : 200 000 pas sans avancer, cadre du joueur au budget 200)
       if lim and did and Co.WORK >= lim then save(nil, nil) return nil, Co.SUSPEND end
       ck = pop()
-      if closed[ck] then ck = nil else
-        closed[ck] = true
+      local b = ck % NB + 1
+      local cb = CL[b]
+      if cb and cb[ck] then ck = nil else
+        if not cb then cb = {}; CL[b] = cb end
+        cb[ck] = true
         expanded = expanded + 1
         Co.WORK = Co.WORK + 1
         did = true
@@ -875,17 +933,24 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
     end
     if ck then
       local cu, cv, cd, cm = tile_of(ck)
-      local cg = g[ck]
+      local cg = G[ck % NB + 1][ck]
       if cu == tu and cv == tv then
         if cd ~= ((td + 1) % 4) + 1 and (cm == 0 or cd == td) then
           -- chemin : de l'arrivée au départ par les états d'avant, chaque arête rend sa pièce (tapis, ou paire de souterrains)
           local rev = { { u = tu, v = tv, d = td, kind = "tapis" } }
           local k = ck
-          while pk[k] do
-            local p = pk[k]
+          local function pk_of(q)
+            local pt = PK[q % NB + 1]
+            local x = pt and pt[q]
+            if x == nil then return nil end
+            local ub = x % 2
+            return (x - ub) / 2, ub == 1
+          end
+          local p, isu = pk_of(k)
+          while p do
             local nu, nv, nd = tile_of(k)
             local pu, pv = tile_of(p)
-            if pug[k] then
+            if isu then
               local dv = D4[nd]
               rev[#rev + 1] = { u = nu - dv[1], v = nv - dv[2], d = nd, kind = "souterrain", ug = "output" }
               rev[#rev + 1] = { u = pu, v = pv, d = nd, kind = "souterrain", ug = "input" }
@@ -893,6 +958,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
               rev[#rev + 1] = { u = pu, v = pv, d = nd, kind = "tapis" }
             end
             k = p
+            p, isu = pk_of(k)
           end
           local out = {}
           for i = #rev, 1, -1 do out[#out + 1] = rev[i] end
@@ -974,7 +1040,10 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
     return function(u, v)
       local k = tk(u, v)
       local x = M[k]
-      if x == nil then x = f(u, v) and true or false; M[k] = x; L[#L + 1] = u; L[#L + 1] = v; L[#L + 1] = x end
+      if x == nil then
+        x = f(u, v) and true or false; M[k] = x; L[#L + 1] = u; L[#L + 1] = v; L[#L + 1] = x
+        Co.WORK = Co.WORK + Co.PUSH_WORK -- C5-PERF : lecture notée (deux tables qui grandissent) comptée au budget
+      end
       return x
     end
   end

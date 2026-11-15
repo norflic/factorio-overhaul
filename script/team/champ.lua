@@ -31,6 +31,7 @@ local Storage = require("script.core.storage")
 local Events = require("script.core.events")
 local Db = require("shared.team.debit")
 local Paires = require("shared.team.pose_paires")
+local Lu = require("shared.team.champ_lecture") -- C5-PERF : composante du gisement et fenêtres de charbon reprenables (mêmes résultats)
 local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Stock = require("script.team.stock") -- lot COMBUSTIBLE : combustible au coffre du QG, au journal [FO-CHAMP-COMBUSTIBLE]
@@ -51,7 +52,10 @@ Champ.CFG = {
   -- perf-astar (banc carte du DC, 30 min, 6 000 : appels de 90 à 166 ms en jeu, une unité y coûte bien plus que hors jeu) : 2 000
   tick_work = 2200, -- perf-astar 2 : 2000 retardait les plans (fer -9 % a T+30, graine de la carte du DC) ; perf-reste : 3000 -> 2200
                     -- (PERFRESTE-5 : appels « net » et « bare » de 3 500 de travail à 55 ms ; PERFRESTE-6 : « net » à 2 500, 52 ms)
-  spec_cells = 20000, -- perf-astar : tuiles du rectangle lu relues par appel à l étape « occ » de la spec (réserves, couloirs)
+  spec_cells = 5000, -- perf-astar : tuiles du rectangle lu relues par appel à l étape « occ » de la spec (réserves, couloirs) ; C5-PERF : 20 000 -> 5 000
+                     -- (partie 0.9.4 du DC : 19 pas « occ » au-dessus de 15 ms, jusqu'à 29 ms)
+  post_work = 6000, -- C5-PERF : éléments traités par appel après la lecture du moteur (composante du gisement, fenêtres de charbon : Lu.*_step ;
+                    -- partie 0.9.4 : pas « ore » jusqu'à 24 ms, « charbon » jusqu'à 33 ms, faits d'un bloc sur des dizaines de milliers de tuiles)
   read_cells = 1500, -- perf-reste (PERFRESTE-6, 123456789 : à 6 000, une bande du disque du charbon dense, 64 ms ; PERFRESTE-7 : à 3 000, 72 ms) : tuiles du rectangle (ou du carré d'un rayon) demandées au moteur par appel aux étapes de lecture de la
                      -- spec (ore, charbon, foreign, blocked, autour) ; bandes de colonnes entières (banc REF0722 : 60 à 196 ms d'un bloc)
   read_check = 0,    -- perf-reste : lectures par rayon comparées à la requête d'un bloc d'avant (journal [FO-PERF-LECTURE], mesure seule ;
@@ -540,11 +544,22 @@ function SPEC.ore(J)
     J.rd_ore = { pos = { x = o.pos.x, y = o.pos.y }, R = Champ.CFG.radius, name = T.outposts[o.kind].resource }
   end
   -- perf-reste : le disque du gisement lu par bandes (étape rappelée tant qu'il reste des colonnes)
-  if not disc_read(surface, J.rd_ore) then return false, nil, nil, true end
-  disc_check(surface, J.rd_ore, "gisement")
+  if not J.oj then
+    J.sub = "lit"
+    if not disc_read(surface, J.rd_ore) then return false, nil, nil, true end
+    disc_check(surface, J.rd_ore, "gisement")
+    -- C5-PERF : composante du gisement (= ore_from : Paires.nearest_component) par tranches de Champ.CFG.post_work éléments
+    J.oj = Lu.component_begin(J.rd_ore.pts, Paires.GAP, o.pos, Paires.SEED_MAX)
+    return false, nil, nil, true
+  end
+  J.sub = "composante"
+  local cfin, comp = Lu.component_step(J.oj, Champ.CFG.post_work)
+  if not cfin then return false, nil, nil, true end
+  J.sub = "fin"
   local data, names = J.data0, J.names0
-  local ore = ore_from(J.rd_ore.pts, o)
-  J.rd_ore, J.data0, J.names0 = nil, nil, nil
+  local ore = {}
+  for _, t in ipairs(comp) do ore[#ore + 1] = math.floor(t.x); ore[#ore + 1] = math.floor(t.y) end
+  J.rd_ore, J.oj, J.data0, J.names0 = nil, nil, nil, nil
   if #ore < 2 then return true, nil, "gisement epuise" end
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
   for i = 1, #ore - 1, 2 do
@@ -571,13 +586,20 @@ function SPEC.charbon(J)
     local box
     -- perf-reste : le disque du charbon lu par bandes (étape rappelée)
     J.rd_coal = J.rd_coal or { pos = { x = J.center.x, y = J.center.y }, R = Champ.CFG.coal_r, name = T.outposts.coal.resource }
-    if not disc_read(surface, J.rd_coal) then return false, nil, nil, true end
-    disc_check(surface, J.rd_coal, "charbon")
-    local pos = J.center
-    local pts = {}
-    for _, t in ipairs(J.rd_coal.pts) do pts[#pts + 1] = { x = t.x, y = t.y, d = (t.x - pos.x) ^ 2 + (t.y - pos.y) ^ 2 } end
-    J.rd_coal = nil
-    coal, box = coal_from(pts, pos)
+    if not J.cj then
+      J.sub = "lit"
+      if not disc_read(surface, J.rd_coal) then return false, nil, nil, true end
+      disc_check(surface, J.rd_coal, "charbon")
+      -- C5-PERF : fenêtres de charbon (= coal_from sur les mêmes positions) par tranches de Champ.CFG.post_work éléments
+      J.cj = Lu.coal_begin(J.rd_coal.pts, J.center, Champ.CFG.coal_window)
+      return false, nil, nil, true
+    end
+    J.sub = "fenetres"
+    local cfin, flat, cbox = Lu.coal_step(J.cj, Champ.CFG.post_work)
+    if not cfin then return false, nil, nil, true end
+    J.sub = "fin"
+    J.rd_coal, J.cj = nil, nil
+    coal, box = flat, cbox
     if box then
       local m = Champ.CFG.route_margin
       x0, y0, x1, y1 = math.min(x0, box[1] - m), math.min(y0, box[2] - m), math.max(x1, box[3] + m), math.max(y1, box[4] + m)
@@ -589,8 +611,10 @@ end
 function SPEC.foreign(J)
   local f, surface, o, data, names, ore, coal = J.f, J.surface, J.o, J.data, J.names, J.ore, J.coal
   local x0, y0, x1, y1 = J.rect[1], J.rect[2], J.rect[3], J.rect[4]
-  local mine = J.mine0 or mine_of(f, o)
-  J.mine0 = mine
+  -- C5-PERF : la place nôtre (mine_of : boîte de chaque foreuse de l'équipe sur le gisement, pièces des bandes demandées) dans son propre appel
+  if not J.mine0 then J.mine0 = mine_of(f, o); J.sub = "mine" return false, nil, nil, true end
+  J.sub = "lit"
+  local mine = J.mine0
   local soft = coal and {} or nil
   -- lot MELANGE : autres ressources minables autour du gisement (une foreuse se pose au plus côté + portée hors du minerai)
   local ox0, oy0, ox1, oy1 = math.huge, math.huge, -math.huge, -math.huge
@@ -617,6 +641,7 @@ function SPEC.blocked(J)
   -- perf-astar : eau, bâtiments, falaises ici ; réserves et couloirs par colonnes à l'étape « occ » (même rectangle, mêmes réponses)
   -- perf-reste : eau puis bâtiments par bandes, falaises au dernier appel (étape rappelée)
   J.rd_bl = J.rd_bl or {}
+  J.sub = J.rd_bl.phase or "eau"
   local fini = blocked_strips(J.rd_bl, f, surface, x0, y0, x1, y1, J.soft)
   Profiler.fstop("champ:blocked")
   if not fini then return false, nil, nil, true end
@@ -709,8 +734,9 @@ end
 -- UNE étape de la lecture ; rend (fini, spec, names) ; J.last : nom de l'étape faite (journal de mesure)
 local function spec_step(J)
   local name = SPEC_STAGES[J.i]
-  J.last = name
+  J.sub = nil
   local fin, spec, names, again = SPEC[name](J)
+  J.last = J.sub and (name .. ":" .. J.sub) or name -- (C5-PERF : sous-étape faite, journal [FO-PERF-ETAPE] seul)
   if not again then J.i = J.i + 1 end -- perf-astar : une étape découpée (« occ ») est rappelée tant qu'elle n'a pas fini
   return fin, spec, names
 end
