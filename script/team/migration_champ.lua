@@ -117,6 +117,9 @@ local function say(f, ms, text, force)
     ms.logs_f = (ms.logs_f or 0) + 1
     if ms.logs_f > 120 then return end -- (lot CHAMP : 40 avant ; le devenir de chaque bande est forcé, champ_bandes.py le lit)
   else
+    -- lot C3-BOUCLE : plafond par fenêtre (CFG.logs_window) et non pour toute la partie
+    local now = (game and game.tick) or 0
+    if CFG.logs_window and now >= (ms.logs_t or 0) + CFG.logs_window then ms.logs, ms.logs_t = 0, now end
     ms.logs = ms.logs + 1
     if ms.logs > CFG.logs then return end
   end

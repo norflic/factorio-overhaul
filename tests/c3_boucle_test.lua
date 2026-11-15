@@ -84,6 +84,12 @@ check(EL:find('E.thermal(inputs(v, t.outpost_kind, t.kind == "craft", t.kind == 
 check(EL:find("E.thermal(inputs(v, kind, false, ((v.kinds or {})[kind] or 0) > 0))", 1, true) ~= nil, "vue du cerveau : type qui a un avant-poste = agrandissement")
 check(EL:find("net = (v.era ~= nil and (v.el_placed or 0) > 0) or nil", 1, true) ~= nil, "reseau en place : ere datee et une electrique posee")
 
+print("== 2 ter. Journal [FO-MIGRATION] : plafond par fenetre de 5 min (les causes de veille restent lisibles)")
+local Mg = require("shared.team.migration_champ")
+check(Mg.CFG.logs_window == 5 * 3600 and Mg.CFG.logs == 60, "fenetre de 5 min, 60 lignes par fenetre")
+local MS = read("script/team/migration_champ.lua")
+check(MS:find("if CFG.logs_window and now >= (ms.logs_t or 0) + CFG.logs_window then ms.logs, ms.logs_t = 0, now end", 1, true) ~= nil, "le compteur se rouvre a chaque fenetre")
+
 print("== 3. Mutants")
 local mutants = {
   { "plus grand ignore", "if lt == nil or t > lt or", "if lt == nil or t < lt or" },
