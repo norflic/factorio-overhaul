@@ -32,6 +32,7 @@ local Sq = require("shared.team.survie_qg") -- lot S1 : sort du coffre détruit 
 local Depart = require("shared.team.depart") -- lot PARITE : coffre posé d'office et tourelles de QG, comme une faction
 local DepartCoffre = require("shared.team.depart_coffre") -- lot DEFAUTS-DC : stock de départ du coffre posé d'office (données)
 local Fondation = require("shared.team.fondation")
+require("script.team.parite_joueur") -- joueur-parite : journal [FO-PARITE-JOUEUR] (lecture seule)
 require("script.team.adopte") -- lot ADOPTE : machines posées à la main par le joueur, inscrites au registre de l'équipe
 
 local PlayerTeam = {}

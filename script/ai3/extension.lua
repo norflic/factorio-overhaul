@@ -81,7 +81,7 @@ end
 
 --- Grandeurs rangées par la pensée, ou nil (équipe sans cerveau, réglage maître éteint) : lu par les sites, la capitalisation, la veille.
 function Ext.info(f)
-  if f.is_player or not Rsv.on() then return nil end
+  if not Rsv.on() then return nil end -- joueur-parite : votre equipe lit aussi ses grandeurs d'extension
   local ia3 = f.team and f.team.ia3
   return ia3 and ia3.ext or nil
 end

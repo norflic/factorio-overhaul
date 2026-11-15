@@ -273,7 +273,7 @@ do
     ever = {}, ext = { last = 10 * MIN, n_out = 1, grown = 0, why = {}, log = {}, seq = 0, open = {} } })
   check(find(goals, "releve:" .. K1) == nil, "§6 allure échue, minerai brut plein (" .. K1 .. ") : aucune relève (THERMIQUE2 essai 3)")
   goals = B.generate(situation({ is_player = true }), { short = {}, short_n = {}, targets = {}, ever = {} })
-  check(find(goals, "releve:" .. K1) == nil, "§6 votre équipe : aucune relève")
+  check(find(goals, "releve:" .. K1) ~= nil, "§6 votre équipe : la même relève qu'une faction (joueur-parite)")
   goals = B.generate(situation({ extension = false }), { short = {}, short_n = {}, targets = {}, ever = {} })
   check(find(goals, "releve:" .. K1) == nil, "§6 réglage maître éteint : aucune relève")
   goals = B.generate(situation({ room = { [K1] = true } }), { short = {}, short_n = {}, targets = {}, ever = {} })
@@ -346,11 +346,11 @@ do
   end
   local WIRES = {
     { "shared/ai3/buts.lua", "local rel = B.releve(s, st)", "B.generate émet les buts de relève" },
-    { "shared/ai3/buts.lua", "if s.extension and not s.is_player then", "la relève : factions seulement, réglage maître allumé" },
+    { "shared/ai3/buts.lua", "if s.extension then -- joueur-parite", "la relève : toutes les équipes (joueur-parite), réglage maître allumé" },
     { "shared/ai3/cerveau.lua", "extension = ctx.industrie or false", "C.situation lit le réglage maître" },
     { "script/ai3/cerveau.lua", "Ex.posture(f.chef and f.chef.mix, \"expansion\")", "la posture du chef entre dans la pensée" },
     { "script/ai3/cerveau.lua", "Ext.after(f, view, st, tick)", "Ia3.plan range les mesures et écrit le journal [FO-EXTENSION]" },
-    { "script/faction/sites.lua", "if not f.is_player then per, total = faction_limits(f) end", "Sites.room_for : sites gardés selon la défense" },
+    { "script/faction/sites.lua", "local per, total = faction_limits(f) -- joueur-parite", "Sites.room_for : sites gardés selon la défense (toutes les équipes)" },
     { "script/faction/sites.lua", "faction_limits(f)), need + FACTION_EXTRA", "Sites : sites voulus par ressource selon la défense" },
     { "script/faction/sites.lua", "ctx.reach_bonus = es.reach", "la portée de valeur suit l'étendue" },
     { "script/ai3/capitalisation.lua", "local scan_r = scan_radius(f)", "la capitalisation recense le rayon de la base" },

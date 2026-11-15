@@ -237,9 +237,9 @@ do
   local g3 = B.generate(sit({ stock = SAT3, cap = cap_all(2), room = { [COPPER] = true, [COAL] = true } }), st3)
   check(goal(g3, "couverture:" .. COPPER) == nil and goal(g3, "couverture:" .. COAL) ~= nil,
     "4.3 combustible en manque : le cuivre (brûleurs) attend, le charbon se couvre")
-  -- 4.4 Votre équipe : jamais.
+  -- 4.4 Votre équipe : la même couverture qu'une faction (joueur-parite).
   local g4 = B.generate(sit({ is_player = true, stock = SAT, cap = cap_all(2), room = { [COPPER] = true } }), stD())
-  check(goal(g4, "couverture:" .. COPPER) == nil, "4.4 votre équipe : aucun but de couverture")
+  check(goal(g4, "couverture:" .. COPPER) ~= nil, "4.4 votre équipe : but de couverture comme une faction (joueur-parite)")
   -- 4.5 Type optionnel (sans besoin au dépliage) : jamais.
   local key = { top = IRON, fuel = COAL, order = { IRON, COPPER, STONE }, optional = { [STONE] = true } }
   local g5 = B.generate(sit({ stock = SAT, cap = cap_all(2), room = { [STONE] = true }, key = key }), stD())
