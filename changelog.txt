@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.130
+Date: 2026-11-15
+  Features:
+    - Commandement (Maj+Z) : le kit d'amélioration d'une zone survit aux synchros du tableau (60 s, priorité +30), ses tapis ne sont plus pris par les tracés, kit et réserve jusqu'à 40 pièces, pièces de la zone relevées en premier. Banc (56 tapis jaunes dans la zone, ordre à 22 min) : pièces montées 5 % → 17 % à T+5 et 5 % → 37 % à T+10.
+  Bugfixes:
+    - Chantiers : un chantier bloqué faute de poteau fabricable (pénurie d'acier) passe au poteau qui se fabrique, avec relais et poteaux de compensation (zones lues aux prototypes) ; banc pénurie d'acier : 6 chantiers débloqués et finis.
+  Known issues:
+    - Maj+Z : la montée cale à 37 % (kit à court de fer) ; poteau-chantier ne couvre que les chantiers en réserve.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.129
 Date: 2026-11-15
   Optimizations:
