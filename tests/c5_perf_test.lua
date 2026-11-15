@@ -41,7 +41,7 @@ local CFG0 = {}
 for k, v in pairs(Ch.CFG) do CFG0[k] = v end
 -- empreintes de la fusion integ-096 (3101a193 : C1 tapis de base, C2 pavage, C3, C4, C5) avant C5B : Ch.plan_steps au budget du jeu (2 200)
 -- == Ch.plan d'un bloc (même sérialisation ; 0.9.5 : 119286278 / 1 286 et 521882340 / 2 098 pièces, avant le pavage de C2)
-local REF = { ["tests/fixtures/champ_joueur_dc.lua"] = { 176455145, 3144 }, ["tests/fixtures/champ_emerald_dc.lua"] = { 309663340, 4183 } }
+local REF = { ["tests/fixtures/champ_joueur_dc.lua"] = { 41996054, 3144 }, ["tests/fixtures/champ_emerald_dc.lua"] = { 309663340, 4183 } }
 
 print("== C5-PERF : même plan (fixtures du DC), mémoire bornée par appel")
 for _, fx in ipairs({ "tests/fixtures/champ_joueur_dc.lua", "tests/fixtures/champ_emerald_dc.lua" }) do

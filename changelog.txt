@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.7
+Date: 2026-11-15
+  Bugfixes:
+    - Maj+R : le bastion ordonne se pose dans la zone glissee malgre les tuiles reservees au plan et les couloirs (banc des ordres : 0 tourelle en 0.9.6, 7 sur 8 en 0.9.7, 1re pose 270 s apres l'ordre). / Shift+R: the ordered bastion is placed in the dragged area despite master-plan reserved tiles and corridors (orders bench: 0 turrets in 0.9.6, 7 of 8 in 0.9.7).
+    - Maj+A : la bande en vol hors de la zone cede la place a celle de la zone ; une bande d'ordre part avec ce qui est au coffre (non mesure au banc). / Shift+A: an in-flight band outside the area yields to the area's band; an order band starts with what is in the chest (not bench-measured).
+    - Champ : arbres et rochers deblayes a la pose (plus de foreuse sautee) ; fonderie deportee pour tout bout de bande sans place (fer, charbon, pierre). / Mining fields: trees and rocks cleared on placement; remote smelting for every band end without room (iron, coal, stone).
+---------------------------------------------------------------------------------------------------
 Version: 0.9.6
 Date: 2026-11-15
   Bugfixes:
