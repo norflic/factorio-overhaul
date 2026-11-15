@@ -110,8 +110,12 @@ local function bind(c)
     return all[Ch.key(x, y)] == true
   end
   local nfree = 0 -- perf-frame : lectures de place libre de l'étape (compte du travail, Ch.once_step ; jamais une décision)
+  local FW = Ch.FREE_WORK
   c.free = function(u, v)
     nfree = nfree + 1
+    -- perf-reste (banc PERFRESTE-2 : pas « net » à 7 488 de travail pour un budget de 2 000, les lectures de place libre n'étaient comptées
+    -- qu'après le pas) : chaque lecture compte tout de suite, les recherches reprenables s'arrêtent au budget en les voyant
+    Co.WORK = Co.WORK + FW
     local x, y = c.xy(u, v)
     local k = Ch.key(x, y)
     return not c.taken[k] and (c.mine[k] or not c.blocked[k])
@@ -1579,7 +1583,7 @@ function Ch.once_step(s)
   repeat ran[#ran + 1] = s.stage; heavy = ONCE[s.stage](s) until heavy or s.done
   Co.WORK_LIM = nil
   -- (étapes non comptées : une bande, les poteaux... : un forfait et leurs lectures de place libre ; borne les pas groupés par Ch.plan_steps)
-  Co.WORK = Co.WORK + Ch.STEP_BASE + ((s.c and s.c.nfree) and math.floor(s.c.nfree() * Ch.FREE_WORK) or 0)
+  Co.WORK = Co.WORK + Ch.STEP_BASE -- (perf-reste : les lectures de place libre sont comptées à chaque lecture, c.free)
   -- mesure : étapes faites dans cet appel et tailles (journal [FO-PERF-ETAPE] du câblage ; jamais lu pour une décision)
   Ch.LAST_STEP = string.format("%s tuiles=%d bandes=%d bi=%s ph=%s pending=%d bare=%d/%d ents=%d", table.concat(ran, ">"),
     s.c and #s.c.list or 0, s.bands and #s.bands or 0, tostring(s.bi), tostring(s.ph), s.pending and #s.pending or 0,

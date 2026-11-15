@@ -805,6 +805,14 @@ function Champ.frame(f, surface, o)
   end
   Profiler.fstop("champ:frame-plan")
   if not done then return nil, Ax.WAIT end
+  -- perf-reste (banc PERFRESTE-2 : appels « finish » de 100 ms pour un pas de 20 ms) : mesure de ce qui suit le dernier pas (mesure seule)
+  local prof_fin = g.create_profiler and g.create_profiler() or nil
+  local function fin_log(what)
+    if prof_fin then
+      prof_fin.stop()
+      log({ "", string.format("[FO-PERF-FIN] %s %d %s %s : ", tostring(f.key or "player"), o.id, step, what), prof_fin })
+    end
+  end
   SEQ[sk] = nil
   if seq.st.n > 1 then
     log(string.format("[FO-CHAMP] %s : avant-poste %d (%s) : plan du cadre en %d variantes et %d etapes (une par appel, jamais deux dans un tick) a %.1f min",
@@ -818,6 +826,7 @@ function Champ.frame(f, surface, o)
       o.axis_try = Ax.memo(plan, game.tick)
       -- 0.7.107 : le premier plan est gardé (mémoire locale du module, jamais dans global) : s'il gagne, il est repris tel quel au lieu d'être refait
       FIRST_PLAN[sk] = { spec = spec, plan = plan, tick = game.tick }
+      fin_log("autre axe a essayer")
       return nil, Ax.WAIT
     end
   elseif step == "other" then
@@ -942,6 +951,7 @@ function Champ.frame(f, surface, o)
       o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
   end
   FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, oid = o.id, kind = o.kind }
+  fin_log("cadre rendu")
   return plan.frame, prs, plan
 end
 
