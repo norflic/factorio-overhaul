@@ -62,6 +62,10 @@ Ch.CFG = {
   -- (revue-fonderie, 3/11) un cadre neuf qui garde un coffre de tête ou refuse une colonne est aussi essayé dans l'autre ordre des côtés
   both_orders = true,
   eps = 1e-9,
+  -- C2-PAVAGE : états développés au plus par tracé d'une colonne ailleurs cherchée sur toute la largeur lue (second essai, Ch.away_rows) ;
+  -- le premier essai garde Co.AWAY_CAP. Mesuré hors jeu (tests/c2_pavage_test.lua) : fer d'emerald (carte du DC) 47 % -> 97 % de
+  -- couverture à 150 000 (56 % à 60 000, 85 % à 100 000). Le tracé est reprenable au budget du pas (aucun gel d'un tick).
+  away_cap_wide = 150000,
 }
 
 function Ch.key(x, y) return (x + 50000) * 100000 + (y + 50000) end
@@ -1380,9 +1384,19 @@ end
 -- un bout de bande sans place de fonderie dans son prolongement ne garde ses foreuses QUE si une colonne les reçoit ailleurs (Co.away),
 -- au besoin plus courte (moitié, quart des fours : le groupe est réduit à ce qu'elle fond). Sinon RIEN n'est posé : ni foreuse, ni tapis
 -- (leur minerai attend une fonderie). Une colonne refusée faute de voie de charbon (t.refused) n'en reçoit pas : ses foreuses non plus.
+--- C2-PAVAGE : rangées (en travers, de part et d'autre du collecteur) où une colonne ailleurs est cherchée. Avant : deux pas de bande ;
+--- au milieu d'un gisement collé à un autre minerai (ou à la base) aux deux bouts, toutes ces rangées tombent sur la ressource voisine
+--- et la bande reste sans fonderie (carte du DC, partie 0.9.4 : 94 foreuses orphelines sur 165 au fer du joueur). Désormais toute la
+--- largeur des tuiles lues (la fenêtre de la spec) : la colonne va sur le sol neutre le plus proche, au-delà du bord du gisement.
+function Ch.away_rows(s, win)
+  local r = 2 * s.pitch
+  if win then r = math.max(r, win.v1 - win.v0) end
+  return r
+end
+
 function ONCE.bare(s)
   local t = s.bare_todo[s.ti]
-  if not t then s.ti, s.ug_uv = nil, nil; s.stage = "poles" return false end
+  if not t then s.ti, s.ug_uv, s.pwin = nil, nil, nil; s.stage = "poles" return false end
   -- perf-frame : recherche de colonne ailleurs reprenable (Co.away, état s.bw) : un pas qui atteint le budget s'arrête et le pas suivant
   -- rejoue ce bout (lectures et prises d'avant la recherche : mêmes réponses, prises identiques) puis reprend la recherche où elle était
   local ti = s.ti
@@ -1406,8 +1420,15 @@ function ONCE.bare(s)
     while e_end ~= g0.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
   end
   local g, aw, aw_why
+  local pre = bw and bw.pre or nil
   if colonne and not t.refused then
-    if not bw then for u = g0.cut, e_end, t.side do c.take(u, bd.b) end end -- (le tracé du lien ne repasse pas sur le collecteur)
+    if not bw then
+      pre = {} -- C2-PAVAGE : tuiles du collecteur libres avant cette prise (rendues si le bout reste orphelin et que l'autre bout essaie)
+      for u = g0.cut, e_end, t.side do
+        if c.free(u, bd.b) then pre[#pre + 1] = u end
+        c.take(u, bd.b)
+      end
+    end -- (le tracé du lien ne repasse pas sur le collecteur)
     local want = Fd.count(spec, Ch.delivered(#g0.n, #g0.s, d.rate, lane, fuelled))
     local counts = { want }
     -- colonne plus courte : four électrique seulement. Une colonne ailleurs à combustible prend un coffre de tête que rien ne garnit
@@ -1419,8 +1440,45 @@ function ONCE.bare(s)
     end
     -- recul : jusqu'au bord des tuiles lues le long de l'axe (sans rectangle connu, celui de Co.place)
     local u0 = e_end + t.side
+    -- C2-PAVAGE : le tracé et la place d'une colonne ailleurs ne prennent pas, sur les rangées de poteaux, les tuiles où les poteaux des
+    -- foreuses se posent après (fenêtre côté + 2 × portée de chaque foreuse de la bande) : un lien qui longeait une rangée de poteaux
+    -- laissait 55 foreuses sans courant au fer du joueur (carte du DC)
+    local pwin = s.pwin
+    if not pwin then
+      pwin = {}
+      local R2, sz = spec.pole.reach, d.size
+      for _, b2 in ipairs(s.bands) do
+        for _, it in ipairs({ { b2.pr, b2.n }, { b2.pr + pitch, b2.s } }) do
+          for _, a in ipairs(it[2]) do for u = a - R2, a + sz - 1 + R2 do pwin[Co.tk(u, it[1])] = true end end
+        end
+      end
+      s.pwin = pwin
+    end
+    -- (et la tuile devant le bout d'un tapis déjà émis : la ligne de plaques ou de charbon d'une colonne y déverserait sur le lien ;
+    -- fer du joueur, 546 tuiles de voies mêlées)
+    local front = {}
+    for _, e in ipairs(s.ents) do
+      if (e.kind == "tapis" or (e.kind == "souterrain" and e.ug == "output")) and DIRS[e.dir] then
+        local dv = DIRS[e.dir]
+        local fu, fv = c.uv(math.floor(e.x) + dv[1], math.floor(e.y) + dv[2])
+        front[Co.tk(fu, fv)] = true
+      end
+    end
+    local function away_free(u, v)
+      if pwin[Co.tk(u, v)] or front[Co.tk(u, v)] then return false end
+      return c.free(u, v)
+    end
     local reach = win and math.max(0, t.side > 0 and (win.u1 - u0) or (u0 - win.u0)) or (Ch.CFG.shift + Ch.CFG.gap)
-    for ci, cnt in ipairs(counts) do
+    -- C2-PAVAGE : chaque colonne est cherchée d'abord sur deux pas de bande en travers (places et tracés d'avant), puis, sans place,
+    -- sur toute la largeur lue (Ch.away_rows) : un plan qui trouvait sa colonne reste identique
+    local tries = {}
+    local wide = Ch.away_rows(s, win)
+    for _, cnt in ipairs(counts) do
+      tries[#tries + 1] = { cnt, 2 * pitch }
+      if wide > 2 * pitch then tries[#tries + 1] = { cnt, wide } end
+    end
+    for ci, tr in ipairs(tries) do
+      local cnt, nrows = tr[1], tr[2]
       if bw and ci < bw.ci then
         aw_why = bw.why -- (colonnes déjà essayées sans place avant la reprise : leur raison)
       else
@@ -1434,11 +1492,11 @@ function ONCE.bare(s)
           local A = (bw and bw.ci == ci) and bw.A or {}
           local why0 = aw_why
           aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
-            c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
+            away_free, c.is_resource, { shift = reach, rows = nrows, cap = nrows > 2 * pitch and Ch.CFG.away_cap_wide or nil, ug = (spec.logistics or {}).underground,
               span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win,
               memo = run_memo("away") }, A) -- s52 mesure : tracés des colonnes ailleurs refaits à l'identique d'un plan_once à l'autre
           if not aw and aw_why == Co.SUSPEND then
-            s.bw = { ti = ti, ci = ci, A = A, why = why0, g0 = g0, e_end = e_end }
+            s.bw = { ti = ti, ci = ci, A = A, why = why0, g0 = g0, e_end = e_end, pre = pre }
             s.ti = ti
             return true
           end
@@ -1487,14 +1545,106 @@ function ONCE.bare(s)
       capacity = capa, belt_tiles = nb, s_edge = aw.s_edge, len = aw.len, cut = g.cut, pole_u = e_end, pole_u2 = colonne and e_end or nil,
       away = true, col_b = aw.b, mode = aw.info.mode }
   else
-    s.orphans = s.orphans + #g0.n + #g0.s -- foreuses NON posées : aucune fonderie ne les recevrait
-    bo.orphans = bo.orphans + #g0.n + #g0.s
+    -- C2-PAVAGE (chantier 2.1 du DC : gisement collé à un autre minerai ou à la base, « pavage incomplet ») : un bout sans fonderie ni
+    -- colonne ailleurs rend ses foreuses au groupe de l'AUTRE bout de la même bande (sa fonderie est posée), comme le second bout prend
+    -- toute la bande quand le premier n'a pas de place : son tapis est prolongé vers ce bout. Une foreuse n'y entre que si le débit livré
+    -- reste dans ce que sa fonderie fond (voie déjà saturée : débit inchangé) et sans tapis plus rapide ; le reste demeure orphelin.
+    local ext = Ch.extend_other(s, t, bo, g0, e_end)
+    local left = #g0.n + #g0.s - ext
+    local later = false
+    if ext == 0 then
+      for j = ti + 1, #s.bare_todo do
+        local o = s.bare_todo[j]
+        if o.bi == t.bi and o.side == -t.side then later = true end
+      end
+    end
+    if later and pre then left = 0 end -- (l'autre bout reprend ces foreuses : comptées orphelines par lui s'il échoue aussi)
+    s.orphans = s.orphans + left -- foreuses NON posées : aucune fonderie ne les recevrait
+    bo.orphans = bo.orphans + left
     -- leurs tuiles (rangée du collecteur, tuile devant sa sortie) restent prises dans ce plan, comme avant le lot : les autres bouts ne
     -- s'y placent pas (même plan qu'avant, foreuses et tapis en moins)
-    for u = g0.cut, e_end, t.side do c.take(u, bd.b) end
-    c.take(e_end + t.side, bd.b)
+    -- C2-PAVAGE : les deux bouts de la bande sans place (gisement collé à une autre ressource ou à la base des deux côtés) : le premier
+    -- prenait toute la bande et gardait tout son collecteur, l'autre bout ne voyait plus aucune foreuse ni tapis libre et n'essayait
+    -- jamais SA colonne ailleurs. Quand l'autre bout attend encore (bare_todo plus loin), le collecteur est rendu (seules les tuiles
+    -- libres avant la prise) et l'autre bout essaie avec toute la bande ; sinon les tuiles restent prises, comme avant.
+    if later and pre then
+      for _, u in ipairs(pre) do local x, y = c.xy(u, bd.b); c.taken[Ch.key(x, y)] = nil end
+    elseif not later then
+      for u = g0.cut, e_end, t.side do c.take(u, bd.b) end
+      c.take(e_end + t.side, bd.b)
+    end
   end
   return true
+end
+
+--- C2-PAVAGE : foreuses du bout orphelin `g0` (bout t.side, collecteur pris de g0.cut à e_end s'il y en a un) données au groupe posé de
+--- l'autre bout (côté -t.side) de la même bande : foreuses émises dans ce groupe, son tapis prolongé de sa coupe jusqu'à la plus lointaine
+--- prise (sens -t.side). Prises de la plus proche de la coupe vers le bord, tant que le débit livré tient dans la fonderie du groupe et
+--- que le tapis du groupe suffit (belt_for inchangé). Tuiles du tapis : libres, ou celles du collecteur de g0. Rend le nombre pris.
+function Ch.extend_other(s, t, bo, g0, e_end)
+  local spec, c, d, bd = s.spec, s.c, s.spec.drill, t.bd
+  local og, gi
+  for j, g in ipairs(bo.groups) do if g.side == -t.side and g.cut then og, gi = g, j break end end
+  if not og then return 0 end
+  local half = math.floor(d.size / 2)
+  local all = {}
+  for _, a in ipairs(g0.n) do all[#all + 1] = { a = a, cu = a + half, side = "n" } end
+  for _, a in ipairs(g0.s) do all[#all + 1] = { a = a, cu = a + half, side = "s" } end
+  table.sort(all, function(p, q)
+    local dp, dq = (p.cu - og.cut) * t.side, (q.cu - og.cut) * t.side
+    if dp ~= dq then return dp < dq end
+    return p.side < q.side
+  end)
+  -- collecteur de g0 (pris par ce plan pour lui) : rendu au tapis prolongé
+  local own = {}
+  for u = g0.cut, e_end, t.side do own[u] = true end
+  local cap = Fd.capacity(spec, og.count or 0)
+  local cnt = { n = 0, s = 0 } -- foreuses déjà émises du groupe, par côté du tapis
+  for _, e in ipairs(s.ents) do
+    if e.kind == "foreuse" and e.band == t.bi and e.group == gi then
+      local _, v = c.uv(math.floor(e.x), math.floor(e.y))
+      if v <= bd.b then cnt.n = cnt.n + 1 else cnt.s = cnt.s + 1 end
+    end
+  end
+  local nn, ns = cnt.n, cnt.s
+  local take, far = {}, nil
+  for _, it in ipairs(all) do
+    if (it.cu - og.cut) * t.side <= 0 then break end -- (jamais en deçà de la coupe de l'autre groupe)
+    local n2, s2 = nn + (it.side == "n" and 1 or 0), ns + (it.side == "s" and 1 or 0)
+    local flow = Ch.delivered(n2, s2, d.rate, s.lane, s.fuelled)
+    if flow > cap + Ch.CFG.eps then break end
+    local need_lane = s.fuelled and (n2 + s2) or math.max(n2, s2) -- (même règle que belt_for)
+    local bt = #spec.belts
+    for i, b in ipairs(spec.belts) do if Ch.lane_drills(b.lane, d.rate) >= need_lane then bt = i break end end
+    if bt > (og.belt or #spec.belts) then break end
+    -- tuiles du tapis jusqu'à cette foreuse : libres ou du collecteur de g0
+    local ok = true
+    local from = far and (far + t.side) or (og.cut + t.side)
+    for u = from, it.cu, t.side do if not (own[u] or c.free(u, bd.b)) then ok = false break end end
+    if not ok then break end
+    nn, ns = n2, s2
+    take[#take + 1] = it
+    if not far or (it.cu - far) * t.side > 0 then far = it.cu end
+  end
+  if #take == 0 then return 0 end
+  for _, it in ipairs(take) do
+    if it.side == "n" then emit(s, "foreuse", it.a, bd.pr + 1, d.size, 0, 1, t.bi, gi, bd.pr)
+    else emit(s, "foreuse", it.a, bd.b + 1, d.size, 0, -1, t.bi, gi, bd.pr) end
+    t.used[it.a .. it.side] = true
+  end
+  local nb = 0
+  for u = far, og.cut + t.side, -t.side do
+    c.take(u, bd.b)
+    emit(s, "tapis", u, bd.b, 1, -t.side, 0, t.bi, gi, bd.pr, s.colonne and "bande" or nil, og.belt)
+    nb = nb + 1
+  end
+  local flow = Ch.delivered(nn, ns, d.rate, s.lane, s.fuelled)
+  s.flow_all = s.flow_all + flow - (og.flow or 0)
+  s.capped = s.capped - #take
+  og.drills, og.per_side, og.flow, og.cut = og.drills + #take, math.max(nn, ns), flow, far
+  og.belt_tiles = (og.belt_tiles or 0) + nb
+  og.extended = (og.extended or 0) + #take
+  return #take
 end
 
 -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
@@ -1555,7 +1705,54 @@ function ONCE.bridge(s)
   return false
 end
 
+--- C2-PAVAGE : foreuses hors de la zone de tout poteau du plan retirées (aucune place de poteau dans leur fenêtre : tapis ou bâtiment
+--- étranger le long de la rangée de poteaux ; fer du joueur, carte du DC : un tapis du joueur longe le gisement, 11 foreuses sans courant
+--- une fois leur bande servie). Même règle que la vérification (shared/team/champ_verif.lua : une tuile du corps à `reach` d'un poteau).
+--- Le groupe garde sa fonderie (débit plus petit, capacité inchangée). Rend le nombre retiré.
+function Ch.prune_unpowered(s)
+  local spec, ents = s.spec, s.ents
+  local R = spec.pole and spec.pole.reach
+  if not R then return 0 end
+  local grid = {}
+  local function gk(x, y) return Ch.key(math.floor(x / 8), math.floor(y / 8)) end
+  for _, e in ipairs(ents) do
+    if e.kind == "poteau" then
+      local x, y = math.floor(e.x), math.floor(e.y)
+      local k = gk(x, y)
+      grid[k] = grid[k] or {}
+      grid[k][#grid[k] + 1] = { x, y }
+    end
+  end
+  local function powered(e)
+    local h = e.size / 2
+    local x0, y0 = math.floor(e.x - h + Ch.CFG.eps), math.floor(e.y - h + Ch.CFG.eps)
+    local x1, y1 = x0 + e.size - 1, y0 + e.size - 1
+    for gx = math.floor((x0 - R) / 8), math.floor((x1 + R) / 8) do
+      for gy = math.floor((y0 - R) / 8), math.floor((y1 + R) / 8) do
+        for _, q in ipairs(grid[Ch.key(gx, gy)] or {}) do
+          if q[1] >= x0 - R and q[1] <= x1 + R and q[2] >= y0 - R and q[2] <= y1 + R then return true end
+        end
+      end
+    end
+    return false
+  end
+  local out, cut = {}, 0
+  for _, e in ipairs(ents) do
+    if e.kind == "foreuse" and e.role ~= "charbon" and not powered(e) then
+      cut = cut + 1
+      local bo = s.out_bands[e.band]
+      local g = bo and bo.groups[e.group]
+      if g then g.drills = g.drills - 1 end
+    else
+      out[#out + 1] = e
+    end
+  end
+  if cut > 0 then s.ents = out end
+  return cut
+end
+
 function ONCE.finish(s)
+  s.unpowered = Ch.prune_unpowered(s)
   local spec, F, colonne, ents, out_bands = s.spec, s.F, s.colonne, s.ents, s.out_bands
   local n = { foreuse = 0, poteau = 0, tapis = 0, four = 0, bras = 0, coffre = 0, souterrain = 0, repartiteur = 0 }
   for _, e in ipairs(ents) do n[e.kind] = n[e.kind] + 1 end
@@ -1579,6 +1776,7 @@ function ONCE.finish(s)
       no_smelter_at = s.no_smelter_at, undergrounds = n.souterrain, splitters = n.repartiteur, coal = s.coal_stats,
       band_drills = band_drills,
       away = away,
+      unpowered = (s.unpowered or 0) > 0 and s.unpowered or nil, -- C2-PAVAGE : foreuses retirées faute de place de poteau
       away_why = s.away_why, orphans = s.orphans, -- lot COUPLAGE : foreuses non posées faute de fonderie
       bare = bare },
   }

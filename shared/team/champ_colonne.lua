@@ -387,15 +387,26 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   -- la colonne ne dépend de (s_edge, b) que par translation : calculée une fois en (0, 0), ses tuiles décalées pour chaque place
   -- C5-PERF : reprise (A.base) : la colonne en (0, 0) et ses tuiles gardées du premier appel (mêmes arguments : même colonne ; avant, refaites
   -- à chaque reprise, 0,2 Mo alloués par pas « bare » des fixtures du DC)
-  local base, len, info0, rel
-  if A and A.base then base, len, info0, rel = A.base, A.len, A.info0, A.rel else
+  -- C2-PAVAGE : relf = tuiles devant le bout d'un tapis de la colonne (ligne de plaques, trop-plein) hors de son emprise : le lien n'y passe
+  -- pas, sinon la colonne déverse ses plaques sur son propre lien, jusqu'à sa voie de minerai (fer du joueur, carte du DC : 164 tuiles
+  -- de voies mêlées)
+  local base, len, info0, rel, relf
+  if A and A.base then base, len, info0, rel, relf = A.base, A.len, A.info0, A.rel, A.relf else
     base, len, info0 = Co.layout(spec, 0, side, 0, count, mode)
     if not base then return nil, "colonne impossible" end
     rel = {}
+    local own = {}
     for _, e in ipairs(base) do
-      for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v } end end
+      for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v }; own[Co.tk(u, v)] = true end end
     end
-    if A then A.base, A.len, A.info0, A.rel = base, len, info0, rel end
+    relf = {}
+    for _, e in ipairs(base) do
+      if e.kind == "tapis" and (e.du ~= 0 or e.dv ~= 0) then
+        local fu, fv = e.u + e.du, e.v + e.dv
+        if not own[Co.tk(fu, fv)] and not (fu == -side and fv == 0) then relf[#relf + 1] = { fu, fv } end
+      end
+    end
+    if A then A.base, A.len, A.info0, A.rel, A.relf = base, len, info0, rel, relf end
   end
   -- perf-frame : `A` (facultatif, table de l'appelant) rend la recherche REPRENABLE : curseur des places, lectures du sol neutre, tracés
   -- comptés, tracé en cours (A.job) ; budget du pas atteint (Co.WORK >= Co.WORK_LIM) -> nil, Co.SUSPEND, et le rappel avec les mêmes
@@ -464,7 +475,8 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
     if fine then
       local mine = {}
       for _, r in ipairs(rel) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end
-      work = work + #rel -- C5-PERF : l'emprise notée (une table de #rel clés) compte au budget
+      work = work + #rel + #relf -- C5-PERF : l'emprise notée (une table de #rel clés) compte au budget
+      for _, r in ipairs(relf) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end -- C2-PAVAGE : le lien ne passe pas devant un bout de tapis de sa colonne
       if not mine[Co.tk(t.u, t.v)] then
         A.job = A.job or {}
         local resumed = A.job.R ~= nil or A.job.MV ~= nil -- (perf-reste : relecture de la mémoire en cours, même tracé)
@@ -475,7 +487,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
         local sd = didx(side, 0)
         Co.WORK = Co.WORK + work
         work = 0
-        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, Co.AWAY_CAP, o.tcost, o.memo,
+        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, o.cap or Co.AWAY_CAP, o.tcost, o.memo,
           lim and A.job or nil)
         if rwhy == Co.SUSPEND and not route then save() return nil, Co.SUSPEND end
         if route then
