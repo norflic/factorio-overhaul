@@ -144,6 +144,7 @@ Ch.CTX_CHUNK = 6000
 Ch.STEP_WORK = 2000 -- perf-astar : 3 000 avant (pas jusqu a 120 ms en jeu, carte du DC), 1 500 au banc 3 (plans trop lents)
 Ch.STEP_BASE = 500 -- travail compté pour tout pas (en plus de ses recherches)
 Ch.HEAVY_WORK = 3000 -- forfait d'une étape d'un bloc (une bande, les bras, les poteaux, une tranche du contexte)
+Ch.BAND_WORK = 500 -- perf-reste : forfait d'un pas de bande (un bout), sa recherche de place (Co.place) comptée et reprenable à part
 Ch.FREE_WORK = 0.5 --travail compté par lecture de place libre du contexte (c.free) pendant le pas
 Ch.ROW_WORK = 1 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
 local function context_new(spec, axis)
@@ -1012,12 +1013,15 @@ function ONCE.band(s)
   B = { bi = bi, used = used, groups = groups, limit = limit, sides = Ch.CFG.both_ends and { exit, -exit } or { exit }, si = 1 }
   s.bst = B
   end
-  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une bande par appel de Ch.plan_steps ; perf-reste : un bout par appel)
+  -- perf-reste : forfait réduit (Ch.BAND_WORK) : la place de la fonderie (Co.place) est reprenable au budget, ses lectures comptées
+  Co.WORK = Co.WORK + Ch.BAND_WORK
   local bi, bd, used, groups, limit = B.bi, s.bands[B.bi], B.used, B.groups, B.limit
   do
     local side = B.sides[B.si]
     local edge = side > 0 and umax or umin
-    local g = take_group(c, spec, bd, side, edge, used, limit)
+    -- (reprise d'une place de fonderie suspendue : le groupe du premier appel, gardé)
+    local g = B.g or take_group(c, spec, bd, side, edge, used, limit)
+    B.g = nil
     limit = nil
     if g then
       local flow = Ch.delivered(#g.n, #g.s, d.rate, lane, fuelled)
@@ -1031,8 +1035,14 @@ function ONCE.band(s)
         elseif not (F and F.cols) or fixed then
           local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
           half = half_of(s, bd.pr, fixed)
+          B.P = B.P or {}
           list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
-            c.is_resource, mode, fixed, half, shared_plate, run_memo("places"))
+            c.is_resource, mode, fixed, half, shared_plate, run_memo("places"), Co.WORK_LIM and B.P or nil)
+          if not list and len == Co.SUSPEND then
+            B.g, B.limit = g, B.limit -- même bout au pas suivant (limite d'avant le groupe inchangée)
+            return true
+          end
+          B.P = nil
           if not list and not s.no_smelter_at then
             -- diagnostic : la 1re tuile non libre le long du tapis puis dans la colonne, à la place du cadre figé ou à la 1re place essayée
             local s0 = fixed and fixed.s_edge or (edge + side * (Ch.CFG.gap + 1))

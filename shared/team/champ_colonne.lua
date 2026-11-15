@@ -248,15 +248,19 @@ local function place_copy(list, len, s_edge, count, info)
   return l, len, s_edge, count, inf
 end
 local place_raw
-function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, memo)
-  if not memo or fixed then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared) end
+-- perf-reste (banc PERFRESTE-2 : un bout de bande, Co.place, jusqu'à 68 ms d'un bloc) : `P` (facultatif, table de l'appelant, avec le budget
+-- Co.WORK_LIM) rend la recherche REPRENABLE entre deux reculs t de la fonderie : curseur P.t et lectures notées pour la mémoire gardés dans P ;
+-- budget atteint -> nil, Co.SUSPEND, et le rappel avec le même P reprend au recul suivant (mêmes lectures dans le même ordre : même place)
+function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, memo, P)
+  if fixed then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared) end
+  if not memo then return place_raw(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, P) end
   local parts = { b, side, edge, count, gap, shift, mode, half ~= nil, half and half.mirror, half and half.jog, half and half.lead,
     shared ~= nil, Co.EXT, Co.SF, Co.PICKUP }
   for i = 1, 15 do parts[i] = tostring(parts[i]) end
   local mkey = table.concat(parts, ",")
   local f, p, ins = spec.furnace, spec.pole, spec.inserter
   local mlist = memo[mkey]
-  if mlist then
+  if mlist and not (P and P.t) then
     for _, m in ipairs(mlist) do
       if m.f == f and m.p == p and m.ins == ins then
         local ok = true
@@ -273,7 +277,12 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     end
   end
   local tk = Co.tk
-  local FR, OR, SH, fl, ol, sl = {}, {}, {}, {}, {}, {}
+  local FR, OR, SH, fl, ol, sl
+  if P and P.t then FR, OR, SH, fl, ol, sl = P.FR, P.OR, P.SH, P.fl, P.ol, P.sl
+  else
+    FR, OR, SH, fl, ol, sl = {}, {}, {}, {}, {}, {}
+    if P then P.FR, P.OR, P.SH, P.fl, P.ol, P.sl = FR, OR, SH, fl, ol, sl end
+  end
   local function rfree(u, v)
     local k = tk(u, v)
     local x = FR[k]
@@ -292,7 +301,10 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
     if x == nil then x = shared(u, v, e) and true or false; SH[k] = x; sl[#sl + 1] = u; sl[#sl + 1] = v; sl[#sl + 1] = e.du; sl[#sl + 1] = x end
     return x
   end or nil
-  local list, len, s_edge, cnt, info = place_raw(spec, b, side, edge, count, gap, shift, rfree, rore, mode, nil, half, rshared)
+  local list, len, s_edge, cnt, info = place_raw(spec, b, side, edge, count, gap, shift, rfree, rore, mode, nil, half, rshared, P)
+  if not list and len == Co.SUSPEND then return nil, Co.SUSPEND end
+  if P then P.t, P.FR, P.OR, P.SH, P.fl, P.ol, P.sl = nil, nil, nil, nil, nil, nil, nil end
+  mlist = memo[mkey]
   if not mlist then mlist = {}; memo[mkey] = mlist end
   if #mlist < 6 then
     local ml, mlen, ms, mc, mi = place_copy(list, len, s_edge, cnt, info)
@@ -300,7 +312,7 @@ function Co.place(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fi
   end
   return list, len, s_edge, cnt, info
 end
-place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared)
+place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode, fixed, half, shared, P)
   local function common(e) return shared ~= nil and e.kind == "tapis" and e.role == "sortie" and shared(e.u, e.v, e) end
   -- F500 (directive du DC du 10/11, 22 h) : aucune entité de la colonne sur une tuile de ressource (`is_ore` = le minerai visé ET les
   -- autres ressources) ; plus de seconde passe qui acceptait le minerai. Lot DECOUPLAGE : la colonne d'un cadre figé (`fixed`) aussi.
@@ -326,7 +338,12 @@ place_raw = function(spec, b, side, edge, count, gap, shift, free, is_ore, mode,
     if list and fits(fixed.s_edge, list) then return own(list), len, fixed.s_edge, fixed.count, info end
     return nil
   end
-  for t = 0, shift do
+  local lim = P and Co.WORK_LIM
+  for t = (P and P.t) or 0, shift do
+    -- perf-reste : budget du pas atteint avant ce recul -> reprise ici au rappel (le premier recul de l'appel est toujours fait : la
+    -- recherche avance toujours)
+    if lim and P.t and t > P.t and Co.WORK >= lim then P.t = t; return nil, Co.SUSPEND end
+    if P and not P.t then P.t = t end
     local s_edge = edge + side * (gap + 1 + t)
     local list, len, info = Co.layout(spec, b, side, s_edge, count, mode, half)
     if list and fits(s_edge, list) then
