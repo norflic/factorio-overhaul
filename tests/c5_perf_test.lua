@@ -39,8 +39,9 @@ local function ph(p, why) return p and hash(ser(p, {})) or ("nil:" .. tostring(w
 local MAX_KB = 1200 -- Ko alloués au plus par appel de Ch.plan_steps (avant le lot : 4 739 Ko, fixture emerald)
 local CFG0 = {}
 for k, v in pairs(Ch.CFG) do CFG0[k] = v end
--- empreintes de 0.9.5 (83761e6d, avant le lot) : Ch.plan_steps au budget du jeu (2 200), même sérialisation
-local REF = { ["tests/fixtures/champ_joueur_dc.lua"] = { 119286278, 1286 }, ["tests/fixtures/champ_emerald_dc.lua"] = { 521882340, 2098 } }
+-- empreintes de la fusion integ-096 (3101a193 : C1 tapis de base, C2 pavage, C3, C4, C5) avant C5B : Ch.plan_steps au budget du jeu (2 200)
+-- == Ch.plan d'un bloc (même sérialisation ; 0.9.5 : 119286278 / 1 286 et 521882340 / 2 098 pièces, avant le pavage de C2)
+local REF = { ["tests/fixtures/champ_joueur_dc.lua"] = { 176455145, 3144 }, ["tests/fixtures/champ_emerald_dc.lua"] = { 309663340, 4183 } }
 
 print("== C5-PERF : même plan (fixtures du DC), mémoire bornée par appel")
 for _, fx in ipairs({ "tests/fixtures/champ_joueur_dc.lua", "tests/fixtures/champ_emerald_dc.lua" }) do
@@ -62,7 +63,8 @@ for _, fx in ipairs({ "tests/fixtures/champ_joueur_dc.lua", "tests/fixtures/cham
   end
   local p, why = Ch.plan_result(st)
   check(done and p ~= nil, fx .. " : plan fini")
-  check(p and ph(p) == REF[fx][1] and #p.ents == REF[fx][2], string.format("%s : empreinte %s (%d pièces), 0.9.5 : %d (%d pièces)", fx,
+  check(p and ph(p) == ph(Ch.plan(d.spec)), fx .. " : plan découpé (budget du jeu) == Ch.plan d'un bloc")
+  check(p and ph(p) == REF[fx][1] and #p.ents == REF[fx][2], string.format("%s : empreinte %s (%d pièces), référence : %d (%d pièces)", fx,
     tostring(p and ph(p)), p and #p.ents or -1, REF[fx][1], REF[fx][2]))
   check(maxkb <= MAX_KB, string.format("%s : %.0f Ko alloués au plus par appel (%s), borne %d", fx, maxkb, at, MAX_KB))
   print(string.format("  %s : %d appels, empreinte %s, au plus %.0f Ko par appel (%s)", fx, calls, tostring(p and ph(p)), maxkb, at))

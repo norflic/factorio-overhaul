@@ -49,7 +49,7 @@ Co.DEPOSITS = 3        -- gisements de charbon essayés (le plus proche peut êt
 Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. (Proposé à ~120 le 3/11 ; mesuré hors jeu : un charbon à 60-70 tuiles
                        -- du champ donne des tracés de 136 à 207 tuiles, le tracé contournant le champ et ses colonnes : 120 renvoyait presque
                        -- tout au coffre de tête. Ce qui faisait attendre les bandes au lot3 était le charbon à 320 tuiles posé par la bande.)
-Co.ROUTE_NB = 127      -- C5-PERF : seaux des tables d'états d'un tracé (Co.route), nombre PREMIER : 10^6 et 10^5 (pas des clés en u) n'en sont pas multiples, les clés se répartissent (64 divisait 10^6 : un tracé le long de u tombait dans quelques seaux)
+Co.ROUTE_NB = 509      -- C5-PERF : seaux des tables d'états d'un tracé (Co.route), nombre PREMIER : 10^6 et 10^5 (pas des clés en u) n'en sont pas multiples, les clés se répartissent (64 divisait 10^6 : un tracé le long de u tombait dans quelques seaux)
 Co.LAYOUT_WORK = 2     -- C5-PERF : travail compté par pièce d'une colonne construite (Co.layout)
 Co.PUSH_WORK = 2       -- C5-PERF : travail compté par état mis au tas (en plus de 1 par état développé)
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
@@ -974,6 +974,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
           end
           local out = {}
           for i = #rev, 1, -1 do out[#out + 1] = rev[i] end
+          Co.WORK = Co.WORK + 3 * #out -- C5-PERF : chemin rendu (pièces, copie de la mémoire) compté au budget
           return finish(out, expanded)
         end
       else
