@@ -68,6 +68,9 @@ Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par for
 -- (tâche de minage sur les arbres, Rc.pick_gather) au lieu d'attendre 32 min. Faux : l'ancien comportement (mutant des tests
 -- et « sans la règle » du banc reconstruire-bois, réglé par l'interface fo-recon).
 Recon.GATHER = true
+-- Lot POTEAU-REPLI (0716) : un poteau perdu qu'aucun remplaçant ne rejoint d'un fil est remplacé par le meilleur poteau fabricable et des
+-- relais (shared/team/reconstruction.lua, Rc.pick_chain). Faux : l'ancien comportement (tests seulement).
+Recon.CHAIN = true
 
 local Th = require("shared.team.thermique") -- s42 thermiques : pas de thermique de secours sur un avant-poste balayé (Th.pairs_closed)
 local Elec = require("script.team.electrique") -- lot ELECTRIQUE : plus de foreuse thermique refaite quand l'électrique est possible
@@ -171,23 +174,26 @@ local function on_died(e)
     local ok, r = pcall(function() local x = ent.get_recipe() return x and x.name end)
     recipe = ok and r or nil
   end
-  local reach
+  local reach, nbrs
   if ent.type == "electric-pole" then
     -- Plus grande distance aux poteaux voisins qui restent : le remplaçant éventuel doit avoir le fil pour les rejoindre.
+    -- Lot POTEAU-REPLI : leurs positions aussi (nombres, triées), pour poser des relais si aucun remplaçant n'a ce fil (Rc.pick_chain).
     local ok, nb = pcall(function() return ent.neighbours end)
-    reach = 0
+    reach, nbrs = 0, {}
     if ok and type(nb) == "table" and nb.copper then
       for _, n in ipairs(nb.copper) do
         if n.valid then
           local d = math.sqrt((n.position.x - pos.x) ^ 2 + (n.position.y - pos.y) ^ 2)
           if d > reach then reach = d end
+          nbrs[#nbrs + 1] = { x = n.position.x, y = n.position.y }
         end
       end
     end
+    table.sort(nbrs, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   end
   local k = Rc.record(s, { name = ent.name, x = pos.x, y = pos.y, dir = ent.direction, item = item_of(ent.name), recipe = recipe,
     value = value, kind = kind, oid = oid, infra = infra or nil }, e.tick)
-  if reach and s.lost[k] then s.lost[k].reach = reach; s.lost[k].etype = ent.type end
+  if reach and s.lost[k] then s.lost[k].reach = reach; s.lost[k].etype = ent.type; s.lost[k].nb = nbrs end
   stat(s, "recorded")
   by_name(s, ent.name).rec = by_name(s, ent.name).rec + 1
   if s.stats.logs < Recon.LOGS then
@@ -644,8 +650,32 @@ local function substitute_poles(f, s, book, free, tick, memo, keys)
     local r = s.lost[k]
     if r.infra and r.etype == "electric-pole" and not r.place and not r.abandoned and not r.claimed
       and tick - r.tick >= Rc.calm_for(r) and not available_or_craftable(book, free, r.item, memo) then
-      local c = Rc.pick_alt(pole_cands(), r.reach or 0, function(x) return available_or_craftable(book, free, x.item, memo) end)
-      if not c then Recon.gather(f, s, book, free, r, tick, memo) end
+      local can = function(x) return available_or_craftable(book, free, x.item, memo) end
+      local c = Rc.pick_alt(pole_cands(), r.reach or 0, can)
+      -- Lot POTEAU-REPLI : aucun fil assez long : le meilleur poteau fabricable ET des relais du même modèle sur les segments trop longs
+      if not c and Recon.CHAIN and r.nb and #r.nb > 0 then
+        local cc, pts = Rc.pick_chain(pole_cands(), { x = r.x, y = r.y }, r.nb, can)
+        if cc and cc.item ~= r.item then
+          local made = {}
+          for _, pt in ipairs(pts) do
+            local k2 = Rc.record(s, { name = cc.name, x = pt.x, y = pt.y, dir = 0, item = cc.item, value = r.value, kind = r.kind, oid = r.oid,
+              infra = true }, r.tick)
+            local r2 = s.lost[k2]
+            r2.etype, r2.reach, r2.relais = "electric-pole", 0, r.key
+            made[#made + 1] = string.format("(%.1f, %.1f)", pt.x, pt.y)
+          end
+          local was = r.reach or 0
+          r.place, r.item, r.reach = cc.name, cc.item, 0
+          stat(s, "chained")
+          log(string.format("[FO-RECON] %s : %s introuvable ni fabricable, aucun fil assez long (voisins a %.1f) : %s pose a sa place et %d relais %s (fil %.1f) a %.1f min",
+            f.key or "player", r.name, was, cc.name, #pts, table.concat(made, " "), cc.wire, tick / 3600))
+          c = nil
+        elseif not cc then
+          Recon.gather(f, s, book, free, r, tick, memo)
+        end
+      elseif not c then
+        Recon.gather(f, s, book, free, r, tick, memo)
+      end
       if c and c.item ~= r.item then
         r.place, r.item = c.name, c.item
         stat(s, "substituted")

@@ -193,6 +193,28 @@ local function suite(Rc)
     check(Rc.pick_alt({}, 0, only("ip")) == nil, "§7e aucun candidat : nil")
     local a = Rc.pick_alt({ { name = "b", item = "x", supply = 2, wire = 7 }, { name = "a", item = "y", supply = 2, wire = 7 } }, 0, only("x", "y"))
     check(a.name == "a", "§7e égalité : le nom décide (déterminisme)")
+    -- §7f lot POTEAU-REPLI : repli en chaîne (relais du même modèle sur les segments trop longs)
+    local center = { x = 0.5, y = 0.5 }
+    local nbrs = { { x = 9.5, y = 0.5 }, { x = -8.5, y = 0.5 } } -- ligne de poteaux moyens (fil 9)
+    local c, pts = Rc.pick_chain(cands, center, nbrs, only("ip"))
+    check(c and c.name == "petit" and #pts == 2, "§7f seul le petit est fabricable : lui et un relais par segment trop long (" .. tostring(pts and #pts) .. ")")
+    local okw = true
+    local chain = { { x = -8.5, y = 0.5 }, pts and pts[2] or center, center, pts and pts[1] or center, { x = 9.5, y = 0.5 } }
+    table.sort(pts or {}, function(p, q) return p.x < q.x end)
+    chain = { { x = -8.5, y = 0.5 }, pts[1], center, pts[2], { x = 9.5, y = 0.5 } }
+    for i = 1, #chain - 1 do
+      local dx, dy = chain[i + 1].x - chain[i].x, chain[i + 1].y - chain[i].y
+      if math.sqrt(dx * dx + dy * dy) > 7.5 then okw = false end
+      if chain[i].x % 1 ~= 0.5 then okw = false end
+    end
+    check(okw, "§7f chaque pas de la chaîne tient dans le fil du remplaçant, relais au centre d'une tuile")
+    local c2, p2 = Rc.pick_chain(cands, center, nbrs, only("ip", "im"))
+    check(c2 and c2.name == "moyen" and #p2 == 0, "§7f le meilleur niveau fabricable d'abord (moyen : voisins à 9, aucun relais)")
+    check(Rc.pick_chain(cands, center, nbrs, only()) == nil, "§7f rien de fabricable : nil (la récolte reste la règle)")
+    local far = { { x = 200.5, y = 0.5 } }
+    check(Rc.pick_chain(cands, center, far, only("ip")) == nil, "§7f au-delà de Rc.CHAIN_MAX relais : nil")
+    local _, p3 = Rc.pick_chain(cands, center, { { x = 5.5, y = 0.5 } }, only("ip"))
+    check(p3 and #p3 == 0, "§7f voisin à portée : aucun relais")
   end
 
   -- §7f Récolte de la matière naturelle d'un poteau (aucun remplaçant fabricable) ------------------------------

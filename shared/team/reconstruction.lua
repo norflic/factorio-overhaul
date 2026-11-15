@@ -195,6 +195,48 @@ function Rc.pick_alt(cands, reach, can)
   return nil
 end
 
+--- Lot POTEAU-REPLI (0716) : REPLI EN CHAÎNE. Aucun poteau fabricable n'a le fil pour joindre d'un coup les voisins qui restent (le petit
+--- poteau de bois ne couvre pas le pas d'une ligne de poteaux moyens : banc plastique-diag, azure, site du pétrole sans courant de 45 à 60 min,
+--- « medium-electric-pole non fabricable : steel-plate »). On pose à la place le poteau fabricable du meilleur niveau (même ordre que
+--- Rc.pick_alt) ET des poteaux RELAIS du même modèle sur chaque segment trop long, au pas ≤ son fil : la ligne est rebranchée.
+--- `center` = { x, y } (place perdue) ; `nbrs` = { { x, y } } (voisins de cuivre qui restaient, lus à la mort) ; `can(c)` comme pick_alt.
+--- Rend (c, relais { { x, y } }) ou nil. Les relais sont posés au centre d'une tuile (x.5), dans l'ordre des voisins puis du segment.
+Rc.CHAIN_MAX = 6 -- relais au plus par poteau perdu (au-delà, la récolte ou l'attente de la matière reste la règle)
+function Rc.chain_points(center, nbrs, wire)
+  local out = {}
+  if not (center and wire and wire > 0) then return out end
+  for _, n in ipairs(nbrs or {}) do
+    local dx, dy = n.x - center.x, n.y - center.y
+    local d = math.sqrt(dx * dx + dy * dy)
+    if d > wire then
+      -- marge d'une tuile et demie : l'arrondi au centre de tuile déplace chaque relais de 0,71 au plus (deux relais voisins : 1,42)
+      local k = math.ceil(d / math.max(0.5, wire - 1.5)) - 1
+      for j = 1, k do
+        local t = j / (k + 1)
+        out[#out + 1] = { x = math.floor(center.x + dx * t) + 0.5, y = math.floor(center.y + dy * t) + 0.5 }
+      end
+    end
+  end
+  return out
+end
+
+function Rc.pick_chain(cands, center, nbrs, can)
+  local list = {}
+  for _, c in ipairs(cands) do list[#list + 1] = c end
+  table.sort(list, function(a, b)
+    if a.supply ~= b.supply then return a.supply > b.supply end
+    if a.wire ~= b.wire then return a.wire > b.wire end
+    return a.name < b.name
+  end)
+  for _, c in ipairs(list) do
+    if (c.wire or 0) > 1 and can(c) then
+      local pts = Rc.chain_points(center, nbrs, c.wire)
+      if #pts <= Rc.CHAIN_MAX then return c, pts end
+    end
+  end
+  return nil
+end
+
 --- RÉCOLTE DE LA MATIÈRE NATURELLE d'un poteau (le bois). Quand AUCUN poteau n'est ni au stock ni fabricable (le bois du départ est
 --- épuisé, l'acier absent), la pièce attendait jusqu'à 32 min (mesuré, 555555555). Règle : parmi les poteaux dont le fil couvre `reach`,
 --- celui dont TOUT ce qui manque se récolte (arbres), au moins de manque (puis zone, fil, nom) ; on rend { candidat, { {objet, n} } }.
