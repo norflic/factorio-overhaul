@@ -191,6 +191,12 @@ local function run(Cap, Am, quiet)
     check(Cap.side_of({ r1, r2 }, r1) == nil, "§2 TIERS : le but est un remplacement, rien de côté")
     check(Cap.side_of({ gun }, gun) == nil, "§2 TIERS : aucun remplacement candidat, rien de côté")
     check(D2.side == nil, "§2 TIERS : Cap.choose, but remplacement : rien de côté")
+    -- Lot TIERS-MACHINES : voie des fours (piece_first) à côté d'un but ou d'une voie de côté de tapis
+    local fu = { key = "f1", replace = {}, ids = { 3 }, members = { {} }, piece_first = true }
+    check(Cap.side_pf_of({ r1, fu }, r1, nil) == fu, "§2 TIERS-MACHINES : tapis au but, four sur sa voie")
+    check(Cap.side_pf_of({ gun, r1, fu }, gun, r1) == fu, "§2 TIERS-MACHINES : tapis de côté, four sur sa voie")
+    check(Cap.side_pf_of({ fu, r1 }, fu, nil) == nil, "§2 TIERS-MACHINES : four au but, pas de seconde voie")
+    check(Cap.side_pf_of({ gun, fu }, gun, fu) == nil, "§2 TIERS-MACHINES : four déjà de côté, pas de seconde voie")
     local g = Cap.goal(D2, {})
     check(g.fab == 20 and g.unit and g.n == 1 and g.replace == true, "§2 le but porte le lot demandé, l'unité et le nombre payable")
     local goff = Cap.goal(Cap.choose(L, census_of(ms), base_ctx({ stock = {}, continu = false })), {})

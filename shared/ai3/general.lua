@@ -128,6 +128,10 @@ function Gen.value(cat, ev, state, t, ctx)
             k = "autre"
             v = v + math.floor(Gen.V_OTHER * wf(w, Gen.FAMILY.autre))
           end
+          -- Lot TIERS-MACHINES : l'objet voulu d'une recherche que la capitalisation a RETENUE (levier : machine supérieure posée sur
+          -- place par le capital, aucun exécutant à attendre) sert tout de suite : pas de quart « plus tard ». Mesuré (JALONS60, graine
+          -- 20261020) : le four supérieur valait 25 (« wanted, plus tard »), sa recherche passait à 30,6 min pour un retour de 6,7 min.
+          if later and k == "wanted" and ctx and ctx.levers and ctx.levers[t] then later = false end
           if later then
             v = v0 + math.floor((v - v0) / Gen.LATER_DIV)
             k = k .. ", plus tard"

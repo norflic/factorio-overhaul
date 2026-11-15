@@ -21,6 +21,16 @@ local out2 = AC.order(list, function(m) return types[m.id] end, 3)
 local ids2 = {}
 for _, m in ipairs(out2) do ids2[#ids2 + 1] = m.id end
 check(table.concat(ids, ",") == table.concat(ids2, ","), "déterminisme")
+-- Lot TIERS-MACHINES : 600 tapis ne chassent plus les fours du relevé (part de chaque rang présent)
+do
+  local big, ty = {}, {}
+  for id = 1, 700 do big[#big + 1] = { id = id }; ty[id] = belt end
+  for id = 701, 760 do big[#big + 1] = { id = id }; ty[id] = furn end
+  local o = AC.order(big, function(m) return ty[m.id] end, 600)
+  local nf, nb = 0, 0
+  for _, m in ipairs(o) do if ty[m.id] == furn then nf = nf + 1 else nb = nb + 1 end end
+  check(#o == 600 and nf == 60 and nb == 540, "part par rang : 60 fours gardés, 540 tapis (" .. nf .. "/" .. nb .. ")")
+end
 local w = AC.kit_want({ b = 30, a = 2 }, { a = 1, b = 4 }, 12)
 check(#w == 2 and w[1][1] == "a" and w[1][2] == 1 and w[2][1] == "b" and w[2][2] == 8, "quota de kit borné et trié")
 check(#AC.kit_want({ a = 3 }, { a = 5 }) == 0, "kit déjà au stock : rien à fabriquer")

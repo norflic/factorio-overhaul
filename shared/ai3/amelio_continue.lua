@@ -21,6 +21,9 @@ function AC.rank(t)
 end
 
 --- Trie `list` (entrées { id, ... }) par (rang du type, id) et la borne à `n` entrées. `type_of(entry)` rend le type du moteur.
+--- Lot TIERS-MACHINES : chaque rang PRÉSENT a d'abord sa part (⌊n ÷ rangs présents⌋ pièces), le reste va par priorité. Mesuré
+--- (banc DC60-cand0715, azure) : 600 tapis à 30,8 min remplissaient seuls le relevé, les 55 fours en pierre et les 81 foreuses en sortaient,
+--- leur remplacement ne pouvait plus être décidé. La priorité tapis -> foreuses -> fours reste celle du choix (engagement, scores).
 function AC.order(list, type_of, n)
   local keyed = {}
   for i, m in ipairs(list or {}) do keyed[i] = { m = m, r = AC.rank(type_of(m)), id = m.id or 0 } end
@@ -28,8 +31,23 @@ function AC.order(list, type_of, n)
     if a.r ~= b.r then return a.r < b.r end
     return a.id < b.id
   end)
+  n = n or AC.MAX_SCAN
+  local ranks, by = {}, {}
+  for _, k in ipairs(keyed) do
+    if not by[k.r] then by[k.r] = 0; ranks[#ranks + 1] = k.r end
+  end
+  local quota = #ranks > 0 and math.floor(n / #ranks) or 0
+  local taken, picked, total = {}, {}, 0
+  for i, k in ipairs(keyed) do -- part de chaque rang (ordre du tri : rang, puis numéro)
+    if by[k.r] < quota and total < n then by[k.r] = by[k.r] + 1; taken[i] = true; total = total + 1 end
+  end
+  for i = 1, #keyed do -- le reste, par priorité
+    if total >= n then break end
+    if not taken[i] then taken[i] = true; total = total + 1 end
+  end
+  for i, k in ipairs(keyed) do if taken[i] then picked[#picked + 1] = k end end
   local out = {}
-  for i = 1, math.min(#keyed, n or AC.MAX_SCAN) do out[i] = keyed[i].m end
+  for i = 1, #picked do out[i] = picked[i].m end
   table.sort(out, function(a, b) return (a.id or 0) < (b.id or 0) end) -- le relevé du capital reste trié par numéro
   return out
 end

@@ -90,7 +90,7 @@ R.RANG_REACH = { type = "inserter", pickup = "inserter_pickup_position", drop = 
 R.RANG_HALF = "underground-belt"
 -- Lot AMELIO-CONTINUE (DC 14/11) : ordre de priorité du remplacement en place, par TYPE du moteur (tapis, puis foreuses, puis fours ; le
 -- reste après) ; type des foreuses (entrent au catalogue des remplacements, vitesse lue à `mining_speed`).
-R.AMELIO_PRIO = { ["transport-belt"] = 1, ["underground-belt"] = 1, ["splitter"] = 1, ["mining-drill"] = 2, ["furnace"] = 3 }
+R.AMELIO_PRIO = { ["transport-belt"] = 1, ["underground-belt"] = 1, ["splitter"] = 1, ["mining-drill"] = 2, ["furnace"] = 3, ["inserter"] = 4 } -- lot TIERS-MACHINES : bras au relevé (sa part, AC.order)
 R.AMELIO_DRILL = { type = "mining-drill", speed = "mining_speed" }
 
 -- Ordre de lecture des types (le moteur rend les prototypes dans une table : l'ordre de lecture est fixé ici).

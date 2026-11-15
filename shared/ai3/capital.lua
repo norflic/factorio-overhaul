@@ -593,6 +593,20 @@ function Cap.side_of(cands, first)
   return nil
 end
 
+--- Lot TIERS-MACHINES : seconde voie « de côté » pour les remplacements dont la pièce passe devant (c.piece_first : fours, type
+--- d'entité de Cap.PIECE_FIRST_TYPES). Mesuré (banc perf-astar-4-123456789, 0.7.119) : azure a le four supérieur à 22,4 min, mais le
+--- tapis engagé tient le but et la voie de côté jusqu'à 30 min, aucun four remplacé. Rend le premier candidat `piece_first` (score
+--- décroissant) qui n'est ni le but ni la voie de côté, ou nil.
+function Cap.side_pf_of(cands, first, side)
+  for _, c in ipairs(cands or {}) do
+    if c.piece_first and c.replace and c.ids and #c.ids > 0 and c.members and c ~= first and c ~= side
+        and not (first and first.piece_first and first.replace) and not (side and side.piece_first) then
+      return c
+    end
+  end
+  return nil
+end
+
 function Cap.choose(Ld, census, ctx)
   local res = Cap.candidates(Ld, census, ctx)
   -- Lot AGES : le centre reporté plus que son prix passe devant (Cap.starved).
@@ -650,6 +664,7 @@ function Cap.choose(Ld, census, ctx)
   table.sort(kinds)
   d.rep_kinds, d.rep_groups = kinds, groups
   d.side = ctx.continu and Cap.side_of(res.cands, first) or nil -- lot TIERS
+  d.side_pf = ctx.continu and Cap.side_pf_of(res.cands, first, d.side) or nil -- lot TIERS-MACHINES
   return d
 end
 
