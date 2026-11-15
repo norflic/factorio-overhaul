@@ -462,7 +462,7 @@ end
 --- (`ghost`) et première entité de l'équipe posée dans la zone après l'ordre (`pose`), effet complet (`fin`). `obs` = observation du
 --- moment ({ route = numéro d'ouvrier ou nil, ghost = bool, pose = bool, fin = bool }) ; chaque jalon est noté UNE fois (tick) dans
 --- l'ordre. Rend la liste des jalons neufs { { what, ticks } } dans l'ordre fixe Co.MILESTONES (ticks depuis la pose de l'ordre).
-Co.MILESTONES = { "route", "ghost", "pose", "fin" }
+Co.MILESTONES = { "tache", "route", "ghost", "pose", "fin" } -- c4b : « tache » = première tâche du tableau qui sert l'ordre (Co.task_hits)
 function Co.progress(o, obs, tick)
   local out = {}
   if not (o and obs) then return out end
@@ -485,6 +485,27 @@ function Co.progress(o, obs, tick)
     table.insert(out, 1, { what = "route", ticks = o.t_pose - t0 })
   end
   return out
+end
+
+--- c4b (preuve du chantier 4 : délai ordre -> PREMIÈRE ACTION) : la tâche `t` du tableau de l'équipe (champs kind, outpost, pos, ia1d, created,
+--- tag) sert-elle l'ordre `o` ? `band_pid` : projet du plan de la bande de champ de l'ordre (Maj+A), nil sinon. Vrai pour : une tâche de ce
+--- projet ; la tournée prioritaire de l'avant-poste d'une liaison (o.tour.oid) ; une tâche NÉE après l'ordre (created >= o.tick) dont un point
+--- (ancre ia1d, pos) est dans la zone de l'ordre ou dans son point A (liaison) ; une tâche d'amélioration (tag « amelio ») née après l'ordre.
+function Co.task_hits(o, t, band_pid)
+  if not (o and t) then return false end
+  local ia = t.ia1d
+  if band_pid ~= nil and ia and ia.pid == band_pid then return true end
+  if o.kind == "liaison" and o.tour and o.tour.oid ~= nil and t.kind == "service" and t.outpost == o.tour.oid then return true end
+  if (t.created or -1) < (o.tick or 0) then return false end
+  if o.kind == "amelioration" and t.tag == "amelio" then return true end
+  local m = o.kind == "gisement" and Co.SITE_MARGIN or Co.DONE_MARGIN
+  local pts = {}
+  if ia and ia.ax then pts[#pts + 1] = { ia.ax, ia.ay } end
+  if type(t.pos) == "table" and t.pos.x then pts[#pts + 1] = { t.pos.x, t.pos.y } end
+  for _, p in ipairs(pts) do
+    if inside(o, p[1], p[2], m) or (o.a and inside(o.a, p[1], p[2], Co.DONE_MARGIN)) then return true end
+  end
+  return false
 end
 
 --- maja-0915 : clé de case (tuile entière) d'une position, pour le relevé des places déjà occupées à la pose de l'ordre.

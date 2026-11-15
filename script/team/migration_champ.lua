@@ -2272,7 +2272,8 @@ local function ent_resume(f, ms, tick)
       p.spec.entrepreneur, p.spec.ent_susp = true, nil
       rec.ordre = nil
       ms.ent = rec
-      ent_say(f, ms, string.format("reprend le projet %d (suspendu par un ordre il y a %.1f min) a %.1f min", rec.pid, (tick - (rec.susp_t or tick)) / 3600, tick / 3600))
+      ent_say(f, ms, string.format("reprend le projet %d (suspendu par un ordre il y a %.1f min) a %.1f min (tick %d)", rec.pid, (tick - (rec.susp_t or tick)) / 3600, tick / 3600, tick))
+      ms.ent_resumes = (ms.ent_resumes or 0) + 1 -- c4b : reprises comptées (interface fo-commande etat.ent)
       Mig.entrepreneur_front(f, rec.pid)
       break
     else
@@ -2328,13 +2329,27 @@ function Mig.entrepreneur_order(f, tick)
     end
     return action
   end
+  -- c4b (preuve du chantier 4) : délais par ordre, en ticks depuis l'ordre : od.t_ent (l'entrepreneur agit pour l'ordre : attache ou
+  -- déclenche), od.t_susp (le chantier d'avant est suspendu pour lui) ; lus par l'interface fo-commande (etat.delais) et le journal
+  local target = action == "attache" and inflight[arg].oid or arg
+  local function mark(field)
+    local parts = {}
+    for _, od in ipairs(f.team and f.team.commande and f.team.commande.orders or {}) do
+      if od.band_fid == target and od[field] == nil then
+        od[field] = tick
+        parts[#parts + 1] = string.format("ordre %d +%d ticks", od.id, tick - (od.tick or tick))
+      end
+    end
+    return #parts > 0 and (" [" .. table.concat(parts, ", ") .. "]") or ""
+  end
   if suspend and ms.ent and cur and cur.spec then
+    local why = mark("t_susp")
     cur.spec.entrepreneur, cur.spec.ent_susp = nil, true
     ms.ent.susp_t = tick
     ms.ent_susp = ms.ent_susp or {}
     ms.ent_susp[#ms.ent_susp + 1] = ms.ent
-    ent_say(f, ms, string.format("SUSPEND le projet %d (%s, pas un ordre) pour l'ordre du joueur a %.1f min : reserve gardee, repris apres l'ordre", ms.ent.pid,
-      tostring(cur.state), tick / 3600))
+    ent_say(f, ms, string.format("SUSPEND le projet %d (%s, pas un ordre) pour l'ordre du joueur a %.1f min (tick %d) : reserve gardee, repris apres l'ordre%s", ms.ent.pid,
+      tostring(cur.state), tick / 3600, tick, why))
     ms.ent = nil
   end
   if action == "attache" then
@@ -2345,7 +2360,8 @@ function Mig.entrepreneur_order(f, tick)
       ms.ent = { pid = pid, t0 = (ms.ent_wait and ms.ent_wait.t0) or tick, ordre = true, oid = inflight[arg].oid }
       ms.ent_wait = nil
       Mig.entrepreneur_front(f, pid)
-      ent_say(f, ms, string.format("ORDRE : attache projet %d (bande de l'ordre sur le champ %s) a %.1f min", pid, tostring(inflight[arg].oid), tick / 3600))
+      ent_say(f, ms, string.format("ORDRE : attache projet %d (bande de l'ordre sur le champ %s) a %.1f min (tick %d)%s", pid, tostring(inflight[arg].oid), tick / 3600,
+        tick, mark("t_ent")))
     end
     return action
   end
@@ -2360,7 +2376,8 @@ function Mig.entrepreneur_order(f, tick)
   if st.retry and st.retry > tick then st.retry = tick end
   ms.next = math.min(ms.next or tick, tick) -- pensée du champ au plus tôt
   ms.ent_wait = { oid = oid, t0 = tick, ordre = true }
-  ent_say(f, ms, string.format("ORDRE : declenche sur %s a %.1f min (sans attendre le scan, ni debit ni place exiges)", tostring(oid), tick / 3600))
+  ent_say(f, ms, string.format("ORDRE : declenche sur %s a %.1f min (tick %d, sans attendre le scan, ni debit ni place exiges)%s", tostring(oid), tick / 3600, tick,
+    mark("t_ent")))
   return action
 end
 
