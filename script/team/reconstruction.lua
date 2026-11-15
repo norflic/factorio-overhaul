@@ -1087,6 +1087,8 @@ end
 remote.add_interface("fo-recon", {
   -- Banc seulement (reconstruire-bois : « avec » et « sans » la récolte du bois). Mémoire LOCALE, hors sauvegarde.
   set_gather = function(on) Recon.GATHER = on and true or false return Recon.GATHER end,
+  -- Banc seulement (ruine-charbon : témoin sans la fabrication des foreuses des ruines, lot RECONSTRUCTION-0716). Mémoire LOCALE.
+  set_ruin_craft = function(on) Recon.RUIN_CRAFT = on and true or false return Recon.RUIN_CRAFT end,
   status = function(key)
     local f = (key == nil or key == "player") and State.faction("player") or nil
     if not f and key ~= nil then
