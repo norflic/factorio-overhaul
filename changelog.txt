@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.126
+Date: 2026-11-15
+  Features:
+    - IA (défense) : une équipe qui perd des pièces face à une autre équipe (factions ou joueur, pas les biters) met pendant 30 min en tête de ses recherches les technologies qui renforcent ses tourelles (dégâts, cadence) et débloquent de meilleures munitions (effets lus dans les prototypes) ; une tourelle tuée par une autre équipe fait poser un segment de 7 murs devant elle, côté tueur. Banc 120 min (carte du DC, 2 graines) : pertes de l'équipe du joueur face aux factions 130 → 115 et 127 → 81, tourelles tuées 25 → 17 et 5 → 3 ; fer à T+60 inchangé.
+  Known issues:
+    - Équilibre tourelle / soldat de faction inchangé (règle du DC) : une tourelle de base reste plus faible qu'un mitrailleur.
+---------------------------------------------------------------------------------------------------
 Version: 0.7.125
 Date: 2026-11-15
   Bugfixes:

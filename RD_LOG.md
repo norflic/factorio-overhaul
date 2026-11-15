@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 05 h 35 : version 0.7.126 (défense contre les factions)
+
+- **F699 · VALIDÉ · DÉPLOYÉ 0.7.126** Banc 120 min (`2026-11-15_defense-longue-1`) : sur la carte du DC, presque aucune attaque de biters avant 120 min ; les pertes viennent de la guerre entre factions (les 4 déclarent la guerre au joueur après 30 min de grâce en difficulté normale). Tourelle de base ~30 dégâts/s contre ~84 pour un mitrailleur d'amber : position et munitions n'y changent rien. Leviers sans toucher l'équilibre : poids de guerre des technos (`R.WAR_EFFECT`, catalogue) +150 par point pendant 30 min après une perte PvP ; `script/team/murs_garde.lua` (7 murs devant la tourelle tuée). Bancs `2026-11-15_defac-{base,cand}-g{1,2}` : pertes du joueur à 120 min 130 → 115, 127 → 81. content 621 OK.
+
 ## 2026-11-15, 04 h 25 : version 0.7.125 (alimentation de la centrale, poteau de repli)
 
 - **F697 · VALIDÉ · DÉPLOYÉ 0.7.125** `Build.alim_first` exemptait `spec.site` (bandes, lignes, mall) : chez le joueur tous les projets neufs sont de ce type, la priorité ne se déclenchait jamais. Non-exemption + gel ciblé (matière première manquante à l'alimentation, lue dans les recettes, 5 min) + centrale rouverte figée comptée. Bancs `2026-11-15_VAPG22-*` (gel ciblé sur v0.7.122) et `VAPSG-*` (sans gel) contre `REF0722-30-*` : total 95 105 → 95 678 / 94 941, joueur 15 499 → 16 902 / 16 490 ; le −5,4 % vu plus tôt venait de la base (C0721 → v0.7.122 : −4,1 %).
