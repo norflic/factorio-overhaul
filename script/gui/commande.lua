@@ -24,6 +24,7 @@ local T = require("shared.team.config")
 local Co = require("shared.ai3.commande")
 local Om = require("shared.team.outil_main") -- s46 crash
 local Ds_rule = require("shared.team.defense_stock") -- s46 outils : tourelles voulues d'un bastion (GROUP_CAP)
+local Registry = require("script.companion.registry") -- commandes-0716 : ouvriers en route vers la zone d'un ordre
 local TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret" } -- types moteur (aucun nom d'objet)
 
 local Cmd = {}
@@ -175,6 +176,21 @@ local function cancel(f, id, player)
   log(string.format("[FO-COMMANDE] %s : ordre %d (%s) annule", tostring(f.key or f.id), id, o.kind))
 end
 
+--- commandes-0716 : orientation choisie : effet à la pensée SUIVANTE (décision d'amélioration relue tout de suite, au lieu d'attendre le
+--- relevé de la minute : Capital.SCAN_EVERY), annoncée à la force et écrite au-dessus du QG (texte flottant).
+local function set_orientation(f, k, who)
+  cstate(f).orient = k
+  if f.team and f.team.capital then f.team.capital.scan_n = 0; f.team.capital.goal = nil end
+  local force = game.forces[f.force]
+  if force then force.print({ "fo-commande.orient-choisie", who, { "fo-commande.or-" .. k } }) end
+  if f.hq and f.hq.valid then
+    pcall(f.hq.surface.create_entity, { name = "flying-text", position = { f.hq.position.x, f.hq.position.y - 3 },
+      color = COLOR.amelioration, text = { "fo-commande.or-" .. k } })
+  end
+  log(string.format("[FO-COMMANDE] %s : orientation %s (tick %d) : decision d'amelioration relue a la pensee suivante", tostring(f.key or f.id),
+    k, game.tick))
+end
+
 Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
   if not (el and el.valid) then return end
@@ -203,11 +219,7 @@ Events.on(defines.events.on_gui_click, function(e)
   end
   if name:sub(1, #P_ORIENT) == P_ORIENT then
     local k = name:sub(#P_ORIENT + 1)
-    if Co.valid_orientation(k) then
-      cstate(f).orient = k
-      game.forces[f.force].print({ "fo-commande.orient-choisie", player.name, { "fo-commande.or-" .. k } })
-      log(string.format("[FO-COMMANDE] %s : orientation %s (tick %d)", tostring(f.key or f.id), k, game.tick))
-    end
+    if Co.valid_orientation(k) then set_orientation(f, k, player.name) end
   else
     local id = tonumber(name:sub(#P_CANCEL + 1))
     if id then cancel(f, id, player) end
@@ -222,6 +234,152 @@ local function area_of(e)
   local a = e.area
   return a.left_top.x, a.left_top.y, a.right_bottom.x, a.right_bottom.y
 end
+
+---------------------------------------------------------------------------------------------------
+-- commandes-0716 : DÉLAIS de chaque ordre (premier ouvrier en route, premier fantôme, première pose, effet complet), journal
+-- [FO-COMMANDE] et état affiché sous l'ordre (texte de rendu mis à jour, texte flottant à chaque jalon). Règle pure : Co.progress.
+---------------------------------------------------------------------------------------------------
+local NOT_BUILT = { character = true, unit = true, car = true, ["spider-vehicle"] = true, corpse = true, ["character-corpse"] = true,
+  projectile = true, ["flying-text"] = true, ["item-entity"] = true, ["entity-ghost"] = true, ["tile-ghost"] = true, sticker = true,
+  fire = true, smoke = true, ["smoke-with-trigger"] = true, ["highlight-box"] = true, ["item-request-proxy"] = true }
+local DELAIS_MAX = 16
+
+--- Points vers lesquels va l'ouvrier : ancre de sa tâche de chantier, but de marche (hors retour au QG).
+local function agent_points(agent)
+  local out = {}
+  local t = agent.task
+  if t and t.ia1d and t.ia1d.ax then out[#out + 1] = { t.ia1d.ax, t.ia1d.ay } end
+  if t and type(t.pos) == "table" and t.pos.x then out[#out + 1] = { t.pos.x, t.pos.y } end
+  local step = agent.steps and agent.pc and agent.steps[agent.pc]
+  local home = type(step) == "table" and (step[1] == "home" or step[1] == "take")
+  if type(agent.goal) == "table" and agent.goal.x and not home then out[#out + 1] = { agent.goal.x, agent.goal.y } end
+  return out
+end
+
+--- Ouvriers de l'équipe en route vers la zone de l'ordre : liste triée de { key = « numéro:tâche », id, kind, d }.
+local function heading(f, o)
+  local out = {}
+  for _, id in ipairs(Registry.ids()) do
+    local a = Registry.get(id)
+    if a and a.faction and a.task and a.entity and a.entity.valid and State.faction(a.faction) == f then
+      for _, p in ipairs(agent_points(a)) do
+        if Co.inside(o, p[1], p[2], o.kind == "gisement" and Co.SITE_MARGIN or Co.DONE_MARGIN) then
+          local pos = a.entity.position
+          out[#out + 1] = { key = tostring(id) .. ":" .. tostring(a.task.key), id = id, kind = tostring(a.task.kind),
+            d = math.floor(math.sqrt((pos.x - o.x) ^ 2 + (pos.y - o.y) ^ 2)) }
+          break
+        end
+      end
+    end
+  end
+  table.sort(out, function(a, b) return a.key < b.key end)
+  return out
+end
+
+local function zone_ents(o)
+  local surface = game.surfaces[o.surface or 1]
+  if not surface then return {} end
+  return surface.find_entities_filtered({ position = { o.x, o.y }, radius = o.kind == "gisement" and (o.r + Co.SITE_MARGIN) or o.r }) -- gisement : la marge de Co.ready (site accepté à r + 24)
+end
+
+local function delay_row(cs, o)
+  cs.delais = cs.delais or {}
+  for _, d in ipairs(cs.delais) do if d.id == o.id then return d end end
+  local d = { id = o.id, kind = o.kind, tick = o.tick, x = o.x, y = o.y, r = o.r }
+  cs.delais[#cs.delais + 1] = d
+  while #cs.delais > DELAIS_MAX do table.remove(cs.delais, 1) end
+  return d
+end
+
+local STATUS_FIELD = { attente = "t_none", route = "t_route", plan = "t_ghost", pose = "t_pose", fin = "t_fin" }
+local function status_text(o)
+  local w = Co.status_word(o)
+  local t = o[STATUS_FIELD[w]]
+  return { "fo-commande.etat-" .. w, o.id, t and math.floor((t - (o.tick or 0)) / 60) or 0, o.n_new or 0 }
+end
+
+local function set_status(o)
+  if o.st_draw and rendering.is_valid(o.st_draw) then rendering.set_text(o.st_draw, status_text(o)) end
+end
+
+--- À la pose : repère (plus grand numéro d'entité de la zone : toute entité posée ensuite a un numéro plus grand), ouvriers déjà en
+--- route (exclus du jalon), texte d'état sous l'ordre.
+local function track_init(f, o)
+  local wm = 0
+  for _, e in ipairs(zone_ents(o)) do
+    if e.valid and e.unit_number and e.unit_number > wm then wm = e.unit_number end
+  end
+  o.wm = wm
+  o.pre = {}
+  for _, h in ipairs(heading(f, o)) do o.pre[#o.pre + 1] = h.key end
+  o.n_new = 0
+  local surface, force = game.surfaces[o.surface or 1], game.forces[f.force]
+  if surface and force then
+    o.st_draw = rendering.draw_text({ text = status_text(o), color = COLOR[o.kind] or COLOR.liaison, target = { x = o.x, y = o.y + o.r + 0.5 },
+      surface = surface, forces = { force }, scale = 1.5, alignment = "center" })
+    o.draw = o.draw or {}
+    o.draw[#o.draw + 1] = o.st_draw
+  end
+  delay_row(cstate(f), o).wm = wm
+  log(string.format("[FO-COMMANDE] %s : ordre %d (%s) suivi des delais : repere %d, %d ouvrier(s) deja en route exclus (tick %d)",
+    tostring(f.key or f.id), o.id, o.kind, wm, #o.pre, game.tick))
+end
+
+local function flying(o, what, secs)
+  local surface = game.surfaces[o.surface or 1]
+  if not surface then return end
+  pcall(surface.create_entity, { name = "flying-text", position = { o.x, o.y }, color = COLOR[o.kind] or COLOR.liaison,
+    text = { "fo-commande.jalon-" .. what, o.id, secs } })
+end
+
+--- Jalons d'un ordre (une observation) ; `fin` vrai quand l'effet complet est atteint (ordre rempli ou servi).
+local function track_step(f, o, tick, fin)
+  if o.wm == nil then return end
+  local obs = { fin = fin or nil }
+  local need_scan = (not (o.t_ghost and o.t_pose)) or (tick % 300 == 0)
+  local first_h
+  if not o.t_route then
+    local pre = {}
+    for _, k in ipairs(o.pre or {}) do pre[k] = true end
+    for _, h in ipairs(heading(f, o)) do
+      if not pre[h.key] then first_h = h break end
+    end
+    obs.route = first_h ~= nil
+  end
+  if need_scan and not fin then
+    local n_new, ghost = 0, false
+    for _, e in ipairs(zone_ents(o)) do
+      if e.valid and e.unit_number and e.unit_number > o.wm and e.force.name == f.force then
+        if e.type == "entity-ghost" then ghost = true
+        elseif not NOT_BUILT[e.type] then n_new = n_new + 1 end
+      end
+    end
+    o.n_new = math.max(o.n_new or 0, n_new)
+    obs.ghost = ghost or n_new > 0
+    obs.pose = n_new > 0
+  end
+  local d = delay_row(cstate(f), o)
+  d.n_new = o.n_new
+  local news = Co.progress(o, obs, tick)
+  for _, m in ipairs(news) do
+    d[m.what] = m.ticks
+    local secs = math.floor(m.ticks / 60)
+    log(string.format("[FO-COMMANDE] %s : ordre %d (%s) jalon %s apres %d s (%.1f min de jeu%s ; entites posees dans la zone %d)",
+      tostring(f.key or f.id), o.id, o.kind, m.what, secs, tick / 3600,
+      (m.what == "route" and first_h) and string.format(" ; ouvrier %d, tache %s, a %d tuiles", first_h.id, first_h.kind, first_h.d) or "",
+      o.n_new or 0))
+    flying(o, m.what, secs)
+  end
+  if #news > 0 or need_scan then set_status(o) end
+end
+
+Events.on_nth_tick(60, function(e)
+  local f = State.faction("player")
+  if not (f and f.team and f.team.commande and #f.team.commande.orders > 0) then return end
+  for _, o in ipairs(f.team.commande.orders) do
+    if o.wm ~= nil and not o.t_fin then track_step(f, o, e.tick, false) end
+  end
+end)
 
 local function add_order(f, player, o)
   local cs = cstate(f)
@@ -240,6 +398,7 @@ local function add_order(f, player, o)
   end
   local order = cs.orders[#cs.orders]
   draw(f, order)
+  track_init(f, order) -- commandes-0716 : délais et état affiché
   -- ordres-0715 : effet immediat : decision d'amelioration relue a la pensee suivante, releve des liaisons tout de suite
   if f.team and f.team.capital then f.team.capital.scan_n = 0; f.team.capital.goal = nil end
   if o.kind == "liaison" and f.build and f.build.liaison then f.build.liaison.next = game.tick end
@@ -386,6 +545,29 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   -- Un ordre sans site en réserve (réserve pleine, ressource pas encore voulue) : une nouvelle sonde par passe, la plus ancienne d'abord.
   local ready = {}
   for _, o in ipairs(Co.ready(Co.deposits(f.team.commande), f.prospects)) do ready[o.id] = true end
+  -- commandes-0716 : état du projet du cerveau qui porte un ordre (statut d'émission, cause, tâches émises), à chaque changement
+  local ia3 = f.team.ia3
+  for _, p in ipairs(ia3 and ia3.projects or {}) do
+    if p.goal and p.goal.ordre then
+      local sig = string.format("%s:%s:%s:%s", tostring(p.state), tostring(p.status), tostring(p.cause), tostring((p.emitted or 0) > 0))
+      if p.ordre_sig ~= sig then
+        p.ordre_sig = sig
+        local miss = {}
+        for _, k in ipairs(State.sorted_keys(p.missing or {})) do miss[#miss + 1] = k .. "x" .. tostring(p.missing[k]) end
+        log(string.format("[FO-COMMANDE] %s : ordre %s porte par le projet '%s' : etat %s, emission %s, cause %s, taches emises %d, manque [%s] (tick %d)",
+          tostring(f.key or f.id), tostring(p.goal.ordre), tostring(p.key), tostring(p.state), tostring(p.status), tostring(p.cause),
+          p.emitted or 0, table.concat(miss, " "), game.tick))
+      end
+    end
+  end
+  for _, o in ipairs(Co.deposits(f.team.commande)) do -- commandes-0716 : site de la réserve dans la zone (but du cerveau ou pas), à chaque changement
+    local now = ready[o.id] and true or false
+    if o.ready_seen ~= now then
+      o.ready_seen = now
+      log(string.format("[FO-COMMANDE] %s : ordre %d gisement %s : site en reserve dans la zone %s (%d site(s) en reserve, tick %d)",
+        tostring(f.key or f.id), o.id, tostring(o.resource), now and "OUI (but du cerveau)" or "NON (sonde)", #(f.prospects or {}), game.tick))
+    end
+  end
   for _, o in ipairs(Co.deposits(f.team.commande)) do
     local surface = game.surfaces[o.surface or 1]
     if not ready[o.id] and f.hq_pos and surface then
@@ -396,6 +578,7 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
   for _, id in ipairs(done) do
     local o = Co.cancel(f.team.commande, id)
     if o then
+      track_step(f, o, game.tick, true) -- commandes-0716 : effet complet
       undraw(f, o)
       if game.forces[f.force] then game.forces[f.force].print({ "fo-commande.rempli", id, { "entity-name." .. tostring(o.resource) } }) end
       log(string.format("[FO-COMMANDE] %s : ordre %d rempli (avant-poste %s pose dans la zone, tick %d)", tostring(f.key or f.id), id,
@@ -445,6 +628,7 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
     local o = Co.cancel(cs, id)
     if o then
       n_fin = n_fin + 1
+      if o.done == "fini" then track_step(f, o, game.tick, true) end -- commandes-0716 : effet complet (servi, pas « impossible »)
       undraw(f, o)
       if game.forces[f.force] then game.forces[f.force].print({ "fo-commande.fini-" .. o.kind, id }) end
       log(string.format("[FO-COMMANDE] %s : ordre %d (%s) retire : %s (tick %d)", tostring(f.key or f.id), id, o.kind, tostring(o.done), game.tick))
@@ -493,6 +677,14 @@ remote.add_interface("fo-commande", {
       tostring(outil), slot, x0, y0, x1, y1, #ents, tostring(called), after > before and tostring(after - 1) or "aucun", game.tick))
     return { appel = called, id = after > before and (after - 1) or nil, prints = prints }
   end,
+  --- commandes-0716 : orientation de l'équipe « player » (même chemin que le bouton du panneau). Rend vrai si elle est prise.
+  orient = function(k)
+    local f = State.faction("player")
+    if not (f and f.team and Co.valid_orientation(k)) then return false end
+    set_orientation(f, k, "banc")
+    refresh(f)
+    return true
+  end,
   --- État lisible : QG, ordres vivants, traces (Co.note), avant-postes de l'équipe, liaison point A.
   etat = function()
     local f = State.faction("player")
@@ -505,6 +697,11 @@ remote.add_interface("fo-commande", {
         after_oid = o.after_oid, done = o.done, have = o.have }
     end
     for _, h in ipairs(cs.hist or {}) do out.hist[#out.hist + 1] = { id = h.id, text = h.text } end
+    out.delais = {} -- commandes-0716 : délais par ordre (ticks depuis la pose ; nil : jalon pas encore atteint)
+    for _, d in ipairs(cs.delais or {}) do
+      out.delais[#out.delais + 1] = { id = d.id, kind = d.kind, tick = d.tick, x = d.x, y = d.y, r = d.r, route = d.route, ghost = d.ghost,
+        pose = d.pose, fin = d.fin, n_new = d.n_new }
+    end
     for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
       local o = f.outposts[oid]
       if o.pos then out.outposts[#out.outposts + 1] = { id = o.id or oid, kind = o.kind, x = o.pos.x, y = o.pos.y, drills = o.drills or 0,

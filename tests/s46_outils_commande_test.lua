@@ -44,6 +44,32 @@ P.EMIT.outpost(E, { prio = 50, id = 1, key = "x" }, { outpost = kind }, { tick =
 t = emitted(E)
 ok(t and t.kind == "extend" and t.outpost == 1, "sans zone : le plus proche du QG (règle d'avant)")
 
+-- 2 bis. commandes-0716 : un ordre ne s'arrête pas au chantier d'un autre avant-poste du type ; sa construction a sa clé
+do
+  local view = { outposts = { far }, pending = { [kind] = 1 }, sites = { [kind] = 1 }, stock = {} }
+  local avail = setmetatable({}, { __index = function() return 1e6 end })
+  local E2 = P.context(avail, { handcraftable = function() return false end }, view, {})
+  local st2 = P.EMIT.outpost(E2, { prio = 50, id = 1, key = "x" }, { outpost = kind, ordre = 3, zones = { { x = 300, y = 0, r = 20 } } }, { tick = 0 })
+  local t2 = E2.tasks[#E2.tasks]
+  ok(st2 == "ok" and t2 and t2.kind == "build" and t2.key == "build:ordre:" .. kind, "ordre : construit malgre un chantier du type, cle propre")
+  local E3 = P.context(avail, { handcraftable = function() return false end }, view, {})
+  ok(P.EMIT.outpost(E3, { prio = 50, id = 1, key = "x" }, { outpost = kind }, { tick = 0 }) == "en_cours", "sans ordre : attend le chantier (regle d'avant)")
+  local fuel_items = P.order_fuel({ { "a", 4 }, { T.fuel, 8 } }, 3)
+  ok(#fuel_items == 2 and fuel_items[2][2] == 3, "ordre : combustible ramene au stock")
+  fuel_items = P.order_fuel({ { "a", 4 }, { T.fuel, 8 } }, 0)
+  ok(#fuel_items == 1 and fuel_items[1][1] == "a", "ordre : sans combustible au stock, l'avant-poste part quand meme")
+  local view4 = { outposts = {}, pending = {}, sites = { [kind] = 1 }, stock = {} }
+  local avail4 = setmetatable({ [T.fuel] = 0 }, { __index = function() return 1e6 end })
+  local E4 = P.context(avail4, { handcraftable = function() return false end }, view4, {})
+  ok(P.EMIT.outpost(E4, { prio = 50, id = 1, key = "x" }, { outpost = kind, ordre = 3, zones = { { x = 300, y = 0, r = 20 } } }, { tick = 0 }) == "ok",
+    "ordre : construit sans combustible au stock")
+  local E5 = P.context(avail4, { handcraftable = function() return false end }, view4, {})
+  ok(P.EMIT.outpost(E5, { prio = 50, id = 1, key = "x" }, { outpost = kind }, { tick = 0 }) == "matiere", "sans ordre : attend son combustible (regle d'avant)")
+  local s9 = Co.new_state()
+  Co.add(s9, { kind = "gisement", x = 0, y = 0, r = 10, outpost = "k1", after_oid = 0 })
+  ok(#Co.resolve(s9, { { kind = "k1", x = 30, y = 0, id = 1 } }) == 1, "ordre rempli a la marge de Co.ready (r + 24)")
+end
+
 -- 3. Co.resolve : un avant-poste déjà là, agrandi au plafond, remplit l'ordre
 local s = Co.new_state()
 Co.add(s, { kind = "gisement", x = 0, y = 0, r = 10, outpost = "k1", after_oid = 5 })
@@ -149,5 +175,49 @@ do -- ordres-0715 (B) : spirale du coffre d'office
   for _, o in ipairs(a) do mx = math.max(mx, math.abs(o[1]), math.abs(o[2])) end
   ok(mx <= D.SPIRAL_MAX and mx > 26, "spirale : au-dela des places fixes, sous le rayon maximal")
   ok(D.pick_chest({ { pos = { x = 0, y = 0 }, ore = 5 }, { pos = { x = 40, y = 0 }, ore = 0 } }) == 2, "pick_chest : place sans minerai retenue")
+end
+do -- commandes-0716 : jalons des délais (Co.progress), un seul relevé par jalon, pose sans route vue
+  local o = { id = 1, tick = 100 }
+  ok(Co.status_word(o) == "attente", "delais : attente au depart")
+  local m = Co.progress(o, { route = true }, 160)
+  ok(#m == 1 and m[1].what == "route" and m[1].ticks == 60 and o.t_route == 160, "delais : route notee")
+  ok(#Co.progress(o, { route = true }, 220) == 0, "delais : route notee une seule fois")
+  m = Co.progress(o, { ghost = true, pose = true }, 400)
+  ok(#m == 2 and m[1].what == "ghost" and m[2].what == "pose" and m[2].ticks == 300, "delais : plan et pose dans l'ordre fixe")
+  ok(Co.status_word(o) == "pose", "delais : mot d'etat pose")
+  m = Co.progress(o, { fin = true }, 1000)
+  ok(#m == 1 and m[1].what == "fin" and Co.status_word(o) == "fin", "delais : fin")
+  local q = { id = 2, tick = 0 }
+  m = Co.progress(q, { pose = true }, 600)
+  ok(m[1].what == "route" and m[1].ticks == 600 and q.t_route == 600, "delais : une pose vaut un ouvrier venu")
+  ok(#Co.progress(nil, {}, 0) == 0, "delais : sans ordre, rien")
+  local q2 = { id = 3, tick = 0 }
+  m = Co.progress(q2, { fin = true }, 1500)
+  ok(#m == 3 and m[1].what == "route" and m[2].what == "pose" and m[3].what == "fin" and q2.t_pose == 1500, "delais : un effet complet vaut pose et route")
+  -- bastion devant le front de couverture et la centrale non visée, borné dans le temps
+  local yf, yp = Co.bastion_yield(8, "couverture", true, false)
+  ok(yf and yp, "bastion : front de couverture et centrale en attente")
+  yf, yp = Co.bastion_yield(8, "attaque", true, true)
+  ok(not yf and not yp, "bastion : front attaque et centrale visee gardent leurs tourelles")
+  yf, yp = Co.bastion_yield(0, "couverture", true, false)
+  ok(not yf and not yp, "bastion servi : rien en attente")
+  local cb = Co.new_state()
+  Co.add(cb, { kind = "bastion", x = 0, y = 0, r = 10, tick = 1000 })
+  ok(Co.bastion_want(cb, 1000 + Co.BASTION_YIELD_TICKS, Co.BASTION_YIELD_TICKS) == Co.BASTION_WANT
+    and Co.bastion_want(cb, 1001 + Co.BASTION_YIELD_TICKS, Co.BASTION_YIELD_TICKS) == 0 and Co.bastion_want(cb) == Co.BASTION_WANT,
+    "bastion : priorite bornee a Co.BASTION_YIELD_TICKS, fabrication non bornee")
+  local tsrc = io.open("script/team/team.lua"):read("*a")
+  ok(tsrc:find("CoCmd.bastion_yield(", 1, true), "bastion : regle branchee dans la vue de l'equipe")
+  local ssrc = io.open("script/faction/sites.lua"):read("*a")
+  ok(ssrc:find("prospect_blocker(f, site, designated and best or nil)", 1, true) and ssrc:find("State.war(), res ~= nil)", 1, true),
+    "gisement designe : seul un site de sa ressource le gene (branche par Sites.probe_at)")
+  local gsrc = io.open("script/gui/commande.lua"):read("*a")
+  ok(gsrc:find("track_init(f, order)", 1, true) and gsrc:find("Events.on_nth_tick(60", 1, true), "delais : suivi branche a la pose et chaque seconde")
+  for _, lang in ipairs({ "fr", "en" }) do
+    local cfg = io.open("locale/" .. lang .. "/commande.cfg"):read("*a")
+    for _, k in ipairs({ "etat-attente", "etat-route", "etat-plan", "etat-pose", "etat-fin", "jalon-route", "jalon-ghost", "jalon-pose", "jalon-fin" }) do
+      ok(cfg:find("\n" .. k .. "=", 1, true), "traduction " .. lang .. " : " .. k)
+    end
+  end
 end
 print(string.format("s46_outils_commande_test OK (%d)", n))
