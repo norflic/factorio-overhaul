@@ -33,6 +33,20 @@ function M.verdict(e, held)
   return "ecarter"
 end
 
+--- N098-POTEAU (mandat de nuit 15-16/11 ; captures 220200 et 220208 du DC, banc N098-REF097P sur sa graine : 6 lignes coupées par un poteau et
+--- 11 culs-de-sac à 60 min) : une pièce de TRANSPORT (tapis, souterrain, répartiteur) dont CHAQUE tuile prise n'est tenue que par un POTEAU 1 × 1
+--- d'un autre projet n'est plus écartée : la bande garde sa ligne et le poteau CÈDE (déplacé à la pose : script/team/build.lua, Build.belt_planned_at
+--- puis shift_pole s'il n'est pas bâti, Build.pole_off_belt s'il l'est). Avant : « pieces ecartees du role champ-tapis : 63 (transport-belt 63) »
+--- (azure, projet 25) ; la ligne restait coupée par le poteau, une paire de souterrains amputée laissait un cul-de-sac.
+--- `belt` : la pièce est de transport ; `held` = { { pole = vrai si le détenteur de la tuile est un poteau 1 × 1 } }. Rend vrai si le poteau cède.
+function M.pole_yields(belt, held)
+  if not belt or #held == 0 then return false end
+  for _, x in ipairs(held) do
+    if not x.pole then return false end
+  end
+  return true
+end
+
 --- Une pièce en conflit coupe-t-elle le tronc du charbon ? `role_coal` : le rôle de la pièce est celui du réseau du charbon.
 function M.cuts_trunk(verdict, role_coal)
   return verdict == "conflit" and role_coal == true

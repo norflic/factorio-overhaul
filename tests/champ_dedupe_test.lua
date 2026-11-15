@@ -67,6 +67,12 @@ local function battery(Cd)
   local occ3 = { ["13,3"] = 4 }
   local nr = Cd.reserve(occ3, ft, 1, function(x, y) return x .. "," .. y end)
   check(nr == 7 and occ3["13,3"] == 4 and occ3["12,7"] == "cadre:1" and Cd.own(occ3["10,10"], 1), "tuiles du cadre retenues sous son marqueur, celle d'un projet déjà planifié gardée par lui")
+  -- N098-POTEAU : une pièce de transport garde sa case tenue seulement par des poteaux 1 x 1 ; tout autre cas reste écarté
+  check(Cd.pole_yields(true, { { pole = true } }) == true, "tapis sur la case d'un poteau : le poteau cède")
+  check(Cd.pole_yields(true, { { pole = true }, { pole = true } }) == true, "répartiteur sur deux cases de poteaux : les poteaux cèdent")
+  check(Cd.pole_yields(true, { { pole = true }, { pole = false } }) == false, "une case tenue par autre chose qu'un poteau : écarté comme avant")
+  check(Cd.pole_yields(false, { { pole = true } }) == false, "une foreuse ou un bras ne déloge pas un poteau")
+  check(Cd.pole_yields(true, {}) == false, "rien de pris : pas de cession")
 end
 
 local Cd0 = dofile("shared/team/champ_dedupe.lua")
@@ -152,6 +158,10 @@ mutant("cadre sans projet vivant jamais libéré (tuiles perdues)", "if not (ali
 mutant("cadre libéré même avec un projet vivant", "if not (alive and alive[oid]) then out[#out + 1] = oid end", "out[#out + 1] = oid")
 mutant("tout conflit coupe le tronc", "return verdict == \"conflit\" and role_coal == true", "return verdict == \"conflit\"")
 mutant("aucun conflit ne coupe le tronc", "return verdict == \"conflit\" and role_coal == true", "return false")
+-- N098-POTEAU
+mutant("le poteau ne cède jamais (ligne coupée, avant N098)", "  if not belt or #held == 0 then return false end", "  do return false end")
+mutant("une seule case de poteau suffit (autre détenteur ignoré)", "    if not x.pole then return false end", "")
+mutant("toute pièce déloge un poteau", "  if not belt or #held == 0 then return false end", "  if #held == 0 then return false end")
 -- lot UPS-2 : prochain essai d'un plan qui attend son tronc
 mutant("essai repoussé après la fin de l'attente (borne ignorée)", "if nx > stop then nx = stop end", "")
 mutant("essai à chaque passe (poll ignoré)", "local nx = tick + poll", "local nx = tick")

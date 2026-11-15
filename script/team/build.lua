@@ -4413,14 +4413,22 @@ function Build.pole_off_belt(f, surface, p, e)
         end
         -- la pièce du plan qui tenait ce poteau suit
         local ok_, nk = P.tkey(math.floor(from.x), math.floor(from.y)), k
-        local q = b.occ[ok_] and b.projects[b.occ[ok_]] or nil
-        if q and q.ents then
-          for _, pe in ipairs(q.ents) do
+        -- (N098 : la case a pu être cédée à la bande à la planification, Cd.pole_yields : le détenteur du poteau est cherché dans tout le plan)
+        local function follow(q)
+          for _, pe in ipairs(q and q.ents or {}) do
             if pe.name == x.name and pe.x == from.x and pe.y == from.y then
               pe.x, pe.y = c.x, c.y
               b.occ[nk] = q.id
-              break
+              return true
             end
+          end
+          return false
+        end
+        local q0 = b.occ[ok_] and b.projects[b.occ[ok_]] or nil
+        if not follow(q0) then
+          for _, pid in ipairs(b.order or {}) do
+            local q = b.projects[pid]
+            if q ~= q0 and follow(q) then break end
           end
         end
         b.occ[ok_] = p.id

@@ -1337,7 +1337,26 @@ Build.SITES.champ = function(f, surface, p, h)
     for _, t in ipairs(P.tiles_of(e)) do
       local tk = P.tkey(t[1], t[2])
       local q = b.occ[tk]
-      if q and q ~= p.id and not Cd.own(q, o.id) then taken = true; holders[tostring(q)] = true; held[#held + 1] = { pid = q, ent = held_ent(q, tk) } end
+      if q and q ~= p.id and not Cd.own(q, o.id) then taken = true; holders[tostring(q)] = true; held[#held + 1] = { pid = q, ent = held_ent(q, tk), tk = tk } end
+    end
+    -- N098-POTEAU : la ligne de transport ne cède pas sa case à un poteau 1 x 1 d'un autre projet ; le poteau cède (déplacé à la pose)
+    if taken then
+      local pr = game.entity_prototypes[e.name]
+      local belt = pr ~= nil and Build.BELT_TYPES ~= nil and Build.BELT_TYPES[pr.type] == true
+      local hp = {}
+      for i, x in ipairs(held) do
+        local xp = x.ent and game.entity_prototypes[x.ent.name]
+        hp[i] = { pole = xp ~= nil and xp.type == "electric-pole" and (xp.tile_width or 1) == 1 and (xp.tile_height or 1) == 1 }
+      end
+      if Cd.pole_yields(belt, hp) then
+        for _, x in ipairs(held) do b.occ[x.tk] = nil end
+        taken = false
+        b.stats.poles_yield = (b.stats.poles_yield or 0) + 1
+        if b.stats.poles_yield <= 20 then
+          log(string.format("[FO-POTEAU-TAPIS] %s : projet %d (bande %s) : %s en (%g, %g) garde sa case tenue par le poteau du projet %s (le poteau cedera a la pose)",
+            f.key or "player", p.id, tostring(cs.pr), e.name, e.x, e.y, tostring(held[1].pid)))
+        end
+      end
     end
     if taken then
       if Cd.cuts_trunk(Cd.verdict(e, held), e.role == "champ-charbon") then
