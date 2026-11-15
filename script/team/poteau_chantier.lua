@@ -6,7 +6,7 @@
   compensation couvrent les machines que sa zone plus petite laisse sans courant. Les poteaux prévus déjà réservés retournent au coffre.
   Tout est lu aux prototypes (type « electric-pole », zone d'alimentation, fil, emprise, source électrique des machines) : aucun nom en dur.
   Journal [FO-POTEAU-CHANTIER] (repli fait, ou cause de l'abandon une fois par projet et par poteau). Déterminisme : listes triées, aucun pairs
-  décisionnel. Global : champs numériques et chaînes du projet (p.pc_since, p.pc_said).
+  décisionnel. Global : champs numériques et chaînes du projet (p.pc_since, p.pc_said, p.pc_gave : poteaux abandonnés par le projet).
 ]]
 
 local Rc = require("shared.team.reconstruction")
@@ -63,11 +63,14 @@ Events.on(defines.events.on_research_finished, function(e)
   if f then BOOKS[f.name] = nil end
 end)
 
-local function feasible(f, free, item)
-  if (free[item] or 0) >= 1 or Stock.count(f, item) >= 1 then return true end
+--- `n` unités de `item` (1 par défaut) : au coffre ou au stock libre, le reste fabricable à la main avec le stock libre.
+local function feasible(f, free, item, n)
+  n = n or 1
+  local have = math.max(free[item] or 0, Stock.count(f, item))
+  if have >= n then return true end
   local book = book_of(f.force)
   if not book:handcraftable(item) then return false end
-  return Bm.feasible(book, item, 1, free, item)
+  return Bm.feasible(book, item, n - have, free, item)
 end
 
 local function say_once(p, key, text)
@@ -133,7 +136,10 @@ local function substitute(f, p, item, free, surface, tick)
   table.sort(world, function(a, b2) if a.x ~= b2.x then return a.x < b2.x end return a.y < b2.y end)
   local alt = {}
   for _, c in ipairs(list) do if c.item ~= item then alt[#alt + 1] = c end end
-  local can = function(c) return feasible(f, free, c.item) end
+  -- repli fabricable pour TOUT le chantier (#old poteaux, pas un seul), et jamais un poteau que ce projet a déjà abandonné : sans ces deux
+  -- gardes, banc POTCH-2 (amber, projets 8, 15, 16) : petit -> moyen alors que le moyen manquait aussi, puis attente du moyen
+  p.pc_gave = p.pc_gave or {}
+  local can = function(c) return not p.pc_gave[c.item] and feasible(f, free, c.item, #old) end
   local function within(a, q, r) local dx, dy = a.x - q.x, a.y - q.y return dx * dx + dy * dy <= r * r + 1e-9 end
   -- le poteau de repli : celui du premier poteau prévu (même modèle pour tout le chantier), puis contrôle des autres
   local chosen, relays, seen = nil, {}, {}
@@ -212,6 +218,7 @@ local function substitute(f, p, item, free, surface, tick)
     back = put or back
   end
   p.pc_since[item] = nil
+  p.pc_gave[item] = true
   log(string.format("[FO-POTEAU-CHANTIER] %s : projet %d : %s non fabricable depuis %.1f min : %d poteau(x) prevu(s) remplace(s) par %s, %d relais, %d de compensation de zone, %d rendu(s) au coffre a %.1f min",
     f.key or "player", p.id, item, Pc.WAIT / 3600, #old, chosen.name, #relays, #comp, back, tick / 3600))
   return true
