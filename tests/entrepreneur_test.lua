@@ -135,5 +135,15 @@ do
   check(table.concat(o, ",") == "1,2", "ordre : bande absente, ordre inchange")
 end
 
+do -- entrepreneur-continu (0.9.1) : enchaînement sans attendre le scan de 5 min au-delà du seuil
+  local r = E.CFG.chain_rate
+  check(E.chain({ rate = r, busy = false, waiting = false, since = E.CFG.kit_every }), "enchaine : au seuil, rien en cours")
+  check(not E.chain({ rate = r - 1, busy = false, waiting = false, since = 9999 }), "enchaine : sous le seuil, on attend le scan")
+  check(not E.chain({ rate = r * 3, busy = true, waiting = false, since = 9999 }), "enchaine : chantier vivant, pas de relance")
+  check(not E.chain({ rate = r * 3, busy = false, waiting = true, since = 9999 }), "enchaine : bande demandee, pas de relance")
+  check(not E.chain({ rate = r * 3, busy = false, waiting = false, since = E.CFG.kit_every - 1 }), "enchaine : pas de rafale")
+  check(not E.chain({ busy = false, waiting = false, since = 9999 }), "enchaine : sans releve, rien")
+end
+
 print(string.format("entrepreneur_test : %d OK, %d ECHEC", ok, ko))
 if ko > 0 then os.exit(1) end

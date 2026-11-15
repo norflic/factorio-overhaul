@@ -2205,9 +2205,15 @@ function Mig.entrepreneur_scan(f, tick)
   if not total then return nil end
   local delta = total - (ms.ent_plates or total)
   local first = ms.ent_plates == nil
+  -- entrepreneur-continu (0.9.1) : un scan relancé avant la période (Mig.entrepreneur_chain) ramène le delta à la période (plaques par 5 min) ;
+  -- au pas normal (18 000 ticks depuis le relevé), le calcul est inchangé
+  local elapsed = tick - (ms.ent_tick or (tick - Ent.CFG.period))
+  if not first and elapsed > 0 and elapsed ~= Ent.CFG.period then delta = math.floor(delta * Ent.CFG.period / elapsed) end
+  ms.ent_tick = tick
   ms.ent_plates = total
   ms.ent_debit = first and math.floor(total * Ent.CFG.period / math.max(tick, Ent.CFG.period)) or delta -- entrepreneur-craft-0716 : debit (plaques par periode) du budget de la tete
   if first then delta = total end
+  ms.ent_rate = math.floor((first and ms.ent_debit or delta) * 3600 / Ent.CFG.period) -- plaques par minute (Ent.chain)
   local cur = ms.ent and f.build.projects[ms.ent.pid]
   if ms.ent and not (cur and cur.state ~= "fini") then
     ent_say(f, ms, string.format("fini (projet %s)", tostring(ms.ent.pid)))
@@ -2372,6 +2378,20 @@ function Mig.entrepreneur_kit(f, tick)
   end
 end
 
+--- entrepreneur-continu (0.9.1) : au-delà de Ent.CFG.chain_rate plaques/min (relevé du dernier scan), la bande entrepreneur finie est suivie
+--- tout de suite d'un nouveau scan (bande suivante demandée, kit en tête), au lieu d'attendre le scan de 5 min. Un refus (aucune place,
+--- débit) éteint la relance jusqu'au scan normal suivant. Journal [FO-ENTREPRENEUR] « enchaine ».
+function Mig.entrepreneur_chain(f, ms, tick)
+  if not (f.build and f.build.projects) or ms.ent_tick == nil or tick < (ms.ent_chain_off or 0) then return end
+  local cur = ms.ent and f.build.projects[ms.ent.pid]
+  local busy = cur ~= nil and cur.state ~= "fini"
+  local waiting = ms.ent_wait ~= nil and (tick - (ms.ent_wait.t0 or tick)) < Ent.CFG.period
+  if not Ent.chain({ rate = ms.ent_rate, busy = busy, waiting = waiting, since = tick - ms.ent_tick }) then return end
+  ent_say(f, ms, string.format("enchaine a %.1f min (%d plaque(s)/min au dernier releve)", tick / 3600, ms.ent_rate or 0))
+  local action = Mig.entrepreneur_scan(f, tick)
+  if action == "refus" or action == nil then ms.ent_chain_off = tick + Ent.CFG.period end
+end
+
 Events.on_nth_tick(Ent.CFG.kit_every, function(e)
   local ids = State.alive()
   ids[#ids + 1] = "player"
@@ -2380,6 +2400,7 @@ Events.on_nth_tick(Ent.CFG.kit_every, function(e)
     local ms = f and f.migration
     if ms and ms.ent_wait and not ms.ent then Mig.entrepreneur_follow(f) end -- (la bande demandée est reconnue dès sa demande, pas au scan suivant 5 min plus tard)
     if ms and ms.ent then Mig.entrepreneur_kit(f, e.tick) end
+    if ms then Mig.entrepreneur_chain(f, ms, e.tick) end
   end
 end)
 

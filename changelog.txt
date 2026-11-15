@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.1
+Date: 2026-11-15
+  Features:
+    - IA (entrepreneur, toutes les équipes) : au-delà de 350 plaques par minute (fours, toutes plaques), la bande entrepreneur finie est suivie dans les 5 s d'une nouvelle bande (kit complet en tête, monopole), au lieu d'attendre le scan de 5 min. Sous le seuil, rien ne change.
+  Known issues:
+    - Validé en Lua pur et au chargement des données seulement (partie du DC en cours) : pas encore de banc en moteur réel. L'entrepreneur ne vise toujours que les champs à fours (fer, cuivre, pierre) : ni charbon, ni usines.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.0
 Date: 2026-11-15
   Info:

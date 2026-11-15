@@ -29,7 +29,9 @@ E.CFG = {
                          -- dans la même minute, budget à 1 % près)
   debit_min = 1200,      -- entrepreneur-craft-0716 : plaques par période (5 min) au moins pour déclencher ou attacher une bande (banc 0720 :
                          -- le joueur, 600 à 1 500 plaques par 5 min, reculait de 6 % avec des bandes entrepreneur trop chères pour lui)
-  head_avail = 1.0,      -- part de la MATIÈRE du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua). Banc 3 (0.5) : kits lents
+  chain_rate = 350,      -- entrepreneur-continu (0.9.1) : au-delà de ce débit (plaques des fours par minute, toutes plaques), la bande suivante
+                         -- est demandée dès la fin de la précédente (relance au pas de kit_every), sans attendre le scan de 5 min
+  head_avail = 1.0,     -- part de la MATIÈRE du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua). Banc 3 (0.5) : kits lents
                          -- (azure, 70 objets en 12,6 min sous la tête) ; la porte du budget (head_share) suffit à protéger la base.
 }
 
@@ -47,6 +49,15 @@ function E.decide(inp)
   if not room then return "refus", "aucune place sur un gisement" end
   if inp.inflight then return "attache", "bande deja en vol" end
   return "declenche", "bande demandee"
+end
+
+--- entrepreneur-continu (0.9.1) : relance immédiate du scan ? inp = { rate (plaques/min au dernier relevé), busy (chantier entrepreneur
+--- vivant), waiting (bande demandée pas encore reconnue), since (ticks depuis le dernier scan) }. Vrai seulement au-delà de CFG.chain_rate,
+--- sans chantier ni demande en cours, et au moins kit_every ticks après le dernier scan (pas de rafale).
+function E.chain(inp)
+  if inp.busy or inp.waiting then return false end
+  if not inp.rate or inp.rate < E.CFG.chain_rate then return false end
+  return (inp.since or 0) >= E.CFG.kit_every
 end
 
 --- Monopole : vrai si le projet (spec) est un chantier entrepreneur : jamais suspendu, jamais rendu, en tête de réservation.
