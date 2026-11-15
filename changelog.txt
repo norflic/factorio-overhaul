@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.4
+Date: 2026-11-15
+  Bugfixes:
+    - IA (champs électriques) : une centrale finie qui produit avec de la marge suffit pour lancer la bande suivante ; avant, une seule pièce manquante de la centrale (un tapis) bloquait toute la migration (partie du DC : une seule bande de fer de 15 à 47 min).
+    - IA (champs électriques) : une bande presque finie (90 % et plus) qui ne peut plus avancer est laissée au plan après 15 min et la bande suivante part ; avant, elle gardait sa place pour toujours (bande de cuivre figée à 275/284).
+    - IA (priorités) : tant qu'une bande de champ attend ses pièces, la recherche, le mall et les améliorations ne passent plus « en parallèle ».
+    - IA (recherche) : aucun laboratoire de plus pendant une famine de plaque (journal « laboratoires retenus : famine de … »).
+    - Commandement (Maj+A) : le compteur ne compte plus les remplacements sur place ni les poses hors du minerai de l'ordre.
+  Known issues:
+    - Version livrée SANS banc en moteur réel (ordre du DC) : aucun effet mesuré en partie.
+    - Pics de calcul de la planification des bandes de champ (champ:frame) jusqu'à 58 ms au banc, non traités.
+    - Maj+A demande la bande suivante du plan du champ, pas la plus proche du cercle.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.3
 Date: 2026-11-15
   Bugfixes:
