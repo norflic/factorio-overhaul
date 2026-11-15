@@ -1386,11 +1386,20 @@ end
 -- seul » dont le tapis s'arrête dans l'herbe : amber fer, 11 bandes et 249 foreuses sans un four, « aucune place sur le sol neutre ») :
 -- un bout de bande sans place de fonderie dans son prolongement ne garde ses foreuses QUE si une colonne les reçoit ailleurs (Co.away),
 -- au besoin plus courte (moitié, quart des fours : le groupe est réduit à ce qu'elle fond). Sinon RIEN n'est posé : ni foreuse, ni tapis
--- (leur minerai attend une fonderie). Une colonne refusée faute de voie de charbon (t.refused) n'en reçoit pas : ses foreuses non plus.
+-- (leur minerai attend une fonderie). ROC-097 (DC, 15/11 : déport « pour le cuivre, pas pour le fer ni le charbon ») : un bout dont la
+-- colonne a été refusée faute de voie de charbon (t.refused) cherche AUSSI sa colonne ailleurs (avant : rien, ses foreuses non posées ;
+-- partie 0.9.6, fer du joueur : 3 + 4 bandes refusées, 24 + 72 foreuses perdues, quand le cuivre gardait son coffre de tête), et un
+-- champ sans colonne de fours (charbon, pierre : fonderie à coffres) pose la sienne ailleurs (Fd.away_layout). Règle : Ch.away_ok.
 --- C2-PAVAGE : rangées (en travers, de part et d'autre du collecteur) où une colonne ailleurs est cherchée. Avant : deux pas de bande ;
 --- au milieu d'un gisement collé à un autre minerai (ou à la base) aux deux bouts, toutes ces rangées tombent sur la ressource voisine
 --- et la bande reste sans fonderie (carte du DC, partie 0.9.4 : 94 foreuses orphelines sur 165 au fer du joueur). Désormais toute la
 --- largeur des tuiles lues (la fenêtre de la spec) : la colonne va sur le sol neutre le plus proche, au-delà du bord du gisement.
+--- ROC-097 : un bout de bande sans place de fonderie cherche-t-il une place ailleurs ? Toujours (colonne refusée ou non, champ à
+--- colonne ou à coffres) : aucune ressource, aucun motif de fonderie n'en est privé. (`colonne`, `refused` gardés pour le contrat.)
+function Ch.away_ok(colonne, refused)
+  return true
+end
+
 function Ch.away_rows(s, win)
   local r = 2 * s.pitch
   if win then r = math.max(r, win.v1 - win.v0) end
@@ -1424,7 +1433,7 @@ function ONCE.bare(s)
   end
   local g, aw, aw_why
   local pre = bw and bw.pre or nil
-  if colonne and not t.refused then
+  if Ch.away_ok(colonne, t.refused) then
     if not bw then
       pre = {} -- C2-PAVAGE : tuiles du collecteur libres avant cette prise (rendues si le bout reste orphelin et que l'autre bout essaie)
       for u = g0.cut, e_end, t.side do
@@ -1506,6 +1515,7 @@ function ONCE.bare(s)
           aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
             away_free, c.is_resource, { shift = reach, rows = nrows, cap = nrows > 2 * pitch and Ch.CFG.away_cap_wide or nil, ug = (spec.logistics or {}).underground,
               span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win,
+              layout = (not colonne) and function(n) return Fd.away_layout(spec, t.side, n) end or nil, -- ROC-097 : fonderie à coffres
               memo = run_memo("away") }, A) -- s52 mesure : tracés des colonnes ailleurs refaits à l'identique d'un plan_once à l'autre
           if not aw and aw_why == Co.SUSPEND then
             s.bw = { ti = ti, ci = ci, A = A, why = why0, g0 = g0, e_end = e_end, pre = pre }

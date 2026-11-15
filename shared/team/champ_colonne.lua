@@ -379,7 +379,7 @@ Co.AWAY_CAP = 20000     -- états développés au plus par tracé d'une colonne 
 --- (|k| <= o.rows), tête à t tuiles (0..o.shift) au-delà de `from`, places essayées de la plus proche à la plus lointaine (|k| + t) ;
 --- emprise entière libre et hors ressource (F500) ; puis le tapis de `from` (tuile devant la sortie du collecteur, où le minerai entre dans
 --- le sens `side`) jusqu'à la tuile avant la tête, tracé par Co.route (souterrains au croisement d'un autre flux si o.ug).
---- o = { shift, rows, ug, span, box = { u0, v0, u1, v1 } (tuiles lues ; nil : sans borne), tcost }.
+--- o = { shift, rows, ug, span, box = { u0, v0, u1, v1 } (tuiles lues ; nil : sans borne), tcost, layout (ROC-097, facultatif) }.
 --- Rend { list, len, s_edge, b, count, info, route } ou nil, raison.
 function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   local box = o.box
@@ -392,7 +392,9 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   -- de voies mêlées)
   local base, len, info0, rel, relf
   if A and A.base then base, len, info0, rel, relf = A.base, A.len, A.info0, A.rel, A.relf else
-    base, len, info0 = Co.layout(spec, 0, side, 0, count, mode)
+    -- ROC-097 : o.layout(count) (facultatif) rend la fonderie à poser ailleurs dans le même repère (0, 0) : la fonderie à coffres
+    -- (Fd.away_layout, champs sans four : charbon, pierre) ; sans lui, la colonne de fours (Co.layout)
+    if o.layout then base, len, info0 = o.layout(count) else base, len, info0 = Co.layout(spec, 0, side, 0, count, mode) end
     if not base then return nil, "colonne impossible" end
     rel = {}
     local own = {}

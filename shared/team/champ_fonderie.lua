@@ -129,4 +129,18 @@ function Fd.place(spec, b, side, edge, flow, gap, shift, free, is_res)
   return nil
 end
 
+--- ROC-097 (DC, 15/11 : « les fonderies déportées marchent pour le cuivre, pas pour le fer ni le charbon ») : la fonderie à coffres d'un
+--- bout de bande SANS place dans son prolongement, posée AILLEURS (Co.away, shared/team/champ_colonne.lua) comme la colonne de fours :
+--- Fd.layout en (b = 0, s_edge = 0) et son tapis (rangée 0, colonnes 0 .. len - 1, sens `side`, rôle « colonne » : jugé sur la rangée de
+--- la place, g.col_b, par shared/team/champ_verif.lua). Avant, un champ sans four (charbon, pierre) n'avait AUCUN déport : ses bouts sans
+--- place restaient des foreuses non posées (journal 0.9.6 : charbon d'émeraude 18, d'ambre 9 ; pierre d'émeraude 44).
+--- Rend (entités, longueur, info) au contrat de Co.layout : info = { b_coal = 0, b_link = 0 } (ni charbon ni lien propre).
+function Fd.away_layout(spec, side, count)
+  local ents, len = Fd.layout(spec, 0, side, 0, count)
+  for k = 0, len - 1 do
+    ents[#ents + 1] = { kind = "tapis", u = side * k, v = 0, size = 1, du = side, dv = 0, role = "colonne" }
+  end
+  return ents, len, { b_coal = 0, b_link = 0 }
+end
+
 return Fd
