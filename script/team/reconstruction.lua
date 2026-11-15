@@ -372,6 +372,20 @@ local function substitute_drills(f, s, surface, tick)
   return n
 end
 
+--- lot RUINES-ATTENTE : les pièces d'un avant-poste dont la matière MANQUE (f.team.ia3.starved, écrit par la pensée) passent d'abord
+--- (lot RECONSTRUCTION-0716 : fonction partagée par Recon.think et la fabrication des foreuses des ruines, Recon.craft_spares).
+local function scarce_first(f, s, due)
+  local sv = f.team and f.team.ia3 and f.team.ia3.starved
+  if sv and #due > 1 then
+    due = Ru.prefer_scarce(due, function(r)
+      local host = r.kind and ((f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid]))
+      local spec = host and T.outposts[host.kind]
+      return spec ~= nil and (sv[spec.product] == true or sv[spec.resource] == true)
+    end)
+  end
+  return due
+end
+
 --- Une pensée de l'équipe : tâches de reconstruction au tableau (après Board.sync, comme le plan directeur).
 function Recon.think(f, surface, tick)
   Profiler.fstart("recon:sweep") -- lot X10-S0 : mesure seulement
@@ -441,16 +455,7 @@ function Recon.think(f, surface, tick)
   Profiler.fstart("recon:secours")
   substitute_drills(f, s, surface, tick)
   Profiler.fstop("recon:secours")
-  local due = Rc.due(s, tick)
-  -- lot RUINES-ATTENTE : les pièces d'un avant-poste dont la matière MANQUE (f.team.ia3.starved, écrit par la pensée) passent d'abord
-  local sv = f.team and f.team.ia3 and f.team.ia3.starved
-  if sv and #due > 1 then
-    due = Ru.prefer_scarce(due, function(r)
-      local host = r.kind and ((f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid]))
-      local spec = host and T.outposts[host.kind]
-      return spec ~= nil and (sv[spec.product] == true or sv[spec.resource] == true)
-    end)
-  end
+  local due = scarce_first(f, s, Rc.due(s, tick))
   if #due == 0 then return 0 end
   local added, tried = {}, 0
   local have, taken = {}, held
@@ -690,6 +695,91 @@ local function substitute_poles(f, s, book, free, tick, memo, keys)
   end
 end
 
+--- Lot RECONSTRUCTION-0716 (trace [FO-RUINE-FAB]) : les foreuses des ruines vivantes dont l'objet manque au stock libre sont FABRIQUÉES (tâche
+--- « craft » de l'équipe, comme Recon.craft_spares pour l'infrastructure) ; quand la matière ne suffit pas même pour une, la matière BRUTE qui
+--- manque et qui se mine à la main sur un gisement (Harvest : entité ressource du même nom) est minée (tâche « mine », prudente). Avant : rien ne
+--- demandait la foreuse d'un avant-poste perdu (Rc.demand ne voit que l'infrastructure), la ruine attendait « sans objet au stock » jusqu'à
+--- l'expiration (25 min). `due` : pièces dues, ruines de matière qui manque d'abord (appelant : Recon.craft_spares). État écrit :
+--- s.ruins[oid].fab_log (tick du dernier journal), s.stats.ruin_crafts / ruin_mines / ruin_fab_logs. Lecteurs : ce journal ; le stock rempli
+--- est lu par Recon.think (tâche « rebuild » dès que l'objet est au coffre).
+Recon.RUIN_CRAFT = true
+Recon.RUIN_CRAFT_CAP = 4      -- foreuses fabriquées d'avance par objet (la première recrée l'avant-poste)
+Recon.RUIN_MINE_CAP = 50      -- matière brute minée par tâche
+Recon.RUIN_FAB_LOGS = 200
+
+local function fab_note(f, s, oid, item, tick, what, ...)
+  s.fab_log = s.fab_log or {}
+  if tick - (s.fab_log[item] or -math.huge) < 3600 then return end
+  if (s.stats.ruin_fab_logs or 0) >= Recon.RUIN_FAB_LOGS then return end
+  s.fab_log[item] = tick
+  s.stats.ruin_fab_logs = (s.stats.ruin_fab_logs or 0) + 1
+  local x = s.ruins and s.ruins[oid]
+  local o = f.outposts and f.outposts[oid]
+  local where = x and string.format("ruine %d (%s), %.1f min apres la perte", oid, tostring(x.kind), (tick - x.tick) / 3600)
+    or string.format("avant-poste %d (%s)", oid, tostring(o and o.kind))
+  log(string.format("[FO-RUINE-FAB] %s : %s a %.1f min : " .. what, f.key or "player", where, tick / 3600, ...))
+end
+
+local function minable(raw)
+  local names = Harvest.names(raw)
+  return #names == 1 and names[1] == raw
+end
+
+function Recon.ruin_craft(f, s, book, free, due, tick, prio)
+  if not (Recon.RUIN_CRAFT and s and book and free) then return 0 end
+  -- ruines seulement (banc 120 min : fabriquer aussi pour les avant-postes vivants changeait la partie sans gain mesuré ; leurs pièces en
+  -- attente n'attendaient pas l'objet, ns0)
+  if not (s.ruins and next(s.ruins)) then return 0 end
+  local function host(oid) return s.ruins[oid] ~= nil end
+  local wanted = Ru.demand(due, host, function(item) return free[item] or 0 end, Recon.RUIN_CRAFT_CAP)
+  if #wanted == 0 then return 0 end
+  s.stats = s.stats or {}
+  local avail = {}
+  for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
+  local added = {}
+  for _, w in ipairs(wanted) do
+    local item, n, oid, kind = w[1], w[2], w[3], w[4]
+    if book:handcraftable(item) then
+      local saved = avail[item]
+      avail[item] = 0
+      local m, q = Bm.best(book, item, n, avail)
+      avail[item] = saved
+      if m > 0 then
+        local uses = {}
+        for k in next, q.uses do uses[#uses + 1] = k end
+        table.sort(uses)
+        local list = {}
+        for _, k in ipairs(uses) do list[#list + 1] = { k, q.uses[k] } end
+        added[#added + 1] = { key = "craft:" .. item .. ":ruine", kind = "craft", prio = prio, item = item, count = m, steps = q.crafts,
+          uses = list, tag = "reconstruction", domain = "gisements" }
+        for _, u in ipairs(list) do
+          if u[1] ~= item then avail[u[1]] = (avail[u[1]] or 0) - u[2] end
+        end
+        s.stats.ruin_crafts = (s.stats.ruin_crafts or 0) + 1
+        fab_note(f, s, oid, item, tick, "%d %s a fabriquer (voulues %d, stock libre %d)", m, item, n, free[item] or 0)
+      else
+        local miss, mines = {}, {}
+        for _, k in ipairs(State.sorted_keys(q.raw)) do
+          miss[#miss + 1] = string.format("%s %d", k, q.raw[k])
+          if kind == "drill" and s.ruins and s.ruins[oid] and minable(k) then -- bootstrap d'une ruine seulement (banc 120 : le minage pour les fours d'un avant-poste vivant coûtait des bras)
+            local c = math.min(Recon.RUIN_MINE_CAP, math.max(1, math.ceil(q.raw[k])))
+            added[#added + 1] = { key = "recon:ruine:mine:" .. k, kind = "mine", prio = prio, resource = k, count = c, short = c,
+              prudent = true, domain = "gisements", tag = "reconstruction" }
+            mines[#mines + 1] = k
+            s.stats.ruin_mines = (s.stats.ruin_mines or 0) + 1
+          end
+        end
+        fab_note(f, s, oid, item, tick, "%d %s non fabricable(s), matiere manquante {%s} ; minage a la main {%s}", n, item, table.concat(miss, ", "),
+          table.concat(mines, ", "))
+      end
+    else
+      fab_note(f, s, oid, item, tick, "%s non fabricable a la main", item)
+    end
+  end
+  if #added > 0 then return Board.add(f, added, tick) end
+  return 0
+end
+
 function Recon.craft_spares(f, book, free, tick)
   Profiler.fstart("spares:secours") -- lot X10-S0 : mesure seulement
   RrRt.drill_swap(f, book, free, tick) -- lot REBUILD-RAPIDE (d) : foreuse thermique de secours (avant la sortie anticipée : registre vide compris)
@@ -702,6 +792,12 @@ function Recon.craft_spares(f, book, free, tick)
   Profiler.fstart("spares:poteaux")
   substitute_poles(f, s, book, free, tick, Recon.S5 and { ok = {}, raw = {} } or nil, keys)
   Profiler.fstop("spares:poteaux")
+  -- Lot RECONSTRUCTION-0716 : les pièces d'avant-poste dues (vivant ou ruine) sont fabriquées (ou leur matière brute minée), à la priorité de l'infrastructure.
+  do
+    Profiler.fstart("spares:ruines")
+    Recon.ruin_craft(f, s, book, free, scarce_first(f, s, Rc.due(s, tick)), tick, Rc.task_prio(Rc.INFRA_VALUE))
+    Profiler.fstop("spares:ruines")
+  end
   local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end, keys)
   if #wanted == 0 then return 0 end
   local added = {}
@@ -871,11 +967,78 @@ function Recon.repair_act(agent, f, task, surface)
 end
 
 --- Programme de l'ouvrier qui prend la tâche (script/team/worker.lua, Worker.program). Les pièces sont marquées prises.
+--- Lot RECONSTRUCTION-0716 : la pièce posée brûle-t-elle un combustible ? (prototype : burner_prototype ; mémoire LOCALE)
+local BURNS = {}
+local function burns(name)
+  local v = BURNS[name]
+  if v == nil then
+    local p = game.entity_prototypes[name]
+    v = (p and p.burner_prototype ~= nil) or false
+    BURNS[name] = v
+  end
+  return v
+end
+
 function Recon.program(f, task)
   local s = f.recon
   if not (s and task.pos and task.items) then return nil end
   Rc.claim(s, task.recs, task.key)
+  -- Lot RECONSTRUCTION-0716 : le combustible des pièces à combustion est porté avec elles (prise souple : ce que le coffre a). Avant : le
+  -- champ de charbon refait à 10,4 min (banc ruine-charbon, 123456789) restait à sec, coffre du QG sans charbon, toute la fonte arrêtée.
+  local nb = 0
+  for _, k in ipairs(task.recs or {}) do
+    local r = s.lost[k]
+    -- seulement les foreuses d'une RUINE (banc 120 min : porter le charbon pour toutes les pièces refaites changeait la partie sans gain mesuré)
+    if r and r.kind == "drill" and s.ruins and s.ruins[r.oid] and burns(r.place or r.name) then nb = nb + 1 end
+  end
+  if nb > 0 and Recon.PRIME then
+    return { { "home" }, { "take", task.items, strict = true }, { "take", { { T.fuel, nb * T.fuel_per_burner } } }, { "goto", task.pos, 4 },
+      { "act", "rebuild" }, { "home" } }
+  end
   return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 4 }, { "act", "rebuild" }, { "home" } }
+end
+
+--- Lot RECONSTRUCTION-0716 (trace [FO-RECON-AMORCE]) : une pièce à combustion refaite reçoit son combustible : celui que porte le PNJ, sinon,
+--- quand personne n'en a (coffre du QG vide : le champ de charbon détruit était la source), le PNJ en mine à la main sous la pièce si le
+--- gisement donne un objet combustible (prototype : fuel_value > 0), le gisement perd ce qui est pris. Rend le nombre posé.
+Recon.PRIME = true
+Recon.PRIME_LOGS = 40
+local function prime(f, s, inv, ent, surface)
+  local fuel = ent.get_fuel_inventory and ent.get_fuel_inventory()
+  if not (fuel and fuel.valid and fuel.is_empty()) then return 0 end
+  local n = math.min(T.fuel_per_burner, inv.get_item_count(T.fuel))
+  local how = "porte"
+  if n > 0 then
+    n = fuel.insert({ name = T.fuel, count = n })
+    if n > 0 then inv.remove({ name = T.fuel, count = n }) end
+  else
+    local p = ent.position
+    local res = surface.find_entities_filtered({ type = "resource", area = { { p.x - 1.5, p.y - 1.5 }, { p.x + 1.5, p.y + 1.5 } } })
+    table.sort(res, function(a, b)
+      if a.position.x ~= b.position.x then return a.position.x < b.position.x end
+      return a.position.y < b.position.y
+    end)
+    for _, r in ipairs(res) do
+      local mp = r.prototype.mineable_properties
+      local prod = mp and mp.products and mp.products[1]
+      local ip = prod and prod.type == "item" and game.item_prototypes[prod.name]
+      if ip and (ip.fuel_value or 0) > 0 and r.amount > T.fuel_per_burner and fuel.can_insert({ name = prod.name, count = 1 }) then
+        n = fuel.insert({ name = prod.name, count = T.fuel_per_burner })
+        if n > 0 then r.amount = r.amount - n end
+        how = "mine a la main (" .. prod.name .. ")"
+        break
+      end
+    end
+  end
+  if n > 0 then
+    stat(s, "primed", n)
+    if (s.stats.prime_logs or 0) < Recon.PRIME_LOGS then
+      s.stats.prime_logs = (s.stats.prime_logs or 0) + 1
+      log(string.format("[FO-RECON-AMORCE] %s : %s refait(e) en (%.1f, %.1f) : %d combustible(s) %s a %.1f min", f.key or "player", ent.name,
+        ent.position.x, ent.position.y, n, how, game.tick / 3600))
+    end
+  end
+  return n
 end
 
 --- Emprise de la pièce (boîte de collision du prototype, tournée selon la direction) élargie de 0,3 : { x0, y0, x1, y1 }.
@@ -962,6 +1125,8 @@ function Recon.act(agent, f, task, surface)
             raise_built = true })
           if ent and ent.valid then
             inv.remove({ name = r.item, count = 1 })
+            -- lot RECONSTRUCTION-0716 : la foreuse d'une ruine n'est jamais refaite à sec (la ruine vit jusqu'à la pensée qui suit sa recréation)
+            if Recon.PRIME and ent.burner and r.kind == "drill" and s.ruins and s.ruins[r.oid] then prime(f, s, inv, ent, surface) end
             if r.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, r.recipe) end
             if r.kind and ent.unit_number then
               State.own(ent, f.id, r.kind, r.oid)
@@ -1028,6 +1193,9 @@ end
 remote.add_interface("fo-recon", {
   -- Banc seulement (reconstruire-bois : « avec » et « sans » la récolte du bois). Mémoire LOCALE, hors sauvegarde.
   set_gather = function(on) Recon.GATHER = on and true or false return Recon.GATHER end,
+  -- Banc seulement (ruine-charbon : témoin sans la fabrication des foreuses des ruines, lot RECONSTRUCTION-0716). Mémoire LOCALE.
+  set_ruin_craft = function(on) Recon.RUIN_CRAFT = on and true or false return Recon.RUIN_CRAFT end,
+  set_prime = function(on) Recon.PRIME = on and true or false return Recon.PRIME end,
   status = function(key)
     local f = (key == nil or key == "player") and State.faction("player") or nil
     if not f and key ~= nil then
