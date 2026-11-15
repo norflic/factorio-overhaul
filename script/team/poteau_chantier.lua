@@ -20,6 +20,7 @@ local Events = require("script.core.events")
 
 local PC = {}
 PC.ON = true -- tests seulement : faux = l'ancien comportement (le chantier attend son poteau)
+PC.anchor = function(f, e) return e end -- posé par script/team/build.lua (Build.anchor_ent) : point d'appui d'une pièce ajoutée au plan
 
 local CANDS -- mémoire LOCALE (prototypes) : { name, item, supply, wire } des poteaux d'une tuile
 local BY_ITEM
@@ -196,7 +197,11 @@ local function substitute(f, p, item, free, surface, tick)
   for _, list2 in ipairs({ relays, comp }) do
     for _, q in ipairs(list2) do
       b.occ[P.tkey(math.floor(q.x), math.floor(q.y))] = p.id
-      p.ents[#p.ents + 1] = { name = chosen.name, item = chosen.item, x = q.x, y = q.y, dir = 0, part = part, role = "poteau-repli" }
+      local ne = { name = chosen.name, item = chosen.item, x = q.x, y = q.y, dir = 0, part = part, role = "poteau-repli" }
+      -- point d'appui du PNJ (sans lui, la tournée du chantier indexait nil : banc POTCH-1, build.lua batch_tasks, 18,9 min)
+      local ok = pcall(PC.anchor, f, ne)
+      if not ok or ne.anchor == nil then ne.anchor, ne.ax, ne.ay = old[1].anchor, old[1].ax, old[1].ay end
+      p.ents[#p.ents + 1] = ne
       added = added + 1
     end
   end
