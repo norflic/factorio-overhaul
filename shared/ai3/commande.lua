@@ -458,6 +458,11 @@ function Co.progress(o, obs, tick)
       out[#out + 1] = { what = k, ticks = tick - t0 }
     end
   end
+  -- un effet complet vaut une pose (6e banc : avant-poste de l'ordre posé à 25 s, hors du relevé de la zone, « pose jamais »)
+  if o.t_fin and not o.t_pose then
+    o.t_pose = o.t_fin
+    table.insert(out, 1, { what = "pose", ticks = o.t_fin - t0 })
+  end
   -- une pose vaut un ouvrier venu : le jalon « route » manqué (tâche courte entre deux relevés) prend le tick de la pose
   if o.t_pose and not o.t_route then
     o.t_route = o.t_pose

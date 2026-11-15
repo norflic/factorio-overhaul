@@ -191,6 +191,9 @@ do -- commandes-0716 : jalons des délais (Co.progress), un seul relevé par jal
   m = Co.progress(q, { pose = true }, 600)
   ok(m[1].what == "route" and m[1].ticks == 600 and q.t_route == 600, "delais : une pose vaut un ouvrier venu")
   ok(#Co.progress(nil, {}, 0) == 0, "delais : sans ordre, rien")
+  local q2 = { id = 3, tick = 0 }
+  m = Co.progress(q2, { fin = true }, 1500)
+  ok(#m == 3 and m[1].what == "route" and m[2].what == "pose" and m[3].what == "fin" and q2.t_pose == 1500, "delais : un effet complet vaut pose et route")
   -- bastion devant le front de couverture et la centrale non visée, borné dans le temps
   local yf, yp = Co.bastion_yield(8, "couverture", true, false)
   ok(yf and yp, "bastion : front de couverture et centrale en attente")

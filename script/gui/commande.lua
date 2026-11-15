@@ -263,7 +263,7 @@ local function heading(f, o)
     local a = Registry.get(id)
     if a and a.faction and a.task and a.entity and a.entity.valid and State.faction(a.faction) == f then
       for _, p in ipairs(agent_points(a)) do
-        if Co.inside(o, p[1], p[2], Co.DONE_MARGIN) then
+        if Co.inside(o, p[1], p[2], o.kind == "gisement" and Co.SITE_MARGIN or Co.DONE_MARGIN) then
           local pos = a.entity.position
           out[#out + 1] = { key = tostring(id) .. ":" .. tostring(a.task.key), id = id, kind = tostring(a.task.kind),
             d = math.floor(math.sqrt((pos.x - o.x) ^ 2 + (pos.y - o.y) ^ 2)) }
@@ -279,7 +279,7 @@ end
 local function zone_ents(o)
   local surface = game.surfaces[o.surface or 1]
   if not surface then return {} end
-  return surface.find_entities_filtered({ position = { o.x, o.y }, radius = o.r })
+  return surface.find_entities_filtered({ position = { o.x, o.y }, radius = o.kind == "gisement" and (o.r + Co.SITE_MARGIN) or o.r }) -- gisement : la marge de Co.ready (site accepté à r + 24)
 end
 
 local function delay_row(cs, o)
