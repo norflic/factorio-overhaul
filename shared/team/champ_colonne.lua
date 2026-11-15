@@ -353,7 +353,7 @@ Co.AWAY_CAP = 20000     -- états développés au plus par tracé d'une colonne 
 --- le sens `side`) jusqu'à la tuile avant la tête, tracé par Co.route (souterrains au croisement d'un autre flux si o.ug).
 --- o = { shift, rows, ug, span, box = { u0, v0, u1, v1 } (tuiles lues ; nil : sans borne), tcost }.
 --- Rend { list, len, s_edge, b, count, info, route } ou nil, raison.
-function Co.away(spec, from, side, count, mode, free, is_ore, o)
+function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   local box = o.box
   local function inb(u, v) return not box or (u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1) end
   -- la colonne ne dépend de (s_edge, b) que par translation : calculée une fois en (0, 0), ses tuiles décalées pour chaque place
@@ -363,31 +363,58 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o)
   for _, e in ipairs(base) do
     for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v } end end
   end
-  local memo = {} -- tuile -> sol neutre libre (lu une fois par appel ; rien n'est pris pendant la recherche)
+  -- perf-frame : `A` (facultatif, table de l'appelant) rend la recherche REPRENABLE : curseur des places, lectures du sol neutre, tracés
+  -- comptés, tracé en cours (A.job) ; budget du pas atteint (Co.WORK >= Co.WORK_LIM) -> nil, Co.SUSPEND, et le rappel avec les mêmes
+  -- arguments et le même `A` reprend à la même place (même suite de places et de tracés, même résultat qu'un appel d'un bloc).
+  local lim = A and Co.WORK_LIM
+  A = A or {}
+  local memo = A.memo or {} -- tuile -> sol neutre libre (lu une fois par recherche ; rien n'est pris pendant la recherche)
+  A.memo = memo
+  local work = 0
   local function neutral(u, v)
     local k = Co.tk(u, v)
     local m = memo[k]
+    work = work + 1
     if m == nil then m = inb(u, v) and free(u, v) and not is_ore(u, v); memo[k] = m end
     return m
   end
-  local cands = {}
-  for k = -o.rows, o.rows do
-    for t = 0, o.shift do cands[#cands + 1] = { k = k, t = t, d = math.abs(k) + t } end
+  -- places dans l'ordre (d = |k| + t, puis |k|, puis k, puis t) d'avant (liste triée) : pour d et k donnés, t = d - |k| est unique ; énumérées
+  -- sans liste : d croissant, |k| = ak croissant (au plus d et o.rows, t au plus o.shift), k = -ak puis +ak
+  local rows, shift = o.rows, o.shift
+  local cd_d, cd_ak, cd_sg = A.d or 0, A.ak or 0, A.sg or -1
+  local routes, why = A.routes or 0, A.why or "aucune place sur le sol neutre"
+  local function next_cand()
+    -- avance le curseur à la place suivante ; rend faux après la dernière
+    while true do
+      if cd_sg < 0 and cd_ak > 0 then cd_sg = 1 else
+        cd_sg = -1
+        cd_ak = cd_ak + 1
+        if cd_ak > math.min(cd_d, rows) then cd_d, cd_ak = cd_d + 1, 0 end
+      end
+      if cd_d > rows + shift then return false end
+      if cd_d - cd_ak <= shift and cd_d - cd_ak >= 0 then return true end
+    end
   end
-  table.sort(cands, function(a, b)
-    if a.d ~= b.d then return a.d < b.d end
-    if math.abs(a.k) ~= math.abs(b.k) then return math.abs(a.k) < math.abs(b.k) end
-    if a.k ~= b.k then return a.k < b.k end
-    return a.t < b.t
-  end)
-  local routes, why = 0, "aucune place sur le sol neutre"
+  local has = A.has
+  if has == nil then
+    -- première place : d = 0, k = 0, t = 0 (shift >= 0, rows >= 0)
+    has = (rows >= 0 and shift >= 0)
+    cd_d, cd_ak, cd_sg = 0, 0, -1
+  end
   -- lot CHAMP-FRAME (perf) : la tuile qui a refusé la place précédente est relue la PREMIÈRE (une place voisine bute presque toujours sur
   -- le même obstacle) ; « fine » = toutes les tuiles neutres, ordre de lecture sans effet (neutral est mémorisée, sans écriture) : même
-  -- résultat. Mesuré hors jeu (dc emerald fer 3) : 1,39 M lectures de neutral pour 95 k places avant.
-  local nrel, lastbad = #rel, 1
-  for _, cd in ipairs(cands) do
+  -- résultat. Mesuré hors jeu (dc emerald fer 3) : 1,39 M lectures de neutral pour 95 k places avant. (perf-astar : gardée dans A.lastbad)
+  local nrel, lastbad = #rel, A.lastbad or 1
+  local function save()
+    A.d, A.ak, A.sg, A.routes, A.why, A.has, A.lastbad = cd_d, cd_ak, cd_sg, routes, why, has, lastbad
+    Co.WORK = Co.WORK + work
+    work = 0
+  end
+  while has do
     if routes >= Co.AWAY_ROUTES then break end
-    local b2, s_edge = from.v + cd.k, from.u + side * (cd.t + 1)
+    if lim and not (A.job and A.job.R) and Co.WORK + work >= lim then save() return nil, Co.SUSPEND end
+    local k = cd_ak * (cd_ak == 0 and 1 or cd_sg)
+    local b2, s_edge = from.v + k, from.u + side * (cd_d - cd_ak + 1)
     local fine = true
     local r0 = rel[lastbad]
     if r0 and not neutral(s_edge + r0[1], b2 + r0[2]) then
@@ -399,17 +426,25 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o)
       end
     end
     local t = { u = s_edge - side, v = b2 }
+    local stop = false
     if fine then
       local mine = {}
       for _, r in ipairs(rel) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end
       if not mine[Co.tk(t.u, t.v)] then
-        routes = routes + 1
+        A.job = A.job or {}
+        local resumed = A.job.R ~= nil
+        if not resumed then routes = routes + 1 end
         local function rfree(u, v) return inb(u, v) and not mine[Co.tk(u, v)] and free(u, v) end
         local rb = box or { u0 = math.min(from.u, t.u) - Co.ROUTE_MARGIN, u1 = math.max(from.u, t.u) + Co.ROUTE_MARGIN,
           v0 = math.min(from.v, t.v) - Co.ROUTE_MARGIN, v1 = math.max(from.v, t.v) + Co.ROUTE_MARGIN }
         local sd = didx(side, 0)
-        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, Co.AWAY_CAP, o.tcost, o.memo)
+        Co.WORK = Co.WORK + work
+        work = 0
+        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, Co.AWAY_CAP, o.tcost, o.memo,
+          lim and A.job or nil)
+        if rwhy == Co.SUSPEND and not route then save() return nil, Co.SUSPEND end
         if route then
+          Co.WORK = Co.WORK + work
           local list = {}
           for _, e in ipairs(base) do
             list[#list + 1] = { kind = e.kind, u = e.u + s_edge, v = e.v + b2, size = e.size, du = e.du, dv = e.dv, role = e.role, col = e.col }
@@ -419,10 +454,13 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o)
           return { list = list, len = len, s_edge = s_edge, b = b2, count = count, info = info, route = route }
         end
         why = "trace : " .. tostring(rwhy)
-        if rwhy == "trop long" then break end -- s52 élague : source close au premier plafond
+        if rwhy == "trop long" then stop = true end -- s52 élague : source close au premier plafond
       end
     end
+    if stop then break end
+    has = next_cand()
   end
+  Co.WORK = Co.WORK + work
   return nil, why
 end
 
@@ -447,8 +485,12 @@ Co.EXPANDED = 0         -- s49 opti : compteur d'états développés par Co.rout
 Co.PREUVE = true        -- (tests : faux = l'A* seul, la référence)
 Co.PREUVE_APRES = 2000  -- états développés par l'A* avant la tentative
 Co.PREUVE_TUILES = 3000 -- tuiles développées au plus par chacun des deux remplissages
-function Co.unreachable(s, t, free, ug, box, cap)
-  local fcache = {}
+--- perf-frame : `U` (facultatif, avec budget Co.WORK_LIM) rend la preuve REPRENABLE : files, tuiles vues, curseurs gardés dans U ;
+--- budget atteint -> Co.SUSPEND, et le rappel avec les mêmes arguments et le même U reprend (même suite de pas, même réponse).
+Co.PREUVE_PAS = 3 -- travail compté par tuile développée de la preuve
+function Co.unreachable(s, t, free, ug, box, cap, U)
+  local lim = U and Co.WORK_LIM
+  local fcache = (U and U.fcache) or {}
   local function fr(u, v)
     local k = tk(u, v)
     local x = fcache[k]
@@ -466,6 +508,8 @@ function Co.unreachable(s, t, free, ug, box, cap)
   local fq, rq = { { s.u, s.v } }, { { t.u, t.v } }
   local fh, rh = 1, 1
   local fn, rn = 1, 1
+  if U and U.fseen then fseen, rseen, fq, rq, fh, rh, fn, rn = U.fseen, U.rseen, U.fq, U.rq, U.fh, U.rh, U.fn, U.rn end
+  local did = false
   local maxk = ug or 0
   local function fstep()
     local x = fq[fh]; fh = fh + 1
@@ -516,19 +560,25 @@ function Co.unreachable(s, t, free, ug, box, cap)
     local fdone, rdone = fh > #fq, rh > #rq
     if fdone then
       -- remplissage avant épuisé : `t` non atteint, au plus 8 états par tuile atteinte
-      if fseen[tk(t.u, t.v)] then return nil end
-      if per * fn <= cap then return "aucun chemin" end
-      return nil
+      if fseen[tk(t.u, t.v)] then return nil, fn + rn end
+      if per * fn <= cap then return "aucun chemin", fn + rn end
+      return nil, fn + rn
     end
     if rdone then
       -- remplissage arrière épuisé : `s` ne mène pas à `t` ; états atteignables depuis `s` bornés par la boîte (+ le départ)
-      if rseen[tk(s.u, s.v)] then return nil end
-      if per * area <= cap then return "aucun chemin" end
-      return nil
+      if rseen[tk(s.u, s.v)] then return nil, fn + rn end
+      if per * area <= cap then return "aucun chemin", fn + rn end
+      return nil, fn + rn
     end
     -- un bout a touché l'autre : rien ne sera prouvé (le chemin existe peut-être), l'A* reprend
-    if fseen[tk(t.u, t.v)] or rseen[tk(s.u, s.v)] then return nil end
-    if fn > Co.PREUVE_TUILES and rn > Co.PREUVE_TUILES then return nil end
+    if fseen[tk(t.u, t.v)] or rseen[tk(s.u, s.v)] then return nil, fn + rn end
+    if fn > Co.PREUVE_TUILES and rn > Co.PREUVE_TUILES then return nil, fn + rn end
+    if lim and did and Co.WORK >= lim then
+      U.fcache, U.fseen, U.rseen, U.fq, U.rq, U.fh, U.rh, U.fn, U.rn = fcache, fseen, rseen, fq, rq, fh, rh, fn, rn
+      return Co.SUSPEND
+    end
+    did = true
+    if lim then Co.WORK = Co.WORK + Co.PREUVE_PAS end
     if (fn <= rn or rn > Co.PREUVE_TUILES) and fn <= Co.PREUVE_TUILES then fstep() else rstep() end
   end
 end
@@ -561,16 +611,25 @@ local function copy_route(r)
   return o
 end
 
-function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
+--- perf-frame (carte du DC à 600 % : un tracé de 20 000 états tenait seul 0,1 à 0,9 s dans UN tick) : tracé REPRENABLE. `job` (facultatif) :
+--- table de l'appelant ; quand Co.WORK atteint Co.WORK_LIM (budget de travail du pas, en états développés : un compte, jamais un temps),
+--- le tracé s'arrête, range son état (tas, g, états fermés, lectures gardées : tables de nombres, aucune fonction) dans job.R et rend
+--- nil, Co.SUSPEND ; rappelé avec les MÊMES arguments (fonctions de lecture neuves, mêmes réponses) et le même `job`, il reprend où il en
+--- était : même suite d'états, même résultat qu'un tracé d'un bloc. Sans `job` ou sans budget : jamais suspendu (comme avant).
+Co.SUSPEND = "suspendu"
+Co.WORK = 0        -- travail compté depuis le début du pas (états développés, tuiles lues des recherches bornées)
+Co.WORK_LIM = nil  -- budget du pas (nil : aucun) ; posé par Ch.once_step
+function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo, job)
   cap = cap or Co.ROUTE_CAP
   local mkey, mlist
+  local R = job and job.R
   if memo then
     local parts = { s.u, s.v, sd, t.u, t.v, td, ug, box.u0, box.v0, box.u1, box.v1, cap, span ~= nil, tcost ~= nil, Co.ROUTE_W, Co.UG_COST,
       Co.PREUVE, Co.PREUVE_APRES, Co.PREUVE_TUILES }
     for i = 1, 19 do parts[i] = tostring(parts[i]) end
     mkey = table.concat(parts, ",")
     mlist = memo[mkey]
-    if mlist then
+    if mlist and not R then -- (reprise : la mémoire a déjà été lue au premier appel, sans réponse)
       for _, e in ipairs(mlist) do
         if memo_valid(e, free, span, tcost) then
           if e.route then return copy_route(e.route), e.n end
@@ -582,6 +641,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
   -- lectures d'une tuile, gardées (et notées pour la mémoire)
   local FR, SP, TC = {}, {}, {}
   local fl, sl, tl = {}, {}, {}
+  if R then FR, SP, TC, fl, sl, tl = R.FR, R.SP, R.TC, R.fl, R.sl, R.tl end
   local free0, span0, tcost0 = free, span, tcost
   free = function(u, v)
     local k = tk(u, v)
@@ -616,8 +676,9 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
     end
     return x
   end
-  local expanded = 0
+  local expanded = R and R.expanded or 0
   local function finish(route, why)
+    if job then job.R = nil end
     Co.EXPANDED = Co.EXPANDED + expanded -- s49 opti : états développés, tous tracés (banc tests/perf_champ_bench.lua) ; s52 : ajoutés en fin de tracé
     if memo then
       mlist = memo[mkey]
@@ -628,8 +689,10 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
     end
     return route, why
   end
-  if not free(s.u, s.v) then return finish(nil, "depart") end
-  if not free(t.u, t.v) then return finish(nil, "arrivee") end
+  if not R then
+    if not free(s.u, s.v) then return finish(nil, "depart") end
+    if not free(t.u, t.v) then return finish(nil, "arrivee") end
+  end
   local bu0, bv0, bu1, bv1 = box.u0, box.v0, box.u1, box.v1
   local tu, tv = t.u, t.v
   local W = Co.ROUTE_W
@@ -645,6 +708,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
   local g, pk, pug, closed = {}, {}, {}, {}
   -- tas : tableaux parallèles, ordre (f, h, k) strict
   local HF, HH, HK, hn = {}, {}, {}, 0
+  if R then g, pk, pug, closed, HF, HH, HK, hn = R.g, R.pk, R.pug, R.closed, R.HF, R.HH, R.HK, R.hn end
   local function push(f, h, k)
     hn = hn + 1
     local i = hn
@@ -681,9 +745,11 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
     end
     return k
   end
-  local k0 = tk(s.u, s.v) * 10 + (sd - 1) * 2
-  g[k0] = 0
-  do local h0 = hh(s.u, s.v); push(h0, h0, k0) end
+  if not R then
+    local k0 = tk(s.u, s.v) * 10 + (sd - 1) * 2
+    g[k0] = 0
+    local h0 = hh(s.u, s.v); push(h0, h0, k0)
+  end
   -- s52 mesure : la lecture gardée (FR) faite sur place, `free` seulement à la première lecture d'une tuile (mêmes lectures, même ordre)
   local function relax(ck, cg, nu, nv, nd, nm, cost, isug)
     if nu < bu0 or nu > bu1 or nv < bv0 or nv > bv1 then return end
@@ -713,16 +779,42 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost, memo)
     local v = q % 100000
     return (q - v) / 100000 - 50000, v - 50000, (r - r % 2) / 2 + 1, r % 2
   end
-  while hn > 0 do
-    local ck = pop()
-    if not closed[ck] then
-      closed[ck] = true
-      expanded = expanded + 1
-      if expanded > cap then return finish(nil, "trop long") end
-      if expanded == Co.PREUVE_APRES and Co.PREUVE then
-        local why = Co.unreachable(s, t, free, ug, box, cap) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*
-        if why then return finish(nil, why) end
+  local lim = job and Co.WORK_LIM
+  local did = false
+  -- perf-frame : budget du pas atteint -> état rangé dans job.R (avec, pendant la preuve d'impossibilité, l'état fermé `pend` dont le
+  -- développement attend la fin de la preuve, et l'état de la preuve), reprise au prochain appel (même suite d'états)
+  local pend, proof = R and R.pend, R and R.proof
+  local function save(pk_, pr_)
+    job.R = { FR = FR, SP = SP, TC = TC, fl = fl, sl = sl, tl = tl, expanded = expanded, g = g, pk = pk, pug = pug, closed = closed,
+      HF = HF, HH = HH, HK = HK, hn = hn, pend = pk_, proof = pr_ }
+  end
+  while pend or hn > 0 do
+    local ck
+    if pend then
+      ck, pend = pend, nil
+      local why = Co.unreachable(s, t, free, ug, box, cap, proof)
+      if why == Co.SUSPEND then save(ck, proof) return nil, Co.SUSPEND end
+      if why then return finish(nil, why) end
+    else
+      -- perf-astar : au moins UN état développé par appel (sans quoi un pas dont le travail compté dépasse déjà le budget, forfaits
+      -- Ch.STEP_BASE et Ch.HEAVY_WORK compris, reprend sans fin ce même tracé : 200 000 pas sans avancer, cadre du joueur au budget 200)
+      if lim and did and Co.WORK >= lim then save(nil, nil) return nil, Co.SUSPEND end
+      ck = pop()
+      if closed[ck] then ck = nil else
+        closed[ck] = true
+        expanded = expanded + 1
+        Co.WORK = Co.WORK + 1
+        did = true
+        if expanded > cap then return finish(nil, "trop long") end
+        if expanded == Co.PREUVE_APRES and Co.PREUVE then
+          local U = lim and {} or nil
+          local why = Co.unreachable(s, t, free, ug, box, cap, U) -- lot PERF3 : impossibilité prouvée vite, même réponse que l'A*
+          if why == Co.SUSPEND then save(ck, U) return nil, Co.SUSPEND end
+          if why then return finish(nil, why) end
+        end
       end
+    end
+    if ck then
       local cu, cv, cd, cm = tile_of(ck)
       local cg = g[ck]
       if cu == tu and cv == tv then
@@ -801,8 +893,9 @@ local function line_copy(l)
   end
   return { ents = ents, exit = { u = l.exit.u, v = l.exit.v, d = l.exit.d }, drills = l.drills }
 end
-function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign, memo)
-  if not (memo and center) then return coal_line_raw(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign) end
+--- perf-frame : `LS` (facultatif) rend la recherche reprenable (voir coal_line_raw) ; nil, Co.SUSPEND tant qu'elle n'est pas finie.
+function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign, memo, LS)
+  if not (memo and center) then return coal_line_raw(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign, LS) end
   local parts = { #coal, center[1], center[2], d.size, d.reach, want, target.u, target.v, R, wire, per_side, is_foreign ~= nil, Co.WINDOW,
     Co.MIN_COAL }
   for i = 1, 14 do parts[i] = tostring(parts[i]) end
@@ -812,13 +905,13 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
     for i = 1, #L, 3 do if (f(L[i], L[i + 1]) and true or false) ~= L[i + 2] then return false end end
     return true
   end
-  if mlist then
+  local W = LS and LS.W -- (reprise : la mémoire a déjà été lue au premier appel ; lectures notées gardées)
+  if mlist and not W then
     for _, m in ipairs(mlist) do
       if same(m.fr, free) and same(m.co, is_coal) and (not is_foreign or same(m.fo, is_foreign)) then return line_copy(m.line) end
     end
   end
-  local function rec(f, L)
-    local M = {}
+  local function rec(f, L, M)
     return function(u, v)
       local k = tk(u, v)
       local x = M[k]
@@ -826,14 +919,17 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
       return x
     end
   end
-  local fl, cl, ol = {}, {}, {}
-  local line = coal_line_raw(coal, rec(is_coal, cl), rec(free, fl), d, want, target, R, wire, per_side, center,
-    is_foreign and rec(is_foreign, ol) or nil)
+  W = W or { fl = {}, cl = {}, ol = {}, mf = {}, mc = {}, mo = {} }
+  local fl, cl, ol = W.fl, W.cl, W.ol
+  local line, lwhy = coal_line_raw(coal, rec(is_coal, cl, W.mc), rec(free, fl, W.mf), d, want, target, R, wire, per_side, center,
+    is_foreign and rec(is_foreign, ol, W.mo) or nil, LS)
+  if not line and lwhy == Co.SUSPEND then LS.W = W return nil, Co.SUSPEND end
+  if LS then LS.W = nil end
   if not mlist then mlist = {}; memo[mkey] = mlist end
   if #mlist < 6 then mlist[#mlist + 1] = { fr = fl, co = cl, fo = ol, line = line_copy(line) } end
   return line
 end
-coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
+coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign, LS)
   if #coal == 0 or want < 1 or R < 1 then return nil end
   -- Lot PERF3 : place libre et tuiles étrangères lues UNE fois par tuile pendant l'appel (rien n'est pris ici : mêmes réponses) ;
   -- chaque position de foreuse les relisait toutes, et les rangées voisines se recouvrent
@@ -882,7 +978,14 @@ coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side
     if x.set ~= y.set then return x.set < y.set end
     return x.e < y.e
   end
-  for _, orient in ipairs({ "u", "v" }) do
+  -- perf-frame : recherche REPRENABLE (`LS`, table de l'appelant, avec budget Co.WORK_LIM) : orientation, colonne des sommes cumulées,
+  -- rangée l et meilleure ligne gardées dans LS ; budget atteint -> nil, Co.SUSPEND ; le rappel avec les mêmes arguments et le même LS
+  -- reprend à la même colonne ou rangée (mêmes comptes, même choix, même ligne). Au moins une colonne ou une rangée par appel.
+  local lim = LS and Co.WORK_LIM
+  local did = false
+  if LS then choice = LS.choice end
+  for oi = (LS and LS.oi or 1), 2 do
+    local orient = (oi == 1) and "u" or "v"
     local function P(a, l) if orient == "u" then return a, l end return l, a end
     local amin, amax, lmin, lmax
     if orient == "u" then amin, amax, lmin, lmax = u0, u1, v0, v1 else amin, amax, lmin, lmax = v0, v1, u0, u1 end
@@ -895,8 +998,19 @@ coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side
     local Y0, Y1 = lmin - 2 * s - r, lmax + 2 * s + r
     local H = Y1 - Y0 + 2
     local NF, FO, CO = {}, {}, {}
-    for i = 0, H - 1 do NF[i] = 0; FO[i] = 0; CO[i] = 0 end -- colonne x = X0 - 1 (bord)
-    for x = X0, X1 do
+    local xs, ls = X0, lmin - s
+    if LS and LS.NF then
+      NF, FO, CO, xs, ls = LS.NF, LS.FO, LS.CO, LS.x, LS.l
+    else
+      for i = 0, H - 1 do NF[i] = 0; FO[i] = 0; CO[i] = 0 end -- colonne x = X0 - 1 (bord)
+    end
+    for x = xs, X1 do
+      if lim and did and Co.WORK >= lim then
+        LS.oi, LS.NF, LS.FO, LS.CO, LS.x, LS.l, LS.choice = oi, NF, FO, CO, x, ls, choice
+        return nil, Co.SUSPEND
+      end
+      did = true
+      Co.WORK = Co.WORK + H
       local base, prev = (x - X0 + 1) * H, (x - X0) * H
       NF[base], FO[base], CO[base] = 0, 0, 0 -- rangée y = Y0 - 1 (bord)
       local cnf, cfo, cco = 0, 0, 0
@@ -933,7 +1047,13 @@ coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side
       end
       return A
     end
-    for l = lmin - s, lmax + s do
+    for l = ls, lmax + s do
+      if lim and did and Co.WORK >= lim then
+        LS.oi, LS.NF, LS.FO, LS.CO, LS.x, LS.l, LS.choice = oi, NF, FO, CO, X1 + 1, l, choice
+        return nil, Co.SUSPEND
+      end
+      did = true
+      Co.WORK = Co.WORK + 4 * (amax - amin + 2 * r + s + 1)
       local per = { [-1] = side_drills(l, -1), [1] = side_drills(l, 1) }
       for set_i, set in ipairs({ { -1 }, { 1 }, { -1, 1 } }) do
         local all = {}
@@ -1008,7 +1128,9 @@ coal_line_raw = function(coal, is_coal, free, d, want, target, R, wire, per_side
         end
       end
     end
+    if LS then LS.NF, LS.FO, LS.CO, LS.x, LS.l = nil, nil, nil, nil, nil end -- orientation suivante : sommes neuves
   end
+  if LS then LS.choice, LS.oi = nil, nil end
   if not choice then return nil end
   local ch = choice
   local function P(a, l) if ch.orient == "u" then return a, l end return l, a end
@@ -1074,13 +1196,19 @@ end
 --- take, forbid (u, v) -> vrai : zone du champ et des colonnes, interdite au tracé en surface ; span ; coal = { tiles, is_coal, rate } ;
 --- drill ; pole ; ug ; split ; bridge(poles) -> relais ; ugs : tuiles de souterrain déjà posées }. Rend
 --- { uT, dv, split, ents (pièces communes), modes = { [key] = "voie" | "coffre" }, drills, need, why } ; jamais nil.
-function Co.network(cols, side, env)
+--- perf-frame : `N` (facultatif, table de l'appelant) rend le calcul REPRENABLE : une ligne de foreuses (Co.coal_line) par fenêtre de
+--- charbon, puis le tracé (Co.route reprenable, N.job) ; budget du pas atteint -> nil, Co.SUSPEND ; le rappel avec les mêmes `cols`
+--- (mêmes tables), le même `env` (fonctions neuves, mêmes réponses) et le même `N` reprend où il était : même réseau qu'un appel d'un bloc.
+function Co.network(cols, side, env, N)
+  local lim = N and Co.WORK_LIM
+  N = N or {}
   local res = { modes = {}, ents = {}, need = 0 }
   for _, c in ipairs(cols) do res.modes[c.key] = "coffre"; res.need = res.need + (c.need or 0) end
   if #cols == 0 then res.why = "aucune colonne" return res end
   local coal = env.coal
   if not (coal and coal.tiles and #coal.tiles > 0 and coal.rate and coal.rate > 0) then res.why = "aucun charbon lu" return res end
-  table.sort(cols, function(a, b) return a.coal_v < b.coal_v end)
+  if not N.sorted then table.sort(cols, function(a, b) return a.coal_v < b.coal_v end) end -- (reprise : déjà rangées, jamais retriées)
+  N.sorted = true
   local base
   for _, c in ipairs(cols) do
     local u = c.s_edge + side * (c.far + 2)
@@ -1098,31 +1226,49 @@ function Co.network(cols, side, env)
   -- la ligne qui porte le plus de foreuses (au plus `want`), puis la plus proche
   local target = { u = base + 2 * side, v = vmid }
   local function dist(t) return math.abs(t[1] - target.u) + math.abs(t[2] - target.v) end
-  local sorted = {}
-  for _, t in ipairs(coal.tiles) do sorted[#sorted + 1] = t end
-  table.sort(sorted, function(a, b)
-    local da, db = dist(a), dist(b)
-    if da ~= db then return da < db end
-    if a[1] ~= b[1] then return a[1] < b[1] end
-    return a[2] < b[2]
-  end)
-  local centers = {}
-  for _, t in ipairs(sorted) do
-    if #centers >= Co.DEPOSITS then break end
-    local inside = false
-    for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= Co.WINDOW and math.abs(t[2] - c[2]) <= Co.WINDOW then inside = true end end
-    if not inside then centers[#centers + 1] = t end
-  end
-  local line, lscore
-  local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
-  for _, c in ipairs(centers) do
-    local l = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c,
-      coal.is_foreign, env.line_memo)
-    if l then
-      local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
-      if not line or l.drills > line.drills or (l.drills == line.drills and sc < lscore) then line, lscore = l, sc end
-      if line.drills >= want then break end
+  local centers = N.centers -- (reprise : fenêtres gardées du premier appel)
+  if not centers then
+    -- perf-astar : la k-ième fenêtre = la tuile la plus petite selon (distance, u, v) hors des fenêtres déjà prises : Co.DEPOSITS passes
+    -- linéaires au lieu du tri de toutes les tuiles de charbon (des milliers sur la carte à 600 %, d'un bloc) ; même choix que le tri suivi
+    -- du parcours glouton d'avant (le premier de la liste triée hors des fenêtres prises est ce minimum)
+    centers = {}
+    local W = Co.WINDOW
+    for _ = 1, Co.DEPOSITS do
+      local best, bd
+      for _, t in ipairs(coal.tiles) do
+        local inside = false
+        for _, c in ipairs(centers) do if math.abs(t[1] - c[1]) <= W and math.abs(t[2] - c[2]) <= W then inside = true break end end
+        if not inside then
+          local d = dist(t)
+          if not best or d < bd or (d == bd and (t[1] < best[1] or (t[1] == best[1] and t[2] < best[2]))) then best, bd = t, d end
+        end
+      end
+      if not best then break end
+      centers[#centers + 1] = best
     end
+    N.centers = centers
+  end
+  local line, lscore = N.line, N.lscore
+  local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
+  if not N.lines_done then
+    -- (reprise : une ligne par fenêtre, la suivante au pas suivant quand le budget est atteint ; ligne retenue gardée dans N)
+    for ci = N.ci or 1, #centers do
+      local c = centers[ci]
+      if lim then N.LS = N.LS or {} end
+      local l, lwhy = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c,
+        coal.is_foreign, env.line_memo, lim and N.LS or nil)
+      if not l and lwhy == Co.SUSPEND then
+        N.ci, N.line, N.lscore = ci, line, lscore
+        return nil, Co.SUSPEND
+      end
+      N.LS = nil
+      if l then
+        local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
+        if not line or l.drills > line.drills or (l.drills == line.drills and sc < lscore) then line, lscore = l, sc end
+        if line.drills >= want then break end
+      end
+    end
+    N.lines_done, N.line, N.lscore = true, line, lscore
   end
   if not line then res.why = "aucune ligne de foreuses sur le charbon" return res end
   local dv = (line.exit.v <= vmid) and 1 or -1
@@ -1230,8 +1376,10 @@ function Co.network(cols, side, env)
   if man + 1 > Co.ROUTE_MAX then
     res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", man + 1, Co.ROUTE_MAX) return res
   end
+  if lim then N.job = N.job or {} end
   local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box,
-    Co.ROUTE_STATES, tcost, env.route_memo)
+    Co.ROUTE_STATES, tcost, env.route_memo, lim and N.job or nil)
+  if not route and why == Co.SUSPEND then return nil, Co.SUSPEND end
   if not route then res.why = "trace du charbon : " .. tostring(why) return res end
   if #route > Co.ROUTE_MAX then res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", #route, Co.ROUTE_MAX) return res end
   local nug = 0

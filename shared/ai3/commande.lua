@@ -423,12 +423,62 @@ end
 
 --- ordres-0715 : tourelles voulues par les bastions vivants (Co.BASTION_WANT par ordre non fini), 0 sans bastion.
 Co.BASTION_WANT = 8
-function Co.bastion_want(state)
+Co.BASTION_YIELD_TICKS = 10 * 3600 -- commandes-0716 : le front de couverture et la centrale attendent un bastion au plus 10 min
+function Co.bastion_want(state, now, horizon)
   local n = 0
   for _, o in ipairs((state or {}).orders or {}) do
-    if o.kind == "bastion" and not o.done then n = n + math.max(0, Co.BASTION_WANT - (o.have or 0)) end
+    local fresh = not (now and horizon) or (now - (o.tick or 0)) <= horizon -- commandes-0716 : borne de la priorite sur le front
+    if o.kind == "bastion" and not o.done and fresh then n = n + math.max(0, Co.BASTION_WANT - (o.have or 0)) end
   end
   return n
+end
+
+--- commandes-0716 : un bastion du joueur pas servi (`want` tourelles > 0) fait attendre le front de couverture (genre de la cellule
+--- choisie `front_kind` autre que « attaque ») et la garde d'une centrale non visée. Rend (front en attente ?, centrale en attente ?).
+function Co.bastion_yield(want, front_kind, has_plant, plant_threat)
+  if (want or 0) <= 0 then return false, false end
+  local yf = front_kind ~= nil and front_kind ~= "attaque"
+  local yp = (has_plant and not plant_threat) and true or false
+  return yf, yp
+end
+
+--- commandes-0716 : DÉLAIS d'un ordre (preuve « effet instantané ») : premier ouvrier en route vers la zone (`route`), premier fantôme
+--- (`ghost`) et première entité de l'équipe posée dans la zone après l'ordre (`pose`), effet complet (`fin`). `obs` = observation du
+--- moment ({ route = numéro d'ouvrier ou nil, ghost = bool, pose = bool, fin = bool }) ; chaque jalon est noté UNE fois (tick) dans
+--- l'ordre. Rend la liste des jalons neufs { { what, ticks } } dans l'ordre fixe Co.MILESTONES (ticks depuis la pose de l'ordre).
+Co.MILESTONES = { "route", "ghost", "pose", "fin" }
+function Co.progress(o, obs, tick)
+  local out = {}
+  if not (o and obs) then return out end
+  local t0 = o.tick or 0
+  for _, k in ipairs(Co.MILESTONES) do
+    local f = "t_" .. k
+    if o[f] == nil and obs[k] then
+      o[f] = tick
+      out[#out + 1] = { what = k, ticks = tick - t0 }
+    end
+  end
+  -- un effet complet vaut une pose (6e banc : avant-poste de l'ordre posé à 25 s, hors du relevé de la zone, « pose jamais »)
+  if o.t_fin and not o.t_pose then
+    o.t_pose = o.t_fin
+    table.insert(out, 1, { what = "pose", ticks = o.t_fin - t0 })
+  end
+  -- une pose vaut un ouvrier venu : le jalon « route » manqué (tâche courte entre deux relevés) prend le tick de la pose
+  if o.t_pose and not o.t_route then
+    o.t_route = o.t_pose
+    table.insert(out, 1, { what = "route", ticks = o.t_pose - t0 })
+  end
+  return out
+end
+
+--- commandes-0716 : mot d'état affiché sous l'ordre (clé de traduction « fo-commande.etat-<mot> ») : le dernier jalon atteint.
+function Co.status_word(o)
+  if not o then return "attente" end
+  if o.t_fin then return "fin" end
+  if o.t_pose then return "pose" end
+  if o.t_ghost then return "plan" end
+  if o.t_route then return "route" end
+  return "attente"
 end
 
 --- Rang d'amélioration d'une position : 0 dans une zone prioritaire, 1 ailleurs (zones absentes ou vides : 1).
@@ -451,7 +501,7 @@ function Co.resolve(state, outposts)
         local new = not (o.after_oid and op.id) or op.id > o.after_oid
         -- s45 saturer : un avant-poste DÉJÀ là, saturé à fond (op.covered : gisement couvert), remplit aussi l'ordre.
         -- s46 outils : de même un avant-poste déjà là, agrandi jusqu'au plafond de foreuses (op.saturated).
-        if (new or op.covered or op.saturated) and op.kind == o.outpost and inside(o, op.x, op.y, Co.DONE_MARGIN) then out[#out + 1] = o.id break end
+        if (new or op.covered or op.saturated) and op.kind == o.outpost and inside(o, op.x, op.y, math.max(Co.DONE_MARGIN, Co.SITE_MARGIN)) then out[#out + 1] = o.id break end -- commandes-0716 : même marge que Co.ready (un site accepté à r + 24 remplit l'ordre une fois bâti)
       end
     end
   end

@@ -10,6 +10,14 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 02 h 25 : version 0.7.121 (outils de commandement)
+
+- **F693 · VALIDÉ · DÉPLOYÉ 0.7.121** Scénario `commandes-delais` (ordres à T+5 min, carte du DC), archives `2026-11-14_commandes-1` (avant) / `-7` (après). Maj+A : 3 blocages en chaîne (espacement d'un site d'une autre ressource sur gisement mêlé ; clé de construction partagée « en_cours » ; 8 charbons attendus au coffre alors qu'ils dorment en sortie) → pose à 21 s, fini à 25 s. Maj+R : tourelles du bastion prises par la garde de centrale et le front → priorité au bastion 10 min → 1265 → 410 s. Fer du joueur à 30 min 2919 → 3970 (une graine). Maj+E sans effet avant 30 min. Tests s46 100 OK, content 621 OK. `perf_frame_test` 27 OK sur 0.7.120.
+
+## 2026-11-15, 02 h 05 : version 0.7.120 (plan du champ découpé)
+
+- **F692 · VALIDÉ · DÉPLOYÉ 0.7.120** Branche perf-astar-0716 (1af96bc2, reprend perf-frame du 14/11) sur v0.7.119 : `Co.route`/`Co.away`/`Co.coal_line`/`Co.network` reprenables par budget (3000/tick, 2000/pas), une recherche avance toujours d'au moins un état (blocage au budget corrigé), lecture du cadre par morceaux (étapes blocked/occ/charbon/autour, `Champ.CFG.spec_cells` 20 000), `Mig.INNER_GAP` 1. Bancs 30 min carte du DC contre REF0715 : 123456789 fer+cuivre 44 421 → 48 662, >50 ms 244 → 37, pic 1373 → 132 ms ; 271828182 49 165 → 51 428, 200 → 36, 751 → 119 ms. `perf_champ_bench` : 8 plans à l'empreinte d'avant. content 621 OK ; `perf_frame_test` long non revérifié après les derniers budgets au moment du tag.
+
 ## 2026-11-15, 00 h 35 : version 0.7.119 (ouvrier entrepreneur)
 
 - **F691 · VALIDÉ · DÉPLOYÉ 0.7.119** Ouvrier dédié (`shared/team/entrepreneur_ouvrier.lua`, `Board.claim`) ; chantier entrepreneur en pose suivi comme progressif (manques relus : projet 3 d'amber bloqué à 379/380 pièces de 30 à 60 min au banc ENTOUV-on60) ; `Mig.entrepreneur_scan` ne rattache plus une bande finie (amber, projet 9, JALONS60-entrepreneur). Bancs 60 min `2026-11-14_ENTOUV-off60`/`-on60`/`-on60b` : chantiers finis 5/2/8, fer 90 766/84 403/91 376 (gain surtout dû aux manques relus ; effet de l'ouvrier seul non établi sur une graine). content 621 OK.

@@ -155,9 +155,10 @@ do
   local fe = fi and src:find("\nfunction ", fi + 10, true) or nil
   local blk = (fi and fe) and src:sub(fi, fe) or ""
   local nstep = 0
-  for _ in blk:gmatch("Ch%.plan_step%(") do nstep = nstep + 1 end
-  check(nstep == 1 and not blk:find("Ch.plan(", 1, true), "Champ.frame : un seul Ch.plan_step par appel, aucun Ch.plan entier")
-  local st = blk:find("Ch.plan_step(seq.st)", 1, true)
+  -- perf-frame : l'appel est Ch.plan_steps (étapes d'une même variante sous le budget de travail du tick, Champ.CFG.tick_work)
+  for _ in blk:gmatch("Ch%.plan_steps?%(") do nstep = nstep + 1 end
+  check(nstep == 1 and not blk:find("Ch.plan(", 1, true), "Champ.frame : un seul Ch.plan_step(s) par appel, aucun Ch.plan entier")
+  local st = blk:find("Ch.plan_step(seq.st)", 1, true) or blk:find("Ch.plan_steps(seq.st,", 1, true)
   local w = blk:find("if not done then return nil, Ax.WAIT end", 1, true)
   check(st and w and st < w, "Champ.frame : pas-encore (Ax.WAIT) entre deux pas")
   local code = src:gsub("settings%.global", ""):gsub("%-%-[^\n]*", "")

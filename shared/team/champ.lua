@@ -87,7 +87,7 @@ local DIRS = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } 
 -- s52 bandes : les lectures (fonctions) du contexte sont posées par bind sur ses SEULES données (c.axis, c.taken, c.ore, c.ore_uv,
 -- c.foreign, c.resources, c.blocked, c.mine) : un plan repris d'une étape à l'autre (Ch.once_step) garde le contexte sans fonction
 -- (unbind) et le relie au début de l'étape suivante, mêmes réponses
-local CTX_FN = { "xy", "uv", "is_ore", "is_foreign", "is_resource", "free", "take", "dir" }
+local CTX_FN = { "xy", "uv", "is_ore", "is_foreign", "is_resource", "free", "take", "dir", "nfree" }
 local function bind(c)
   if c.axis == "x" then
     c.xy = function(u, v) return u, v end
@@ -109,11 +109,14 @@ local function bind(c)
     local x, y = c.xy(u, v)
     return all[Ch.key(x, y)] == true
   end
+  local nfree = 0 -- perf-frame : lectures de place libre de l'étape (compte du travail, Ch.once_step ; jamais une décision)
   c.free = function(u, v)
+    nfree = nfree + 1
     local x, y = c.xy(u, v)
     local k = Ch.key(x, y)
     return not c.taken[k] and (c.mine[k] or not c.blocked[k])
   end
+  c.nfree = function() return nfree end
   c.take = function(u, v) local x, y = c.xy(u, v); c.taken[Ch.key(x, y)] = true end
   c.dir = function(du, dv)
     local dx, dy = c.xy(du, dv)
@@ -124,26 +127,48 @@ local function bind(c)
 end
 local function unbind(c) for _, k in ipairs(CTX_FN) do c[k] = nil end end
 
-local function context(spec, axis)
-  local c = { axis = axis, taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {},
-    resources = spec.resources or {} }
-  local uv = axis == "x" and function(x, y) return x, y end or function(x, y) return y, x end
+-- Lot PERF3 : le minerai aussi en clés du repère de l'axe (u, v) : is_ore sans changement de repère (même réponse : xy et uv sont
+-- deux bijections inverses l'une de l'autre ; c.ore n'est plus modifié après ce relevé)
+-- perf-frame (carte du DC à 600 % : l'étape init d'un grand gisement dépassait seule le budget d'un tick) : le contexte est relevé par
+-- TRANCHES de Ch.CTX_CHUNK tuiles du minerai (curseur `ci` dans l'état, même ordre de parcours : mêmes c.ore, c.list, c.ore_uv, même
+-- boîte) ; ce minerai (c.ore, c.list, c.ore_uv, c.ore_cols, la boîte) ne dépend que du minerai, de l'axe et de la foreuse et n'est plus
+-- modifié après le relevé (c.ore_cols : sommes exactes gardées à la demande) : il est partagé par les variantes d'une même séquence
+-- (ctx_memo). Seules les tuiles prises (c.taken) sont propres à chaque plan.
+Ch.CTX_CHUNK = 6000
+-- perf-frame : budget de travail d'un pas de plan (Ch.once_step) : états développés des tracés (Co.route), places et tuiles lues des
+-- recherches de colonne ailleurs (Co.away). Un compte fixe : même découpage, même plan sur toutes les machines.
+Ch.STEP_WORK = 2000 -- perf-astar : 3 000 avant (pas jusqu a 120 ms en jeu, carte du DC), 1 500 au banc 3 (plans trop lents)
+Ch.STEP_BASE = 500 -- travail compté pour tout pas (en plus de ses recherches)
+Ch.HEAVY_WORK = 3000 -- forfait d'une étape d'un bloc (une bande, les bras, les poteaux, une tranche du contexte)
+Ch.FREE_WORK = 0.5 --travail compté par lecture de place libre du contexte (c.free) pendant le pas
+Ch.ROW_WORK = 1 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
+local function context_new(spec, axis)
+  return { axis = axis, taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {},
+    resources = spec.resources or {}, ore_uv = {}, has_foreign = next(spec.foreign or {}) ~= nil }
+end
+-- relevé des tuiles ci .. ci + 2n - 1 de spec.ore (paires x, y) ; rend le curseur suivant, nil à la fin
+local function context_part(c, spec, ci, n, box)
   local o = spec.ore
-  -- Lot PERF3 : le minerai aussi en clés du repère de l'axe (u, v) : is_ore sans changement de repère (même réponse : xy et uv sont
-  -- deux bijections inverses l'une de l'autre ; c.ore n'est plus modifié après ce relevé)
-  local ore_uv = {}
-  for i = 1, #o - 1, 2 do
-    local k = Ch.key(o[i], o[i + 1])
-    if not c.ore[k] then
-      c.ore[k] = true
-      local u, v = uv(o[i], o[i + 1])
-      c.list[#c.list + 1] = { u, v }
-      ore_uv[Ch.key(u, v)] = true
+  local swap = c.axis ~= "x"
+  local ore, list, ore_uv, key = c.ore, c.list, c.ore_uv, Ch.key
+  local last = math.min(#o - 1, ci + 2 * n - 2)
+  for i = ci, last, 2 do
+    local x, y = o[i], o[i + 1]
+    local k = key(x, y)
+    if not ore[k] then
+      ore[k] = true
+      local u, v = x, y
+      if swap then u, v = y, x end
+      list[#list + 1] = { u, v }
+      ore_uv[key(u, v)] = true
+      if u < box.u0 then box.u0 = u end
+      if u > box.u1 then box.u1 = u end
+      if v < box.v0 then box.v0 = v end
+      if v > box.v1 then box.v1 = v end
     end
   end
-  c.ore_uv = ore_uv
-  c.has_foreign = next(c.foreign) ~= nil
-  return bind(c)
+  if last + 2 <= #o - 1 then return last + 2 end
+  return nil
 end
 
 local function corridor_col(origin, u)
@@ -299,19 +324,31 @@ end
 --- Bandes d'une phase : { { pr, b, n = { u0 }, s = { u0 }, on, os } } et minerai miné (somme des rangées).
 --- s46 champ-cout : `rows` (recherche de la phase d'un cadre neuf seulement, `frame` nil, rien n'est pris) garde la place libre (fm) et
 --- le meilleur décalage de chaque rangée d'une phase à l'autre : les phases ph et ph + s + 1 relisent les mêmes rangées (mêmes réponses).
-local function bands_for(c, spec, phase, box, origin, frame, rows)
+-- perf-frame : `cur` (facultatif, recherche de phase seulement : `rows` donné) rend la passe REPRENABLE : bandes, total et rangée pr
+-- gardés dans cur ; budget du pas atteint (Co.WORK, rangées calculées comptées par leur largeur) -> nil ; le rappel avec le même `cur`
+-- reprend à la même rangée (mêmes rangées, dans le même ordre : mêmes bandes, même total). Au moins une bande par appel.
+local function bands_for(c, spec, phase, box, origin, frame, rows, cur)
   local s = spec.drill.size
   local pitch = 2 * s + 2
   local bands, total = {}, 0
   local pr = box.v0 - phase
+  if cur and cur.pr then bands, total, pr = cur.bands, cur.total, cur.pr end
+  local lim = cur and Co.WORK_LIM
+  local did = false
   local fm = rows and rows.fm or {} -- lot PERF3 : place libre lue une fois par tuile pendant la passe (rien n'y est pris)
+  local wrow = (box.u1 - box.u0 + 1) * (s + 1) * Ch.ROW_WORK
   local function row_of(row, fixed)
     if not rows then return best_row(c, spec, row, box.u0, box.u1, origin, fixed, fm) end
     local r = rows[row]
-    if not r then r = { best_row(c, spec, row, box.u0, box.u1, origin, nil, fm) }; rows[row] = r end
+    if not r then r = { best_row(c, spec, row, box.u0, box.u1, origin, nil, fm) }; rows[row] = r; Co.WORK = Co.WORK + wrow end
     return r[1], r[2], r[3]
   end
   while pr <= box.v1 do
+    if lim and did and Co.WORK >= lim then
+      cur.bands, cur.total, cur.pr = bands, total, pr
+      return nil
+    end
+    did = true
     if not (frame and frame.only) or frame.only[pr] then
       local off = frame and frame.offsets and frame.offsets[tostring(pr)]
       local nl, nm, on = row_of(pr + 1, off and off[1])
@@ -598,11 +635,18 @@ local function bridge_0641(c, spec, poles)
 end
 
 -- (lot FONDERIE) relais à plusieurs paires (Ch.BRIDGE_TRIES) pour la colonne à tapis ; le motif à coffres garde bridge_0641, à l'identique
-local function bridge(c, spec, poles)
+-- perf-frame : `B` (facultatif, avec budget Co.WORK_LIM) rend les relais REPRENABLES : un tour (une liaison) est fait d'un bloc, le
+-- suivant attend le pas suivant quand le budget est atteint (tour et relais posés gardés dans B, `poles` complété sur place) ; nil tant
+-- que ce n'est pas fini. Au moins un tour par appel ; mêmes tours dans le même ordre : mêmes relais.
+local function bridge(c, spec, poles, B)
   local wire = spec.pole.wire
   local w2 = wire * wire + Ch.CFG.eps
-  local added = {}
-  for _ = 1, 60 do
+  local added = B and B.added or {}
+  local lim = B and Co.WORK_LIM
+  local did = false
+  for it = (B and B.it or 1), 60 do
+    if lim and did and Co.WORK >= lim then B.it, B.added = it, added return nil end
+    did = true
     local parent = {}
     for i = 1, #poles do parent[i] = i end
     local function root(i) while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end return i end
@@ -634,6 +678,7 @@ local function bridge(c, spec, poles)
     -- Lot PERF3 : racines calculées une fois, mêmes paires dans le même ordre (voir bridge_0641)
     local ins, outs = {}, {}
     for i = 1, #poles do if root(i) == main then ins[#ins + 1] = i else outs[#outs + 1] = i end end
+    if lim then Co.WORK = Co.WORK + 4 * #poles + math.floor(#ins * #outs / 8) end
     local cand = {}
     local tries = Ch.BRIDGE_TRIES
     for _, i in ipairs(ins) do
@@ -712,6 +757,20 @@ local function phase_memo(spec, axis)
   local m = { ore = spec.ore, blocked = spec.blocked, mine = spec.mine, foreign = spec.foreign, axis = axis, size = d.size, reach = d.reach,
     no_row_opt = spec.no_row_opt and true or false }
   PHASE_MEMO[#PHASE_MEMO + 1] = m
+  return m
+end
+--- perf-frame : mémoire du minerai du contexte (relevé une fois par séquence, par axe et par foreuse), dans PHASE_MEMO (champ nommé
+--- « ctx » : la liste des phases, lue par ipairs, n'en voit rien), nil hors d'une séquence. Clé : la table même du minerai, l'axe, la foreuse.
+local function ctx_memo(spec, axis)
+  if not PHASE_MEMO then return nil end
+  local l = PHASE_MEMO.ctx
+  if not l then l = {}; PHASE_MEMO.ctx = l end
+  local d = spec.drill
+  for _, m in ipairs(l) do
+    if m.ore_t == spec.ore and m.axis == axis and m.size == d.size and m.reach == d.reach then return m end
+  end
+  local m = { ore_t = spec.ore, axis = axis, size = d.size, reach = d.reach }
+  l[#l + 1] = m
   return m
 end
 --- s49 opti : mémoires de calculs refaits à l'identique entre les plan_once d'un même Ch.plan (tracés du charbon, relais), rangées
@@ -802,13 +861,40 @@ function ONCE.init(s)
   end
   -- s42 gisements : spec.axis impose l'orientation d'un cadre NEUF (essai de l'autre orientation, Ch.axis_retry) ; un cadre figé garde la sienne
   local axis = (F and F.axis) or ((spec.axis == "x" or spec.axis == "y") and spec.axis) or long_axis(spec)
-  local c = context(spec, axis)
-  local box = { u0 = math.huge, v0 = math.huge, u1 = -math.huge, v1 = -math.huge }
-  for _, t in ipairs(c.list) do
-    box.u0, box.u1 = math.min(box.u0, t[1]), math.max(box.u1, t[1])
-    box.v0, box.v1 = math.min(box.v0, t[2]), math.max(box.v1, t[2])
+  s.F, s.colonne, s.axis = F, colonne, axis
+  -- perf-frame : minerai du contexte repris d'une variante précédente de la séquence, sinon relevé par tranches (étape ctx)
+  local cm = ctx_memo(spec, axis)
+  local c = context_new(spec, axis)
+  if cm and cm.done then
+    c.ore, c.list, c.ore_uv, c.ore_cols = cm.ore, cm.list, cm.ore_uv, cm.ore_cols
+    s.c = bind(c)
+    s.box = { u0 = cm.box.u0, v0 = cm.box.v0, u1 = cm.box.u1, v1 = cm.box.v1 }
+    return ONCE.init_rest(s)
   end
-  s.F, s.colonne, s.axis, s.c, s.box = F, colonne, axis, c, box
+  if cm then c.ore_cols = {} end
+  s.c = bind(c)
+  s.box = { u0 = math.huge, v0 = math.huge, u1 = -math.huge, v1 = -math.huge }
+  s.ci = 1
+  s.stage = "ctx"
+  return false
+end
+
+function ONCE.ctx(s)
+  s.ci = context_part(s.c, s.spec, s.ci, Ch.CTX_CHUNK, s.box)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une tranche par appel de Ch.plan_steps)
+  if s.ci then return true end
+  local cm = ctx_memo(s.spec, s.axis)
+  if cm then
+    local c, b = s.c, s.box
+    cm.ore, cm.list, cm.ore_uv, cm.ore_cols, cm.box, cm.done = c.ore, c.list, c.ore_uv, c.ore_cols, { u0 = b.u0, v0 = b.v0, u1 = b.u1, v1 = b.v1 }, true
+  end
+  s.stage = "init_rest"
+  return true
+end
+
+function ONCE.init_rest(s)
+  local spec, F, c, box, axis = s.spec, s.F, s.c, s.box, s.axis
+  local d = spec.drill
   s.origin = (F and F.origin) or box.u0
   s.pitch = 2 * d.size + 2
   if F and F.phase then
@@ -832,7 +918,10 @@ function ONCE.init(s)
 end
 
 function ONCE.phase(s)
-  local bs, total = bands_for(s.c, s.spec, s.ph, s.box, s.origin, nil, s.rows)
+  s.phcur = s.phcur or {}
+  local bs, total = bands_for(s.c, s.spec, s.ph, s.box, s.origin, nil, s.rows, s.phcur)
+  if not bs then return true end -- perf-frame : passe de cette phase reprise au pas suivant
+  s.phcur = nil
   if not s.bands or total > s.bt then s.bands, s.bt, s.phase = bs, total, s.ph end
   s.ph = s.ph + 1
   if s.ph > s.pitch - 1 then
@@ -892,6 +981,7 @@ function ONCE.band(s)
   local bi, bd = s.bi, s.bands[s.bi]
   if not bd then s.bi = nil; s.stage = "charbon" return false end
   s.bi = bi + 1
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : une bande par appel de Ch.plan_steps)
   local spec, c, F = s.spec, s.c, s.F
   local d, colonne, exit, umin, umax, lane, fuelled = spec.drill, s.colonne, s.exit, s.umin, s.umax, s.lane, s.fuelled
   local shared_plate = function(u, v, e) return s.plate_dir[Co.tk(u, v)] == e.du end
@@ -1051,15 +1141,23 @@ end
 
 function ONCE.net(s)
   local side = s.side_i == 1 and s.first or -s.first
-  s.side_i = s.side_i + 1
+  local side_i = s.side_i
+  s.side_i = side_i + 1
   if s.side_i > 2 then s.stage = "branch" end
   local spec, c = s.spec, s.c
   local d = spec.drill
-  local cols = {}
-  for _, it in ipairs(s.pending) do
-    if it.g.side == side then
-      cols[#cols + 1] = { key = tostring(it.pr), coal_v = it.g.info.b_coal, link_v = it.g.info.b_link, s_edge = it.g.s_edge,
-        far = it.g.info.far, need = it.g.info.need }
+  -- perf-frame : réseau reprenable (Co.network, état s.nw : les MÊMES colonnes, l'état de la recherche) ; un pas qui atteint le budget
+  -- s'arrête sur ce côté, le pas suivant le reprend
+  local nw = s.nw
+  s.nw = nil
+  local cols = nw and nw.cols
+  if not cols then
+    cols = {}
+    for _, it in ipairs(s.pending) do
+      if it.g.side == side then
+        cols[#cols + 1] = { key = tostring(it.pr), coal_v = it.g.info.b_coal, link_v = it.g.info.b_link, s_edge = it.g.s_edge,
+          far = it.g.info.far, need = it.g.info.need }
+      end
     end
   end
   if #cols == 0 then return false end
@@ -1089,8 +1187,14 @@ function ONCE.net(s)
       return bridge(cc, spec, poles)
     end,
   }
-  s.nets[side] = Co.network(cols, side, env)
-  local nt = s.nets[side]
+  local N = nw and nw.N or {}
+  local nt, nwhy = Co.network(cols, side, env, N)
+  if not nt and nwhy == Co.SUSPEND then
+    s.nw = { cols = cols, N = N }
+    s.side_i, s.stage = side_i, "net"
+    return true
+  end
+  s.nets[side] = nt
   -- le réseau prend ses tuiles (poteaux des rangées et relais du champ ne s'y posent pas)
   for _, e in ipairs(nt.ents) do
     for u = e.u, e.u + (e.w or e.size) - 1 do for v = e.v, e.v + (e.h or e.size) - 1 do c.take(u, v) end end
@@ -1105,6 +1209,7 @@ function ONCE.net(s)
 end
 
 function ONCE.branch(s)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : seul dans son appel de Ch.plan_steps)
   local spec, c, F = s.spec, s.c, s.F
   local d, exit, nets, coal_frame, ents = spec.drill, s.exit, s.nets, s.coal_frame, s.ents
   s.zone, s.coal_set, s.coal_list, s.ugs, s.first, s.side_i = nil, nil, nil, nil, nil, nil
@@ -1231,21 +1336,31 @@ end
 function ONCE.bare(s)
   local t = s.bare_todo[s.ti]
   if not t then s.ti, s.ug_uv = nil, nil; s.stage = "poles" return false end
-  s.ti = s.ti + 1
+  -- perf-frame : recherche de colonne ailleurs reprenable (Co.away, état s.bw) : un pas qui atteint le budget s'arrête et le pas suivant
+  -- rejoue ce bout (lectures et prises d'avant la recherche : mêmes réponses, prises identiques) puis reprend la recherche où elle était
+  local ti = s.ti
+  local bw = s.bw
+  if bw and bw.ti ~= ti then bw = nil end
+  s.bw = nil
+  s.ti = ti + 1
   local spec, c = s.spec, s.c
   local d, colonne, fuelled, lane, pitch, win = spec.drill, s.colonne, s.fuelled, s.lane, s.pitch, s.win
   local ug_uv = s.ug_uv
   local half_d = math.floor(d.size / 2)
   local bd, bo = t.bd, s.out_bands[t.bi]
-  local g0 = take_group(c, spec, bd, t.side, t.edge, t.used, nil)
+  -- (reprise : le groupe, le bout du tapis et ses prises sont ceux du premier passage, gardés dans s.bw ; le collecteur déjà pris
+  -- n'est pas relu : take_group le verrait occupé)
+  local g0 = bw and bw.g0 or take_group(c, spec, bd, t.side, t.edge, t.used, nil)
   if not g0 then return false end
   -- le tapis finit au bord du champ, ou plus tôt (jamais avant la dernière foreuse) si la tuile devant sa sortie est déjà prise : le
   -- minerai ne tombe sur aucun autre tapis
-  local e_end = t.edge
-  while e_end ~= g0.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
+  local e_end = bw and bw.e_end or t.edge
+  if not bw then
+    while e_end ~= g0.cut and not c.free(e_end + t.side, bd.b) do e_end = e_end - t.side end
+  end
   local g, aw, aw_why
   if colonne and not t.refused then
-    for u = g0.cut, e_end, t.side do c.take(u, bd.b) end -- (le tracé du lien ne repasse pas sur le collecteur)
+    if not bw then for u = g0.cut, e_end, t.side do c.take(u, bd.b) end end -- (le tracé du lien ne repasse pas sur le collecteur)
     local want = Fd.count(spec, Ch.delivered(#g0.n, #g0.s, d.rate, lane, fuelled))
     local counts = { want }
     -- colonne plus courte : four électrique seulement. Une colonne ailleurs à combustible prend un coffre de tête que rien ne garnit
@@ -1258,19 +1373,30 @@ function ONCE.bare(s)
     -- recul : jusqu'au bord des tuiles lues le long de l'axe (sans rectangle connu, celui de Co.place)
     local u0 = e_end + t.side
     local reach = win and math.max(0, t.side > 0 and (win.u1 - u0) or (u0 - win.u0)) or (Ch.CFG.shift + Ch.CFG.gap)
-    for _, cnt in ipairs(counts) do
-      local gc = g0
-      if cnt < want then
-        local capa = Fd.capacity(spec, cnt)
-        local k = fuelled and math.floor(capa / d.rate + Ch.CFG.eps) or math.floor(capa / (2 * d.rate) + Ch.CFG.eps)
-        gc = Ch.trim_group(g0, t.side, half_d, k, fuelled)
-      end
-      if gc then
-        aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
-          c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
-            span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win,
-            memo = run_memo("away") }) -- s52 mesure : tracés des colonnes ailleurs refaits à l'identique d'un plan_once à l'autre
-        if aw then g = gc break end
+    for ci, cnt in ipairs(counts) do
+      if bw and ci < bw.ci then
+        aw_why = bw.why -- (colonnes déjà essayées sans place avant la reprise : leur raison)
+      else
+        local gc = g0
+        if cnt < want then
+          local capa = Fd.capacity(spec, cnt)
+          local k = fuelled and math.floor(capa / d.rate + Ch.CFG.eps) or math.floor(capa / (2 * d.rate) + Ch.CFG.eps)
+          gc = Ch.trim_group(g0, t.side, half_d, k, fuelled)
+        end
+        if gc then
+          local A = (bw and bw.ci == ci) and bw.A or {}
+          local why0 = aw_why
+          aw, aw_why = Co.away(spec, { u = u0, v = bd.b }, t.side, cnt, fuelled and "coffre" or nil,
+            c.free, c.is_resource, { shift = reach, rows = 2 * pitch, ug = (spec.logistics or {}).underground,
+              span = function(u, v) return not ug_uv[Co.tk(u, v)] end, box = win,
+              memo = run_memo("away") }, A) -- s52 mesure : tracés des colonnes ailleurs refaits à l'identique d'un plan_once à l'autre
+          if not aw and aw_why == Co.SUSPEND then
+            s.bw = { ti = ti, ci = ci, A = A, why = why0, g0 = g0, e_end = e_end }
+            s.ti = ti
+            return true
+          end
+          if aw then g = gc break end
+        end
       end
     end
     if not aw and not s.away_why then s.away_why = string.format("bande %d : %s", bd.pr, tostring(aw_why)) end
@@ -1327,6 +1453,7 @@ end
 -- poteaux des rangées : la rangée pr couvre le haut de sa bande et le bas de la bande d'avant ; elle va jusqu'aux fonderies (lot
 -- FONDERIE : seule la rangée pr, du côté des fours, va jusqu'à la colonne ; l'autre passerait sur la colonne de la bande voisine)
 function ONCE.poles(s)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK -- (perf-frame : seul dans son appel de Ch.plan_steps)
   local spec, c, pitch, colonne = s.spec, s.c, s.pitch, s.colonne
   local rows, row_list, reach_to = {}, {}, {}
   for bi, bd in ipairs(s.bands) do
@@ -1360,12 +1487,24 @@ end
 
 function ONCE.bridge(s)
   local F, all_poles = s.F, s.all_poles
-  s.all_poles = nil
-  s.stage = "finish"
   if not (F and F.only) and #all_poles > 1 then
-    for _, p in ipairs((s.colonne and bridge or bridge_0641)(s.c, s.spec, all_poles)) do emit(s, "poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
+    local added
+    if s.colonne then
+      -- perf-frame : relais reprenables (un tour par pas au plus quand le budget est atteint ; état s.brs)
+      s.brs = s.brs or {}
+      added = bridge(s.c, s.spec, all_poles, s.brs)
+      if not added then return true end
+      s.brs = nil
+    else
+      added = bridge_0641(s.c, s.spec, all_poles)
+    end
+    s.all_poles = nil
+    s.stage = "finish"
+    for _, p in ipairs(added) do emit(s, "poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
     return true
   end
+  s.all_poles = nil
+  s.stage = "finish"
   return false
 end
 
@@ -1409,7 +1548,17 @@ function Ch.once_step(s)
   if s.done then return true end
   if s.c then bind(s.c) end
   local heavy
-  repeat heavy = ONCE[s.stage](s) until heavy or s.done
+  local ran = {}
+  -- perf-frame : budget de travail du pas (compte d'états et de tuiles, jamais un temps) ; les recherches reprenables s'arrêtent à lui
+  Co.WORK, Co.WORK_LIM = 0, Ch.STEP_WORK
+  repeat ran[#ran + 1] = s.stage; heavy = ONCE[s.stage](s) until heavy or s.done
+  Co.WORK_LIM = nil
+  -- (étapes non comptées : une bande, les poteaux... : un forfait et leurs lectures de place libre ; borne les pas groupés par Ch.plan_steps)
+  Co.WORK = Co.WORK + Ch.STEP_BASE + ((s.c and s.c.nfree) and math.floor(s.c.nfree() * Ch.FREE_WORK) or 0)
+  -- mesure : étapes faites dans cet appel et tailles (journal [FO-PERF-ETAPE] du câblage ; jamais lu pour une décision)
+  Ch.LAST_STEP = string.format("%s tuiles=%d bandes=%d bi=%s ph=%s pending=%d bare=%d/%d ents=%d", table.concat(ran, ">"),
+    s.c and #s.c.list or 0, s.bands and #s.bands or 0, tostring(s.bi), tostring(s.ph), s.pending and #s.pending or 0,
+    s.ti or 0, s.bare_todo and #s.bare_todo or 0, s.ents and #s.ents or 0)
   if s.c then unbind(s.c) end
   if s.done then s.c = nil end
   Ch.ONCE_STEPS = Ch.ONCE_STEPS + 1
@@ -1632,6 +1781,21 @@ function Ch.plan_step(st)
   return st.cur == nil and Ch.plan_next(st.spec, st.res) == nil
 end
 function Ch.plan_result(st) return Ch.plan_pick(st.spec, st.res) end
+
+--- perf-frame : plusieurs pas d'une MÊME variante dans un appel, tant que leur travail cumulé (Co.WORK de chaque pas, un compte) reste sous
+--- `tick_work` : chaque pas reçoit le budget qui reste (au plus Ch.STEP_WORK) ; l'appel s'arrête au bout d'une variante (le pas suivant en
+--- commence une : jamais deux variantes finies dans un appel). Même suite de pas que Ch.plan_step seul : même plan. Rend vrai à la fin.
+function Ch.plan_steps(st, tick_work)
+  local used, w0 = 0, Ch.STEP_WORK
+  local done
+  repeat
+    Ch.STEP_WORK = math.max(1, math.min(w0, tick_work - used))
+    done = Ch.plan_step(st)
+    Ch.STEP_WORK = w0
+    used = used + Co.WORK
+  until done or not st.inner or used >= tick_work
+  return done
+end
 
 --- Plan du champ en un appel : la séquence pas à pas enchaînée (même plan ; jusqu'à 4 plan_order dans l'appel).
 function Ch.plan(spec)
