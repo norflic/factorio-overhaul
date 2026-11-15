@@ -27,6 +27,6 @@ end
 local MC = read("script/team/migration_champ.lua")
 check(MC:find("inflight[Ent.pick(inflight, wanted)].pid", 1, true) ~= nil, "2. l'attache de l'entrepreneur passe par E.pick")
 check(MC:find("pid = st.pid, oid = id,", 1, true) and MC:find("pid = st.ahead[k].pid, oid = oid,", 1, true), "2. Mig.projects nomme le gisement de chaque bande")
-check(read("script/gui/commande.lua"):find("if ok and fid then o.band_fid = fid end", 1, true) ~= nil, "3. l'ordre retient le champ voulu (o.band_fid)")
+check(read("script/gui/commande.lua"):find("if ok then o.band_fid = fid end", 1, true) ~= nil, "3. l'ordre retient le champ voulu (o.band_fid)")
 print(string.format("[ORDRE-0955] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 if ko > 0 then os.exit(1) end

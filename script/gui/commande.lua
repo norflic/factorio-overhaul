@@ -417,7 +417,10 @@ local function want_band(f, o, tick)
   end
   local dep = Co.pick_deposit(deps, o)
   local ok, fid, why = pcall(MigChamp.want, f, dep, tick)
-  if ok and fid then o.band_fid = fid end -- (ORDRE-0955 : l'entrepreneur sert d'abord la bande de cet ordre)
+  local had = o.band_fid
+  if ok then o.band_fid = fid end -- (ORDRE-0955 : l'entrepreneur sert d'abord la bande de cet ordre ; CHANTIER 4 : un refus, champ plein compris, le rend)
+  -- CHANTIER 4 : l'entrepreneur est réveillé dès que l'ordre retient son champ (au plus 60 ticks après l'ordre), sans attendre son scan de 5 min
+  if ok and fid and fid ~= had and MigChamp.entrepreneur_order then MigChamp.entrepreneur_order(f, tick) end
   local msg = ok and (fid and ("champ " .. tostring(fid) .. " voulu") or ("refus : " .. tostring(why))) or ("erreur : " .. tostring(fid))
   if msg ~= o.band_msg then
     o.band_msg = msg
@@ -434,6 +437,35 @@ Events.on_nth_tick(60, function(e)
     if not o.t_fin then want_band(f, o, e.tick) end
   end
 end)
+
+--- Lot liaison-maje : sans paire sortie / quai (aucun relevé, ou « sortie » / « quai » manquants), TOURNÉE PRIORITAIRE de l'avant-poste
+--- désigné vers le QG (Co.tour_pick, Co.tour_state) ; l'avant-poste porte le numéro de l'ordre (o.cmd), lu par la vue et le planificateur.
+--- CHANTIER 4 : jouée dès la POSE de l'ordre (Co.pose_steps « tournee ») : avant, la passe de résolution (RESOLVE_EVERY = 300 ticks) puis la
+--- pensée de l'équipe (300 ticks) : jusqu'à 10 s avant la première tâche.
+local function liaison_tour(f, cs, o, lst)
+  local why = (lst and lst.seen_docks) and Co.forced_why(o, lst.seen_docks, lst.seen_srcs or {}) or "aucun releve"
+  if not why then return end
+  local cands = {}
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local op = f.outposts[oid]
+    if op.pos then cands[#cands + 1] = { id = oid, x = op.pos.x, y = op.pos.y } end
+  end
+  local pick, d = Co.tour_pick(o.a, cands)
+  o.tour = { t0 = game.tick, oid = pick and pick.id or nil }
+  local text
+  if pick then
+    local op = f.outposts[pick.id]
+    op.cmd, op.cmd_got = o.id, 0
+    text = string.format("liaison sans paire (%s) : TOURNEE PRIORITAIRE de l'avant-poste %s (%s, a %d tuiles du point A) vers le QG",
+      tostring(why), tostring(pick.id), tostring(op.kind), math.floor(d + 0.5))
+  else
+    text = string.format("liaison sans paire (%s) : aucun avant-poste a %d tuiles du point A, rien a relier", tostring(why), (o.a.r or 0) + Co.TOUR_REACH)
+  end
+  if Co.note(cs, o.id, text) then
+    log(string.format("[FO-COMMANDE] %s : ordre %d %s (tick %d)", tostring(f.key or f.id), o.id, text, game.tick))
+  end
+  set_status(o)
+end
 
 local function add_order(f, player, o)
   local cs = cstate(f)
@@ -454,8 +486,13 @@ local function add_order(f, player, o)
   draw(f, order)
   track_init(f, order) -- commandes-0716 : délais et état affiché
   -- ordres-0715 : effet immediat : decision d'amelioration relue a la pensee suivante, releve des liaisons tout de suite
-  if f.team and f.team.capital then f.team.capital.scan_n = 0; f.team.capital.goal = nil end
-  if o.kind == "liaison" and f.build and f.build.liaison then f.build.liaison.next = game.tick end
+  -- CHANTIER 4 : chaque pas de la pose (Co.pose_steps) est joué ICI, aucun n'attend une passe périodique
+  for _, step in ipairs(Co.pose_steps(o.kind)) do
+    if step == "capital" and f.team and f.team.capital then f.team.capital.scan_n = 0; f.team.capital.goal = nil
+    elseif step == "liaison" and f.build and f.build.liaison then f.build.liaison.next = game.tick
+    elseif step == "tournee" and order.a and not order.tour then liaison_tour(f, cs, order, f.build and f.build.liaison)
+    elseif step == "bande" then order.band_next = nil; want_band(f, order, game.tick) end -- (bande voulue et entrepreneur réveillé à la pose)
+  end
   log(string.format("[FO-COMMANDE] %s : ordre %d %s %s en (%d, %d) rayon %d (tick %d)", tostring(f.key or f.id), id, o.kind,
     tostring(o.resource or "-"), o.x, o.y, order.r, game.tick))
   player.print({ "fo-commande.pose-" .. o.kind, id })
@@ -666,29 +703,7 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
     -- Lot liaison-maje : sans paire sortie / quai (aucun relevé, ou « sortie » / « quai » manquants), TOURNÉE PRIORITAIRE de l'avant-poste
     -- désigné vers le QG (Co.tour_pick, Co.tour_state) ; l'avant-poste porte le numéro de l'ordre (o.cmd), lu par la vue et le planificateur.
     if o.kind == "liaison" and o.a and not o.done and not o.tour then
-      local why = (lst and lst.seen_docks) and Co.forced_why(o, lst.seen_docks, lst.seen_srcs or {}) or "aucun releve"
-      if why then
-        local cands = {}
-        for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
-          local op = f.outposts[oid]
-          if op.pos then cands[#cands + 1] = { id = oid, x = op.pos.x, y = op.pos.y } end
-        end
-        local pick, d = Co.tour_pick(o.a, cands)
-        o.tour = { t0 = game.tick, oid = pick and pick.id or nil }
-        local text
-        if pick then
-          local op = f.outposts[pick.id]
-          op.cmd, op.cmd_got = o.id, 0
-          text = string.format("liaison sans paire (%s) : TOURNEE PRIORITAIRE de l'avant-poste %s (%s, a %d tuiles du point A) vers le QG",
-            tostring(why), tostring(pick.id), tostring(op.kind), math.floor(d + 0.5))
-        else
-          text = string.format("liaison sans paire (%s) : aucun avant-poste a %d tuiles du point A, rien a relier", tostring(why), (o.a.r or 0) + Co.TOUR_REACH)
-        end
-        if Co.note(cs, o.id, text) then
-          log(string.format("[FO-COMMANDE] %s : ordre %d %s (tick %d)", tostring(f.key or f.id), o.id, text, game.tick))
-        end
-        set_status(o)
-      end
+      liaison_tour(f, cs, o, lst)
     elseif o.kind == "liaison" and o.tour and o.tour.oid ~= nil and not o.tour.over then
       local op = f.outposts and f.outposts[o.tour.oid]
       local stt = Co.tour_state(o.tour.t0, op and op.last_service, game.tick)

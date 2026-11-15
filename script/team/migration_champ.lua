@@ -2213,6 +2213,154 @@ local function plates_total(f)
   return n
 end
 
+--- Bandes d'une plaque en vol (projet vivant), dans l'ordre de Mig.projects : liste { pid, oid, item }.
+local function ent_inflight(f)
+  local inflight, plate = {}, {}
+  for _, k in ipairs(plate_names()) do plate[k] = true end
+  for _, x in ipairs(Mig.projects(f)) do
+    local p = f.build.projects[x.pid]
+    if p and p.state ~= "fini" and x.item and plate[x.item] then inflight[#inflight + 1] = x end -- (entrepreneur-craft-0716 : bande d'une plaque seulement)
+  end
+  return inflight
+end
+
+--- CHANTIER 4 : champs retenus par les ordres Maj+A vivants (o.band_fid, script/gui/commande.lua) : { [oid] = vrai } et leur nombre.
+--- Un champ dont la bande n'est jamais venue (ms.ent_ord_off, Mig.entrepreneur_order) est laissé une période : le chantier suspendu reprend.
+local function ent_orders_wanted(f, tick)
+  local wanted, n = {}, 0
+  local orders = f.team and f.team.commande and f.team.commande.orders or {}
+  local off = f.migration and f.migration.ent_ord_off
+  for _, od in ipairs(orders) do
+    local fid = od.band_fid
+    if od.kind == "gisement" and fid ~= nil and not od.t_fin and not od.ent_served and not wanted[fid] and not (off and off.oid == fid and tick < off.until_t) then
+      wanted[fid], n = true, n + 1
+    end
+  end
+  return wanted, n
+end
+
+--- Chantier entrepreneur fini (ou disparu) : journal « fini » ; la bande d'un ordre posée rend l'ordre SERVI (od.ent_served) : il ne garde pas
+--- l'entrepreneur au-delà de sa première bande (un ordre de champ n'est jamais « rempli » par un avant-poste : sans cette borne, le chantier
+--- suspendu attendait jusqu'à l'annulation de l'ordre). Appelé par le scan et par le pas de l'ordre (celui qui le voit le premier).
+local function ent_finish(f, ms, tick)
+  ent_say(f, ms, string.format("fini (projet %s)", tostring(ms.ent.pid)))
+  if ms.ent.ordre and ms.ent.oid ~= nil then
+    for _, od in ipairs(f.team and f.team.commande and f.team.commande.orders or {}) do
+      if od.band_fid == ms.ent.oid and not od.ent_served then
+        od.ent_served = tick
+        ent_say(f, ms, string.format("ORDRE %d servi : bande du champ %s posee (projet %s) a %.1f min", od.id, tostring(ms.ent.oid), tostring(ms.ent.pid), tick / 3600))
+      end
+    end
+  end
+  ms.ent = nil
+end
+
+--- CHANTIER 4 : reprise d'un chantier SUSPENDU par un ordre (ms.ent_susp, liste, le plus ancien d'abord) quand plus aucun ordre n'attend :
+--- son marquage revient (spec.entrepreneur), sa fiche aussi (t0, kit : les jalons du kit continuent). Un suspendu fini ou disparu est oublié.
+--- Rend vrai si un chantier a repris.
+local function ent_resume(f, ms, tick)
+  if ms.ent or not ms.ent_susp or (ms.ent_wait and ms.ent_wait.ordre) then return false end
+  local _, n = ent_orders_wanted(f, tick)
+  while #ms.ent_susp > 0 do
+    local rec = table.remove(ms.ent_susp, 1)
+    local p = f.build.projects[rec.pid]
+    if p and p.spec and p.state ~= "fini" and p.state ~= "refuse" then
+      if n > 0 then table.insert(ms.ent_susp, 1, rec) break end -- (un ordre vivant garde la main : la reprise attend)
+      p.spec.entrepreneur, p.spec.ent_susp = true, nil
+      rec.ordre = nil
+      ms.ent = rec
+      ent_say(f, ms, string.format("reprend le projet %d (suspendu par un ordre il y a %.1f min) a %.1f min", rec.pid, (tick - (rec.susp_t or tick)) / 3600, tick / 3600))
+      Mig.entrepreneur_front(f, rec.pid)
+      break
+    else
+      if p and p.spec then p.spec.ent_susp = nil end
+      ent_say(f, ms, string.format("projet %d suspendu oublie (%s)", rec.pid, p and tostring(p.state) or "disparu"))
+    end
+  end
+  if #ms.ent_susp == 0 then ms.ent_susp = nil end
+  return ms.ent ~= nil
+end
+
+--- CHANTIER 4 (partie du DC 0.9.4 : ordre Maj+A à 29,4 min, pose à 57,8 min, 1 706 s) : pas de l'ORDRE de l'entrepreneur (Ent.order_step),
+--- joué toutes les Ent.CFG.kit_every ticks ET dès qu'un ordre retient son champ (script/gui/commande.lua, want_band). Un chantier qui n'est
+--- pas celui d'un ordre est SUSPENDU (marquage retiré : ni tête ni ouvrier dédié ; sa réserve au coffre est gardée, spec.ent_susp, build.lua
+--- pile_family ; fiche dans ms.ent_susp, reprise par ent_resume) ; la bande de l'ordre devient le chantier (attache) ou, pas encore en vol,
+--- son champ est voulu et sa prochaine bande portera spec.entrepreneur (declenche, entre_until tenu tant qu'elle est attendue). Rend l'action.
+function Mig.entrepreneur_order(f, tick)
+  local ms = f and f.migration
+  if not (ms and f.build and f.build.projects and f.outposts) then return nil end
+  local wanted, n = ent_orders_wanted(f, tick)
+  if ms.ent_wait and ms.ent_wait.ordre and not wanted[ms.ent_wait.oid] then ms.ent_wait = nil end -- (ordre retiré : l'attente tombe)
+  local cur = ms.ent and f.build.projects[ms.ent.pid]
+  if ms.ent and not (cur and cur.state ~= "fini") then
+    ent_finish(f, ms, tick)
+    cur = nil
+    wanted, n = ent_orders_wanted(f, tick)
+  end
+  if n == 0 then
+    ent_resume(f, ms, tick)
+    return "rien"
+  end
+  local inflight = ent_inflight(f)
+  local cur_oid
+  if ms.ent then
+    for _, x in ipairs(Mig.projects(f)) do if x.pid == ms.ent.pid then cur_oid = x.oid end end
+  end
+  local action, arg, suspend = Ent.order_step({ wanted = wanted, cur = ms.ent and { pid = ms.ent.pid, oid = cur_oid } or nil, inflight = inflight,
+    waiting = ms.ent_wait and ms.ent_wait.oid or nil })
+  if action == "rien" then
+    local w = ms.ent_wait
+    if w and w.ordre and not ms.ent and tick - (w.t0 or tick) > 2 * Ent.CFG.period then
+      -- (10 min sans bande demandée : champ refusé par le plan ; l'ordre est laissé une période, le chantier suspendu reprend)
+      ms.ent_ord_off = { oid = w.oid, until_t = tick + Ent.CFG.period }
+      if ms.o[w.oid] then ms.o[w.oid].entre_until = nil end
+      ms.ent_wait = nil
+      ent_say(f, ms, string.format("ORDRE : aucune bande demandee sur %s en %.1f min : champ laisse %d min, chantier suspendu repris", tostring(w.oid),
+        (tick - (w.t0 or tick)) / 3600, Ent.CFG.period / 3600))
+      ent_resume(f, ms, tick)
+    elseif w and w.ordre and not ms.ent then -- bande de l'ordre attendue (plan du cadre en tranches) : son marquage tient jusqu'à sa demande
+      local st = ms.o[w.oid]
+      if st then st.entre_until = math.max(st.entre_until or 0, tick + Ent.CFG.period) end
+      ms.next = math.min(ms.next or tick, tick)
+    end
+    return action
+  end
+  if suspend and ms.ent and cur and cur.spec then
+    cur.spec.entrepreneur, cur.spec.ent_susp = nil, true
+    ms.ent.susp_t = tick
+    ms.ent_susp = ms.ent_susp or {}
+    ms.ent_susp[#ms.ent_susp + 1] = ms.ent
+    ent_say(f, ms, string.format("SUSPEND le projet %d (%s, pas un ordre) pour l'ordre du joueur a %.1f min : reserve gardee, repris apres l'ordre", ms.ent.pid,
+      tostring(cur.state), tick / 3600))
+    ms.ent = nil
+  end
+  if action == "attache" then
+    local pid = inflight[arg].pid
+    local p = f.build.projects[pid]
+    if p and p.spec then
+      p.spec.entrepreneur, p.spec.ent_queue = true, nil
+      ms.ent = { pid = pid, t0 = (ms.ent_wait and ms.ent_wait.t0) or tick, ordre = true, oid = inflight[arg].oid }
+      ms.ent_wait = nil
+      Mig.entrepreneur_front(f, pid)
+      ent_say(f, ms, string.format("ORDRE : attache projet %d (bande de l'ordre sur le champ %s) a %.1f min", pid, tostring(inflight[arg].oid), tick / 3600))
+    end
+    return action
+  end
+  -- declenche : le champ de l'ordre est voulu tout de suite, sa prochaine bande demandée (begin_band / ahead_launch) porte le marquage
+  local oid = arg
+  local old = ms.ent_wait and ms.ent_wait.oid
+  if old ~= nil and old ~= oid and ms.o[old] then ms.o[old].entre_until = nil end -- (le déclenchement d'avant, sans ordre, est repris par l'ordre)
+  local st = ms.o[oid]
+  if not st then st = new_state(); ms.o[oid] = st end
+  st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)
+  st.entre_until = tick + Ent.CFG.period
+  if st.retry and st.retry > tick then st.retry = tick end
+  ms.next = math.min(ms.next or tick, tick) -- pensée du champ au plus tôt
+  ms.ent_wait = { oid = oid, t0 = tick, ordre = true }
+  ent_say(f, ms, string.format("ORDRE : declenche sur %s a %.1f min (sans attendre le scan, ni debit ni place exiges)", tostring(oid), tick / 3600))
+  return action
+end
+
 function Mig.entrepreneur_scan(f, tick)
   if not (f and f.outposts and f.build and f.build.projects) then return nil end
   local ms = ms_of(f)
@@ -2231,10 +2379,13 @@ function Mig.entrepreneur_scan(f, tick)
   ms.ent_rate = math.floor((first and ms.ent_debit or delta) * 3600 / Ent.CFG.period) -- plaques par minute (Ent.chain)
   local cur = ms.ent and f.build.projects[ms.ent.pid]
   if ms.ent and not (cur and cur.state ~= "fini") then
-    ent_say(f, ms, string.format("fini (projet %s)", tostring(ms.ent.pid)))
-    ms.ent = nil
+    ent_finish(f, ms, tick)
     cur = nil
   end
+  -- CHANTIER 4 : un ordre du joueur a la main (pas de l'ordre, Mig.entrepreneur_order) : le scan n'attache ni ne déclenche rien d'autre ;
+  -- sans ordre, un chantier suspendu par un ordre reprend avant toute bande nouvelle
+  if (ms.ent_wait and ms.ent_wait.ordre) or (cur and ms.ent and ms.ent.ordre) then return "refus", "chantier en cours" end
+  if not cur and ent_resume(f, ms, tick) then return "refus", "chantier en cours" end
   -- place : un avant-poste ou gisement du champ à fours, ouvert, ni fini ni abandonné (ordre trié des numéros)
   local target
   local ids = sorted_keys(f.outposts)
@@ -2249,13 +2400,7 @@ function Mig.entrepreneur_scan(f, tick)
   -- entrepreneur-ouvrier (14/11) : une bande dont le projet est fini (ou disparu) n'est plus « en vol » : avant, Mig.projects la gardait
   -- tant que la ligne attendait son premier produit et le scan l'attachait toutes les 5 min (amber, JALONS60-entrepreneur : projet 9
   -- « fini » puis « attache » de 33 à 60 min, aucun chantier nouveau)
-  local inflight = {}
-  local plate = {}
-  for _, k in ipairs(plate_names()) do plate[k] = true end
-  for _, x in ipairs(Mig.projects(f)) do
-    local p = f.build.projects[x.pid]
-    if p and p.state ~= "fini" and x.item and plate[x.item] then inflight[#inflight + 1] = x end -- (entrepreneur-craft-0716 : bande d'une plaque seulement)
-  end
+  local inflight = ent_inflight(f)
   local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0, debit_min = Ent.CFG.debit_min })
   if action == "refus" then
     if cause ~= "chantier en cours" then ent_say(f, ms, "refus " .. cause) end
@@ -2292,7 +2437,7 @@ function Mig.entrepreneur_follow(f)
   if not (ms and ms.ent_wait and not ms.ent and f.build) then return end
   for _, x in ipairs(Mig.projects(f)) do
     local p = f.build.projects[x.pid]
-    if not ms.ent and p and p.spec and p.spec.entrepreneur then ms.ent = { pid = x.pid, t0 = ms.ent_wait.t0 }; ms.ent_wait = nil end
+    if not ms.ent and p and p.spec and p.spec.entrepreneur then ms.ent = { pid = x.pid, t0 = ms.ent_wait.t0, ordre = ms.ent_wait.ordre, oid = ms.ent_wait.ordre and x.oid or nil }; ms.ent_wait = nil end
   end
 end
 
@@ -2356,6 +2501,7 @@ function Mig.entrepreneur_kit(f, tick)
   -- kit complet : la tête n'a plus d'objet (rien à fabriquer) mais l'état ne bascule pas : avant, la bascule rendait la réserve du kit complet au
   -- coffre (banc 0722-g123 : joueur, projet 3 complet à 15,2 min, rendu, jamais posé en 30 min)
   if r.complete then ok = not (p.spec and p.spec.ent_queue) end
+  if ent.ordre then ok = true end -- CHANTIER 4 : la bande d'un ordre du joueur tient la tête quel que soit le budget (matières concentrées sur elle)
   if not ent.kit then
     ent.kit = tick
     say(string.format("kit lance : %d objet(s) bloquant(s) de %d sorte(s) [%s] ; deja en stock %d ; a fabriquer %d (%.0f plaque(s), budget %.0f : %s) ; garniture hors kit %d ; declenche il y a %.1f min",
@@ -2418,6 +2564,7 @@ Events.on_nth_tick(Ent.CFG.kit_every, function(e)
     local f = State.faction(id)
     local ms = f and f.migration
     if ms and ms.ent_wait and not ms.ent then Mig.entrepreneur_follow(f) end -- (la bande demandée est reconnue dès sa demande, pas au scan suivant 5 min plus tard)
+    if ms and f.team and f.team.commande then Mig.entrepreneur_order(f, e.tick) end -- CHANTIER 4 : ordres du joueur (au plus kit_every ticks)
     if ms and ms.ent then Mig.entrepreneur_kit(f, e.tick) end
     if ms then Mig.entrepreneur_chain(f, ms, e.tick) end
   end
