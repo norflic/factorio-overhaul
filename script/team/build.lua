@@ -3821,9 +3821,29 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Fantômes
 ---------------------------------------------------------------------------------------------------
+-- lot CENTRALE2 (banc centrale2-c2-123456789, azure : centrale 1 finie à 15,3 min, ses 5 tapis passés au tapis rapide par l'amélioration des
+-- convoyeurs, script/team/convoyeurs.lua ; le projet les croyait perdus, rouvert, fantômes refusés « occupe » 30 min, centrale jamais finie de
+-- nouveau) : une pièce REMPLACÉE sur place par un niveau supérieur (même type, même groupe de remplacement rapide, lus au prototype, aucun
+-- nom) est la pièce elle-même.
+local UPGRADE_GROUP = {}
+local function upgrade_group(name)
+  local g = UPGRADE_GROUP[name]
+  if g == nil then
+    local pr = game.entity_prototypes[name]
+    g = pr and pr.fast_replaceable_group and (pr.type .. "|" .. pr.fast_replaceable_group) or false
+    UPGRADE_GROUP[name] = g
+  end
+  return g
+end
 local function find_real(surface, e, force)
   local found = surface.find_entity(e.name, { e.x, e.y })
   if found and found.force.name == force then return found end
+  local g = upgrade_group(e.name)
+  if g then
+    for _, x in ipairs(surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.3, force = force })) do
+      if x.valid and x.name ~= "entity-ghost" and x.name ~= e.name and upgrade_group(x.name) == g then return x end
+    end
+  end
   return nil
 end
 
