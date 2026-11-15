@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.0
+Date: 2026-11-15
+  Info:
+    - Gel de la nuit du 14 au 15/11 (0.7.115 → 0.7.130) : contenu identique à 0.7.130. Charbon et vapeur dimensionnés sur la capacité nominale +30 %, poteaux de repli, entrepreneur dédié avec scan et craft du kit complet, montées de tier (tapis, fours, bras), modules, défense face aux factions, Maj+A/R/E/Z effectifs, fluidité des champs (pics > 50 ms 51 → 4 et 28 → 0 à 30 min), reconstruction des ruines amorcée en combustible.
+  Known issues:
+    - Lots non fusionnés faute de critère tenu : deuxième centrale prioritaire (joueur -4,7 % à 30 min), bras électriques (-9 % à 60 min), garde d'ouverture charbon (-5,9 % sur une graine), pose-charbon (-33 % joueur sur une graine).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.130
 Date: 2026-11-15
   Features:
