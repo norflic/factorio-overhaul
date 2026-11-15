@@ -377,8 +377,19 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   local base, len, info0 = Co.layout(spec, 0, side, 0, count, mode)
   if not base then return nil, "colonne impossible" end
   local rel = {}
+  local own = {}
   for _, e in ipairs(base) do
-    for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v } end end
+    for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do rel[#rel + 1] = { u, v }; own[Co.tk(u, v)] = true end end
+  end
+  -- C2-PAVAGE : tuiles devant le bout d'un tapis de la colonne (ligne de plaques, trop-plein) hors de son emprise : le lien n'y passe
+  -- pas, sinon la colonne déverse ses plaques sur son propre lien, jusqu'à sa voie de minerai (fer du joueur, carte du DC : 164 tuiles
+  -- de voies mêlées)
+  local relf = {}
+  for _, e in ipairs(base) do
+    if e.kind == "tapis" and (e.du ~= 0 or e.dv ~= 0) then
+      local fu, fv = e.u + e.du, e.v + e.dv
+      if not own[Co.tk(fu, fv)] and not (fu == -side and fv == 0) then relf[#relf + 1] = { fu, fv } end
+    end
   end
   -- perf-frame : `A` (facultatif, table de l'appelant) rend la recherche REPRENABLE : curseur des places, lectures du sol neutre, tracés
   -- comptés, tracé en cours (A.job) ; budget du pas atteint (Co.WORK >= Co.WORK_LIM) -> nil, Co.SUSPEND, et le rappel avec les mêmes
@@ -447,6 +458,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
     if fine then
       local mine = {}
       for _, r in ipairs(rel) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end
+      for _, r in ipairs(relf) do mine[Co.tk(s_edge + r[1], b2 + r[2])] = true end -- C2-PAVAGE : le lien ne passe pas devant un bout de tapis de sa colonne
       if not mine[Co.tk(t.u, t.v)] then
         A.job = A.job or {}
         local resumed = A.job.R ~= nil or A.job.MV ~= nil -- (perf-reste : relecture de la mémoire en cours, même tracé)
@@ -457,7 +469,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
         local sd = didx(side, 0)
         Co.WORK = Co.WORK + work
         work = 0
-        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, Co.AWAY_CAP, o.tcost, o.memo,
+        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, o.cap or Co.AWAY_CAP, o.tcost, o.memo,
           lim and A.job or nil)
         if rwhy == Co.SUSPEND and not route then save() return nil, Co.SUSPEND end
         if route then
