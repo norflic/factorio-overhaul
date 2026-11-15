@@ -137,7 +137,15 @@ base.tick = function(ctx, e)
     end
     order(ctx, "fo-cmd-bastion", 1, best[1] - 10, best[2] - 10, best[1] + 10, best[2] + 10, "Maj+R a 60 tuiles")
     local a, b = pair_of(st)
+    -- lot liaison-maje : sans paire finie, le point A est l'avant-poste le plus proche du QG (la sortie qu'un joueur désignerait), le point B
+    -- le QG ; sans avant-poste, les deux zones du QG d'avant
+    local op0, od
+    for _, op in ipairs(st.outposts or {}) do
+      local d = (op.x - hq.x) ^ 2 + (op.y - hq.y) ^ 2
+      if not od or d < od then op0, od = op, d end
+    end
     if a then liaison(ctx, a, b, "Maj+E paire"); s.pair = true
+    elseif op0 then liaison(ctx, { x = op0.x, y = op0.y }, { x = hq.x, y = hq.y }, "Maj+E avant-poste " .. tostring(op0.id) .. " (" .. tostring(op0.kind) .. ") -> QG (aucune paire finie)")
     else liaison(ctx, { x = hq.x - 20, y = hq.y }, { x = hq.x + 20, y = hq.y }, "Maj+E QG (aucune paire finie)") end
     return
   end

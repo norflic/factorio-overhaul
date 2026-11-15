@@ -535,4 +535,33 @@ function Co.liftable(o)
   return o.full == true and not o.migr and not Co.truly_full(o.full_why) and o.full_why ~= "electrique"
 end
 
+-- Lot liaison-maje (15/11) : Maj + E sans paire sortie / quai finie (début de partie : « liaison sans paire : sortie » et plus rien, banc
+-- commandes-7 : route 22 s, plan, pose et fin jamais). Repli : TOURNÉE PRIORITAIRE de l'avant-poste désigné (le plus proche du point A, à
+-- Co.TOUR_REACH tuiles au plus au-delà du rayon de la zone) vers le QG : sa tournée de service part tout de suite, à Co.TOUR_PRIO, même sous
+-- le seuil de collecte ; l'ordre est servi quand la tournée est faite (objets rapportés au QG) ; abandon après Co.TOUR_TTL.
+Co.TOUR_REACH = 48
+Co.TOUR_PRIO = 93      -- devant le ravitaillement des brûleurs (95 vieillit) et l'urgence ordinaire (90) : l'ordre du joueur
+Co.TOUR_TTL = 36000    -- 10 min
+
+--- Avant-poste de la tournée : `a` = zone du point A { x, y, r } ; `outposts` = { { id, x, y } } (ordre fixe). Rend l'élément le plus proche du
+--- centre de A (à a.r + Co.TOUR_REACH au plus ; égalité : plus petit id) et sa distance, ou nil.
+function Co.tour_pick(a, outposts)
+  if not a then return nil end
+  local lim = (a.r or 0) + Co.TOUR_REACH
+  local best, bd
+  for _, o in ipairs(outposts or {}) do
+    local d = math.sqrt((o.x - a.x) ^ 2 + (o.y - a.y) ^ 2)
+    if d <= lim and (not bd or d < bd or (d == bd and tostring(o.id) < tostring(best.id))) then best, bd = o, d end
+  end
+  return best, bd
+end
+
+--- État de la tournée d'un ordre : t0 = tick de la demande, served = tick de la dernière tournée de l'avant-poste (nil : aucune), now.
+--- Rend "servie", "abandon" ou "en cours".
+function Co.tour_state(t0, served, now)
+  if served and served > t0 then return "servie" end
+  if now - t0 >= Co.TOUR_TTL then return "abandon" end
+  return "en cours"
+end
+
 return Co

@@ -589,6 +589,7 @@ function Team.view(f, tick)
       -- Lot FLUX : ce que la tournée rapportera (sorties par objet), réceptacles pleins, brûleurs (à sec), âge de la tournée libre.
       outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, unpowered = st.unpowered, free_age = Board.free_age(f, "service:" .. oid, tick),
       fails = o.flux_fails, unsafe = unsafe,
+      cmd = o.cmd, -- lot liaison-maje : numéro de l'ordre Maj + E dont l'avant-poste attend sa tournée prioritaire (script/gui/commande.lua)
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
       lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,

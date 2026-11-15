@@ -50,6 +50,7 @@ local CHUNK_SECONDS = 30
 local MINE_BATCH = 50
 local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs) -- lot FLUX : types d'avant-poste dont le ravitaillement passe en tête
 local Sm = require("shared.team.sorties_main") -- lot CHARBON-MAIN : sorties brutes rapportées avant de miner à la main
+local Co_TOUR_PRIO = require("shared.ai3.commande").TOUR_PRIO -- lot liaison-maje : priorité de la tournée d'un ordre Maj + E
 local RAW = Sm.raw_kinds(T.outposts)
 local MINE_MIN = 20 -- une sortie de minage rapporte au moins 20 minerais (9 plaques manquantes : 9 minerais, trop peu)
 
@@ -634,7 +635,10 @@ function P.plan(view, book)
         if view.sorties_on and (o.fuel_low or o.output >= T.collect_at) then p = Sm.fetch_prio(p, o, RAW, have) end
         return p
       end
-      if o.fuel_low then
+      if o.cmd ~= nil and not o.unsafe then
+        -- lot liaison-maje : ordre Maj + E sans paire finie : la tournée de l'avant-poste désigné part tout de suite, même sous le seuil de collecte
+        add({ key = "service:" .. o.id, kind = "service", prio = math.max(prio_of(Co_TOUR_PRIO), Co_TOUR_PRIO), outpost = o.id })
+      elseif o.fuel_low then
         add({ key = "service:" .. o.id, kind = "service", prio = prio_of(95), outpost = o.id })
       elseif o.output >= T.collect_at or o.idle_ticks >= T.service_period then
         add({ key = "service:" .. o.id, kind = "service", prio = prio_of(70), outpost = o.id })

@@ -609,6 +609,54 @@ Events.on_nth_tick(RESOLVE_EVERY, function()
         log(string.format("[FO-COMMANDE] %s : ordre %d %s (tick %d)", tostring(f.key or f.id), o.id, text, game.tick))
       end
     end
+    -- Lot liaison-maje : sans paire sortie / quai (aucun relevé, ou « sortie » / « quai » manquants), TOURNÉE PRIORITAIRE de l'avant-poste
+    -- désigné vers le QG (Co.tour_pick, Co.tour_state) ; l'avant-poste porte le numéro de l'ordre (o.cmd), lu par la vue et le planificateur.
+    if o.kind == "liaison" and o.a and not o.done and not o.tour then
+      local why = (lst and lst.seen_docks) and Co.forced_why(o, lst.seen_docks, lst.seen_srcs or {}) or "aucun releve"
+      if why then
+        local cands = {}
+        for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+          local op = f.outposts[oid]
+          if op.pos then cands[#cands + 1] = { id = oid, x = op.pos.x, y = op.pos.y } end
+        end
+        local pick, d = Co.tour_pick(o.a, cands)
+        o.tour = { t0 = game.tick, oid = pick and pick.id or nil }
+        local text
+        if pick then
+          local op = f.outposts[pick.id]
+          op.cmd, op.cmd_got = o.id, 0
+          text = string.format("liaison sans paire (%s) : TOURNEE PRIORITAIRE de l'avant-poste %s (%s, a %d tuiles du point A) vers le QG",
+            tostring(why), tostring(pick.id), tostring(op.kind), math.floor(d + 0.5))
+        else
+          text = string.format("liaison sans paire (%s) : aucun avant-poste a %d tuiles du point A, rien a relier", tostring(why), (o.a.r or 0) + Co.TOUR_REACH)
+        end
+        if Co.note(cs, o.id, text) then
+          log(string.format("[FO-COMMANDE] %s : ordre %d %s (tick %d)", tostring(f.key or f.id), o.id, text, game.tick))
+        end
+        set_status(o)
+      end
+    elseif o.kind == "liaison" and o.tour and o.tour.oid ~= nil and not o.tour.over then
+      local op = f.outposts and f.outposts[o.tour.oid]
+      local stt = Co.tour_state(o.tour.t0, op and op.last_service, game.tick)
+      if not op then stt = "abandon" end
+      if stt ~= "en cours" then
+        o.tour.over = stt
+        local got = op and op.cmd_got or 0
+        if op then op.cmd, op.cmd_got = nil, nil end
+        local text = stt == "servie"
+          and string.format("tournee prioritaire faite : avant-poste %s servi, %d objet(s) rapporte(s) au QG apres %d s", tostring(o.tour.oid), got,
+            math.floor((game.tick - o.tour.t0) / 60))
+          or string.format("tournee prioritaire abandonnee apres %d min (avant-poste %s jamais servi)", math.floor(Co.TOUR_TTL / 3600), tostring(o.tour.oid))
+        if Co.note(cs, o.id, text) then
+          log(string.format("[FO-COMMANDE] %s : ordre %d %s (tick %d)", tostring(f.key or f.id), o.id, text, game.tick))
+        end
+        if stt == "servie" then
+          track_step(f, o, game.tick, true) -- effet complet (jalon fin)
+          Co.mark(cs, o.id, "fini")
+        end
+        set_status(o)
+      end
+    end
     if o.kind == "bastion" and not o.done then
       local surface = game.surfaces[o.surface or 1]
       local n = surface and surface.count_entities_filtered({ position = { o.x, o.y }, radius = o.r, force = f.force,

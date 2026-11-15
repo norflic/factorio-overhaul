@@ -1103,6 +1103,7 @@ function Outposts.service(o, carrier, tick, fill, skip, info)
         o.futile_until and " ; tournee FUTILE, pas de nouvelle avant 60 s" or "", o.coal_short))
     end
   end
+  if o.cmd then o.cmd_got = (o.cmd_got or 0) + collected end -- lot liaison-maje : objets rapportés par la tournée d'un ordre Maj + E
   o.last_service = tick
   return collected
 end
