@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.3
+Date: 2026-11-15
+  Bugfixes:
+    - IA (énergie) : le projet qui relie une centrale à des foreuses de charbon était refusé (« foreuses : minerai ») parce que l'avant-poste de combustible occupait le gisement de charbon le plus proche ; les centrales restaient nourries à la main et le coffre du QG tombait à 0. L'alimentation de la centrale passe désormais avant l'avant-poste : si la ligne de foreuses électriques tient sur ce lot, les foreuses et coffres de l'avant-poste y sont retirés au stock et le lot reste réservé à la centrale jusqu'à la fin du chantier. Banc 30 min (graine 123456789) : refus 18 → 9, centrales nourries par foreuses 1 → 2, capacité installée triplée chez le joueur, doublée chez amber et emerald.
+    - IA (énergie) : quand les chaudières sont à sec, une alimentation refusée est réessayée au bout de 2 min, plus jamais 10 min.
+  Features:
+    - IA (verrou de survie) : aucune amélioration (niveaux de bâtiments, remplacements de tapis, fours, tourelles) n'est payée tant que la centrale est saturée (production ≥ 80 % de la capacité) ou que ses chaudières sont à sec ; journal « cause energie:… ».
+  Known issues:
+    - Azure et scarlet (graine 123456789) : aucun lot de charbon proche ne tient la ligne de foreuses, leur centrale reste nourrie à la main.
+    - Pics de calcul de la planification des bandes de champ (champ:frame) jusqu'à 45 ms au banc, défaut non traité par cette version.
+    - Satisfaction électrique toujours sous la demande à 30 min dans toutes les équipes (demande nominale au-delà de la capacité).
+---------------------------------------------------------------------------------------------------
 Version: 0.9.2
 Date: 2026-11-15
   Bugfixes:
