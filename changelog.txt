@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.123
+Date: 2026-11-15
+  Features:
+    - IA (montée de tier) : fours en pierre → acier et bras → tier supérieur sont maintenant remplacés (la liste des pièces examinées, plafonnée à 600, se remplissait de tapis vers 30 min : chaque type en a désormais sa part) ; les fours ont leur propre voie de remplacement à côté des tapis ; la technologie du four en acier n'est plus décotée quand elle est un levier retenu. Banc 60 min (carte du DC, 2 graines) : fours remplacés 12 → 66 et 0 → 9, bras 0 → 52 et 2 → 77 ; fer + cuivre +0,7 % et +5,5 % ; équipe du joueur inchangée.
+  Known issues:
+    - Bras thermique → électrique non traité (autre énergie) ; la technologie du four en acier reste lente (attente des packs de logistique).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.122
 Date: 2026-11-15
   Features:

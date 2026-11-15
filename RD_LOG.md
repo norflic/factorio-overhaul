@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 03 h 30 : version 0.7.123 (montée des fours et des bras)
+
+- **F695 · VALIDÉ · DÉPLOYÉ 0.7.123** `AC.MAX_SCAN` (600 pièces) trié tapis d'abord : vers 30 min, 600 tapis remplissaient la liste, fours, foreuses thermiques et bras (sans rang de priorité) n'y entraient plus (base 271828182 : emerald a le four acier à 23,9 min, 0 four remplacé en 60 min). Part par type (`AC.order`), bras au rang 4 (`R.AMELIO_PRIO`), voie des fours (`Cap.side_pf_of`), techno du four acier non décotée d'un quart quand le levier est retenu (`Gen.value`). Bancs 60 min `2026-11-15_TIERSM-{base60,cand60}-{123456789,271828182}`. content 621 OK.
+
 ## 2026-11-15, 02 h 35 : version 0.7.122 (charbon et courant nominaux, parité du joueur)
 
 - **F694 · VALIDÉ (neutre) · DÉPLOYÉ 0.7.122** Lots charbon-dim-0716, vapeur-0716, tests-verts-0716, joueur-parite-0716 (Harvest.PLAYER : minage à la main du joueur ≈ 20/50 contre 42 chez les factions). Panel 30 min carte du DC, graines 123456789 / 271828182 / 1618033988, archives `2026-11-14_REF0715-30-*`, `2026-11-15_V0719-30-*`, `2026-11-15_C0720-30-*` (sans parité), `2026-11-15_C0721-30-*` (avec). Toutes équipes : 0.7.115 48 424, 0.7.119 49 968, C0721 50 258. Joueur : 9 286 / 8 865 / 8 589 (fer 6 192 → 6 730, cuivre 2 673 → 1 859). Sans la parité (C0720) le joueur tombait à 6 694 : la parité compense l'effet de charbon-dim+vapeur sur le joueur. Cuivre du joueur à traiter (lot cuivre-0716). content 621 OK.
