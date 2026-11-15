@@ -25,6 +25,8 @@ E.CFG = {
   head_horizon = 18000, -- entrepreneur-craft-0716 : la tête n'est tenue que si le coût en plaques du manque du kit tient dans la PART
   head_share = 0.5,      -- (head_share) du stock de plaques + débit de l'équipe sur head_horizon ticks (5 min) ; sinon tête rendue, monopole gardé.
                          -- Banc 1 : le kit du joueur (1 298 objets) jamais complet en 18 min affamait toute sa base (5 fours en marche contre 29).
+  head_hyst = 0.25,      -- hystérésis : la tête tenue n'est rendue qu'au-delà de (1 + head_hyst) x budget (banc 4 : emerald prise, rendue, reprise
+                         -- dans la même minute, budget à 1 % près)
   head_avail = 1.0,      -- part de la MATIÈRE du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua). Banc 3 (0.5) : kits lents
                          -- (azure, 70 objets en 12,6 min sous la tête) ; la porte du budget (head_share) suffit à protéger la base.
 }
@@ -115,9 +117,11 @@ end
 --- entrepreneur-craft-0716 : la bande garde-t-elle la TÊTE (servie avant tout autre projet) ? cost = plaques qu'il faut encore pour fabriquer
 --- le manque bloquant du kit (sans la garniture), stock = plaques au coffre, debit = plaques produites par CFG.head_horizon ticks.
 --- Vrai si cost <= head_share x (stock + debit) : le kit se paie sur la part de l'équipe qui lui revient ; rend aussi le budget.
-function E.head_budget(cost, stock, debit)
+--- held : la tête est déjà tenue : elle n'est rendue qu'au-delà de (1 + head_hyst) x budget (hystérésis prise / rendu).
+function E.head_budget(cost, stock, debit, held)
   local budget = E.CFG.head_share * ((stock or 0) + math.max(0, debit or 0))
-  return (cost or 0) <= budget, budget
+  local lim = held and budget * (1 + E.CFG.head_hyst) or budget
+  return (cost or 0) <= lim, budget
 end
 
 --- entrepreneur-craft-0716 : GARNITURE d'un plan (charges des pièces pas encore bâties : charbon des coffres de combustible posés garnis).

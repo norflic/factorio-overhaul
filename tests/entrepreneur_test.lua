@@ -116,6 +116,10 @@ do
   check(not E.head_budget(2000, 300, 600), "tete : kit de 2000 plaques pour 300 au coffre et 600 de debit : file")
   check(E.head_budget(0, 0, 0), "tete : rien a fabriquer, budget nul : tete")
   check(not E.head_budget(1, 0, -50), "tete : debit negatif compte zero")
+  local lim = share * 1000
+  check(not E.head_budget(lim + 1, 1000, 0, false), "hysteresis : au-dessus du budget, pas de prise")
+  check(E.head_budget(lim + 1, 1000, 0, true), "hysteresis : tete tenue, gardee juste au-dessus du budget")
+  check(not E.head_budget(lim * (1 + E.CFG.head_hyst) + 1, 1000, 0, true), "hysteresis : au-dela de la marge, rendue")
   local gar = E.garnish({ { item = "x", charge = { item = "c", count = 20 } }, { item = "x", built = true, charge = { item = "c", count = 20 } },
     { item = "y" }, { item = "x", charge = { item = "c", count = 5 } } })
   check(gar.c == 25 and gar.x == nil, "garniture : charges des pieces pas baties seulement (" .. tostring(gar.c) .. ")")

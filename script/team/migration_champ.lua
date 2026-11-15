@@ -2323,7 +2323,7 @@ function Mig.entrepreneur_kit(f, tick)
   end
   for _, k in ipairs(plate_names()) do stock = stock + Stock.count(f, k) end
   local debit = (ms.ent_debit or 0) * Ent.CFG.head_horizon / Ent.CFG.period
-  local ok, budget = Ent.head_budget(cost, stock, debit)
+  local ok, budget = Ent.head_budget(cost, stock, debit, ent.kit ~= nil and not (p.spec and p.spec.ent_queue))
   if r.complete then ok = false end
   if not ent.kit then
     ent.kit = tick
