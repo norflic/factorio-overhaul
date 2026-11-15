@@ -1410,7 +1410,9 @@ local function s13()
   local out = P.update(stb, gl, 60, 30)
   local active = {}
   for _, p in ipairs(out) do if p.state == "actif" then active[p.key] = true end end
-  check(#big.orders >= 12 and active["recherche"] and active["extraction:fer"] and gl[1].key == "extraction:fer"
+  -- (lot C3-BOUCLE : >= 11 ; dans cette scène les 4 gisements ouverts sont tous plus petits qu'un site connu de leur minerai : la priorité
+  -- par taille, Ca.size_held, retire leurs ordres « couvrir » au profit de l'ouverture du grand ; l'objet du test est l'ordre des buts)
+  check(#big.orders >= 11 and active["recherche"] and active["extraction:fer"] and gl[1].key == "extraction:fer"
     and gl[2].key == "recherche",
     string.format("§13 %d ordres capi : recherche et extraction actives, en tête des buts", #big.orders))
   -- Interface : `obtainable` donné en TABLE (ev.feas d'IA-G) ; sans effectif (`workers` absent), le journal reste lisible.

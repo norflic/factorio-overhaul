@@ -85,8 +85,10 @@ Build.VapRt = require("script.team.vapeur") -- lot VAPEUR : matière première d
 function Build.alim_first(f, p, tick)
   local b = f.build
   local sp = p.spec or {}
-  if sp.alim or sp.alimquai or sp.raccord or sp.enceinte or sp.liaison or sp.plant or (p.reopened and p.reopened ~= 0) or p.id == b.plant then return false end -- (reopened = 0 : bande neuve, pas une reconstruction)
-  for _, id in ipairs(b.extra_plants or {}) do if id == p.id then return false end end
+  -- (reopened = 0 : bande neuve, pas une reconstruction) ; lot C3-BOUCLE : la bande de l'entrepreneur (monopole) passe aussi (Build.Vap.exempt)
+  local plant = p.id == b.plant
+  for _, id in ipairs(b.extra_plants or {}) do if id == p.id then plant = true end end
+  if Build.Vap.exempt(sp, p.reopened, plant, Ent.monopoly(sp)) then return false end
   local aid = Build.alim_project(f)
   local a = aid and b.projects[aid]
   if a and a.state == "reserve" and a.reason ~= "materiaux" and a.vap_why ~= tostring(a.reason) then

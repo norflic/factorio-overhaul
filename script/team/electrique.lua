@@ -78,7 +78,7 @@ Elec.LIVE_EVERY = 600
 local LIVE_STATUS = nil
 local function live_drills(f, st, tick)
   if st.live and tick - (st.live.tick or -math.huge) < Elec.LIVE_EVERY then return st.live end
-  local out = { tick = tick, total = 0, by = {} }
+  local out = { tick = tick, total = 0, by = {}, placed = 0 } -- (placed : lot C3-BOUCLE, électriques posées, qu'elles tournent ou non)
   local surface = f.hq and f.hq.valid and f.hq.surface
   if surface and defines and defines.entity_status then
     LIVE_STATUS = LIVE_STATUS or { [defines.entity_status.working] = true, [defines.entity_status.waiting_for_space_in_destination] = true }
@@ -86,6 +86,7 @@ local function live_drills(f, st, tick)
     local ok, list = pcall(function() return RegT.named(surface, f.force, T.DRILL_ELECTRIC, "elec-live") end) -- lot UPS : registre
     Profiler.fstop("ws:elec-live")
     for _, d in ipairs(ok and list or {}) do
+      if d.valid then out.placed = out.placed + 1 end
       if d.valid and LIVE_STATUS[d.status] then
         out.total = out.total + 1
         local r = d.mining_target
@@ -111,7 +112,7 @@ function Elec.elec_path(res)
   return res ~= nil and ELEC_ORES[res] == true
 end
 
-local function inputs(v, kind, craft)
+local function inputs(v, kind, craft, extend)
   local spec = kind and T.outposts[kind]
   local res_live = nil
   if spec then res_live = (v.by or {})[spec.resource] or 0 end
@@ -125,7 +126,9 @@ local function inputs(v, kind, craft)
     res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was,
     -- lot CHARBON-JOUEUR : avant-postes de ce type (nil : non lus) et voie électrique sans avant-poste (E.thermal, interblocage)
     kind_outposts = (spec and not craft and v.kinds) and (v.kinds[kind] or 0) or nil,
-    elec_path = path }
+    elec_path = path,
+    -- lot C3-BOUCLE : agrandissement d'avant-poste (tâche extend) et réseau électrique en place (ère datée, une électrique posée)
+    extend = extend == true or nil, net = (v.era ~= nil and (v.el_placed or 0) > 0) or nil }
 end
 Elec.inputs = inputs
 
@@ -234,7 +237,7 @@ function Elec.think(f, book, tick)
   end
   local v = { tick = tick, on = Elec.on(), res = res, obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
     poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw,
-    el_live = lv.total, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
+    el_live = lv.total, el_placed = lv.placed or 0, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
     since = st.switch_tick and (tick - st.switch_tick) or nil }
   -- lot CHARBON-JOUEUR : avant-postes de l'équipe par type (E.thermal : ni avant-poste ni voie électrique seule = thermique permise)
   v.kinds = {}
@@ -244,6 +247,7 @@ function Elec.think(f, book, tick)
   end
   phase_of(f, st, tick, v) -- arbre de décision : v.phase, v.elec_drill_stock
   date_era(f, st, book, tick, v.phase) -- lot PURGE-MINE
+  v.era = st.era -- lot C3-BOUCLE : lu par inputs (réseau électrique en place)
   st.v = v
   -- bascule datée (retour au thermique après E.CFG.revert sans électrique) : posée au premier refus, effacée quand une cause MATÉRIELLE
   -- rend la thermique (centrale, objet, poteaux) ; gardée pendant le retour pour cause de 0 électrique (la règle se réarme quand une tourne)
@@ -305,7 +309,7 @@ local function verdict_for(v)
     local spec = t.outpost_kind and T.outposts[t.outpost_kind]
     -- une fabrication de thermique ne sert qu'à l'exception du combustible : permise quand la centrale est à l'arrêt
     local fuel = (t.kind == "craft") or (spec ~= nil and spec.product == T.fuel)
-    return E.thermal(inputs(v, t.outpost_kind, t.kind == "craft"))
+    return E.thermal(inputs(v, t.outpost_kind, t.kind == "craft", t.kind == "extend"))
   end
 end
 
@@ -318,7 +322,10 @@ function Elec.view_off(f, tick)
   local out, any = {}, false
   for _, kind in ipairs(T.OUTPOST_ORDER or {}) do
     local spec = T.outposts[kind]
-    local ok, why = E.thermal(inputs(v, kind, false))
+    -- lot C3-BOUCLE : le zéro-idle (shared/ai3/zero_idle.lua) donne ses agrandissements à un PNJ DÉJÀ choisi : ils ne passent pas le filtre du
+    -- tableau (tâche prise) ; banc C3-APRES-a6a22cb6 : « iron:1:thermique » x1 à x5 par minute de 15 à 23 min, thermiques du fer 21 -> 34. Un
+    -- type qui a déjà un avant-poste n'a plus que des agrandissements : la vue les refuse comme le filtre (E.thermal, s.extend).
+    local ok, why = E.thermal(inputs(v, kind, false, ((v.kinds or {})[kind] or 0) > 0))
     if not ok then out[kind], any = why, true end
   end
   return any and out or nil

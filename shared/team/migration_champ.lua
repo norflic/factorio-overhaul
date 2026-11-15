@@ -59,7 +59,9 @@ M.CFG = {
   max_fails = 3,          -- demandes annulées ou refusées de suite avant d'abandonner l'avant-poste
   max_noop = 2,           -- lignes posées sans libérer la place voulue avant d'abandonner
   produce_min = 10,       -- produits finis par la ligne neuve avant de passer à la partie suivante
-  logs = 60,              -- lignes de journal [FO-MIGRATION] au plus par équipe
+  logs = 60,              -- lignes de journal [FO-MIGRATION] au plus par équipe ET par fenêtre de logs_window ticks
+  logs_window = 5 * 3600, -- lot C3-BOUCLE : le plafond se rouvre toutes les 5 min (partie du DC 0.9.4 et banc C3-APRES : 60 lignes épuisées
+                          -- avant 14 min, plus aucune cause de veille du champ ensuite, de 14 à 65 min)
   prio = 52,              -- priorité des tâches du chantier
   -- lot MIGRATION-DECLENCHE (retour du DC du 29/10 en jouant la 0.6.18 : « ils peuvent plus laisser des foreuses thermiques comme ça
   -- posées ») : une partie REFUSÉE par le plan n'est plus redemandée telle quelle (partie de scarlet refusée 3 fois à l'identique,
