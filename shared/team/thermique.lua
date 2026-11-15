@@ -62,6 +62,11 @@ M.CFG = {
   dry_wait = 10 * 3600,   -- lot THERMIQUE6, règle B : ticks à sec avant qu'un brûleur d'un gisement à bande finie soit retiré seul
   sib_r = 64,             -- s42 thermiques : tuiles ; deux avant-postes du même minerai plus proches sont sur le même gisement (= Champ.SIB_R, script/team/champ.lua)
   site_satisfaction = 1.0, -- s42 thermiques : part des électriques du site qui ont leur courant, exigée pour en poser une de plus (toutes : un réseau qui flanche ne reçoit pas de charge)
+  -- lot THERMO-0915 (partie du DC 0.9.1 : foreuses thermiques à 909 de pollution/min après 1 h, courant à 2,5x la demande) : marge électrique
+  -- (capacité des centrales finies / production servie) à partir de laquelle la migration des paires thermiques s'élargit
+  surplus_ratio = 2.0,
+  surplus_slots = 5,       -- créneaux de bande au plus en excédent (les 5 créneaux réels, SLOTS de migration_champ)
+  surplus_per_mineral = 2, -- chantiers de bande par minerai au plus en excédent
 }
 
 local EPS = 1e-9
@@ -399,6 +404,19 @@ function M.free_slot(res, busy, cfg)
     return false, "minerai-occupe"
   end
   return true, "libre"
+end
+
+--- Lot THERMO-0915 : réglage des créneaux selon la marge électrique. cap, served : capacité nominale des centrales finies et production servie
+--- (même unité, lues au jeu : f.build.grow.capacity / .power) ; healthy : réseau sain. Sans excédent (cap < surplus_ratio x served, réseau malade,
+--- aucune demande servie), rend cfg inchangé : le début de partie ne change pas. En excédent, une copie aux créneaux élargis. Rend (cfg, vrai si élargi).
+function M.slot_cfg(cap, served, healthy, cfg)
+  cfg = cfg_of(cfg)
+  if not healthy or (served or 0) <= EPS or (cap or 0) < cfg.surplus_ratio * served then return cfg, false end
+  local out = setmetatable({}, { __index = cfg }) -- (copie paresseuse : aucun parcours de table)
+  out.slots = math.max(cfg.slots, cfg.surplus_slots)
+  out.per_mineral = math.max(cfg.per_mineral, cfg.surplus_per_mineral)
+  out.key_per_mineral = math.max(cfg.key_per_mineral, out.per_mineral)
+  return out, true
 end
 
 --- Part électrique par minerai : liste triée de { res, el, th, share (0 à 1 de l'extraction, nil sans foreuse), pairs, working, covered_with_pairs }.

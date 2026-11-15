@@ -134,9 +134,12 @@ end
 --- ms.cur reste le créneau lu par les autres modules (script/team/pile.lua, Mig.project).
 -- Lot THERMIQUE : trois créneaux au plus (Th.CFG.slots), un seul par minerai (Th.free_slot) : le fer, le cuivre, le charbon et la pierre avancent
 -- ensemble (avant : deux créneaux, charbon et pierre jamais migrés).
-local SLOTS = { "cur", "cur2", "cur3" }
+local SLOTS = { "cur", "cur2", "cur3", "cur4", "cur5" }
+-- lot THERMO-0915 : réglage des créneaux de la pensée en cours (Th.slot_cfg) ; hors excédent électrique, les 3 premiers créneaux seulement
+local slot_cfg = Th.CFG
 local function claim(ms, id)
-  for _, s in ipairs(SLOTS) do
+  for i, s in ipairs(SLOTS) do
+    if i > slot_cfg.slots then return end
     if not ms[s] then ms[s] = id; return end
   end
 end
@@ -1708,7 +1711,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
     if not is_furnace_kind(o.kind) and Champ.data(f, o.kind) == nil then goto next_outpost end
     -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement), lot THERMIQUE : un
     -- seul chantier par minerai, trois au plus (Th.free_slot)
-    if busy.total > 0 and (busy.ids[oid] or not Th.free_slot(o.kind, busy) or Champ.data(f, o.kind) == nil) then goto next_outpost end
+    if busy.total > 0 and (busy.ids[oid] or not Th.free_slot(o.kind, busy, slot_cfg) or Champ.data(f, o.kind) == nil) then goto next_outpost end
     -- lot MIGRATION-DECLENCHE : un abandon (échecs de suite, ligne perdue) n'est plus définitif : après CFG.revive, l'avant-poste repart
     -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
     -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
@@ -2043,6 +2046,15 @@ function Mig.think(f, surface, book, free, tick, hold)
   local ms = ms_of(f)
   if tick < ms.next then return 0 end
   ms.next = tick + CFG.every
+  -- lot THERMO-0915 : en excédent électrique (capacité lue / production servie >= Th.CFG.surplus_ratio), plus de créneaux et deux par minerai
+  local gr = f.build and f.build.grow
+  local widened
+  slot_cfg, widened = Th.slot_cfg(gr and gr.capacity, gr and gr.power, f.build ~= nil and power_ok(f.build))
+  if widened and not ms.surplus_said then
+    ms.surplus_said = true
+    say(f, ms, string.format("migration elargie : excedent electrique (capacite %.0f kW, servie %.0f kW), %d creneaux, %d par minerai",
+      (gr.capacity or 0) * 60 / 1000, (gr.power or 0) * 60 / 1000, slot_cfg.slots, slot_cfg.per_mineral), true)
+  end
   -- lot COUT-600 : la vérification d'un cadre planifié à la pensée d'avant (Champ.flush : jusqu'à 4,7 M d'instructions sur un champ de 600 %) a sa
   -- pensée à elle : rien d'autre ne tourne dans celle-ci
   if ms.verify_due then
@@ -2112,7 +2124,7 @@ function Mig.think(f, surface, book, free, tick, hold)
       if not (ms.o[id] and ms.o[id].frame) then return did end
     end
   end
-  if not Th.free_slot(busy.key, busy) and busy.total >= Th.CFG.slots then return did end -- (lot IA-SPAWN : la voie de la plaque clé, Th.free_slot)
+  if not Th.free_slot(busy.key, busy, slot_cfg) and busy.total >= slot_cfg.slots then return did end -- (lot IA-SPAWN : la voie de la plaque clé, Th.free_slot)
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
   Profiler.fstart("mig:depart")
