@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.122
+Date: 2026-11-15
+  Features:
+    - IA (charbon) : besoin en charbon calculé sur la puissance MAXIMALE de toutes les machines à combustible posées (+30 %), offre sur le débit nominal des foreuses de charbon alimentées ; l'extension des foreuses de charbon part avant la pénurie. Journal [FO-CHARBON-DIM].
+    - IA (électricité) : la centrale s'agrandit sur la demande nominale (puissance maximale des entités électriques posées) ×1,3, avant toute baisse de tension ; un poteau qui tombe sur le poteau d'un autre projet est réutilisé au lieu de faire refuser la centrale ; l'alimentation des centrales au charbon par tapis part dès les 2/3 de ses pièces. Journal [FO-VAPEUR].
+    - Équipe du joueur : même autonomie que les factions (couverture des gisements, relève, fonderie du QG, bornes des sites, bras libres).
+  Bugfixes:
+    - Équipe du joueur : ses PNJ minaient à la main environ 20 minerais par tournée de 50 contre 42 pour les factions.
+    - La vue d'une pensée d'équipe partageait une table de la sauvegarde (plafond du charbon) : elle en prend une copie.
+  Known issues:
+    - Banc 30 min, 3 graines, carte du DC, contre 0.7.119 : plaques toutes équipes +0,6 % ; équipe du joueur fer +9 % mais cuivre −30 % (total −3 %).
+---------------------------------------------------------------------------------------------------
 Version: 0.7.121
 Date: 2026-11-15
   Features:

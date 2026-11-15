@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-15, 02 h 35 : version 0.7.122 (charbon et courant nominaux, parité du joueur)
+
+- **F694 · VALIDÉ (neutre) · DÉPLOYÉ 0.7.122** Lots charbon-dim-0716, vapeur-0716, tests-verts-0716, joueur-parite-0716 (Harvest.PLAYER : minage à la main du joueur ≈ 20/50 contre 42 chez les factions). Panel 30 min carte du DC, graines 123456789 / 271828182 / 1618033988, archives `2026-11-14_REF0715-30-*`, `2026-11-15_V0719-30-*`, `2026-11-15_C0720-30-*` (sans parité), `2026-11-15_C0721-30-*` (avec). Toutes équipes : 0.7.115 48 424, 0.7.119 49 968, C0721 50 258. Joueur : 9 286 / 8 865 / 8 589 (fer 6 192 → 6 730, cuivre 2 673 → 1 859). Sans la parité (C0720) le joueur tombait à 6 694 : la parité compense l'effet de charbon-dim+vapeur sur le joueur. Cuivre du joueur à traiter (lot cuivre-0716). content 621 OK.
+
 ## 2026-11-15, 02 h 25 : version 0.7.121 (outils de commandement)
 
 - **F693 · VALIDÉ · DÉPLOYÉ 0.7.121** Scénario `commandes-delais` (ordres à T+5 min, carte du DC), archives `2026-11-14_commandes-1` (avant) / `-7` (après). Maj+A : 3 blocages en chaîne (espacement d'un site d'une autre ressource sur gisement mêlé ; clé de construction partagée « en_cours » ; 8 charbons attendus au coffre alors qu'ils dorment en sortie) → pose à 21 s, fini à 25 s. Maj+R : tourelles du bastion prises par la garde de centrale et le front → priorité au bastion 10 min → 1265 → 410 s. Fer du joueur à 30 min 2919 → 3970 (une graine). Maj+E sans effet avant 30 min. Tests s46 100 OK, content 621 OK. `perf_frame_test` 27 OK sur 0.7.120.
