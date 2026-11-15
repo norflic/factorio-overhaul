@@ -55,5 +55,29 @@ check(P:find("plan_growth = inp.plan_growth", 1, true) ~= nil and P:find("for _,
 local C = read("shared/ai3/cerveau.lua")
 check(not C:find("plan_growth", 1, true), "2. le noyau de la réserve (cerveau.lua, Rs.state) ne lit pas plan_growth")
 
+-- 3. Lot CHAMP-0916 : marge électrique de la migration (Mg.power_spare), lue en plus de la santé du réseau
+local function spare_battery(Mg)
+  local fails = 0
+  local function ck(c) if not c then fails = fails + 1 end end
+  ck(Mg.power_spare({ capacity = 30000, power = 8000, saturated = false }) == true)   -- centrale finie, 1/4 de sa capacité : marge
+  ck(not Mg.power_spare({ capacity = 30000, power = 29000, saturated = true }))       -- saturée : pas de marge
+  ck(not Mg.power_spare({ capacity = 30000, power = 0, saturated = false }))          -- ne produit pas (chaudières à sec, rien de branché)
+  ck(not Mg.power_spare({ capacity = 0, power = 0 }))                                 -- aucune centrale finie
+  ck(not Mg.power_spare(nil))
+  return fails
+end
+local Mg = require("shared.team.migration_champ")
+check(spare_battery(Mg) == 0, "3. marge électrique : centrale finie qui produit sans saturer = marge ; saturée, à sec ou absente : non")
+do
+  local src = read("shared/team/migration_champ.lua")
+  local old = "and not g.saturated"
+  local s2, n = src:gsub(old:gsub("%p", "%%%0"), "", 1)
+  local M2 = assert(load(s2))()
+  check(n == 1 and spare_battery(M2) > 0, "3. mutant (saturation ignorée) : la batterie échoue")
+end
+local MC = read("script/team/migration_champ.lua")
+check(MC:find("return (b.sante ~= nil and b.sante.healthy == true) or Mg.power_spare(b.grow)", 1, true) ~= nil,
+  "3. power_ok : réseau sain OU centrale qui produit avec marge (une pièce manquante ne gèle plus la migration)")
+
 print(string.format("[CHAMP-0916] BILAN : %d OK, %d ECHEC(S)", ok, ko))
 if ko > 0 then os.exit(1) end

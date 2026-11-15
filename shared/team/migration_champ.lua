@@ -413,4 +413,12 @@ function M.watch(st, p, env, cfg)
   return "attendre", p.state
 end
 
+--- Lot CHAMP-0916 (partie du DC en 0.9.3 : centrale 1 « tapis_manquant (tapis 43/112) » de 16 à 43 min, produisant 459 à 1 507 kW ; réseau
+--- jamais « sain », aucune bande électrique partie sur le champ de fer pendant 30 min) : un réseau a de la marge quand la centrale finie
+--- PRODUIT et n'est pas saturée (g = f.build.grow, relevé de script/team/plant_arms.lua : capacity et power en J/tick, saturated avec
+--- hystérésis C.SAT / C.SAT_EXIT). Lu en plus de la santé du réseau, jamais à sa place.
+function M.power_spare(g)
+  return g ~= nil and (g.capacity or 0) > 0 and (g.power or 0) > 0 and not g.saturated
+end
+
 return M

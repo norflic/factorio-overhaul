@@ -289,7 +289,8 @@ end
 
 --- Un réseau qui produit (centrale du plan finie, aucune pièce perdue, production > 0 : script/team/reseau_vivant.lua).
 local function power_ok(b)
-  return b.sante ~= nil and b.sante.healthy == true
+  -- lot CHAMP-0916 : ou une centrale finie qui produit avec de la marge (une pièce manquante ne gèle plus toute la migration)
+  return (b.sante ~= nil and b.sante.healthy == true) or Mg.power_spare(b.grow)
 end
 
 local function enemy_near(f, surface, x, y)
