@@ -1045,8 +1045,40 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
   end
   local W = LS and LS.W -- (reprise : la mémoire a déjà été lue au premier appel ; lectures notées gardées)
   if mlist and not W then
-    for _, m in ipairs(mlist) do
-      if same(m.fr, free) and same(m.co, is_coal) and (not is_foreign or same(m.fo, is_foreign)) then return line_copy(m.line) end
+    local lim = LS and Co.WORK_LIM
+    if not lim then
+      for _, m in ipairs(mlist) do
+        if same(m.fr, free) and same(m.co, is_coal) and (not is_foreign or same(m.fo, is_foreign)) then return line_copy(m.line) end
+      end
+    else
+      -- C5B (banc carte du DC : pas « net » du joueur de 33 à 49 ms pour 3 500 de travail) : la relecture de la mémoire des lignes,
+      -- des milliers de tuiles par entrée, se faisait d'un bloc et seules les lectures de place libre étaient comptées : la même relecture,
+      -- dans le même ordre, REPRENABLE au budget (LS.MV = { m, part, i }), chaque lecture comptée
+      local MV = LS.MV or { m = 1 }
+      LS.MV = nil
+      local did = false
+      while MV.m <= #mlist do
+        local m = mlist[MV.m]
+        local lists = { m.fr, m.co, is_foreign and m.fo or nil }
+        local fns = { free, is_coal, is_foreign }
+        local ok = true
+        for part = MV.part or 1, 3 do
+          local L, f = lists[part], fns[part]
+          if not L then break end
+          local i = (part == (MV.part or 1)) and (MV.i or 1) or 1
+          while i <= #L do
+            if did and Co.WORK >= lim then MV.part, MV.i = part, i; LS.MV = MV return nil, Co.SUSPEND end
+            did = true
+            Co.WORK = Co.WORK + 0.5
+            if (f(L[i], L[i + 1]) and true or false) ~= L[i + 2] then ok = false break end
+            i = i + 3
+          end
+          MV.part, MV.i = nil, nil
+          if not ok then break end
+        end
+        if ok then return line_copy(m.line) end
+        MV.m = MV.m + 1
+      end
     end
   end
   local function rec(f, L, M)

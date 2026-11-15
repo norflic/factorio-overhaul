@@ -152,7 +152,7 @@ Ch.HEAVY_WORK = 3000 -- forfait d'une étape d'un bloc (une bande, les bras, les
 Ch.EMIT_WORK = 4 -- C5-PERF : travail compté par pièce émise (emit, emit_e) : une étape qui émet des centaines de pièces finit son appel
 Ch.BAND_WORK = 500 -- perf-reste : forfait d'un pas de bande (un bout), sa recherche de place (Co.place) comptée et reprenable à part
 Ch.FREE_WORK = 0.5 --travail compté par lecture de place libre du contexte (c.free) pendant le pas
-Ch.ROW_WORK = 1 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for)
+Ch.ROW_WORK = 3 --travail compté par tuile de largeur et par décalage d'une rangée de foreuses calculée (bands_for) ; C5B : 1 -> 3 (une rangée lit la zone de chaque foreuse : 5 fois plus d'instructions par unité que les autres pas, fixtures du DC)
 local function context_new(spec, axis)
   return { axis = axis, taken = {}, blocked = spec.blocked or {}, mine = spec.mine or {}, ore = {}, list = {}, foreign = spec.foreign or {},
     resources = spec.resources or {}, ore_uv = {}, has_foreign = next(spec.foreign or {}) ~= nil }
