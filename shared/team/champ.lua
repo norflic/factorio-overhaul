@@ -1016,7 +1016,9 @@ function ONCE.band(s)
   -- perf-reste : forfait réduit (Ch.BAND_WORK) : la place de la fonderie (Co.place) est reprenable au budget, ses lectures comptées
   -- (banc PERFRESTE-4 : à 500 dès le premier passage, trois bouts dans un appel, 130 ms : le premier passage d'un bout garde le forfait d'un
   -- bloc, Ch.HEAVY_WORK, la reprise d'une place suspendue compte Ch.BAND_WORK)
-  Co.WORK = Co.WORK + (B.g and Ch.BAND_WORK or Ch.HEAVY_WORK)
+  -- (PERFRESTE-5 : une reprise à Ch.BAND_WORK laissait commencer le bout suivant dans le même appel, 73 ms : chaque passage garde le
+  -- forfait d'un bloc, un passage par appel ; la place suspendue avance d'un recul au moins à chaque passage)
+  Co.WORK = Co.WORK + Ch.HEAVY_WORK
   local bi, bd, used, groups, limit = B.bi, s.bands[B.bi], B.used, B.groups, B.limit
   do
     local side = B.sides[B.si]
