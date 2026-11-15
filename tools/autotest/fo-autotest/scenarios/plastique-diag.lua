@@ -10,7 +10,7 @@
       d'une usine chimique (le quai d'entrée) et le plastique produit (statistiques de la force).
   Lecture : grep « FO-PLASTIQUE-DIAG » dans benchmark.log.
 ]]
-local base = require("scenarios/petrole_site_common")("plastique", 108000)
+local base = require("scenarios/petrole_site_common")("plastique", 216000)
 local MIN = 3600
 local TAG = "[FO-PLASTIQUE-DIAG] "
 local OIL = { "pumpjack", "oil-refinery", "chemical-plant" }
