@@ -101,5 +101,26 @@ do
   check(src:find("return Ent.inflight_pick(live, plate, T.fuel, deficit)", 1, true) ~= nil, "ent_inflight : câblé sur Ent.inflight_pick")
 end
 
+-- §5 seuil lu dans les recettes : une bande en vol payable sur une période s'attache sous le débit minimal
+do
+  local m = E.CFG.debit_min
+  local a = E.decide({ delta = m - 100, room = true, busy = false, inflight = true, debit_min = m, cost = m - 600 })
+  check(a == "attache", "sous le débit, bande en vol payable sur la période : attache (" .. tostring(a) .. ")")
+  a = E.decide({ delta = m - 100, room = true, busy = false, inflight = true, debit_min = m, cost = m })
+  check(a == "refus", "sous le débit, bande trop chère pour la période : refus")
+  a = E.decide({ delta = m - 100, room = true, busy = false, inflight = false, debit_min = m, cost = 10 })
+  check(a == "refus", "sous le débit, rien en vol : refus (déclencher reste au seuil)")
+  a = E.decide({ delta = m - 100, room = true, busy = false, inflight = true, debit_min = m })
+  check(a == "refus", "coût inconnu : refus comme avant")
+  a = E.decide({ delta = m - 100, room = true, busy = true, inflight = true, debit_min = m, cost = 1 })
+  check(a == "refus", "chantier en cours : refus")
+  -- mutant : la règle 0.9.7 (seuil seul)
+  local src = read("shared/team/entrepreneur.lua")
+  local mut = src:gsub("and not %(inp%.inflight and inp%.cost ~= nil and inp%.cost <= inp%.delta%)", "")
+  check(mut ~= src, "mutant construit")
+  local Em = load(mut)()
+  check(Em.decide({ delta = m - 100, room = true, busy = false, inflight = true, debit_min = m, cost = 1 }) ~= "attache", "mutant 0.9.7 : refuse (le test le voit)")
+end
+
 print(string.format("expo_test : %d OK, %d ECHEC", ok, ko))
 if ko > 0 then os.exit(1) end

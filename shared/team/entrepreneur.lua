@@ -42,7 +42,13 @@ function E.decide(inp)
   if inp.busy then return "refus", "chantier en cours" end
   if not inp.delta or inp.delta <= 0 then return "refus", "aucune plaque produite" end
   -- entrepreneur-craft-0716 : sous un débit minimal (plaques par période, inp.debit_min), l'équipe n'a pas de quoi payer une bande en monopole
-  if inp.debit_min and inp.delta < inp.debit_min then return "refus", "debit sous le minimum" end
+  -- lot EXPO (chantier 2 du DC, point 1 : seuil « calculé depuis les données ») : sous ce débit, une bande DÉJÀ EN VOL dont le reste du kit
+  -- coûte (inp.cost, plaques lues au livre de recettes) au plus les plaques produites sur la période (inp.delta) s'attache : l'équipe la paie
+  -- sur une période de sa production. Mesuré en 0.9.7 (partie de référence du DC) : votre équipe à 1 093, 1 159 puis 1 151 plaques par 5 min
+  -- (sous 1 200) de 10 à 25 min, bande de cuivre en vol (reste 431 plaques) attachée seulement à 30 min, posée à 37 min.
+  if inp.debit_min and inp.delta < inp.debit_min and not (inp.inflight and inp.cost ~= nil and inp.cost <= inp.delta) then
+    return "refus", "debit sous le minimum"
+  end
   local room = inp.room == true
   if inp.cover ~= nil and inp.cover >= E.CFG.cover_max and not inp.recense then room = false end
   if inp.recense then room = true end

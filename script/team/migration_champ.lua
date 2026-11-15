@@ -2486,6 +2486,23 @@ function Mig.entrepreneur_order(f, tick)
   return action
 end
 
+--- Lot EXPO : coût en plaques (livre de recettes de l'équipe) de ce qui reste à réunir pour la bande `p` : pièces pas encore bâties moins sa
+--- réserve au coffre (p.stock). nil sans livre ni projet.
+local function band_cost(f, p)
+  local book = p and p.ents and FoSwap.book_of and FoSwap.book_of(f)
+  if not book then return nil end
+  local need, held, list = Build.needs_of(p), p.stock or {}, {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local n = need[it] - (held[it] or 0)
+    if n > 0 then list[#list + 1] = { it, n } end
+  end
+  if #list == 0 then return 0 end
+  local raw = book:raw_cost(list) or {}
+  local cost = 0
+  for _, k in ipairs(plate_names()) do cost = cost + (raw[k] or 0) end
+  return math.floor(cost + 0.5)
+end
+
 function Mig.entrepreneur_scan(f, tick)
   if not (f and f.outposts and f.build and f.build.projects) then return nil end
   local ms = ms_of(f)
@@ -2526,16 +2543,21 @@ function Mig.entrepreneur_scan(f, tick)
   -- tant que la ligne attendait son premier produit et le scan l'attachait toutes les 5 min (amber, JALONS60-entrepreneur : projet 9
   -- « fini » puis « attache » de 33 à 60 min, aucun chantier nouveau)
   local inflight = ent_inflight(f)
-  local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0, debit_min = Ent.CFG.debit_min })
+  -- ORDRE-0955 : la bande d'un ordre du joueur (Maj+A, o.band_fid) passe avant les bandes plus anciennes (partie du DC 0.9.4 : 22 min d'attente)
+  local wanted = {}
+  local orders = f.team and f.team.commande and f.team.commande.orders or {}
+  for _, od in ipairs(orders) do if od.band_fid then wanted[od.band_fid] = true end end
+  -- lot EXPO (seuil lu dans les recettes) : sous le débit minimal, la bande en vol que l'équipe paie sur sa production d'UNE période s'attache
+  -- quand même (coût en plaques du reste de son kit, livre de l'équipe)
+  local cost
+  if #inflight > 0 and not cur and delta < Ent.CFG.debit_min then cost = band_cost(f, f.build.projects[inflight[Ent.pick(inflight, wanted)].pid]) end
+  local action, cause = Ent.decide({ delta = delta, room = target ~= nil, busy = cur ~= nil, inflight = #inflight > 0, debit_min = Ent.CFG.debit_min,
+    cost = cost })
   if action == "refus" then
-    if cause ~= "chantier en cours" then ent_say(f, ms, "refus " .. cause) end
+    if cause ~= "chantier en cours" then ent_say(f, ms, "refus " .. cause .. (cost and string.format(" (bande en vol : %d plaque(s) a payer)", cost) or "")) end
     return action, cause
   end
   if action == "attache" then
-    -- ORDRE-0955 : la bande d'un ordre du joueur (Maj+A, o.band_fid) passe avant les bandes plus anciennes (partie du DC 0.9.4 : 22 min d'attente)
-    local wanted = {}
-    local orders = f.team and f.team.commande and f.team.commande.orders or {}
-    for _, od in ipairs(orders) do if od.band_fid then wanted[od.band_fid] = true end end
     local pid = inflight[Ent.pick(inflight, wanted)].pid
     local p = f.build.projects[pid]
     if p and p.spec then
