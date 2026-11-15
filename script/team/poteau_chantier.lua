@@ -119,7 +119,11 @@ local function substitute(f, p, item, free, surface, tick)
     end
     x0, y0, x1, y1 = math.min(x0, e.x), math.min(y0, e.y), math.max(x1, e.x), math.max(y1, e.y)
   end
-  if #old == 0 then return false end
+  if #old == 0 then
+    say_once(p, item .. ":vide", string.format("[FO-POTEAU-CHANTIER] %s : projet %d : %s manque mais aucun poteau prevu non pose de ce modele dans le plan a %.1f min",
+      f.key or "player", p.id, item, tick / 3600))
+    return false
+  end
   local world = {}
   for _, w in ipairs(surface.find_entities_filtered({ area = { { x0 - c0.wire, y0 - c0.wire }, { x1 + c0.wire, y1 + c0.wire } }, type = "electric-pole",
     force = f.force })) do
@@ -222,7 +226,11 @@ function PC.try(f, p, tick, surface)
       if feasible(f, free, item) then
         p.pc_since[item] = nil
       else
-        p.pc_since[item] = p.pc_since[item] or tick
+        if not p.pc_since[item] then
+          p.pc_since[item] = tick
+          say_once(p, item .. ":attente", string.format("[FO-POTEAU-CHANTIER] %s : projet %d : %s manque (%d) et n'est pas fabricable avec le stock libre : repli dans %.0f min s'il manque encore a %.1f min",
+            f.key or "player", p.id, item, m[2] or 0, Pc.WAIT / 3600, tick / 3600))
+        end
         p.pc_next = p.pc_next or {}
         if tick - p.pc_since[item] >= Pc.WAIT and tick >= (p.pc_next[item] or 0) then
           if substitute(f, p, item, free, surface, tick) then done = true else p.pc_next[item] = tick + Pc.RETRY end
