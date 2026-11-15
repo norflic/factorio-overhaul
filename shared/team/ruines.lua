@@ -109,4 +109,30 @@ function Ru.prefer_scarce(due, scarce)
   return first
 end
 
+--- Lot RECONSTRUCTION-0716 : objets à FABRIQUER pour les foreuses des ruines vivantes. Constat (JALONS60-cand, votre équipe) : l'avant-poste de
+--- charbon perdu à 20,6 min a attendu 25 min « sans objet au stock (burner-mining-drill) » puis expiré : Rc.demand ne fait fabriquer que
+--- l'INFRASTRUCTURE (poteaux, chaudières), jamais une foreuse d'avant-poste ; sans foreuse au coffre, la ruine ne pouvait que mourir.
+--- `due` : pièces dues (Rc.due) ; `ruins` : s.ruins ; `have(item)` : stock libre. Rend { { objet, quantité, oid } } : par objet, les foreuses dues
+--- des ruines, au plus `cap` (la première recrée l'avant-poste, les suivantes le remplissent), moins le stock libre ; l'oid est celui de la première
+--- pièce rencontrée (l'ordre de `due`, déjà trié par l'appelant : ruines de matière qui manque d'abord). Ordre de première rencontre.
+function Ru.demand(due, ruins, have, cap)
+  local need, first, order = {}, {}, {}
+  for _, r in ipairs(due or {}) do
+    if r.kind == "drill" and r.item and not r.abandoned and ruins and ruins[r.oid] then
+      if not need[r.item] then
+        need[r.item] = 0
+        first[r.item] = r.oid
+        order[#order + 1] = r.item
+      end
+      need[r.item] = need[r.item] + 1
+    end
+  end
+  local out = {}
+  for _, item in ipairs(order) do
+    local n = math.min(cap, need[item]) - (have(item) or 0)
+    if n > 0 then out[#out + 1] = { item, n, first[item] } end
+  end
+  return out
+end
+
 return Ru

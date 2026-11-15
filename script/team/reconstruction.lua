@@ -366,6 +366,20 @@ local function substitute_drills(f, s, surface, tick)
   return n
 end
 
+--- lot RUINES-ATTENTE : les pièces d'un avant-poste dont la matière MANQUE (f.team.ia3.starved, écrit par la pensée) passent d'abord
+--- (lot RECONSTRUCTION-0716 : fonction partagée par Recon.think et la fabrication des foreuses des ruines, Recon.craft_spares).
+local function scarce_first(f, s, due)
+  local sv = f.team and f.team.ia3 and f.team.ia3.starved
+  if sv and #due > 1 then
+    due = Ru.prefer_scarce(due, function(r)
+      local host = r.kind and ((f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid]))
+      local spec = host and T.outposts[host.kind]
+      return spec ~= nil and (sv[spec.product] == true or sv[spec.resource] == true)
+    end)
+  end
+  return due
+end
+
 --- Une pensée de l'équipe : tâches de reconstruction au tableau (après Board.sync, comme le plan directeur).
 function Recon.think(f, surface, tick)
   Profiler.fstart("recon:sweep") -- lot X10-S0 : mesure seulement
@@ -435,16 +449,7 @@ function Recon.think(f, surface, tick)
   Profiler.fstart("recon:secours")
   substitute_drills(f, s, surface, tick)
   Profiler.fstop("recon:secours")
-  local due = Rc.due(s, tick)
-  -- lot RUINES-ATTENTE : les pièces d'un avant-poste dont la matière MANQUE (f.team.ia3.starved, écrit par la pensée) passent d'abord
-  local sv = f.team and f.team.ia3 and f.team.ia3.starved
-  if sv and #due > 1 then
-    due = Ru.prefer_scarce(due, function(r)
-      local host = r.kind and ((f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid]))
-      local spec = host and T.outposts[host.kind]
-      return spec ~= nil and (sv[spec.product] == true or sv[spec.resource] == true)
-    end)
-  end
+  local due = scarce_first(f, s, Rc.due(s, tick))
   if #due == 0 then return 0 end
   local added, tried = {}, 0
   local have, taken = {}, held
@@ -660,6 +665,84 @@ local function substitute_poles(f, s, book, free, tick, memo, keys)
   end
 end
 
+--- Lot RECONSTRUCTION-0716 (trace [FO-RUINE-FAB]) : les foreuses des ruines vivantes dont l'objet manque au stock libre sont FABRIQUÉES (tâche
+--- « craft » de l'équipe, comme Recon.craft_spares pour l'infrastructure) ; quand la matière ne suffit pas même pour une, la matière BRUTE qui
+--- manque et qui se mine à la main sur un gisement (Harvest : entité ressource du même nom) est minée (tâche « mine », prudente). Avant : rien ne
+--- demandait la foreuse d'un avant-poste perdu (Rc.demand ne voit que l'infrastructure), la ruine attendait « sans objet au stock » jusqu'à
+--- l'expiration (25 min). `due` : pièces dues, ruines de matière qui manque d'abord (appelant : Recon.craft_spares). État écrit :
+--- s.ruins[oid].fab_log (tick du dernier journal), s.stats.ruin_crafts / ruin_mines / ruin_fab_logs. Lecteurs : ce journal ; le stock rempli
+--- est lu par Recon.think (tâche « rebuild » dès que l'objet est au coffre).
+Recon.RUIN_CRAFT = true
+Recon.RUIN_CRAFT_CAP = 4      -- foreuses fabriquées d'avance par objet (la première recrée l'avant-poste)
+Recon.RUIN_MINE_CAP = 50      -- matière brute minée par tâche
+Recon.RUIN_FAB_LOGS = 200
+
+local function fab_note(f, s, x, tick, what, ...)
+  if tick - (x.fab_log or -math.huge) < 3600 then return end
+  if (s.stats.ruin_fab_logs or 0) >= Recon.RUIN_FAB_LOGS then return end
+  x.fab_log = tick
+  s.stats.ruin_fab_logs = (s.stats.ruin_fab_logs or 0) + 1
+  log(string.format("[FO-RUINE-FAB] %s : avant-poste %d (%s) a %.1f min, %.1f min apres la perte : " .. what, f.key or "player", x.oid,
+    tostring(x.kind), tick / 3600, (tick - x.tick) / 3600, ...))
+end
+
+local function minable(raw)
+  local names = Harvest.names(raw)
+  return #names == 1 and names[1] == raw
+end
+
+function Recon.ruin_craft(f, s, book, free, due, tick, prio)
+  if not (Recon.RUIN_CRAFT and s and s.ruins and next(s.ruins) and book and free) then return 0 end
+  local wanted = Ru.demand(due, s.ruins, function(item) return free[item] or 0 end, Recon.RUIN_CRAFT_CAP)
+  if #wanted == 0 then return 0 end
+  s.stats = s.stats or {}
+  local avail = {}
+  for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
+  local added = {}
+  for _, w in ipairs(wanted) do
+    local item, n, oid = w[1], w[2], w[3]
+    local x = s.ruins[oid]
+    if book:handcraftable(item) then
+      local saved = avail[item]
+      avail[item] = 0
+      local m, q = Bm.best(book, item, n, avail)
+      avail[item] = saved
+      if m > 0 then
+        local uses = {}
+        for k in next, q.uses do uses[#uses + 1] = k end
+        table.sort(uses)
+        local list = {}
+        for _, k in ipairs(uses) do list[#list + 1] = { k, q.uses[k] } end
+        added[#added + 1] = { key = "craft:" .. item .. ":ruine", kind = "craft", prio = prio, item = item, count = m, steps = q.crafts,
+          uses = list, tag = "reconstruction", domain = "gisements" }
+        for _, u in ipairs(list) do
+          if u[1] ~= item then avail[u[1]] = (avail[u[1]] or 0) - u[2] end
+        end
+        s.stats.ruin_crafts = (s.stats.ruin_crafts or 0) + 1
+        fab_note(f, s, x, tick, "%d %s a fabriquer (voulues %d, stock libre %d)", m, item, n, free[item] or 0)
+      else
+        local miss, mines = {}, {}
+        for _, k in ipairs(State.sorted_keys(q.raw)) do
+          miss[#miss + 1] = string.format("%s %d", k, q.raw[k])
+          if minable(k) then
+            local c = math.min(Recon.RUIN_MINE_CAP, math.max(1, math.ceil(q.raw[k])))
+            added[#added + 1] = { key = "recon:ruine:mine:" .. k, kind = "mine", prio = prio, resource = k, count = c, short = c,
+              prudent = true, domain = "gisements", tag = "reconstruction" }
+            mines[#mines + 1] = k
+            s.stats.ruin_mines = (s.stats.ruin_mines or 0) + 1
+          end
+        end
+        fab_note(f, s, x, tick, "%d %s non fabricable(s), matiere manquante {%s} ; minage a la main {%s}", n, item, table.concat(miss, ", "),
+          table.concat(mines, ", "))
+      end
+    else
+      fab_note(f, s, x, tick, "%s non fabricable a la main", item)
+    end
+  end
+  if #added > 0 then return Board.add(f, added, tick) end
+  return 0
+end
+
 function Recon.craft_spares(f, book, free, tick)
   Profiler.fstart("spares:secours") -- lot X10-S0 : mesure seulement
   RrRt.drill_swap(f, book, free, tick) -- lot REBUILD-RAPIDE (d) : foreuse thermique de secours (avant la sortie anticipée : registre vide compris)
@@ -672,6 +755,12 @@ function Recon.craft_spares(f, book, free, tick)
   Profiler.fstart("spares:poteaux")
   substitute_poles(f, s, book, free, tick, Recon.S5 and { ok = {}, raw = {} } or nil, keys)
   Profiler.fstop("spares:poteaux")
+  -- Lot RECONSTRUCTION-0716 : les foreuses des ruines vivantes sont fabriquées (ou leur matière brute minée), à la priorité de l'infrastructure.
+  if s.ruins and next(s.ruins) then
+    Profiler.fstart("spares:ruines")
+    Recon.ruin_craft(f, s, book, free, scarce_first(f, s, Rc.due(s, tick)), tick, Rc.task_prio(Rc.INFRA_VALUE))
+    Profiler.fstop("spares:ruines")
+  end
   local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end, keys)
   if #wanted == 0 then return 0 end
   local added = {}
