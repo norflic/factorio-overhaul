@@ -323,14 +323,11 @@ function Pi.update(st, sig, tick)
     -- noyau non couvert = « produire d'abord » ; la matière qui manque au noyau devient un manque de la pile (cadre « produire », short,
     -- focus) comme ceux du planificateur. Avant, budget.missing n'était lu que par le journal : la porte refusait la bande de la matière
     -- même (« projet 9 (capi, stone) : reserve au coffre suspendue, stone hors des cadres ouverts et sans manque ») et la pile restait
-    -- suspendue sur une matière que l'équipe extrait. Un manque déjà porté par le planificateur garde sa quantité et sa priorité. Une
-    -- plaque de la fonderie (sig.inputs) n'y entre pas : sa production passe par la fonderie et ses bandes, et son cadre ouvert laisserait
-    -- passer le capital de la plaque pendant qu'une bande attend la même plaque (intention CHAMP-0916 ; banc n100-pierre-1 : votre équipe
-    -- 25 retenues « manque iron-plate » avec un cadre de fer ajouté, fer à 89 min 34 262 contre 58 407).
+    -- suspendue sur une matière que l'équipe extrait. Un manque déjà porté par le planificateur garde sa quantité et sa priorité.
     if not budget.core_ok then
       for _, item in ipairs(sorted_keys(budget.missing)) do
         local n = math.ceil(budget.missing[item] or 0)
-        if n > 0 and not short[item] and not (sig.inputs or {})[item] then
+        if n > 0 and not short[item] then
           short[item] = { n = n, prio = Pi.INJECT_PRIO }
           produce(item, n, 1, parent and parent.key or nil)
         end

@@ -57,11 +57,6 @@ local function battery(PiM, verbose)
   local st5 = PiM.new()
   PiM.update(st5, sig({ upgrades = {}, avail = { [IRON] = 5000, [COPPER] = 1000, [STONE] = 150 } }), 100)
   ck(st5.budget and st5.budget.core_ok and not (st5.short or {})[STONE], "5. noyau couvert, marge seule qui manque : aucun manque ajouté")
-  -- 5 bis. Une plaque de la fonderie qui manque au noyau n'est pas ajoutée (sa voie est la fonderie ; CHAMP-0916 gardé)
-  local st6 = PiM.new()
-  PiM.update(st6, sig({ inputs = { [IRON] = "iron-ore" }, avail = { [IRON] = 10, [COPPER] = 1000, [STONE] = 40 } }), 100)
-  ck(st6.hold and (st6.budget.missing[IRON] or 0) > 0 and not (st6.short or {})[IRON] and not (st6.focus or {})[IRON]
-    and (st6.short or {})[STONE] ~= nil, "5 bis. fer et pierre manquent : la pierre entre au manque, la plaque de fer non")
   -- 6. Déterminisme : deux passages identiques, mêmes cadres dans le même ordre
   local a, b = PiM.new(), PiM.new()
   PiM.update(a, sig(), 100) PiM.update(b, sig(), 100)
@@ -84,7 +79,7 @@ check(not PS:find("\"" .. STONE .. "\"", 1, true) and not PS:find("\"" .. FURNAC
 -- 8. Mutant : la coupe retirée, la batterie échoue
 local function slurp(p) local h = assert(io.open(p, "rb")) local s = h:read("*a") h:close() return s end
 local src = slurp("shared/ai3/pile.lua")
-local from = "if n > 0 and not short[item] and not (sig.inputs or {})[item] then"
+local from = "if n > 0 and not short[item] then"
 local i, j = src:find(from, 1, true)
 check(i ~= nil, "mutant : texte de la coupe trouvé")
 if i then
