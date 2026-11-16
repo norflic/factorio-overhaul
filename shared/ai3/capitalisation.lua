@@ -2743,6 +2743,8 @@ local function decide_turn(J)
         why = wc or "plafond"
       end
       refuse(ctx, o.key, o.kind, o.item, why)
+      -- lot n099-amelio : refus pour le BUDGET marqué (lu par la capitalisation du runtime : d.budget_ok, verrou des améliorations)
+      if o.cost_m > J.b_left + Ca.EPS then ctx.refus[o.key].budget = true end
     end
   end
   if not pick then return false end

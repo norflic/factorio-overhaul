@@ -11,7 +11,12 @@
       opts : { small = tuiles au plus d'un PETIT gisement (Ca.GIANT_SMALL), cover = part visée (R.COVER_HIGH, 80 % du DC) }.
     Grand gisement d'un minerai = le plus grand recensé (tuiles, puis l'identifiant), hors danger, de plus de `small` tuiles. Le verrou
     tient tant qu'UN de ces grands gisements a moins de `cover` de ses tuiles sous une foreuse, sauf s'il est « plein » (d.full : plus de
-    place libre ou couvert au plafond, verdict de la capitalisation, lot PAVAGE-GEANT).
+    place libre ou couvert au plafond, verdict de la capitalisation, lot PAVAGE-GEANT), ET que sa pose attend le budget.
+  Lot n099-amelio (DC, 16/11, sur la 0.9.8 : « pas de phase d'amélioration massive de la base, qui devrait être automatique une fois
+  que le budget le permet ») : sur la carte du DC (600 %), aucun gisement de 2000 à 5000 tuiles n'atteint 80 % en 90 min ; le verrou
+  tenait toute la partie (tapis montés 0 %) alors que la pose n'attendait jamais le budget (1 refus « budget » en 90 min, 4 factions).
+  d.budget_ok (posé par script/ai3/capitalisation.lua) : vrai quand la dernière décision de la capitalisation n'a refusé ni couvrir: ni
+  ouvrir: de ce gisement pour le budget ; absent (pas encore de décision) ou faux : la pose attend, le verrou tient comme avant.
   Aucun réglage nouveau : les deux seuils sont ceux du dépôt. Déterminisme : identifiants triés (tostring), aucun pairs décisionnel.
 ]]
 local Rg = require("shared.team.rangees")
@@ -41,14 +46,17 @@ function Vg.hold(deps, big, opts)
   for _, r in ipairs(sorted_ids(best)) do
     local d = best[r]
     local tiles, covered = d.tiles or 0, d.covered or 0
-    local short = (not d.full) and covered < cover * tiles
-    list[#list + 1] = { id = d.id, resource = r, tiles = tiles, covered = covered, full = d.full or nil, short = short or nil }
+    -- Lot n099-amelio : un gisement court ne retient que si sa pose attend le budget (d.budget_ok absent ou faux)
+    local short = (not d.full) and covered < cover * tiles and not d.budget_ok
+    list[#list + 1] = { id = d.id, resource = r, tiles = tiles, covered = covered, full = d.full or nil, short = short or nil,
+      budget_ok = d.budget_ok or nil }
     if short then open[#open + 1] = string.format("%s %d/%d", tostring(r), covered, tiles) end
   end
   if #open > 0 then
-    return true, string.format("grands gisements sous %d %% : %s", math.floor(cover * 100 + 0.5), table.concat(open, ", ")), list
+    return true, string.format("grands gisements sous %d %% dont la pose attend le budget : %s", math.floor(cover * 100 + 0.5),
+      table.concat(open, ", ")), list
   end
-  return false, (#list > 0) and "grands gisements couverts" or "aucun grand gisement recense", list
+  return false, (#list > 0) and "grands gisements couverts ou leur pose payee" or "aucun grand gisement recense", list
 end
 
 return Vg
