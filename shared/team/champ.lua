@@ -1482,8 +1482,17 @@ function ONCE.bare(s)
     end
     Co.WORK = Co.WORK + (#ents0 - (s.front_n or 0))
     s.front, s.front_n = front, #ents0
+    -- N099-FONDERIES (DC, test 0.9.8 : « des fonderies qui se superposent », « problèmes de chemins entre les fonderies et les foreuses ») :
+    -- une tuile tenue par une pièce d'une AUTRE bande du champ (spec.mine vaut alors la rangée `pr` de cette bande, script/team/champ.lua,
+    -- mine_of) n'est jamais libre pour une colonne ailleurs ni pour son lien : ni l'une ni l'autre ne se partage. Avant : c.free la rendait
+    -- libre (mine gagne sur blocked), la bande replanifiée seule posait sa colonne sur celle d'une bande déjà bâtie ; Build.SITES.champ en
+    -- écartait ensuite les pièces (joueur, graine 4251870853, 60,8 min : projet 44, bande -63, « 24 foreuses, 0 fours, 386 deja au plan »).
+    local away_mine = c.mine
     local function away_free(u, v)
       if pwin[Co.tk(u, v)] or front[Co.tk(u, v)] then return false end
+      local x, y = c.xy(u, v)
+      local m = away_mine[Ch.key(x, y)]
+      if type(m) == "number" and m ~= bd.pr then return false end
       return c.free(u, v)
     end
     local reach = win and math.max(0, t.side > 0 and (win.u1 - u0) or (u0 - win.u0)) or (Ch.CFG.shift + Ch.CFG.gap)
