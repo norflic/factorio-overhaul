@@ -932,7 +932,8 @@ local function begin_band(f, surface, ms, o, st, list, tick, free, pre)
       break
     end
   end
-  local held = pr == nil and held_bands(f, o, st) or {}
+  local held, held_live = {}, 0
+  if pr == nil then held, held_live = held_bands(f, o, st) end
   for _, x in ipairs(seq) do
     if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.prot and st.prot[x]) and not (st.ahead and st.ahead[tostring(x)]) and not held[tostring(x)] then pr = x end
   end
@@ -943,7 +944,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free, pre)
       if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.ahead and st.ahead[tostring(x)]) and not held[tostring(x)] then pr = x end
     end
   end
-  if not pr and next(held) ~= nil then
+  if not pr and held_live > 0 then
     -- lot EXPO : les bandes qui restent sont déjà en vol (projets vivants) : le champ n'est ni « posé » ni en échec, il attend qu'elles finissent
     st.retry = tick + CFG.retry_refuse
     return false

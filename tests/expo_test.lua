@@ -50,7 +50,7 @@ do
     { state = "plan", champ = { oid = 1, pr = 9, frame = fr2 } },
     { state = "plan" },
   }
-  local h = Mg.held_bands(projects, 1, fr)
+  local h = (Mg.held_bands(projects, 1, fr))
   check(h["-47"] == true, "bande en vol (réserve) portée")
   check(h["-55"] == true, "bande posée (fini) portée")
   check(h["-23"] == nil, "bande refusée : pas portée")
@@ -61,7 +61,11 @@ do
   local n = 0
   for _ in next, h do n = n + 1 end
   check(n == 2, "deux bandes portées exactement (" .. n .. ")")
-  check(next(Mg.held_bands(nil, 1, fr)) == nil, "liste absente : rien")
+  check(next((Mg.held_bands(nil, 1, fr))) == nil, "liste absente : rien")
+  local _, live = Mg.held_bands(projects, 1, fr)
+  check(live == 1, "une seule bande portée en vol (la réserve ; la posée ne fait pas attendre) (" .. tostring(live) .. ")")
+  local _, live2 = Mg.held_bands({ { state = "fini", champ = { oid = 1, pr = 3, frame = fr } } }, 1, fr)
+  check(live2 == 0, "toutes posées : rien n'attend (mutant expo-1 : attente sans fin)")
 end
 
 -- §3 câblage
@@ -74,7 +78,7 @@ do
   local _, nh = src:gsub("and not held%[tostring%(x%)%]", "")
   check(nh == 2, "begin_band : les deux passes écartent les bandes portées (" .. nh .. ")")
   check(src:find("x ~= st.band_key and not held[k]", 1, true) ~= nil, "bande en avance : écarte les bandes portées")
-  check(src:find("if not pr and next(held) ~= nil then", 1, true) ~= nil, "bandes restantes toutes en vol : attente, ni « posé » ni échec")
+  check(src:find("if not pr and held_live > 0 then", 1, true) ~= nil, "bandes restantes en vol : attente ; toutes posées : le champ finit son ordre")
   -- mutant : l'ancien code (sans held) ne passe pas les gardes ci-dessus
   local old = src:gsub("and not held%[tostring%(x%)%]", ""):gsub(" and not held%[k%]", "")
   local _, nh2 = old:gsub("and not held%[tostring%(x%)%]", "")
