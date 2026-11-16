@@ -273,12 +273,13 @@ function Pi.update(st, sig, tick)
   if sig.penurie then
     frames[#frames + 1] = { key = "produire:penurie", rank = Pi.PRODUIRE, kind = "produire", exec = true, sub = 0, depth = 0 }
   end
-  table.sort(frames, function(a, b)
+  local function frame_less(a, b)
     if a.rank ~= b.rank then return a.rank < b.rank end
     if a.sub ~= b.sub then return a.sub < b.sub end
     if a.depth ~= b.depth then return a.depth < b.depth end
     return a.key < b.key
-  end)
+  end
+  table.sort(frames, frame_less)
   -- Sommet, blocage, retenue.
   local top = Pi.AMELIORER
   for _, fr in ipairs(frames) do
@@ -318,6 +319,21 @@ function Pi.update(st, sig, tick)
     for _, it in ipairs(sig.plan_growth or {}) do claims.rebuild[#claims.rebuild + 1] = it end
     budget = Bg.assess(sig.book, sig.avail or {}, claims, st.parallel)
     if budget.covered then hold, parallel = false, true end
+    -- lot N100-PIERRE (B5, banc n099-joueur-2, graine 4251870853 : azure « noyau non couvert (manque stone) » de 48 à 89 min, 0 assembleur) :
+    -- noyau non couvert = « produire d'abord » ; la matière qui manque au noyau devient un manque de la pile (cadre « produire », short,
+    -- focus) comme ceux du planificateur. Avant, budget.missing n'était lu que par le journal : la porte refusait la bande de la matière
+    -- même (« projet 9 (capi, stone) : reserve au coffre suspendue, stone hors des cadres ouverts et sans manque ») et la pile restait
+    -- suspendue sur une matière que l'équipe extrait. Un manque déjà porté par le planificateur garde sa quantité et sa priorité.
+    if not budget.core_ok then
+      for _, item in ipairs(sorted_keys(budget.missing)) do
+        local n = math.ceil(budget.missing[item] or 0)
+        if n > 0 and not short[item] then
+          short[item] = { n = n, prio = Pi.INJECT_PRIO }
+          produce(item, n, 1, parent and parent.key or nil)
+        end
+      end
+      table.sort(frames, frame_less)
+    end
   end
   -- Ouvertures et fermetures (par l'état, jamais par l'horloge).
   local now = {}
