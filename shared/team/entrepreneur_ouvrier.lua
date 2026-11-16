@@ -30,7 +30,7 @@ end
 function Eo.live_pid(projects)
   for _, id in ipairs(num_keys(projects)) do
     local p = projects[id]
-    if p and p.spec and Ent.monopoly(p.spec) and p.state ~= "fini" then return id end
+    if p and p.spec and Ent.monopoly(p.spec) and not Ent.closed(p.state) then return id end -- (lot EXPO : un projet refusé ne garde pas l'ouvrier)
   end
   return nil
 end

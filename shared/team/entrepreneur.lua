@@ -29,6 +29,7 @@ E.CFG = {
                          -- dans la même minute, budget à 1 % près)
   debit_min = 1200,      -- entrepreneur-craft-0716 : plaques par période (5 min) au moins pour déclencher ou attacher une bande (banc 0720 :
                          -- le joueur, 600 à 1 500 plaques par 5 min, reculait de 6 % avec des bandes entrepreneur trop chères pour lui)
+  chain_since = 6000,    -- lot EXPO : relance sous chain_rate (bande en vol) au plus tôt 100 s après le dernier relevé
   chain_rate = 350,      -- entrepreneur-continu (0.9.1) : au-delà de ce débit (plaques des fours par minute, toutes plaques), la bande suivante
                          -- est demandée dès la fin de la précédente (relance au pas de kit_every), sans attendre le scan de 5 min
   head_avail = 1.0,     -- part de la MATIÈRE du stock virtuel que la tête prend au cerveau (shared/ai3/cerveau.lua). Banc 3 (0.5) : kits lents
@@ -42,7 +43,13 @@ function E.decide(inp)
   if inp.busy then return "refus", "chantier en cours" end
   if not inp.delta or inp.delta <= 0 then return "refus", "aucune plaque produite" end
   -- entrepreneur-craft-0716 : sous un débit minimal (plaques par période, inp.debit_min), l'équipe n'a pas de quoi payer une bande en monopole
-  if inp.debit_min and inp.delta < inp.debit_min then return "refus", "debit sous le minimum" end
+  -- lot EXPO (chantier 2 du DC, point 1 : seuil « calculé depuis les données ») : sous ce débit, une bande DÉJÀ EN VOL dont le reste du kit
+  -- coûte (inp.cost, plaques lues au livre de recettes) au plus les plaques produites sur la période (inp.delta) s'attache : l'équipe la paie
+  -- sur une période de sa production. Mesuré en 0.9.7 (partie de référence du DC) : votre équipe à 1 093, 1 159 puis 1 151 plaques par 5 min
+  -- (sous 1 200) de 10 à 25 min, bande de cuivre en vol (reste 431 plaques) attachée seulement à 30 min, posée à 37 min.
+  if inp.debit_min and inp.delta < inp.debit_min and not (inp.inflight and inp.cost ~= nil and inp.cost <= inp.delta) then
+    return "refus", "debit sous le minimum"
+  end
   local room = inp.room == true
   if inp.cover ~= nil and inp.cover >= E.CFG.cover_max and not inp.recense then room = false end
   if inp.recense then room = true end
@@ -88,9 +95,25 @@ end
 --- entrepreneur-continu (0.9.1) : relance immédiate du scan ? inp = { rate (plaques/min au dernier relevé), busy (chantier entrepreneur
 --- vivant), waiting (bande demandée pas encore reconnue), since (ticks depuis le dernier scan) }. Vrai seulement au-delà de CFG.chain_rate,
 --- sans chantier ni demande en cours, et au moins kit_every ticks après le dernier scan (pas de rafale).
+--- Lot EXPO (chantier 2 du DC, point 2 : « deux projets qui ne se disputent pas le goulot -> en parallèle ») : le chantier entrepreneur dont
+--- le KIT EST COMPLET et qui est en POSE (état ni plan, ni attente, ni réserve, ni clos) ne prend plus de plaques : seulement des PNJ. Au-delà
+--- du débit d'enchaînement (CFG.chain_rate), l'entrepreneur le laisse finir (monopole gardé sur ce qu'il tient) et passe tout de suite au
+--- kit de la bande suivante : kit n+1 pendant la pose n. Mesuré en 0.9.7 : pose 1,1 à 3,9 min après le kit complet, cycle 4 à 11 min, une
+--- seule bande à la fois. Jamais pour la bande d'un ordre du joueur (son ordre est servi à la pose). inp = { complete, state, ordre, rate }.
+local PRE_POSE = { plan = true, attente = true, reserve = true }
+function E.release_early(inp)
+  if not inp.complete or inp.ordre then return false end
+  if E.closed(inp.state) or PRE_POSE[inp.state] then return false end
+  return (inp.rate or 0) >= E.CFG.chain_rate
+end
+
+--- Lot EXPO : sous le débit d'enchaînement, la relance vaut quand même si une bande est DÉJÀ EN VOL (inp.inflight) et que le dernier relevé
+--- date d'au moins CFG.chain_since ticks (le débit du scan reste mesuré sur une fenêtre assez longue). Mesuré (banc expo-1) : bande du joueur
+--- posée à 16,7 min, la suivante (en vol) attachée au scan de 20,0 min.
 function E.chain(inp)
   if inp.busy or inp.waiting then return false end
-  if not inp.rate or inp.rate < E.CFG.chain_rate then return false end
+  if not inp.rate then return false end
+  if inp.rate < E.CFG.chain_rate then return inp.inflight == true and (inp.since or 0) >= E.CFG.chain_since end
   return (inp.since or 0) >= E.CFG.kit_every
 end
 
@@ -202,6 +225,33 @@ function E.need_core(need, garnish)
     if m > 0 then out[k] = m end
   end
   return out
+end
+
+--- Lot EXPO (nuit 0.9.8) : le chantier entrepreneur est-il CLOS ? Un projet « fini » ou « refuse » (état terminal du plan directeur : un
+--- projet refusé n'est jamais repris, script/team/build.lua) ne tient plus l'entrepreneur. Mesuré en 0.9.7 (partie de référence du DC,
+--- graine 4251870853) : bande du joueur refusée à 43,2 min (projet 54) ; le scan la lisait « en cours » (état différent de « fini ») et ne
+--- déclenchait plus RIEN jusqu'à 90 min (aucune ligne [FO-ENTREPRENEUR] du joueur après 41,4 min). Une bande refusée n'est pas non plus
+--- « en vol » (rien à attacher). state = p.state ou nil (projet disparu : clos).
+function E.closed(state)
+  return state == nil or state == "fini" or state == "refuse"
+end
+
+--- Lot EXPO (chantier 2 du DC, point 2 : le goulot d'abord) : une bande de fours POSÉE (ou en pose) sans son réseau du charbon (projet à part,
+--- lot FONDERIE : spec.champ.coal) ne fond rien. Mesuré au banc expo-1 (votre équipe, 67 min) : 18 fours de bande sans combustible, 9 projets
+--- « reserve:materiaux », alors que l'entrepreneur enchaînait les bandes. Ordre des projets que l'entrepreneur peut prendre : d'abord les
+--- réseaux du charbon PRÊTS (leur bande est posée ou en pose : x.net et x.ready), puis les bandes, dans l'ordre donné ; un réseau dont la bande
+--- n'est pas encore posée attend (il n'est pas rendu). list = { { pid, oid, item, net, ready } } ; rend une liste neuve.
+function E.feed_first(list)
+  local head, tail = {}, {}
+  for _, x in ipairs(list or {}) do
+    if x.net then
+      if x.ready then head[#head + 1] = x end
+    else
+      tail[#tail + 1] = x
+    end
+  end
+  for _, x in ipairs(tail) do head[#head + 1] = x end
+  return head
 end
 
 --- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets
