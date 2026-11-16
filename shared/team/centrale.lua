@@ -183,7 +183,10 @@ function C.growth(st, n)
     -- (lot VAPEUR : une centrale bâtie ROUVERTE pour une pièce manquante compte, sous la demande nominale : azure, banc VAPEUR-4, 26-30 min, 5 777 kW manquants retenus « aucune centrale finie »)
     if n.done < 1 then if not (nominal and ((n.rebuilding or 0) > 0 or (n.built or 0) > 0)) then return nil, "aucune centrale finie" end end -- (n.built : chaudières vivantes, reconstruction figée comprise)
   end
-  if n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
+  -- lot n100-energie (réf. 0.9.9, graine 4251870853 : player 16 200 kW de capacité pour 27 456 kW nominaux à 73 min, « extension RETENUE :
+  -- plafond de centrales » de 60 à 89 min, foreuses électriques en marche 135 -> 2 à 87 min) : sous la demande NOMINALE, le nombre de
+  -- centrales ne borne plus (comme C.MAX_REFUSED ci-dessous) ; la demande manquante, C.MAX_PARALLEL et la taille du champ bornent
+  if not nominal and n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
   if not nominal and (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end -- (lot VAPEUR : jamais de renoncement sous la demande nominale)
   if n.hold and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end
   if n.cool then return nil, "pause apres une centrale refusee ou abandonnee" end
