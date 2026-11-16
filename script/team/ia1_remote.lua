@@ -684,6 +684,27 @@ remote.add_interface("fo-ia1", {
       -- lot STOCKAGE-VITAL (C1, C2 de DIAG_CONSO) : cumuls des deux compteurs et contenu du stock (ce qui ENTRE, par différence)
       refused_calls = st.refused_calls, claims = st.claims, claim_full = st.claim_full, contents = Stock.contents(f) }
   end,
+  -- N100-IMPASSES (bancs seulement, lecture) : pièces planifiées de TOUS les projets de l'équipe dont la tuile couvre (x, y), au plus 6,
+  -- et le projet qui tient la tuile au plan (b.occ) ; sert la sonde [FO-CUL-DETAIL] (cause d'un tapis chargé sans sortie).
+  plan_at = function(key, x, y)
+    local f = team_of(key)
+    local b = f and f.build
+    if not (b and b.projects) then return nil end
+    local tx, ty = math.floor(x), math.floor(y)
+    local out = { occ = b.occ and b.occ[Pl.tkey(tx, ty)] or nil, pieces = {} }
+    for _, pid in ipairs(State.sorted_keys(b.projects)) do
+      local p = b.projects[pid]
+      for _, e in ipairs(p.ents or {}) do
+        if #out.pieces < 6 and math.abs(e.x - x) < 0.6 and math.abs(e.y - y) < 0.6 then
+          local c = p.spec and p.spec.champ
+          out.pieces[#out.pieces + 1] = { pid = pid, state = tostring(p.state), site = tostring(p.spec and p.spec.site or (p.spec and p.spec.liaison and "liaison") or "-"),
+            pr = c and c.pr or nil, coal = c and c.coal or nil, role = tostring(e.role), name = e.name, dir = e.dir or 0,
+            built = e.built == true, dropped = e.dropped == true, fails = e.fails or 0, ug = e.type }
+        end
+      end
+    end
+    return out
+  end,
 })
 
 return {}
