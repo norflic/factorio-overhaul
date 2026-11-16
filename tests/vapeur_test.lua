@@ -143,5 +143,40 @@ hit = V.competes({ belt = 10 }, { { "drill", 0 } }, ings, {})
 check(not hit, "rien ne manque a l'alimentation : rien n'est retenu")
 check(V.FIRST_TICKS <= 18000, "gel borne a 5 min")
 
+print("== n104-investir : le charbon d'abord vaut pour les kW des chaudieres a sec, pas pour tout le manque")
+-- batterie sur un module centrale (le vrai ou un mutant) ; valeurs des journaux
+local function n104(Cm)
+  local all = true
+  -- partie du DC 0.9.10, player 83 min : manque 23 791 kW, chaudieres alimentees 8/17 (9 a sec x 1800 = 16 200 kW)
+  local m = base(); m.nominal_kw = 23791; m.coal_short = true; m.dry_kw = 9 * 1800; m.done = 10
+  local nb1, why1 = Cm.growth({}, m)
+  all = (nb1 == math.ceil((23791 - 16200) / 1800)) and all -- 7 591 kW -> 5 chaudieres
+  -- reference 0.9.10 (banc REF0910-2030), player 83 min : 40 053 kW x 1,3 contre 18 000 kW, 1 chaudiere a sec sur 10
+  m = base(); m.nominal_kw = 40053 * 1.3 - 18000; m.coal_short = true; m.dry_kw = 1800; m.done = 8
+  local nb2 = Cm.growth({}, m)
+  all = (nb2 ~= nil and nb2 >= 1) and all
+  -- les chaudieres a sec couvrent le manque : le charbon d'abord
+  m = base(); m.nominal_kw = 1500; m.coal_short = true; m.dry_kw = 3 * 1800
+  local nb3, why3 = Cm.growth({}, m)
+  all = (nb3 == nil and why3 == Cm.COAL_REASON) and all
+  -- sans le releve des chaudieres : comme avant
+  m = base(); m.nominal_kw = 23791; m.coal_short = true
+  local nb4, why4 = Cm.growth({}, m)
+  all = (nb4 == nil and why4 == Cm.COAL_REASON) and all
+  return all, nb1, why1, nb2
+end
+local okv, nbv1, whyv1, nbv2 = n104(C)
+check(okv, "n104 : DC 83 min -> 5 chaudieres (" .. tostring(nbv1) .. ", " .. tostring(whyv1) .. ") ; REF 83 min -> centrale (" .. tostring(nbv2) .. ") ; a sec qui couvrent ou releve absent -> charbon d'abord")
+do -- mutant : l'ancienne regle (tout le manque retenu des qu'une chaudiere est a sec)
+  local g0 = C.growth
+  local Cm = setmetatable({ growth = function(st, nn) if nn.coal_short and not nn.lost then return nil, C.COAL_REASON end return g0(st, nn) end }, { __index = C })
+  check(not n104(Cm), "mutant refuse : charbon d'abord sur tout le manque")
+end
+local fpa = io.open("script/team/plant_arms.lua", "rb")
+local pa = fpa:read("*a")
+fpa:close()
+check(pa:find("coal_short = coal_short, dry_kw = dry_kw })", 1, true) ~= nil and pa:find("g.coal_held = (why == C.COAL_REASON) or coal_part or nil", 1, true) ~= nil,
+  "plant_arms : kW a sec du releve donnes a C.growth ; la consigne d'etendre le charbon reste pendant la croissance partielle")
+
 print(string.format("\nResultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

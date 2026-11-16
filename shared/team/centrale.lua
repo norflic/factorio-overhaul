@@ -168,7 +168,15 @@ function C.growth(st, n)
   -- lot CC-ENERGIE (F491) : quel que soit le déclencheur, rien tant que la demande mesurée reste sous C.GROW_LOAD de la capacité
   if n.load ~= nil and n.load < C.GROW_LOAD and not C.engaged_over(n.engaged_kw, n.cap_kw) then return nil, C.LOAD_REASON end
   -- s50 centrale-75 : chaudières à sec = le charbon manque, pas la capacité : rien de plus (signalé au journal)
-  if n.coal_short and not n.lost then return nil, C.COAL_REASON end
+  -- lot n104-investir (référence 0.9.10, graine 2030089248 : player 18 000 kW de capacité pour 35 000 à 43 000 kW nominaux de 73,9 à 89 min,
+  -- « croissance RETENUE : chaudières à sec » pour UNE chaudière à sec sur 10 ; partie du DC : 9 sur 17 pour 23 791 kW manquants) : le charbon
+  -- d'abord vaut pour les kW que les chaudières à sec rendraient (n.dry_kw, relevé [FO-VAPEUR]) ; la demande nominale qui manque AU-DELÀ est
+  -- de la capacité à bâtir, à sa taille (manque − kW à sec). Sans le relevé (n.dry_kw nil) : le charbon d'abord, comme avant.
+  if n.coal_short and not n.lost then
+    local dry = n.dry_kw
+    if not (nominal and type(dry) == "number" and dry == dry and dry >= 0 and n.nominal_kw > dry) then return nil, C.COAL_REASON end
+    n = setmetatable({ nominal_kw = n.nominal_kw - dry }, { __index = n })
+  end
   -- lot P0-CENTRALE (partie du DC 0.7.3 : « courant insuffisant : 2528 kW pris sur 1800 kW », centrale figee) : la production mesuree plafonne
   -- a la capacite (et sous elle quand les machines attendent leur courant) ; une demande ENGAGEE (n.engaged_kw : production + consommateurs
   -- en chantier ou retenus) au-dela de la capacite batie (n.cap_kw) compte comme une charge de 100 %

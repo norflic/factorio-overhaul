@@ -282,16 +282,26 @@ function PA.watch(f, surface, tick)
   -- lot VAPEUR : kW nominaux manquants du dernier relevé (script/team/vapeur.lua), s'il a moins de deux périodes
   local vap = f.build.vapeur
   local nominal_kw = (vap and tick - (vap.tick or -math.huge) <= 2 * Vn.EVERY and (vap.missing or 0) > 0) and vap.missing or nil
+  -- lot n104-investir : kW que rendraient les chaudières à sec du même relevé (le charbon d'abord vaut pour eux seuls, C.growth)
+  local dry_kw = (nominal_kw and boiler_kw and (vap.boilers or 0) >= (vap.fed or 0)) and ((vap.boilers or 0) - (vap.fed or 0)) * boiler_kw or nil
   local nb, why = C.growth(g, { load = gate, nominal_kw = nominal_kw, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
     cool = tick < (g.cool_until or 0) and (nominal_kw == nil or tick < (g.cool_until or 0) - C.COOL + Vn.COOL_TICKS), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive, -- (lot VAPEUR : pause de 2 min sous la demande nominale)
     engaged_kw = used_kw and (used_kw + Sante.committed(f) + Sante.held(f)) or nil, cap_kw = cap_kw, -- lot P0-CENTRALE
     anticipate = anticipate, secours_n = g.secours_n, deficit_kw = deficit_kw, boiler_kw = boiler_kw, pending_kw = pending_kw,
-    lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J), coal_short = coal_short })
+    lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J), coal_short = coal_short, dry_kw = dry_kw })
   if why == C.COAL_REASON and not g.coal_held then
     log(string.format("[FO-ENERGIE] %s : croissance RETENUE a %.1f min : demande %.0f kW (installe %.0f kW) sur %.0f kW finis (%.0f %%) mais chaudieres a sec : c'est le charbon qu'il faut etendre",
       f.key or "player", tick / 3600, math.max((power + reopened_power) * 60 / 1000, installed_kw), installed_kw, (capacity + reopened_alive) * 60 / 1000, (gate or 0) * 100))
   end
-  g.coal_held = (why == C.COAL_REASON) or nil
+  -- lot n104-investir : la croissance au-delà des chaudières à sec n'efface pas la consigne « étendre le charbon » (lue par l'arbitre du
+  -- combustible et la permission thermique : elles restent sous chaudières à sec)
+  local coal_part = nb ~= nil and coal_short and not lost
+  if coal_part and not g.coal_part_said then
+    log(string.format("[FO-ENERGIE] %s : croissance MALGRE des chaudieres a sec a %.1f min : manque nominal %.0f kW au-dela des %.0f kW des chaudieres a sec (charbon etendu en meme temps) : centrale de %d chaudiere(s)",
+      f.key or "player", tick / 3600, nominal_kw or 0, dry_kw or 0, nb))
+  end
+  g.coal_part_said = coal_part or nil
+  g.coal_held = (why == C.COAL_REASON) or coal_part or nil
   -- lot VAPEUR : la demande nominale manque et la croissance ne part pas : la cause, une fois par cause (journal [FO-VAPEUR])
   if nominal_kw and not nb and why ~= g.vap_why then
     log(string.format("[FO-VAPEUR] %s : demande nominale au-dela de la capacite (manque %.0f kW) a %.1f min, extension RETENUE : %s",

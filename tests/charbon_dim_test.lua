@@ -149,7 +149,7 @@ local q2 = Planner.plan(v35p, book)
 check(not has_extend(q2) and q2.coal_dim:find("deja en cours", 1, true), "consigne : une extension en cours suffit (" .. tostring(q2.coal_dim) .. ")")
 check(read_src("script/team/team.lua"):find("coal_held = (f.build and f.build.grow and f.build.grow.coal_held) == true or nil", 1, true),
   "la vue porte la consigne de la croissance (f.build.grow.coal_held, plant_arms.lua)")
-check(read_src("script/team/plant_arms.lua"):find("g.coal_held = (why == C.COAL_REASON) or nil", 1, true), "la croissance écrit la consigne (C.COAL_REASON)")
+check(read_src("script/team/plant_arms.lua"):find("g.coal_held = (why == C.COAL_REASON) or coal_part or nil", 1, true), "la croissance écrit la consigne (C.COAL_REASON, et pendant la croissance partielle n104)")
 
 -- 4. branchement
 local team_src = read_src("script/team/team.lua")
