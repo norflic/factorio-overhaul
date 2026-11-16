@@ -16,6 +16,7 @@
 ]]
 
 local Ad = require("shared.ai3.anti_dispersion")
+local Ch = require("shared.team.champ") -- n099 : Ch.target, la cible d'un champ (avant-poste OU gisement de la capitalisation)
 local T = require("shared.team.config")
 local State = require("script.faction.state")
 local Profiler = require("script.core.profiler") -- lot UPS : portées fines « ws: » (recherches sur toute la surface ; mesure seulement)
@@ -98,7 +99,7 @@ local function measure(f, memo)
         colonnes = colonnes + 1
         -- 0.7.114 (F677, verrou des tiers) : la plaque de cette colonne est prouvée fondue (bande électrique finie, un four de bande qui fond) ;
         -- acquis pour la partie (une panne de charbon ne refait pas osciller la pose des assembleurs)
-        local o = f.outposts and f.outposts[qc.oid]
+        local o = Ch.target(f, qc.oid) -- n099 : un champ de la capitalisation (sans avant-poste) prouve aussi sa fonte
         local sp = o and T.outposts[o.kind]
         if sp and sp.product ~= sp.resource then
           memo.fonte = memo.fonte or {}

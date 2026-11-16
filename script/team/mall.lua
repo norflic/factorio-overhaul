@@ -24,6 +24,7 @@
 ]]
 
 local Mp = require("shared.team.mall_plan")
+local Ch = require("shared.team.champ") -- n099 : Ch.target, la cible d'un champ (avant-poste OU gisement de la capitalisation)
 local T = require("shared.team.config")
 local P = require("shared.team.plan")
 
@@ -180,7 +181,7 @@ local function automated(f, pl)
     if p and p.state == "fini" and p.spec then
       local sp = p.spec
       if sp.site == "champ" and sp.champ then
-        local o = f.outposts and f.outposts[sp.champ.oid]
+        local o = Ch.target(f, sp.champ.oid) -- n099 : un champ de la capitalisation est aussi une source automatisée
         if o and o.kind == pl.kind then return true end
       elseif sp.gen == "smelter" and sp.args and sp.args[2] == pl.ore then
         return true

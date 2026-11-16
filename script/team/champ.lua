@@ -123,13 +123,7 @@ Build.TAPIS = Champ.tapis -- lu par script/team/build.lua (saut d'une foreuse de
 Champ.FIELD_BASE = 100000
 
 --- La cible d'un champ par son numéro : l'avant-poste, ou le gisement de la capitalisation, ou nil. Lecture seule.
-function Champ.target(f, id)
-  if id == nil or not f then return nil end
-  local o = f.outposts and f.outposts[id]
-  if o then return o end
-  local ms = f.migration
-  return ms and ms.fields and ms.fields[id] or nil
-end
+Champ.target = Ch.target -- n099 : une seule lecture (shared/team/champ.lua), partagée avec la garde des tiers et le mall
 
 local function say(f, text)
   f.champ_logs = (f.champ_logs or 0) + 1

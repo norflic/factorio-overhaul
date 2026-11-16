@@ -69,6 +69,18 @@ Ch.CFG = {
 }
 
 function Ch.key(x, y) return (x + 50000) * 100000 + (y + 50000) end
+
+--- n099 (seul lecteur de la cible d'un champ) : la cible du numéro `id` d'un champ (spec.champ.oid) : l'avant-poste (f.outposts), ou le
+--- gisement SANS avant-poste demandé par la capitalisation (f.migration.fields, numéros à partir de FIELD_BASE, script/team/champ.lua),
+--- ou nil. Lecture seule, tables seulement. Un lecteur qui ne regarde que f.outposts ignore tous les champs de la capitalisation (votre
+--- équipe : ses champs de cuivre l'étaient tous, la fonte du cuivre n'était jamais prouvée, aucun assembleur de toute la partie).
+function Ch.target(f, id)
+  if id == nil or not f then return nil end
+  local o = f.outposts and f.outposts[id]
+  if o then return o end
+  local ms = f.migration
+  return ms and ms.fields and ms.fields[id] or nil
+end
 Ch.BRIDGE_TRIES = 24 -- (lot FONDERIE) paires de poteaux essayées pour relier deux réseaux (bridge)
 Ch.furnaces_for = Fd.furnaces_for
 
