@@ -183,16 +183,5 @@ do
   check(src:find("since = tick - ms.ent_tick, inflight = inflight })", 1, true) ~= nil, "relance câblée avec la bande en vol")
 end
 
--- §8 cible du déclenchement : un champ prêt d'abord
-do
-  check(E.ready_field({ stage = "veille", retry = 10, now = 10 }) == true, "veille, pause finie : prêt")
-  check(E.ready_field({ now = 5 }) == true, "jamais suivi : prêt")
-  check(E.ready_field({ stage = "veille", retry = 11, now = 10 }) == false, "en pause (ordre épuisé relu plus tard) : pas prêt")
-  check(E.ready_field({ stage = "projet", retry = 0, now = 10 }) == false, "créneau pris par sa bande : pas prêt")
-  local src = read("script/team/migration_champ.lua")
-  check(src:find("if not target and Ent.ready_field({ stage = st and st.stage, retry = st and st.retry, now = tick }) then target = oid end", 1, true) ~= nil
-    and src:find("target = target or target_any", 1, true) ~= nil, "scan : champ prêt d'abord, sinon le plus petit numéro (règle d'avant)")
-end
-
 print(string.format("expo_test : %d OK, %d ECHEC", ok, ko))
 if ko > 0 then os.exit(1) end

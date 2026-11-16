@@ -2562,7 +2562,7 @@ function Mig.entrepreneur_scan(f, tick)
   if (ms.ent_wait and ms.ent_wait.ordre) or (cur and ms.ent and ms.ent.ordre) then return "refus", "chantier en cours" end
   if not cur and ent_resume(f, ms, tick) then return "refus", "chantier en cours" end
   -- place : un avant-poste ou gisement du champ à fours, ouvert, ni fini ni abandonné (ordre trié des numéros)
-  local target, target_any
+  local target
   local ids = sorted_keys(f.outposts)
   for _, fid in ipairs(sorted_keys(ms.fields)) do ids[#ids + 1] = fid end
   for _, oid in ipairs(ids) do
@@ -2570,14 +2570,8 @@ function Mig.entrepreneur_scan(f, tick)
     local st = ms.o[oid]
     -- (entrepreneur-craft-0716 : un champ à FOURS seulement, sa bande produit une plaque ; banc 0722-g123 : la bande entrepreneur du joueur était
     -- une bande de charbon de 36 foreuses, payée en plaques sans en rendre)
-    if o and is_champ_kind(o.kind) and is_furnace_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then
-      -- lot EXPO (banc expo-3 : scarlet, « declenche sur 2 » de 34,5 à 41,8 min sur un avant-poste à l'ordre épuisé, relu dans 30 min, pendant que
-      -- l'avant-poste 4 avait son créneau libre) : d'abord un champ qui peut partir tout de suite (Ent.ready_field), sinon la règle d'avant
-      if not target_any then target_any = oid end
-      if not target and Ent.ready_field({ stage = st and st.stage, retry = st and st.retry, now = tick }) then target = oid end
-    end
+    if not target and o and is_champ_kind(o.kind) and is_furnace_kind(o.kind) and o.migr ~= "fini" and not (st and (st.abandoned or st.sans_gabarit)) then target = oid end
   end
-  target = target or target_any
   -- entrepreneur-ouvrier (14/11) : une bande dont le projet est fini (ou disparu) n'est plus « en vol » : avant, Mig.projects la gardait
   -- tant que la ligne attendait son premier produit et le scan l'attachait toutes les 5 min (amber, JALONS60-entrepreneur : projet 9
   -- « fini » puis « attache » de 33 à 60 min, aucun chantier nouveau)
