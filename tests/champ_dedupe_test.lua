@@ -101,7 +101,8 @@ check(src:find("Cd.reserve(b.occ, bd.deferred_tiles, o.id, P.tkey)", 1, true) ~=
 local bsrc = read("script/team/build.lua")
 check(bsrc:find("Build.Cd.own(ow, p.spec.champ.oid)", 1, true) ~= nil, "build.lua : reserve_tiles rend ses tuiles retenues au projet de son cadre")
 check(src:find("function(_, _, owner) return Cd.own(owner, o.id) end", 1, true) ~= nil, "blocked_in : tuiles retenues par le cadre libres pour son avant-poste")
-check(src:find("Cd.dead(Cd.owners(b.occ), alive)", 1, true) ~= nil and src:find('q.state ~= "refuse"', 1, true) ~= nil, "Champ.report libère les cadres sans projet de champ vivant")
+check(src:find("Cd.dead(Cd.owners(b.occ), alive)", 1, true) ~= nil and src:find("local alive = Cd.alive(fields, frames)", 1, true) ~= nil
+  and read("shared/team/champ_dedupe.lua"):find('if q.state ~= "refuse" then alive[q.oid] = true end', 1, true) ~= nil, "Champ.report libère les cadres sans projet de champ vivant")
 check(src:find("[FO-CHAMP-VOIE]", 1, true) ~= nil and src:find("vlogs < 8", 1, true) ~= nil, "relevé de la voie de charbon par projet (borné à 8 lignes)")
 -- lot CC-SAUT (F515) : Champ.frame retient les tuiles hors ressource du cadre dès qu'il est figé (avant tout autre projet)
 -- perf-reste : la réservation part en tranches (fin_chunk, FINJOB) après le plan, avant que le cadre soit rendu (dernière tranche)

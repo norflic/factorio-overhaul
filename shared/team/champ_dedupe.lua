@@ -122,6 +122,23 @@ function M.owners(occ)
   return out
 end
 
+--- N102-BANDES : avant-postes dont le cadre est VIVANT, { [oid] = true }. `fields` = { { oid, state } } : projets de champ (un projet refusé ne compte
+--- pas) ; `frames` = { { oid, frame, abandoned, target } } : états de la migration (cadre figé tenu, abandon, cible encore là). Un cadre figé que la
+--- migration tient encore (ses bandes restent à demander) est vivant même sans aucun projet de champ : avant, le balayage de Champ.report passait
+--- entre le cadre figé et la demande de sa première bande et libérait tout (graine 271828182, joueur : cadre:1, 1 942 tuiles retenues à 26,9 min,
+--- libérées à 27,3 min, 0,25 s avant le projet 21 ; à 53 min la bande 0 trouvait la place figée de sa colonne prise, « relevee reserve », et 5
+--- bandes sur 7 étaient écartées « bande vide »). Un cadre abandonné, rendu par la migration (ordre épuisé) ou dont la cible a disparu ne retient rien.
+function M.alive(fields, frames)
+  local alive = {}
+  for _, q in ipairs(fields or {}) do
+    if q.state ~= "refuse" then alive[q.oid] = true end
+  end
+  for _, s in ipairs(frames or {}) do
+    if s.frame and not s.abandoned and s.target then alive[s.oid] = true end
+  end
+  return alive
+end
+
 --- Cadres à libérer : ceux dont l'avant-poste n'a plus aucun projet de champ vivant (`alive` = { [oid] = true } : projets ni refusés ni annulés ; un réseau du charbon
 --- qui n'est finalement pas demandé, une bande refusée ou un cadre abandonné ne gardent pas leurs tuiles). Rend la liste triée des numéros.
 function M.dead(owners, alive)
