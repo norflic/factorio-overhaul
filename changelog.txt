@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.8
+Date: 2026-11-16
+  Features:
+    - Panneau « Flux d'investissement » (bouton compact de la barre du haut) : etage 1, repartition du fer, du cuivre, du charbon et de la pierre par usage ; etage 2, part des engagements par grand projet (rangees de foreuses, fonderies, energie, mall/usines, recherche, defense) et temps depuis le lancement. / "Investment flow" panel (compact top-bar toggle): tier 1, iron/copper/coal/stone split by use; tier 2, share of commitments per major project and time since launch.
+    - Ordres Maj+A/Z/E/R : la zone d'action et le dessin sont le RECTANGLE glisse (plus de cercle). / Shift+A/Z/E/R orders: action zone and drawing are the dragged RECTANGLE (no more circle).
+  Bugfixes:
+    - Champs : un poteau ne coupe plus une ligne de tapis. La bande garde sa case tenue par un poteau d'un autre projet et le poteau est deplace a cote sans couper le reseau (partie de reference du DC, graine 4251870853 : 6 lignes coupees a 60 min en 0.9.7, 0 en 0.9.8). / Fields: a pole no longer cuts a belt line; the pole is moved next to it without breaking the network (DC reference game: 6 cut lines at 60 min in 0.9.7, 0 in 0.9.8).
+    - Fonderies deportees : un lien en grand detour (plus de 3 fois la distance directe + 30 tuiles) fait chercher une place en ligne directe. / Remote smelters: a link with a huge detour triggers a search for a straight placement.
+    - Croissance : l'entrepreneur n'est plus tenu par une bande refusee ; une bande deja portee par un projet n'est plus redemandee ; seuil de depart lu dans les recettes (premiere bande du joueur a 16,7 min au lieu de 37) ; kits des bandes en parallele ; reseau du charbon d'une bande posee en tete. / Growth: contractor no longer stuck on a refused band; no re-requested bands; recipe-based start threshold; parallel band kits; coal network of a built band first.
+    - Bench (graine du DC 4251870853, 90 min) : fer + cuivre toutes equipes 436 679 -> 474 275 (+8,6 %), votre equipe 80 317 -> 106 210 (+32 %) a 90 min ; a 60 min 192 874 -> 188 952 (-2 %) ; pics > 15 ms 92 -> 43 a 56, max 62,3 -> 40,5 a 52,6 ms (objectif < 15 ms NON tenu). Une seule graine. / Bench (DC seed, 90 min): all teams iron+copper +8.6 %, your team +32 %; peaks > 15 ms 92 -> 43-56 (target < 15 ms NOT met).
+---------------------------------------------------------------------------------------------------
 Version: 0.9.7
 Date: 2026-11-15
   Bugfixes:
