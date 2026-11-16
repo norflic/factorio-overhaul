@@ -330,7 +330,15 @@ local function mine_of(f, o)
   for _, pid in ipairs(b and b.order or {}) do
     local p = b.projects[pid]
     if p and p.spec and p.spec.champ and p.spec.champ.oid == o.id then
-      for _, e in ipairs(p.ents) do for _, t in ipairs(P.tiles_of(e)) do mine[Ch.key(t[1], t[2])] = true end end
+      -- N099-FONDERIES : la tuile d'une pièce de bande porte la rangée `pr` de sa bande (nombre, vrai pour tous les lecteurs de mine) ; une
+      -- colonne ailleurs d'une AUTRE bande ne s'y pose pas (shared/team/champ.lua, away_free). Une paire thermique garde `true`.
+      local pr = tonumber(p.spec.champ.pr)
+      for _, e in ipairs(p.ents) do
+        for _, t in ipairs(P.tiles_of(e)) do
+          local k = Ch.key(t[1], t[2])
+          if mine[k] == nil or pr == nil then mine[k] = pr or true end
+        end
+      end
     end
   end
   return mine
