@@ -1161,6 +1161,22 @@ local function thaw_gate(f, surface, ms, o, st, ln, p, tick, free, book)
   local b = f.build
   local env = { now = tick }
   local list, ents
+  -- Lot n102-rangee : une bande qui attend ses matières avec un dégel au plan relit ses paires (même relevé que le dégel) ; plus aucune
+  -- debout sous sa partie (retirées de force, minées, détruites) : le dégel est sans objet (Mg.thaw_moot), posé ici comme au retrait vide
+  -- (p.degele, registre de reconstruction écarté) ; build.lua (Cp.go) ne lui demande plus alors toute la voie avant de partir.
+  if p and p.spec and p.spec.degel and p.state == "reserve" and p.reason ~= "degel" and not p.degele then
+    local l0 = st.frame and survey_field(f, o) or survey(o)
+    local ids0 = part_ids(ln, l0, p.spec.degel.tiles)
+    local alive0, present0 = {}, 0
+    for _, pr in ipairs(l0) do alive0[pr.id] = true end
+    for _, id in ipairs(ids0) do if alive0[id] then present0 = present0 + 1 end end
+    if Mg.thaw_moot(p, { present = present0 }) then
+      local purged = purge_recon(f, o)
+      p.degele, p.reserve_next = true, nil
+      say(f, ms, string.format("avant-poste %d : projet %d : plus aucune paire debout sous la partie (%d au plan), degel sans objet : la bande "
+        .. "part comme une bande sans paire, %d piece(s) du registre de reconstruction ecartee(s)", o.id, ln.pid, #(ln.ids or {}), purged), true)
+    end
+  end
   if p and p.state == "reserve" and p.reason == "degel" then
     ln.gate_t0 = ln.gate_t0 or tick
     if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end

@@ -347,6 +347,17 @@ function M.can_retire(c, cfg)
   return true, "ok"
 end
 
+--- Lot n102-rangee (partie du DC en 0.9.10, player, projet 10, bande -70 de l'avant-poste 1) : la bande portait au plan (11,4 min) un dégel de
+--- 5 paires (81, 91, 290, 294, 298) ; les 14 paires de l'avant-poste sont retirées de force à 17,5 min (bande électrique productive) ; le dégel
+--- n'était relevé qu'après le kit COMPLET (raison « degel »), si bien que Cp.ready_band exigeait toute la voie (183 tapis sur 183) pour une
+--- bande qui n'avait plus rien à dégeler : 33 foreuses sur 33 au coffre de 29,8 à 36,6 min, rien de posé, puis « partie retiree : 0
+--- foreuse(s) ». Rend vrai quand le projet `p` attend ses matières (état « reserve », raison autre que « degel », dégel pas fait) et
+--- qu'aucune paire de sa partie n'est debout au relevé (env.present == 0) : le dégel est sans objet, la bande devient une bande ordinaire.
+function M.thaw_moot(p, env)
+  if not (p and env) or p.state ~= "reserve" or p.reason == "degel" or p.degele then return false end
+  return env.present == 0
+end
+
 --- Décision au moment du retrait. st : { t0 } (début de la demande) ; p : l'état du projet du plan { state, reason } ou nil ;
 --- env = { now, enemy, total, present, produced, uses (le plan s'est servi de la place de la partie), gate_age (ticks depuis que
 --- le projet attend le retrait) }. Rend (action, raison) : "retirer", "passer" (le plan n'a pas besoin de la place : la ligne se
