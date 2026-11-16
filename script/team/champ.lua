@@ -35,6 +35,10 @@ local Lu = require("shared.team.champ_lecture") -- C5-PERF : composante du gisem
 local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Stock = require("script.team.stock") -- lot COMBUSTIBLE : combustible au coffre du QG, au journal [FO-CHAMP-COMBUSTIBLE]
+local Auto = require("shared.ai3.automatiser") -- n099 : A.choose_pole, l'arbitre du poteau (le même que le mall)
+local Mods = require("shared.team.modules") -- n099 : M.cheapest_pole (poteaux triés du plus court fil au plus long, lus aux données)
+local Book = require("shared.team.book") -- n099 : livre de la main de la force (recettes ouvertes), pour l'arbitre du poteau
+local Harvest = require("script.team.harvest") -- n099 : matières naturelles récoltables (bois), comme le mall
 local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
@@ -141,6 +145,47 @@ local function enabled(f, item)
   return r ~= nil and r.enabled == true
 end
 
+-- n099 : livre de la main par force (mémoire LOCALE, jamais dans global), refait quand la dernière recherche finie de la force change
+-- (LuaForce.previous_research : une recherche finie peut ouvrir une recette ; rien de plus n'en dépend)
+local POLE_BOOKS = {}
+local function pole_book(f)
+  local force = game.forces[f.force]
+  local pr = force and force.previous_research
+  local key = tostring(pr and pr.valid ~= false and pr.name or nil)
+  local c = POLE_BOOKS[f.force]
+  if c and c.key == key then return c.book end
+  local b = Book.from_game(game.recipe_prototypes, { allowed = function(name)
+    local r = force and force.recipes[name]
+    return r ~= nil and r.enabled
+  end })
+  POLE_BOOKS[f.force] = { key = key, book = b }
+  return b
+end
+
+--- n099 (interblocage B5, banc N099-INT1, graine 4251870853 : « noyau non couvert (manque steel-plate 67) », pile SUSPENDUE, aucun
+--- assembleur pour votre équipe ni pour amber) : le poteau d'un cadre NEUF passe par l'arbitre du mall (A.choose_pole, le moins cher
+--- obtenable), et une matière fabriquée qui manque au stock doit être au coffre ou produite par la force (débit des dix dernières minutes,
+--- statistiques de production du moteur). Rend le nom, ou nil (aucun obtenable).
+local POLE_PICK = {} -- n099 : [force] = { tick, nom } (mémoire LOCALE : un choix par force et par tick, mêmes lectures au même tick)
+function Champ.pole_choice(f)
+  local force = game.forces[f.force]
+  if not force then return nil end
+  local memo = POLE_PICK[f.force]
+  if memo and memo.tick == game.tick then return memo.name end
+  local function made_ok(item)
+    if Stock.count(f, item) > 0 then return true end
+    local ok, n = pcall(function()
+      return force.item_production_statistics.get_flow_count({ name = item, input = true,
+        precision_index = defines.flow_precision_index.ten_minutes })
+    end)
+    return ok and (n or 0) > 0
+  end
+  local name = Auto.choose_pole(pole_book(f), Stock.contents(f), Harvest.reachable(f), made_ok)
+  if not (name and enabled(f, name) and game.entity_prototypes[name]) then name = nil end
+  POLE_PICK[f.force] = { tick = game.tick, name = name }
+  return name
+end
+
 --- Lot FONDERIE : pièce de logistique la moins chère (vitesse de tapis, puis nom) d'un type de prototype (« splitter »,
 --- « underground-belt ») dont la recette de l'objet est débloquée pour la force : { name, maxd } ou nil. Aucun nom écrit ici.
 local function logistic(f, typ)
@@ -159,7 +204,7 @@ local function logistic(f, typ)
 end
 
 --- Caractéristiques lues aux prototypes, et les noms : (data, names) ou nil, raison.
-function Champ.data(f, kind)
+function Champ.data(f, kind, frame)
   local spec = T.outposts[kind]
   if not spec then return nil, "avant-poste inconnu" end
   local dp = game.entity_prototypes[T.DRILL_ELECTRIC]
@@ -171,9 +216,16 @@ function Champ.data(f, kind)
   local prod = force and force.mining_drill_productivity_bonus or 0
   local rate = dp.mining_speed / (rp.mineable_properties.mining_time or 1) * (1 + prod)
   local pole
-  for _, n in ipairs(D.POLES) do
-    local pp = game.entity_prototypes[n]
-    if pp and not pole and enabled(f, n) then pole = { name = n, proto = pp } end
+  -- n099 : un cadre FIGÉ garde le poteau de son treillis (frame.pole, posé à sa création) ; un cadre neuf (ou d'avant n099) : l'arbitre
+  local keep = frame and frame.pole
+  if keep and enabled(f, keep) and game.entity_prototypes[keep] then pole = { name = keep, proto = game.entity_prototypes[keep] } end
+  if not pole then
+    local n = Champ.pole_choice(f)
+    if n then pole = { name = n, proto = game.entity_prototypes[n] } end
+  end
+  if not pole then -- (aucun obtenable : le moins cher débloqué, jamais un plus cher faute de mieux)
+    local n = Mods.cheapest_pole(function(x) return enabled(f, x) and game.entity_prototypes[x] ~= nil end)
+    if n then pole = { name = n, proto = game.entity_prototypes[n] } end
   end
   if not pole then
     local n = D.POLES[#D.POLES]
@@ -540,7 +592,7 @@ local SPEC = {}
 function SPEC.ore(J)
   local f, surface, o, frame, axis_force = J.f, J.surface, J.o, J.frame, J.axis_force
   if not J.rd_ore then
-    local data, names = Champ.data(f, o.kind)
+    local data, names = Champ.data(f, o.kind, frame) -- n099 : le poteau du cadre figé
     if not data then return true, nil, names end
     J.data0, J.names0 = data, names
     J.rd_ore = { pos = { x = o.pos.x, y = o.pos.y }, R = Champ.CFG.radius, name = T.outposts[o.kind].resource }
@@ -716,6 +768,7 @@ function SPEC.fin(J)
     design = data.design, logistics = data.logistics,
     axis = (not frame) and axis_force or nil, -- s42 gisements : orientation imposee au plan pur (cadre neuf)
     window = { x0, y0, x1, y1 }, -- lot FONDERIE-BOUT : tuiles lues (obstacles connus) ; une colonne ailleurs ne sort pas de ce rectangle
+    pole_name = names.pole, -- n099 : nom du poteau du plan, gardé au cadre (frame.pole) ; la règle pure ne le lit pas
   }
   if coal then
     spec.coal = { tiles = coal, rate = data.coal_rate }
@@ -895,6 +948,7 @@ local function fin_chunk(f, o, J)
       o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
   end
   FRAME_PENDING[#FRAME_PENDING + 1] = { f = f, plan = plan, spec = spec, oid = o.id, kind = o.kind }
+  if plan.frame then plan.frame.pole = spec.pole_name end -- n099 : le cadre figé garde son poteau (treillis), Champ.data le relit
   return plan.frame, prs, plan
 end
 

@@ -186,13 +186,22 @@ A.POLE_BATCH = 12 -- lot ELECTRIQUE (d, lead 8/11) : la taille du gabarit de fon
 --- Lot KIT : `harvest` = { [matière] = vrai } des matières naturelles que l'équipe peut RÉCOLTER (des arbres à portée pour le
 --- bois, lus à f.team.ia3.reach) : une matière naturelle récoltable n'interdit plus le poteau qui l'utilise, l'ouvrier la
 --- coupe (les factions n'ont plus de bois au coffre de départ). Sans arbre à portée : comportement d'avant (le moyen).
-function A.choose_pole(book, stock, harvest)
+--- n099 (interblocage du champ, B5) : `made_ok(objet)` optionnel : une matière FABRIQUÉE qui manque au stock ne passe que si
+--- made_ok la dit obtenable (stock réel ou débit mesuré, lus par l'appelant). Sans made_ok : la règle d'avant (le mall). Le champ s'en
+--- sert : sinon le poteau moyen passait sans acier ni production d'acier, la bande attendait l'acier, et le noyau de la pile avec elle.
+function A.choose_pole(book, stock, harvest, made_ok)
   stock = stock or {}
   return M.cheapest_pole(function(name)
     if (stock[name] or 0) >= A.POLE_BATCH then return true end
     if not book:handcraftable(name) then return false end
     local plan = book:plan({ { name, A.POLE_BATCH } }, stock)
-    return A.only_made(book, plan.raw, harvest) -- lot CC-BOIS : même lecture que l'achat du bloc (A.short_of), décision inchangée
+    if not A.only_made(book, plan.raw, harvest) then return false end -- lot CC-BOIS : même lecture que l'achat du bloc (A.short_of)
+    if made_ok then
+      for _, it in ipairs(A.short_of(book, plan.raw, harvest)) do
+        if not made_ok(it[1]) then return false end
+      end
+    end
+    return true
   end)
 end
 
