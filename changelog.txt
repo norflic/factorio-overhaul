@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.9
+Date: 2026-11-16
+  Bugfixes:
+    - Votre equipe pose enfin des assembleurs : la fonte du cuivre venait de champs ouverts sans avant-poste, que la garde des tiers et le mall ne lisaient pas (0 assembleur sur 90 min en 0.9.8, 24 en 0.9.9). / Your team finally builds assemblers: copper smelting came from fields without an outpost, unseen by the tier guard and the mall (0 assemblers over 90 min in 0.9.8, 24 in 0.9.9).
+    - Fonderies : une colonne deportee et son tapis de liaison ne se posent plus sur les fours d'une autre bande du meme champ (202 fours ecartes et 5 bandes sans four chez le joueur en 0.9.8, 0 en 0.9.9). / Smelters: a remote column and its link belt no longer land on another band's furnaces (202 discarded furnaces in 0.9.8, 0 in 0.9.9).
+    - Ameliorations : le verrou qui retenait tapis et bras tant que le plus grand gisement n'etait pas couvert a 80 % ne joue plus que si la pose attend vraiment le budget (gisements a 600 % : tapis montes 0 % -> ~9 %). / Upgrades: the lock holding belts and inserters until the largest deposit was 80 % covered now applies only when placement truly waits for budget (belt upgrades 0 % -> ~9 %).
+    - Poteaux des champs : un cadre neuf prend le poteau le moins cher obtenable (le poteau moyen seulement si l'acier est au coffre ou produit) ; le poteau moyen sans acier bloquait la pile et tout le capital (votre equipe et amber : 0 assembleur). / Field poles: a new frame takes the cheapest obtainable pole; medium poles without steel were deadlocking the stack and all capital.
+    - Banc (graine du DC 4251870853, 90 min) : fer + cuivre toutes equipes 474 275 -> 517 985 (+9,2 %) a 89 min. Une seule graine. Restent : pile souvent suspendue faute de pierre, montee des tapis lente (kits), 15 tapis en impasse a 90 min. / Bench (DC seed, 90 min): all teams iron+copper +9.2 %. One seed. Remaining: stack often suspended for lack of stone, slow belt upgrades (kits), 15 dead-end belts at 90 min.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.8
 Date: 2026-11-16
   Features:
