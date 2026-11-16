@@ -66,6 +66,14 @@ local function battery(E, quiet)
   ok(has(l, "FLUX:deficit_electrique min=81 - etat=fin duree=9"), "deficit ferme a 81 min, duree 9 min")
   ok(st.stats["FLUX:deficit_electrique"].n == 1 and st.stats["FLUX:deficit_electrique"].dur == 9, "bilan : 1 episode, 9 min")
 
+  -- 2 bis. Sous-production : 4 min ne font pas une erreur (le niveau du bilan clignote), 6 min si
+  local sm = E.new()
+  for m = 1, 4 do E.step(sm, "amber", m, E.conds({ sous = { { "x", -20, 0 } } }, cfg), cfg) end
+  E.step(sm, "amber", 5, {}, cfg)
+  ok(sm.stats["FLUX:deficit_matiere"] == nil, "sous-production de 4 min : rien")
+  for m = 6, 12 do E.step(sm, "amber", m, E.conds({ sous = { { "x", -20, 0 } } }, cfg), cfg) end
+  ok(sm.stats["FLUX:deficit_matiere"] and sm.stats["FLUX:deficit_matiere"].n == 1, "sous-production durable : erreur")
+
   -- 3. Chaudières à sec (emerald, 4251, 87 min) : 3/15 nourries, capacité utile 5 400 kW < 32 093 kW
   local em = { elec = { demand = 32093, cap = 27000, fed = 3, boilers = 15 } }
   ok(cats_of(E, em, cfg)["FLUX:chaudieres_a_sec"] == 1, "emerald 87 min : chaudieres a sec")

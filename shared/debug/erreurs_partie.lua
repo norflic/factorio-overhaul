@@ -79,6 +79,7 @@ function E.seuils(ext)
   }
   s.durable_of = {
     ["FLUX:deficit_electrique"] = s.durable, ["FLUX:chaudieres_a_sec"] = s.durable, ["FLUX:besoin_non_couvert"] = s.durable,
+    ["FLUX:deficit_matiere"] = s.durable, -- (le niveau « sous » du bilan clignote : 3 relevés pour entrer, 1 pour sortir)
     ["INVESTISSEMENT:epargne_dort"] = s.durable, ["PLACEMENT:foreuse_sans_sortie"] = s.durable,
     ["PLACEMENT:four_sans_combustible"] = s.durable, ["PLACEMENT:sans_courant"] = s.durable,
     ["PLACEMENT:bande_sans_foreuses"] = s.stall, ["DEFENSE:defense_manquante"] = s.stall,
