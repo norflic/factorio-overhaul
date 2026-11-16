@@ -256,6 +256,51 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §6 Lot n099-amelio (retour du DC sur la 0.9.8 : « pas de phase d'amélioration massive, qui devrait être automatique une fois que le
+-- budget le permet ») : banc N098-INT2, graine 4251870853, carte à 600 % : le verrou a tenu de 1,7 à 90 min pour les cinq équipes
+-- (tapis montés 0/220 chez azure à 88,8 min, logistics-2 fini à 20,4 min) parce qu'aucun gisement de 2000 à 5000 tuiles n'atteint
+-- 80 % en 90 min, alors que la pose n'attendait jamais le budget (1 refus « budget » dans la partie, épargne de 30 000 MU et plus).
+-- Règle : un grand gisement court ne retient que si sa pose ATTEND LE BUDGET (d.budget_ok faux ou absent : la dernière décision de la
+-- capitalisation a refusé couvrir:/ouvrir: de ce gisement pour le budget, ou pas encore de décision).
+---------------------------------------------------------------------------------------------------
+say("§6 verrou levé quand la pose n'attend pas le budget")
+local function run_amelio(V)
+  local r = {}
+  -- relevé d'azure à 88,8 min (journal [FO-CAPI-COUV] de N098-INT2) ; le cuivre 4974 n'a jamais été ouvert
+  local azure = {
+    { id = 11, resource = "fer", tiles = 3052, covered = 871, budget_ok = true },
+    { id = 12, resource = "cuivre", tiles = 4974, covered = 0, budget_ok = true },
+    { id = 13, resource = "charbon", tiles = 2991, covered = 508, budget_ok = true },
+  }
+  r.paid = V.hold(deps(azure), BIG, { small = 300 })
+  azure[2].budget_ok = nil -- la pose du cuivre attend le budget
+  local h, why = V.hold(deps(azure), BIG, { small = 300 })
+  r.waiting, r.why = h, why
+  azure[2].budget_ok = false
+  r.waiting_false = V.hold(deps(azure), BIG, { small = 300 })
+  -- un petit gisement qui attend le budget ne retient pas (seul le plus grand de chaque minerai est jugé)
+  r.small_wait = V.hold(deps({ { id = 14, resource = "fer", tiles = 3052, covered = 871, budget_ok = true },
+    { id = 15, resource = "fer", tiles = 900, covered = 0 } }), BIG, { small = 300 })
+  return r
+end
+local function judge_amelio(r, tag)
+  local ok = check(r.paid == false, tag .. "grands gisements courts dont la pose est payée : permis (montée massive des tapis et des bras)")
+  ok = check(r.waiting == true, tag .. "pose du cuivre 0/4974 en attente du budget : retenu") and ok
+  ok = check(type(r.why) == "string" and r.why:find("cuivre 0/4974", 1, true) ~= nil and r.why:find("fer", 1, true) == nil,
+    tag .. "la cause ne nomme que le gisement qui attend (" .. tostring(r.why) .. ")") and ok
+  ok = check(r.waiting_false == true, tag .. "budget_ok = false : retenu") and ok
+  ok = check(r.small_wait == false, tag .. "petit gisement en attente, grand payé : permis") and ok
+  return ok
+end
+judge_amelio(run_amelio(Vg), "§6 ")
+do -- le producteur du drapeau : la capitalisation marque le refus pour le budget et le recopie sur les gisements recensés
+  local sh = read("shared/ai3/capitalisation.lua")
+  check(sh:find("ctx.refus[o.key].budget = true", 1, true) ~= nil, "§6 shared capitalisation : refus pour le budget marqué (budget = true)")
+  local rt = read("script/ai3/capitalisation.lua")
+  check(rt:find("d.budget_ok = not starved[", 1, true) ~= nil, "§6 script capitalisation : budget_ok posé sur chaque gisement recensé")
+  check(rt:find("budget_ok = (old and old.budget_ok)", 1, true) ~= nil, "§6 script capitalisation : budget_ok gardé au recensement (pas de bascule)")
+end
+
 -- §5 Mutants
 ---------------------------------------------------------------------------------------------------
 say("§5 mutants")
@@ -278,6 +323,10 @@ do -- coupe 2 : le seuil de couverture ignoré
   check(not quiet(function() return judge_vg(run_vg(M), "") end), "§5 mutant « seuil de 80 % ignoré » vu")
   local M2 = mutant("shared.team.verrou_gisements", "shared/team/verrou_gisements.lua", "(d.tiles or 0) > (b.tiles or 0)", "(d.tiles or 0) < (b.tiles or 0)")
   check(not quiet(function() return judge_vg(run_vg(M2), "") end), "§5 mutant « plus petit gisement jugé » vu")
+end
+do -- lot n099-amelio : l'attente du budget ignorée (règle d'avant : la seule couverture retient)
+  local M = mutant("shared.team.verrou_gisements", "shared/team/verrou_gisements.lua", "and not d.budget_ok", "")
+  check(not quiet(function() return judge_amelio(run_amelio(M), "") end), "§5 mutant « attente du budget ignorée » vu")
 end
 do -- coupe 3 : le verrou du capital retiré
   local M = mutant("shared.ai3.capital", "shared/ai3/capital.lua", "if ctx.rang_hold then", "if false then")

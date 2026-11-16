@@ -722,7 +722,8 @@ local function census_one(f, cs, tick)
           y1 = c.y1, cx = c.cx, cy = c.cy, tick = tick, cut = c.cut, danger = hostile or nil,
           covered = old and old.covered or (cs.deps[c.id] and cs.deps[c.id].covered) or nil,
           cov_tick = (old and old.cov_tick) or (cs.deps[c.id] and cs.deps[c.id].cov_tick) or nil,
-          full = (old and old.full) or (cs.deps[c.id] and cs.deps[c.id].full) or nil } -- (lot PAVAGE-GEANT : verdict gardé jusqu'à la décision suivante)
+          full = (old and old.full) or (cs.deps[c.id] and cs.deps[c.id].full) or nil, -- (lot PAVAGE-GEANT : verdict gardé jusqu'à la décision suivante)
+          budget_ok = (old and old.budget_ok) or (cs.deps[c.id] and cs.deps[c.id].budget_ok) or nil } -- (lot n099-amelio : idem, sans bascule du verrou)
         -- au plus Capi.DEP_MAX gisements : les plus lointains sont oubliés
         local ids = sorted_keys(cs.deps)
         if #ids > Capi.DEP_MAX then
@@ -2280,6 +2281,14 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
   for _, c in ipairs(res.coverage or {}) do
     local d = cs.deps[c.id]
     if d then d.full = (c.free or 0) <= 0 or (c.kappa or 0) >= Ca.KAPPA end
+  end
+  -- Lot n099-amelio : la pose de chaque gisement recensé attend-elle le budget ? (refus couvrir:/ouvrir: marqué `budget` par la règle) ;
+  -- lu par le verrou des améliorations (shared/team/verrou_gisements.lua) : une pose payée ne retient plus tapis et bras
+  local starved = {}
+  for _, r in ipairs(res.refus or {}) do if r.budget then starved[tostring(r.key)] = true end end
+  for _, id in ipairs(sorted_keys(cs.deps)) do
+    local d = cs.deps[id]
+    d.budget_ok = not starved["couvrir:" .. tostring(id)] and not starved["ouvrir:" .. tostring(id)]
   end
   couv_report(f, cs, res, input, D, tick) -- lot CAPI-MESURE
   Ind.think(f, cs, res, view, book, tick) -- lot INDUSTRIE I6 : demande non servie -> patron (rangée ou bloc de mall) -> module
