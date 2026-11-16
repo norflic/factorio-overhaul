@@ -228,10 +228,9 @@ local function belt_class(f, surface, pid, ent)
   return E.cul_classe({ suite_a_poser = pending, preneurs = takers(surface, ent.force, ent), occ_suiv = occ, propre = pid }), n
 end
 
-local function scan_belts(f, surface, t)
+local function scan_belts(f, surface, t, budget)
   local b = f.build
-  if not (b and b.order and b.projects) then return end
-  local budget = Bilan.READ_MAX
+  if not (b and b.order and b.projects) or budget <= 0 then return end
   local steps, reads = 0, 0
   local cur = t.cur
   while reads < budget and steps < budget * 20 do
@@ -389,11 +388,18 @@ function ErrP.think(f, surface, tick)
   if not ErrP.ENABLED then return end
   local key = tostring(f.key or "player")
   local t = team_state(key)
-  if not t or tick < (t.next or 0) then return end
+  if not t then return end
+  -- Balayage des tapis ÉTALÉ sur les pensées : Bilan.READ_MAX lectures par E.PERIOD, au prorata des ticks écoulés (pas de pic par minute)
+  local budget = math.min(Bilan.READ_MAX, math.floor(Bilan.READ_MAX * (tick - (t.scan_t or tick)) / E.PERIOD))
+  t.scan_t = tick
+  if budget > 0 and surface and surface.valid then
+    local ok_s, err_s = pcall(scan_belts, f, surface, t, budget)
+    if not ok_s and not t.err_said then t.err_said = true; log(string.format("%s %s ERREUR du balayage des tapis : %s", E.TAG, key, tostring(err_s))) end
+  end
+  if tick < (t.next or 0) then return end
   t.next = tick + E.PERIOD
   local ok, err = pcall(function()
     CFG = CFG or E.seuils({ cap = ErrP.EXT.cap })
-    if surface and surface.valid then scan_belts(f, surface, t) end
     local facts = facts_of(f, surface, t, tick)
     local minute = math.floor(tick / 3600 + 0.5)
     if t.st.minute and minute <= t.st.minute then minute = t.st.minute + 1 end
