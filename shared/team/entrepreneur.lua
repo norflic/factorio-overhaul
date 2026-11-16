@@ -254,6 +254,13 @@ function E.feed_first(list)
   return head
 end
 
+--- Lot EXPO : le champ ciblé par un déclenchement peut-il demander sa bande TOUT DE SUITE ? inp = { stage (suivi de la migration, nil : jamais
+--- suivi), retry (tick du prochain essai), now }. Oui s'il est en veille (aucune bande à lui en cours) et hors de sa pause de nouvel essai.
+function E.ready_field(inp)
+  if inp.stage ~= nil and inp.stage ~= "veille" then return false end
+  return (inp.retry or 0) <= (inp.now or 0)
+end
+
 --- entrepreneur-craft-0716 : ordre de réservation au coffre (f.build.order) : la bande entrepreneur passe devant tout, sauf les projets
 --- qui réparent (rouverts : front[id] vrai). order = liste de numéros, pid = la bande, front = { [id] = vrai }. Rend une liste neuve.
 function E.order_front(order, pid, front)
