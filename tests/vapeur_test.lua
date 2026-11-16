@@ -48,9 +48,17 @@ check(nb == 1, "un chantier ouvert ne retient pas quand la demande nominale manq
 n = base(); n.nominal_kw = 150; n.pending = C.MAX_PARALLEL
 nb, why = C.growth({}, n)
 check(nb == nil and why == "un chantier de centrale est ouvert", "au plus C.MAX_PARALLEL chantiers")
-n = base(); n.nominal_kw = 150; n.done = C.MAX_PLANTS
+-- lot n100-energie (B4, réf. 0.9.9 : 16 200 kW pour 27 456 kW nominaux, « extension RETENUE : plafond de centrales » de 60 à 89 min) :
+-- sous la demande nominale, le plafond du NOMBRE de centrales ne retient plus l'extension ; hors demande nominale, il garde
+n = base(); n.nominal_kw = 19492; n.done = C.MAX_PLANTS + 1; n.boiler_kw = 1800
 nb, why = C.growth({}, n)
-check(nb == nil and why == "plafond de centrales", "plafond de centrales garde")
+check(nb ~= nil and nb >= 1, "n100-energie : demande nominale au-dela du plafond de centrales : extension (" .. tostring(nb) .. ", " .. tostring(why) .. ")")
+n = base(); n.done = C.MAX_PLANTS; n.load = 1
+nb, why = C.growth({ saturated = true }, n)
+check(nb == nil and why == "plafond de centrales", "n100-energie : sans demande nominale, plafond de centrales garde (" .. tostring(why) .. ")")
+n = base(); n.nominal_kw = 19492; n.done = C.MAX_PLANTS + 1; n.coal_short = true
+nb, why = C.growth({}, n)
+check(nb == nil and why == C.COAL_REASON, "n100-energie : au-dela du plafond, chaudieres a sec : le charbon d'abord")
 n = base(); n.nominal_kw = 150; n.cool = true
 nb = C.growth({}, n)
 check(nb == nil, "pause apres refus gardee")
