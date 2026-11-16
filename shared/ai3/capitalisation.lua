@@ -1748,7 +1748,7 @@ local function extraction_options(ctx, plan, req, item, def, out, sat_only)
       local sat_order = false
       if n == 0 and ctx.input.saturation then
         local ok, why = Cv.saturation({ free = free, kappa = kappa, kappa_max = Ca.KAPPA, electric = d.energy ~= "burner",
-          crisis = ctx.threat and not starved_in(ctx, item) })
+          crisis = (ctx.threat or ctx.input.survie == true) and not starved_in(ctx, item) }) -- (lot n100-panel : la survie, que Sv.capi retire de ctx.threat)
         ctx.sat[tostring(f.id)] = { ok = ok, why = why }
         if ok then
           n = math.max(0, math.min(free, math.ceil((Ca.KAPPA * (f.tiles or 0) / 1000 - covered) / math.max(Ca.EPS, cov) - Ca.EPS)))

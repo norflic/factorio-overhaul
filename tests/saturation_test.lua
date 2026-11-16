@@ -299,6 +299,29 @@ check(o11b and o11b.smelt_n == Ca.fed_max(o11b.n * 30, 0, 18.75), "§11b fours d
   .. tostring(o11b and o11b.smelt_n) .. " fours)")
 check(o11b and o11b.T <= r11b.tmax, "§11b retour sous le seuil du caractere (" .. tostring(o11b and o11b.T) .. " <= " .. tostring(r11b.tmax) .. ")")
 
+-- 11c. Lot n100-panel (A2, graine 271828182, votre équipe : mode survie pour le fer de 32 à 90 min, cuivre « sature » à 4 300 plaques ;
+-- seuls ordres d'extraction envoyés pendant le séjour : couvrir cuivre x4 à 43 min et x19 à 77 min, une bande de 26 foreuses dont le kit
+-- prend 1 335 plaques) : la garde « crise (survie ou QG menacé) » de Cv.saturation ne recevait que la menace (ctx.threat), que Sv.capi
+-- éteint justement en survie. En survie, la saturation d'une matière qui ne manque pas est refusée ; celle d'une matière en pénurie passe.
+local inp11c = scene()
+inp11c.deposits[#inp11c.deposits + 1] = { id = "d2", resource = "copper-ore", tiles = 2000, amount = 1e7, open = true, dist = 70 }
+inp11c.stock["copper-plate"] = 4000
+inp11c.stock["electronic-circuit"] = 20000
+inp11c.sinks[#inp11c.sinks + 1] = { item = "copper-plate", rate = 20 }
+inp11c.survie = true
+inp11c.starved = { ["iron-ore"] = true, ["iron-plate"] = true }
+local r11c = Ca.decide(inp11c, {})
+local s11c = r11c.sat and r11c.sat["d2"]
+check(find(r11c, "couvrir:d2") == nil, "§11c survie : aucun ordre de saturation sur le cuivre qui ne manque pas")
+check(s11c and s11c.ok == false and tostring(s11c.why):find("crise", 1, true), "§11c survie : la cause est ecrite (" .. tostring(s11c and s11c.why) .. ")")
+check(ordre(r11c) ~= nil, "§11c survie : la matiere en penurie (fer) garde son ordre")
+local inp11d = scene()
+inp11d.deposits[#inp11d.deposits + 1] = { id = "d2", resource = "copper-ore", tiles = 2000, amount = 1e7, open = true, dist = 70 }
+inp11d.stock["copper-plate"] = 4000
+inp11d.stock["electronic-circuit"] = 20000
+inp11d.sinks[#inp11d.sinks + 1] = { item = "copper-plate", rate = 20 }
+check(find(Ca.decide(inp11d, {}), "couvrir:d2") ~= nil, "§11c hors survie : le cuivre garde sa saturation (inchange)")
+
 -- 12. Mutants : le source muté est écrit dans un dossier jetable lu EN PREMIER (FO_CAPI_SRC, comme le témoin A/B) ; la suite complète rejouée dans
 -- un processus fils doit échouer (code de sortie non nul).
 if not os.getenv("FO_SAT_CHILD") and not AB_SRC then
@@ -317,6 +340,8 @@ if not os.getenv("FO_SAT_CHILD") and not AB_SRC then
     { "shared/ai3/capitalisation.lua", "CAPI-RETOUR : fours doubles", "Ca.fed_max(n * rho, 0, Ca.in_per_min", "Ca.fed_max(2 * n * rho, 0, Ca.in_per_min" },
     { "shared/ai3/capitalisation.lua", "CAPI-RETOUR : fours de l'ordre absents", "Ca.fed_max(n * rho, 0, Ca.in_per_min", "Ca.fed_max(0, 0, Ca.in_per_min" },
     { "shared/ai3/couverture.lua", "boucle : saturation sans effet", "and not a.saturation then return false,", "then return false," },
+    { "shared/ai3/capitalisation.lua", "n100-panel : survie absente de la crise", "crisis = (ctx.threat or ctx.input.survie == true) and not", "crisis = ctx.threat and not" },
+    { "shared/ai3/capitalisation.lua", "n100-panel : penurie non exemptee", "crisis = (ctx.threat or ctx.input.survie == true) and not starved_in(ctx, item)", "crisis = (ctx.threat or ctx.input.survie == true)" },
   }
   local tmp = os.getenv("TEMP") or "."
   local killed = 0
