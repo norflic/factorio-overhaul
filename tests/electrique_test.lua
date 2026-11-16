@@ -248,6 +248,15 @@ local function suite(E)
     check(E.thermal(batir) == true, "8e : un avant-poste NEUF (pas un agrandissement) garde la regle d'avant")
     local cap0 = { el_live = 0, obtainable = true, plants = 0, poles = true, healthy = true, extend = true, net = true }
     check(E.thermal(cap0) == false, "8f : capacite lue a 0 (centrale qui produit pourtant), reseau en place : agrandissement refuse")
+    -- lot n102-centrale : partie du DC 0.9.10 (dc-live2), player 79,6 min : extend:2 (charbon, 4 thermiques) refuse « reseau electrique en place »
+    -- alors que 9 chaudieres sur 17 sont a sec (production 12 600 kW sur 30 600 : reseau « sain »), croissance retenue C.COAL_REASON
+    local dc = { el_live = 23, obtainable = true, plants = 1, poles = true, healthy = true, res_live = 23, fuel = true, kind_outposts = 1,
+      extend = true, net = true, phase = "mid", elec_drill_stock = 0, dry = true }
+    check(E.thermal(dc) == true, "8g : n102 chaudieres a sec sous la charge : agrandissement thermique du charbon permis")
+    dc.dry = nil
+    check(E.thermal(dc) == false, "8h : n102 sans chaudiere a sec : refuse comme avant")
+    local fer2 = { el_live = 23, obtainable = true, plants = 1, poles = true, healthy = true, res_live = 0, kind_outposts = 1, extend = true, net = true, dry = true }
+    check(E.thermal(fer2) == false, "8i : n102 chaudieres a sec : un agrandissement d'un AUTRE minerai reste refuse")
   end
   return failures - before
 end
@@ -260,6 +269,13 @@ section("8. Aucun nom d'objet dans la regle")
 do
   local names = { "mining%-drill", "electric%-pole", "stone%-furnace", "iron%-chest", "\"coal\"", "iron%-ore", "copper%-ore" }
   for _, n in ipairs(names) do check(SRC:find(n) == nil, "8 : pas de « " .. n .. " » dans " .. SRC_PATH) end
+end
+
+section("8 ter. Lot n102-centrale : la glue passe les chaudieres a sec (consigne de la croissance) a la regle")
+do
+  local fh = assert(io.open("script/team/electrique.lua", "rb")); local glue = fh:read("*a"); fh:close()
+  check(glue:find("dry = (f.build and f.build.grow and f.build.grow.coal_held) == true or nil }", 1, true) ~= nil, "8t : le verdict lit f.build.grow.coal_held")
+  check(glue:find("healthy = v.healthy, dry = v.dry,", 1, true) ~= nil, "8t : inputs passe dry a E.thermal")
 end
 
 section("8 bis. Branchement au cerveau : projet d'avant-poste bloqué (shared/ai3/projets.lua, EMIT.outpost)")
@@ -367,9 +383,10 @@ local function mutate(from, to)
 end
 
 local mutants = {
-  { "thermal : C3 agrandissement en reseau ignore", "if s.extend and s.net and not (s.fuel and s.healthy == false) then", "if false then" },
-  { "thermal : C3 reseau ignore", "if s.extend and s.net and not (s.fuel and s.healthy == false) then", "if s.extend and not (s.fuel and s.healthy == false) then" },
-  { "thermal : C3 exception combustible supprimee", "if s.extend and s.net and not (s.fuel and s.healthy == false) then", "if s.extend and s.net then" },
+  { "thermal : C3 agrandissement en reseau ignore", "if s.extend and s.net and not fuel_stop then", "if false then" },
+  { "thermal : C3 reseau ignore", "if s.extend and s.net and not fuel_stop then", "if s.extend and not fuel_stop then" },
+  { "thermal : C3 exception combustible supprimee", "if s.extend and s.net and not fuel_stop then", "if s.extend and s.net then" },
+  { "thermal : n102 chaudieres a sec ignorees (ancien code)", "local fuel_stop = s.fuel and (s.healthy == false or s.dry == true)", "local fuel_stop = s.fuel and s.healthy == false" },
   { "thermal : interblocage sans avant-poste rendu (CHARBON-JOUEUR)", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if false then" },
   { "thermal : sans avant-poste, voie electrique ignoree", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if num(s.kind_outposts) == 0 then" },
   { "thermal : avant-postes ignores", "if num(s.kind_outposts) == 0 and s.elec_path == false then", "if s.elec_path == false then" },
@@ -377,16 +394,16 @@ local mutants = {
   { "thermal : obtenable ignore", "if not s.obtainable then return true, \"foreuse electrique pas obtenable\" end", "" },
   { "thermal : centrale ignoree", "if (num(s.plants) or 0) < 1 then return true, \"aucune centrale finie\" end", "" },
   { "thermal : poteaux ignores", "if not s.poles then return true, \"aucun poteau obtenable\" end", "" },
-  { "thermal : exception combustible supprimee", "if s.fuel and s.healthy == false then return true", "if false then return true" },
-  { "thermal : exception pour tout minerai", "if s.fuel and s.healthy == false then return true", "if s.healthy == false then return true" },
+  { "thermal : exception combustible supprimee", "  if fuel_stop then\n    return true", "  if false then\n    return true" },
+  { "thermal : exception pour tout minerai", "local fuel_stop = s.fuel and (s.healthy == false or s.dry == true)", "local fuel_stop = (s.healthy == false or s.dry == true)" },
   { "thermal : sans electrique ni poteaux refusee (interblocage 0.6.69)", "  if live <= 0 and stock < cfg.poles_min then\n", "  if false then\n" },
   { "thermal : poteaux au stock ignores", "  if live <= 0 and stock < cfg.poles_min then\n", "  if live <= 0 then\n" },
   { "thermal : jamais de retour thermique", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if false then" },
   { "thermal : retour avant le delai", "  if live <= 0 and (num(s.since) or 0) >= cfg.revert then", "  if live <= 0 and (num(s.since) or 0) > 0 then" },
   { "thermal : ressource affamee refusee", "  if s.res_live ~= nil and (num(s.res_live) or 0) <= 0 then", "  if false then" },
   { "thermal : electriques au coffre ignorees (arbre de decision)", "  if not dt_ok then return false, dt_why end\n", "" },
-  { "thermal : electriques au coffre ferment l'exception combustible", "if s.fuel and s.healthy == false then return true",
-    "if s.fuel and s.healthy == false and (num(s.elec_drill_stock) or 0) <= 0 then return true" },
+  { "thermal : electriques au coffre ferment l'exception combustible", "  if fuel_stop then\n",
+    "  if fuel_stop and (num(s.elec_drill_stock) or 0) <= 0 then\n" },
   { "thermal : toujours permise", "  return false, string.format(\"electrique possible", "  return true, string.format(\"electrique possible" },
   { "task_drills : craft d'autre objet compte", "    if t.item == drill then return max(1, floor(num(t.count) or 1)) end\n    return 0", "    return max(1, floor(num(t.count) or 1))" },
   { "task_drills : build sans type compte", "if t.kind ~= \"extend\" and not (t.kind == \"build\" and t.outpost_kind ~= nil) then return 0 end", "if t.kind ~= \"extend\" and t.kind ~= \"build\" then return 0 end" },

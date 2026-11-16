@@ -94,7 +94,13 @@ function E.thermal(s, cfg)
   -- gisement grandit par les bandes du champ (migration). Exception gardée : le combustible d'une centrale à l'arrêt.
   -- (avant les causes « matérielles » : banc C3-DIAG-71a2eea7, « aucune centrale finie (capacite 0 kW) » lu à 16,2 min alors que la
   -- centrale produisait 1 800 kW : les agrandissements de fer repartaient en thermique, 16 -> 27 paires)
-  if s.extend and s.net and not (s.fuel and s.healthy == false) then
+  -- Lot n102-centrale (partie du DC en 0.9.10, dc-live2, player 72,6 -> 83 min : 9 chaudières sur 17 à sec, production 53 % de 30 600 kW,
+  -- croissance RETENUE « etendre le charbon, pas la centrale » ; [FO-ELECTRIQUE] 79,6 min « thermique refusee : tache extend:2 (... 4 foreuse(s)
+  -- thermique(s)) : reseau electrique en place ») : la centrale « à l'arrêt » se lisait à la seule santé du réseau (healthy faux, soit
+  -- production nulle) ; des chaudières à sec sous la charge (s.dry : consigne C.COAL_REASON de la croissance, f.build.grow.coal_held)
+  -- arrêtent autant le combustible : sans cela, ni la centrale ni le charbon ne grandissaient (interblocage B5)
+  local fuel_stop = s.fuel and (s.healthy == false or s.dry == true)
+  if s.extend and s.net and not fuel_stop then
     return false, "reseau electrique en place : un agrandissement se fait en bandes electriques (champ), plus en paires thermiques"
   end
   if not s.obtainable then return true, "foreuse electrique pas obtenable" end
@@ -107,7 +113,9 @@ function E.thermal(s, cfg)
   if live <= 0 and (num(s.since) or 0) >= cfg.revert then
     return true, string.format("retour thermique : aucune foreuse electrique ne tourne %.0f min apres la bascule", (num(s.since) or 0) / 3600)
   end
-  if s.fuel and s.healthy == false then return true, "combustible de la centrale a l'arret : thermique permise" end
+  if fuel_stop then
+    return true, s.healthy == false and "combustible de la centrale a l'arret : thermique permise" or "chaudieres a sec sous la charge : combustible thermique permis"
+  end
   -- Lot CHARBON-JOUEUR (partie du DC, 0.7.114, graine 3338690507) : AUCUN avant-poste de ce type (kind_outposts = 0) et AUCUNE foreuse
   -- électrique qui s'ouvre seule sur cette ressource (elec_path = false : pas de fonderie à foreuses de la capitalisation) : l'électrique n'y
   -- arrive que par la migration d'un avant-poste (script/team/migration_champ.lua), qui n'existe pas. Refuser la thermique ici est un
