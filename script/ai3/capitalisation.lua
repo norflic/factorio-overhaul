@@ -110,6 +110,8 @@ local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvri
 local Capi = {}
 -- Lot DEBUG-CERVEAU : anneau des ordres envoyés et refusés AVEC leur raison, lu par la seule vue « Cerveau » (jamais par une décision). Champ, pas une locale (199 sur 200).
 Capi.Anneau = require("script.debug.anneau")
+-- n101-pierre : voie électrique d'une ressource consommée telle quelle (règle pure ; champ, pas une locale : 199 sur 200)
+Capi.Vb = require("shared.ai3.voie_brute")
 Capi.MS = require("script.ai3.modules_stock") -- lot MODULES-POSES : disposition du stock de modules (champ de Capi : aucune locale de plus)
 Capi.Mega = require("script.team.mega_fonderie") -- lot MEGA-FONDERIE : décision du bloc de fonte nourri par un bus (étape 11 ; champ, aucune locale de plus)
 
@@ -288,6 +290,20 @@ end
 ---------------------------------------------------------------------------------------------------
 local METHOD_OF_ORE = {}
 for _, m in ipairs(A.METHODS) do if m.ore and not METHOD_OF_ORE[m.ore] then METHOD_OF_ORE[m.ore] = m end end
+--- n101-pierre (A2) : méthode d'extraction de `res` pour la force `f` : la fonderie à foreuses de l'exécutant (METHOD_OF_ORE), sinon une
+--- méthode BRUTE dérivée des prototypes (Capi.Vb.of : ressource solide, produit sans valeur de combustible, foreuse électrique de
+--- l'exécutant qui mine sa catégorie, champ qui la pose en mode coffres). Avant, une ressource sans fonderie (pierre) n'avait aucune voie
+--- électrique : « extraire:stone (aucune foreuse disponible) », 0 foreuse électrique de pierre à 89 min chez toutes les équipes.
+function Capi.method_of(f, res)
+  local m = METHOD_OF_ORE[res]
+  if m then return m end
+  local D = Capi.data()
+  local rs = D.res[res]
+  local dm = elec_drill and D.drill_by[elec_drill]
+  local it = D.items[res]
+  return (Capi.Vb.of(nil, res, { fluid = rs == nil or rs.fluid, fuel = it and it.fuel_value or 0,
+    mines = dm ~= nil and rs ~= nil and dm.cats[rs.category] and true or false, champ = MigChamp.takes(f, res) ~= nil }))
+end
 local KIND_OF_RES = {}
 for _, kind in ipairs(T.OUTPOST_ORDER) do KIND_OF_RES[T.outposts[kind].resource] = kind end
 -- Lot CAPI-DEBIT : produits des fonderies à foreuses (données de l'exécutant, dans leur ordre) : leur stock libre ouvre des
@@ -1238,7 +1254,7 @@ function Capi.portes(f, cs, res, view, tick)
   local verdict = {} -- clé d'ordre -> { vrai/faux, raison } de la règle de couverture en boucle
   local function root_of(o)
     if o.kind ~= "couvrir" and o.kind ~= "ouvrir" then return nil end
-    local meth = METHOD_OF_ORE[o.resource]
+    local meth = Capi.method_of(f, o.resource)
     local n = meth and short[meth.product] or nil
     if n then product_of[o.key] = meth.product return n end
     local ok, why = Cv.loop({ kind = o.kind, product = meth and meth.product or nil, saturated = saturated,
@@ -1444,7 +1460,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- ferme le GISEMENT en cause (boucle des gisements ci-dessous, Rp.held).
   local drill_why = {}
   for _, res in ipairs(D.res_list) do
-    local meth = METHOD_OF_ORE[res]
+    local meth = Capi.method_of(f, res)
     local ok, miss = false, {}
     local why = nil
     if not meth then why = "aucune fonderie a foreuses pour ce minerai"
@@ -1452,6 +1468,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif plant_state == "refuse" then why = "centrale refusee (" .. tostring(plant_why) .. ")"
     elseif wait_plant then why = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
     elseif Em.drill_refused(slots, meth.product) then why = busy_text -- (lot DEPENSES2 : siège du complément ; règle pure, testée)
+    elseif meth.raw then ok = true -- n101-pierre : méthode brute, posée par le champ (to_champ), sans gabarit de module à vérifier
     else
       ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not ok then why = "objets impossibles : " .. table.concat(miss, ",") end
@@ -1485,8 +1502,8 @@ local function build_input(f, cs, view, book, tick, D, w)
     if elec[d.resource] then
       local far = math.max(math.abs(d.cx - f.hq_pos.x), math.abs(d.cy - f.hq_pos.y))
       if far > reach then blocked = "hors du plan directeur" end
-      local meth = METHOD_OF_ORE[d.resource]
-      smelter = meth.args[1]
+      local meth = Capi.method_of(f, d.resource)
+      smelter = not meth.raw and meth.args[1] or nil -- (n101-pierre : une méthode brute n'a pas de four)
       -- Lot CAPI-REPLI : repli par (produit, gisement) ; plafonné à 5 min si la couverture est sous 50 % et le besoin non servi
       if not blocked then
         blocked = Rp.held(repli, Rp.key(meth.product, id), tick, repli_opts(f, d, meth.product))
@@ -1957,7 +1974,7 @@ local function couv_report(f, cs, res, input, D, tick)
     for _, rec in ipairs(cs.open) do
       if tostring(rec.deposit) == tostring(id) then n_open[#n_open + 1] = rec.key .. "(" .. tostring(rec.exec) .. ")" end
     end
-    local meth = METHOD_OF_ORE[d.resource]
+    local meth = Capi.method_of(f, d.resource)
     local rk = meth and Rp.key(meth.product, id) or nil
     local df = input.drill_for[d.resource]
     local why_dep = refus["couvrir:" .. id] or refus["ouvrir:" .. id]
@@ -2233,7 +2250,7 @@ local function decide_finish(f, cs, res, input, view, book, tick, research)
     local rec, why
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
     local allowed, pwhy = pile_ok(f, o)
-    local meth_o = (o.kind == "couvrir" or o.kind == "ouvrir") and METHOD_OF_ORE[o.resource] or nil
+    local meth_o = (o.kind == "couvrir" or o.kind == "ouvrir") and Capi.method_of(f, o.resource) or nil
     local seat = Em.order_seat(room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) -- (règle pure, testée)
     local champ = to_champ(f, cs, o) -- (lot CHAMP : le champ n'est pas un module)
     local cseat = champ and Em.champ_seat(full, room, room_comp, cs.slots and cs.slots.comp, meth_o and meth_o.product) or nil
