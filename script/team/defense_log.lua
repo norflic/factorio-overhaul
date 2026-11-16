@@ -13,6 +13,7 @@
   Le bilan de la porte des tâches (gate_why) est écrit par script/ai3/comportement.lua (M.gate_report), appelé d'ici.
   État : f.team.def_log_t (tick de la dernière ligne), f.team.def_why (cumul, nombres) ; créés ici en événement, jamais à on_load.
 ]]
+local ErrPartie = require("script.debug.erreurs_partie") -- N104-ERREURS
 local Fr = require("shared.team.front")
 local T = require("shared.team.config")
 local Board = require("script.team.board")
@@ -83,6 +84,7 @@ function D.think(f, view, plan, tick)
     rk = view.reserve.under and "sous_reserve" or (view.reserve.busy and "tache") or (view.reserve.pick == nil and "aucun_lieu") or nil
   end
   if rk then why["reserve:" .. rk] = (why["reserve:" .. rk] or 0) + 1 end
+  ErrPartie.note_def(f, posts, tick) -- N104-ERREURS : postes (tourelles posées / voulues) notés pour le journal d'erreurs, lecture seule
   if team.def_log_t and tick - team.def_log_t < Fr.LOG_EVERY then return end
   team.def_log_t = tick
   local stock = view.stock or {}

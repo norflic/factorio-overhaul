@@ -43,6 +43,7 @@ local Conv = require("script.team.convoyeurs")
 local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 local Profiler = require("script.core.profiler") -- lot PERF3 : portées fines (mesure seulement)
 local Gens = require("script.team.generateurs") -- lot X10-S4 : registre des génératrices (plus de recherche sur toute la surface)
+local ErrPartie = require("script.debug.erreurs_partie") -- N104-ERREURS : relevé du champ noté pour le journal d'erreurs (lecture seule)
 local Rer = require("script.team.reroutage") -- lot s42 reroutage : tapis de l'équipe qui traverse le gisement, contourné avant d'être coupé
 Rer.Build = Build
 
@@ -1646,6 +1647,7 @@ function Champ.report(f, surface, tick)
   local out = { n = 0, sum = 0, max = 0, due = 0 }
   local fuel = { n = 0, min = nil }
   local cds = { n = 0, d = 0, stuck = 0, fini = 0, ids = {} } -- lot COUPLAGE : bandes culs-de-sac
+  local vides = {} -- N104-ERREURS : bandes au cadre posé sans foreuse (journal d'erreurs de partie seulement)
   local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
   local lost_all = {} -- s42 causal : pièces manquantes des bandes finies, par rôle, toutes bandes (lu par script/ai3/causal_rt.lua)
   local S = defines.entity_status
@@ -1662,7 +1664,7 @@ function Champ.report(f, surface, tick)
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
-      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0, dn = 0, run = 0, ffull = 0 } -- (s41 zone-aveugle : run, ffull)
+      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0, fn = 0, fnofuel = 0, dn = 0, run = 0, ffull = 0, cadre = 0, plan_d = 0 } -- (s41 zone-aveugle : run, ffull ; N104 : cadre, plan_d)
       -- s40 champ p4 : UNE recherche au moteur par pièce et par relevé (les trois boucles ci-dessous relisaient la même pièce jusqu'à trois
       -- fois : état, voie de charbon, sans courant) ; `found[i]` : l'entité valide de la pièce i, ou false ; mêmes lignes de journal
       local found = {}
@@ -1676,6 +1678,10 @@ function Champ.report(f, surface, tick)
         return c or nil
       end
       for i, e in ipairs(p.ents) do
+        -- N104-ERREURS (journal seulement) : pièces du cadre posées (tout sauf les foreuses) et foreuses au plan de la bande
+        if not e.skipped and not e.dropped then
+          if e.role == "champ-foreuse" then pd.plan_d = pd.plan_d + 1 elseif e.built then pd.cadre = pd.cadre + 1 end
+        end
         if e.built and not e.skipped and not e.dropped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = ent_of(i, e)
           if not (ent and ent.valid) then pd.lost[e.role or "?"] = (pd.lost[e.role or "?"] or 0) + 1
@@ -1690,11 +1696,12 @@ function Champ.report(f, surface, tick)
               d.n = d.n + 1
               pd.dn = pd.dn + 1
               if s == S.working then d.run = d.run + 1; pd.run = pd.run + 1 elseif s == S.waiting_for_space_in_destination then d.stuck = d.stuck + 1; pd.stuck = pd.stuck + 1
-              elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1 end
+                d.at_stuck = d.at_stuck or { x = e.x, y = e.y } -- (N104 : première position, journal seulement)
+              elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1; d.at_nopow = d.at_nopow or { x = e.x, y = e.y } end
             else
               fu.n = fu.n + 1
               pd.fn = pd.fn + 1
-              if s == S.no_fuel then pd.fnofuel = pd.fnofuel + 1 elseif s == S.full_output then pd.ffull = pd.ffull + 1 elseif s == S.working then pd.run = pd.run + 1 end
+              if s == S.no_fuel then pd.fnofuel = pd.fnofuel + 1; fu.at_nofuel = fu.at_nofuel or { x = e.x, y = e.y } elseif s == S.full_output then pd.ffull = pd.ffull + 1 elseif s == S.working then pd.run = pd.run + 1 end
               if ent.burner and ent.unit_number then -- lot COMBUSTIBLE : un four à brûleur du champ, à sec ou non (règle Rv.field_burners)
                 local fo = fours[p.spec.champ.oid]
                 if not fo then fo = { rows = {}, ents = {} }; fours[p.spec.champ.oid] = fo end
@@ -1783,6 +1790,11 @@ function Champ.report(f, surface, tick)
         if p.state == "fini" then cds.fini = cds.fini + 1 end
         if #cds.ids < 6 then cds.ids[#cds.ids + 1] = string.format("p%d %s %d/%d", pid, p.state, pd.stuck, pd.dn) end
       end
+      -- N104-ERREURS : bande au cadre posé (des pièces bâties) dont aucune foreuse n'est debout alors que le plan en porte (journal seulement)
+      if pd.cadre > 0 and pd.dn == 0 and pd.plan_d > 0 and not p.spec.champ.coal and #vides < 8 then
+        local e1 = p.ents[1]
+        vides[#vides + 1] = { pid = pid, x = e1 and e1.x, y = e1 and e1.y, cadre = pd.cadre }
+      end
       local lk = sorted_keys(pd.lost)
       for _, k in ipairs(lk) do lost_all[k] = (lost_all[k] or 0) + pd.lost[k] end
       if (#lk > 0 or pd.stuck > 0 or pd.armoff > 0) and #bad < 4 then
@@ -1810,6 +1822,7 @@ function Champ.report(f, surface, tick)
   end
   Champ.field_burners(f, fours, tick)
   local rd = { d = d, fu = fu, lost = lost_all } -- s42 causal : les comptes du relevé, rendus à l'audit des causes
+  ErrPartie.note_champ(f, { d = d, fu = fu, vides = vides }, tick, Champ.REPORT_EVERY) -- N104-ERREURS : noté pour le journal d'erreurs
   if #ids == 0 then return rd end
   log(string.format("[FO-COUPLAGE] %s min %.0f | bandes a foreuses sans four ni coffre de sortie %d (finies %d), foreuses %d dont figees %d%s",
     f.key or "player", tick / 3600, cds.n, cds.fini, cds.d, cds.stuck, #cds.ids > 0 and (" : " .. table.concat(cds.ids, ", ")) or ""))

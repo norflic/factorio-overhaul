@@ -68,6 +68,7 @@ local Src = require("script.team.sources") -- lot MINAGE-MAIN : registre des cof
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
+local ErrPartie = require("script.debug.erreurs_partie") -- N104-ERREURS : journal [FO-ERREUR-PARTIE] (étape E6, lecture seule)
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
 local Effectif = require("shared.ai3.effectif") -- lot IA3-d : une faction grandit quand le travail attend (A7)
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : réserve de fer de votre équipe
@@ -1345,6 +1346,10 @@ TT.e6 = function(f, surface, tick, et)
   Stock.balance(f)
   Stock.grow(f, surface, tick)
   Profiler.fstop("tt:fin")
+  -- N104-ERREURS : journal d'erreurs de partie (instrument : une passe par minute et par équipe, aucune décision ne le lit)
+  Profiler.fstart("tt:erreurs")
+  ErrPartie.think(f, surface, tick)
+  Profiler.fstop("tt:erreurs")
 end
 
 --- Gel de la vue et du plan pour E4 (tests : Team.FREEZE_HOOK remplace la copie par un enregistreur ou une copie stricte).
