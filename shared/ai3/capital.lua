@@ -387,13 +387,17 @@ function Cap.replace_candidates(Ld, census, ctx)
   return out, blocked
 end
 
---- Lot TIERS : RÉSERVE du lot d'une décision de remplacement en continu : les Cap.REPLACE_BATCH premières pièces du groupe, dans
---- l'ordre du paiement (Am.first_n : aval d'abord), en tête les pièces payables de d.ids. Le kit fabriqué d'avance et le paiement de
---- Capital.continu portent sur elle, pas sur les seules pièces que le stock tenait à la décision (mesuré, JALONS60 : « x1 sur un lot
---- demande de 40 », kit d'UNE pièce, une bande par minute). Rend une liste de numéros, ou nil (pas de groupe connu).
+--- Lot TIERS : RÉSERVE du lot d'une décision de remplacement en continu : les d.fab premières pièces du groupe (le lot DEMANDÉ à la
+--- fabrication : Am.fab du bloc, au plus Cap.REPLACE_FAB), dans l'ordre du paiement (Am.first_n : aval d'abord), en tête les pièces payables de
+--- d.ids. Le kit fabriqué d'avance et le paiement de Capital.continu portent sur elle, pas sur les seules pièces que le stock tenait à la
+--- décision (mesuré, JALONS60 : « x1 sur un lot demande de 40 », kit d'UNE pièce, une bande par minute). Rend une liste de numéros, ou
+--- nil (pas de groupe connu).
+--- Lot n100-kits (référence 0.9.9, graine 4251870853) : la réserve était bornée à Cap.REPLACE_BATCH (12) pendant que la décision demandait
+--- le bloc (d.fab, jusqu'à 40) : même grandeur sous deux noms, et seul le 12 était servi (la demande du cerveau reste au rang du fond) ;
+--- chaque prise du kit par un PNJ (2 à 7 min d'attente) ne posait que 12 pièces (player x12 à 67,6 min, x12 à 81,2 min). Un seul nom : d.fab.
 function Cap.pool(d)
-  if not (d and d.members and d.ids) then return nil end
-  local pn = math.max(#d.ids, math.min(Cap.REPLACE_BATCH, #d.members))
+  if not (d and d.members and d.ids and d.fab) then return nil end
+  local pn = math.max(#d.ids, math.min(d.fab, #d.members))
   if pn <= #d.ids then return nil end
   local out = {}
   for i, m in ipairs(Am.first_n(d.members, pn)) do out[i] = m.id end

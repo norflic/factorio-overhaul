@@ -12,7 +12,6 @@ local R = require("shared.ai3.reglages")
 local AC = {}
 
 AC.MAX_SCAN = 600 -- pièces au plus dans le relevé d'une pensée (borne N)
-AC.KIT_CAP = 12   -- objets cibles fabriqués d'avance au plus (un lot de Cap.REPLACE_BATCH)
 AC.LOGS = 30      -- lignes [FO-AMELIO-CONTINUE] au plus par équipe
 AC.ZONE_KIT = 40  -- majz-0716 : pièces d'une zone Maj + Z servies par un même kit (réserve et quota élargis)
 AC.ZONE_PRIO = 30 -- majz-0716 : priorité de plus pour le kit d'une zone Maj + Z
@@ -65,15 +64,16 @@ function AC.order(list, type_of, n, first)
 end
 
 --- Quota de kit : `need` = { [objet] = pièces à remplacer }, `have` = { [objet] = au stock }. Rend une liste triée { objet, n } à
---- fabriquer (au plus `cap` au stock par objet).
+--- fabriquer (au plus `cap` au stock par objet quand `cap` est donné ; sinon la réserve entière du lot, déjà bornée par Cap.pool au lot
+--- demandé à la fabrication). Lot n100-kits : plus de borne propre au kit (12 : un kit plus petit que la réserve qu'il doit payer) ;
+--- la matière reste bornée par le stock libre (Bm.best, script/ai3/capital.lua).
 function AC.kit_want(need, have, cap)
-  cap = cap or AC.KIT_CAP
   local names = {}
   for k in pairs(need or {}) do names[#names + 1] = k end
   table.sort(names)
   local out = {}
   for _, k in ipairs(names) do
-    local w = math.min(cap, need[k] or 0) - ((have or {})[k] or 0)
+    local w = math.min(cap or need[k] or 0, need[k] or 0) - ((have or {})[k] or 0)
     if w > 0 then out[#out + 1] = { k, w } end
   end
   return out
