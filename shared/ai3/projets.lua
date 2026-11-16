@@ -378,7 +378,8 @@ function P.want_kit(E, proj, list, prio, tag)
     local pids = {}
     for _, id in ipairs(owners) do pids[#pids + 1] = id end
     local added = P.add(E, { key = key, kind = "craft", prio = prio, item = head[1], count = head[2], kit = pieces,
-      steps = kit.crafts, uses = sorted_uses(kit.uses), tag = "ia3", ia3 = proj.id, why = proj.key, pids = pids })
+      steps = kit.crafts, uses = sorted_uses(kit.uses), tag = "ia3", ia3 = proj.id, why = proj.key, pids = pids,
+      fit = true }) -- lot n103-churn : taillé sur tout le stock virtuel, ajusté à la prise sur le libre (Board.claim, refit)
     if added and E.st then
       Kit.announce(E.st, E.tick or 0, { what = "emis", key = key, pid = proj.id, project = proj.key, pieces = pieces,
         crafts = #kit.crafts, energy = kit.energy, slots = kit.slots })

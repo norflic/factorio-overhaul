@@ -46,6 +46,7 @@ local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : plu
 local Mi = require("shared.team.main_inventaire") -- lot PURGE-MINE : plus de pioche après l'ère électrique (Mi.gone)
 local Eo = require("shared.team.entrepreneur_ouvrier") -- lot entrepreneur-ouvrier : ouvrier dédié du chantier entrepreneur (règle pure)
 local Bm = require("shared.team.book_max") -- lot n101-ramassage : kit ajusté à la matière libre de la prise
+local Kit = require("shared.ai3.kit_lot") -- lot n103-churn : les pièces d'un kit de projet ajustées ensemble à la prise
 
 local Board = {}
 
@@ -595,6 +596,10 @@ Board.KIT_LOGS = 60 -- lignes [FO-KIT-AMELIO] au plus par équipe, pour les ajus
 --- n100-kits, 4251870853, player : tapis rapides lot 40 émis à 19,8 min, première sortie de fer du kit à 54 min). Ici le kit est replanifié
 --- à la prise sur la matière libre au registre (vérité du coffre relue) : au plus t.count pièces, au moins une, sinon il reste non prenable.
 --- Rend vrai si le kit est prenable maintenant (t.count, t.steps, t.uses réécrits). Au plus une replanification par tâche et par tick.
+--- Lot n103-churn : même règle pour un kit de PROJET (shared/ai3/projets.lua, P.want_kit, pièces dans t.kit), taillé à la pensée sur tout
+--- le stock virtuel (libre + en route) : ses pièces sont replanifiées ensemble (Kit.build, un seul kit, mêmes bornes), t.kit réécrit
+--- (Board.incoming et la remise directe le lisent). Partie du DC 0.9.10, player : kit des tapis du projet 79 réémis x8, x12, ... x82
+--- à chaque pensée de 29,1 à 32,4 min, jamais pris par 12 PNJ libres (97 LIVRE pour 242 EMIS à 30 min).
 local function refit(f, b, reg, t, tick, seen)
   if t.fit_at == tick then return false end
   t.fit_at = tick
@@ -608,6 +613,20 @@ local function refit(f, b, reg, t, tick, seen)
     if not short and fr < it[2] then short = { it[1], fr, it[2] } end
   end
   if not short then return true end -- la vérité du coffre suffit déjà
+  if t.kit then
+    for _, w in ipairs(t.kit) do avail[w[1]] = 0 end
+    local kit = Kit.build(book, avail, t.kit, { max_kits = 1 }).kits[1]
+    if not kit then return false end
+    local uses = {}
+    for _, k in ipairs(sorted_keys(kit.uses)) do uses[#uses + 1] = { k, kit.uses[k] } end
+    b.lots_logs = (b.lots_logs or 0) + 1
+    if b.lots_logs <= Board.KIT_LOGS then
+      log(string.format("[FO-LOTS-KIT] %s : kit AJUSTE %s a la prise : %s -> %s (%s libre %d < %d demande) a %.1f min", f.key or "player",
+        tostring(t.key), Kit.pieces_text(t.kit), Kit.pieces_text(kit.wants), short[1], short[2], short[3], tick / 3600))
+    end
+    t.kit, t.item, t.count, t.steps, t.uses = kit.wants, kit.wants[1][1], kit.wants[1][2], kit.crafts, uses
+    return true
+  end
   avail[t.item] = 0
   local m, q = Bm.best(book, t.item, t.count, avail)
   if m < 1 then return false end
@@ -667,7 +686,7 @@ local function claim_market(f, agent, tick, b)
     if quick and b.tasks[t.key] == t then
       if reserve_strict(f, reg, t, agent, tick, seen) then
         bump(f, "market_claims")
-        if t.fit then
+        if t.fit and not t.kit then -- (kit de projet : sa prise et sa livraison sont au journal [FO-LOTS-KIT])
           b.kit_took = (b.kit_took or 0) + 1
           if b.kit_took <= Board.KIT_LOGS then
             log(string.format("[FO-KIT-AMELIO] %s : kit %s x%d pris par le PNJ %s apres %d s d'attente a %.1f min", f.key or "player",
