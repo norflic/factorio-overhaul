@@ -373,8 +373,8 @@ Co.AWAY_CAP = 20000     -- états développés au plus par tracé d'une colonne 
 -- vide pour une distance directe d'environ 17) : un tracé est ACCEPTÉ d'emblée s'il tient sous AWAY_DETOUR × (distance de Manhattan) +
 -- AWAY_SLACK ; sinon il est gardé comme repli et les places suivantes sont essayées (même plafond de tracés) ; à la fin, le plus court
 -- des tracés trouvés gagne. Une place un peu plus loin mais en ligne directe bat la place la plus proche contournée.
-Co.AWAY_DETOUR = 1.5
-Co.AWAY_SLACK = 12
+Co.AWAY_DETOUR = 3
+Co.AWAY_SLACK = 30
 -- (banc N098-C2, graine 4251870853 : sans borne, le plan d'un cadre passait de 4 131 à 10 340 étapes, bandes du joueur parties plus tard) : un détour
 -- trouvé, au plus AWAY_DETOUR_TRIES places de plus sont tracées, chacune sous AWAY_DETOUR_CAP états (un tracé direct est court)
 Co.AWAY_DETOUR_TRIES = 2

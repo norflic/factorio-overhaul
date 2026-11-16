@@ -29,6 +29,7 @@ local detour = line(0, 0, { { 0, -1, 20 }, { -1, 0, 60 }, { 0, 1, 20 }, { 1, 0, 
 check(Co.direct_enough(direct, from, t), "ligne droite acceptée")
 check(not Co.direct_enough(detour, from, t), "grand rectangle (143 tuiles pour 17) refusé")
 check(Co.direct_enough(line(0, 0, { { 0, -1, 3 }, { -1, 0, 17 }, { 0, 1, 3 } }), from, t), "petit contournement d'obstacle (23 pour 17) accepté")
+  check(Co.direct_enough(line(0, 0, { { 0, -1, 15 }, { -1, 0, 17 }, { 0, 1, 15 } }), from, t), "contournement moyen (47 pour 17) accepté : seul le grand détour coûte une recherche")
 
 -- 2. Co.away : le premier tracé (détour) est gardé en repli, la place suivante en ligne directe gagne
 local function run(stub_routes)
