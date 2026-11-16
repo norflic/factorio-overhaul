@@ -375,6 +375,10 @@ Co.AWAY_CAP = 20000     -- états développés au plus par tracé d'une colonne 
 -- des tracés trouvés gagne. Une place un peu plus loin mais en ligne directe bat la place la plus proche contournée.
 Co.AWAY_DETOUR = 1.5
 Co.AWAY_SLACK = 12
+-- (banc N098-C2, graine 4251870853 : sans borne, le plan d'un cadre passait de 4 131 à 10 340 étapes, bandes du joueur parties plus tard) : un détour
+-- trouvé, au plus AWAY_DETOUR_TRIES places de plus sont tracées, chacune sous AWAY_DETOUR_CAP états (un tracé direct est court)
+Co.AWAY_DETOUR_TRIES = 2
+Co.AWAY_DETOUR_CAP = 4000
 
 --- Longueur posée d'un tracé (tuiles parcourues, souterrains compris) ; 0 pour un tracé vide.
 function Co.route_len(route)
@@ -481,6 +485,7 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
   end
   while has do
     if routes >= Co.AWAY_ROUTES then break end
+    if A.best and (A.extra or 0) >= Co.AWAY_DETOUR_TRIES then break end -- N098-DETOUR : recherche bornée après un détour
     if lim and not (A.job and (A.job.R or A.job.MV)) and Co.WORK + work >= lim then save() return nil, Co.SUSPEND end
     local k = cd_ak * (cd_ak == 0 and 1 or cd_sg)
     local b2, s_edge = from.v + k, from.u + side * (cd_d - cd_ak + 1)
@@ -504,14 +509,17 @@ function Co.away(spec, from, side, count, mode, free, is_ore, o, A)
       if not mine[Co.tk(t.u, t.v)] then
         A.job = A.job or {}
         local resumed = A.job.R ~= nil or A.job.MV ~= nil -- (perf-reste : relecture de la mémoire en cours, même tracé)
-        if not resumed then routes = routes + 1 end
+        if not resumed then
+          routes = routes + 1
+          if A.best then A.extra = (A.extra or 0) + 1 end
+        end
         local function rfree(u, v) return inb(u, v) and not mine[Co.tk(u, v)] and free(u, v) end
         local rb = box or { u0 = math.min(from.u, t.u) - Co.ROUTE_MARGIN, u1 = math.max(from.u, t.u) + Co.ROUTE_MARGIN,
           v0 = math.min(from.v, t.v) - Co.ROUTE_MARGIN, v1 = math.max(from.v, t.v) + Co.ROUTE_MARGIN }
         local sd = didx(side, 0)
         Co.WORK = Co.WORK + work
         work = 0
-        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, o.cap or Co.AWAY_CAP, o.tcost, o.memo,
+        local route, rwhy = Co.route({ u = from.u, v = from.v }, sd, t, sd, rfree, o.span, o.ug, rb, A.best and math.min(o.cap or Co.AWAY_CAP, Co.AWAY_DETOUR_CAP) or (o.cap or Co.AWAY_CAP), o.tcost, o.memo,
           lim and A.job or nil)
         if rwhy == Co.SUSPEND and not route then save() return nil, Co.SUSPEND end
         if route then

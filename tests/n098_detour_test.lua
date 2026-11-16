@@ -63,6 +63,8 @@ do
   check(calls == 2, "recherche arrêtée au premier tracé direct (" .. calls .. " tracés)")
   local res2 = run({ "detour", "detour" })
   check(res2 ~= nil and Co.route_len(res2.route) == 200, "aucun tracé direct : le détour (le plus court) sert de repli")
+  local _, _, c4 = run({ "detour", "detour", "detour", "detour", "direct" })
+  check(c4 == 1 + 2, "après un détour, au plus 2 places de plus tracées (" .. c4 .. " tracés)")
   local res3, _, c3 = run({ "direct" })
   check(res3 ~= nil and c3 == 1, "premier tracé direct : rien ne change (une seule recherche)")
 end
