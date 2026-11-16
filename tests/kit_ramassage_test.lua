@@ -124,5 +124,27 @@ local s5 = scene({ want = 40, stolen = 1 })
 local got5 = s5.Board.claim(s5.f, s5.agent, s5.tick + 1)
 check(got5 == s5.kit and s5.kit.count == 40 and s5.kit.fit_at == nil, "kit de 40 dans 399 libres : pris tel quel, sans replanification")
 
+---------------------------------------------------------------------------------------------------
+section("4. Lot n102-verrou : pensée sous la retenue d'énergie (capital_continu sauté) : le kit PRIS survit à Board.sync, le libre sort")
+---------------------------------------------------------------------------------------------------
+-- script/team/team.lua E6 : sous C.survie (centrale saturée ou chaudières à sec) le kit n'est pas réémis ; Board.sync (E1c de la pensée
+-- suivante) ne doit jeter que la tâche LIBRE (voulu : aucune plaque dans une amélioration pendant la retenue, ordre du DC du 15/11).
+-- Mutant (refusé) : Board.sync sans la garde `t.worker` jette aussi le kit pris (fabrication en cours perdue, matière réservée orpheline).
+local s6 = scene({ want = 40 })
+local got6 = s6.Board.claim(s6.f, s6.agent, s6.tick + 1)
+check(got6 == s6.kit and s6.kit.worker == s6.agent.id, "kit de 40 pris par le PNJ avant la retenue")
+s6.Board.sync(s6.f, {}, s6.tick + 2) -- pensée retenue : rien de planifié, continu sauté
+local b6 = s6.Board.get(s6.f)
+check(b6.tasks[s6.kit.key] == s6.kit and s6.kit.worker == s6.agent.id, "kit pris gardé par Board.sync sous la retenue (" ..
+  tostring(b6.tasks[s6.kit.key] and b6.tasks[s6.kit.key].worker) .. ")")
+s6.Board.sync(s6.f, {}, s6.tick + 3)
+check(s6.Board.get(s6.f).tasks[s6.kit.key] == s6.kit, "toujours gardé à la deuxième pensée retenue")
+local s7 = scene({ want = 40 })
+local born7 = s7.Board.get(s7.f).tasks[s7.kit.key].created
+s7.Board.sync(s7.f, {}, s7.tick + 2)
+local b7 = s7.Board.get(s7.f)
+check(b7.tasks[s7.kit.key] == nil, "kit LIBRE retiré sous la retenue (voulu : la matière reste à l'énergie)")
+check(b7.born[s7.kit.key] == born7, "sa date de naissance est gardée pour un retour à la pensée qui suit (" .. tostring(b7.born[s7.kit.key]) .. ")")
+
 print(string.format("kit_ramassage_test : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
