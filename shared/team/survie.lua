@@ -154,18 +154,31 @@ local function short_text(short)
   return table.concat(parts, ", ")
 end
 
---- Décision de la pensée. a = { tick, short (Sv.shortages), workers, idle, threatened }. Met `st` à jour. Rend
---- { on, event ("entree" | "sortie" | "bilan" | nil), cause, short, para, minutes }.
+--- Lot n101-survie : le manque est-il COUVERT par la production mesurée ? flow = { [objet] = objets produits par minute (statistiques de
+--- la force) }. Vrai si aucun manque, ou si chaque manque est plus petit que ce que l'équipe produit de cette matière en Sv.EXIT_TICKS.
+--- Partie 271828182 (votre équipe, 0.9.9 et n100) : la demande du plan (objectifs, recrues, munitions) se renouvelle à mesure que les
+--- bandes prennent le fer qui arrive (~200 plaques/min) ; « plus aucun manque » 5 min de suite n'arrivait jamais : survie de 32,3 min à
+--- la fin, méga-fonderie et plan directeur gelés par la crise, 0 assembleur. Sans `flow` : seul « aucun manque » est couvert (avant).
+function Sv.covered(short, flow)
+  for _, s in ipairs(short or {}) do
+    local per_min = type(flow) == "table" and num(flow[s[1]]) or 0
+    if num(s[2]) > per_min * Sv.EXIT_TICKS / 3600 then return false end
+  end
+  return true
+end
+
+--- Décision de la pensée. a = { tick, short (Sv.shortages), workers, idle, threatened, flow (Sv.covered, facultatif) }. Met `st` à jour.
+--- Rend { on, event ("entree" | "sortie" | "bilan" | nil), cause, short, para, minutes }.
 function Sv.decide(st, a)
   local tick = a.tick
   local short = a.short or {}
   if #short > 0 then
     st.short_since = st.short_since or tick
-    st.calm_since = nil
   else
     st.short_since = nil
-    st.calm_since = st.calm_since or tick
   end
+  -- SORTIE (hystérésis) : le calme compte les pensées dont le manque est couvert par la production mesurée (Sv.covered)
+  if Sv.covered(short, a.flow) then st.calm_since = st.calm_since or tick else st.calm_since = nil end
   local para, why = Sv.paralysed(st, a, tick)
   if not para and #short > 0 and Sv.famine(st, a, tick) then para, why = true, "famine" end -- lot s42 diag-joueur
   local out = { on = st.on, short = short, para = para, para_why = why }
@@ -180,14 +193,20 @@ function Sv.decide(st, a)
     end
   else
     if tick - st.since >= Sv.MIN_ON and st.calm_since and tick - st.calm_since >= Sv.EXIT_TICKS then
-      out.cause = string.format("plus aucun manque de matiere cle depuis %.1f min (sejour de %.1f min)",
-        (tick - (st.calm_since or tick)) / 3600, (tick - st.since) / 3600)
+      out.cause = string.format("plus aucun manque de matiere cle que la production ne couvre en %d min, depuis %.1f min (sejour de %.1f min ; manque %s)",
+        math.floor(Sv.EXIT_TICKS / 3600), (tick - (st.calm_since or tick)) / 3600, (tick - st.since) / 3600, #short > 0 and short_text(short) or "aucun")
       st.on, st.since, st.beat = false, nil, nil
       out.on, out.event = false, "sortie"
     elseif tick - (st.beat or tick) >= Sv.BEAT then
       st.beat = tick
       out.event = "bilan"
-      out.cause = string.format("en cours depuis %.1f min : manque %s", (tick - st.since) / 3600, #short > 0 and short_text(short) or "aucun a cet instant")
+      out.cause = string.format("en cours depuis %.1f min : manque %s ; calme %s", (tick - st.since) / 3600, #short > 0 and short_text(short) or "aucun a cet instant",
+        st.calm_since and string.format("depuis %.1f min", (tick - st.calm_since) / 3600) or "non (manque au-dela de la production mesuree)")
+      if type(a.flow) == "table" and #short > 0 then
+        local parts = {}
+        for _, s in ipairs(short) do parts[#parts + 1] = string.format("%s %.0f/min", s[1], num(a.flow[s[1]])) end
+        out.cause = out.cause .. " ; production " .. table.concat(parts, ", ")
+      end
     end
   end
   return out
