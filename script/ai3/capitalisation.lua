@@ -1546,6 +1546,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, threat_why = threat_why, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
+    survie = Survie.on(f) or nil, -- lot n100-panel : mode survie, lu par la garde « crise » de la saturation (Cv.saturation ; Sv.capi l'ôte de `threat`)
     reserve = (not threat) and Dep.capi_reserve(f, Rsv.input(f, tick), tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé) ; lot DEPENSES2 (revue D2) : débité de ce que la règle du stock qui dort a accordé ou engagé
     demande = (not threat) and Rsv.on() and not cs.demande_off or false, -- (cs.demande_off : BANC SEULEMENT, témoin) lot C2 : puits ouvert (le stock hors besoin qui dort devient une demande)
     demande_sleep = Dm.SLEEP_CYCLES, -- intégration 0.6.32 : un stock ne dort qu'après 3 décisions de suite au-dessus du seuil
