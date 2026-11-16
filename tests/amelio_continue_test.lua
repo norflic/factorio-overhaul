@@ -54,6 +54,11 @@ end
 local w = AC.kit_want({ b = 30, a = 2 }, { a = 1, b = 4 }, 12)
 check(#w == 2 and w[1][1] == "a" and w[1][2] == 1 and w[2][1] == "b" and w[2][2] == 8, "quota de kit borné et trié")
 check(#AC.kit_want({ a = 3 }, { a = 5 }) == 0, "kit déjà au stock : rien à fabriquer")
+-- Lot n100-kits : sans borne donnée, le kit est la réserve entière du lot (déjà bornée par Cap.pool), jamais 12 (réf. 0.9.9 : kit de 12
+-- pour une réserve de 40 ; la matière reste bornée par le stock libre, Bm.best).
+local w40 = AC.kit_want({ b = 40 }, { b = 3 })
+check(#w40 == 1 and w40[1][2] == 37, "n100-kits : kit = réserve du lot moins le stock (" .. tostring(w40[1] and w40[1][2]) .. ")")
+check(AC.KIT_CAP == nil, "n100-kits : plus de borne propre au kit")
 check(AC.pile_permits(false, 0) and AC.pile_permits(true, 1) and not AC.pile_permits(true, 0), "pile : kit au stock passe")
 local st = {}
 local n = 0

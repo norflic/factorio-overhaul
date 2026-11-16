@@ -174,16 +174,18 @@ local function run(Cap, Am, quiet)
     table.sort(off, function(a, b) return a.key < b.key end)
     check(off[1].fab == nil and off[1].unit == nil and off[1].group == nil and off[1].ids[1] == 1001,
       "§2 règle éteinte : la décision d'avant (ni lot demandé, ni unité, ordre par numéro)")
-    -- Lot TIERS : la réserve du lot (pool) tient Cap.REPLACE_BATCH pièces même stock vide, en tête les pièces payables, dans l'ordre aval.
+    -- Lot TIERS : la réserve du lot (pool) tient le lot DEMANDÉ (c.fab) même stock vide, en tête les pièces payables, dans l'ordre aval.
+    -- Lot n100-kits : un bloc de 20 pièces a une réserve de 20 (le lot demandé), plus de 12 (Cap.REPLACE_BATCH : réf. 0.9.9, kit de 12
+    -- pour un lot demandé de 40, une prise de PNJ par lot de 12).
     local p1, p2, p5 = Cap.pool(c1), Cap.pool(c2), Cap.pool(rc5[1])
-    check(p1 and #p1 == 12 and p1[1] == c1.ids[1] and p1[12] == 1009, "§2 TIERS : réserve du lot de 12 pièces, aval d'abord ("
+    check(p1 and #p1 == 20 and #p1 == c1.fab and p1[1] == c1.ids[1] and p1[20] == 1001, "§2 TIERS : réserve du lot demandé (20 pièces), aval d'abord ("
       .. tostring(p1 and #p1) .. ")")
     check(p2 and #p2 == 8, "§2 TIERS : bloc de 8 pièces, réserve de 8")
-    check(p5 and #p5 == 12 and p5[5] == rc5[1].ids[5], "§2 TIERS : réserve préfixée par les pièces payables")
+    check(p5 and #p5 == 20 and p5[5] == rc5[1].ids[5], "§2 TIERS : réserve préfixée par les pièces payables")
     check(Cap.pool(off[1]) == nil, "§2 TIERS : règle éteinte, pas de réserve")
     D2 = Cap.choose(L, census_of(ms), base_ctx({ stock = {} }))
     check(D2.replace and D2.fab == 20 and D2.n == 1, "§2 Cap.choose garde le lot demandé (" .. tostring(D2.fab) .. ")")
-    check(Cap.pool(D2) and #Cap.pool(D2) == 12, "§2 TIERS : Cap.choose garde la réserve du lot")
+    check(Cap.pool(D2) and #Cap.pool(D2) == 20, "§2 TIERS : Cap.choose garde la réserve du lot demandé")
     -- Lot TIERS : remplacement de côté quand le but n'en est pas un (le premier candidat de remplacement, score décroissant).
     local gun = { key = "gun:2:1", score = 9 }
     local r1, r2 = { key = "r1", replace = {}, ids = { 1 }, members = { {} } }, { key = "r2", replace = {}, ids = { 2 }, members = { {} } }
@@ -721,6 +723,7 @@ M("famine : paiement ignoré", "am", "local since = math.max(st.seen[k], st.paid
 M("but engagé au fond", "cap", "front = d.front or nil, -- lot AMELIORATION-CONTINUE : servi", "front = nil, -- lot AMELIORATION-CONTINUE : servi")
 M("valeur du but engagé non relevée", "cap", "if d.front then base = math.max(base, Cap.GOAL_FRONT) end", "")
 M("candidat front non marqué", "cap", "c.front = (front(c) == 1 or c.zone) or nil end", "c.front = nil end")
+M("n100-kits : réserve du lot bornée à 12 (Cap.REPLACE_BATCH)", "cap", "math.min(d.fab, #d.members)", "math.min(Cap.REPLACE_BATCH, #d.members)")
 M("lot de fabrication borné à 12", "cap", "Am.fab(total, Cap.REPLACE_FAB), gk, n", "Am.fab(total, Cap.REPLACE_BATCH), gk, n")
 M("au-delà de 12, tout demandé sans borne de matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "k")
 M("au-delà de 12, rien demandé hors matière", "cap", "math.max(Am.FAB_MAX, feasible(k))", "feasible(k)")

@@ -1351,7 +1351,7 @@ function Capital.replace_entity(f, e, to) return replace_one(f, state_of(f), e, 
 --- Lot AMELIO-CONTINUE (DC 14/11) : quota de kit du remplacement décidé, INDÉPENDANT de la réservation du cerveau (« non-reserve » :
 --- l'objet cible n'était jamais fabriqué). Appelé par script/team/team.lua (E6) après le paiement du capital, pile retenue ou non :
 ---   1. cible verrouillée : l'objet est déclaré voulu (Voulues, la recherche qui le débloque prend de la valeur) ;
----   2. kit : au plus AC.KIT_CAP objets cibles fabriqués d'avance (tâche « craft » bornée, comme foreuse_swap.lua, craft) ;
+---   2. kit : la réserve du lot (Cap.pool : le lot demandé à la fabrication) fabriquée d'avance, bornée par le stock libre (Bm.best) ;
 ---   3. kit au stock : le lot est payé tout de suite (pay_replace), même pile retenue (AC.pile_permits : rien n'est réservé).
 --- Rend le nombre de pièces remplacées.
 local function continu_track(f, c, d, side, surface, book, free, tick, hold)
