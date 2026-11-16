@@ -430,6 +430,8 @@ end
 --- Lot ESPACE : le treillis peut-il encore grandir ? (rayon maximal ou enceinte : non). Les replans qui attendent une
 --- croissance s'y réfèrent, sinon ils attendraient pour toujours un rayon figé.
 function Build.can_grow(b) return b.radius < Build.RADIUS_MAX and (not b.enc or Build.beyond_wall(b)) end
+--- Lot n101-charbon : le treillis peut-il encore grandir VERS UN GISEMENT (lot INDUSTRIE I3 : plafond Build.RADIUS_ORE, même enceinte) ?
+function Build.can_grow_ore(b) return b.radius < Build.RADIUS_ORE and (not b.enc or Build.beyond_wall(b)) end
 
 local function seg_ok(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state == "ouvert" end end
 local function seg_passable(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state ~= "ferme" and s.state ~= "inconnu" end end
@@ -3113,8 +3115,11 @@ local function plan_alim(f, surface, p)
   end
   -- lot ENERGIE : gisement de charbon hors du treillis (12 refus « minerai » sur 31 demandes au 31/10) : le treillis GRANDIT, le prochain
   -- essai (pause du lot CHARBON-CENTRALE) trouve le gisement ; avant, rien ne le faisait grandir pour l'alimentation
-  if Cv.after_refusal(last, Build.can_grow(b)) == "grandir" then
-    Build.grow(f, b.radius + 1)
+  -- Lot n101-charbon : la croissance vers un gisement du lot INDUSTRIE I3 (sonde des anneaux au-delà, jusqu'à Build.RADIUS_ORE), et non
+  -- plus +1 anneau borné à Build.RADIUS_MAX (emerald, graine 4251870853 : rayon 5 à 26,9 min, charbon à l'anneau 8, six centrales à la main)
+  local from = b.radius
+  if Cv.after_refusal(last, Build.can_grow_ore(b)) == "sonder" then treillis_step(f, surface, fuel, nil, nil, nil) end
+  if b.radius > from then
     p.cv_grew = true -- (relecture : ce refus-là ne compte pas vers la pause longue, Cc.refused)
     b.stats.cv_grow = (b.stats.cv_grow or 0) + 1
     if b.stats.cv_grow <= Build.LINE_LOGS then

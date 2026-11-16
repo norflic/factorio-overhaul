@@ -137,9 +137,10 @@ local function battery(Cv, C)
   check(t3 == nil, "mur plus large que la portee d'un souterrain : refus nomme (" .. tostring(why3) .. ")")
 
   section("6. Refus de l'alimentation")
-  check(Cv.after_refusal("foreuses : minerai", true) == "grandir", "gisement hors des lots : le treillis grandit")
-  check(Cv.after_refusal("foreuses : gisement : coal hors du treillis", true) == "grandir", "hors du treillis : il grandit")
-  check(Cv.after_refusal("foreuses : minerai", false) == "attendre", "treillis au maximum : on attend")
+  -- lot n101-charbon : « sonder » = la sonde du lot INDUSTRIE I3 (anneaux au-dela, jusqu'a Build.RADIUS_ORE), plus +1 anneau borne a RADIUS_MAX
+  check(Cv.after_refusal("foreuses : minerai", true) == "sonder", "gisement hors des lots : la sonde cherche le charbon au-dela")
+  check(Cv.after_refusal("foreuses : gisement : coal hors du treillis", true) == "sonder", "hors du treillis : la sonde cherche au-dela")
+  check(Cv.after_refusal("foreuses : minerai", false) == "attendre", "treillis au plafond des gisements (ou enceinte) : on attend")
   check(Cv.after_refusal("foreuses : trop loin", true) == "attendre", "trop loin : on attend (le relais a deja tranche)")
   check(Cv.after_refusal(nil, true) == "attendre", "raison inconnue : on attend")
 
@@ -182,7 +183,8 @@ do
     and build:sub(i_long, i_pur):find("\n  if not relay", 1, true) == nil and build:sub(i_long, i_pur):find("\n  else\n", 1, true) == nil,
     "plan_drills : le tapis long passe par Tdr.trace puis par la preuve de purete, sans autre branche")
 end
-check(build:find("Cv.after_refusal(last, Build.can_grow(b)) == \"grandir\"", 1, true) ~= nil, "plan_alim : le treillis grandit sur un refus « minerai »")
+check(build:find("Cv.after_refusal(last, Build.can_grow_ore(b)) == \"sonder\" then treillis_step(f, surface, fuel, nil, nil, nil) end", 1, true) ~= nil,
+  "plan_alim : un refus « minerai » passe par la sonde et la croissance vers un gisement (treillis_step)")
 check(build:find("if mode ~= \"long\" then return false, \"trop loin\" end", 1, true) ~= nil, "plan_drills : au-dela du tapis long, « trop loin » reste")
 
 ---------------------------------------------------------------------------------------------------
@@ -289,12 +291,41 @@ do
   check(st.tries == 0 and st.retry_at == 100 + Ch.RETRY_TICKS, "10 refus avec croissance : pause courte, 0 essai compte")
   Ch.refused(st, 100)
   check(st.tries == 1, "refus ordinaire : compte")
-  check(build:find("Cc.refused(st, tick, alim.cv_grew)", 1, true) ~= nil and build:find("p.cv_grew = true", 1, true) ~= nil, "build.lua : le refus dit qu'il a fait grandir")
+  check(build:find("Cc.refused(st, tick, alim.cv_grew", 1, true) ~= nil and build:find("p.cv_grew = true", 1, true) ~= nil, "build.lua : le refus dit qu'il a fait grandir")
   -- Intégration 0.6.28 : alimentation et champ suivant héritent du poteau de la centrale (pas le poteau moyen par défaut, recette fermée)
   check(build:find('domain = "infrastructures", pole = p.spec and p.spec.pole }', 1, true) ~= nil, "build.lua : l'alimentation prend le poteau de la centrale")
   -- lot CENTRALE-PRES : le poteau de la première centrale est le poteau PRÉFÉRÉ (PlantArms.size) ; la demande porte celui qui est obtenable
   check(build:find("PlantArms.size(f, first.spec.gen, nb, first.spec.pole, tick, secours)", 1, true) ~= nil and build:find("pole = pole, plant = true", 1, true) ~= nil,
     "build.lua : le champ suivant prend le poteau de la première centrale (ou un poteau obtenable, lot CENTRALE-PRES)")
+end
+
+section("13. Lot n101-charbon : l'alimentation d'une centrale atteint le charbon au-dela de la croissance ordinaire")
+do
+  -- Rejeu (graine 4251870853, emerald, fo-logs/2026-11-16_n100-energie-1) : rayon 5 = Build.RADIUS_MAX des 26,9 min, lots de charbon du
+  -- treillis pleins (refus « foreuses : minerai » des centrales 8, 16, 20, 25, 39, 44 nourries a la main jusqu'a 89 min) ; le gisement de
+  -- charbon suivant (-572, 614) est a l'anneau 8 du treillis (origine (-404, 403), pas de 28 tuiles), sous le plafond des gisements.
+  local Tr = require("shared.team.treillis")
+  local Cvn = dofile("shared/team/champ_vapeur.lua")
+  local i_ore = build:find("function Build.can_grow_ore(b) return b.radius < Build.RADIUS_ORE and (not b.enc or Build.beyond_wall(b)) end", 1, true)
+  check(i_ore ~= nil, "build.lua : Build.can_grow_ore borne par Build.RADIUS_ORE (plafond des gisements) et l'enceinte")
+  local radius, cap = 5, Tr.CAP
+  local can_grow_ore = radius < cap -- (Build.can_grow_ore, sans enceinte)
+  check(Cvn.after_refusal("foreuses : minerai", can_grow_ore) == "sonder", "emerald, rayon 5 : le refus « minerai » fait sonder (ancien code : attendre)")
+  local ring = Tr.ring_of_point(-404, 403, -572, 614, P.PITCH)
+  check(ring == 8, "le charbon suivant d'emerald est a l'anneau 8 (" .. tostring(ring) .. ")")
+  local d1 = Tr.decide({ radius = radius, cap = cap, pending = 0 })
+  check(d1.action == "sonder", "pas de gisement dans le treillis : la sonde d'abord (" .. tostring(d1.action) .. ")")
+  local d2 = Tr.decide({ radius = radius, cap = cap, pending = 0, probe = ring })
+  check(d2.action == "grandir" and d2.radius == ring + Tr.MARGIN_PROBE, "charbon vu a l'anneau 8 : le treillis grandit jusqu'a 9 (" .. tostring(d2.radius) .. ")")
+  local d3 = Tr.decide({ radius = radius, cap = cap, pending = 0, probe = false })
+  check(d3.action == "refuser", "rien jusqu'au plafond : pas de croissance pour rien")
+  -- le +1 anneau borne a la croissance ordinaire a disparu du plan de l'alimentation
+  local i_alim = build:find("local function plan_alim(f, surface, p)", 1, true)
+  local i_end = i_alim and build:find("\nend\n", i_alim, true)
+  local body = i_alim and i_end and build:sub(i_alim, i_end) or ""
+  check(body ~= "" and body:find("Build.grow(f, b.radius + 1)", 1, true) == nil and body:find("Build.can_grow(b)", 1, true) == nil,
+    "plan_alim : plus de croissance d'un anneau bornee a Build.RADIUS_MAX")
+  check(body:find("if b.radius > from then", 1, true) ~= nil, "plan_alim : le refus ne dit avoir fait grandir que si le rayon a change")
 end
 
 print(string.format("[CHAMP-VAPEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))

@@ -84,7 +84,7 @@ check(nb == nil and why == "aucune centrale finie", "premiere centrale encore en
 print("== 4. Liaison au charbon : refus et parallele")
 local Cv = require("shared.team.champ_vapeur")
 local Cc = require("shared.team.charbon_centrale")
-check(Cv.after_refusal("foreuses : pas de lot", true) == "grandir", "pas de lot : le treillis grandit (partie du DC 0.7.103)")
+check(Cv.after_refusal("foreuses : pas de lot", true) == "sonder", "pas de lot : la sonde cherche le charbon au-dela (partie du DC 0.7.103 ; lot n101-charbon)")
 check(Cv.after_refusal("foreuses : pas de lot", false) == "attendre", "treillis au maximum : on attend")
 check(Cc.MAX_OPEN >= 2, "deux projets d'alimentation a la fois")
 check(Cc.RETRY_TICKS <= 7200 and Cc.LONG_RETRY_TICKS <= 36000, "pauses courtes : 2 min puis 10 min")

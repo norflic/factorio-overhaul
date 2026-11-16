@@ -68,13 +68,18 @@ function Cv.reach(sx, sy, ax, ay)
   return "long"
 end
 
---- Refus du projet d'alimentation (raison rendue par le plan, ex. « foreuses : minerai ») -> action : "grandir" (gisement hors du
---- treillis : le treillis grandit), "attendre" (autre raison : pause ordinaire du lot CHARBON-CENTRALE).
+--- Refus du projet d'alimentation (raison rendue par le plan, ex. « foreuses : minerai ») -> action : "sonder" (aucun lot du treillis ne
+--- tient la ligne de charbon : la sonde du lot INDUSTRIE I3 cherche le gisement au-dela et le treillis grandit JUSQU'A lui, Tr.decide),
+--- "attendre" (autre raison : pause ordinaire du lot CHARBON-CENTRALE). can_grow : le treillis peut grandir vers un gisement (rayon sous
+--- le plafond des gisements, Build.RADIUS_ORE, et pas d'enceinte fermee).
+--- Lot n101-charbon (graine 4251870853, emerald : centrales 8, 16, 20, 25, 39, 44 nourries a la main de 27 a 89 min, refus « minerai »,
+--- chaudieres alimentees 2/9 a 83 min) : l'ancienne action « grandir » faisait +1 anneau borne a la croissance ORDINAIRE (Build.RADIUS_MAX,
+--- 5, atteint a 26,9 min) ; le seul charbon au-dela etait a l'anneau 8, jamais atteint.
 function Cv.after_refusal(reason, can_grow)
   reason = tostring(reason or "")
   -- lot VAPEUR (14/11) : « pas de lot » (aucun lot libre portant le charbon : 14 refus dans la partie du DC 0.7.103, centrale 1 de player
   -- nourrie a la main toute la partie) fait aussi grandir le treillis
-  if can_grow and (reason:find("minerai", 1, true) or reason:find("hors du treillis", 1, true) or reason:find("pas de lot", 1, true)) then return "grandir" end
+  if can_grow and (reason:find("minerai", 1, true) or reason:find("hors du treillis", 1, true) or reason:find("pas de lot", 1, true)) then return "sonder" end
   return "attendre"
 end
 
