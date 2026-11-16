@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.10
+Date: 2026-11-16
+  Bugfixes:
+    - Centrales : plus de plafond fixe de centrales quand la demande nominale depasse la capacite (votre equipe : foreuses en marche 2 -> 142 a 89 min, plus d'effondrement electrique). / Power plants: no fixed plant cap when nominal demand exceeds capacity (no more end-game power collapse for your team).
+    - Survie : la garde de saturation ferme aussi en mode survie ; plus d'extraction de cuivre deja sature payee en fer manquant (graine 271828182 : votre equipe 69 -> 110 foreuses). / Survival: the saturation guard also closes in survival mode.
+    - Ameliorations : le kit couvre le bloc entier demande (plus de plafond a 12 pieces ; tapis montes +42 a +73 %). / Upgrades: the kit covers the whole requested block (no more 12-piece cap).
+    - Pile : une matiere qui manque au noyau devient un manque a produire (pierre : azure pose des assembleurs). / Stack: a core shortage becomes a demand to produce.
+    - Sonde des tapis en impasse classee (fin de ligne d'alimentation, en construction, vrai cul-de-sac) : 0 vrai cul-de-sac a 60 et 90 min. / Dead-end belt probe now classified: 0 real dead ends.
+    - Banc (graine du DC 4251870853, 90 min) : fer + cuivre 517 985 -> 548 537 (+5,9 %). Graines 271828182 et 1618033988 pas encore mesurees. Reste : emerald manque de charbon aux chaudieres en fin de partie. / Bench: +5.9 % on the DC seed; other seeds not yet measured.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.9
 Date: 2026-11-16
   Bugfixes:
