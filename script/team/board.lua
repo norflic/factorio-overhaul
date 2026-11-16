@@ -45,6 +45,7 @@ local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant po
 local Elec = require("script.team.electrique") -- lot ELECTRIQUE (DC 8/11) : plus de paire thermique quand l'électrique est possible
 local Mi = require("shared.team.main_inventaire") -- lot PURGE-MINE : plus de pioche après l'ère électrique (Mi.gone)
 local Eo = require("shared.team.entrepreneur_ouvrier") -- lot entrepreneur-ouvrier : ouvrier dédié du chantier entrepreneur (règle pure)
+local Bm = require("shared.team.book_max") -- lot n101-ramassage : kit ajusté à la matière libre de la prise
 
 local Board = {}
 
@@ -583,6 +584,44 @@ local function note_miss(f, b, list, npc, ctx, reg, tried)
   end
 end
 
+--- Lot n101-ramassage : livre de fabrication de la force (crochet posé par script/team/team.lua au chargement : book_for, reconstruit à
+--- la demande depuis les prototypes, identique sur toutes les machines). nil hors du moteur : aucun kit n'est ajusté.
+Board.book_of = nil
+Board.KIT_LOGS = 60 -- lignes [FO-KIT-AMELIO] au plus par équipe, pour les ajustements comme pour les prises
+
+--- Lot n101-ramassage : un kit « ajustable » (t.fit, kit d'amélioration de script/ai3/capital.lua) est taillé à la pensée (E6) sur TOUTE la
+--- matière libre (Bm.best) ; sa prise stricte, plus tard, la voulait encore entière : la moindre unité réservée entre-temps par une autre
+--- prise le rendait non prenable jusqu'à la pensée suivante, qui le retaillait sur le nouveau libre, de nouveau pris par d'autres (banc
+--- n100-kits, 4251870853, player : tapis rapides lot 40 émis à 19,8 min, première sortie de fer du kit à 54 min). Ici le kit est replanifié
+--- à la prise sur la matière libre au registre (vérité du coffre relue) : au plus t.count pièces, au moins une, sinon il reste non prenable.
+--- Rend vrai si le kit est prenable maintenant (t.count, t.steps, t.uses réécrits). Au plus une replanification par tâche et par tick.
+local function refit(f, b, reg, t, tick, seen)
+  if t.fit_at == tick then return false end
+  t.fit_at = tick
+  local book = Board.book_of and Board.book_of(f)
+  if not book then return false end
+  local avail, short = {}, nil
+  for _, it in ipairs(t.uses or {}) do
+    sync_item(f, reg, it[1], tick, seen)
+    local fr = math.max(0, R.free(reg, it[1]))
+    avail[it[1]] = fr
+    if not short and fr < it[2] then short = { it[1], fr, it[2] } end
+  end
+  if not short then return true end -- la vérité du coffre suffit déjà
+  avail[t.item] = 0
+  local m, q = Bm.best(book, t.item, t.count, avail)
+  if m < 1 then return false end
+  local uses = {}
+  for _, k in ipairs(sorted_keys(q.uses)) do uses[#uses + 1] = { k, q.uses[k] } end
+  b.kit_logs = (b.kit_logs or 0) + 1
+  if b.kit_logs <= Board.KIT_LOGS then
+    log(string.format("[FO-KIT-AMELIO] %s : kit %s ajuste a la prise : %d -> %d (%s libre %d < %d demande) a %.1f min",
+      f.key or "player", t.item, t.count, m, short[1], short[2], short[3], tick / 3600))
+  end
+  t.count, t.steps, t.uses = m, q.crafts, uses
+  return true
+end
+
 local function claim_market(f, agent, tick, b)
   local list = b.list
   local reg = reg_of(f)
@@ -624,9 +663,17 @@ local function claim_market(f, agent, tick, b)
         if R.free(reg, it[1]) < it[2] then quick = false break end
       end
     end
+    if not quick and t.fit and b.tasks[t.key] == t then quick = refit(f, b, reg, t, tick, seen) end -- lot n101-ramassage
     if quick and b.tasks[t.key] == t then
       if reserve_strict(f, reg, t, agent, tick, seen) then
         bump(f, "market_claims")
+        if t.fit then
+          b.kit_took = (b.kit_took or 0) + 1
+          if b.kit_took <= Board.KIT_LOGS then
+            log(string.format("[FO-KIT-AMELIO] %s : kit %s x%d pris par le PNJ %s apres %d s d'attente a %.1f min", f.key or "player",
+              t.item, t.count or 0, tostring(agent.id), math.floor((tick - (t.created or tick)) / 60), tick / 3600))
+          end
+        end
         if t.pole and npc.pole and t.pole ~= npc.pole then bump(f, "market_away") end
         if t.fond then bump(f, "market_fond") end
         return t
