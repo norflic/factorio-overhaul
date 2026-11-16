@@ -1622,12 +1622,19 @@ function Champ.report(f, surface, tick)
   if not b then return end
   Champ.links_step(f, tick) -- (revue-fonderie, point 7)
   do -- lot COMBUSTIBLE-MIGRATION : un cadre sans projet de champ vivant (bande refusée ou annulée, réseau du charbon jamais demandé) libère ses tuiles retenues
-    local alive = {}
+    local fields, frames = {}, {}
     for _, pid in ipairs(b.order) do
       local q = b.projects[pid]
       local qc = q and q.spec and q.spec.champ
-      if qc and q.state ~= "refuse" then alive[qc.oid] = true end
+      if qc then fields[#fields + 1] = { oid = qc.oid, state = q.state } end
     end
+    -- N102-BANDES : un cadre figé encore tenu par la migration (bandes à demander) garde ses tuiles (Cd.alive)
+    local ms = f.migration
+    for _, oid in ipairs(sorted_keys(ms and ms.o)) do
+      local st = ms.o[oid]
+      frames[#frames + 1] = { oid = oid, frame = st.frame ~= nil, abandoned = st.abandoned == true, target = Champ.target(f, oid) ~= nil }
+    end
+    local alive = Cd.alive(fields, frames)
     for _, oid in ipairs(Cd.dead(Cd.owners(b.occ), alive)) do
       local n = Cd.clear(b.occ, oid)
       log(string.format("[FO-CHAMP] %s : cadre de l'avant-poste %d sans projet de champ vivant : %d tuile(s) retenue(s) pour son reseau du charbon liberee(s) a %.1f min", f.key or "player", oid, n, tick / 3600))
