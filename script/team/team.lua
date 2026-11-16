@@ -138,6 +138,7 @@ local function book_for(f)
   return b
 end
 FoSwap.book_of = book_for -- lot TRANCHES (foreuses) : livre de recettes des tranches jouées hors de la pensée (minuterie)
+Board.book_of = book_for -- lot n101-ramassage : kit d'amélioration replanifié à la prise sur la matière libre (Board.claim)
 
 local function unlock(f, level)
   local force = game.forces[f.force]
