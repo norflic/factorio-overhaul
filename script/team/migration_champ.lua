@@ -165,7 +165,7 @@ local function is_furnace_kind(kind)
 end
 
 --- Lot THERMIQUE : un avant-poste dont le réceptacle est un COFFRE (charbon, pierre) passe aussi par le champ, en mode coffres (bras tapis -> coffre
---- de sortie, shared/team/champ.lua). Les ordres de la capitalisation (Mig.takes) restent aux avant-postes à fours.
+--- de sortie, shared/team/champ.lua). Les ordres de la capitalisation (Mig.takes) : fours, et coffres d'une ressource brute (n101-pierre).
 local function is_champ_kind(kind)
   local spec = T.outposts[kind]
   local proto = spec and game.entity_prototypes[spec.sink]
@@ -1988,9 +1988,11 @@ end
 
 --- Sorte d'avant-poste (T.outposts) dont le champ sait poser le minerai `resource` aujourd'hui (réceptacle four, foreuse, tapis débloqué,
 --- poteau : Champ.data), ou nil.
+--- n101-pierre : aussi un réceptacle COFFRE (champ en mode coffres, is_champ_kind) : la capitalisation n'y envoie que les ressources
+--- dont la méthode brute est dérivée (Capi.method_of : ni fonderie, ni combustible) ; sans cela la pierre n'avait aucune voie électrique.
 function Mig.takes(f, resource)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
-    if T.outposts[kind].resource == resource and is_furnace_kind(kind) and Champ.data(f, kind) ~= nil then return kind end
+    if T.outposts[kind].resource == resource and is_champ_kind(kind) and Champ.data(f, kind) ~= nil then return kind end
   end
   return nil
 end
