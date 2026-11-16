@@ -124,6 +124,33 @@ check(not has_extend(p0) and p0.coal_dim == "offre suffisante", "offre suffisant
 local p2 = Planner.plan(view(nil), book)
 check(p2.coal_dim == "sans releve", "sans relevé : décision nommée")
 
+-- 3 bis. Lot n102-centrale (A1 : consigne « étendre le charbon » sans consommateur). Rejeu de l'archive n100-energie-1 (graine 4251870853),
+-- player à 35,1 min : [FO-ENERGIE] « croissance RETENUE ... chaudieres a sec : c'est le charbon qu'il faut etendre » et, la même minute,
+-- [FO-CHARBON-DIM] « besoin 3.822/s (brut 2.940) ... offre 7.500/s (foreuses 22), offre >= besoin ; decision offre suffisante », coffre du QG
+-- 414 (au-dessus du seuil : hq_low faux). Sous la consigne (vue coal_held), l'arbitre du combustible étend ; sans elle, rien ne change.
+local W35 = 2.940 * 4e6 -- watts de toutes les machines à combustible posées (brut 2,940/s de 4 MJ)
+local d22 = {}
+for i = 1, 22 do d22[i] = 7.5 / 22 end
+local cc35 = Bc.dim({ W35 }, d22, 4e6)
+check(near(cc35.need, 3.822) and near(cc35.capacity, 7.5) and cc35.short == false, "rejeu player 35,1 min : offre nominale 7,5/s >= besoin 3,822/s")
+local v35 = view(cc35)
+v35.stock.coal = 414
+local q0 = Planner.plan(v35, book)
+check(not has_extend(q0) and q0.coal_dim == "offre suffisante", "sans consigne : offre suffisante comme au journal (" .. tostring(q0.coal_dim) .. ")")
+local v35h = view(cc35)
+v35h.stock.coal, v35h.coal_held = 414, true
+local q1 = Planner.plan(v35h, book)
+check(has_extend(q1) and q1.coal_dim:find("agrandir avant-poste 1", 1, true) and q1.coal_dim:find("chaudieres a sec", 1, true),
+  "consigne « etendre le charbon » : l'arbitre agrandit l'avant-poste de charbon (" .. tostring(q1.coal_dim) .. ")")
+-- garde-fous gardés : une extension déjà en cours n'en ouvre pas une seconde
+local v35p = view(cc35)
+v35p.stock.coal, v35p.coal_held, v35p.pending = 414, true, { coal = 1 }
+local q2 = Planner.plan(v35p, book)
+check(not has_extend(q2) and q2.coal_dim:find("deja en cours", 1, true), "consigne : une extension en cours suffit (" .. tostring(q2.coal_dim) .. ")")
+check(read_src("script/team/team.lua"):find("coal_held = (f.build and f.build.grow and f.build.grow.coal_held) == true or nil", 1, true),
+  "la vue porte la consigne de la croissance (f.build.grow.coal_held, plant_arms.lua)")
+check(read_src("script/team/plant_arms.lua"):find("g.coal_held = (why == C.COAL_REASON) or nil", 1, true), "la croissance écrit la consigne (C.COAL_REASON)")
+
 -- 4. branchement
 local team_src = read_src("script/team/team.lua")
 check(team_src:find("Profiler.fwrap(\"view:5-cap\", Cap.read, f, fsurface)", 1, true), "la vue lit Cap.read") -- copiée par Et.copy depuis TESTS-VERTS 0716

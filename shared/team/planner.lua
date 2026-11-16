@@ -657,9 +657,15 @@ function P.plan(view, book)
     -- combustible d'un kit d'avant-poste, lu à Planner.outpost_items : 80 sur les données vanilla). Sous ce niveau, l'offre n'est pas suffisante.
     local hq_min = P.hq_coal_min()
     local hq_low = cc ~= nil and (view.stock[T.fuel] or 0) < hq_min
+    -- Lot n102-centrale (archive n100-energie-1, graine 4251870853) : la croissance de la centrale RETIENT sa demande parce que des chaudières
+    -- sont à sec sous la charge (shared/team/centrale.lua, C.COAL_REASON « étendre le charbon, pas la centrale » ; f.build.grow.coal_held) ; ce
+    -- manque MESURÉ aux chaudières n'était lu par personne : player 35,1 min « c'est le charbon qu'il faut etendre » et, la même minute,
+    -- [FO-CHARBON-DIM] « offre 7,500/s (foreuses 22) ... decision offre suffisante » (amber 32,7 / 46,6 / 49,1 min, azure 45,7 et 81,2 min
+    -- de même). Sous cette consigne, l'offre nominale ne suffit plus : l'arbitre du combustible étend (mêmes garde-fous ensuite).
+    local dry = view.coal_held == true
     if cc == nil then out.coal_dim = "sans releve"
     elseif #view.outposts == 0 then out.coal_dim = "aucun avant-poste"
-    elseif not Bc.room(cc) and not hq_low then out.coal_dim = "offre suffisante"
+    elseif not Bc.room(cc) and not hq_low and not dry then out.coal_dim = "offre suffisante"
     elseif (view.pending.coal or 0) > 0 then out.coal_dim = "avant-poste de combustible deja en cours"
     elseif Th.raw_full(T.outposts.coal, view.stock) then out.coal_dim = "stock de combustible plein"
     else
@@ -691,6 +697,9 @@ function P.plan(view, book)
     end
     if hq_low and cc ~= nil and not Bc.room(cc) and out.coal_dim ~= "aucun avant-poste" then
       out.coal_dim = out.coal_dim .. string.format(" (coffre du QG %d sous %d)", math.floor(view.stock[T.fuel] or 0), hq_min)
+    end
+    if dry and cc ~= nil and not Bc.room(cc) and out.coal_dim ~= "aucun avant-poste" then
+      out.coal_dim = out.coal_dim .. " (chaudieres a sec : la croissance de la centrale attend le charbon)"
     end
   end
 

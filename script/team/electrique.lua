@@ -120,7 +120,7 @@ local function inputs(v, kind, craft, extend)
   local rr = (kind and not craft and v.res) and v.res[kind] or nil
   local path = nil -- (un booléen faux ne passe pas par « a and b or nil »)
   if spec and not craft then path = Elec.elec_path(spec.resource) end
-  return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy,
+  return { on = v.on, obtainable = v.obtainable, plants = v.plants, poles = v.poles, healthy = v.healthy, dry = v.dry, -- (lot n102-centrale)
     fuel = craft or (spec ~= nil and spec.product == T.fuel), el_live = v.el_live, poles_stock = v.poles_stock, since = v.since,
     res_live = res_live, phase = v.phase, elec_drill_stock = v.elec_drill_stock, -- arbre de décision (Dt.thermal_allowed)
     res_active = rr and rr.active, res_peak = rr and rr.peak, res_stalled = rr and rr.stalled, res_was = rr and rr.was,
@@ -238,7 +238,9 @@ function Elec.think(f, book, tick)
   local v = { tick = tick, on = Elec.on(), res = res, obtainable = obtainable(f, book, T.DRILL_ELECTRIC), plants = cap_kw > 0 and 1 or 0,
     poles = poles, healthy = not (f.build and f.build.sante and f.build.sante.healthy == false), cap = cap_kw,
     el_live = lv.total, el_placed = lv.placed or 0, by = lv.by, min_live = min_live or 0, poles_stock = poles_stock,
-    since = st.switch_tick and (tick - st.switch_tick) or nil }
+    since = st.switch_tick and (tick - st.switch_tick) or nil,
+    -- lot n102-centrale : chaudières à sec sous la charge (consigne « étendre le charbon » de la croissance, script/team/plant_arms.lua)
+    dry = (f.build and f.build.grow and f.build.grow.coal_held) == true or nil }
   -- lot CHARBON-JOUEUR : avant-postes de l'équipe par type (E.thermal : ni avant-poste ni voie électrique seule = thermique permise)
   v.kinds = {}
   for _, oid in ipairs(State_sorted(f.outposts)) do
