@@ -109,6 +109,23 @@ local function battery(Cc)
   Cc.refused(st, 5000)
   check(st.retry_at == 5000 + Cc.LONG_RETRY_TICKS, "au-dela du plafond : toujours la pause longue")
 
+  section("4 bis. Places des projets d'alimentation (lot n104-investir, partie du DC 0.9.10, graine 2030089248)")
+  -- valeurs du journal, player 81 min : 6 centrales nourries a la main (9,16,48,52,56,74), [FO-ZERO-IDLE] 42 PNJ libres,
+  -- [FO-CAPI] budget 62007 MU dont 0 depense, [FO-VAPEUR] manque 16217 kW, chaudieres alimentees 7/17
+  local DEFB = require("shared.team.sante_centrale").DEFICIT_BANK
+  check(Cc.max_open({ short = true, hand = 6, idle = 42, bank = 62007.3 }) == 6, "manque d'energie, 6 a la main, 42 PNJ libres, 62 007 MU : 6 projets a la fois")
+  check(Cc.max_open({ short = false, hand = 6, idle = 42, bank = 62007.3 }) == Cc.MAX_OPEN, "energie suffisante : le plafond d'avant")
+  check(Cc.max_open({ short = true, hand = 6, idle = 1, bank = 62007.3 }) == Cc.MAX_OPEN + 1, "un seul PNJ libre : une place de plus seulement")
+  check(Cc.max_open({ short = true, hand = 6, idle = 42, bank = DEFB * 2 + 1 }) == Cc.MAX_OPEN + 2, "epargne de deux chantiers : deux places de plus")
+  check(Cc.max_open({ short = true, hand = 6, idle = 42, bank = DEFB - 1 }) == Cc.MAX_OPEN, "epargne sous le prix d'un chantier : le plafond d'avant")
+  check(Cc.max_open({ short = true, hand = 1, idle = 42, bank = 62007.3 }) == Cc.MAX_OPEN, "une seule centrale a la main : jamais sous le plafond d'avant")
+  check(Cc.max_open({ short = true, hand = 6 }) == Cc.MAX_OPEN and Cc.max_open({ short = true, hand = 6, idle = 0 / 0, bank = 1 / 0 }) == Cc.MAX_OPEN,
+    "PNJ libres ou epargne non lus : aucune place de plus")
+  check(Cc.max_open(nil) == Cc.MAX_OPEN, "sans mesure : le plafond d'avant")
+  local c4 = { automated = false, quai = true, alim_open = false, tick = 0 }
+  c4.other_open = 2 >= Cc.max_open({ short = true, hand = 6, idle = 42, bank = 62007.3 })
+  check(Cc.want_alim({}, c4) == true, "rejeu 81 min : 2 projets ouverts (24, 76), la centrale 48 demande le sien")
+
   section("5. Arrivees du tapis a la tete")
   -- tete en (10, 5), sens ouest (6) : derriere = est (11, 5) vers l'ouest ; gauche de l'ouest = sud
   local d = P.W
@@ -142,6 +159,8 @@ local chunk_src = between("--- Lot CHARBON-CENTRALE : boilers (nombre)", "--- Lo
 local W = { logs = {}, stock = 0, chests = {}, tick = 0, requests = {} }
 local Build = { QUAI_LOW = 60, QUAI_FILL = 400, COLLECT_AT = 200, QUAI_CHEST = "iron-chest", -- 0.6.67 : quai_tasks cherche Build.QUAI_CHEST
   Rempl = { adjust = function(_, _, _, _, _, _, _, _, r) return r end } } -- lot REMPLISSAGE : doublure neutre (stock juste)
+Build.PoleCh = {} -- (le segment extrait pose Build.PoleCh.anchor : doublure, ce banc ne pose aucun poteau de chantier)
+Build.Vap = require("shared.team.vapeur") -- lot n104-investir : charbon_step lit Build.Vap.energy_short
 Build.Quotas = require("script.team.quotas_glue") -- lot VIDEO L4 : quai_tasks et out_tasks lisent les quotas (sans quota : ancienne règle)
 Build.request = function(f, spec)
   local b = f.build
@@ -161,7 +180,7 @@ local env = {
   T = require("shared.team.config"),
   Outposts = { smelters = function() return W.smelter_levels or {} end, burners = function(o) return o.levels or {} end,
     fuel_levels = function(list) return list end },
-  Sante = { tasks = function() end, coal_short = function() return false end }, -- (lot ENERGIE-0916 : chaudières à sec, lues par charbon_step) -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
+  Sante = { tasks = function() end, coal_short = function() return false end }, -- (lot n104-investir : Build.Vap.energy_short lu par charbon_step, ci-dessous) -- (lot ENERGIE-0916 : chaudières à sec, lues par charbon_step) -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,
   defines = { inventory = { chest = 1 } },
@@ -329,6 +348,34 @@ do
   W.tick = W.tick + Cc0.EVERY
   X.charbon_step(f, W.tick)
   check(not X.plant_automated(b, plant) and #W.requests == 2, "projet rouvert : pas automatisee, pas de doublon (la reconstruction le refait)")
+  -- lot n104-investir : trois centrales nourries a la main, l'energie manque (a sec), PNJ libres et epargne : trois projets a la fois
+  W.requests, W.logs = {}, {}
+  local f3 = team()
+  local b3 = f3.build
+  for k = 2, 3 do
+    local q = copy(f3.build.projects[1]); q.id = k
+    b3.projects[k] = q; b3.order[#b3.order + 1] = k
+  end
+  b3.next_id = 4
+  f3.team.ia3 = { zi_last = { idle = 42 } }
+  f3.team.capi = { res = { budget = 62007.3, spent = 0 } }
+  b3.vapeur = { missing = 16217 }
+  W.tick = 50000
+  X.charbon_step(f3, W.tick)
+  check(#W.requests == 3, "manque d'energie, 3 centrales a la main, 42 PNJ libres, 62 007 MU : 3 projets d'alimentation ouverts (" .. #W.requests .. ")")
+  check(W.logs[#W.logs]:find("permis, 3 centrale(s) a la main", 1, true) ~= nil, "journal : places permises et centrales a la main")
+  W.requests = {}
+  local f4 = team()
+  for k = 2, 3 do
+    local q = copy(f4.build.projects[1]); q.id = k
+    f4.build.projects[k] = q; f4.build.order[#f4.build.order + 1] = k
+  end
+  f4.build.next_id = 4
+  f4.team.ia3 = { zi_last = { idle = 42 } }
+  f4.team.capi = { res = { budget = 62007.3, spent = 0 } }
+  f4.build.vapeur = { missing = 0 }
+  X.charbon_step(f4, W.tick)
+  check(#W.requests == Cc0.MAX_OPEN, "energie suffisante : " .. Cc0.MAX_OPEN .. " projets au plus, comme avant (" .. #W.requests .. ")")
   -- réglage de banc
   local f2 = team()
   f2.build.opts.no_alim = true
@@ -382,6 +429,10 @@ mutant("projet rouvert compte comme automatise", function(C) C.automated = funct
 mutant("plusieurs projets ouverts", function(C)
   local old = C.want_alim
   C.want_alim = function(st, c) local c2 = copy(c); c2.other_open = false; return old(st, c2) end
+end)
+mutant("n104 : plafond fixe meme sous manque d'energie", function(C) C.max_open = function() return C.MAX_OPEN end end)
+mutant("n104 : places sans borne de PNJ libres ni d'epargne", function(C)
+  C.max_open = function(c) c = c or {} if not c.short then return C.MAX_OPEN end return math.max(C.MAX_OPEN, math.floor(c.hand or 0)) end
 end)
 mutant("pas de pause apres un refus", function(C) C.RETRY_TICKS = 0 end)
 mutant("abandon definitif apres le plafond", function(C) C.LONG_RETRY_TICKS = 10 ^ 12 end)

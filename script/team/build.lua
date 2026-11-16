@@ -5759,6 +5759,14 @@ local function charbon_step(f, tick)
       n_open = n_open + 1
     end
   end
+  -- lot n104-investir : places des projets d'alimentation proportionnées au manque (Cc.max_open) : centrales nourries à la main, PNJ libres de
+  -- la dernière pensée (f.team.ia3.zi_last), épargne non dépensée de la capitalisation (f.team.capi.res)
+  local hand_n = 0
+  for _, p in ipairs(plants) do if #(p.quais or {}) > 0 and not plant_automated(b, p) then hand_n = hand_n + 1 end end
+  local zi = f.team and f.team.ia3 and f.team.ia3.zi_last
+  local cres = f.team and f.team.capi and f.team.capi.res
+  local max_open = Cc.max_open({ hand = hand_n, idle = zi and zi.idle, bank = cres and (cres.budget or 0) - (cres.spent or 0),
+    short = Build.Vap.energy_short((b.grow or {}).saturated == true, Sante.coal_short(f), b.vapeur and b.vapeur.missing or 0) })
   for _, p in ipairs(plants) do
     local st = b.charbon[p.id] or {}
     b.charbon[p.id] = st
@@ -5783,7 +5791,7 @@ local function charbon_step(f, tick)
       st.done_said = nil
     end
     local open = alim ~= nil and not auto
-    local ok = Cc.want_alim(st, { automated = auto, quai = #(p.quais or {}) > 0, alim_open = open, other_open = n_open >= Cc.MAX_OPEN and not open,
+    local ok = Cc.want_alim(st, { automated = auto, quai = #(p.quais or {}) > 0, alim_open = open, other_open = n_open >= max_open and not open,
       tick = tick, off = b.opts and b.opts.no_alim == true })
     if ok then
       local n, kw = plant_burn_kw(p)
@@ -5807,8 +5815,8 @@ local function charbon_step(f, tick)
         b.order = front
         b.charbon_logs = (b.charbon_logs or 0) + 1
         if b.charbon_logs <= Cc.LOGS then
-          log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d nourrie a la main (%d chaudiere(s), %.2f charbon/s a pleine charge) : projet d'alimentation %d demande a %.1f min (essai %d, rang %d sur %d)",
-            f.key or "player", p.id, n, Cc.rate(kw, M.COAL_J), id, tick / 3600, (st.tries or 0) + 1, #front - #rest, #front))
+          log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d nourrie a la main (%d chaudiere(s), %.2f charbon/s a pleine charge) : projet d'alimentation %d demande a %.1f min (essai %d, rang %d sur %d ; %d ouvert(s) sur %d permis, %d centrale(s) a la main)",
+            f.key or "player", p.id, n, Cc.rate(kw, M.COAL_J), id, tick / 3600, (st.tries or 0) + 1, #front - #rest, #front, n_open, max_open, hand_n))
         end
       end
     end
@@ -6463,16 +6471,23 @@ function Build.brief(f, id)
     ent_garnish = (Ent.monopoly(p.spec) and not p.spec.ent_queue) and Ent.garnish(p.ents) or nil } -- (garniture : hors de la tête du cerveau) -- entrepreneur-craft-0716 : chantier entrepreneur (lu par script/ai3/automatisation.lua : but servi en tête)
 end
 
---- Lot ENERGIE (relecture) : projet d'alimentation de centrale ouvert de l'équipe (un seul à la fois, Cc.want_alim), ou nil. Lecteur :
---- script/ai3/automatisation.lua, qui en fait un but « fabriquer ses manques ». Lecture seule.
-function Build.alim_project(f)
+--- Lot n104-investir : projets d'alimentation de centrale OUVERTS de l'équipe, dans l'ordre du plan directeur (Cc.max_open en ouvre plusieurs).
+--- Lecteur : script/ai3/automatisation.lua, qui fait de CHACUN un but « fabriquer ses manques » (avant : seul le premier ; la nouvelle
+--- alimentation passant devant, l'ancienne perdait son but : partie du DC 0.9.10, projet 24 ouvert de 35,9 à 86 min). Lecture seule.
+function Build.alim_projects(f)
   local b = f and f.build
-  if not b then return nil end
+  local out = {}
+  if not b then return out end
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
-    if p and p.spec and p.spec.alim and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then return pid end
+    if p and p.spec and p.spec.alim and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then out[#out + 1] = pid end
   end
-  return nil
+  return out
+end
+
+--- Lot ENERGIE (relecture) : le premier projet d'alimentation ouvert (Build.alim_projects), ou nil. Lecteur : Build.alim_first (priorité de matière).
+function Build.alim_project(f)
+  return Build.alim_projects(f)[1]
 end
 
 --- Lot FUITES-PILE : pose la famille de la pile et le produit d'un projet demandé AVANT ce lot (sauvegarde 0.6.21) ; ne change rien à un

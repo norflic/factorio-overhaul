@@ -278,8 +278,11 @@ do
   check(keys["auto:centrale-alim"] and keys["auto:centrale-alim"].missing[1][2] == 142 and keys["auto:centrale-alim"].pile == nil,
     "le but porte les manques et n'est jamais suspendu par la pile")
   local autos = read_file("script/ai3/automatisation.lua")
-  check(autos:find("local alim_id = Build.alim_project(f)", 1, true) ~= nil and autos:find("product = \"centrale-alim\"", 1, true) ~= nil,
-    "automatisation.lua : le projet d'alimentation entre au contexte du cerveau")
+  -- (lot n104-investir : un but par alimentation ouverte, Build.alim_projects)
+  check(autos:find("for i, alim_id in ipairs(Build.alim_projects(f)) do", 1, true) ~= nil and autos:find("product = (i == 1) and \"centrale-alim\" or (\"centrale-alim-\" .. i)", 1, true) ~= nil,
+    "automatisation.lua : CHAQUE projet d'alimentation ouvert entre au contexte du cerveau")
+  check(build:find("function Build.alim_projects(f)", 1, true) ~= nil and build:find("return Build.alim_projects(f)[1]", 1, true) ~= nil,
+    "build.lua : Build.alim_projects (liste), Build.alim_project = le premier")
   check(build:find("function Build.alim_project(f)", 1, true) ~= nil, "build.lua : Build.alim_project")
 end
 

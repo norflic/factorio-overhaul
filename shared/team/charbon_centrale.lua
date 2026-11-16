@@ -23,6 +23,7 @@
      (foreuses qui suffisent) son bras ne dépose rien ; il ne se vide que si les foreuses ne suffisent plus (gisement épuisé, foreuses
      détruites, centrale arrêtée : les foreuses sont électriques), et la règle 1 le remplit alors en urgence.
 ]]
+local S = require("shared.team.sante_centrale") -- lot n104-investir : S.DEFICIT_BANK, prix d'épargne d'un chantier d'énergie de plus
 local Cc = {}
 
 Cc.LEAD_S = 240         -- secondes d'avance du seuil (aller du PNJ depuis le coffre du QG, attente d'un PNJ libre)
@@ -154,6 +155,22 @@ function Cc.want_alim(st, c)
   if c.other_open then return false, "un autre projet d'alimentation est en cours" end
   if (c.tick or 0) < (st.retry_at or 0) then return false, "pause apres un refus" end
   return true
+end
+
+--- Lot n104-investir (partie du DC 0.9.10, graine 2030089248, player 71,7 -> 86 min : 6 centrales sur 10 nourries à la main, chaudières
+--- alimentées 5 à 9 sur 17, 42 PNJ libres à 81 min, épargne libre de la capitalisation 46 600 -> 74 000 MU) : les Cc.MAX_OPEN places des
+--- projets d'alimentation étaient tenues par les projets 24 (centrale 16, ouvert depuis 35,9 min) et 76 (centrale 56) ; les centrales 48, 52
+--- et 74 n'ont jamais eu le leur (« un autre projet d'alimentation est en cours »). Places à la fois : Cc.MAX_OPEN hors manque d'énergie ;
+--- quand l'énergie MANQUE (c.short : saturée, à sec ou demande nominale au-delà, V.energy_short), une par centrale nourrie à la main (c.hand,
+--- le manque), au-delà de Cc.MAX_OPEN seulement par PNJ libre (c.idle) et par S.DEFICIT_BANK MU d'épargne libre (c.bank : budget non
+--- dépensé de la capitalisation, le prix d'une centrale d'une chaudière). Une mesure absente ne donne aucune place de plus.
+function Cc.max_open(c)
+  c = c or {}
+  if not c.short then return Cc.MAX_OPEN end
+  local function n(x) return (type(x) == "number" and x == x and x > 0 and x < math.huge) and math.floor(x) or 0 end
+  local extra = math.max(0, n(c.hand) - Cc.MAX_OPEN)
+  extra = math.min(extra, n(c.idle), n(n(c.bank) / S.DEFICIT_BANK))
+  return Cc.MAX_OPEN + extra
 end
 
 --- Pause (ticks) après le refus numéro `tries` : courte jusqu'à Cc.MAX_TRIES, longue ensuite (jamais d'abandon définitif).
