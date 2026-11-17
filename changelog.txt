@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.12
+Date: 2026-11-17
+  Bugfixes:
+    - Retrait de deux corrections du cycle 2 qui faisaient regresser le panel : la voie electrique des minerais bruts (pierre) et la sortie de survie sur la production. / Two cycle-2 fixes that regressed the seed panel are reverted (electric route for raw ores, survival exit on production).
+    - Banc (panel de 4 graines 2030089248, 4251870853, 1618033988, 271828182 ; carte du DC, 90 min) : fer + cuivre toutes equipes a 89 min 1 914 193 (0.9.10 Excellente) -> 2 009 980 (+5,0 %), votre equipe 408 128 -> 416 304 (+2,0 %). Premiere version a battre la 0.9.10 sur les quatre graines a la fois. / Bench (4-seed panel): all teams +5.0 %, your team +2.0 % against 0.9.10.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.11
 Date: 2026-11-17
   Features:
