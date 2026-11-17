@@ -125,21 +125,8 @@ function Survie.think(f, view, plan, tick)
   -- Lot s42 diag-joueur : coffre VIDE d'une matière clé qui manque (famine en paix, Sv.famine)
   local starved = false
   for _, sh in ipairs(short) do if ((view.stock or {})[sh[1]] or 0) <= 0 then starved = true end end
-  -- Lot n101-survie : production mesurée (objets/min, statistiques de la force, dernière minute) des matières qui manquent, mode allumé
-  -- seulement : lue par la SORTIE (Sv.covered). Moteur simulé sans statistiques : nil (sortie d'avant : aucun manque).
-  local flow = nil
-  if s.on and #short > 0 then
-    local force = game.forces[f.force]
-    for _, sh in ipairs(short) do
-      local ok, n = pcall(function()
-        return force.item_production_statistics.get_flow_count({ name = sh[1], input = true,
-          precision_index = defines.flow_precision_index.one_minute })
-      end)
-      if ok and type(n) == "number" then flow = flow or {}; flow[sh[1]] = n end
-    end
-  end
   local d = Sv.decide(s, { tick = tick, short = short, workers = view.workers or 0, idle = view.workers_idle or 0,
-    threatened = view.threatened, starved = starved, flow = flow })
+    threatened = view.threatened, starved = starved })
   if d.event == "entree" then
     s.said = {}
     s.relaxed, s.relax_why, s.mines, s.smelters, s.extends, s.keys = 0, {}, 0, 0, 0, {}

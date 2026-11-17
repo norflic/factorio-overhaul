@@ -154,33 +154,6 @@ local function pure_facts(Sx)
   f.unc_none = Sx.uncovered(sh2, nil) == sh2
   local u3 = Sx.uncovered(sh2, {})
   f.unc_untaken = #u3 == 2 and u3[1][2] == 500
-  -- F15 (lot n101-survie, B5) : relevés de votre équipe, graine 271828182 (fo-logs/2026-11-16_n100-panel-271-fix) : en survie depuis
-  -- 32,3 min, manque iron-plate 1274 (42,3), 541 (52,3), 1394 (62,3), 28 (72,3), fer produit ~200 plaques/min (jalons 35 -> 50 min :
-  -- 5 497 -> 8 503). La demande du plan se renouvelle à mesure que les bandes prennent le fer : un manque que la production comble en
-  -- moins de Sv.EXIT_TICKS fait SORTIR ; un manque au-delà de la production mesurée garde le mode ; sans débit mesuré : règle d'avant.
-  local function dflow(s_, tick, sh_, flow) return Sx.decide(s_, { tick = tick, short = sh_, workers = 9, idle = 1, flow = flow }) end
-  st = Sx.new()
-  st.on, st.since, st.beat = true, 0, 0
-  local fl = { [IRON] = 200 }
-  dflow(st, 40 * 3600, { { IRON, 541 } }, fl)
-  f.n101_hold_4min = dflow(st, 44 * 3600, { { IRON, 300 } }, fl).on
-  local ex2 = dflow(st, 45 * 3600, { { IRON, 541 } }, fl)
-  f.n101_exit = ex2.on == false and ex2.event == "sortie"
-  f.n101_exit_text = ex2.cause ~= nil and ex2.cause:find(IRON .. " 541", 1, true) ~= nil
-  st = Sx.new()
-  st.on, st.since, st.beat = true, 0, 0
-  dflow(st, 40 * 3600, { { IRON, 1274 } }, fl)
-  f.n101_big_holds = dflow(st, 46 * 3600, { { IRON, 1274 } }, fl).on
-  st = Sx.new()
-  st.on, st.since, st.beat = true, 0, 0
-  dflow(st, 40 * 3600, { { IRON, 541 } }, nil)
-  f.n101_no_flow_holds = dflow(st, 46 * 3600, { { IRON, 541 } }, nil).on
-  st = Sx.new()
-  st.on, st.since, st.beat = true, 0, 0
-  dflow(st, 40 * 3600, { { IRON, 541 } }, fl)
-  dflow(st, 43 * 3600, { { IRON, 1394 } }, fl) -- le manque dépasse la production : l'horloge du calme repart
-  f.n101_reset_holds = dflow(st, 47 * 3600, { { IRON, 541 } }, fl).on
-  f.n101_other_item = Sx.covered({ { IRON, 541 }, { COPPER, 10 } }, fl) -- le cuivre n'est pas produit : non couvert
   return f
 end
 
@@ -228,12 +201,6 @@ check(facts.waits_cap == Sv.WAITS_KEPT, "au plus " .. Sv.WAITS_KEPT .. " refus g
 check(facts.beat_early == nil and facts.beat_due == "bilan" and facts.beat_again == nil, "bilan périodique : une ligne par tranche de 10 min")
 check(facts.cause_item and facts.cause_why, "la cause écrite au journal nomme la matière, le manque et la raison")
 check(facts.entries == 1, "une entrée comptée")
-check(facts.n101_hold_4min == true and facts.n101_exit == true, "n101 (B5) : manque de fer 541 contre 200 plaques/min produites : sortie après 5 min couvertes (graine 271828182)")
-check(facts.n101_exit_text == true, "n101 : la ligne de sortie nomme le manque restant")
-check(facts.n101_big_holds == true, "n101 : manque de 1274 au-delà de 5 min de production (1000) : le mode tient")
-check(facts.n101_no_flow_holds == true, "n101 : sans débit mesuré, un manque garde le mode (règle d'avant)")
-check(facts.n101_reset_holds == true, "n101 : un manque au-delà de la production remet l'horloge du calme à zéro")
-check(facts.n101_other_item == false, "n101 : une matière sans production mesurée n'est pas couverte")
 -- Déterminisme : deux passages identiques.
 check(select(1, same_facts(pure_facts(Sv), facts)), "déterminisme : deux passages donnent les mêmes faits")
 -- Grille : l'état ne contient que des nombres, booléens, chaînes et tables (sérialisable dans la sauvegarde).
@@ -566,9 +533,7 @@ local mutants = {
   { "entrée sans paralysie", "Sv", "if #short > 0 and tick - st.short_since >= Sv.SHORT_TICKS and para then", "if #short > 0 and tick - st.short_since >= Sv.SHORT_TICKS then" },
   { "sortie sans hystérésis", "Sv", "if tick - st.since >= Sv.MIN_ON and st.calm_since and tick - st.calm_since >= Sv.EXIT_TICKS then", "if tick - st.since >= Sv.MIN_ON and st.calm_since then" },
   { "pas de séjour minimal", "Sv", "if tick - st.since >= Sv.MIN_ON and st.calm_since", "if st.calm_since" },
-  { "le calme ne repart pas de zéro", "Sv", "then st.calm_since = st.calm_since or tick else st.calm_since = nil end", "then st.calm_since = st.calm_since or tick end" },
-  { "n101 : la production mesurée ne couvre plus le manque (sortie d'avant)", "Sv", "if num(s[2]) > per_min * Sv.EXIT_TICKS / 3600 then return false end", "if num(s[2]) > 0 then return false end" },
-  { "n101 : le débit n'est plus rapporté à la fenêtre de sortie", "Sv", "if num(s[2]) > per_min * Sv.EXIT_TICKS / 3600 then return false end", "if num(s[2]) > per_min then return false end" },
+  { "le calme ne repart pas de zéro", "Sv", "    st.short_since = st.short_since or tick\n    st.calm_since = nil", "    st.short_since = st.short_since or tick" },
   { "un refus éteint le mode", "Sv", "    if tick - st.since >= Sv.MIN_ON", "    if Sv.waits(st, tick) > 0 or tick - st.since >= Sv.MIN_ON" },
   { "la paralysie qui finit éteint le mode", "Sv", "    if tick - st.since >= Sv.MIN_ON", "    if not para or tick - st.since >= Sv.MIN_ON" },
   { "la menace seule ne suffit plus", "Sv", "if a.threatened and idle * 100 >= workers * Sv.IDLE_PCT_THREAT then", "if false then" },
