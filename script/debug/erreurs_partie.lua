@@ -322,7 +322,8 @@ local function facts_of(f, surface, t, tick)
           if e.dropped then dropped = dropped + 1; x, y = x or e.x, y or e.y end
         end
         t.chev[pid] = true
-        if n > 0 and dropped == n then facts.chevauchements[#facts.chevauchements + 1] = { pid = pid, x = x, y = y, dropped = dropped, total = n } end
+        -- refusé sans rien à poser : toutes ses pièces sur des tuiles déjà au plan (écartées avant ou après la création du projet)
+        if dropped == n then facts.chevauchements[#facts.chevauchements + 1] = { pid = pid, x = x, y = y, dropped = dropped, total = n } end
       end
     end
   end

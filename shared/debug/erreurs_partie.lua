@@ -173,7 +173,7 @@ function E.conds(facts, cfg)
     end
   end
   for _, p in ipairs(facts.chevauchements or {}) do
-    add("PLACEMENT:chevauchement", "p" .. tostring(p.pid), p.x, p.y, p.dropped, string.format("projet=%s pieces_sur_un_autre_plan=%d/%d",
+    add("PLACEMENT:chevauchement", "p" .. tostring(p.pid), p.x, p.y, math.max(1, num(p.dropped)), string.format("projet=%s pieces_sur_un_autre_plan=%d/%d",
       tostring(p.pid), r0(p.dropped), r0(p.total)))
   end
   for _, p in ipairs(facts.pertes or {}) do
