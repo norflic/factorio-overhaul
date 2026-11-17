@@ -137,6 +137,32 @@ local function battery(C)
     if pend2 > 0 and step % 20 == 0 then pend2 = pend2 - 1; done2 = done2 + 1 end
   end
   check(done2 == 5, "6 MW : 5 centrales (9 MW, marge de 33 %), pas 4 (7,2 MW, charge 83 %) ni 6 (" .. done2 .. ")")
+
+  -- Lot n106-repli : valeurs du journal du banc n105-eau-1 (graine 2030089248, player). 73,0 min : demande nominale 25 853 kW (x1,3 = 33 609),
+  -- capacite 23 400 kW, manque 10 209 kW, chaudieres alimentees 9/13 (4 a sec = 7 200 kW), 9 centrales finies ; charge 69 % (bilan 75,6 min) :
+  -- la saturation retombe sous C.SAT_EXIT (sat = 0) ; deux modules affames (68,8 et 74,9 min) : repli jusqu'a 105 min.
+  section("4. n106-repli : le repli ne retient jamais la demande nominale")
+  local function journal(extra)
+    local n = { load = 0.69, nominal_kw = 10209, done = 9, pending = 0, rebuilding = 0, refused = 0, hold = true, built = 13,
+      boiler_kw = 1800, coal_short = true, dry_kw = 7200, cool = false, off = false }
+    for k, v in pairs(extra or {}) do n[k] = v end
+    return n
+  end
+  local nb4, why4 = C.growth({ saturated = false, sat = 0 }, journal())
+  check(nb4 ~= nil and why4 == nil, "73 min, repli et chaudieres a sec : 3 009 kW nominaux au-dela des chaudieres a sec ne sont plus retenus (" .. tostring(why4) .. ")")
+  check(nb4 == C.deficit_size(10209 - 7200, 1800, 0), "taille du manque au-dela des chaudieres a sec : " .. tostring(nb4))
+  nb4, why4 = C.growth({ saturated = false, sat = 0 }, journal({ pending = 1 }))
+  check(nb4 ~= nil, "un chantier ouvert sous la demande nominale : en parallele malgre le repli (" .. tostring(why4) .. ")")
+  -- 89 min : manque 30 118 kW, chaudieres nourries : taille du manque, jamais l'unite de secours d'une crise de repli
+  nb4, why4 = C.growth({ saturated = true, sat = C.HOLD_PASS + 10 }, journal({ nominal_kw = 30118, coal_short = false, dry_kw = 0 }))
+  check(nb4 == C.deficit_size(30118, 1800, 0) and nb4 > C.SECOURS_BOILERS, "saturee depuis HOLD_PASS pendant le repli, sous la demande nominale : un champ, pas l'unite de secours (" .. tostring(nb4) .. ")")
+  check(C.crisis({ sat = C.HOLD_PASS }, { hold = true, nominal_kw = 30118 }) == false, "pas de crise de repli sous la demande nominale")
+  check(C.crisis({ sat = C.HOLD_PASS }, { hold = true }) == true, "crise de repli hors demande nominale (inchange)")
+  -- hors demande nominale : le repli retient comme avant
+  nb4, why4 = C.growth({ saturated = true, sat = 10 }, { done = 1, pending = 0, refused = 0, hold = true })
+  check(nb4 == nil and why4 == "repli de l'equipe (manque de matiere)", "sans demande nominale : le repli retient (inchange)")
+  check(C.repli({ hold = true }) == true and C.repli({ hold = true, nominal_kw = 1 }) == false and C.repli({ hold = false, nominal_kw = 5 }) == false,
+    "C.repli : vrai seulement en repli hors demande nominale")
 end
 
 section("Regle reelle")
@@ -166,8 +192,10 @@ local mutants = {
   { "plafond 6 -> 9", "C.MAX_PLANTS = 6", "C.MAX_PLANTS = 9" },
   { "plafond 6 -> 3 (avant le lot)", "C.MAX_PLANTS = 6", "C.MAX_PLANTS = 3" },
   { "refus definitifs a 2 (avant le lot)", "C.MAX_REFUSED = 5", "C.MAX_REFUSED = 2" },
-  { "repli retient toujours (avant le lot)", "n.hold and (st.sat or 0) < C.HOLD_PASS", "n.hold" },
-  { "repli jamais", "n.hold and (st.sat or 0) < C.HOLD_PASS", "false" },
+  { "repli retient toujours (avant le lot)", "C.repli(n) and (st.sat or 0) < C.HOLD_PASS", "C.repli(n)" },
+  { "repli jamais", "C.repli(n) and (st.sat or 0) < C.HOLD_PASS", "false" },
+  { "repli sous la demande nominale (avant n106-repli)", "return (n.hold and not ((n.nominal_kw or 0) > 0)) and true or false", "return n.hold and true or false" },
+  { "crise de repli sous la demande nominale (avant n106-repli)", "(st.sat or 0) >= C.HOLD_PASS and C.repli(n)", "(st.sat or 0) >= C.HOLD_PASS and n.hold" },
   { "aucune pause apres un refus", "if new then st.cool_until", "if false then st.cool_until" },
   { "pause a chaque releve", "local new = refused > (st.refused_n or 0)", "local new = refused > 0" },
   { "refus non memorise", "st.refused_n = refused", "st.refused_n = st.refused_n" },
@@ -176,7 +204,7 @@ local mutants = {
   { "plafond atteint permis (>= -> >)", "n.done >= C.MAX_PLANTS", "n.done > C.MAX_PLANTS" },
   { "chantier ouvert ignore", "if n.pending > 0 and not C.parallel_kw(st, n) and not (nominal and n.pending < C.MAX_PARALLEL) then", "if false then" }, -- (lot ELECTRIQUE (e) : la garde porte la règle des chantiers en parallèle)
   { "refus ignores", "(n.refused or 0) >= C.MAX_REFUSED", "false" },
-  { "repli ignore", "if n.hold and", "if false and" },
+  { "repli ignore", "if C.repli(n) and", "if false and" },
   { "reglage de banc ignore", "if n.off then", "if false then" },
   { "sans centrale finie", "if n.done < 1 then", "if false then" },
   { "demande sans remise a zero", "st.sat, st.saturated = 0, false", "st.sat = st.sat" },

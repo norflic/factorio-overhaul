@@ -213,6 +213,19 @@ function Far.place(f, surface, g, ctx)
   return nil, "pas d'eau atteignable"
 end
 
+--- Lot n106-repli (B7, vu par n105-eau sur N103-2030 : « 33,5 min de recherche » à 72,7 min, refus sans exploration) : une centrale
+--- POSÉE dans le treillis (ou au repli) clôt la recherche de l'eau en cours. Avant, seule la pose lointaine ou le refus remettait
+--- s.searching à nil : l'horloge d'une recherche « loin » close par une pose dans le treillis restait, et la recherche suivante
+--- partait avec ce vieux tick (attente déjà au-delà de Cl.EXPLORE_WAIT : refus immédiat, sans exploration). Rend vrai si une
+--- recherche était ouverte.
+function Far.settled(f, tick)
+  local s = f.build and f.build.far
+  if not (s and s.searching) then return false end
+  s.searching = nil
+  Far.stop_explore(f, tick)
+  return true
+end
+
 --- Fin de l'exploration demandée pour l'eau (centrale posée ou refusée).
 function Far.stop_explore(f, tick)
   local s = state(f.build)

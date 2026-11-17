@@ -74,12 +74,24 @@ function C.survie(g, dry)
   return false, nil
 end
 
+--- Lot n106-repli (graine 2030089248, banc n105-eau-1 : player 23 400 kW de capacité pour 25 785 à 41 168 kW nominaux de 72 à 89 min,
+--- « extension RETENUE : repli de l'equipe (manque de matiere) » ; deux modules affamés à 68,8 et 74,9 min = repli jusqu'à 105 min ; la
+--- sortie, C.HOLD_PASS relevés de saturation, ne vient jamais : charge 69-77 % sous des chaudières à sec, la saturation retombe sous
+--- C.SAT_EXIT). Interblocage : le repli retient l'énergie, l'énergie manquante arrête les foreuses, les foreuses arrêtées affament les
+--- réserves, les réserves affamées allongent le repli. Le repli (manque de matière) retient la centrale de plus SEULEMENT hors de la
+--- demande nominale : quand les machines posées demandent plus que la capacité (n.nominal_kw > 0, shared/team/vapeur.lua), le courant
+--- est ce qui rend la matière, et il n'attend plus une saturation mesurée. Rend vrai si le repli retient.
+function C.repli(n)
+  return (n.hold and not ((n.nominal_kw or 0) > 0)) and true or false
+end
+
 --- Lot TV-ENERGIE (G65) : l'équipe est-elle en CRISE d'énergie ? Deux causes : la centrale est PERDUE (n.lost : machines détruites, Cv.lost) ;
 --- ou la saturation dure depuis C.HOLD_PASS relevés PENDANT le repli de l'équipe (crise de matière : n.hold, les réserves sont affamées, un
 --- champ entier ne se réunirait pas). Rend vrai/faux et la cause ("perte" | "repli" | nil).
+--- Lot n106-repli : la crise de repli suit C.repli (sous la demande nominale, pas de repli, donc pas d'unité de secours : la taille du manque).
 function C.crisis(st, n)
   if n.lost then return true, "perte" end
-  if (st.sat or 0) >= C.HOLD_PASS and n.hold then return true, "repli" end
+  if (st.sat or 0) >= C.HOLD_PASS and C.repli(n) then return true, "repli" end
   return false, nil
 end
 
@@ -196,7 +208,7 @@ function C.growth(st, n)
   -- centrales ne borne plus (comme C.MAX_REFUSED ci-dessous) ; la demande manquante, C.MAX_PARALLEL et la taille du champ bornent
   if not nominal and n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
   if not nominal and (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end -- (lot VAPEUR : jamais de renoncement sous la demande nominale)
-  if n.hold and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end
+  if C.repli(n) and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end -- (n106-repli : C.repli)
   if n.cool then return nil, "pause apres une centrale refusee ou abandonnee" end
   -- lot FIX-P1 : plus de borne C.MAX_REQUESTS sur la partie (elle bloquait la croissance électrique pour toujours) ; C.COOL et C.MAX_REFUSED bornent
   -- lot TV-ENERGIE (G65) : en crise, l'unité de secours (la plus petite), jamais le champ ; plafonnée par crise (n.secours_n)

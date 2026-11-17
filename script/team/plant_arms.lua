@@ -264,7 +264,11 @@ function PA.watch(f, surface, tick)
   C.deficit_track(g, (deficit_kw or 0) > 0) -- lot TV-ENERGIE (diagnostic azure) : déficit de kW avec épargne qui dort, suivi de relevé en relevé
   -- lot TV-ENERGIE (G65) : crise d'énergie (centrale perdue, ou saturation qui dure pendant le repli) = UNITÉ DE SECOURS, jamais le champ ;
   -- le compte des secours d'une crise repart de zéro quand la capacité est revenue
-  local crisis, crisis_why = C.crisis(g, { lost = lost, hold = hold })
+  -- lot VAPEUR : kW nominaux manquants du dernier relevé (script/team/vapeur.lua), s'il a moins de deux périodes
+  local vap = f.build.vapeur
+  local nominal_kw = (vap and tick - (vap.tick or -math.huge) <= 2 * Vn.EVERY and (vap.missing or 0) > 0) and vap.missing or nil
+  -- (lot n106-repli : sous la demande nominale, le repli ne fait ni retenue ni crise, C.repli : nominal_kw lu avant la crise)
+  local crisis, crisis_why = C.crisis(g, { lost = lost, hold = hold, nominal_kw = nominal_kw })
   if not crisis and pending == 0 and not Cv.down(planned, capacity + reopened_alive) and not g.saturated then g.secours_n = 0 end
   local ns = 0
   for _, id in ipairs(stalled) do
@@ -279,9 +283,6 @@ function PA.watch(f, surface, tick)
   local gate2 = C.grow_demand_load((power + reopened_power) * 60 / 1000, installed_kw, (capacity + reopened_alive) * 60 / 1000)
   if gate2 and (gate == nil or gate2 > gate) then gate = gate2 end
   local coal_short = gate ~= nil and gate >= C.GROW_LOAD and Sante.coal_short(f)
-  -- lot VAPEUR : kW nominaux manquants du dernier relevé (script/team/vapeur.lua), s'il a moins de deux périodes
-  local vap = f.build.vapeur
-  local nominal_kw = (vap and tick - (vap.tick or -math.huge) <= 2 * Vn.EVERY and (vap.missing or 0) > 0) and vap.missing or nil
   -- lot n104-investir : kW que rendraient les chaudières à sec du même relevé (le charbon d'abord vaut pour eux seuls, C.growth)
   local dry_kw = (nominal_kw and boiler_kw and (vap.boilers or 0) >= (vap.fed or 0)) and ((vap.boilers or 0) - (vap.fed or 0)) * boiler_kw or nil
   local nb, why = C.growth(g, { load = gate, nominal_kw = nominal_kw, done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,

@@ -348,6 +348,26 @@ do
   -- recherche suivante (nouvelle demande de centrale) : nouvelle attente
   local _, _, wz = Far.place(fy, make_surface(both), G, ctx(Cl.EXPLORE_WAIT + 100))
   check(wz == "loin", "demande suivante : nouvelle exploration")
+  -- Lot n106-repli (B7) : une recherche « loin » close par une pose DANS le treillis (Far.settled, build.lua plan_project) ne laisse pas
+  -- son horloge : la recherche suivante, au-delà d'EXPLORE_WAIT plus tard, explore au lieu de refuser sans explorer (N103-2030 :
+  -- « 33,5 min de recherche » à 72,7 min, refus immédiat). Mutant : Far.settled sans effet (l'ancien code) -> refus.
+  local function stale_clock(settle)
+    calls = {}
+    local fq = make_team(2, { m = m_none })
+    local _, _, wq0 = Far.place(fq, make_surface(both), G, ctx(0))
+    local had = settle(fq, 600)
+    local mq, whyq, waitq = Far.place(fq, make_surface(both), G, ctx(Cl.EXPLORE_WAIT + 3600))
+    return wq0, had, mq, whyq, waitq, calls
+  end
+  local wq0, had, mq, whyq, waitq, cq = stale_clock(Far.settled)
+  check(wq0 == "loin" and had == true, "recherche ouverte, puis centrale posee dans le treillis : la recherche est close (" .. tostring(had) .. ")")
+  check(mq == nil and waitq == "loin", "recherche suivante apres EXPLORE_WAIT : nouvelle exploration, pas un refus (" .. tostring(whyq) .. ")")
+  local nreq = 0
+  for _, c in ipairs(cq) do if c[1] == "request" then nreq = nreq + 1 end end
+  check(cq[2] and cq[2][1] == "cancel" and nreq == 2, "la pose dans le treillis clot la demande d'exploration ; la suivante en ouvre une")
+  check(Far.settled(make_team(2, { m = m_none }), 0) == false, "sans recherche ouverte : rien a clore")
+  local _, _, mm, whym, waitm = stale_clock(function() return true end)
+  check(mm == nil and waitm == nil and whym == "pas d'eau atteignable", "mutant (horloge jamais close, avant n106-repli) : refus sans explorer (" .. tostring(whym) .. ")")
   Far.hooks.request, Far.hooks.cancel = nil, nil
 end
 
@@ -450,6 +470,7 @@ check(src:find("Far.line(f, surface, p,", 1, true) ~= nil and src:find("Cl.is_fa
 check(src:find("if main.lot then b.lots[main.lot].used = p.id end", 1, true) ~= nil, "placement sans lot garde")
 check(src:find("avoid_margin = Build.AVOID_MARGIN, p = p,", 1, true) ~= nil, "plan_project passe le projet (attente d'exploration)")
 check(src:find("shrink = function(args) p.spec.args = args return true end", 1, true) ~= nil, "plan_project passe la reduction du gabarit (lot n105-eau)")
+check(src:find("if is_plant and not main.far then Far.settled(f, game.tick) end", 1, true) ~= nil, "plan_project clot la recherche de l'eau quand la centrale tient dans le treillis (lot n106-repli)")
 local fx2 = io.open("script/ai3/exploration.lua", "r")
 local xsrc = fx2:read("*a")
 fx2:close()

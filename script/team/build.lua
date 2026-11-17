@@ -3447,6 +3447,7 @@ local function plan_project(f, surface, p)
   Build.Rangee.tag(p, ents, main.g) -- lot RANGEES-ASM : colonne de chaque machine et de ses bras (pose par étapes, Build.Rangee.split)
   if topts then Build.tag_rows(ents, g, 0, "four", "row") end -- lot FONDERIE-DYNAMIQUE : rangée de chaque four et de ses bras (ligne_split)
   if not reserve_tiles(b, p, ents) then return false, "place" end
+  if is_plant and not main.far then Far.settled(f, game.tick) end -- lot n106-repli (B7) : posée dans le treillis, la recherche de l'eau est close
   if main.lot then b.lots[main.lot].used = p.id end
   -- lot ENERGIE-CROISSANCE : la rive partagée reste au nom de sa première centrale (un refus ou un abandon de la centrale de plus
   -- libère les lots à son nom : il ne doit pas libérer celui d'une centrale bâtie, que l'enceinte et l'évaluation lisent pris).
