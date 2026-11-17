@@ -88,6 +88,38 @@ local function battery_pure(C, quiet)
   chk(C.when_dry("carte", C.EXPLORE_WAIT, true) == "refuser", "exploration bornee : refus apres EXPLORE_WAIT")
   chk(C.when_dry("sondage", 0, true) == "refuser" and C.when_dry("carte", 0, false) == "refuser",
     "sans carte (sondage) ou sans crochet : refus comme avant")
+  -- 1e quater (lot n105-eau, A7 + A6) : mémo des échecs par aire du gabarit, carré d'essai à la taille du gabarit, réduction d'un pas
+  local g1, g6 = M.GEN.steam(1), M.GEN.steam(6)
+  chk(C.size(g1) < C.size(g6) and C.size(g6) == g6.w * g6.h, "aire du gabarit : g.w x g.h, croissante avec la taille")
+  local memo = {}
+  C.mark(memo, "r", C.size(g6))
+  chk(C.blocked(memo, "r", C.size(g6)) and not C.blocked(memo, "r", C.size(g1)),
+    "rive ratee par 6 chaudieres : sautee pour 6, encore candidate pour 1")
+  C.mark(memo, "r", C.size(g1))
+  chk(C.blocked(memo, "r", C.size(g6)) and C.blocked(memo, "r", C.size(g1)), "ratee aussi par 1 : sautee pour toutes les tailles")
+  C.mark(memo, "q", C.size(g1)); C.mark(memo, "q", C.size(g6))
+  chk(memo.q == C.size(g1), "le memo garde la plus petite aire ratee")
+  local legacy = { r = true }
+  C.mark(legacy, "r", 1)
+  chk(C.blocked(legacy, "r", 1) and legacy.r == true and not C.blocked(legacy, "absent", 1) and C.blocked({ x = 5 }, "x", nil),
+    "rive ecartee (true) : sautee pour toute taille ; absente : candidate")
+  local secs = { { key = "a", x = 10, y = 0 }, { key = "b", x = 20, y = 0 } }
+  local o6 = C.order_sectors(secs, { x = 0, y = 0 }, { a = C.size(g6) }, nil, C.size(g6))
+  local o1 = C.order_sectors(secs, { x = 0, y = 0 }, { a = C.size(g6) }, nil, C.size(g1))
+  chk(#o6 == 1 and o6[1].key == "b" and #o1 == 2 and o1[1].key == "a", "secteur epuise pour 6 chaudieres : repris pour 1")
+  chk(C.side(g1) == C.WINDOW and C.side(g6, P.FEED_DEPTH) == 2 * (math.max(g6.w, g6.h) + P.FEED_DEPTH) and C.side(g6, P.FEED_DEPTH) > C.WINDOW,
+    "carre d'essai : WINDOW au moins, deux fois (plus grand cote + tete d'alimentation) pour 6 chaudieres (" .. C.side(g6, P.FEED_DEPTH) .. ")")
+  local sd = C.side(g6, P.FEED_DEPTH)
+  local w6 = C.window(100, 0, sd)
+  chk(w6.x1 - w6.x0 == sd and w6.x0 == 100 - sd / 2, "carre d'essai centre sur la rive, de cote Cl.side")
+  local ext0 = { x0 = -100, y0 = -100, x1 = 100, y1 = 100 }
+  local hs = sd / 2 + C.STREET
+  chk(C.outside(ext0, 100 + hs, 0, sd) and not C.outside(ext0, 100 + hs - 1, 0, sd),
+    "hors du treillis : marge du carre d'essai de la taille du gabarit")
+  local a5 = C.smaller_args(g6)
+  chk(a5 and a5[1] == 5 and g6.args[1] == 6 and C.smaller_args(g1) == nil, "gabarit plus petit d'un pas : 6 -> 5 ; 1 : aucun")
+  chk(C.when_dry("carte", 0, true, true) == "reduire" and C.when_dry("sondage", C.EXPLORE_WAIT, false, true) == "reduire"
+    and C.when_dry("carte", 0, true, false) == "explorer", "a sec avec un gabarit plus petit : reduire avant d'explorer ou de refuser")
   -- 1f. carrefour de bord
   local ci, cj = C.clamp_node(3, 9, -1)
   chk(ci == 3 and cj == -1 and C.is_far(3, 9, -1) and not C.is_far(3, 3, -3), "carrefour ramene au bord du treillis")
@@ -319,6 +351,52 @@ do
   Far.hooks.request, Far.hooks.cancel = nil, nil
 end
 
+-- Lot n105-eau (A7) : une berge étroite (12 tuiles de terre libre entre l'eau et des bâtiments) tient une centrale d'une chaudière,
+-- pas celle de six ; la demande de six, ratée partout, ne doit pas faire sauter la berge à la demande d'une chaudière
+do
+  local strip = function(tx, ty) return east(tx, ty) end
+  local function strip_masks(f, surface, x0, y0, x1, y1)
+    local m = masks_reader(strip)(f, surface, x0, y0, x1, y1)
+    local free0 = m.free
+    m.free = function(tx, ty) return free0(tx, ty) and tx >= 218 and tx <= 229 and ty >= -30 and ty <= 30 end
+    return m
+  end
+  local G6 = M.GEN.steam(6)
+  local fS, sS = make_team(2), make_surface(strip)
+  local function once(g, ctx0)
+    local main, why, wait
+    for t = 0, 60 * 60, 60 do
+      local ctx = { read_masks = strip_masks, tick = t, why = "pas de lot", avoid_margin = 8 }
+      for k, v in pairs(ctx0 or {}) do ctx[k] = v end
+      main, why, wait = Far.place(fS, sS, g, ctx)
+      if main or wait ~= "loin" or why == "centrale lointaine : gabarit reduit" then break end
+    end
+    return main, why, wait
+  end
+  local m6, why6 = once(G6)
+  check(m6 == nil and why6 == "pas d'eau atteignable", "berge etroite : 6 chaudieres ne tiennent pas (" .. tostring(why6) .. ")")
+  local m1s, why1s = once(G)
+  check(m1s ~= nil and m1s.far and m1s.far.x == 229, "berge etroite : la centrale d'une chaudiere y est posee apres l'echec de six (" .. tostring(why1s) .. ")")
+  -- à sec avec un gabarit plus petit possible : le projet est réduit d'un pas (ctx.shrink), pas d'exploration ni de refus
+  local fR = make_team(2)
+  local shr
+  fS = fR
+  local mR, whyR, waitR = once(G6, { shrink = function(a) shr = a return true end })
+  check(mR == nil and waitR == "loin" and shr and shr[1] == 5, "a sec pour 6 chaudieres : projet reduit a 5 (" .. tostring(whyR) .. ")")
+end
+do
+  local G6 = M.GEN.steam(6)
+  local main
+  local fW, sW = make_team(2), make_surface(east)
+  for t = 0, 60 * 60, 60 do
+    local wait
+    main, _, wait = Far.place(fW, sW, G6, { read_masks = masks_reader(east), tick = t, why = "pas de lot", avoid_margin = 8 })
+    if main or wait ~= "loin" then break end
+  end
+  check(main ~= nil and main.far and main.far.x == 229, "carre d'essai a la taille du gabarit : 6 chaudieres posees sur la rive droite du lac ("
+    .. tostring(main and main.far and main.far.x) .. ", " .. tostring(LOGS[#LOGS]) .. ")")
+end
+
 -- ligne : de la centrale au carrefour de bord, à portée, à sec, points d'appui à sec
 if m1 then
   local fL = make_team(2)
@@ -370,7 +448,8 @@ check(src:find('elseif wait == "loin" then', 1, true) ~= nil, "advance traite l'
 check(src:find("Far.line(f, surface, p,", 1, true) ~= nil and src:find("Cl.is_far(b.radius, mi, mj)", 1, true) ~= nil,
   "plan_power relie la centrale lointaine par Far.line")
 check(src:find("if main.lot then b.lots[main.lot].used = p.id end", 1, true) ~= nil, "placement sans lot garde")
-check(src:find("avoid_margin = Build.AVOID_MARGIN, p = p })", 1, true) ~= nil, "plan_project passe le projet (attente d'exploration)")
+check(src:find("avoid_margin = Build.AVOID_MARGIN, p = p,", 1, true) ~= nil, "plan_project passe le projet (attente d'exploration)")
+check(src:find("shrink = function(args) p.spec.args = args return true end", 1, true) ~= nil, "plan_project passe la reduction du gabarit (lot n105-eau)")
 local fx2 = io.open("script/ai3/exploration.lua", "r")
 local xsrc = fx2:read("*a")
 fx2:close()
@@ -399,6 +478,11 @@ local mutants = {
   { "carrefour non ramene", function(C) C.clamp_node = function(R, i, j) return i, j end end },
   { "carrefour borne a -R", function(C) C.clamp_node = function(R, i, j) local function c(v) return math.max(-R, math.min(R, v)) end return c(i), c(j) end end },
   { "exploration jamais demandee", function(C) C.when_dry = function() return "refuser" end end },
+  { "memo des echecs sans la taille (n105-eau)", function(C) C.blocked = function(m, k) return m ~= nil and m[k] ~= nil and m[k] ~= false end end },
+  { "memo garde la derniere aire (n105-eau)", function(C) C.mark = function(m, k, sz) if m[k] ~= true then m[k] = sz or true end end end },
+  { "carre d'essai fixe (n105-eau)", function(C) C.side = function() return C.WINDOW end end },
+  { "jamais reduire (n105-eau)", function(C) local o = C.when_dry; C.when_dry = function(a, b, c) return o(a, b, c, false) end end },
+  { "reduction sans pas (n105-eau)", function(C) C.smaller_args = function(g) return g and g.args end end },
   { "exploration sans fin", function(C) C.when_dry = function(src, w, can) if src == "carte" and can then return "explorer" end return "refuser" end end },
   { "point d'appui le plus lointain", function(C) local o = C.anchor_spot; C.anchor_spot = function(st, x, y, r)
     for k = r, 0, -1 do local ax, ay = o(function(tx, ty) return st(tx, ty) and math.max(math.abs(tx - math.floor(x)), math.abs(ty - math.floor(y))) == k end, x, y, r) if ax then return ax, ay end end

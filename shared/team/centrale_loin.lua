@@ -48,7 +48,11 @@ Cl.REJECT_CELL = 16
 --- Décision quand aucune eau connue ne tient la centrale. source : "carte" (connaissance de l'équipe) ou "sondage" (sans
 --- brouillard : les secteurs générés sont sondés) ; waited : ticks depuis le début de la recherche ; can_explore : la demande
 --- d'exploration est possible. Rend "explorer" (demander l'exploration et attendre) ou "refuser".
-function Cl.when_dry(source, waited, can_explore)
+--- Lot n105-eau : can_shrink (le gabarit a une taille plus petite, Cl.smaller_args) passe avant tout : « reduire » (la recherche
+--- reprend tout de suite avec le gabarit plus petit, qui relit les rives ratées par le grand, Cl.blocked) ; sans cela une demande de
+--- 6 chaudières épuisait l'eau vue, attendait 20 min d'exploration et la réduction d'une chaudière par refus coûtait 20 min par marche.
+function Cl.when_dry(source, waited, can_explore, can_shrink)
+  if can_shrink then return "reduire" end
   if source ~= "carte" or not can_explore then return "refuser" end
   if (waited or 0) >= Cl.EXPLORE_WAIT then return "refuser" end
   return "explorer"
@@ -66,12 +70,13 @@ function Cl.cell_key(x, y) return "c" .. floor(x / Cl.REJECT_CELL) .. ":" .. flo
 
 --- Secteurs candidats. list = { { key, x, y } } (x, y : centre du secteur) ; hq = { x, y } ; done = { [key] = true } (épuisés).
 --- Rend la liste triée par distance au QG (puis clé), sans les secteurs épuisés ni ceux au-delà de max_dist (défaut MAX_DIST).
-function Cl.order_sectors(list, hq, done, max_dist)
+--- size (lot n105-eau) : aire du gabarit cherché (Cl.size) ; un secteur épuisé pour une aire plus grande reste candidat (Cl.blocked).
+function Cl.order_sectors(list, hq, done, max_dist, size)
   local lim = max_dist or Cl.MAX_DIST
   local out = {}
   for _, s in ipairs(list) do
     local d = sqrt((s.x - hq.x) * (s.x - hq.x) + (s.y - hq.y) * (s.y - hq.y))
-    if d <= lim and not (done and done[s.key]) then out[#out + 1] = { key = s.key, x = s.x, y = s.y, d = d } end
+    if d <= lim and not Cl.blocked(done, s.key, size) then out[#out + 1] = { key = s.key, x = s.x, y = s.y, d = d } end
   end
   table.sort(out, function(a, b) if a.d ~= b.d then return a.d < b.d end return a.key < b.key end)
   return out
@@ -120,16 +125,65 @@ function Cl.shores(is_water, area, toward, opts)
   return out
 end
 
---- Carré d'essai du gabarit autour d'une rive : { x0, y0, x1, y1 } (x1, y1 exclus), WINDOW de côté.
-function Cl.window(x, y)
-  local h = Cl.WINDOW / 2
+--- Lot n105-eau (A7 : le mémo des échecs ne connaissait pas la taille du gabarit) : aire du gabarit (g.w × g.h, données du
+--- générateur ; la même aire quelle que soit la rotation). Une rive ou un secteur raté par un gabarit d'aire A reste candidat pour un
+--- gabarit d'aire plus petite (une centrale d'une chaudière tient là où celle de six ne tient pas).
+function Cl.size(g)
+  return ((g and g.w) or 0) * ((g and g.h) or 0)
+end
+
+--- Mémo des échecs (b.far.bad, b.far.done) : memo[key] = plus petite aire ratée (nombre), ou true (raté pour toute taille : rive
+--- écartée par la ligne ou la pompe, Far.reject ; sauvegarde d'avant le lot). Bloqué pour `size` si une aire ratée est ≤ size ;
+--- size nil : bloqué dès qu'un échec est noté.
+function Cl.blocked(memo, key, size)
+  local v = memo and memo[key]
+  if v == nil or v == false then return false end
+  if v == true or size == nil then return true end
+  return v <= size
+end
+
+--- Note l'échec de `key` pour un gabarit d'aire `size` (garde la plus petite ; true reste true).
+function Cl.mark(memo, key, size)
+  local v = memo[key]
+  if v == true then return end
+  if size == nil then memo[key] = true return end
+  if v == nil or size < v then memo[key] = size end
+end
+
+--- Lot n105-eau (A6 : carré d'essai fixe de WINDOW tuiles pour un gabarit qui grandit) : côté du carré d'essai autour d'une rive pour
+--- le gabarit g. La pompe est sur la rive (centre du carré) et le gabarit part de la rive vers l'intérieur des terres, de toute sa
+--- longueur, puis la tête d'alimentation de son port d'entrée (`pad` tuiles, P.FEED_DEPTH, lu par l'appelant), l'eau de l'autre côté :
+--- le carré a deux fois (plus grand côté + pad), au moins WINDOW. Centrale de six chaudières : 20 tuiles de long, carré de 46 (32 : la
+--- tête de charbon sortait toujours du carré, la centrale ne tenait sur aucune rive droite).
+function Cl.side(g, pad)
+  local m = math.max((g and g.w) or 0, (g and g.h) or 0)
+  return math.max(Cl.WINDOW, 2 * ceil(m + (pad or 0)))
+end
+
+--- Arguments du gabarit plus petit d'un pas (première extension du gabarit, g.extensions[1] : arg, step ; au moins 1), ou nil (déjà à
+--- la plus petite taille, ou gabarit sans extension). Lu des données du générateur : aucun nom de gabarit.
+function Cl.smaller_args(g)
+  local ex = g and g.extensions and g.extensions[1]
+  local a = g and g.args
+  if not (ex and a and type(a[ex.arg]) == "number") then return nil end
+  local n = a[ex.arg] - (ex.step or 1)
+  if n < 1 then return nil end
+  local out = {}
+  for i = 1, #a do out[i] = a[i] end
+  out[ex.arg] = n
+  return out
+end
+
+--- Carré d'essai du gabarit autour d'une rive : { x0, y0, x1, y1 } (x1, y1 exclus), `side` de côté (Cl.side ; défaut WINDOW).
+function Cl.window(x, y, side)
+  local h = (side or Cl.WINDOW) / 2
   return { x0 = x - h, y0 = y - h, x1 = x + h, y1 = y + h }
 end
 
 --- La rive (x, y) est-elle HORS du treillis évalué ? ext = { x0, y0, x1, y1 } (carré des lots, x1, y1 exclus). Le carré d'essai
---- (WINDOW) ne doit pas mordre sur les lots ni sur la rue extérieure : la rive est à plus de WINDOW / 2 + STREET tuiles du carré.
-function Cl.outside(ext, x, y)
-  local h = Cl.WINDOW / 2 + Cl.STREET
+--- (`side`, défaut WINDOW) ne doit pas mordre sur les lots ni sur la rue extérieure : la rive est à plus de side / 2 + STREET tuiles du carré.
+function Cl.outside(ext, x, y, side)
+  local h = (side or Cl.WINDOW) / 2 + Cl.STREET
   return x < ext.x0 - h or x >= ext.x1 + h or y < ext.y0 - h or y >= ext.y1 + h
 end
 
