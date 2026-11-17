@@ -75,14 +75,14 @@ local function sector_generated(surface, sx, sy)
 end
 
 --- Secteurs d'eau candidats : liste { key, x, y }, source, sondages faits, sondage inachevé.
-local function sector_list(f, surface, hq, tick)
+local function sector_list(f, surface, hq, tick, size)
   local s = state(f.build)
   local k = f.ai3f
   local out = {}
   if k and k.m and k.m.s then
     for _, key in ipairs(sorted_keys(k.m.s)) do
       local sec = k.m.s[key]
-      if sec.w and not s.done[key] then
+      if sec.w and not Cl.blocked(s.done, key, size) then
         local cx, cy = K.center(K.xy(key))
         if K.sector_risk(k.m, key, tick, nil) < K.DANGER.skip and K.path_clear(k.m, hq, { x = cx, y = cy }) then
           out[#out + 1] = { key = key, x = cx, y = cy }
@@ -101,7 +101,7 @@ local function sector_list(f, surface, hq, tick)
     end
   end
   local probes, pending = 0, false
-  for _, c in ipairs(Cl.order_sectors(all, hq, s.done)) do
+  for _, c in ipairs(Cl.order_sectors(all, hq, s.done, nil, size)) do
     local w = s.w[c.key]
     if w == nil then
       local sx, sy = K.xy(c.key)
@@ -120,7 +120,10 @@ local function sector_list(f, surface, hq, tick)
 end
 
 --- Placement de la centrale hors du treillis. ctx = { read_masks = fonction de build.lua, tick, why = raison du refus dans le
---- treillis, avoid_margin, p = projet (son délai d'attente far_poll est posé pendant l'exploration) }.
+--- treillis, avoid_margin, p = projet (son délai d'attente far_poll est posé pendant l'exploration), shrink = fonction (build.lua :
+--- le projet passe au gabarit plus petit d'un pas, Cl.smaller_args ; rend vrai si fait) }.
+--- Lot n105-eau : les échecs (rives, secteurs) sont notés par aire du gabarit (Cl.mark, Cl.blocked) et le carré d'essai suit la taille
+--- du gabarit (Cl.side) ; à sec avec un gabarit plus petit possible, le projet est réduit (« reduire ») avant toute exploration.
 function Far.place(f, surface, g, ctx)
   local b = f.build
   local s = state(b)
@@ -128,8 +131,9 @@ function Far.place(f, surface, g, ctx)
   local x0, y0 = P.lot_rect(b.lat, -b.radius, -b.radius)
   local _, _, x1, y1 = P.lot_rect(b.lat, b.radius, b.radius)
   local ext = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
-  local list, source, probes, pending = sector_list(f, surface, hq, ctx.tick)
-  local cands = Cl.order_sectors(list, hq, s.done)
+  local size, side = Cl.size(g), Cl.side(g, P.FEED_DEPTH)
+  local list, source, probes, pending = sector_list(f, surface, hq, ctx.tick, size)
+  local cands = Cl.order_sectors(list, hq, s.done, nil, size)
   if not s.searching then
     s.searching = ctx.tick
     say(f, string.format("aucun lot du treillis (rayon %d) ne tient la centrale (%s) : recherche de l'eau hors du treillis a %.1f min (source %s, %d secteur(s) d'eau candidat(s)%s)",
@@ -149,14 +153,15 @@ function Far.place(f, surface, g, ctx)
     local shores = Cl.shores(function(tx, ty) return water[P.tkey(tx, ty)] == true end, area, hq, {
       -- (b.avoid : sites de centrale jugés dangereux par script/team/reseau_vivant.lua, comme pour les lots, Build.AVOID_MARGIN)
       keep = function(tx, ty)
-        return Cl.outside(ext, tx, ty) and not s.bad[Cl.shore_key(tx, ty)] and not s.bad[Cl.cell_key(tx, ty)]
+        return Cl.outside(ext, tx, ty, side) and not Cl.blocked(s.bad, Cl.shore_key(tx, ty), size)
+          and not Cl.blocked(s.bad, Cl.cell_key(tx, ty), size)
           and not Cl.avoided(b.avoid, tx, ty, ctx.avoid_margin)
       end })
     local all_failed = true
     for _, sh in ipairs(shores) do
       if fits >= Cl.FITS_PER_PASS then all_failed = false pending = true break end
       fits = fits + 1
-      local rect = Cl.window(sh.x, sh.y)
+      local rect = Cl.window(sh.x, sh.y, side)
       local masks = ctx.read_masks(f, surface, rect.x0, rect.y0, rect.x1, rect.y1)
       local fit = P.fit(g, rect, { free = masks.free, res = masks.res, toward = hq, margin = 0, water = masks.water })
       if fit then
@@ -170,10 +175,10 @@ function Far.place(f, surface, g, ctx)
         return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, inst = inst, cover = fit.cover, masks = masks,
           far = { x = sh.x, y = sh.y, key = Cl.shore_key(sh.x, sh.y), sector = c.key, d = d } }
       end
-      s.bad[Cl.shore_key(sh.x, sh.y)] = true
+      Cl.mark(s.bad, Cl.shore_key(sh.x, sh.y), size)
     end
     -- secteur épuisé : aucune rive hors du treillis, ou toutes essayées sans succès (liste plus courte que le plafond)
-    if all_failed and #shores < Cl.SHORES_MAX then s.done[c.key] = true end
+    if all_failed and #shores < Cl.SHORES_MAX then Cl.mark(s.done, c.key, size) end
     if all_failed and #shores >= Cl.SHORES_MAX then pending = true end
   end
   if pending then return nil, "centrale lointaine : recherche de l'eau en cours", "loin" end
@@ -181,7 +186,17 @@ function Far.place(f, surface, g, ctx)
   -- exploration (crochet posé par script/ai3/exploration.lua) et relit sa carte toutes les Cl.EXPLORE_POLL ticks, au plus
   -- Cl.EXPLORE_WAIT par recherche
   local waited = ctx.tick - (s.searching or ctx.tick)
-  if Cl.when_dry(source, waited, Far.hooks.request ~= nil) == "explorer" then
+  local can_explore = Far.hooks.request ~= nil
+  local dry = Cl.when_dry(source, waited, can_explore, ctx.shrink ~= nil and Cl.smaller_args(g) ~= nil)
+  if dry == "reduire" then
+    if ctx.shrink(Cl.smaller_args(g)) then
+      say(f, string.format("aucune eau vue ne tient la centrale %s (aire %d, carre d'essai %d) : gabarit reduit d'un pas a %.1f min, la recherche reprend",
+        tostring(g.key), size, side, ctx.tick / 3600))
+      return nil, "centrale lointaine : gabarit reduit", "loin"
+    end
+    dry = Cl.when_dry(source, waited, can_explore, false)
+  end
+  if dry == "explorer" then
     local r = Far.hooks.request(f, Cl.EXPLORE_TAG, ctx.tick, "centrale")
     if not s.explore then
       s.explore = ctx.tick

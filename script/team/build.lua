@@ -3432,7 +3432,10 @@ local function plan_project(f, surface, p)
       if not is_plant then return false, why end
       Profiler.start("build:plan:loin")
       local lwhy, lwait
-      main, lwhy, lwait = Far.place(f, surface, g, { read_masks = read_masks, tick = game.tick, why = why, avoid_margin = Build.AVOID_MARGIN, p = p })
+      -- lot n105-eau : à sec pour ce gabarit, le projet (rien de posé ni de réservé) passe au gabarit plus petit d'un pas (Cl.smaller_args) ;
+      -- la passe suivante le refait par template_of et relit les rives ratées par le grand
+      main, lwhy, lwait = Far.place(f, surface, g, { read_masks = read_masks, tick = game.tick, why = why, avoid_margin = Build.AVOID_MARGIN, p = p,
+        shrink = function(args) p.spec.args = args return true end })
       Profiler.stop("build:plan:loin")
       if not main then return false, lwhy, lwait end
     end
