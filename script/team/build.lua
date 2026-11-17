@@ -1327,8 +1327,6 @@ end
 --- premier carrefour déjà au réseau (ou planifié), chaîne de liaison. Rend la liste d'entités ou nil, raison.
 local function plan_power(f, p, mp, masks)
   local b = f.build
-  local pole, reach = pole_kind(f, mp.name)
-  local big = pole == "big-electric-pole"
   local mi, mj = nearest_node(b, mp.x, mp.y)
   -- lot PD-CENTRALE : un module HORS du treillis évalué (la centrale lointaine) s'accroche au carrefour de bord le plus proche ;
   -- une ligne de poteaux tracée au moteur l'y relie (fin de la fonction, Far.line), les rues du treillis font le reste
@@ -1336,6 +1334,16 @@ local function plan_power(f, p, mp, masks)
   -- par Far.line, dont l'échec rend « loin » sans fin pour un projet sans rive à écarter)
   local far = p.far ~= nil and Cl.is_far(b.radius, mi, mj)
   if far then mi, mj = Cl.clamp_node(b.radius, mi, mj) end
+  -- n107-loin : la ligne et la rue de la centrale lointaine prennent le poteau de l'arbitre (A.choose_pole avec made_ok), plus celui
+  -- du gabarit (poteau à l'acier sans acier : 69 poteaux attendus, projet 71 du banc n106-repli-1) ; portées lues aux prototypes
+  local line_pole, line_reach, line_link
+  if far then
+    line_pole, line_reach, line_link = Cl.line_pole(mp.name, Build.POLE_CHOICE(f),
+      function(n) return game.entity_prototypes[n].max_wire_distance end)
+  end
+  local pole, reach = pole_kind(f, line_pole or mp.name)
+  if line_pole and pole == line_pole then reach = line_reach end
+  local big = pole == "big-electric-pole"
   local out = {}
   -- poteau d'un carrefour : celui du réseau s'il existe, sinon un quart LIBRE du carrefour (contrôlé au moteur :
   -- falaise, eau, bâti ; arbres et rochers seront défrichés). Correction du 27/10 : le poteau tombait sur le bout d'une
@@ -1625,7 +1633,7 @@ local function plan_power(f, p, mp, masks)
   local chain
   if far and surface then
     local w4, wait4
-    chain, w4, wait4 = Far.line(f, surface, p, { x = mp.x, y = mp.y }, npos, link_reach, taken, known, read_masks)
+    chain, w4, wait4 = Far.line(f, surface, p, { x = mp.x, y = mp.y }, npos, line_link, taken, known, read_masks)
     if not chain then return nil, w4, wait4 end
   else
     chain = Build.Trav.pole_chain(f, surface, { x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
@@ -1637,7 +1645,7 @@ local function plan_power(f, p, mp, masks)
   via_len = via_len + Pt.length({ x = mp.x, y = mp.y }, chain, npos)
   for _, c in ipairs(chain) do
     -- (lot PD-CENTRALE : un poteau de la ligne lointaine arrive avec son point d'appui, lu sur le terrain de la ligne)
-    local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison", ligne = far or nil,
+    local e = { name = line_pole or mp.name, x = c.x, y = c.y, dir = 0, role = "liaison", ligne = far or nil,
       ax = c.ax, ay = c.ay, anchor = c.anchor }
     out[#out + 1] = e
     take(e)

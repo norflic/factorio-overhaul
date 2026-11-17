@@ -186,6 +186,7 @@ function Champ.pole_choice(f)
   POLE_PICK[f.force] = { tick = game.tick, name = name }
   return name
 end
+Build.POLE_CHOICE = Champ.pole_choice -- n107-loin : lu par la ligne et la rue de la centrale lointaine (build.lua), sans require circulaire
 
 --- Lot FONDERIE : pièce de logistique la moins chère (vitesse de tapis, puis nom) d'un type de prototype (« splitter »,
 --- « underground-belt ») dont la recette de l'objet est débloquée pour la force : { name, maxd } ou nil. Aucun nom écrit ici.

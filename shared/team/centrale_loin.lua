@@ -246,6 +246,18 @@ function Cl.anchor_spot(stand, x, y, r)
   return nil
 end
 
+--- Lot n107-loin (banc n106-repli-1, graine 2030089248, player, projet 71 à 76,3 min : « medium-electric-pole manque (69) et n'est pas
+--- fabricable avec le stock libre ») : la ligne et la rue de la centrale lointaine prenaient le poteau du GABARIT (`own`, choisi par
+--- PA.size sur la seule recette ouverte, sans l'acier) : 67 poteaux de ligne et de rue au poteau à l'acier, sans acier ni production
+--- d'acier. Elles prennent celui de l'arbitre (`pick` : A.choose_pole avec made_ok, Champ.pole_choice), le même que les cadres de champ
+--- (F719) ; `pick` nil (aucun poteau obtenable) : le poteau du gabarit, comme avant. `wire(nom)` : portée de fil lue aux prototypes.
+--- Rend (poteau de la ligne, sa portée, portée de la liaison au poteau du gabarit : la plus courte des deux).
+function Cl.line_pole(own, pick, wire)
+  local name = pick or own
+  local reach = wire(name)
+  return name, reach, min(reach, wire(own))
+end
+
 --- Ligne du journal [FO-CENTRALE-LOIN] (une par cause ; texte sans accent, comme les autres journaux du mod).
 function Cl.line(team, text) return string.format("[FO-CENTRALE-LOIN] %s : %s", team or "player", text) end
 
