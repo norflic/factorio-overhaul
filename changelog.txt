@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.9.11
+Date: 2026-11-17
+  Features:
+    - Journal d'erreurs de partie [FO-ERREUR-PARTIE] pour toutes les equipes (placement, investissement, flux, defense ; 17 categories, episodes avec duree et pire valeur) et outil tools/autotest/erreurs.py (tableau equipe x categorie, score, comparaison de versions, lit aussi un factorio-current.log). / Game-error log for every team (placement, investment, flow, defence) and a scoring tool.
+  Bugfixes:
+    - Energie : une voie de charbon par centrale nourrie a la main en deficit (plusieurs en parallele selon ouvriers libres et epargne) ; « charbon d'abord » ne retient que les kW des chaudieres seches ; offre de charbon mesuree ; charbon des centrales cherche jusqu'au rayon des gisements ; repli de l'equipe sans effet sous la demande nominale ; sites d'eau essayes a la taille du gabarit et ecartes par taille (plus de calage « aucun site d'eau ») ; ligne et rue d'une centrale lointaine au poteau obtenable (plus de poteaux moyens sans acier). / Power: coal lanes for hand-fed plants, dry-boiler hold limited, water sites per template size, obtainable poles for far plants.
+    - Croissance : kits de bande et d'amelioration redimensionnes a la prise (plus de kits re-emis chaque seconde ni jamais pris) ; places figees d'un champ gardees tant que la migration le tient ; bande sans paire thermique debout lancee au chantier progressif ; sortie de survie sur la production ; voie electrique des minerais bruts (pierre). / Growth: kits refit at pickup, frozen field slots kept, progressive start, survival exit on production, electric route for raw ores.
+    - Banc (graine de la partie du DC 2030089248, 90 min) : fer + cuivre toutes equipes 465 977 (0.9.10) -> 684 938, votre equipe 117 803 -> 154 200. ATTENTION : sur le panel de 4 graines (2030, 4251, 271, 1618) la base de cette version (n104) fait -2,6 % (toutes equipes) et -11 % (votre equipe) contre la 0.9.10 ; la 0.9.10 « Excellente » reste la reference (tag excellente-0.9.10). / Bench: +47 % on the DC's seed, but -2.6 % on the 4-seed panel; 0.9.10 remains the reference.
+---------------------------------------------------------------------------------------------------
 Version: 0.9.10
 Date: 2026-11-16
   Bugfixes:

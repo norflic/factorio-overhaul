@@ -10,6 +10,10 @@
 
 ## 2026-11-11, 12 h 30 : version 0.6.98 (directive du DC de 12 h : crash du panneau de débogage)
 
+## 2026-11-17, matin : version 0.9.11 (demandée par le DC : « la version la plus récente avec les dernières optimisations »)
+
+- **F720 · LIVRÉ 0.9.11 (panel défavorable)** Le DC a noté la 0.9.10 « Excellente » (tag `excellente-0.9.10`). Panel 0.9.10, carte du DC, fer + cuivre toutes équipes à 89 min : 2030089248 (graine de sa partie) 465 977, 4251870853 548 537, 271828182 456 867, 1618033988 442 812 (somme 1 914 193 ; équipe du joueur 408 128). Base n104 (cycles 2 à 4 : survie sur la production, charbon sondé loin, kits redimensionnés à la prise, voie électrique des minerais bruts, places figées gardées, dégel, offre de charbon mesurée, voies de charbon en parallèle, journal d'erreurs) : 628 202 / 440 266 / 365 264 / 430 690 (somme 1 864 422, −2,6 % ; joueur 361 600, −11 %). Ablations sur une graine : sans la voie électrique de la pierre, le joueur gagne sur 4251 (63 k → 100 k) et 2030 (116 k → 139 k). La 0.9.11 = n104 + sites d'eau par taille (n105-eau, 682 708 sur 2030), repli sans effet sous la demande nominale (n106-repli, neutre), poteau obtenable des centrales lointaines (n107-loin, 684 938 sur 2030, joueur 154 200). Panel de la 0.9.11 non mesuré ; variante sans pierre ni sortie de survie (N104B) en cours. Non inclus : n105-capi (siège amont de la capitalisation, deux versions de porte d'énergie à trancher sur panel), art-biters, art-megarobots (en attente du verdict du DC).
+
 ## 2026-11-16, après-midi : version 0.9.9 (retours du DC sur la 0.9.8 : équipe du joueur bloquée, fonderies superposées, pas d'amélioration)
 
 Même banc que la 0.9.8 (graine 4251870853, carte du DC, `partie-jalons-90`). Référence `2026-11-16_N098-INT2-4251` ; intégration `2026-11-16_N099-INT1-4251` (trois premières coupes), puis `2026-11-16_n099-joueur-2` (les quatre).
