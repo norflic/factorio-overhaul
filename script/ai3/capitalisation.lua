@@ -1906,6 +1906,11 @@ Capi.follow_one = follow -- tests seulement (tests/courant_libre_test.lua)
 ---------------------------------------------------------------------------------------------------
 Capi.ZERO_ALERT = 2 -- relevés de suite (5 min chacun) à 0/min avant l'alerte d'une capacité posée
 Capi.ZERO_REMIND = 6 -- puis un rappel tous les 6 relevés (30 min)
+-- N104-ERREURS : le journal d'erreurs de partie lit les mêmes seuils (capacité à 0, période du relevé, plafond des lignes par équipe)
+do
+  local ext = require("script.debug.erreurs_partie").EXT
+  ext.zero_alert, ext.couv_every, ext.cap = Capi.ZERO_ALERT, Capi.COUV_EVERY, Capi.COURANT_LOGS
+end
 
 --- Alerte « capacité posée, 0/min mesuré » : écrite au deuxième relevé nul de suite, puis en rappel ; la reprise est écrite.
 local function zero_watch(f, cs, label, placed, rate, tick, detail)
